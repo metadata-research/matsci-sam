@@ -1,20 +1,21 @@
 # this file gets installed in /etc/systemd/system/
-# to register, sudo systemctl enable yamz_dev
-# filename yamz_dev     XXX or yamz_prd
+# to register, sudo systemctl enable matsci_yamz
 # see also /etc/nginx/sites-available/yamz
 # assume there's a group www-data, don't assume there's a group yamz
 
 [Unit]
 Description=MatSci YAMZ Service
-After=network.target multi-user.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-Environment=""
+EnvironmentFile=/home/matsci_yamz/code/.env
 WorkingDirectory=/home/matsci_yamz/code
 User=matsci_yamz
 Group=www-data
-ExecStart=/bin/bash -c 'pnpm start'
+ExecStart=/bin/bash -c 'exec pnpm start'
 Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
