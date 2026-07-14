@@ -13,7 +13,7 @@ const DefinitionOutput = z.object({
 
 export const LLMSystemPrompt = process.env.SYSTEM_PROMPT!
 
-export const OllamaModel = "gemma3"
+export const OllamaModel = "gemma4:26b"
 
 export const ollama = new Ollama({
   host: process.env.OLLAMA_HOST
