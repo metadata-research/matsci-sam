@@ -44,8 +44,9 @@ export const runLLM = async (messages: Message[]) => {
     model: OllamaModel,
     messages: [{ role: "system", content: LLMSystemPrompt }, ...messages],
     format: zodToJsonSchema(DefinitionOutput),
-    // Make's sure model doesn't stop running until 5 seconds after our last request
-    keep_alive: 5,
+    // Keep the model loaded between requests — reloading gemma4:26b (~18 GB)
+    // costs ~22s, which users see as the AI definition hanging
+    keep_alive: "10m",
     think: false
   })
 
