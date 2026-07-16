@@ -2,7 +2,7 @@
 
 To make changes to the Matsci YAMZ repository, follow these steps to ensure they get deployed safely and properly.
 
-1. Create a new feature branch locally by running `git checkout -b feature/[your-feature-name-here]` from the main branch. 
+1. Create a new feature branch locally by running `git checkout -b feature/[your-feature-name-here]` from the **dev** branch (run `git checkout dev && git pull` first so you're branching from the latest). 
 2. Once you're done with your changes, add them to a commit and push the changes (make sure you are pushing to the feature branch you created, not the main branch). Keep in mind that since created your branch locally, you will have to create the branch on the remote by running `git push --set-upstream origin [your-feature-branch]`. Here's what will happen if you dont add the set upstream option:
 
 ```
@@ -16,7 +16,7 @@ To have this happen automatically for branches without a tracking
 upstream, see 'push.autoSetupRemote' in 'git help config'.
 ```
 
-3. After successfully pushing your changes, the next step is to create a pull request (PR) on GitHub. This can easily be done by clicking the link when pushing your new branch to remote for the first time, or by going to GitHub (MSYAMZ Repo -> Pull Request -> Create). Ensure that you are merging your feature branch into main. 
+3. After successfully pushing your changes, the next step is to create a pull request (PR) on GitHub. This can easily be done by clicking the link when pushing your new branch to remote for the first time, or by going to GitHub (MSYAMZ Repo -> Pull Request -> Create). Ensure that you are merging your feature branch into **dev** (not main — see step 5). 
 
 ```
 addyire in ~/projects/matsci-yamz on feature/ci-cd λ  git push --set-upstream origin feature/ci-cd
@@ -38,5 +38,7 @@ branch 'feature/ci-cd' set up to track 'origin/feature/ci-cd'.
 
 4. Once the PR is created, GitHub will run a workflow to ensure the code lints, builds, and ensures the DB migrations are consistent. This action MUST run successfully before the feature branch can be merged into main. If it fails, check the logs of the action to see why, make the necessary changes, and then push any updates to the feature branch (you don't need to make a new PR).
 
-5. Once the PR checks have passed successfully, you should then be able to click "Merge Pull Request". Merging the PR will first merge the changes into the main branch and then kick off the deploy script on the id.cci server.
+5. Once the PR checks have passed successfully, a maintainer will merge the PR into `dev`. Merging into `dev` does **not** deploy anything.
+
+6. Deployment to production is a separate, deliberate step: a maintainer merges `dev` into `main`, which kicks off the deploy script on the production server (the site restarts and DB migrations run, so this is batched and timed intentionally). If you need your change live urgently, say so in the PR.
 
