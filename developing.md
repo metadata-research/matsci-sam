@@ -563,7 +563,8 @@ Ensure all required variables are set (see `.env.example`):
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` - OAuth
 - `SESSION_PASSWORD` - Session encryption (32+ chars)
 - `OLLAMA_HOST` - AI service URL
-- `SYSTEM_PROMPT` - AI prompt configuration
+- `SYSTEM_PROMPT_KEY` - Name of an AI system prompt from `lib/prompts.json` (to add a prompt, add an entry there with a `description` and `prompt`)
+- `SYSTEM_PROMPT` - Raw AI prompt text; optional, takes precedence over `SYSTEM_PROMPT_KEY`
 
 ### Production Build
 

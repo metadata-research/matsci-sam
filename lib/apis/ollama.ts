@@ -4,14 +4,34 @@ import { Message, Ollama } from "ollama"
 import { z } from "zod"
 import zodToJsonSchema from "zod-to-json-schema"
 import { UpsertAIDefinition } from "../crud"
+import prompts from "@/lib/prompts.json"
 
-type DefinitionOutput = z.infer<typeof DefinitionOutput>
-const DefinitionOutput = z.object({
+export type DefinitionOutput = z.infer<typeof DefinitionOutput>
+export const DefinitionOutput = z.object({
   definition: z.string(),
   example: z.string()
 })
 
-export const LLMSystemPrompt = process.env.SYSTEM_PROMPT!
+// System prompt selection: SYSTEM_PROMPT_KEY picks a named prompt from
+// lib/prompts.json; SYSTEM_PROMPT (raw text) still works and takes precedence
+// so existing deployments are unaffected.
+const resolveSystemPrompt = () => {
+  if (process.env.SYSTEM_PROMPT) return process.env.SYSTEM_PROMPT
+
+  const key = process.env.SYSTEM_PROMPT_KEY
+  if (!key)
+    throw new Error("Set SYSTEM_PROMPT or SYSTEM_PROMPT_KEY in the environment")
+
+  const entry = (prompts as Record<string, { prompt: string }>)[key]
+  if (!entry)
+    throw new Error(
+      `Unknown SYSTEM_PROMPT_KEY "${key}" — available prompts: ${Object.keys(prompts).join(", ")}`
+    )
+
+  return entry.prompt
+}
+
+export const LLMSystemPrompt = resolveSystemPrompt()
 
 export const OllamaModel = "gemma4:26b"
 
