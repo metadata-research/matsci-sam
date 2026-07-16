@@ -36,7 +36,7 @@ To github.com:metadata-research/matsci-yamz.git
 branch 'feature/ci-cd' set up to track 'origin/feature/ci-cd'.
 ```
 
-4. Once the PR is created, GitHub will run a workflow to ensure the code lints, builds, and ensures the DB migrations are consistent. This action MUST run successfully before the feature branch can be merged into main. If it fails, check the logs of the action to see why, make the necessary changes, and then push any updates to the feature branch (you don't need to make a new PR).
+4. Once the PR is created, GitHub will run a workflow to ensure the code lints, builds, and ensures the DB migrations are consistent. This action MUST run successfully before the feature branch can be merged. If it fails, check the logs of the action to see why, make the necessary changes, and then push any updates to the feature branch (you don't need to make a new PR).
 
 5. Once the PR checks have passed successfully, a maintainer will merge the PR into `dev`. Merging into `dev` does **not** deploy anything.
 
