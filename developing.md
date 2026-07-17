@@ -12,6 +12,7 @@ Welcome to the MatSci YAMZ development guide! This document will help you unders
 - [Working with tRPC APIs](#working-with-trpc-apis)
 - [UI Components](#ui-components)
 - [Authentication](#authentication)
+- [AI System Prompts](#ai-system-prompts)
 - [Common Tasks](#common-tasks)
 - [Deployment](#deployment)
 
@@ -464,6 +465,68 @@ if (user?.isAdmin) {
 
 ---
 
+## AI System Prompts
+
+The AI definition feature sends a **system prompt** to Ollama with every request.
+All prompts live in one file:
+
+```
+lib/prompts.json
+```
+
+### File format
+
+Each entry is a named prompt with a human-readable description:
+
+```json
+{
+  "materials-reference": {
+    "description": "Steers the model toward materials-science-literature style and requires an original example.",
+    "prompt": "You are a materials science reference. When given a term, ..."
+  }
+}
+```
+
+### Which prompt does the app use?
+
+Selection happens at startup in `lib/apis/ollama.ts`, controlled by two
+environment variables in `.env`:
+
+- `SYSTEM_PROMPT_KEY` — the name of an entry in `lib/prompts.json`
+  (e.g. `SYSTEM_PROMPT_KEY=materials-reference`). This is the normal way.
+- `SYSTEM_PROMPT` — raw prompt text. Optional; if set, it **takes precedence**
+  over `SYSTEM_PROMPT_KEY`. Mainly for quick experiments and older deployments.
+
+If neither is set, or the key doesn't exist in the file, the app throws at
+startup with a list of available prompt names.
+
+### Changing or adding a prompt
+
+1. Edit `lib/prompts.json` — either revise an existing entry's `prompt` text or
+   add a new entry with a unique key, a `description`, and a `prompt`.
+   Prefer adding a new entry over rewriting an old one, so the previous wording
+   stays available for comparison.
+2. Test it against the live model **without touching the database**:
+
+   ```bash
+   pnpm exec tsx scripts/test-prompt.ts "austenite"
+   pnpm exec tsx scripts/test-prompt.ts "creep" "The turbine blade failed by creep."
+   ```
+
+   The script runs *every* prompt in the file against the same term and prints
+   each definition/example side by side, with timing.
+3. Point the app at your prompt: set `SYSTEM_PROMPT_KEY=<your-key>` in `.env`.
+4. **Restart the dev server** (`pnpm dev`). The prompt is resolved once at
+   startup, so edits to the JSON or `.env` are not picked up by a running server.
+
+### Production
+
+The same applies on the server: update `lib/prompts.json` via a normal
+deploy (`./scripts/upgrade.sh`), set `SYSTEM_PROMPT_KEY` in the production
+`.env`, and restart the service (the upgrade script restarts it for you).
+
+---
+
 ## Common Tasks
 
 ### Adding a New Form
@@ -563,7 +626,7 @@ Ensure all required variables are set (see `.env.example`):
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` - OAuth
 - `SESSION_PASSWORD` - Session encryption (32+ chars)
 - `OLLAMA_HOST` - AI service URL
-- `SYSTEM_PROMPT_KEY` - Name of an AI system prompt from `lib/prompts.json` (to add a prompt, add an entry there with a `description` and `prompt`)
+- `SYSTEM_PROMPT_KEY` - Name of an AI system prompt from `lib/prompts.json` — see [AI System Prompts](#ai-system-prompts)
 - `SYSTEM_PROMPT` - Raw AI prompt text; optional, takes precedence over `SYSTEM_PROMPT_KEY`
 
 ### Production Build
