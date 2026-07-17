@@ -525,6 +525,15 @@ The same applies on the server: update `lib/prompts.json` via a normal
 deploy (`./scripts/upgrade.sh`), set `SYSTEM_PROMPT_KEY` in the production
 `.env`, and restart the service (the upgrade script restarts it for you).
 
+### Generation provenance
+
+Every AI response row in the `chats` table is stamped with the exact
+conditions that produced it: `promptKey`, `promptHash`, `promptText`, and
+`model`. This makes prompt experiments reportable after the fact — you can
+attribute any generated definition to the prompt version and model that wrote
+it (e.g. `SELECT "promptKey", "promptHash", count(*) FROM chats GROUP BY 1, 2`).
+Don't remove or bypass these fields when touching the AI pipeline.
+
 ---
 
 ## Common Tasks
