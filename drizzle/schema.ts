@@ -8,8 +8,11 @@ import {
   timestamp,
   pgEnum,
   primaryKey,
+  real,
   unique
 } from "drizzle-orm/pg-core"
+
+export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
 
 // --- USERS ---
 export type User = typeof usersTable.$inferSelect
@@ -19,7 +22,9 @@ export const usersTable = pgTable("users", {
   name: varchar({ length: 255 }),
   email: varchar({ length: 254 }),
   isAi: boolean().notNull().default(false),
-  isAdmin: boolean().default(false),
+  role: userRoleEnum().notNull().default("user"),
+  // Reputation multiplier, stored per user; not yet applied to vote tallies
+  weight: real().notNull().default(1),
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
   notifications: boolean().default(false)
 })

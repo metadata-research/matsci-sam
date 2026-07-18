@@ -25,7 +25,7 @@ export const adminProcedure = baseProcedure.use(async (opts) => {
 
   const user = await GetUser(opts.ctx.userId);
 
-  if (!user?.isAdmin)
+  if (user?.role !== "admin")
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "You must be logged in to perform this action",

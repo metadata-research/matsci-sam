@@ -18,7 +18,7 @@ export const GET = async () => {
   if (!user) {
     const [inserted] = await db
       .insert(usersTable)
-      .values({ name: "Dev User", email: DEV_EMAIL, isAdmin: true })
+      .values({ name: "Dev User", email: DEV_EMAIL, role: "admin" })
       .returning()
     user = inserted
   }

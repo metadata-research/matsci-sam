@@ -73,7 +73,7 @@ export default async function TermPage(props: {
           </section>
           <section className="flex flex-col items-end">
             <div className="flex items-center gap-2">
-              {user?.isAdmin && <DeleteDefinitionButton id={definition.id} />}
+              {user?.role === "admin" && <DeleteDefinitionButton id={definition.id} />}
               {definition.authorId === sesh.id && (
                 <EditDefinitionDialog
                   defaultValues={definition}

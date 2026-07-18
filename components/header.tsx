@@ -59,7 +59,7 @@ const AuthSection = async () => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {user.isAdmin && (
+          {user.role === "admin" && (
             <>
               <DropdownMenuItem asChild>
                 <Link href="/admin">Admin Page</Link>
