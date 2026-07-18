@@ -212,6 +212,13 @@ export const chatsTable = pgTable("chats", {
     .notNull(),
   role: chatTypeEnum().notNull(),
   message: text().notNull(),
+  // Generation provenance, set only on AI ("system") rows: which prompt and
+  // model produced this output. promptKey is null when SYSTEM_PROMPT raw text
+  // was used; promptHash/promptText always identify the exact prompt sent.
+  promptKey: text(),
+  promptHash: text(),
+  promptText: text(),
+  model: text(),
   createdAt: timestamp({ mode: "string", withTimezone: true })
     .default(sql`now()`)
     .notNull()

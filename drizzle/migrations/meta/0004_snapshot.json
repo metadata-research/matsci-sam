@@ -1,5 +1,5 @@
 {
-  "id": "67db3b4a-a991-49fc-b0ea-266b6dcb91a0",
+  "id": "4fadfadf-977e-4d05-bc4d-aff77e0bb725",
   "prevId": "c1ddbbc5-1fe8-4a06-ad3e-47b6f5e97583",
   "version": "7",
   "dialect": "postgresql",
@@ -43,6 +43,30 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "createdAt": {
           "name": "createdAt",
@@ -200,12 +224,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "model": {
-          "name": "model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "score": {
           "name": "score",

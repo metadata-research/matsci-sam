@@ -1,6 +1,6 @@
 {
-  "id": "baf0e712-4954-4029-a0ae-64891595b1d9",
-  "prevId": "81619f46-7f19-4ccf-a23d-290348910898",
+  "id": "81619f46-7f19-4ccf-a23d-290348910898",
+  "prevId": "6d7d693c-4246-44c9-ace6-ba334e774acb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -538,6 +538,13 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
+          "default": false
+        },
+        "isAdmin": {
+          "name": "isAdmin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
           "default": false
         },
         "role": {

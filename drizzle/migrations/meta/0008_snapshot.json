@@ -1,6 +1,6 @@
 {
-  "id": "6d7d693c-4246-44c9-ace6-ba334e774acb",
-  "prevId": "67db3b4a-a991-49fc-b0ea-266b6dcb91a0",
+  "id": "baf0e712-4954-4029-a0ae-64891595b1d9",
+  "prevId": "81619f46-7f19-4ccf-a23d-290348910898",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -540,12 +540,20 @@
           "notNull": true,
           "default": false
         },
-        "isAdmin": {
-          "name": "isAdmin",
-          "type": "boolean",
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": false,
-          "default": false
+          "notNull": true,
+          "default": "'user'"
+        },
+        "weight": {
+          "name": "weight",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "createdAt": {
           "name": "createdAt",
@@ -653,6 +661,15 @@
       "values": [
         "system",
         "user"
+      ]
+    },
+    "public.user_role": {
+      "name": "user_role",
+      "schema": "public",
+      "values": [
+        "user",
+        "moderator",
+        "admin"
       ]
     },
     "public.vote_type": {

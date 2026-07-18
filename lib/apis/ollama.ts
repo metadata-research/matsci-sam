@@ -1,5 +1,6 @@
 import { chatsTable, db } from "@yamz/db"
 import { asc, eq } from "drizzle-orm"
+import { createHash } from "node:crypto"
 import { Message, Ollama } from "ollama"
 import { z } from "zod"
 import zodToJsonSchema from "zod-to-json-schema"
@@ -34,6 +35,22 @@ const resolveSystemPrompt = () => {
 export const LLMSystemPrompt = resolveSystemPrompt()
 
 export const OllamaModel = "gemma4:26b"
+
+// Provenance stamp written on every AI chat row so each generation stays
+// attributable to the exact prompt and model that produced it. promptHash
+// covers edits to prompts.json under an unchanged key and raw SYSTEM_PROMPT
+// text (where promptKey is null).
+export const generationStamp = {
+  promptKey: process.env.SYSTEM_PROMPT
+    ? null
+    : (process.env.SYSTEM_PROMPT_KEY ?? null),
+  promptHash: createHash("sha256")
+    .update(LLMSystemPrompt)
+    .digest("hex")
+    .slice(0, 16),
+  promptText: LLMSystemPrompt,
+  model: OllamaModel
+}
 
 export const ollama = new Ollama({
   host: process.env.OLLAMA_HOST
@@ -86,7 +103,8 @@ export const reviseDefinition = async (termId: number) => {
     .values({
       role: "system",
       message: `<definition>\n${result?.definition}\n\n<example>\n${result.example}`,
-      termId
+      termId,
+      ...generationStamp
     })
     .returning()
 
