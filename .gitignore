@@ -5,6 +5,12 @@ node_modules
 .pnp
 .pnp.js
 
+# Production database backups — contain real user data, never commit
+prod-backup-*/
+
+# Playwright MCP browser artifacts
+.playwright-mcp/
+
 # Local env files
 .env
 .env.local
