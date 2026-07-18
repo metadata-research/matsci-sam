@@ -31,7 +31,8 @@ export const GetAiUser = async () => {
 
 export const UpsertAIDefinition = async (
   termId: number,
-  data: { definition: string; example: string }
+  data: { definition: string; example: string },
+  generation: { model: string; prompt: string }
 ) => {
   const aiUser = await GetAiUser()
 
@@ -45,7 +46,7 @@ export const UpsertAIDefinition = async (
   if (existingDef) {
     await db
       .update(definitionsTable)
-      .set(data)
+      .set({ ...data, ...generation })
       .where(eq(definitionsTable.id, existingDef.id))
 
     await db.insert(editsTable).values({
@@ -57,6 +58,7 @@ export const UpsertAIDefinition = async (
     await db.insert(definitionsTable).values({
       termId,
       ...data,
+      ...generation,
       authorId: aiUser.id
     })
 }

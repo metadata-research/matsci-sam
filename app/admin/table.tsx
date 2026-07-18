@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { trpc } from "@/trpc/client";
 import type { RouterOutput } from "@/trpc/trpc-helpers";
@@ -31,6 +32,16 @@ const columns: ColumnDef<Job>[] = [
       <Link href={`/admin/terms/${row.original.id}`}>{row.original.term}</Link>
     ),
     header: "Term",
+  },
+  {
+    id: "model",
+    header: "Model",
+    cell: ({ row }) =>
+      row.original.model && (
+        <Badge variant="secondary" className="font-mono">
+          {row.original.model}
+        </Badge>
+      ),
   },
   {
     id: "run",

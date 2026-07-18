@@ -29,6 +29,20 @@
       "when": 1760823887417,
       "tag": "0003_bouncy_grey_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784340902129,
+      "tag": "0004_blue_frog_thor",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784341426641,
+      "tag": "0005_odd_the_hood",
+      "breakpoints": true
     }
   ]
 }

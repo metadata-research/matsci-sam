@@ -1,9 +1,9 @@
-import { chatsTable, db, termsTable } from "@yamz/db";
+import { chatsTable, db, definitionsTable, termsTable, usersTable } from "@yamz/db";
 import { createTRPCRouter } from "../init";
 import { adminProcedure } from "../procedures";
 import { ollama, OllamaModel, reviseDefinition } from "@/lib/apis/ollama";
 import { z } from "zod";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 export const adminRouter = createTRPCRouter({
   ollama: adminProcedure.query(async () => {
@@ -27,14 +27,24 @@ export const adminRouter = createTRPCRouter({
       .orderBy(desc(chatsTable.createdAt))
       .as("chats");
 
+    const aiDefQ = db
+      .select({ model: definitionsTable.model })
+      .from(definitionsTable)
+      .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
+      .limit(1)
+      .where(and(eq(definitionsTable.termId, termsTable.id), eq(usersTable.isAi, true)))
+      .as("aiDef");
+
     const x = await db
       .select({
         id: termsTable.id,
         term: termsTable.term,
         pending: sql<boolean>`${chatsQ.role} = 'user'`.as("pending"),
+        model: aiDefQ.model,
       })
       .from(termsTable)
-      .leftJoinLateral(chatsQ, sql`TRUE`);
+      .leftJoinLateral(chatsQ, sql`TRUE`)
+      .leftJoinLateral(aiDefQ, sql`TRUE`);
 
     return x;
   }),

@@ -8,6 +8,7 @@ import { GetAiUser } from "@/lib/crud";
 import Link from "next/link";
 import { ArrowLeftIcon, ExternalLinkIcon } from "lucide-react";
 import { LLMSystemPrompt } from "@/lib/apis/ollama";
+import { Badge } from "@/components/ui/badge";
 import { auth } from "@/lib/auth"
 
 export default async function JobPage(props: {
@@ -51,11 +52,28 @@ export default async function JobPage(props: {
           }
         </section>
         <section>
-          <h1 className="text-4xl font-semibold">{term.term}</h1>
+          <h1 className="text-4xl font-semibold flex items-center gap-3">
+            {term.term}
+            {aiDefinition?.model && (
+              <Badge variant="secondary" className="font-mono">
+                {aiDefinition.model}
+              </Badge>
+            )}
+          </h1>
           <p>Definition: {term.definitions[0]?.definition}</p>
           <p>Example: {term.definitions[0]?.example}</p>
         </section>
-        <section className="italic text-sm max-w-3/4 mx-auto text-center">System Prompt: {LLMSystemPrompt}</section>
+        <section className="italic text-sm max-w-3/4 mx-auto text-center space-y-1">
+          {aiDefinition && (
+            <p>
+              Prompt used for this definition:{" "}
+              {aiDefinition.prompt ?? "not recorded"}
+            </p>
+          )}
+          <p className="text-muted-foreground">
+            Next run will use: {LLMSystemPrompt}
+          </p>
+        </section>
         <Chats termId={termId} />
         <RunButton termId={termId} />
       </main>

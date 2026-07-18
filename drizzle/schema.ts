@@ -57,6 +57,11 @@ export const definitionsTable = pgTable(
     authorId: integer().references(() => usersTable.id),
     definition: text().notNull(),
     example: text().notNull(),
+    // LLM that generated this definition; null for human-authored definitions
+    model: text(),
+    // System prompt the LLM ran with; null for human-authored definitions
+    // (or AI definitions that predate prompt tracking)
+    prompt: text(),
     score: integer().notNull().default(0),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)

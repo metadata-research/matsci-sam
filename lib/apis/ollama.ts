@@ -76,7 +76,10 @@ export const reviseDefinition = async (termId: number) => {
   )
   if (!result) throw new Error("Something went wrong")
 
-  await UpsertAIDefinition(termId, result)
+  await UpsertAIDefinition(termId, result, {
+    model: OllamaModel,
+    prompt: LLMSystemPrompt
+  })
 
   const [insertedChat] = await db
     .insert(chatsTable)
