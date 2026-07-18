@@ -15,12 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { trpc } from "@/trpc/client";
 import type { RouterOutput } from "@/trpc/trpc-helpers";
 import { Button } from "@/components/ui/button";
-import { PlayIcon } from "lucide-react";
+import { BotIcon, MessageSquareIcon, PlayIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -34,13 +33,37 @@ const columns: ColumnDef<Job>[] = [
     header: "Term",
   },
   {
-    id: "model",
-    header: "Model",
+    id: "definitions",
+    header: "Definitions",
     cell: ({ row }) =>
-      row.original.model && (
-        <Badge variant="secondary" className="font-mono">
-          {row.original.model}
-        </Badge>
+      row.original.definitions > 0 ? (
+        row.original.definitions
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
+  },
+  {
+    id: "aiDefinitions",
+    header: "AI",
+    cell: ({ row }) =>
+      row.original.aiDefinitions > 0 ? (
+        <span className="flex items-center gap-1">
+          <BotIcon className="size-4" /> {row.original.aiDefinitions}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
+  },
+  {
+    id: "comments",
+    header: "Comments",
+    cell: ({ row }) =>
+      row.original.comments > 0 ? (
+        <span className="flex items-center gap-1">
+          <MessageSquareIcon className="size-4" /> {row.original.comments}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
       ),
   },
   {

@@ -15,7 +15,7 @@ export default async function JobPage(props: {
   params: Promise<{ termId: string }>;
 }) {
   const { user } = await auth()
-  if (!user?.isAdmin) redirect('/')
+  if (user?.role !== "admin") redirect('/')
 
   const params = await props.params;
   const termId = Number(params.termId);
@@ -40,9 +40,9 @@ export default async function JobPage(props: {
 
   return (
     <HydrateClient>
-      <main className="max-w-6xl w-full mx-auto p-4 space-y-4">
+      <main className="space-y-4">
         <section className="flex justify-between items-center">
-          <Link href="/admin" className="flex items-center text-blue-500 mb-2">
+          <Link href="/admin/terms" className="flex items-center text-blue-500 mb-2">
             <ArrowLeftIcon className="mr-2 size-4" /> All Terms
           </Link>
           {aiDefinition &&
