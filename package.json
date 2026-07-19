@@ -16,6 +16,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.0.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^5.0.1",
@@ -37,6 +38,7 @@
     "@trpc/react-query": "^11.3.0",
     "@trpc/server": "^11.3.0",
     "@trpc/tanstack-react-query": "^11.3.1",
+    "@xyflow/react": "^12.11.2",
     "class-variance-authority": "^0.7.1",
     "client-only": "^0.0.1",
     "clsx": "^2.1.1",

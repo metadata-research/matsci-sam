@@ -1,5 +1,6 @@
 import { chatsTable, commentsTable, db, definitionsTable, termsTable, userRoleEnum, usersTable, votesTable } from "@yamz/db";
 import { wolframConfigured, wolframMaskedKey, wolframQuery } from "@/lib/apis/wolfram";
+import { buildTermProvenance } from "@/lib/provenance";
 import { createTRPCRouter } from "../init";
 import { adminProcedure } from "../procedures";
 import { ollama, OllamaModel, reviseDefinition } from "@/lib/apis/ollama";
@@ -73,6 +74,13 @@ export const adminRouter = createTRPCRouter({
     const { insertedChat } = await reviseDefinition(termId)
 
     return insertedChat;
+  }),
+  provenance: adminProcedure.input(z.number()).query(async ({ input: termId }) => {
+    const provenance = await buildTermProvenance(termId)
+    if (!provenance)
+      throw new TRPCError({ code: "NOT_FOUND", message: "No such term" })
+
+    return provenance
   }),
   stats: adminProcedure.query(async () => {
     const [terms, definitions, users, votes] = await Promise.all([
