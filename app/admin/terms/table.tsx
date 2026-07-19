@@ -59,9 +59,12 @@ const columns: ColumnDef<Job>[] = [
     header: "Comments",
     cell: ({ row }) =>
       row.original.comments > 0 ? (
-        <span className="flex items-center gap-1">
+        <Link
+          href={`/terms/${row.original.id}`}
+          className="flex items-center gap-1 text-blue-500"
+        >
           <MessageSquareIcon className="size-4" /> {row.original.comments}
-        </span>
+        </Link>
       ) : (
         <span className="text-muted-foreground">-</span>
       ),

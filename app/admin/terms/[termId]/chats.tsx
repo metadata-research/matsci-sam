@@ -23,6 +23,21 @@ export const Chats = ({ termId }: { termId: number }) => {
             {chat.role}
             {index === 0 && <Badge className="bg-green-500 !py-0.5">initial message</Badge>}
             {index === 1 && <Badge className="bg-red-500 !py-0.5 ">initial definition</Badge>}
+            {chat.role === "system" && chat.model && (
+              <Badge
+                variant="secondary"
+                className="!py-0.5 font-mono"
+                title={
+                  chat.promptKey
+                    ? `prompt: ${chat.promptKey}`
+                    : chat.promptHash
+                      ? `prompt hash: ${chat.promptHash}`
+                      : undefined
+                }
+              >
+                {chat.model}
+              </Badge>
+            )}
           </div>
           <div className="p-2 bg-accent w-full rounded-md">
             <pre className="text-wrap ">{chat.message}</pre>

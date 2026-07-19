@@ -166,6 +166,9 @@ export const definitionsRouter = createTRPCRouter({
         .select({
           ...getTableColumns(definitionsTable),
           isAi: usersTable.isAi,
+          comments: sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
+            .mapWith(Number)
+            .as("comments"),
           vote: userId
             ? sql<"up" | "down" | null>`${votesTable.kind}`.as("vote")
             : sql<"up" | "down" | null>`null`.as("vote")

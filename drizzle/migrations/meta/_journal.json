@@ -64,6 +64,13 @@
       "when": 1784342613465,
       "tag": "0008_clear_thunderbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784389615208,
+      "tag": "0009_backfill_chat_provenance",
+      "breakpoints": true
     }
   ]
 }
