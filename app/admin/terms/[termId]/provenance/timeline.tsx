@@ -41,7 +41,8 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
           </span>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium">{event.summary}</span>
-            {event.actorKind !== "unknown" && (
+            {/* when a model badge is shown the actor would duplicate it */}
+            {event.actorKind !== "unknown" && !event.model && (
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 {event.actorKind === "software" ? (
                   <BotIcon className="size-3.5" />
