@@ -19,6 +19,7 @@ export const adminRouter = createTRPCRouter({
   chats: adminProcedure.input(z.number()).query(async ({ input: termId }) => {
     return await db.query.chatsTable.findMany({
       where: eq(chatsTable.termId, termId),
+      with: { author: { columns: { name: true } } },
     });
   }),
   terms: adminProcedure.query(async () => {

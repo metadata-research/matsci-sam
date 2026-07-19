@@ -20,7 +20,9 @@ export const Chats = ({ termId }: { termId: number }) => {
           key={chat.id}
         >
           <div className="flex items-center gap-2">
-            {chat.role}
+            {chat.role === "user" && chat.author?.name
+              ? `${chat.role} (${chat.author.name})`
+              : chat.role}
             {index === 0 && <Badge className="bg-green-500 !py-0.5">initial message</Badge>}
             {index === 1 && <Badge className="bg-red-500 !py-0.5 ">initial definition</Badge>}
             {chat.role === "system" && chat.model && (

@@ -50,6 +50,30 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

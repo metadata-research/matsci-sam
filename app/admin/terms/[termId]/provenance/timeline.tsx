@@ -9,6 +9,7 @@ import {
   PencilIcon,
   SparklesIcon,
   TagIcon,
+  ThumbsUpIcon,
   UserIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -25,6 +26,7 @@ const KIND: Record<
   "definition-created": { icon: FilePlusIcon, color: "text-purple-600" },
   "definition-edited": { icon: PencilIcon, color: "text-purple-600" },
   comment: { icon: MessageSquareIcon, color: "text-amber-600" },
+  vote: { icon: ThumbsUpIcon, color: "text-teal-600" },
 };
 
 export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (

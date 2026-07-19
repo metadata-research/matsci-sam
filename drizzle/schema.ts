@@ -125,7 +125,12 @@ export const votesTable = pgTable(
     userId: integer()
       .references(() => usersTable.id)
       .notNull(),
-    kind: voteTypeEnum().notNull()
+    kind: voteTypeEnum().notNull(),
+    // Votes cast before 2026-07-19 carry a placeholder equal to their
+    // definition's createdAt (the real time was never recorded)
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
   },
   (table) => [primaryKey({ columns: [table.definitionId, table.userId] })]
 )
@@ -211,6 +216,9 @@ export const chatsTable = pgTable("chats", {
     .references(() => termsTable.id)
     .notNull(),
   role: chatTypeEnum().notNull(),
+  // Author of "user" rows; null on "system" rows and on user rows that
+  // predate tracking (except where backfilled from a mirrored comment)
+  userId: integer().references(() => usersTable.id),
   message: text().notNull(),
   // Generation provenance, set only on AI ("system") rows: which prompt and
   // model produced this output. promptKey is null when SYSTEM_PROMPT raw text
@@ -228,5 +236,9 @@ export const chatsTableRelations = relations(chatsTable, ({ one }) => ({
   term: one(termsTable, {
     fields: [chatsTable.termId],
     references: [termsTable.id]
+  }),
+  author: one(usersTable, {
+    fields: [chatsTable.userId],
+    references: [usersTable.id]
   })
 }))

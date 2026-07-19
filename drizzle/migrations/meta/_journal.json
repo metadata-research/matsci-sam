@@ -71,6 +71,13 @@
       "when": 1784389615208,
       "tag": "0009_backfill_chat_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784428737206,
+      "tag": "0010_outgoing_power_pack",
+      "breakpoints": true
     }
   ]
 }

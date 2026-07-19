@@ -1,6 +1,6 @@
 {
-  "id": "67db3b4a-a991-49fc-b0ea-266b6dcb91a0",
-  "prevId": "4fadfadf-977e-4d05-bc4d-aff77e0bb725",
+  "id": "49dca6fe-82c0-41b8-af13-03fb60750872",
+  "prevId": "0a14a160-a539-4aee-ae68-5103a63f2a69",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -38,18 +38,17 @@
           "primaryKey": false,
           "notNull": true
         },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "message": {
           "name": "message",
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         },
         "promptKey": {
           "name": "promptKey",
@@ -74,6 +73,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -84,6 +90,19 @@
           "tableTo": "terms",
           "columnsFrom": [
             "termId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "chats_userId_users_id_fk": {
+          "name": "chats_userId_users_id_fk",
+          "tableFrom": "chats",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
           ],
           "columnsTo": [
             "id"
@@ -227,6 +246,12 @@
         },
         "model": {
           "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt": {
+          "name": "prompt",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -558,12 +583,20 @@
           "notNull": true,
           "default": false
         },
-        "isAdmin": {
-          "name": "isAdmin",
-          "type": "boolean",
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": false,
-          "default": false
+          "notNull": true,
+          "default": "'user'"
+        },
+        "weight": {
+          "name": "weight",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "createdAt": {
           "name": "createdAt",
@@ -618,6 +651,13 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -671,6 +711,15 @@
       "values": [
         "system",
         "user"
+      ]
+    },
+    "public.user_role": {
+      "name": "user_role",
+      "schema": "public",
+      "values": [
+        "user",
+        "moderator",
+        "admin"
       ]
     },
     "public.vote_type": {

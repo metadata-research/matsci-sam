@@ -7,9 +7,10 @@ import {
   definitionsTable,
   editsTable,
   termsTable,
-  usersTable
+  usersTable,
+  votesTable
 } from "@yamz/db"
-import { asc, eq, inArray } from "drizzle-orm"
+import { asc, eq, getTableColumns, inArray } from "drizzle-orm"
 
 // Read-only PROV-O mapping over the existing domain tables. Nothing here is
 // stored: terms, definitions, definitionEdits, comments, and chats already
@@ -53,6 +54,7 @@ export type ProvEvent = {
     | "definition-created"
     | "definition-edited"
     | "comment"
+    | "vote"
   actor: string
   actorKind: "person" | "software" | "unknown"
   summary: string
@@ -93,7 +95,7 @@ export const buildTermProvenance = async (termId: number) => {
 
   const definitionIds = definitions.map((d) => d.id)
 
-  const [edits, comments, chats] = await Promise.all([
+  const [edits, comments, chats, votes] = await Promise.all([
     definitionIds.length
       ? db
           .select()
@@ -120,10 +122,28 @@ export const buildTermProvenance = async (termId: number) => {
           .orderBy(asc(commentsTable.createdAt))
       : Promise.resolve([]),
     db
-      .select()
+      .select({
+        ...getTableColumns(chatsTable),
+        authorName: usersTable.name,
+        authorId: usersTable.id
+      })
       .from(chatsTable)
+      .leftJoin(usersTable, eq(chatsTable.userId, usersTable.id))
       .where(eq(chatsTable.termId, termId))
-      .orderBy(asc(chatsTable.createdAt))
+      .orderBy(asc(chatsTable.createdAt)),
+    definitionIds.length
+      ? db
+          .select({
+            definitionId: votesTable.definitionId,
+            kind: votesTable.kind,
+            createdAt: votesTable.createdAt,
+            author: { id: usersTable.id, name: usersTable.name }
+          })
+          .from(votesTable)
+          .innerJoin(usersTable, eq(votesTable.userId, usersTable.id))
+          .where(inArray(votesTable.definitionId, definitionIds))
+          .orderBy(asc(votesTable.createdAt))
+      : Promise.resolve([])
   ])
 
   const nodes: ProvNode[] = []
@@ -297,19 +317,24 @@ export const buildTermProvenance = async (termId: number) => {
           detail: chat.message
         })
         feedbackEntityForChat.set(chat.id, id)
-      }
-      // mirrored feedback is already covered by its comment event, which
-      // carries author attribution the chat row lacks
-      if (!mirroredChatIds.has(chat.id))
+        if (chat.authorId !== null)
+          addEdge(
+            id,
+            personNode({ id: chat.authorId, name: chat.authorName }),
+            "wasAttributedTo"
+          )
+        // mirrored feedback is already covered by its comment event, which
+        // carries author attribution
         events.push({
           id: `chat_${chat.id}`,
           at: chat.createdAt,
           kind: i === 0 ? "initial-message" : "feedback",
-          actor: "user",
-          actorKind: "unknown",
+          actor: chat.authorName ?? "user",
+          actorKind: chat.authorName ? "person" : "unknown",
           summary: i === 0 ? "Initial message submitted" : "Feedback for the AI",
           detail: excerpt(chat.message)
         })
+      }
       continue
     }
 
@@ -380,6 +405,27 @@ export const buildTermProvenance = async (termId: number) => {
       actorKind: "person",
       summary: "Comment posted",
       detail: excerpt(comment.message)
+    })
+  }
+
+  // --- votes ---
+  for (const [i, vote] of votes.entries()) {
+    const definition = definitions.find((d) => d.id === vote.definitionId)
+    if (!definition) continue
+    // backfilled votes carry the definition's createdAt as a placeholder
+    const isPlaceholder = vote.createdAt === definition.createdAt
+    events.push({
+      id: `vote_${vote.definitionId}_${vote.author.id}_${i}`,
+      at: vote.createdAt,
+      kind: "vote",
+      actor: vote.author.name ?? `User ${vote.author.id}`,
+      actorKind: "person",
+      summary: `${vote.kind === "up" ? "Upvoted" : "Downvoted"} the ${
+        definition.author.isAi ? "AI definition" : "definition"
+      }`,
+      detail: isPlaceholder
+        ? "Date is a placeholder — this vote predates timestamp tracking"
+        : undefined
     })
   }
 

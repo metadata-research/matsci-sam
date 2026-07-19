@@ -45,6 +45,7 @@ export const definitionsRouter = createTRPCRouter({
           // insert the ai chat
           await tx.insert(chatsTable).values({
             role: "user",
+            userId: authorId,
             message: `<term>\n${term}\n<example>\n${input.examples}`,
             termId: insertedTerm.id
           })
