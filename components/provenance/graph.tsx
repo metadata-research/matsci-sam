@@ -14,17 +14,20 @@ import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
 import type { ProvEdge, ProvNode } from "@/lib/provenance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProvDetail } from "./detail";
 
-// Visual language borrowed from OntExtract's PROV-O graph
+// Visual language borrowed from OntExtract's PROV-O graph. Fills come from
+// the --prov-* variables in globals.css so the graph follows the theme
+// toggle (light: pale fills + dark text; dark: deep fills + light text).
 const NODE_STYLE: Record<
   ProvNode["type"],
   { background: string; borderRadius: number; border?: string }
 > = {
-  term: { background: "#90EE90", borderRadius: 10 },
-  entity: { background: "#FFE5B4", borderRadius: 10 },
-  activity: { background: "#B4D7FF", borderRadius: 2 },
-  person: { background: "#CE93D8", borderRadius: 24 },
-  software: { background: "#FFCC80", borderRadius: 24 },
+  term: { background: "var(--prov-term)", borderRadius: 10 },
+  entity: { background: "var(--prov-entity)", borderRadius: 10 },
+  activity: { background: "var(--prov-activity)", borderRadius: 2 },
+  person: { background: "var(--prov-person)", borderRadius: 24 },
+  software: { background: "var(--prov-software)", borderRadius: 24 },
 };
 
 const EDGE_STYLE: Record<ProvEdge["rel"], { stroke: string; dashed?: boolean }> =
@@ -60,8 +63,8 @@ const layout = (provNodes: ProvNode[], provEdges: ProvEdge[]) => {
         ...NODE_STYLE[n.type],
         width: NODE_WIDTH,
         fontSize: 12,
-        color: "#1f2937",
-        border: "1px solid rgba(0,0,0,0.25)",
+        color: "var(--prov-node-fg)",
+        border: "1px solid var(--prov-node-border)",
         padding: 6,
       },
       sourcePosition: Position.Right,
@@ -124,7 +127,7 @@ export const ProvenanceGraph = ({
         {LEGEND.map(({ label, type }) => (
           <span key={type} className="flex items-center gap-1">
             <span
-              className="inline-block size-3 border border-black/25"
+              className="inline-block size-3 border border-[var(--prov-node-border)]"
               style={{
                 background: NODE_STYLE[type].background,
                 borderRadius: NODE_STYLE[type].borderRadius > 10 ? 6 : 2,
@@ -156,9 +159,7 @@ export const ProvenanceGraph = ({
             <CardTitle className="text-base">{selected.label}</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-1">
-            {selected.detail && (
-              <pre className="text-wrap font-sans">{selected.detail}</pre>
-            )}
+            {selected.detail && <ProvDetail text={selected.detail} />}
             {selected.meta &&
               Object.entries(selected.meta).map(([k, v]) => (
                 <p key={k} className="text-muted-foreground">

@@ -2,8 +2,8 @@ import { trpc } from "@/trpc/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
-import { ProvenanceGraph } from "./graph";
-import { ProvenanceTimeline } from "./timeline";
+import { ProvenanceGraph } from "@/components/provenance/graph";
+import { ProvenanceTimeline } from "@/components/provenance/timeline";
 
 export default async function TermProvenancePage(props: {
   params: Promise<{ termId: string }>;
@@ -19,7 +19,7 @@ export default async function TermProvenancePage(props: {
     <div className="space-y-4">
       <Link
         href={`/admin/terms/${provenance.term.id}`}
-        className="flex items-center text-blue-500"
+        className="flex items-center text-primary"
       >
         <ArrowLeftIcon className="mr-2 size-4" /> {provenance.term.term}
       </Link>

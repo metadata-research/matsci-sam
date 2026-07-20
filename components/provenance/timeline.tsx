@@ -1,8 +1,10 @@
 import { Badge } from "@/components/ui/badge";
+import { ProvDetail } from "./detail";
 import type { ProvEvent } from "@/lib/provenance";
 import { format } from "date-fns";
 import {
   BotIcon,
+  CheckIcon,
   FilePlusIcon,
   MessageCircleIcon,
   MessageSquareIcon,
@@ -10,7 +12,10 @@ import {
   SparklesIcon,
   TagIcon,
   ThumbsUpIcon,
+  TriangleAlertIcon,
+  UndoIcon,
   UserIcon,
+  WandSparklesIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -21,12 +26,17 @@ const KIND: Record<
   "term-created": { icon: TagIcon, color: "text-green-600" },
   "initial-message": { icon: MessageCircleIcon, color: "text-muted-foreground" },
   feedback: { icon: MessageCircleIcon, color: "text-amber-600" },
-  "ai-generation": { icon: SparklesIcon, color: "text-blue-600" },
-  "ai-revision": { icon: BotIcon, color: "text-blue-600" },
+  "ai-generation": { icon: SparklesIcon, color: "text-ai" },
+  "ai-revision": { icon: BotIcon, color: "text-ai" },
   "definition-created": { icon: FilePlusIcon, color: "text-purple-600" },
   "definition-edited": { icon: PencilIcon, color: "text-purple-600" },
   comment: { icon: MessageSquareIcon, color: "text-amber-600" },
   vote: { icon: ThumbsUpIcon, color: "text-teal-600" },
+  "refine-requested": { icon: WandSparklesIcon, color: "text-primary" },
+  "refine-suggested": { icon: SparklesIcon, color: "text-ai" },
+  "refine-accepted": { icon: CheckIcon, color: "text-green-600" },
+  "refine-kept": { icon: UndoIcon, color: "text-muted-foreground" },
+  "refine-failed": { icon: TriangleAlertIcon, color: "text-destructive" },
 };
 
 export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
@@ -67,9 +77,10 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
             {format(event.at, "MM/dd/yyyy h:mm aaa")}
           </p>
           {event.detail && (
-            <pre className="text-sm text-wrap font-sans mt-1 p-2 bg-accent rounded-md">
-              {event.detail}
-            </pre>
+            <ProvDetail
+              text={event.detail}
+              className="mt-1 p-2 bg-accent rounded-md"
+            />
           )}
         </li>
       );

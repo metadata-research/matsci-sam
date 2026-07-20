@@ -2,10 +2,12 @@ import "server-only"
 
 import {
   chatsTable,
+  coauthorsTable,
   commentsTable,
   db,
   definitionsTable,
   editsTable,
+  refinementsTable,
   termsTable,
   usersTable,
   votesTable
@@ -55,6 +57,11 @@ export type ProvEvent = {
     | "definition-edited"
     | "comment"
     | "vote"
+    | "refine-requested"
+    | "refine-suggested"
+    | "refine-accepted"
+    | "refine-kept"
+    | "refine-failed"
   actor: string
   actorKind: "person" | "software" | "unknown"
   summary: string
@@ -71,7 +78,12 @@ const excerpt = (text: string, max = 240) =>
 const naiveUtcToIso = (ts: string) =>
   /[zZ]|[+-]\d\d(:?\d\d)?$/.test(ts) ? ts : `${ts.replace(" ", "T")}Z`
 
-export const buildTermProvenance = async (termId: number) => {
+export const buildTermProvenance = async (
+  termId: number,
+  // The public view shows vote events without voter identities; the admin
+  // view passes nothing and keeps full detail
+  options: { anonymizeVoters?: boolean } = {}
+) => {
   const term = await db.query.termsTable.findFirst({
     where: eq(termsTable.id, termId)
   })
@@ -84,6 +96,7 @@ export const buildTermProvenance = async (termId: number) => {
       example: definitionsTable.example,
       model: definitionsTable.model,
       prompt: definitionsTable.prompt,
+      refinedFromId: definitionsTable.refinedFromId,
       score: definitionsTable.score,
       createdAt: definitionsTable.createdAt,
       author: { id: usersTable.id, name: usersTable.name, isAi: usersTable.isAi }
@@ -95,7 +108,8 @@ export const buildTermProvenance = async (termId: number) => {
 
   const definitionIds = definitions.map((d) => d.id)
 
-  const [edits, comments, chats, votes] = await Promise.all([
+  const [edits, comments, chats, votes, refinements, coauthors] =
+    await Promise.all([
     definitionIds.length
       ? db
           .select()
@@ -143,6 +157,23 @@ export const buildTermProvenance = async (termId: number) => {
           .innerJoin(usersTable, eq(votesTable.userId, usersTable.id))
           .where(inArray(votesTable.definitionId, definitionIds))
           .orderBy(asc(votesTable.createdAt))
+      : Promise.resolve([]),
+    definitionIds.length
+      ? db
+          .select()
+          .from(refinementsTable)
+          .where(inArray(refinementsTable.definitionId, definitionIds))
+          .orderBy(asc(refinementsTable.round))
+      : Promise.resolve([]),
+    definitionIds.length
+      ? db
+          .select({
+            definitionId: coauthorsTable.definitionId,
+            user: { id: usersTable.id, name: usersTable.name, isAi: usersTable.isAi }
+          })
+          .from(coauthorsTable)
+          .innerJoin(usersTable, eq(coauthorsTable.userId, usersTable.id))
+          .where(inArray(coauthorsTable.definitionId, definitionIds))
       : Promise.resolve([])
   ])
 
@@ -245,12 +276,19 @@ export const buildTermProvenance = async (termId: number) => {
       }
     ]
 
+    const isRefined = definition.refinedFromId !== null
+    const defCoauthors = coauthors.filter(
+      (c) => c.definitionId === definition.id
+    )
+
     versions.forEach((version, i) => {
       const id = `def_${definition.id}_v${i + 1}`
       const isLatest = i === versions.length - 1
       addNode({
         id,
-        label: `${isAi ? "AI definition" : "Definition"} v${i + 1}${isLatest ? " (current)" : ""}`,
+        label: `${
+          isRefined ? "Refined definition" : isAi ? "AI definition" : "Definition"
+        } v${i + 1}${isLatest ? " (current)" : ""}`,
         type: "entity",
         detail: version.text,
         meta: isLatest
@@ -262,17 +300,33 @@ export const buildTermProvenance = async (termId: number) => {
 
       if (!isAi) {
         // human authorship/edit activities; the edits table records no editor,
-        // so edits are attributed to the definition author
+        // so edits are attributed to the definition author. Every version of
+        // a refined definition is an accepted AI suggestion.
         const actId = `act_def_${definition.id}_v${i + 1}`
         addNode({
           id: actId,
-          label: i === 0 ? "Write definition" : "Edit definition",
+          label: isRefined
+            ? "Accept AI suggestion"
+            : i === 0
+              ? "Write definition"
+              : "Edit definition",
           type: "activity",
           meta: { at: version.at }
         })
         addEdge(id, actId, "wasGeneratedBy")
         addEdge(actId, personNode(definition.author), "wasAssociatedWith")
         addEdge(id, personNode(definition.author), "wasAttributedTo")
+
+        // co-authors (the model whose suggestion was accepted) share
+        // attribution, GitHub-style
+        for (const coauthor of defCoauthors)
+          addEdge(
+            id,
+            coauthor.user.isAi
+              ? modelNode(coauthor.user.name ?? `model ${coauthor.user.id}`)
+              : personNode(coauthor.user),
+            "wasAttributedTo"
+          )
       }
     })
 
@@ -283,7 +337,9 @@ export const buildTermProvenance = async (termId: number) => {
         kind: "definition-created",
         actor: definition.author.name ?? `User ${definition.author.id}`,
         actorKind: "person",
-        summary: "Definition written",
+        summary: isRefined
+          ? "Refined definition published (accepted AI suggestion)"
+          : "Definition written",
         detail: excerpt(definition.definition)
       })
     }
@@ -387,6 +443,144 @@ export const buildTermProvenance = async (termId: number) => {
     })
   }
 
+  // --- interactive refinement rounds ---
+  // Each round is an activity associated with both agents (the author who
+  // requested it, the model that generated); it used the author's current
+  // definition version and their feedback, and generated a suggestion
+  // entity. An accepted suggestion is what the refined definition (rendered
+  // by the definitions loop above) was derived from.
+  for (const round of refinements) {
+    const definition = definitions.find((d) => d.id === round.definitionId)
+    if (!definition) continue
+    const authorName = definition.author.name ?? `User ${definition.author.id}`
+
+    // the round reviewed the author's then-current (= latest) version
+    const currentVersion = `def_${definition.id}_v${
+      edits.filter((e) => e.definitionId === definition.id).length + 1
+    }`
+
+    const actId = `act_refine_${round.id}`
+    addNode({
+      id: actId,
+      label: `Refine definition (round ${round.round})`,
+      type: "activity",
+      meta: { at: round.createdAt, model: round.model, status: round.status }
+    })
+    addEdge(actId, personNode(definition.author), "wasAssociatedWith")
+    if (round.model) addEdge(actId, modelNode(round.model), "wasAssociatedWith")
+    if (round.promptHash)
+      addEdge(
+        actId,
+        promptNode(round.promptHash, round.promptText, round.promptKey),
+        "used"
+      )
+    if (seen.has(currentVersion)) addEdge(actId, currentVersion, "used")
+
+    if (round.userComment) {
+      const feedbackId = `refine_feedback_${round.id}`
+      addNode({
+        id: feedbackId,
+        label: `Refine feedback (round ${round.round})`,
+        type: "entity",
+        detail: round.userComment
+      })
+      addEdge(feedbackId, personNode(definition.author), "wasAttributedTo")
+      addEdge(actId, feedbackId, "used")
+    }
+
+    events.push({
+      id: `refine_req_${round.id}`,
+      at: round.createdAt,
+      kind: "refine-requested",
+      actor: authorName,
+      actorKind: "person",
+      summary: round.userComment
+        ? `Re-evaluation requested (round ${round.round})`
+        : `AI refinement requested (round ${round.round})`,
+      detail: round.userComment ? excerpt(round.userComment) : undefined
+    })
+
+    if (round.status === "failed") {
+      events.push({
+        id: `refine_fail_${round.id}`,
+        at: round.suggestedAt ?? round.createdAt,
+        kind: "refine-failed",
+        actor: round.model ?? "AI",
+        actorKind: "software",
+        summary: `Refinement round ${round.round} failed`,
+        detail: round.errorMessage ?? undefined
+      })
+      continue
+    }
+
+    if (!round.suggestedDefinition) continue // still pending
+
+    const sugId = `refine_sug_${round.id}`
+    addNode({
+      id: sugId,
+      label: `Suggestion (round ${round.round})`,
+      type: "entity",
+      detail: round.suggestedDefinition,
+      meta: { example: round.suggestedExample }
+    })
+    addEdge(sugId, actId, "wasGeneratedBy")
+    if (round.model) addEdge(sugId, modelNode(round.model), "wasAttributedTo")
+
+    events.push({
+      id: sugId,
+      at: round.suggestedAt ?? round.createdAt,
+      kind: "refine-suggested",
+      actor: round.model ?? "AI",
+      actorKind: "software",
+      summary: `AI suggested a revision (round ${round.round})`,
+      detail: excerpt(round.suggestedDefinition),
+      model: round.model,
+      promptRef: round.promptKey ?? round.promptHash
+    })
+
+    if (round.status === "accepted") {
+      const refined = definitions.find(
+        (d) => d.refinedFromId === definition.id
+      )
+      if (refined) {
+        // acceptances are the only writes to a refined definition, so the
+        // nth accepted round produced its nth version
+        const versionIndex =
+          refinements
+            .filter(
+              (r) =>
+                r.definitionId === definition.id && r.status === "accepted"
+            )
+            .findIndex((r) => r.id === round.id) + 1
+        const refinedVersion = `def_${refined.id}_v${versionIndex}`
+        if (seen.has(refinedVersion)) {
+          addEdge(refinedVersion, sugId, "wasDerivedFrom")
+          addEdge(refinedVersion, currentVersion, "wasDerivedFrom")
+        }
+      }
+
+      events.push({
+        id: `refine_acc_${round.id}`,
+        at: round.decidedAt ?? round.suggestedAt ?? round.createdAt,
+        kind: "refine-accepted",
+        actor: authorName,
+        actorKind: "person",
+        summary: `Suggestion accepted (round ${round.round})`,
+        detail: excerpt(round.suggestedDefinition)
+      })
+    }
+
+    if (round.status === "kept")
+      events.push({
+        id: `refine_kept_${round.id}`,
+        at: round.decidedAt ?? round.suggestedAt ?? round.createdAt,
+        kind: "refine-kept",
+        actor: authorName,
+        actorKind: "person",
+        summary: `Author kept their original (round ${round.round})`
+      })
+  }
+
   // --- comments ---
   for (const comment of comments) {
     const id = `comment_${comment.id}`
@@ -409,23 +603,22 @@ export const buildTermProvenance = async (termId: number) => {
   }
 
   // --- votes ---
+  // Votes that predate timestamp tracking carry their definition's
+  // createdAt, which is close enough to present as the vote date.
   for (const [i, vote] of votes.entries()) {
     const definition = definitions.find((d) => d.id === vote.definitionId)
     if (!definition) continue
-    // backfilled votes carry the definition's createdAt as a placeholder
-    const isPlaceholder = vote.createdAt === definition.createdAt
     events.push({
       id: `vote_${vote.definitionId}_${vote.author.id}_${i}`,
       at: vote.createdAt,
       kind: "vote",
-      actor: vote.author.name ?? `User ${vote.author.id}`,
+      actor: options.anonymizeVoters
+        ? "A community member"
+        : (vote.author.name ?? `User ${vote.author.id}`),
       actorKind: "person",
       summary: `${vote.kind === "up" ? "Upvoted" : "Downvoted"} the ${
         definition.author.isAi ? "AI definition" : "definition"
-      }`,
-      detail: isPlaceholder
-        ? "Date is a placeholder — this vote predates timestamp tracking"
-        : undefined
+      }`
     })
   }
 
