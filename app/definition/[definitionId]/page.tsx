@@ -1,4 +1,5 @@
 import { EditDefinitionDialog } from "@/components/definition/edit-dialog"
+import { RefinePanel } from "@/components/definition/refine-panel"
 import { EditTags } from "@/components/tags/selector"
 import { TermTags, TermTagsFallback } from "@/components/tags/tags"
 import { TermCommentBox } from "@/components/term/comment-box"
@@ -50,7 +51,9 @@ export default async function TermPage(props: {
             definitionId={definition.id}
           />
           <section className="flex-1">
-            <h1 className="text-4xl font-semibold">{definition.term}</h1>
+            <h1 className="text-4xl font-semibold font-serif">
+              {definition.term}
+            </h1>
             <div>
               <span className="italic">Definition: </span>
               {definition.definition}
@@ -82,15 +85,48 @@ export default async function TermPage(props: {
               )}
             </div>
             {definition.author.isAi ? (
-              <div className="text-blue-500 flex items-center">
+              <div className="text-ai flex items-center">
                 <SparklesIcon className="size-4 mr-2" />
                 AI Generated Definition
+              </div>
+            ) : definition.coauthors.length > 0 ? (
+              // GitHub-style co-attribution: the human author plus the model
+              // whose accepted suggestion produced this text
+              <div className="flex items-center gap-1">
+                <span className="italic">Authors: </span>
+                {definition.author.name}
+                {definition.coauthors.map((coauthor) => (
+                  <span key={coauthor.id} className="flex items-center gap-1">
+                    {" and "}
+                    {coauthor.isAi && (
+                      <SparklesIcon className="size-4 text-ai" />
+                    )}
+                    {coauthor.name}
+                  </span>
+                ))}
               </div>
             ) : (
               <div>
                 <span className="italic">Author: </span>
                 {definition.author.name}
               </div>
+            )}
+            {definition.refinedFromId && (
+              <Link
+                className="text-primary text-sm"
+                href={`/definition/${definition.refinedFromId}`}
+              >
+                Refined from the original definition
+              </Link>
+            )}
+            {definition.refinedVersionId && (
+              <Link
+                className="text-primary text-sm flex items-center gap-1"
+                href={`/definition/${definition.refinedVersionId}`}
+              >
+                <SparklesIcon className="size-4 text-ai" />
+                See the AI-refined version
+              </Link>
             )}
             <div>
               <span className="italic">Created: </span>
@@ -104,6 +140,17 @@ export default async function TermPage(props: {
             )}
           </section>
         </section>
+        {definition.authorId === sesh.id &&
+          definition.createdVia === "interactive" &&
+          !definition.refinedFromId && (
+            <RefinePanel
+              definitionId={definition.id}
+              current={{
+                definition: definition.definition,
+                example: definition.example
+              }}
+            />
+          )}
         <section className="space-y-2">
           <h2 className="text-xl font-medium">Comments</h2>
           <TermComments id={definition.id} />

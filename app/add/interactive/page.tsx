@@ -1,12 +1,16 @@
 import type { Metadata } from "next"
-export const metadata: Metadata = { title: "Add Definition | MatSci YAMZ" }
-import { auth } from "@/lib/auth";
-import { DefineTermForm } from "./form";
-import { HydrateClient, trpc } from "@/trpc/server";
+export const metadata: Metadata = {
+  title: "Define a Term Interactively | MatSci YAMZ"
+}
+import { auth } from "@/lib/auth"
+import { DefineTermForm } from "../form"
+import { HydrateClient, trpc } from "@/trpc/server"
 
-export default async function AddTermPage() {
-  await auth();
-  await trpc.terms.list.prefetch(undefined);
+// Same page as /add with the interactive toggle on by default; the toggle
+// keeps the two URLs in sync so either can be shared or linked.
+export default async function InteractiveAddTermPage() {
+  await auth()
+  await trpc.terms.list.prefetch(undefined)
 
   return (
     <HydrateClient>
@@ -20,9 +24,9 @@ export default async function AddTermPage() {
               comment, and add alternatives of their own.
             </p>
           </div>
-          <DefineTermForm />
+          <DefineTermForm interactive />
         </div>
       </main>
     </HydrateClient>
-  );
+  )
 }
