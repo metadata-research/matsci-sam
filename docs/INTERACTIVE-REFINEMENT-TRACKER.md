@@ -202,7 +202,12 @@ definition); the public endpoint on a voted term returned
 Browser run 2026-07-20 (dev server + Playwright, dev-login user, live
 Ollama; test data left in the dev DB deliberately — terms
 "spinodal decomposition" (definitions 80/81, interactive + refined) and
-"work hardening" (classic + auto-AI), useful as demos):
+"work hardening" (classic + auto-AI), useful as demos).
+Best single showcase: **"martensite" (term 40, definitions 84/85)** —
+interactive add with an imperfect draft, suggestion, feedback
+re-evaluation (BCT / diffusionless / non-steel alloys), acceptance into
+a co-authored refined definition, an upvote, and a comment; its
+provenance page shows the full negotiation end to end:
 
 - [x] Interactive add → definition page → Refine → suggestion (round 1) →
       **accepted** (clicked by Chris live) → refined definition 81 published
