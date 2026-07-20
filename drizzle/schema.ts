@@ -9,7 +9,8 @@ import {
   pgEnum,
   primaryKey,
   real,
-  unique
+  uniqueIndex,
+  type AnyPgColumn
 } from "drizzle-orm/pg-core"
 
 export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
@@ -50,6 +51,11 @@ export const termsTableRelations = relations(termsTable, ({ one, many }) => ({
 }))
 
 // --- DEFINITIONS ---
+export const definitionSourceEnum = pgEnum("definition_source", [
+  "classic",
+  "interactive"
+])
+
 export type Definition = typeof definitionsTable.$inferSelect
 export type DefinitionWithAuthor = Definition & { author: User }
 export const definitionsTable = pgTable(
@@ -67,13 +73,26 @@ export const definitionsTable = pgTable(
     // System prompt the LLM ran with; null for human-authored definitions
     // (or AI definitions that predate prompt tracking)
     prompt: text(),
+    // The original definition this one was refined from (accepted AI
+    // suggestion); null for originals
+    refinedFromId: integer().references((): AnyPgColumn => definitionsTable.id),
+    // Which add flow created this definition; interactive definitions get the
+    // refine panel and skip the automatic term-level AI definition
+    createdVia: definitionSourceEnum().notNull().default("classic"),
     score: integer().notNull().default(0),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull(),
     updatedAt: timestamp({ mode: "string" }).$onUpdateFn(() => sql`now()`)
   },
-  (table) => [unique().on(table.authorId, table.termId)]
+  (table) => [
+    // One *original* definition per author per term; refined versions
+    // (refinedFromId set) are exempt so an accepted suggestion can coexist
+    // with the author's original
+    uniqueIndex("definitions_author_term_original_unique")
+      .on(table.authorId, table.termId)
+      .where(sql`${table.refinedFromId} IS NULL`)
+  ]
 )
 
 export const definitionsTableRelations = relations(
@@ -87,10 +106,102 @@ export const definitionsTableRelations = relations(
       fields: [definitionsTable.authorId],
       references: [usersTable.id]
     }),
+    refinedFrom: one(definitionsTable, {
+      fields: [definitionsTable.refinedFromId],
+      references: [definitionsTable.id],
+      relationName: "refinedVersions"
+    }),
+    refinedVersions: many(definitionsTable, {
+      relationName: "refinedVersions"
+    }),
+    coauthors: many(coauthorsTable),
+    refinements: many(refinementsTable),
     edits: many(editsTable),
     comments: many(commentsTable),
     votes: many(votesTable),
     tags: many(tagsToDefinitions)
+  })
+)
+
+// --- DEFINITION COAUTHORS ---
+// Additional authors beyond definitions.authorId (the primary author) —
+// GitHub-style co-attribution. Used when a user accepts an AI suggestion:
+// the model's AI user is added here so both appear as authors, and the
+// provenance graph derives wasAttributedTo edges for each.
+export const coauthorsTable = pgTable(
+  "definitionCoauthors",
+  {
+    definitionId: integer()
+      .references(() => definitionsTable.id)
+      .notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull()
+  },
+  (table) => [primaryKey({ columns: [table.definitionId, table.userId] })]
+)
+
+export const coauthorsTableRelations = relations(coauthorsTable, ({ one }) => ({
+  definition: one(definitionsTable, {
+    fields: [coauthorsTable.definitionId],
+    references: [definitionsTable.id]
+  }),
+  user: one(usersTable, {
+    fields: [coauthorsTable.userId],
+    references: [usersTable.id]
+  })
+}))
+
+// --- DEFINITION REFINEMENTS ---
+// One row per interactive refinement round (= one card in the UI). Kept out
+// of chatsTable deliberately: reviseDefinition() replays that whole thread as
+// LLM context for the term-level AI definition, so refine turns must not mix
+// into it. Provenance is derived from these rows, so they carry the same
+// generation stamp as AI chat rows plus decision timestamps.
+export const refinementStatusEnum = pgEnum("refinement_status", [
+  "pending", // requested, generation not finished
+  "suggested", // suggestion ready, awaiting the author's decision
+  "accepted", // author accepted; refined definition created/updated
+  "kept", // author kept their original
+  "superseded", // replaced by a later round (re-evaluation)
+  "failed" // generation errored; errorMessage set
+])
+
+export type Refinement = typeof refinementsTable.$inferSelect
+export const refinementsTable = pgTable("definitionRefinements", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  definitionId: integer()
+    .references(() => definitionsTable.id)
+    .notNull(),
+  round: integer().notNull(),
+  // The author feedback that prompted this round; null on round 1
+  userComment: text(),
+  suggestedDefinition: text(),
+  suggestedExample: text(),
+  // Generation provenance, same shape as chats: set once the LLM has run
+  promptKey: text(),
+  promptHash: text(),
+  promptText: text(),
+  model: text(),
+  status: refinementStatusEnum().notNull().default("pending"),
+  errorMessage: text(),
+  createdAt: timestamp({ mode: "string", withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
+  // When the suggestion (or failure) landed — the generation activity's end
+  // time in the provenance timeline
+  suggestedAt: timestamp({ mode: "string", withTimezone: true }),
+  // When the author accepted/kept, or the round was superseded
+  decidedAt: timestamp({ mode: "string", withTimezone: true })
+})
+
+export const refinementsTableRelations = relations(
+  refinementsTable,
+  ({ one }) => ({
+    definition: one(definitionsTable, {
+      fields: [refinementsTable.definitionId],
+      references: [definitionsTable.id]
+    })
   })
 )
 

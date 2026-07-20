@@ -78,6 +78,20 @@
       "when": 1784428737206,
       "tag": "0010_outgoing_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784536143317,
+      "tag": "0011_right_deadpool",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784536781948,
+      "tag": "0012_dry_starhawk",
+      "breakpoints": true
     }
   ]
 }

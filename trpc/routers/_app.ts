@@ -5,6 +5,7 @@ import { definitionsRouter } from "./definitions"
 import { commentsRouter } from "./comments"
 import { adminRouter } from "./admin"
 import { termsRouter } from "./terms"
+import { refinementsRouter } from "./refinements"
 import { z } from "zod"
 import { db, definitionsTable, termsTable, usersTable } from "@yamz/db"
 import { desc, eq, getTableColumns, ilike, or, sql } from "drizzle-orm"
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   tags: tagsRouter,
   user: userRouter,
   definitions: definitionsRouter,
+  refinements: refinementsRouter,
   votes: votesRouter,
   terms: termsRouter,
   comments: commentsRouter,

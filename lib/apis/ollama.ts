@@ -1,5 +1,5 @@
-import { chatsTable, db } from "@yamz/db"
-import { asc, eq } from "drizzle-orm"
+import { chatsTable, db, refinementsTable } from "@yamz/db"
+import { and, asc, eq, lt, sql } from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { Message, Ollama } from "ollama"
 import { z } from "zod"
@@ -13,6 +13,16 @@ export const DefinitionOutput = z.object({
   example: z.string()
 })
 
+const resolvePromptKey = (key: string) => {
+  const entry = (prompts as Record<string, { prompt: string }>)[key]
+  if (!entry)
+    throw new Error(
+      `Unknown prompt key "${key}" — available prompts: ${Object.keys(prompts).join(", ")}`
+    )
+
+  return entry.prompt
+}
+
 // System prompt selection: SYSTEM_PROMPT_KEY picks a named prompt from
 // lib/prompts.json; SYSTEM_PROMPT (raw text) still works and takes precedence
 // so existing deployments are unaffected.
@@ -23,43 +33,55 @@ const resolveSystemPrompt = () => {
   if (!key)
     throw new Error("Set SYSTEM_PROMPT or SYSTEM_PROMPT_KEY in the environment")
 
-  const entry = (prompts as Record<string, { prompt: string }>)[key]
-  if (!entry)
-    throw new Error(
-      `Unknown SYSTEM_PROMPT_KEY "${key}" — available prompts: ${Object.keys(prompts).join(", ")}`
-    )
-
-  return entry.prompt
+  return resolvePromptKey(key)
 }
 
 export const LLMSystemPrompt = resolveSystemPrompt()
 
+// Prompt for the interactive refine flow; REFINE_PROMPT_KEY overrides the
+// default "refine" entry in lib/prompts.json.
+export const RefinePromptKey = process.env.REFINE_PROMPT_KEY ?? "refine"
+export const RefineSystemPrompt = resolvePromptKey(RefinePromptKey)
+
 export const OllamaModel = "gemma4:26b"
 
-// Provenance stamp written on every AI chat row so each generation stays
-// attributable to the exact prompt and model that produced it. promptHash
-// covers edits to prompts.json under an unchanged key and raw SYSTEM_PROMPT
-// text (where promptKey is null).
-export const generationStamp = {
-  promptKey: process.env.SYSTEM_PROMPT
+// Provenance stamp written on every AI-generated row (chats, refinement
+// rounds) so each generation stays attributable to the exact prompt and model
+// that produced it. promptHash covers edits to prompts.json under an
+// unchanged key and raw SYSTEM_PROMPT text (where promptKey is null).
+export const makeGenerationStamp = (
+  promptKey: string | null,
+  promptText: string
+) => ({
+  promptKey,
+  promptHash: createHash("sha256").update(promptText).digest("hex").slice(0, 16),
+  promptText,
+  model: OllamaModel
+})
+
+export const generationStamp = makeGenerationStamp(
+  process.env.SYSTEM_PROMPT
     ? null
     : (process.env.SYSTEM_PROMPT_KEY ?? null),
-  promptHash: createHash("sha256")
-    .update(LLMSystemPrompt)
-    .digest("hex")
-    .slice(0, 16),
-  promptText: LLMSystemPrompt,
-  model: OllamaModel
-}
+  LLMSystemPrompt
+)
+
+export const refineGenerationStamp = makeGenerationStamp(
+  RefinePromptKey,
+  RefineSystemPrompt
+)
 
 export const ollama = new Ollama({
   host: process.env.OLLAMA_HOST
 })
 
-export const runLLM = async (messages: Message[]) => {
+export const runLLM = async (
+  messages: Message[],
+  systemPrompt: string = LLMSystemPrompt
+) => {
   const res = await ollama.chat({
     model: OllamaModel,
-    messages: [{ role: "system", content: LLMSystemPrompt }, ...messages],
+    messages: [{ role: "system", content: systemPrompt }, ...messages],
     format: zodToJsonSchema(DefinitionOutput),
     // Keep the model loaded between requests — reloading gemma4:26b (~18 GB)
     // costs ~22s, which users see as the AI definition hanging
@@ -109,4 +131,82 @@ export const reviseDefinition = async (termId: number) => {
     .returning()
 
   return { result, insertedChat }
+}
+
+// Drives one interactive refinement round from "pending" to "suggested" (or
+// "failed"). Context is rebuilt per call from the round's definition and the
+// prior rounds of that definition — deliberately NOT from chatsTable, which
+// belongs to the term-level AI definition thread.
+export const runRefinementRound = async (refinementId: number) => {
+  const round = await db.query.refinementsTable.findFirst({
+    where: eq(refinementsTable.id, refinementId),
+    with: { definition: { with: { term: true } } }
+  })
+
+  if (!round) throw new Error(`Refinement ${refinementId} doesn't exist`)
+  if (round.status !== "pending")
+    throw new Error(
+      `Refinement ${refinementId} is "${round.status}", expected "pending"`
+    )
+
+  try {
+    const priorRounds = await db.query.refinementsTable.findMany({
+      where: and(
+        eq(refinementsTable.definitionId, round.definitionId),
+        lt(refinementsTable.round, round.round)
+      ),
+      orderBy: asc(refinementsTable.round)
+    })
+
+    const messages: Message[] = [
+      {
+        role: "user",
+        content: `<term>\n${round.definition.term.term}\n\n<definition>\n${round.definition.definition}\n\n<example>\n${round.definition.example}`
+      }
+    ]
+
+    // Replay the negotiation in order: each round's feedback comment came
+    // before its suggestion, and failed rounds contribute their feedback but
+    // no assistant turn.
+    for (const r of [...priorRounds, round]) {
+      if (r.userComment)
+        messages.push({ role: "user", content: `<feedback>\n${r.userComment}` })
+
+      if (r.id !== round.id && r.suggestedDefinition)
+        messages.push({
+          role: "assistant",
+          content: `<definition>\n${r.suggestedDefinition}\n\n<example>\n${r.suggestedExample}`
+        })
+    }
+
+    const result = await runLLM(messages, RefineSystemPrompt)
+    if (!result) throw new Error("Model returned an invalid response")
+
+    const [updated] = await db
+      .update(refinementsTable)
+      .set({
+        status: "suggested",
+        suggestedDefinition: result.definition,
+        suggestedExample: result.example,
+        suggestedAt: sql`now()`,
+        ...refineGenerationStamp
+      })
+      .where(eq(refinementsTable.id, refinementId))
+      .returning()
+
+    return updated
+  } catch (err) {
+    // Persist the failure so the UI can show it explicitly (no silent
+    // fallback), then rethrow for the server log.
+    await db
+      .update(refinementsTable)
+      .set({
+        status: "failed",
+        errorMessage: err instanceof Error ? err.message : String(err),
+        suggestedAt: sql`now()`
+      })
+      .where(eq(refinementsTable.id, refinementId))
+
+    throw err
+  }
 }
