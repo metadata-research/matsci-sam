@@ -34,7 +34,7 @@ export const TermVotes = ({ definitionId, initial }: Props) => {
       <Button
         className={cn(
           "rounded-t-full !px-2 !pb-1",
-          data?.vote === "up" ? "text-blue-500" : "",
+          data?.vote === "up" ? "text-primary" : "",
         )}
         disabled={isPending}
         onClick={(e) => {
@@ -49,7 +49,7 @@ export const TermVotes = ({ definitionId, initial }: Props) => {
       <Button
         className={cn(
           "rounded-b-full !px-2 !pt-1",
-          data?.vote === "down" ? "text-blue-500" : "",
+          data?.vote === "down" ? "text-primary" : "",
         )}
         disabled={isPending}
         onClick={(e) => {

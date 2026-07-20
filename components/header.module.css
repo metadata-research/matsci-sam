@@ -1,25 +1,38 @@
-.navbar{
-    display: flex;
-    align-items: center;
-    height: 53px;
-    background-color: #202536;
-    border-bottom: 1px solid #202536;
-    padding: 0 8px;
-    white-space: nowrap;
+/* Content-width pill nav. Surfaces come from the theme tokens so both modes
+   carry it. Deliberately not sticky: page-level elements (e.g. the Browse
+   letter index) get the floating role instead. */
+.wrapper {
+  padding: 12px 16px 4px;
+}
 
+.navbar {
+  display: flex;
+  align-items: center;
+  max-width: 56rem;
+  margin-inline: auto;
+  height: 52px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--card) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.06);
+  white-space: nowrap;
 }
 
 .logo {
-  width: 33px;
-  height: 33px;
+  width: 30px;
+  height: 30px;
   object-fit: cover;
+  border-radius: 9999px;
 }
 
 .logoText {
-  color: #ffffff;
+  color: var(--foreground);
   font-size: 16px;
-  font-weight: 400;
-  font-family: var(--font-roboto-serif);
+  font-weight: 600;
+  font-family: var(--font-plex-serif);
   padding-left: 8px;
   text-decoration: none;
 }
@@ -32,40 +45,46 @@
 .navLinks {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 4px;
 }
 
 .navButton {
-  background-color: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 9999px;
   height: 36px;
-  padding: 0 16px;
+  padding: 0 14px;
   font-size: 14px;
-  color: #0a0a0a;
-  font-family: var(--font-open-sans);
-  box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+  color: var(--muted-foreground);
+  font-family: var(--font-plex-sans);
   display: flex;
   align-items: center;
   text-decoration: none;
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .navButton:hover {
-  background-color: #8300FD;
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .navButton:active {
-  background-color: #E2F600;
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 @media (max-width: 768px) {
+  .wrapper {
+    padding: 8px 8px 4px;
+  }
+
   .logoText {
     display: none;
   }
 
   .navLinks {
-    gap: 6px;
+    gap: 2px;
   }
 
   .navButton {
@@ -73,19 +92,4 @@
     font-size: 12px;
     height: 30px;
   }
-}
-
-/* Dark mode */
-:global(.dark) .navButton {
-  background-color: #2a3050;
-  border-color: #3d4a6b;
-  color: white;
-}
-
-:global(.dark) .navButton:hover {
-  background-color: #8300FD;
-}
-
-:global(.dark) .navButton:active {
-  background-color: #E2F600;
 }
