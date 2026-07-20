@@ -8,22 +8,44 @@ import {
   ArrowRight,
   MessageSquareIcon,
   SparklesIcon,
+  StarIcon,
   UserIcon
 } from "lucide-react"
 import { Badge } from "./ui/badge"
+import { definitionStatus, type DefinitionStatus } from "@/lib/status"
 
-const Eyebrow = ({ children }: { children: ReactNode }) => (
+// Shared by the definition cards and the single-definition page so both use
+// one label treatment.
+export const Eyebrow = ({ children }: { children: ReactNode }) => (
   <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
     {children}
   </div>
 )
+
+// Community lifecycle chip, derived from votes (lib/status.ts). Quiet by
+// design: one word, gaining color only as a definition earns standing.
+const STATUS_STYLE: Record<DefinitionStatus, string> = {
+  proposed: "text-muted-foreground border-border",
+  "community-reviewed": "bg-secondary text-secondary-foreground border-border",
+  stable: "bg-primary/15 text-primary border-primary/30"
+}
+
+export const StatusChip = ({ score }: { score: number }) => {
+  const status = definitionStatus(score)
+
+  return (
+    <Badge variant="outline" className={STATUS_STYLE[status]}>
+      {status}
+    </Badge>
+  )
+}
 
 export const Term = ({
   term
 }: {
   term: TermType & { count?: number | null }
 }) => (
-  <Link href={`/terms/${term.id}`} className="block">
+  <Link href={`/vocabulary/${term.slug}`} className="block">
     <Card className="flex-row justify-between p-4 transition-colors hover:bg-secondary/50">
       <h1 className="text-lg font-bold font-serif">{term.term}</h1>
       {term.count && (
@@ -37,6 +59,7 @@ export const Term = ({
 
 export const Definition = ({
   definition,
+  isDefault = false,
   children
 }: {
   definition: DefinitionType & {
@@ -46,6 +69,10 @@ export const Definition = ({
     author?: string | null
     comments?: number | null
   }
+  // The term's leading definition: highest voted, newest breaking ties. Callers
+  // decide -- this component does not rank, it only marks. Left false when a
+  // term has just one definition, where "default" would distinguish nothing.
+  isDefault?: boolean
   children?: ReactNode
 }) => (
   <Link
@@ -53,7 +80,11 @@ export const Definition = ({
     className="block"
     key={definition.id}
   >
-    <Card className="flex-row p-4 gap-4 transition-colors hover:bg-secondary/50">
+    <Card
+      className={`flex-row p-4 gap-4 transition-colors hover:bg-secondary/50 ${
+        isDefault ? "ring-1 ring-primary/25" : ""
+      }`}
+    >
       {definition.vote !== undefined && (
         <TermVotes
           initial={{ score: definition.score, vote: definition.vote }}
@@ -61,6 +92,15 @@ export const Definition = ({
         />
       )}
       <section className="flex-1 space-y-2">
+        {isDefault && (
+          <div
+            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-primary"
+            title="Highest voted definition for this term"
+          >
+            <StarIcon className="size-3.5 fill-current" />
+            Default
+          </div>
+        )}
         {children}
         <div>
           <Eyebrow>Definition</Eyebrow>
@@ -70,11 +110,21 @@ export const Definition = ({
           <Eyebrow>Example</Eyebrow>
           <p className="text-muted-foreground">{definition.example}</p>
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1 flex-wrap">
+        <div className="flex items-center gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1 flex-wrap">
           {definition.isAi ? (
+            // Carries the plain-language "AI" label alongside the model, so no
+            // separate "AI Generated" badge is needed to state the same thing.
             <span className="flex items-center gap-1 text-ai">
               <SparklesIcon className="size-3.5" />
-              {definition.model ?? "AI"}
+              AI
+              {definition.model && (
+                <>
+                  <span aria-hidden className="text-ai/50">
+                    &middot;
+                  </span>
+                  <span className="font-mono">{definition.model}</span>
+                </>
+              )}
             </span>
           ) : (
             definition.author && (
@@ -85,6 +135,7 @@ export const Definition = ({
             )
           )}
           <span>{lightFormat(definition.createdAt, "yyyy-MM-dd")}</span>
+          <StatusChip score={definition.score} />
           {typeof definition.comments === "number" && (
             <span
               className={`flex items-center gap-1 ${
@@ -97,17 +148,18 @@ export const Definition = ({
                 : "No comments"}
             </span>
           )}
+          {/* The badge slot means one thing only: this definition is a
+              refinement of another. AI authorship is stated by the identity
+              chip above. Closing out the metadata row rather than sitting in a
+              side column, which reserved full-card-height width for one line
+              of content; ml-auto right-aligns it on whichever line it wraps
+              onto. */}
+          {definition.refinedFromId && definition.model && (
+            <Badge className="ml-auto bg-ai/15 text-ai border-ai/30 font-mono">
+              Refined with {definition.model}
+            </Badge>
+          )}
         </div>
-      </section>
-      <section className="flex flex-col items-end gap-1">
-        {definition.isAi && (
-          <Badge className="bg-ai/15 text-ai border-ai/30">AI Generated</Badge>
-        )}
-        {definition.refinedFromId && definition.model && (
-          <Badge className="bg-ai/15 text-ai border-ai/30 font-mono">
-            Refined with {definition.model}
-          </Badge>
-        )}
       </section>
     </Card>
   </Link>

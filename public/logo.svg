@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MatSci YAMZ">
+  <!--
+    A graphene lattice fragment: one hexagonal carbon ring with each atom's
+    third bond continuing toward the neighboring rings, so every atom shows
+    the correct threefold sp2 coordination at 120 degrees. One atom carries
+    the site's anodized-azure accent.
+  -->
+  <rect width="64" height="64" rx="13" fill="#232741"/>
+  <!-- half-bonds to neighboring rings -->
+  <g stroke="#B9BFD6" stroke-width="2.5" stroke-linecap="round">
+    <line x1="32" y1="15" x2="32" y2="7"/>
+    <line x1="46.72" y1="23.5" x2="53.65" y2="19.5"/>
+    <line x1="46.72" y1="40.5" x2="53.65" y2="44.5"/>
+    <line x1="32" y1="49" x2="32" y2="57"/>
+    <line x1="17.28" y1="40.5" x2="10.35" y2="44.5"/>
+    <line x1="17.28" y1="23.5" x2="10.35" y2="19.5"/>
+  </g>
+  <!-- ring bonds -->
+  <polygon points="32,15 46.72,23.5 46.72,40.5 32,49 17.28,40.5 17.28,23.5"
+    fill="none" stroke="#B9BFD6" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- atoms; a thin chip-colored stroke separates them from the bonds -->
+  <g fill="#EEF0F8" stroke="#232741" stroke-width="1.5">
+    <circle cx="32" cy="15" r="3.8"/>
+    <circle cx="46.72" cy="40.5" r="3.8"/>
+    <circle cx="32" cy="49" r="3.8"/>
+    <circle cx="17.28" cy="40.5" r="3.8"/>
+    <circle cx="17.28" cy="23.5" r="3.8"/>
+  </g>
+  <circle cx="46.72" cy="23.5" r="4.4" fill="#7FA6F2" stroke="#232741" stroke-width="1.5"/>
+</svg>

@@ -1,4 +1,5 @@
 import { SearchSection } from "./search-section"
+import { SITE_NAME } from "@/lib/site"
 import { HydrateClient, trpc } from "@/trpc/server"
 import Link from "next/link"
 import { OAuthURL } from "@/lib/apis/google"
@@ -6,9 +7,15 @@ import { Icon } from "@iconify/react"
 import { db, definitionsTable, termsTable } from "@yamz/db"
 import { desc, eq, sql } from "drizzle-orm"
 import { getSession } from "@/lib/session"
-import { lightFormat } from "date-fns"
+import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 
 export default async function Home() {
   await trpc.search.definitions.prefetch({ query: "", limit: 4 })
@@ -18,6 +25,7 @@ export default async function Home() {
     .select({
       id: termsTable.id,
       term: termsTable.term,
+      slug: termsTable.slug,
       createdAt: termsTable.createdAt,
       count: sql<number>`cast(count(${definitionsTable.id}) as int)`
     })
@@ -34,11 +42,11 @@ export default async function Home() {
           {/* Welcome */}
           <section className="space-y-4">
             <h1 className="text-4xl font-bold font-serif">
-              Welcome to the MatSci YAMZ
+              Welcome to the {SITE_NAME}
             </h1>
             <p className="text-muted-foreground">
               The collaborative dictionary for materials science metadata.
-              Designed for researchers and professionals, YAMZ provides a
+              Designed for researchers and professionals, {SITE_NAME} provides a
               shared space to define, discuss, and refine key terms used
               across the materials science community. By contributing
               definitions, commenting, and voting, you help build a living,
@@ -58,17 +66,26 @@ export default async function Home() {
               can also contribute by refining existing entries or adding new
               terms to expand the shared vocabulary.
             </p>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
               <SearchSection hideResults />
-              {sesh.id ? (
-                <Button asChild>
-                  <Link href="/add">Define a term</Link>
-                </Button>
-              ) : (
-                <Button asChild>
-                  <Link href={OAuthURL}>Login</Link>
-                </Button>
-              )}
+              <div className="flex items-center gap-6">
+                <Separator
+                  orientation="vertical"
+                  className="hidden data-[orientation=vertical]:h-8 sm:block"
+                />
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">or</span>
+                  {sesh.id ? (
+                    <Button asChild>
+                      <Link href="/add">Define a term</Link>
+                    </Button>
+                  ) : (
+                    <Button asChild>
+                      <Link href={OAuthURL}>Login</Link>
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
 
@@ -82,20 +99,25 @@ export default async function Home() {
                 Browse all terms
               </Link>
             </div>
-            <div className="h-px bg-border mb-2" />
+            <Separator className="mb-2" />
             <ul>
-              {latestTerms.map(({ id, term, count, createdAt }) => (
+              {latestTerms.map(({ id, term, slug, count, createdAt }) => (
                 <li key={id}>
                   <Link
-                    href={`/terms/${id}`}
-                    className="flex items-baseline gap-2 rounded-md px-3 py-2 hover:bg-accent transition-colors"
+                    href={`/vocabulary/${slug}`}
+                    className="group flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md px-3 py-2 hover:bg-accent transition-colors"
                   >
-                    <span className="font-serif text-lg">{term}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({count})
+                    <span className="font-serif text-lg group-hover:underline">
+                      {term}
                     </span>
-                    <span className="ml-auto text-sm text-muted-foreground">
-                      added {lightFormat(createdAt, "yyyy/MM/dd")}
+                    <span className="text-sm text-muted-foreground">
+                      {count === 1 ? "1 definition" : `${count} definitions`}
+                    </span>
+                    <span aria-hidden className="text-sm text-muted-foreground/50">
+                      &middot;
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      added {format(createdAt, "MMM d, yyyy")}
                     </span>
                   </Link>
                 </li>
@@ -107,160 +129,63 @@ export default async function Home() {
           <section className="grid gap-4 md:grid-cols-3">
             <Link href="/add" className="block">
               <Card className="h-full transition-colors hover:bg-secondary/50">
-                <CardContent className="space-y-3">
-                  <span className="text-primary">
-                    <Icon icon="lets-icons:upload" width={44} height={44} />
-                  </span>
-                  <div className="text-lg font-semibold">
-                    Contribute a Definition
+                <CardHeader className="gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-primary shrink-0">
+                      <Icon icon="lets-icons:upload" className="size-6" />
+                    </span>
+                    <CardTitle className="text-lg leading-snug">
+                      Contribute a Definition
+                    </CardTitle>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Explore the growing dictionary of materials science
-                    metadata. Search for definitions across materials,
-                    properties, and processes. See how experts describe and
-                    organize key scientific concepts. Compare community
-                    contributions and discover related terms. Learn from
-                    real-world examples and evolving terminology in the field.
-                  </p>
-                </CardContent>
+                  <CardDescription>
+                    Add a new term or propose your own definition for an
+                    existing one, and help expand the shared vocabulary.
+                  </CardDescription>
+                </CardHeader>
               </Card>
             </Link>
 
             <Link href="/terms" className="block">
               <Card className="h-full transition-colors hover:bg-secondary/50">
-                <CardContent className="space-y-3">
-                  <span className="text-foreground">
-                    <Icon icon="ri:book-fill" width={44} height={44} />
-                  </span>
-                  <div className="text-lg font-semibold">View All Terms</div>
-                  <p className="text-sm text-muted-foreground">
-                    Explore the growing dictionary of materials science
-                    metadata. Search for definitions across materials,
-                    properties, and processes. See how experts describe and
-                    organize key scientific concepts. Compare community
-                    contributions and discover related terms. Engage with the
-                    community by critiquing definitions, appraising or
-                    debating terms, and contributing to consensus on materials
-                    science metadata.
-                  </p>
-                </CardContent>
+                <CardHeader className="gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-foreground shrink-0">
+                      <Icon icon="ri:book-fill" className="size-6" />
+                    </span>
+                    <CardTitle className="text-lg leading-snug">
+                      View All Terms
+                    </CardTitle>
+                  </div>
+                  <CardDescription>
+                    Browse the full dictionary of materials science metadata
+                    and compare how the community defines each term.
+                  </CardDescription>
+                </CardHeader>
               </Card>
             </Link>
 
             <Link href="/terms" className="block">
               <Card className="h-full transition-colors hover:bg-secondary/50">
-                <CardContent className="space-y-3">
-                  <span className="text-ai">
-                    <Icon
-                      icon="tdesign:cooperate-filled"
-                      width={44}
-                      height={44}
-                    />
-                  </span>
-                  <div className="text-lg font-semibold">
-                    Join the Discussion
+                <CardHeader className="gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-ai shrink-0">
+                      <Icon
+                        icon="tdesign:cooperate-filled"
+                        className="size-6"
+                      />
+                    </span>
+                    <CardTitle className="text-lg leading-snug">
+                      Join the Discussion
+                    </CardTitle>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Support the growth of the materials science metadata
-                    community. Review and critique existing definitions for
-                    clarity and precision. Appraise and discuss differing
-                    viewpoints to strengthen shared understanding. Provide
-                    references or datasets that enrich term accuracy and
-                    context. Collaborate toward consensus to advance
-                    standardization in materials science metadata.
-                  </p>
-                </CardContent>
+                  <CardDescription>
+                    Critique and appraise existing definitions, weigh in on
+                    competing viewpoints, and help build consensus.
+                  </CardDescription>
+                </CardHeader>
               </Card>
             </Link>
-          </section>
-
-          {/* About */}
-          <section className="space-y-4">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              About Us
-            </span>
-            <h2 className="text-2xl font-semibold font-serif">Who We Are</h2>
-            <p className="text-muted-foreground">
-              MatSci YAMZ is a community-driven initiative from Drexel
-              University&apos;s Metadata Research Center that standardizes the
-              complex language of materials science to accelerate global
-              discovery. By integrating expert crowdsourcing with
-              human-in-the-loop AI, the platform provides a collaborative
-              &ldquo;Metadata Zoo&rdquo; where researchers define, discuss,
-              and vote on terminology in real time. This ensures that
-              scientific data adheres to FAIR principles, making it Findable,
-              Accessible, Interoperable, and Reusable for both human
-              researchers and machine-learning applications.
-            </p>
-
-            <hr />
-
-            <h3 className="text-xl font-semibold font-serif">
-              Mission Statement
-            </h3>
-            <p className="text-muted-foreground">
-              The mission of MatSci-YAMZ is to strengthen the semantic
-              infrastructure across materials science by providing a
-              collaborative, AI-supported space for defining and refining
-              disciplinary terminology. The MatSci-YAMZ hybrid model
-              integrates crowdsourcing and human-in-the-loop AI, and enables
-              researchers to collaboratively build and vote on persistent
-              controlled vocabulary terms. MatSci-YAMZ supports semantic
-              transparency and advances metadata standards development,
-              interdisciplinary communication, and AI-ready research.
-            </p>
-
-            <hr />
-
-            <h3 className="text-xl font-semibold font-serif">Our Team</h3>
-            <div className="flex gap-4 items-start">
-              <img
-                src="https://drexel.edu/~/media/Images/cci/Faculty/Greenberg_Small.ashx?h=188&w=124&hash=0D28C7AE5AE230487F8321021C6263F290601CA5"
-                alt="Jane Greenberg"
-                className="rounded-md w-[110px] shrink-0"
-              />
-              <p className="text-muted-foreground">
-                Jane Greenberg is the Alice B. Kroeger Professor and Director
-                of the{" "}
-                <Link
-                  href="https://mrc.cci.drexel.edu/"
-                  className="text-primary"
-                >
-                  Metadata Research Center
-                </Link>{" "}
-                at the College of Computing &amp; Informatics, Drexel
-                University. Her research activities focus on metadata,
-                knowledge organization/semantics, linked data, data science,
-                and information economics. She serves on the advisory board of
-                the Dublin Core Metadata Initiative (DCMI) and the steering
-                committee for the NSF Northeast Big Data Innovation Hub
-                (NEBDIH).
-              </p>
-            </div>
-
-            <div className="flex gap-4 items-start">
-              <p className="text-muted-foreground">
-                Scott McClellan is a doctoral candidate at Drexel University
-                studying materials science researchers{"'"} use of metadata in
-                repositories. He also works with ontologies and controlled
-                vocabulary construction to improve FAIR-ness of data for
-                scientific research. Prior to coming to Drexel, he studied
-                modern American poetry and literature.
-              </p>
-              <img
-                src="https://drexel.edu/~/media/Images/cci/PhDStudents/McClellan_Scott_sitecore.ashx?h=167&w=110&hash=259783F2DD86B998AF4A45E9449D4882B7DE8078"
-                alt="Scott McClellan"
-                className="rounded-md w-[110px] shrink-0"
-              />
-            </div>
-
-            <p className="text-muted-foreground">
-              Learn more about our team at the{" "}
-              <Link href="https://mrc.cci.drexel.edu/" className="text-primary">
-                Metadata Research Center
-              </Link>
-              .
-            </p>
           </section>
 
           {/* Footer */}

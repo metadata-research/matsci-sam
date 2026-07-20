@@ -1,44 +1,30 @@
-import { db, termsTable } from "@yamz/db";
-import { HydrateClient, trpc } from "@/trpc/server";
-import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
-import { DefinitionList } from "./definitions";
-import Link from "next/link";
-import { NetworkIcon } from "lucide-react";
+import { db, termsTable } from "@yamz/db"
+import { eq } from "drizzle-orm"
+import { notFound, permanentRedirect } from "next/navigation"
 
-export default async function AlternateTermsPage(props: {
-  params: Promise<{ termId: string }>;
+/*
+ * Legacy id-based term URL. The canonical address is /vocabulary/<slug>, which
+ * is what the SKOS output publishes as the concept IRI, so this 308s there
+ * rather than rendering a duplicate page. Existing links, bookmarks, and any
+ * previously published /terms/<id> IRI keep resolving.
+ *
+ * The sub-routes (provenance, tree, skos.ttl, skos.jsonld) stay under this
+ * path -- they are representations and views of the concept, not the concept
+ * itself, so they are not affected by the IRI change.
+ */
+export default async function TermByIdPage(props: {
+  params: Promise<{ termId: string }>
 }) {
-  const { termId } = await props.params;
+  const { termId } = await props.params
+
+  const id = Number(termId)
+  if (!Number.isInteger(id)) notFound()
 
   const term = await db.query.termsTable.findFirst({
-    where: eq(termsTable.id, Number(termId)),
-  });
+    where: eq(termsTable.id, id)
+  })
 
-  if (!term) notFound();
+  if (!term) notFound()
 
-  trpc.definitions.list.prefetch({ termId: term.id });
-
-  return (
-    <HydrateClient>
-      <main className="px-4 p-8">
-        <section className="max-w-4xl w-full mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-4xl font-bold font-serif">
-              Alternate Definitions for {term.term}
-            </h1>
-            <Link
-              href={`/terms/${term.id}/provenance`}
-              className="flex items-center gap-1 text-primary"
-            >
-              <NetworkIcon className="size-4" /> Provenance
-            </Link>
-          </div>
-          <div className="space-y-2">
-            <DefinitionList termId={term.id} />
-          </div>
-        </section>
-      </main>
-    </HydrateClient>
-  );
+  permanentRedirect(`/vocabulary/${term.slug}`)
 }

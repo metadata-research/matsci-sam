@@ -35,6 +35,20 @@ export default async function TagPage({
   return (
     <main className="max-w-2xl mx-auto w-full">
       <h1 className="text-2xl font-bold">Definitions Tagged with {tag.name}</h1>
+      {/* Curated knowledge-organization layer: a tag may assert a SKOS
+          mapping to a class in an external ontology (see lib/skos.ts) */}
+      {tag.mappingIri && (
+        <p className="text-sm text-muted-foreground">
+          skos:{tag.mappingRelation ?? "closeMatch"}{" "}
+          <a
+            href={tag.mappingIri}
+            className="text-primary font-mono break-all"
+            rel="noreferrer"
+          >
+            {tag.mappingIri}
+          </a>
+        </p>
+      )}
       {terms.map((t) => (
         <Link key={t.definitions.id} href={`/definition/${t.definitions.id}`}>
           <Card className="!p-2">

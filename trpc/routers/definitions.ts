@@ -14,7 +14,8 @@ import {
   refinementsTable,
   coauthorsTable
 } from "@yamz/db"
-import { and, desc, eq, getTableColumns, sql } from "drizzle-orm"
+import { and, desc, eq, getTableColumns, like, sql } from "drizzle-orm"
+import { slugify, uniqueSlug } from "@/lib/slug"
 import { adminProcedure, authenticatedProcedure } from "../procedures"
 import { revalidatePath } from "next/cache"
 import { reviseDefinition } from "@/lib/apis/ollama"
@@ -41,10 +42,23 @@ export const definitionsRouter = createTRPCRouter({
           where: eq(termsTable.term, term)
         })
         if (!dbTerm) {
-          //first time term has been defined, so create it
+          // First time this term has been defined, so create it -- with its
+          // public slug. Distinct terms can normalize to the same slug
+          // ("Band Gap" vs "band gap"), so check what is taken and let
+          // uniqueSlug() number the collision the way OED numbers homographs.
+          // Read inside the transaction so a concurrent insert cannot slip a
+          // colliding slug in between; the unique index is the backstop.
+          const conflicting = await tx
+            .select({ slug: termsTable.slug })
+            .from(termsTable)
+            .where(like(termsTable.slug, `${slugify(term)}%`))
+
           const [insertedTerm] = await tx
             .insert(termsTable)
-            .values({ term })
+            .values({
+              term,
+              slug: uniqueSlug(term, new Set(conflicting.map((c) => c.slug)))
+            })
             .returning()
 
           if (!input.interactive) {
@@ -137,6 +151,7 @@ export const definitionsRouter = createTRPCRouter({
             isAi: usersTable.isAi
           },
           term: termsTable.term,
+          termSlug: termsTable.slug,
           vote: userId
             ? sql<"up" | "down" | null>`${votesTable.kind}`.as("vote")
             : sql<"up" | "down" | null>`null`.as("vote")
@@ -204,7 +219,11 @@ export const definitionsRouter = createTRPCRouter({
         .from(definitionsTable)
         .where(and(eq(definitionsTable.termId, termId)))
         .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
-        .orderBy(desc(definitionsTable.score))
+        // Highest voted first, newest breaking ties. The tiebreak matters:
+        // score alone left equal-scored definitions in whatever order the
+        // planner returned, so the one shown first -- the term's default --
+        // could change between requests.
+        .orderBy(desc(definitionsTable.score), desc(definitionsTable.createdAt))
 
       if (userId)
         definitionsQuery.leftJoin(

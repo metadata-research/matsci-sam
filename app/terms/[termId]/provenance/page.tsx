@@ -33,7 +33,14 @@ export default async function PublicTermProvenancePage(props: {
         <p className="text-sm text-muted-foreground">
           The history of the definitions of this term as a W3C PROV-O graph,
           covering each writing, edit, AI generation, refinement, comment,
-          and vote. Click a node for details.
+          and vote. Click a node for details, or download the graph as{" "}
+          <a
+            href={`/terms/${provenance.term.id}/provenance.ttl`}
+            className="text-primary font-mono text-xs"
+          >
+            PROV-O Turtle
+          </a>
+          .
         </p>
         <ProvenanceGraph
           nodes={provenance.graph.nodes}

@@ -65,7 +65,7 @@ Click Create, then click "Refine with AI" on the definition page.
 
 While the pending card polls (a few seconds warm, up to half a minute
 cold), explain what is being recorded: the round row already exists in
-the database with the request timestamp, and every round carries the
+the database with the request timestamp, and every round records the
 exact prompt hash and model name, which the provenance view will surface.
 
 When the round 1 suggestion appears, read it and point at the word-level
@@ -88,7 +88,7 @@ The browser lands on the refined definition. Point at three things.
   is credited by name, GitHub style, never as a generic "AI".
 - The link "Refined from the original definition", and on the original,
   the reverse link plus the collapsed round history.
-- Back on the term page, the refined entry carries a "Refined with
+- Back on the term page, the refined entry shows a "Refined with
   gemma4:26b" badge, and both entries show their comment state.
 
 ## Act 3. Community signals

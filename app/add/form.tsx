@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -17,7 +18,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/trpc/client";
 import { useRouter } from "next/navigation";
 import { AutoComplete } from "@/components/autocomplete";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { SparklesIcon } from "lucide-react";
 import { useState } from "react";
@@ -100,9 +100,13 @@ export const DefineTermForm = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Definition</FormLabel>
+                  <FormDescription>
+                    Name the class of thing, then what sets it apart.
+                  </FormDescription>
                   <FormControl>
                     <Textarea
-                      placeholder="Name the class of thing, then what distinguishes it. For austenite, 'A face-centered cubic phase of iron and its alloys, able to dissolve considerably more carbon than ferrite.'"
+                      className="min-h-24"
+                      placeholder="A face-centered cubic phase of iron and its alloys, able to dissolve considerably more carbon than ferrite."
                       {...field}
                     />
                   </FormControl>
@@ -116,9 +120,13 @@ export const DefineTermForm = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Examples</FormLabel>
+                  <FormDescription>
+                    One or more sentences using the term in context.
+                  </FormDescription>
                   <FormControl>
-                    <Input
-                      placeholder="A sentence using the term, such as 'Quenching steel from the austenite region traps carbon and forms martensite.'"
+                    <Textarea
+                      className="min-h-20"
+                      placeholder="Quenching steel from the austenite region traps carbon and forms martensite."
                       {...field}
                     />
                   </FormControl>

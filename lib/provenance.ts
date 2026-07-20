@@ -625,7 +625,9 @@ export const buildTermProvenance = async (
   events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
 
   return {
-    term: { id: term.id, term: term.term },
+    // slug carried so the RDF serialization can build the concept IRI, which
+    // is slug-based (lib/skos.ts termUri)
+    term: { id: term.id, term: term.term, slug: term.slug },
     events,
     graph: { nodes, edges }
   }

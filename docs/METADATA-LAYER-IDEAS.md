@@ -40,7 +40,7 @@ the whole scheme as a skos:ConceptScheme. Mapping: prefLabel from the
 term, one skos:definition per community definition with dcterms:creator
 and dcterms:created, skos:example from examples, dcterms:contributor for
 the model on co-authored definitions, skos:changeNote derived from the
-edit history. The scheme-level record carries dcterms and a license. This
+edit history. The scheme-level record includes dcterms and a license. This
 is the single strongest "metadata dictionary" signal available, and it is
 purely additive.
 
@@ -49,7 +49,7 @@ purely additive.
 The tags table today is a bare name. Give tags an optional scheme and an
 optional external IRI, so a tag can assert skos:exactMatch or
 skos:closeMatch to a class in EMMO, PMDco, CHAMEO, or another ontology
-(the same sources in the RAG assessment; the vocab tables planned there
+(the same sources as in the RAG assessment, whose planned vocab tables
 double as the mapping picker). Two consequences follow.
 
 - A small curated facet scheme becomes possible (for example Material,
@@ -108,8 +108,8 @@ the same derived model.
 Almost nothing, deliberately. The visible changes across all eight ideas
 amount to a "Cite this term" line with a persistent URI, an optional
 status chip, small format links (Turtle, JSON-LD) tucked near the
-provenance link, and a "maps to" note on tag pages. Everything else lives
-in response headers, page heads, and export routes.
+provenance link, and a "maps to" note on tag pages. Everything else is in
+response headers, page heads, and export routes.
 
 ## Suggested sequence
 

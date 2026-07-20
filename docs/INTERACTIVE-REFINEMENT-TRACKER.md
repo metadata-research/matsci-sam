@@ -228,6 +228,48 @@ provenance page shows the full negotiation end to end:
       (`failed` status + errorMessage + Retry) exists but has only been
       reviewed, not observed
 
+## Phase 7 — Metadata layer (added 2026-07-20, built same day)
+
+Chosen from docs/METADATA-LAYER-IDEAS.md: JSON-LD + SKOS export,
+SKOS-ified tags, PROV-O RDF serialization, lifecycle status. All derived
+views; the add flow is untouched.
+
+- [x] `lib/skos.ts` — SKOS view derived on demand (concept per term,
+      prefLabel, one skos:definition per community definition with
+      dcterms attribution, examples, editorial notes carrying lifecycle
+      status, dcterms:subject to tag concepts). `lib/site.ts` holds the
+      absolute base URL (`NEXT_PUBLIC_SITE_URL`, default production).
+- [x] Export routes: `/terms/[id]/skos.ttl`, `/terms/[id]/skos.jsonld`,
+      `/vocabulary.ttl` (whole scheme). Format links on the term page.
+- [x] schema.org DefinedTerm JSON-LD embedded in term page heads.
+- [x] Migration 0014: tags gain `scheme`, `mappingIri`,
+      `mappingRelation` (skos_match enum). Mapping shown on the tag page
+      and emitted as skos:*Match triples. Curation UI deferred (SQL or
+      admin for now).
+- [x] `lib/provenance-rdf.ts` + `/terms/[id]/provenance.ttl` — the
+      derived PROV-O graph as Turtle, linked from the provenance page.
+- [x] `lib/status.ts` — proposed / community-reviewed / stable derived
+      from score (thresholds 2 and 5); StatusChip on definition cards and
+      the definition page; status also lands in skos:editorialNote.
+- [x] Verified 2026-07-20: all four RDF outputs (term ttl, vocabulary
+      ttl with 438 triples, term jsonld, provenance ttl with 54 triples
+      for martensite) parse with rdflib; tag-mapping triples verified
+      with a temporary mapping then reverted; chips render.
+
+Remaining ideas (PIDs, DCAT dataset description, TEI export) stay in
+docs/METADATA-LAYER-IDEAS.md.
+
+A /docs section (same day) is the user guide. It renders only
+`docs/guide/*.md` in the site theme (`lib/docs.ts`, marked,
+slug-whitelisted, explicit sidebar order; `app/docs` + `app/docs/[slug]`
+with a sidebar and a Docs nav link). Internal working documents in
+docs/ root (this tracker, the demo script, assessments) are NOT served;
+they stay repo-only, and production-sensitive notes stay in
+docs-internal/, which is untracked. MkDocs was considered and declined:
+it would add a Python toolchain and a second visual identity for content
+this app can serve itself. Guide pages are user-focused; update them as
+features land.
+
 ## Open items
 
 - Confirm voter anonymization choice for the public provenance view

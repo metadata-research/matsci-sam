@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
+import { SITE_NAME } from "@/lib/site"
 export const metadata: Metadata = {
-  title: "Define a Term Interactively | MatSci YAMZ"
+  title: `Define a Term Interactively | ${SITE_NAME}`
 }
 import { auth } from "@/lib/auth"
 import { DefineTermForm } from "../form"

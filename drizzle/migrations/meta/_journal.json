@@ -92,6 +92,27 @@
       "when": 1784536781948,
       "tag": "0012_dry_starhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784571554080,
+      "tag": "0013_search_fts_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784573686792,
+      "tag": "0014_little_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1784575771472,
+      "tag": "0015_term_slugs",
+      "breakpoints": true
     }
   ]
 }

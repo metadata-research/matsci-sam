@@ -7,7 +7,10 @@ import { TermComments } from "@/components/term/comments"
 import { TermVotes } from "@/components/term/votes"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { lightFormat } from "date-fns"
-import { ArrowLeftIcon, SparklesIcon } from "lucide-react"
+import { ArrowLeftIcon, SparklesIcon, UserIcon } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Eyebrow, StatusChip } from "@/components/definition"
 import Link from "next/link"
 import { Suspense } from "react"
 import { DeleteDefinitionButton } from "./delete-button"
@@ -37,125 +40,163 @@ export default async function TermPage(props: {
 
   return (
     <HydrateClient>
-      <main className="p-8 space-y-4 max-w-7xl w-full mx-auto">
-        <Link
-          className="flex items-center gap-1"
-          href={`/terms/${definition.termId}`}
-        >
-          <ArrowLeftIcon className="size-4" />
-          Other definitions for {definition.term}
-        </Link>
-        <section className="flex gap-4">
-          <TermVotes
-            initial={{ score: definition.score, vote: definition.vote }}
-            definitionId={definition.id}
-          />
-          <section className="flex-1">
-            <h1 className="text-4xl font-semibold font-serif">
-              {definition.term}
-            </h1>
-            <div>
-              <span className="italic">Definition: </span>
-              {definition.definition}
-            </div>
-            <div>
-              <span className="italic">Examples: </span>
-              {definition.example}
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="italic">Tags</span>
-              {definition.authorId === sesh.id && (
-                <EditTags definitionId={definition.id} />
-              )}
-            </div>
-            <div className="flex items-center gap-0.5 flex-wrap">
-              <Suspense fallback={<TermTagsFallback />}>
-                <TermTags definitionId={definition.id} />
-              </Suspense>
-            </div>
-          </section>
-          <section className="flex flex-col items-end">
-            <div className="flex items-center gap-2">
-              {user?.role === "admin" && <DeleteDefinitionButton id={definition.id} />}
-              {definition.authorId === sesh.id && (
-                <EditDefinitionDialog
-                  defaultValues={definition}
-                  definitionId={definition.id}
-                />
-              )}
-            </div>
-            {definition.author.isAi ? (
-              <div className="text-ai flex items-center">
-                <SparklesIcon className="size-4 mr-2" />
-                AI Generated Definition
-              </div>
-            ) : definition.coauthors.length > 0 ? (
-              // GitHub-style co-attribution: the human author plus the model
-              // whose accepted suggestion produced this text
-              <div className="flex items-center gap-1">
-                <span className="italic">Authors: </span>
-                {definition.author.name}
-                {definition.coauthors.map((coauthor) => (
-                  <span key={coauthor.id} className="flex items-center gap-1">
-                    {" and "}
-                    {coauthor.isAi && (
-                      <SparklesIcon className="size-4 text-ai" />
-                    )}
-                    {coauthor.name}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div>
-                <span className="italic">Author: </span>
-                {definition.author.name}
-              </div>
-            )}
-            {definition.refinedFromId && (
-              <Link
-                className="text-primary text-sm"
-                href={`/definition/${definition.refinedFromId}`}
-              >
-                Refined from the original definition
-              </Link>
-            )}
-            {definition.refinedVersionId && (
-              <Link
-                className="text-primary text-sm flex items-center gap-1"
-                href={`/definition/${definition.refinedVersionId}`}
-              >
-                <SparklesIcon className="size-4 text-ai" />
-                See the AI-refined version
-              </Link>
-            )}
-            <div>
-              <span className="italic">Created: </span>
-              {lightFormat(definition.createdAt, "yyyy/MM/dd")}
-            </div>
-            {definition.updatedAt && (
-              <div>
-                <span className="italic">Last Updated: </span>
-                {lightFormat(definition.updatedAt, "yyyy/MM/dd")}
-              </div>
-            )}
-          </section>
-        </section>
-        {definition.authorId === sesh.id &&
-          definition.createdVia === "interactive" &&
-          !definition.refinedFromId && (
-            <RefinePanel
+      <main className="px-4 py-8">
+        <div className="max-w-4xl w-full mx-auto space-y-4">
+          <Link
+            className="flex items-center gap-1 text-primary text-sm"
+            href={`/vocabulary/${definition.termSlug}`}
+          >
+            <ArrowLeftIcon className="size-4" />
+            Other definitions for {definition.term}
+          </Link>
+
+          {/* Mirrors the <Definition> card on /terms/[termId]: votes rail,
+              flex-1 body with eyebrow-labelled sections, and one metadata row
+              closing it out. */}
+          <Card className="flex-row p-4 gap-4">
+            <TermVotes
+              initial={{ score: definition.score, vote: definition.vote }}
               definitionId={definition.id}
-              current={{
-                definition: definition.definition,
-                example: definition.example
-              }}
             />
-          )}
-        <section className="space-y-2">
-          <h2 className="text-xl font-medium">Comments</h2>
-          <TermComments id={definition.id} />
-          <TermCommentBox id={definition.id} />
-        </section>
+            <section className="flex-1 space-y-2">
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-3xl font-bold font-serif leading-tight">
+                  {definition.term}
+                </h1>
+                <div className="flex items-center gap-2 shrink-0">
+                  {user?.role === "admin" && (
+                    <DeleteDefinitionButton id={definition.id} />
+                  )}
+                  {definition.authorId === sesh.id && (
+                    <EditDefinitionDialog
+                      defaultValues={definition}
+                      definitionId={definition.id}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Eyebrow>Definition</Eyebrow>
+                <p>{definition.definition}</p>
+              </div>
+
+              <div>
+                <Eyebrow>Example</Eyebrow>
+                <p className="text-muted-foreground">{definition.example}</p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1">
+                  <Eyebrow>Tags</Eyebrow>
+                  {definition.authorId === sesh.id && (
+                    <EditTags definitionId={definition.id} />
+                  )}
+                </div>
+                <div className="flex items-center gap-0.5 flex-wrap">
+                  <Suspense fallback={<TermTagsFallback />}>
+                    <TermTags definitionId={definition.id} />
+                  </Suspense>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1 flex-wrap">
+                {definition.author.isAi ? (
+                  <span className="flex items-center gap-1 text-ai">
+                    <SparklesIcon className="size-3.5" />
+                    AI
+                    {definition.model && (
+                      <>
+                        <span aria-hidden className="text-ai/50">
+                          &middot;
+                        </span>
+                        <span className="font-mono">{definition.model}</span>
+                      </>
+                    )}
+                  </span>
+                ) : (
+                  // Co-attribution: the human author plus the model whose
+                  // accepted suggestion produced this text
+                  <span className="flex items-center gap-1">
+                    <UserIcon className="size-3.5" />
+                    {definition.author.name}
+                    {definition.coauthors.map((coauthor) => (
+                      <span
+                        key={coauthor.id}
+                        className="flex items-center gap-1"
+                      >
+                        and
+                        {coauthor.isAi && (
+                          <SparklesIcon className="size-3.5 text-ai" />
+                        )}
+                        <span className={coauthor.isAi ? "text-ai" : ""}>
+                          {coauthor.name}
+                        </span>
+                      </span>
+                    ))}
+                  </span>
+                )}
+                <span>{lightFormat(definition.createdAt, "yyyy-MM-dd")}</span>
+                <StatusChip score={definition.score} />
+                {definition.updatedAt && (
+                  <span>
+                    updated {lightFormat(definition.updatedAt, "yyyy-MM-dd")}
+                  </span>
+                )}
+                {/* Just "Refined" here, unlike the cards on /terms/[termId]:
+                    this page lists coauthors, so the model is already named in
+                    the attribution chip above. Same rule either way -- the
+                    model appears once per view. */}
+                {definition.refinedFromId && (
+                  <Badge className="ml-auto bg-ai/15 text-ai border-ai/30">
+                    Refined
+                  </Badge>
+                )}
+              </div>
+
+              {(definition.refinedFromId || definition.refinedVersionId) && (
+                <div className="flex items-center gap-4 flex-wrap text-sm pt-1">
+                  {definition.refinedFromId && (
+                    <Link
+                      className="text-primary flex items-center gap-1"
+                      href={`/definition/${definition.refinedFromId}`}
+                    >
+                      <ArrowLeftIcon className="size-3.5" />
+                      See the original definition
+                    </Link>
+                  )}
+                  {definition.refinedVersionId && (
+                    <Link
+                      className="text-primary flex items-center gap-1"
+                      href={`/definition/${definition.refinedVersionId}`}
+                    >
+                      <SparklesIcon className="size-3.5 text-ai" />
+                      See the AI-refined version
+                    </Link>
+                  )}
+                </div>
+              )}
+            </section>
+          </Card>
+
+          {definition.authorId === sesh.id &&
+            definition.createdVia === "interactive" &&
+            !definition.refinedFromId && (
+              <RefinePanel
+                definitionId={definition.id}
+                current={{
+                  definition: definition.definition,
+                  example: definition.example
+                }}
+              />
+            )}
+
+          <section className="space-y-2 pt-2">
+            <h2 className="text-2xl font-semibold font-serif">Comments</h2>
+            <TermComments id={definition.id} />
+            <TermCommentBox id={definition.id} />
+          </section>
+        </div>
       </main>
     </HydrateClient>
   )

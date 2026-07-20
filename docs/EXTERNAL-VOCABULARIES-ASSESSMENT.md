@@ -65,7 +65,8 @@ advantage of needing no key.
 A community network, not a data source. Its outputs are working-group
 recommendations (FAIR microscopy metadata, LIMS practices) and community
 coordination. The related RDA/IMRR effort produced a small NIST controlled
-vocabulary for materials data discovery, which is worth ingesting (below),
+vocabulary for materials data discovery, which belongs on the ingestion
+list (below),
 but MaRDA itself offers nothing to download into a RAG store. Its value
 here is alignment and visibility for the project, which suits the MRC
 context. The site also blocks non-browser fetchers.

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -47,8 +48,10 @@
 
 /*
  * "Anodized titanium" theme. Neutrals are titanium-gray (barely-cool, hue
- * ~275 at whisper chroma); the single accent is anodized blue-violet, and a
- * reserved interference-gold (--ai) marks AI involvement. Both blocks define
+ * ~275 at whisper chroma); the single accent is anodized blue -- hue 262 in
+ * light, and 250 (azure) in dark, where the accent sits at a much higher
+ * lightness and a cooler hue keeps it from reading violet against near-black.
+ * A reserved interference-gold (--ai) marks AI involvement. Both blocks define
  * the same tokens, so the theme toggle carries every component.
  */
 :root {
@@ -59,18 +62,18 @@
   --card-foreground: oklch(0.2 0.012 278);
   --popover: oklch(0.995 0.002 275);
   --popover-foreground: oklch(0.2 0.012 278);
-  --primary: oklch(0.49 0.15 287);
-  --primary-foreground: oklch(0.98 0.005 285);
+  --primary: oklch(0.49 0.15 262);
+  --primary-foreground: oklch(0.98 0.005 262);
   --secondary: oklch(0.945 0.008 278);
-  --secondary-foreground: oklch(0.27 0.03 283);
+  --secondary-foreground: oklch(0.27 0.03 264);
   --muted: oklch(0.945 0.006 275);
   --muted-foreground: oklch(0.5 0.018 278);
-  --accent: oklch(0.93 0.022 287);
-  --accent-foreground: oklch(0.28 0.06 287);
+  --accent: oklch(0.93 0.022 262);
+  --accent-foreground: oklch(0.28 0.06 262);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.895 0.01 278);
   --input: oklch(0.885 0.012 278);
-  --ring: oklch(0.55 0.13 287);
+  --ring: oklch(0.55 0.13 262);
   --ai: oklch(0.55 0.11 80);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -103,18 +106,18 @@
   --card-foreground: oklch(0.945 0.006 275);
   --popover: oklch(0.215 0.015 280);
   --popover-foreground: oklch(0.945 0.006 275);
-  --primary: oklch(0.74 0.12 290);
-  --primary-foreground: oklch(0.18 0.04 287);
+  --primary: oklch(0.74 0.12 250);
+  --primary-foreground: oklch(0.18 0.04 250);
   --secondary: oklch(0.27 0.018 280);
   --secondary-foreground: oklch(0.945 0.006 275);
   --muted: oklch(0.27 0.015 278);
   --muted-foreground: oklch(0.72 0.015 278);
-  --accent: oklch(0.31 0.04 287);
-  --accent-foreground: oklch(0.94 0.015 285);
+  --accent: oklch(0.31 0.04 250);
+  --accent-foreground: oklch(0.94 0.015 250);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.93 0.02 285 / 12%);
   --input: oklch(0.93 0.02 285 / 16%);
-  --ring: oklch(0.66 0.11 289);
+  --ring: oklch(0.66 0.11 250);
   --ai: oklch(0.76 0.11 83);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
