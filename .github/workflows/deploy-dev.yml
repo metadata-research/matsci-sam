@@ -75,8 +75,8 @@ jobs:
 
           cd "${release}"
           pnpm install --frozen-lockfile
-          pnpm build
           pnpm db:migrate
+          pnpm build
           BUILD_RELEASE
 
           next_link="${app_root}/.current-${RELEASE_SHA}"
