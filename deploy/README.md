@@ -62,6 +62,18 @@ sudo certbot --nginx --redirect -d ego.cci.drexel.edu
 sudo certbot renew --dry-run
 ```
 
+Until Ego's public ports and certificate are available, the application can be
+demonstrated over the Drexel network at `http://superego.cci.drexel.edu` with:
+
+```dotenv
+NEXT_PUBLIC_SITE_URL=http://superego.cci.drexel.edu
+GOOGLE_CALLBACK_URL=http://superego.cci.drexel.edu/api/auth/callback
+```
+
+Do not enable Google authentication for this HTTP-only interim deployment.
+After Ego has a valid certificate, change both values to the HTTPS Ego URL and
+rebuild.
+
 Superego accepts `ego.cci.drexel.edu`, `superego.cci.drexel.edu`, and
 `sam.cci.drexel.edu`, so the server and database layout do not change when the
 production name becomes available. The hostname-dependent settings are
