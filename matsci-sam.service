@@ -1,0 +1,29 @@
+[Unit]
+Description=MatSci SAM Next.js application
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=matsci-sam
+Group=matsci-sam
+WorkingDirectory=/opt/matsci-sam/current
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+EnvironmentFile=/etc/matsci-sam/app.env
+ExecStart=/usr/bin/pnpm start
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+UMask=0027
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

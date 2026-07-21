@@ -17,12 +17,10 @@ export const SITE_URL =
 /*
  * Display name of the application -- the brand, and only the brand.
  *
- * Deliberately separate from SITE_URL and from the infrastructure identifiers
- * that still say "yamz": the database role and name, the systemd unit and its
- * service user, the `@yamz/db` package alias, the session cookie, and the
- * domain itself. Those are identity, not branding; changing them is a
- * migration with downtime, not a rename, and changing the domain would break
- * every published concept IRI.
+ * Deliberately separate from SITE_URL and from infrastructure identifiers such
+ * as the database role, systemd unit, service user, and session cookie. Those
+ * are operational identity, while this value is presentation. Changing the
+ * domain would also break every published concept IRI.
  *
  * Override with NEXT_PUBLIC_SITE_NAME to rebrand without a code change.
  */

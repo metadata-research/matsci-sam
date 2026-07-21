@@ -5,5 +5,5 @@ import { YAMZSession } from "./types";
 export const getSession = async () =>
   await getIronSession<YAMZSession>(await cookies(), {
     password: process.env.SESSION_PASSWORD!,
-    cookieName: "matsci-yamz-session",
+    cookieName: "matsci-sam-session",
   });
