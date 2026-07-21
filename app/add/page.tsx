@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
-export const metadata: Metadata = { title: "Add Definition | MatSci YAMZ" }
+import { SITE_NAME } from "@/lib/site"
+export const metadata: Metadata = { title: `Add Definition | ${SITE_NAME}` }
 import { auth } from "@/lib/auth";
 import { DefineTermForm } from "./form";
 import { HydrateClient, trpc } from "@/trpc/server";
@@ -15,7 +16,9 @@ export default async function AddTermPage() {
           <div className="mb-4">
             <h1 className="text-3xl font-bold leading-none">Define a Term</h1>
             <p className="text-secondary-foreground mt-2">
-              Instructions will go here
+              Add a materials science term with your definition and an example
+              of its use. Definitions are public. Others can vote on them,
+              comment, and add alternatives of their own.
             </p>
           </div>
           <DefineTermForm />

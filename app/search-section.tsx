@@ -35,7 +35,7 @@ export const SearchSection = ({ hideResults = false }: { hideResults?: boolean }
         />
         <button
           onClick={handleSearch}
-          className="absolute right-1 top-1/2 -translate-y-1/2 h-[28px] px-3 bg-white text-black text-sm rounded-md border border-gray-200 shadow-sm cursor-pointer hover:bg-gray-50"
+          className="absolute right-1 top-1/2 -translate-y-1/2 h-[28px] px-3 bg-secondary text-secondary-foreground text-sm rounded-md border cursor-pointer hover:bg-accent transition-colors"
         >
           Search
         </button>

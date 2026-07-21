@@ -10,9 +10,12 @@ import {
   usersTable,
   commentsTable,
   tagsTable,
-  tagsToDefinitions
+  tagsToDefinitions,
+  refinementsTable,
+  coauthorsTable
 } from "@yamz/db"
-import { and, desc, eq, getTableColumns, sql } from "drizzle-orm"
+import { and, desc, eq, getTableColumns, like, sql } from "drizzle-orm"
+import { slugify, uniqueSlug } from "@/lib/slug"
 import { adminProcedure, authenticatedProcedure } from "../procedures"
 import { revalidatePath } from "next/cache"
 import { reviseDefinition } from "@/lib/apis/ollama"
@@ -24,7 +27,10 @@ export const definitionsRouter = createTRPCRouter({
       z.object({
         term: z.string().nonempty("Term is required"),
         definition: z.string().nonempty("You must give a definition"),
-        examples: z.string().nonempty("You must give an example")
+        examples: z.string().nonempty("You must give an example"),
+        // The interactive add flow: no term-level auto-AI definition; the
+        // author refines their own definition on the definition page instead
+        interactive: z.boolean().default(false)
       })
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
@@ -36,23 +42,39 @@ export const definitionsRouter = createTRPCRouter({
           where: eq(termsTable.term, term)
         })
         if (!dbTerm) {
-          //first time term has been defined, so create it
+          // First time this term has been defined, so create it -- with its
+          // public slug. Distinct terms can normalize to the same slug
+          // ("Band Gap" vs "band gap"), so check what is taken and let
+          // uniqueSlug() number the collision the way OED numbers homographs.
+          // Read inside the transaction so a concurrent insert cannot slip a
+          // colliding slug in between; the unique index is the backstop.
+          const conflicting = await tx
+            .select({ slug: termsTable.slug })
+            .from(termsTable)
+            .where(like(termsTable.slug, `${slugify(term)}%`))
+
           const [insertedTerm] = await tx
             .insert(termsTable)
-            .values({ term })
+            .values({
+              term,
+              slug: uniqueSlug(term, new Set(conflicting.map((c) => c.slug)))
+            })
             .returning()
 
-          // insert the ai chat
-          await tx.insert(chatsTable).values({
-            role: "user",
-            message: `<term>\n${term}\n<example>\n${input.examples}`,
-            termId: insertedTerm.id
-          })
+          if (!input.interactive) {
+            // insert the ai chat
+            await tx.insert(chatsTable).values({
+              role: "user",
+              userId: authorId,
+              message: `<term>\n${term}\n<example>\n${input.examples}`,
+              termId: insertedTerm.id
+            })
 
-          after(() => {
-            // Automatically create AI definition on new term creation
-            reviseDefinition(insertedTerm.id)
-          })
+            after(() => {
+              // Automatically create AI definition on new term creation
+              reviseDefinition(insertedTerm.id)
+            })
+          }
 
           dbTerm = insertedTerm
         }
@@ -63,7 +85,8 @@ export const definitionsRouter = createTRPCRouter({
             termId: dbTerm.id,
             authorId,
             definition: input.definition,
-            example: input.examples
+            example: input.examples,
+            createdVia: input.interactive ? "interactive" : "classic"
           })
           .returning()
 
@@ -128,6 +151,7 @@ export const definitionsRouter = createTRPCRouter({
             isAi: usersTable.isAi
           },
           term: termsTable.term,
+          termSlug: termsTable.slug,
           vote: userId
             ? sql<"up" | "down" | null>`${votesTable.kind}`.as("vote")
             : sql<"up" | "down" | null>`null`.as("vote")
@@ -147,8 +171,26 @@ export const definitionsRouter = createTRPCRouter({
         )
 
       const [def] = await definitionsQuery
+      if (!def) return def
 
-      return def
+      // Additional authors (the model, for accepted AI refinements)
+      const coauthors = await db
+        .select({
+          id: usersTable.id,
+          name: usersTable.name,
+          isAi: usersTable.isAi
+        })
+        .from(coauthorsTable)
+        .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
+        .where(eq(coauthorsTable.definitionId, def.id))
+
+      // The AI-refined version derived from this definition, if any
+      const refinedVersion = await db.query.definitionsTable.findFirst({
+        columns: { id: true },
+        where: eq(definitionsTable.refinedFromId, def.id)
+      })
+
+      return { ...def, coauthors, refinedVersionId: refinedVersion?.id ?? null }
     }),
   mine: authenticatedProcedure.query(async ({ ctx: { userId } }) => {
     const definitionsQuery = db.query.definitionsTable.findMany({
@@ -166,6 +208,7 @@ export const definitionsRouter = createTRPCRouter({
         .select({
           ...getTableColumns(definitionsTable),
           isAi: usersTable.isAi,
+          author: usersTable.name,
           comments: sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
             .mapWith(Number)
             .as("comments"),
@@ -176,7 +219,11 @@ export const definitionsRouter = createTRPCRouter({
         .from(definitionsTable)
         .where(and(eq(definitionsTable.termId, termId)))
         .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
-        .orderBy(desc(definitionsTable.score))
+        // Highest voted first, newest breaking ties. The tiebreak matters:
+        // score alone left equal-scored definitions in whatever order the
+        // planner returned, so the one shown first -- the term's default --
+        // could change between requests.
+        .orderBy(desc(definitionsTable.score), desc(definitionsTable.createdAt))
 
       if (userId)
         definitionsQuery.leftJoin(
@@ -194,26 +241,45 @@ export const definitionsRouter = createTRPCRouter({
     .mutation(async ({ input: definitionId }) => {
       // start a tx so if something fails, everything will get restored
       return await db.transaction(async (tx) => {
-        await tx
-          .delete(commentsTable)
-          .where(eq(commentsTable.definitionId, definitionId))
+        // everything that references a single definition row
+        const deleteDefinitionRows = async (id: number) => {
+          await tx
+            .delete(commentsTable)
+            .where(eq(commentsTable.definitionId, id))
 
-        await tx
-          .delete(votesTable)
-          .where(eq(votesTable.definitionId, definitionId))
+          await tx.delete(votesTable).where(eq(votesTable.definitionId, id))
 
-        await tx
-          .delete(editsTable)
-          .where(eq(editsTable.definitionId, definitionId))
+          await tx.delete(editsTable).where(eq(editsTable.definitionId, id))
 
-        await tx
-          .delete(tagsToDefinitions)
-          .where(eq(tagsToDefinitions.definitionId, definitionId))
+          await tx
+            .delete(tagsToDefinitions)
+            .where(eq(tagsToDefinitions.definitionId, id))
 
-        const [deletedDef] = await tx
-          .delete(definitionsTable)
-          .where(eq(definitionsTable.id, definitionId))
-          .returning()
+          await tx
+            .delete(refinementsTable)
+            .where(eq(refinementsTable.definitionId, id))
+
+          await tx
+            .delete(coauthorsTable)
+            .where(eq(coauthorsTable.definitionId, id))
+
+          const [deleted] = await tx
+            .delete(definitionsTable)
+            .where(eq(definitionsTable.id, id))
+            .returning()
+
+          return deleted
+        }
+
+        // refined versions reference their original via refinedFromId, so
+        // they must go first
+        const refinedChildren = await tx.query.definitionsTable.findMany({
+          where: eq(definitionsTable.refinedFromId, definitionId)
+        })
+        for (const child of refinedChildren)
+          await deleteDefinitionRows(child.id)
+
+        const deletedDef = await deleteDefinitionRows(definitionId)
 
         // check if there exists any other definitions
         const otherDef = await tx.query.definitionsTable.findFirst({

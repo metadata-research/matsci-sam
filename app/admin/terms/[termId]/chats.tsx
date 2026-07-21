@@ -1,7 +1,7 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/trpc/client";
-import { format } from "date-fns"
+import { formatDateTime } from "@/lib/date"
 
 export const Chats = ({ termId }: { termId: number }) => {
   const { data: chats } = trpc.admin.chats.useQuery(termId, {
@@ -20,7 +20,9 @@ export const Chats = ({ termId }: { termId: number }) => {
           key={chat.id}
         >
           <div className="flex items-center gap-2">
-            {chat.role}
+            {chat.role === "user" && chat.author?.name
+              ? `${chat.role} (${chat.author.name})`
+              : chat.role}
             {index === 0 && <Badge className="bg-green-500 !py-0.5">initial message</Badge>}
             {index === 1 && <Badge className="bg-red-500 !py-0.5 ">initial definition</Badge>}
             {chat.role === "system" && chat.model && (
@@ -42,7 +44,7 @@ export const Chats = ({ termId }: { termId: number }) => {
           <div className="p-2 bg-accent w-full rounded-md">
             <pre className="text-wrap ">{chat.message}</pre>
           </div>
-          <p className="text-xs opacity-80" style={{ textAlign: chat.role === 'system' ? 'left' : 'right' }}>{format(chat.createdAt, 'MM/dd/yyyy h:mm aaa')}</p>
+          <p className="text-xs opacity-80" style={{ textAlign: chat.role === 'system' ? 'left' : 'right' }}>{formatDateTime(chat.createdAt)}</p>
         </div>
       ))}
     </section>

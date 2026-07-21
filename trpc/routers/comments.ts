@@ -57,6 +57,7 @@ export const commentsRouter = createTRPCRouter({
         if (definition.isAi) {
           await tx.insert(chatsTable).values({
             role: "user",
+            userId,
             message: `<feedback>\n${comment}`,
             termId: definition.termId
           })

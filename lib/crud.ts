@@ -29,6 +29,24 @@ export const GetAiUser = async () => {
   return aiUser
 }
 
+// AI user for a specific model, used for co-authorship of accepted refinement
+// suggestions. Distinct from GetAiUser (the legacy generic AI user that owns
+// the term-level auto definitions): co-authors display by name, and that name
+// must be the model that actually generated the text, e.g. "gemma4:26b".
+export const GetModelUser = async (model: string) => {
+  const existing = await db.query.usersTable.findFirst({
+    where: and(eq(usersTable.isAi, true), eq(usersTable.name, model))
+  })
+  if (existing) return existing
+
+  const [insertedUser] = await db
+    .insert(usersTable)
+    .values({ isAi: true, name: model })
+    .returning()
+
+  return insertedUser
+}
+
 export const UpsertAIDefinition = async (
   termId: number,
   data: { definition: string; example: string },

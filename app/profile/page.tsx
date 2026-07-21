@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
-export const metadata: Metadata = { title: "Profile | MatSci YAMZ" }
+import { SITE_NAME } from "@/lib/site"
+export const metadata: Metadata = { title: `Profile | ${SITE_NAME}` }
 import { db, usersTable } from "@yamz/db";
 import { getSession } from "@/lib/session";
 import { eq } from "drizzle-orm";

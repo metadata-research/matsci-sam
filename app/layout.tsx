@@ -1,26 +1,35 @@
 import type { Metadata } from "next";
+import { SITE_NAME } from "@/lib/site"
 import "./globals.css";
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TRPCProvider } from "@/trpc/client";
 import { Toaster } from "@/components/ui/sonner";
-import { Roboto_Serif } from "next/font/google";
-import { Open_Sans } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google";
 
-const robotoSerif = Roboto_Serif({
-  variable: "--font-roboto-serif",
+// One designed family across roles: Plex Sans for body and UI, Plex Serif
+// for term headwords and the logo, Plex Mono for model names, prompt keys,
+// and hashes.
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const openSans = Open_Sans({
-  variable: "--font-open-sans",
+const plexSerif = IBM_Plex_Serif({
+  variable: "--font-plex-serif",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["500", "600", "700"],
+});
+
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "MatSci YAMZ",
+  title: SITE_NAME,
 };
 
 export default function RootLayout({
@@ -31,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${robotoSerif.variable} ${openSans.variable} min-h-screen antialiased bg-[rgba(50,61,97,0.21)] flex flex-col text-foreground`}
+        className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} min-h-screen antialiased bg-background flex flex-col text-foreground font-sans`}
       >
         <TRPCProvider>
           <ThemeProvider
@@ -41,7 +50,9 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <Header />
-            <div className="flex-1 overflow-x-hidden">{children}</div>
+            {/* overflow-x-clip, not -hidden: clip does not create a scroll
+              container, so position:sticky keeps working inside pages */}
+          <div className="flex-1 overflow-x-clip">{children}</div>
             <Toaster />
           </ThemeProvider>
         </TRPCProvider>

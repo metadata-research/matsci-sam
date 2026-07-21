@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE_NAME } from "@/lib/site"
 import { ThemeToggle } from "./theme-provider";
 import { getSession } from "@/lib/session";
 import { db, usersTable } from "@yamz/db";
@@ -15,27 +16,34 @@ import { Suspense } from "react";
 import { Button } from "./ui/button";
 import { UserCircleIcon } from "lucide-react";
 import { LogoutButton } from "./logout";
+import { HeaderSearch } from "./header-search";
 import styles from "./header.module.css"
 
 export const Header = () => {
   return (
-    <header className={styles.navbar}>
-      <img src="/favicon.ico" alt="MatSci YAMZ" className={styles.logo} />
-      <Link href="/" className={styles.logoText}>
-        MatSci YAMZ
-      </Link>
-      <div className={styles.spacer} />
-      <div className={styles.navLinks}>
-        <Link href="/search" className={styles.navButton}>Search</Link>
-        <Link href="/terms" className={styles.navButton}>Browse</Link>
-        <Link href="/add" className={styles.navButton}>Add</Link>
-        <Link href="/tags" className={styles.navButton}>Tags</Link>
-        <ThemeToggle />
-        <Suspense fallback={null}>
-          <AuthSection />
-        </Suspense>
-      </div>
-    </header>
+    <div className={styles.wrapper}>
+      <header className={styles.navbar}>
+        <img src="/logo.svg" alt={SITE_NAME} className={styles.logo} />
+        <Link href="/" className={styles.logoText}>
+          {SITE_NAME}
+        </Link>
+        {/* The search field replaces the old "Search" nav link: it flexes into
+            the space the spacer used to hold, and going to /search is what
+            submitting it does. */}
+        <HeaderSearch />
+        <div className={styles.spacer} />
+        <div className={styles.navLinks}>
+          <Link href="/terms" className={styles.navButton}>Browse</Link>
+          <Link href="/discussion" className={styles.navButton}>Discussion</Link>
+          <Link href="/add" className={styles.navButton}>Add</Link>
+          <Link href="/docs" className={styles.navButton}>Docs</Link>
+          <ThemeToggle />
+          <Suspense fallback={null}>
+            <AuthSection />
+          </Suspense>
+        </div>
+      </header>
+    </div>
   );
 };
 
@@ -82,7 +90,7 @@ const AuthSection = async () => {
 
   return (
     <Link href={OAuthURL}>
-      <Button variant="outline" className={styles.navButton}>Login</Button>
+      <Button variant="outline">Login</Button>
     </Link>
   );
 };

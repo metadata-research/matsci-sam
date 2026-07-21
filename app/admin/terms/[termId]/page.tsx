@@ -6,7 +6,7 @@ import { Chats } from "./chats";
 import { notFound, redirect } from "next/navigation";
 import { GetAiUser } from "@/lib/crud";
 import Link from "next/link";
-import { ArrowLeftIcon, ExternalLinkIcon } from "lucide-react";
+import { ArrowLeftIcon, ExternalLinkIcon, NetworkIcon } from "lucide-react";
 import { LLMSystemPrompt } from "@/lib/apis/ollama";
 import { auth } from "@/lib/auth"
 
@@ -41,11 +41,17 @@ export default async function JobPage(props: {
     <HydrateClient>
       <main className="space-y-4">
         <section className="flex justify-between items-center">
-          <Link href="/admin/terms" className="flex items-center text-blue-500 mb-2">
+          <Link href="/admin/terms" className="flex items-center text-primary mb-2">
             <ArrowLeftIcon className="mr-2 size-4" /> All Terms
           </Link>
+          <Link
+            href={`/admin/terms/${termId}/provenance`}
+            className="flex items-center text-primary mb-2"
+          >
+            <NetworkIcon className="mr-2 size-4" /> Provenance
+          </Link>
           {aiDefinition &&
-            <Link href={`/definition/${aiDefinition.id}`} className="flex items-center text-blue-500 mb-2">
+            <Link href={`/definition/${aiDefinition.id}`} className="flex items-center text-primary mb-2">
               <ExternalLinkIcon className="mr-2 size-4" /> Go To Term
             </Link>
           }

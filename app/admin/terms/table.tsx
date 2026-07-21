@@ -61,7 +61,7 @@ const columns: ColumnDef<Job>[] = [
       row.original.comments > 0 ? (
         <Link
           href={`/terms/${row.original.id}`}
-          className="flex items-center gap-1 text-blue-500"
+          className="flex items-center gap-1 text-primary"
         >
           <MessageSquareIcon className="size-4" /> {row.original.comments}
         </Link>

@@ -31,7 +31,9 @@ export default async function TermTreePage(props: {
               <div className="absolute top-4 left-1/2 w-1/2 h-1 bg-foreground" />
             </div>
             <div className="flex-1 pb-4">
-              <Definition definition={definition} />
+              <Definition
+                definition={{ ...definition, author: definition.author?.name }}
+              />
               {definition.history.map((history, index) => (
                 <div className="flex items-stretch group" key={history.id}>
                   <div className="w-8 shrink-0 relative">
