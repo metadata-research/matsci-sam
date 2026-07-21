@@ -1,7 +1,7 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/trpc/client";
-import { format } from "date-fns"
+import { formatDateTime } from "@/lib/date"
 
 export const Chats = ({ termId }: { termId: number }) => {
   const { data: chats } = trpc.admin.chats.useQuery(termId, {
@@ -44,7 +44,7 @@ export const Chats = ({ termId }: { termId: number }) => {
           <div className="p-2 bg-accent w-full rounded-md">
             <pre className="text-wrap ">{chat.message}</pre>
           </div>
-          <p className="text-xs opacity-80" style={{ textAlign: chat.role === 'system' ? 'left' : 'right' }}>{format(chat.createdAt, 'MM/dd/yyyy h:mm aaa')}</p>
+          <p className="text-xs opacity-80" style={{ textAlign: chat.role === 'system' ? 'left' : 'right' }}>{formatDateTime(chat.createdAt)}</p>
         </div>
       ))}
     </section>

@@ -5,7 +5,7 @@ import { Button } from "../ui/button";
 import { trpc } from "@/trpc/client";
 import { Skeleton } from "../ui/skeleton";
 import { Card, CardContent } from "../ui/card";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/date";
 
 interface Props {
   id: number;
@@ -35,7 +35,7 @@ export const TermComments = ({ id }: Props) => {
           <CardContent>
             <section>
               <p>{comment.author.name}
-                <a className="text-xs"> at {format(comment.createdAt, 'MM/dd/yyyy h:mmaaa')}</a>
+                <a className="text-xs"> {formatDateTime(comment.createdAt)}</a>
               </p>
 
             </section>

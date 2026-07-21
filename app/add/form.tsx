@@ -101,14 +101,10 @@ export const DefineTermForm = ({
                 <FormItem>
                   <FormLabel>Definition</FormLabel>
                   <FormDescription>
-                    Name the class of thing, then what sets it apart.
+                    Describe what it is, then what sets it apart.
                   </FormDescription>
                   <FormControl>
-                    <Textarea
-                      className="min-h-24"
-                      placeholder="A face-centered cubic phase of iron and its alloys, able to dissolve considerably more carbon than ferrite."
-                      {...field}
-                    />
+                    <Textarea className="min-h-24" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -124,11 +120,7 @@ export const DefineTermForm = ({
                     One or more sentences using the term in context.
                   </FormDescription>
                   <FormControl>
-                    <Textarea
-                      className="min-h-20"
-                      placeholder="Quenching steel from the austenite region traps carbon and forms martensite."
-                      {...field}
-                    />
+                    <Textarea className="min-h-20" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Definition } from "@yamz/db";
-import { lightFormat } from "date-fns";
+import { formatDate } from "@/lib/date";
 
 interface Props {
   definition: Definition;
@@ -26,12 +26,12 @@ export const TermMetadata = ({ definition }: Props) => (
   <section>
     <div>
       <span className="italic">Created: </span>
-      {lightFormat(definition.createdAt, "yyyy-MM-dd")}
+      {formatDate(definition.createdAt)}
     </div>
     {definition.updatedAt && (
       <div>
         <span className="italic">Last Updated: </span>
-        {lightFormat(definition.updatedAt, "yyyy-MM-dd")}
+        {formatDate(definition.updatedAt)}
       </div>
     )}
   </section>

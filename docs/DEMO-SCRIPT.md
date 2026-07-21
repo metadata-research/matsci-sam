@@ -169,8 +169,28 @@ Use these for reruns, with the same beats as Act 2.
 - Feedback: `State that the rapid cooling suppresses diffusion and can trap a metastable phase, such as martensite in steel. Note that polymers and glasses can also be quenched.`
 - Comment: `This pairs well with the martensite entry. Cross-referencing the two would help readers.`
 
+**passivation**
+
+- Definition: `A thin coating that keeps metal from corroding.`
+- Example: `Stainless steel resists rust because its surface is passivated.`
+- Feedback: `State that passivation is a self-limiting oxide (or similar) film that forms on the metal itself, not an applied coating, that it slows further reaction by acting as a barrier, and that it can break down locally to cause pitting. Note it applies to metals such as aluminum, titanium, and stainless steel.`
+- Comment: `Worth distinguishing native passivation from deliberate chemical passivation treatments.`
+
+**dislocation**
+
+- Definition: `A flaw in the arrangement of atoms in a crystal.`
+- Example: `Metals deform because dislocations move through the crystal lattice.`
+- Feedback: `State that a dislocation is a line defect, that its motion (slip) is the primary mechanism of plastic deformation in crystalline metals, and that dislocation density rises with cold work, which is what makes the metal harder. Distinguish edge and screw dislocations.`
+- Comment: `This concept underpins both work hardening and annealing; cross-linking the three would help readers.`
+
 The quenching comment lands especially well when the martensite exhibit
 was shown earlier, since it ties the two entries together.
+
+Annealing, dislocation, and the existing **work hardening** entry form a
+second connected trio: cold work drives dislocation density up and hardens
+the metal, annealing drives it back down and softens it. Defining any of the
+three and then Browsing to the others shows the dictionary accumulating
+related concepts rather than isolated entries.
 
 ## Reset between reruns
 

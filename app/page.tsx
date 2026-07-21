@@ -7,7 +7,7 @@ import { Icon } from "@iconify/react"
 import { db, definitionsTable, termsTable } from "@yamz/db"
 import { desc, eq, sql } from "drizzle-orm"
 import { getSession } from "@/lib/session"
-import { format } from "date-fns"
+import { formatDate } from "@/lib/date"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -117,7 +117,7 @@ export default async function Home() {
                       &middot;
                     </span>
                     <span className="text-sm text-muted-foreground">
-                      added {format(createdAt, "MMM d, yyyy")}
+                      added {formatDate(createdAt)}
                     </span>
                   </Link>
                 </li>
@@ -165,7 +165,7 @@ export default async function Home() {
               </Card>
             </Link>
 
-            <Link href="/terms" className="block">
+            <Link href="/discussion" className="block">
               <Card className="h-full transition-colors hover:bg-secondary/50">
                 <CardHeader className="gap-2">
                   <div className="flex items-center gap-2.5">

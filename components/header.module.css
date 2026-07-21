@@ -1,6 +1,11 @@
-/* Content-width pill nav. Surfaces come from the theme tokens so both modes
-   carry it. Deliberately not sticky: page-level elements (e.g. the Browse
-   letter index) get the floating role instead. */
+/* Floating pill nav. Surfaces come from the theme tokens so both modes carry
+   it. Deliberately not sticky: page-level elements (e.g. the Browse letter
+   index) get the floating role instead.
+
+   Width is 64rem -- a step wider than the 56rem content column on most pages,
+   so the pill frames the content rather than edge-aligning with it (which read
+   as stunted), and equal to the widest page (docs, max-w-5xl) so nothing
+   overflows past it. */
 .wrapper {
   padding: 12px 16px 4px;
 }
@@ -8,7 +13,7 @@
 .navbar {
   display: flex;
   align-items: center;
-  max-width: 56rem;
+  max-width: 64rem;
   margin-inline: auto;
   height: 52px;
   padding: 0 10px;

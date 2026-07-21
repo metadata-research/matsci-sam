@@ -2,13 +2,12 @@ import type { Definition as DefinitionType, Term as TermType } from "@yamz/db"
 import Link from "next/link"
 import { Card } from "./ui/card"
 import { TermVotes } from "./term/votes"
-import { lightFormat } from "date-fns"
+import { formatDate } from "@/lib/date"
 import { ReactNode } from "react"
 import {
   ArrowRight,
   MessageSquareIcon,
   SparklesIcon,
-  StarIcon,
   UserIcon
 } from "lucide-react"
 import { Badge } from "./ui/badge"
@@ -60,6 +59,7 @@ export const Term = ({
 export const Definition = ({
   definition,
   isDefault = false,
+  onScoreChange,
   children
 }: {
   definition: DefinitionType & {
@@ -73,6 +73,10 @@ export const Definition = ({
   // decide -- this component does not rank, it only marks. Left false when a
   // term has just one definition, where "default" would distinguish nothing.
   isDefault?: boolean
+  // Reports this definition's live score up so a parent list can re-sort when a
+  // vote changes the ranking. Optional -- standalone uses (search, homepage)
+  // ignore it.
+  onScoreChange?: (score: number) => void
   children?: ReactNode
 }) => (
   <Link
@@ -81,26 +85,24 @@ export const Definition = ({
     key={definition.id}
   >
     <Card
-      className={`flex-row p-4 gap-4 transition-colors hover:bg-secondary/50 ${
-        isDefault ? "ring-1 ring-primary/25" : ""
+      // The leading (highest-voted) definition is marked by a full primary
+      // border and a soft lift, not a label and not a fill -- a colored edge on
+      // a bright surface reads as promoted, whereas a tint reads as muted. The
+      // styling follows whichever card is on top, so it survives reordering.
+      className={`flex-row p-4 gap-4 transition-all ${
+        isDefault
+          ? "border-primary shadow-md hover:bg-secondary/50"
+          : "hover:bg-secondary/50"
       }`}
     >
       {definition.vote !== undefined && (
         <TermVotes
           initial={{ score: definition.score, vote: definition.vote }}
           definitionId={definition.id}
+          onScoreChange={onScoreChange}
         />
       )}
       <section className="flex-1 space-y-2">
-        {isDefault && (
-          <div
-            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-primary"
-            title="Highest voted definition for this term"
-          >
-            <StarIcon className="size-3.5 fill-current" />
-            Default
-          </div>
-        )}
         {children}
         <div>
           <Eyebrow>Definition</Eyebrow>
@@ -134,7 +136,7 @@ export const Definition = ({
               </span>
             )
           )}
-          <span>{lightFormat(definition.createdAt, "yyyy-MM-dd")}</span>
+          <span>{formatDate(definition.createdAt)}</span>
           <StatusChip score={definition.score} />
           {typeof definition.comments === "number" && (
             <span

@@ -34,6 +34,7 @@ export const Header = () => {
         <div className={styles.spacer} />
         <div className={styles.navLinks}>
           <Link href="/terms" className={styles.navButton}>Browse</Link>
+          <Link href="/discussion" className={styles.navButton}>Discussion</Link>
           <Link href="/add" className={styles.navButton}>Add</Link>
           <Link href="/docs" className={styles.navButton}>Docs</Link>
           <ThemeToggle />

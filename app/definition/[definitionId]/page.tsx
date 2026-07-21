@@ -6,7 +6,7 @@ import { TermCommentBox } from "@/components/term/comment-box"
 import { TermComments } from "@/components/term/comments"
 import { TermVotes } from "@/components/term/votes"
 import { HydrateClient, trpc } from "@/trpc/server"
-import { lightFormat } from "date-fns"
+import { formatDate } from "@/lib/date"
 import { ArrowLeftIcon, SparklesIcon, UserIcon } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -136,12 +136,10 @@ export default async function TermPage(props: {
                     ))}
                   </span>
                 )}
-                <span>{lightFormat(definition.createdAt, "yyyy-MM-dd")}</span>
+                <span>{formatDate(definition.createdAt)}</span>
                 <StatusChip score={definition.score} />
                 {definition.updatedAt && (
-                  <span>
-                    updated {lightFormat(definition.updatedAt, "yyyy-MM-dd")}
-                  </span>
+                  <span>updated {formatDate(definition.updatedAt)}</span>
                 )}
                 {/* Just "Refined" here, unlike the cards on /terms/[termId]:
                     this page lists coauthors, so the model is already named in

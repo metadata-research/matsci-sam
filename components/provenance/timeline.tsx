@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { ProvDetail } from "./detail";
 import type { ProvEvent } from "@/lib/provenance";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/date";
 import {
   BotIcon,
   CheckIcon,
@@ -74,7 +74,7 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            {format(event.at, "MM/dd/yyyy h:mm aaa")}
+            {formatDateTime(event.at)}
           </p>
           {event.detail && (
             <ProvDetail

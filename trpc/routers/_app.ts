@@ -6,6 +6,7 @@ import { commentsRouter } from "./comments"
 import { adminRouter } from "./admin"
 import { termsRouter } from "./terms"
 import { refinementsRouter } from "./refinements"
+import { discussionRouter } from "./discussion"
 import { z } from "zod"
 import { db, definitionsTable, termsTable, usersTable } from "@yamz/db"
 import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm"
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   terms: termsRouter,
   comments: commentsRouter,
   admin: adminRouter,
+  discussion: discussionRouter,
   me: authenticatedProcedure.query(async ({ ctx }) => {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.id, ctx.userId)
