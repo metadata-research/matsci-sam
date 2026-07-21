@@ -19,11 +19,6 @@ APP_GROUP=matsci-sam
 TOKEN_FILE=${1:-/tmp/matsci-sam-runner-token}
 REPOSITORY_URL=https://github.com/metadata-research/matsci-yamz
 
-if [[ ! -r "${TOKEN_FILE}" ]]; then
-  echo "Runner registration token file is missing: ${TOKEN_FILE}" >&2
-  exit 1
-fi
-
 if ! getent group "${APP_GROUP}" >/dev/null || ! id "${APP_USER}" >/dev/null 2>&1; then
   echo "Run deploy/bootstrap-server.sh before setting up the runner." >&2
   exit 1
@@ -46,43 +41,54 @@ else
   usermod --append --groups "${APP_GROUP}" "${RUNNER_USER}"
 fi
 
-if [[ -e "${RUNNER_DIR}/.runner" ]]; then
-  echo "A runner is already configured at ${RUNNER_DIR}; nothing was changed." >&2
-  exit 1
-fi
-
 install -d -o "${RUNNER_USER}" -g "${RUNNER_GROUP}" -m 0750 "${RUNNER_DIR}"
 
-runner_tmp=$(mktemp -d)
-trap 'rm -rf -- "${runner_tmp}"; rm -f -- "${TOKEN_FILE}"' EXIT
-curl --fail --location --silent --show-error \
-  "${RUNNER_URL}" \
-  -o "${runner_tmp}/${RUNNER_ARCHIVE}"
-printf '%s  %s\n' "${RUNNER_SHA256}" "${runner_tmp}/${RUNNER_ARCHIVE}" |
-  sha256sum --check --strict
-tar --extract --gzip \
-  --file "${runner_tmp}/${RUNNER_ARCHIVE}" \
-  --directory "${RUNNER_DIR}"
+if [[ -e "${RUNNER_DIR}/.runner" ]]; then
+  echo "The runner is already registered at ${RUNNER_DIR}; resuming service setup."
+else
+  if [[ ! -r "${TOKEN_FILE}" ]]; then
+    echo "Runner registration token file is missing: ${TOKEN_FILE}" >&2
+    exit 1
+  fi
 
-"${RUNNER_DIR}/bin/installdependencies.sh"
-chown -R "${RUNNER_USER}:${RUNNER_GROUP}" "${RUNNER_DIR}"
+  runner_tmp=$(mktemp -d)
+  trap 'rm -rf -- "${runner_tmp}"; rm -f -- "${TOKEN_FILE}"' EXIT
+  curl --fail --location --silent --show-error \
+    "${RUNNER_URL}" \
+    -o "${runner_tmp}/${RUNNER_ARCHIVE}"
+  printf '%s  %s\n' "${RUNNER_SHA256}" "${runner_tmp}/${RUNNER_ARCHIVE}" |
+    sha256sum --check --strict
+  tar --extract --gzip \
+    --file "${runner_tmp}/${RUNNER_ARCHIVE}" \
+    --directory "${RUNNER_DIR}"
 
-runner_token=$(<"${TOKEN_FILE}")
-if [[ -z "${runner_token}" ]]; then
-  echo "Runner registration token is empty." >&2
-  exit 1
+  (
+    cd "${RUNNER_DIR}"
+    ./bin/installdependencies.sh
+  )
+  chown -R "${RUNNER_USER}:${RUNNER_GROUP}" "${RUNNER_DIR}"
+
+  runner_token=$(<"${TOKEN_FILE}")
+  if [[ -z "${runner_token}" ]]; then
+    echo "Runner registration token is empty." >&2
+    exit 1
+  fi
+
+  runuser -u "${RUNNER_USER}" -- \
+    "${RUNNER_DIR}/config.sh" \
+    --unattended \
+    --url "${REPOSITORY_URL}" \
+    --token "${runner_token}" \
+    --name superego-dev \
+    --work _work \
+    --labels superego-dev \
+    --no-default-labels
+  unset runner_token
+
+  rm -rf -- "${runner_tmp}"
+  rm -f -- "${TOKEN_FILE}"
+  trap - EXIT
 fi
-
-runuser -u "${RUNNER_USER}" -- \
-  "${RUNNER_DIR}/config.sh" \
-  --unattended \
-  --url "${REPOSITORY_URL}" \
-  --token "${runner_token}" \
-  --name superego-dev \
-  --work _work \
-  --labels superego-dev \
-  --no-default-labels
-unset runner_token
 
 cat >/etc/sudoers.d/matsci-sam-runner <<'EOF'
 Cmnd_Alias MATSCI_SAM_SERVICE = /usr/bin/systemctl restart matsci-sam.service, /usr/bin/systemctl is-active matsci-sam.service
@@ -92,7 +98,12 @@ EOF
 chmod 0440 /etc/sudoers.d/matsci-sam-runner
 visudo --check --file /etc/sudoers.d/matsci-sam-runner
 
-"${RUNNER_DIR}/svc.sh" install "${RUNNER_USER}"
-"${RUNNER_DIR}/svc.sh" start
+(
+  cd "${RUNNER_DIR}"
+  if [[ ! -f .service ]]; then
+    ./svc.sh install "${RUNNER_USER}"
+  fi
+  ./svc.sh start
+)
 
 echo "The superego-dev runner is installed and running from ${RUNNER_DIR}."
