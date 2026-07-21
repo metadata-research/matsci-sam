@@ -9,7 +9,7 @@ fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PUBLIC_HOST=ego.cci.drexel.edu
-UPSTREAM_HOST=10.246.250.19
+UPSTREAM_HOST=superego.cci.drexel.edu
 
 if ! timeout 5 bash -c "</dev/tcp/${UPSTREAM_HOST}/80" >/dev/null 2>&1; then
   echo "Superego is not reachable at ${UPSTREAM_HOST}:80." >&2
