@@ -152,6 +152,7 @@ if [[ -L /etc/nginx/sites-enabled/default ]]; then
 fi
 nginx -t
 systemctl enable --now nginx
+systemctl reload nginx
 
 install -o root -g root -m 0644 \
   "${SCRIPT_DIR}/systemd/matsci-sam.service" \

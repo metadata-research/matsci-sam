@@ -44,25 +44,41 @@ database does not exist. PostgreSQL's default SCRAM password verifier survives
 a role rename; an older MD5 verifier must be reset because it incorporates the
 old role name.
 
-## Hostname transition
+## Public proxy and hostname transition
 
-Nginx accepts both `superego.cci.drexel.edu` and `sam.cci.drexel.edu`, so the
-server and database layout do not change when the production name becomes
-available. The hostname-dependent settings are centralized in
-`/etc/matsci-sam/app.env`:
+The public `ego.cci.drexel.edu` host terminates TLS and proxies to the private
+Superego application host. Copy the `deploy` directory to Ego and run:
+
+```bash
+sudo ./deploy/setup-public-proxy.sh
+```
+
+The script installs nginx and Certbot into system locations and configures the
+HTTP reverse proxy. After public port 80 is reachable, request and install the
+certificate:
+
+```bash
+sudo certbot --nginx --redirect -d ego.cci.drexel.edu
+sudo certbot renew --dry-run
+```
+
+Superego accepts `ego.cci.drexel.edu`, `superego.cci.drexel.edu`, and
+`sam.cci.drexel.edu`, so the server and database layout do not change when the
+production name becomes available. The hostname-dependent settings are
+centralized in `/etc/matsci-sam/app.env`:
 
 ```dotenv
-NEXT_PUBLIC_SITE_URL=https://sam.cci.drexel.edu
-GOOGLE_CALLBACK_URL=https://sam.cci.drexel.edu/api/auth/callback
+NEXT_PUBLIC_SITE_URL=https://ego.cci.drexel.edu
+GOOGLE_CALLBACK_URL=https://ego.cci.drexel.edu/api/auth/callback
 ```
 
 `NEXT_PUBLIC_SITE_URL` is compiled into the Next.js browser bundle. Changing it
 therefore requires a new build and deployment. The Google OAuth client must also
 allow the new callback URL.
 
-TLS is deliberately separate from the bootstrap. The current hostname resolves
-to a private address, so use a Drexel-issued certificate or an approved DNS-01
-ACME process. Do not expose authenticated production traffic over plain HTTP.
+When `sam.cci.drexel.edu` is ready, point it at the public proxy, add the name and
+certificate there, update these two settings to the SAM URL, and rebuild. Do not
+expose authenticated production traffic over plain HTTP.
 
 ## Development deployment runner
 

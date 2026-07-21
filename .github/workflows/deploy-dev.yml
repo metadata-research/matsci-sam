@@ -20,7 +20,7 @@ jobs:
     runs-on: superego-dev
     environment:
       name: superego-dev
-      url: http://superego.cci.drexel.edu
+      url: https://ego.cci.drexel.edu
     timeout-minutes: 45
 
     steps:
