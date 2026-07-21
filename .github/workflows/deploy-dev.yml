@@ -40,10 +40,17 @@ jobs:
 
           app_root=/opt/matsci-sam
           release="${app_root}/releases/${RELEASE_SHA}"
-          previous=$(readlink -f "${app_root}/current" 2>/dev/null || true)
+          current="${app_root}/current"
+          previous=
 
-          if [[ -n "${previous}" && "${previous}" != "${app_root}/releases/"* ]]; then
-            echo "Refusing unexpected current target: ${previous}" >&2
+          if [[ -L "${current}" ]]; then
+            previous=$(readlink -f "${current}" 2>/dev/null || true)
+            if [[ -z "${previous}" || "${previous}" != "${app_root}/releases/"* || ! -d "${previous}" ]]; then
+              echo "Refusing invalid current symlink: ${current} -> ${previous:-unresolved}" >&2
+              exit 1
+            fi
+          elif [[ -e "${current}" ]]; then
+            echo "Refusing non-symlink current path: ${current}" >&2
             exit 1
           fi
 
@@ -74,7 +81,7 @@ jobs:
 
           next_link="${app_root}/.current-${RELEASE_SHA}"
           ln -sfn "${release}" "${next_link}"
-          mv -Tf "${next_link}" "${app_root}/current"
+          mv -Tf "${next_link}" "${current}"
           sudo /usr/bin/systemctl restart matsci-sam.service
 
           healthy=false
@@ -92,7 +99,7 @@ jobs:
             if [[ -n "${previous}" ]]; then
               rollback_link="${app_root}/.rollback-${RELEASE_SHA}"
               ln -sfn "${previous}" "${rollback_link}"
-              mv -Tf "${rollback_link}" "${app_root}/current"
+              mv -Tf "${rollback_link}" "${current}"
               sudo /usr/bin/systemctl restart matsci-sam.service
             fi
             exit 1
