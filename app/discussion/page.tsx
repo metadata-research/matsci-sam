@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Eyebrow } from "@/components/definition"
 import { DiscussionCommentBox } from "./comment-box"
 import { formatDate } from "@/lib/date"
-import { SparklesIcon } from "lucide-react"
+import { ChevronRightIcon, SparklesIcon } from "lucide-react"
 import Link from "next/link"
 
 export const metadata: Metadata = {
@@ -77,13 +77,84 @@ export default async function DiscussionPage() {
                 <p className="mt-1">{item.def.definition}</p>
               </div>
 
+              {/* Native <details>: collapsible with no dependency, and it
+                  works before hydration. The plain-language counterpart to the
+                  provenance graph -- the same events, in order, as prose. */}
+              {item.history.length > 1 && (
+                <details className="group border-t pt-3">
+                  <summary className="cursor-pointer list-none text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+                    <ChevronRightIcon className="size-3.5 transition-transform group-open:rotate-90" />
+                    History
+                    <span className="text-xs">
+                      ({item.history.length} entries)
+                    </span>
+                  </summary>
+
+                  <ol className="mt-3 space-y-3 border-l pl-4">
+                    {item.history.map((event, i) => (
+                      <li key={i} className="space-y-0.5">
+                        <div className="flex flex-wrap items-baseline gap-x-2 text-xs">
+                          <span
+                            className={
+                              event.kind === "comment"
+                                ? "font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                                : "font-semibold uppercase tracking-[0.12em] text-primary"
+                            }
+                          >
+                            {event.kind === "comment"
+                              ? "Comment"
+                              : event.isRefinement
+                                ? "Refined definition"
+                                : "Definition"}
+                          </span>
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            {event.isAi && (
+                              <SparklesIcon className="size-3 text-ai" />
+                            )}
+                            {event.author ?? "unknown"}
+                          </span>
+                          <span aria-hidden className="text-muted-foreground/50">
+                            &middot;
+                          </span>
+                          <span className="text-muted-foreground">
+                            {formatDate(event.at)}
+                          </span>
+                        </div>
+                        <p
+                          className={
+                            event.kind === "comment"
+                              ? "text-sm text-muted-foreground italic"
+                              : "text-sm"
+                          }
+                        >
+                          {event.body}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
+
               <div className="pt-1">
                 <DiscussionCommentBox definitionId={item.def.definitionId} />
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                added {formatDate(item.createdAt)}
-              </p>
+              {/* Credit line: date, then everyone who has contributed, oldest
+                  first. The model appears once however many times it ran. */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <span>added {formatDate(item.createdAt)}</span>
+                {item.contributors.map((c) => (
+                  <span key={c.name} className="flex items-center gap-1">
+                    <span aria-hidden className="text-muted-foreground/50">
+                      &middot;
+                    </span>
+                    {c.isAi && <SparklesIcon className="size-3 text-ai" />}
+                    <span className={c.isAi ? "text-ai font-mono" : ""}>
+                      {c.name}
+                    </span>
+                  </span>
+                ))}
+              </div>
             </Card>
           ))}
         </div>

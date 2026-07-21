@@ -58,7 +58,10 @@ export const discussionRouter = createTRPCRouter({
           example: definitionsTable.example,
           model: definitionsTable.model,
           isAi: usersTable.isAi,
+          author: usersTable.name,
           score: definitionsTable.score,
+          createdAt: definitionsTable.createdAt,
+          refinedFromId: definitionsTable.refinedFromId,
           comments: sql<number>`(
             SELECT count(*) FROM ${commentsTable}
             WHERE ${commentsTable.definitionId} = ${definitionsTable.id}
@@ -69,6 +72,58 @@ export const discussionRouter = createTRPCRouter({
         .from(definitionsTable)
         .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
         .where(inArray(definitionsTable.termId, termIds))
+
+      // Every comment on any of those definitions, for the interleaved history.
+      const definitionIds = defs.map((d) => d.definitionId)
+      const comments = definitionIds.length
+        ? await db
+            .select({
+              definitionId: commentsTable.definitionId,
+              message: commentsTable.message,
+              createdAt: commentsTable.createdAt,
+              author: usersTable.name,
+              isAi: usersTable.isAi
+            })
+            .from(commentsTable)
+            .innerJoin(usersTable, eq(usersTable.id, commentsTable.userId))
+            .where(inArray(commentsTable.definitionId, definitionIds))
+        : []
+
+      // A term's history: its definitions and the comments on them, in the
+      // order they happened. This is the plain-language counterpart to the
+      // PROV-O view -- same events, no graph.
+      const historyFor = (termId: number) => {
+        const own = defs.filter((d) => d.termId === termId)
+        const ownIds = new Set(own.map((d) => d.definitionId))
+
+        const events = [
+          ...own.map((d) => ({
+            kind: "definition" as const,
+            at: d.createdAt,
+            // Early AI definitions were written by a model user with no name;
+            // the model that produced them is on the definition itself, so
+            // credit that rather than showing "unknown".
+            author: d.author ?? d.model,
+            isAi: d.isAi,
+            body: d.definition,
+            isRefinement: d.refinedFromId !== null,
+            definitionId: d.definitionId
+          })),
+          ...comments
+            .filter((c) => ownIds.has(c.definitionId))
+            .map((c) => ({
+              kind: "comment" as const,
+              at: c.createdAt,
+              author: c.author,
+              isAi: c.isAi,
+              body: c.message,
+              isRefinement: false,
+              definitionId: c.definitionId
+            }))
+        ]
+
+        return events.sort((a, b) => a.at.localeCompare(b.at))
+      }
 
       // One definition per term to discuss: prefer the AI definition, then the
       // highest score.
@@ -82,9 +137,38 @@ export const discussionRouter = createTRPCRouter({
         if (better) chosen.set(d.termId, d)
       }
 
+      /*
+       * Everyone who has contributed to a term, in the order they first did:
+       * the original definition's author leads, then later authors and
+       * commenters. Deduplicated by name, so a model that suggested several
+       * revisions or answered several comments is credited once.
+       */
+      const contributorsFrom = (history: ReturnType<typeof historyFor>) => {
+        const seen = new Set<string>()
+        const contributors: { name: string; isAi: boolean }[] = []
+
+        for (const event of history) {
+          const name = event.author ?? "unknown"
+          if (seen.has(name)) continue
+          seen.add(name)
+          contributors.push({ name, isAi: event.isAi })
+        }
+
+        return contributors
+      }
+
       // Keep recency order; drop the rare term with no definitions at all.
       return terms
-        .map((t) => ({ ...t, def: chosen.get(t.id) ?? null }))
+        .map((t) => {
+          const history = historyFor(t.id)
+
+          return {
+            ...t,
+            def: chosen.get(t.id) ?? null,
+            history,
+            contributors: contributorsFrom(history)
+          }
+        })
         .filter((t): t is typeof t & { def: NonNullable<typeof t.def> } =>
           Boolean(t.def)
         )
