@@ -38,7 +38,6 @@ branch 'feature/ci-cd' set up to track 'origin/feature/ci-cd'.
 
 4. Once the PR is created, GitHub will run a workflow to ensure the code lints, builds, and ensures the DB migrations are consistent. This action MUST run successfully before the feature branch can be merged. If it fails, check the logs of the action to see why, make the necessary changes, and then push any updates to the feature branch (you don't need to make a new PR).
 
-5. Once the PR checks have passed successfully, a maintainer will merge the PR into `dev`. Merging into `dev` does **not** deploy anything.
+5. Once the PR checks have passed successfully, a maintainer will merge the PR into `dev`. Merging into `dev` automatically deploys the development site to `superego.cci.drexel.edu` through its isolated `superego-dev` runner.
 
-6. Deployment to production is a separate, deliberate step: a maintainer merges `dev` into `main`, which kicks off the deploy script on the production server (the site restarts and DB migrations run, so this is batched and timed intentionally). If you need your change live urgently, say so in the PR.
-
+6. Deployment to the original production server remains a separate, deliberate step: a maintainer merges `dev` into `main`, which kicks off the existing production deploy script (the site restarts and DB migrations run, so this is batched and timed intentionally). If you need your change promoted urgently, say so in the PR.
