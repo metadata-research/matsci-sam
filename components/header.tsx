@@ -4,7 +4,6 @@ import { ThemeToggle } from "./theme-provider";
 import { getSession } from "@/lib/session";
 import { db, usersTable } from "@yamz/db";
 import { eq } from "drizzle-orm";
-import { OAuthURL } from "@/lib/apis/google";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,7 +88,7 @@ const AuthSection = async () => {
   }
 
   return (
-    <Link href={OAuthURL}>
+    <Link href="/api/login">
       <Button variant="outline">Login</Button>
     </Link>
   );
