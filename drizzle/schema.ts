@@ -9,6 +9,7 @@ import {
   pgEnum,
   primaryKey,
   real,
+  index,
   uniqueIndex,
   type AnyPgColumn
 } from "drizzle-orm/pg-core"
@@ -20,7 +21,13 @@ export type User = typeof usersTable.$inferSelect
 export const usersTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   googleId: varchar().unique(undefined, { nulls: "distinct" }),
+  // Reserved for a future verified ORCID OAuth/linking flow. Do not populate
+  // this from an unverified profile form.
+  orcidId: varchar({ length: 19 }).unique(undefined, { nulls: "distinct" }),
   name: varchar({ length: 255 }),
+  firstName: varchar({ length: 100 }),
+  lastName: varchar({ length: 100 }),
+  affiliation: varchar({ length: 255 }),
   email: varchar({ length: 254 }),
   isAi: boolean().notNull().default(false),
   role: userRoleEnum().notNull().default("user"),
@@ -90,6 +97,9 @@ export const definitionsTable = pgTable(
     updatedAt: timestamp({ mode: "string" }).$onUpdateFn(() => sql`now()`)
   },
   (table) => [
+    // Profile and administrative views filter all definitions by author,
+    // including refined versions outside the partial uniqueness index below.
+    index("definitions_author_idx").on(table.authorId),
     // One *original* definition per author per term; refined versions
     // (refinedFromId set) are exempt so an accepted suggestion can coexist
     // with the author's original

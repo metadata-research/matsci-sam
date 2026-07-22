@@ -22,7 +22,13 @@ export const GET = async (req: NextRequest) => {
   const userInfo = await google
     .oauth2({ version: "v2", auth: oauth })
     .userinfo.get();
-  const { id: userId, name, email } = userInfo.data;
+  const {
+    id: userId,
+    name,
+    email,
+    given_name: givenName,
+    family_name: familyName,
+  } = userInfo.data;
   if (!userId || !email)
     throw new Error("Didn't get sufficient user info from Google!");
 
@@ -46,14 +52,26 @@ export const GET = async (req: NextRequest) => {
   if (user) {
     const [updated] = await db
       .update(usersTable)
-      .set({ googleId: userId, name: name || user.name, email: normalizedEmail })
+      .set({
+        googleId: userId,
+        name: name || user.name,
+        email: normalizedEmail,
+        firstName: user.firstName || givenName || null,
+        lastName: user.lastName || familyName || null,
+      })
       .where(eq(usersTable.id, user.id))
       .returning();
     user = updated;
   } else {
     const [inserted] = await db
       .insert(usersTable)
-      .values({ googleId: userId, name: name || "", email: normalizedEmail })
+      .values({
+        googleId: userId,
+        name: name || "",
+        email: normalizedEmail,
+        firstName: givenName || null,
+        lastName: familyName || null,
+      })
       .returning();
     user = inserted;
   }
