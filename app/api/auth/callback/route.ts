@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { google } from "googleapis";
 import { redirect } from "next/navigation";
 import { NextRequest } from "next/server";
+import { eq, sql } from "drizzle-orm";
 
 export const GET = async (req: NextRequest) => {
   // Get session
@@ -25,15 +26,37 @@ export const GET = async (req: NextRequest) => {
   if (!userId || !email)
     throw new Error("Didn't get sufficient user info from Google!");
 
-  // Upsert the user in the database (Insert if doesn't exist and return the row)
-  const [user] = await db
-    .insert(usersTable)
-    .values({ googleId: userId, name: name || "", email })
-    .onConflictDoUpdate({
-      target: usersTable.googleId,
-      set: { googleId: userId },
-    })
-    .returning();
+  const normalizedEmail = email.trim().toLowerCase();
+  let user = await db.query.usersTable.findFirst({
+    where: eq(usersTable.googleId, userId),
+  });
+
+  // A development identity is created with the same email but without a
+  // Google ID. Attach OAuth to that row so its existing authorship survives
+  // the transition to production authentication.
+  if (!user) {
+    user = await db.query.usersTable.findFirst({
+      where: sql`lower(${usersTable.email}) = ${normalizedEmail}`,
+    });
+  }
+
+  if (user?.googleId && user.googleId !== userId)
+    throw new Error("That email is already associated with another Google account");
+
+  if (user) {
+    const [updated] = await db
+      .update(usersTable)
+      .set({ googleId: userId, name: name || user.name, email: normalizedEmail })
+      .where(eq(usersTable.id, user.id))
+      .returning();
+    user = updated;
+  } else {
+    const [inserted] = await db
+      .insert(usersTable)
+      .values({ googleId: userId, name: name || "", email: normalizedEmail })
+      .returning();
+    user = inserted;
+  }
 
   // Save id in session for future requests
   session.id = user!.id;

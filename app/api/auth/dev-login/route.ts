@@ -1,31 +1,66 @@
+import { createHash, timingSafeEqual } from "node:crypto"
 import { db, usersTable } from "@yamz/db"
+import { getDevAuthUsers, isDevAuthEnabled } from "@/lib/dev-auth"
 import { getSession } from "@/lib/session"
-import { eq } from "drizzle-orm"
-import { redirect } from "next/navigation"
+import { eq, sql } from "drizzle-orm"
+import { NextRequest, NextResponse } from "next/server"
 
-const DEV_EMAIL = "dev@localhost"
+const sameSecret = (submitted: string, expected: string) => {
+  const submittedDigest = createHash("sha256").update(submitted).digest()
+  const expectedDigest = createHash("sha256").update(expected).digest()
+  return timingSafeEqual(submittedDigest, expectedDigest)
+}
 
-// Local-testing login that skips Google OAuth. Only exists in development —
-// production builds return 404.
-export const GET = async () => {
-  if (process.env.NODE_ENV === "production")
-    return new Response("Not found", { status: 404 })
+const loginRedirect = (request: NextRequest, error: string) =>
+  NextResponse.redirect(new URL(`/dev-login?error=${error}`, request.url), 303)
+
+export const POST = async (request: NextRequest) => {
+  if (!isDevAuthEnabled()) return new Response("Not found", { status: 404 })
+
+  const expectedPassword = process.env.DEV_AUTH_PASSWORD
+  if (!expectedPassword) return loginRedirect(request, "configuration")
+
+  let users
+  try {
+    users = getDevAuthUsers()
+  } catch {
+    return loginRedirect(request, "configuration")
+  }
+
+  const form = await request.formData()
+  const username = String(form.get("username") ?? "").trim().toLowerCase()
+  const password = String(form.get("password") ?? "")
+  const configuredUser = users.find((candidate) => candidate.username === username)
+
+  if (!configuredUser || !sameSecret(password, expectedPassword))
+    return loginRedirect(request, "invalid")
 
   let user = await db.query.usersTable.findFirst({
-    where: eq(usersTable.email, DEV_EMAIL)
+    where: sql`lower(${usersTable.email}) = ${configuredUser.email}`
   })
 
   if (!user) {
     const [inserted] = await db
       .insert(usersTable)
-      .values({ name: "Dev User", email: DEV_EMAIL, role: "admin" })
+      .values({
+        name: configuredUser.name,
+        email: configuredUser.email,
+        role: "user"
+      })
       .returning()
     user = inserted
+  } else if (!user.name) {
+    const [updated] = await db
+      .update(usersTable)
+      .set({ name: configuredUser.name })
+      .where(eq(usersTable.id, user.id))
+      .returning()
+    user = updated
   }
 
   const session = await getSession()
   session.id = user!.id
   await session.save()
 
-  redirect("/profile")
+  return NextResponse.redirect(new URL("/profile", request.url), 303)
 }

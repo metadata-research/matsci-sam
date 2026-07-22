@@ -2,7 +2,6 @@ import { SearchSection } from "./search-section"
 import { SITE_NAME } from "@/lib/site"
 import { HydrateClient, trpc } from "@/trpc/server"
 import Link from "next/link"
-import { OAuthURL } from "@/lib/apis/google"
 import { Icon } from "@iconify/react"
 import { db, definitionsTable, termsTable } from "@yamz/db"
 import { desc, eq, sql } from "drizzle-orm"
@@ -81,7 +80,7 @@ export default async function Home() {
                     </Button>
                   ) : (
                     <Button asChild>
-                      <Link href={OAuthURL}>Login</Link>
+                      <Link href="/api/login">Login</Link>
                     </Button>
                   )}
                 </div>
