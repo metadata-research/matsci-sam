@@ -109,12 +109,12 @@ const AuthSection = async () => {
               <DropdownMenuSeparator />
             </>
           )}
-          <Link href="/profile">
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-          </Link>
-          <Link href="/profile#authored-terms">
-            <DropdownMenuItem>Definitions</DropdownMenuItem>
-          </Link>
+          <DropdownMenuItem asChild>
+            <Link href="/profile">Profile</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/profile#authored-terms">Definitions</Link>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <LogoutButton />
         </DropdownMenuContent>
@@ -122,9 +122,9 @@ const AuthSection = async () => {
     )
 
   return (
-    <Link href="/api/login">
-      <Button variant="outline">Login</Button>
-    </Link>
+    <Button asChild variant="outline">
+      <Link href="/api/login">Login</Link>
+    </Button>
   )
 }
 

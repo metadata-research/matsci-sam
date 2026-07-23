@@ -1,0 +1,8 @@
+export const TERM_MAX_LENGTH = 200
+export const DEFINITION_MAX_LENGTH = 10_000
+export const EXAMPLE_MAX_LENGTH = 5_000
+export const COMMENT_MAX_LENGTH = 4_000
+export const CHANGE_NOTE_MAX_LENGTH = 500
+export const TAG_MAX_LENGTH = 100
+export const SEARCH_QUERY_MAX_LENGTH = 200
+export const SEARCH_RESULT_MAX_LIMIT = 100

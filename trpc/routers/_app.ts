@@ -22,6 +22,18 @@ import { votesRouter } from "./votes"
 // the full design rationale (FTS + trigram + tiers, index-backed via a
 // term-id UNION).
 import { searchMatch, searchOrder, searchOrderGrouped } from "@/lib/search"
+import {
+  SEARCH_QUERY_MAX_LENGTH,
+  SEARCH_RESULT_MAX_LIMIT
+} from "@/lib/input-limits"
+
+const searchQuerySchema = z.string().trim().max(SEARCH_QUERY_MAX_LENGTH)
+const searchLimitSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(SEARCH_RESULT_MAX_LIMIT)
+  .default(10)
 
 export const appRouter = createTRPCRouter({
   tags: tagsRouter,
@@ -50,7 +62,7 @@ export const appRouter = createTRPCRouter({
     terms: baseProcedure
       .input(
         z
-          .object({ query: z.string(), limit: z.number().default(10) })
+          .object({ query: searchQuerySchema, limit: searchLimitSchema })
           .optional()
       )
       .query(async ({ input }) => {
@@ -85,8 +97,8 @@ export const appRouter = createTRPCRouter({
       .input(
         z
           .object({
-            query: z.string(),
-            limit: z.number().default(10),
+            query: searchQuerySchema,
+            limit: searchLimitSchema,
             // Author filter for the /search filter panel. Applied in SQL rather
             // than on the returned rows, so it narrows before LIMIT -- filtering
             // client-side would silently drop matches past the limit.
@@ -142,7 +154,7 @@ export const appRouter = createTRPCRouter({
     all: baseProcedure
       .input(
         z
-          .object({ query: z.string(), limit: z.number().default(10) })
+          .object({ query: searchQuerySchema, limit: searchLimitSchema })
           .optional()
       )
       .query(async ({ input }) => {

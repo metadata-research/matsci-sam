@@ -28,16 +28,32 @@ import { useState } from "react"
 import { PencilIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import {
+  CHANGE_NOTE_MAX_LENGTH,
+  DEFINITION_MAX_LENGTH,
+  EXAMPLE_MAX_LENGTH
+} from "@/lib/input-limits"
 
 type EditTerm = z.infer<typeof EditTermSchema>
 const EditTermSchema = z.object({
-  definition: z.string().trim().min(1, "Definition is required"),
-  example: z.string().trim().min(1, "Example of use is required"),
+  definition: z
+    .string()
+    .trim()
+    .min(1, "Definition is required")
+    .max(DEFINITION_MAX_LENGTH),
+  example: z
+    .string()
+    .trim()
+    .min(1, "Example of use is required")
+    .max(EXAMPLE_MAX_LENGTH),
   changeNote: z
     .string()
     .trim()
     .min(3, "Briefly describe what changed")
-    .max(500, "Change note must be 500 characters or fewer")
+    .max(
+      CHANGE_NOTE_MAX_LENGTH,
+      `Change note must be ${CHANGE_NOTE_MAX_LENGTH} characters or fewer`
+    )
 })
 
 interface Props {
@@ -116,6 +132,7 @@ export const EditDefinitionDialog = ({
                     <Textarea
                       placeholder="A _class_ of thing, followed by distinguishing characteristics, such as (for 'water'): 'A _clear liquid_ made up of hydrogen and oxygen molecules.'"
                       className="min-h-32 resize-y"
+                      maxLength={DEFINITION_MAX_LENGTH}
                       {...field}
                     />
                   </FormControl>
@@ -133,7 +150,7 @@ export const EditDefinitionDialog = ({
                     <Textarea
                       placeholder="Summarize the reason for this revision."
                       className="min-h-20 resize-y"
-                      maxLength={500}
+                      maxLength={CHANGE_NOTE_MAX_LENGTH}
                       {...field}
                     />
                   </FormControl>
@@ -151,6 +168,7 @@ export const EditDefinitionDialog = ({
                     <Textarea
                       placeholder="Show how the term is used in context."
                       className="min-h-24 resize-y"
+                      maxLength={EXAMPLE_MAX_LENGTH}
                       {...field}
                     />
                   </FormControl>

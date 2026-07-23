@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { baseProcedure, createTRPCRouter } from "../init"
-import { authenticatedProcedure } from "../procedures"
+import { contributorProcedure } from "../procedures"
 import {
   db,
   definitionRevisionsTable,
@@ -54,7 +54,7 @@ export const votesRouter = createTRPCRouter({
 
       return data
     }),
-  vote: authenticatedProcedure
+  vote: contributorProcedure
     .input(voteTargetSchema.extend({ vote: z.enum(["up", "down"]) }))
     .mutation(
       async ({

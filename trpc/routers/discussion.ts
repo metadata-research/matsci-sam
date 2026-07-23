@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
-import { authenticatedProcedure } from "../procedures"
+import { contributorProcedure } from "../procedures"
 import {
   coauthorsTable,
   commentsTable,
@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache"
 import { OllamaModel, RefineSystemPrompt, runLLM } from "@/lib/apis/ollama"
 import { GetModelUser } from "@/lib/crud"
 import { createDefinitionWithInitialRevision } from "@/lib/definition-revisions"
+import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 
 /*
  * Feed for the /discussion page: the most-recent terms, each paired with the
@@ -269,12 +270,12 @@ export const discussionRouter = createTRPCRouter({
    * result before showing it so publication cannot attach AI attribution to
    * client-altered text.
    */
-  suggest: authenticatedProcedure
+  suggest: contributorProcedure
     .input(
       z.object({
         definitionId: z.number(),
         revisionId: z.number(),
-        comment: z.string().trim().min(1)
+        comment: z.string().trim().min(1).max(COMMENT_MAX_LENGTH)
       })
     )
     .mutation(
@@ -373,7 +374,7 @@ export const discussionRouter = createTRPCRouter({
    * model as coauthor. The comment that prompted it is recorded alongside, so
    * the rationale stays with the discussion.
    */
-  acceptSuggestion: authenticatedProcedure
+  acceptSuggestion: contributorProcedure
     .input(z.object({ suggestionId: z.number() }))
     .mutation(async ({ ctx: { userId }, input: { suggestionId } }) => {
       const preview = await db.query.discussionSuggestionsTable.findFirst({

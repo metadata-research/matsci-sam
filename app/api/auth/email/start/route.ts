@@ -1,5 +1,5 @@
 import { db, emailAuthTokensTable } from "@yamz/db"
-import { and, eq, gt, isNull, lt } from "drizzle-orm"
+import { and, eq, gt, isNull, lt, sql } from "drizzle-orm"
 import { after, NextRequest, NextResponse } from "next/server"
 import {
   createEmailAuthToken,
@@ -31,23 +31,30 @@ export const POST = async (request: NextRequest) => {
     .delete(emailAuthTokensTable)
     .where(lt(emailAuthTokensTable.expiresAt, now))
 
-  const recentThreshold = new Date(Date.now() - 60 * 1000).toISOString()
-  const [recent] = await db
-    .select({ tokenHash: emailAuthTokensTable.tokenHash })
-    .from(emailAuthTokensTable)
-    .where(
-      and(
-        eq(emailAuthTokensTable.email, email),
-        gt(emailAuthTokensTable.createdAt, recentThreshold)
-      )
-    )
-    .limit(1)
-  if (recent) return genericRedirect()
-
   const token = createEmailAuthToken()
   const tokenHash = hashEmailAuthToken(token)
 
-  await db.transaction(async (tx) => {
+  const issued = await db.transaction(async (tx) => {
+    // Serialize requests for the same normalized address. Without this lock,
+    // concurrent requests can both pass the recent-token check and send two
+    // links. A hash collision only delays an unrelated address briefly.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${email}, 0))`
+    )
+
+    const recentThreshold = new Date(Date.now() - 60 * 1000).toISOString()
+    const [recent] = await tx
+      .select({ tokenHash: emailAuthTokensTable.tokenHash })
+      .from(emailAuthTokensTable)
+      .where(
+        and(
+          eq(emailAuthTokensTable.email, email),
+          gt(emailAuthTokensTable.createdAt, recentThreshold)
+        )
+      )
+      .limit(1)
+    if (recent) return false
+
     await tx
       .update(emailAuthTokensTable)
       .set({ usedAt: now })
@@ -62,7 +69,10 @@ export const POST = async (request: NextRequest) => {
       email,
       expiresAt: emailAuthTokenExpiry()
     })
+    return true
   })
+
+  if (!issued) return genericRedirect()
 
   after(async () => {
     try {

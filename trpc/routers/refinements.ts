@@ -20,6 +20,7 @@ import {
   RevisionConflictError,
   RevisionNoChangeError
 } from "@/lib/definition-revisions"
+import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 
 // Refinement is only offered on definitions the caller authored, and only on
 // originals — refined versions (refinedFromId set) are end products.
@@ -63,7 +64,7 @@ export const refinementsRouter = createTRPCRouter({
       z.object({
         definitionId: z.number(),
         expectedRevisionId: z.number(),
-        comment: z.string().optional()
+        comment: z.string().max(COMMENT_MAX_LENGTH).optional()
       })
     )
     .mutation(

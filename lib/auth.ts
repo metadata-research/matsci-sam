@@ -11,5 +11,11 @@ export const auth = async () => {
     where: eq(usersTable.id, sesh.id)
   })
 
+  if (!user) {
+    sesh.destroy()
+    await sesh.save()
+    redirect("/api/login")
+  }
+
   return { sesh, user }
 }

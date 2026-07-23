@@ -52,9 +52,11 @@ export const TermVotes = ({
       if (error.data?.code === "UNAUTHORIZED")
         toast("You must be logged in to vote on a definition!", {
           action: (
-            <Link href="/api/login" className="ml-auto">
-              <Button>Login</Button>
-            </Link>
+            <Button asChild>
+              <Link href="/api/login" className="ml-auto">
+                Login
+              </Link>
+            </Button>
           ),
           position: "top-center"
         })

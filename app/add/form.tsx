@@ -28,6 +28,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { DefineTerm, DefineTermSchema } from "@/lib/schemas/terms"
 import { trpc } from "@/trpc/client"
+import {
+  DEFINITION_MAX_LENGTH,
+  EXAMPLE_MAX_LENGTH,
+  TERM_MAX_LENGTH
+} from "@/lib/input-limits"
 
 const AI_WORKFLOWS = [
   {
@@ -215,6 +220,7 @@ export const DefineTermForm = ({
                       onValueChange={field.onChange}
                       options={terms ?? []}
                       placeholder="Start typing a materials science term…"
+                      maxLength={TERM_MAX_LENGTH}
                     />
                   </FormControl>
                   <FormDescription aria-live="polite">
@@ -239,7 +245,11 @@ export const DefineTermForm = ({
                     Describe what it is, then what sets it apart.
                   </FormDescription>
                   <FormControl>
-                    <Textarea className="min-h-24" {...field} />
+                    <Textarea
+                      className="min-h-24"
+                      maxLength={DEFINITION_MAX_LENGTH}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -256,7 +266,11 @@ export const DefineTermForm = ({
                     Show how the term appears in a materials science context.
                   </FormDescription>
                   <FormControl>
-                    <Textarea className="min-h-20" {...field} />
+                    <Textarea
+                      className="min-h-20"
+                      maxLength={EXAMPLE_MAX_LENGTH}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

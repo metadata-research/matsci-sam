@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import { diffWords } from "@/lib/word-diff"
 import { toast } from "sonner"
+import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 
 const DiffText = ({ from, to }: { from: string; to: string }) => (
   <>
@@ -183,6 +184,7 @@ export const RefinePanel = ({
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="Not quite right? Say what should change and ask for a re-evaluation."
                     className="min-h-9"
+                    maxLength={COMMENT_MAX_LENGTH}
                   />
                   <Button
                     variant="secondary"

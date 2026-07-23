@@ -9,10 +9,11 @@ import {
   definitionRevisionsTable
 } from "@yamz/db"
 import { and, asc, eq, getTableColumns } from "drizzle-orm"
-import { authenticatedProcedure } from "../procedures"
 import { reviseDefinition } from "@/lib/apis/ollama"
 import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
+import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
+import { contributorProcedure } from "../procedures"
 
 export const commentsRouter = createTRPCRouter({
   get: baseProcedure.input(z.number()).query(async ({ input: id }) => {
@@ -38,12 +39,12 @@ export const commentsRouter = createTRPCRouter({
 
     return comments
   }),
-  create: authenticatedProcedure
+  create: contributorProcedure
     .input(
       z.object({
         id: z.number(),
         revisionId: z.number(),
-        comment: z.string().nonempty()
+        comment: z.string().trim().min(1).max(COMMENT_MAX_LENGTH)
       })
     )
     .mutation(

@@ -26,7 +26,11 @@ import {
   sql
 } from "drizzle-orm"
 import { slugify, uniqueSlug } from "@/lib/slug"
-import { adminProcedure, authenticatedProcedure } from "../procedures"
+import {
+  adminProcedure,
+  authenticatedProcedure,
+  contributorProcedure
+} from "../procedures"
 import { revalidatePath } from "next/cache"
 import { reviseDefinition } from "@/lib/apis/ollama"
 import { after } from "next/server"
@@ -37,14 +41,28 @@ import {
   RevisionConflictError,
   RevisionNoChangeError
 } from "@/lib/definition-revisions"
+import {
+  CHANGE_NOTE_MAX_LENGTH,
+  DEFINITION_MAX_LENGTH,
+  EXAMPLE_MAX_LENGTH,
+  TERM_MAX_LENGTH
+} from "@/lib/input-limits"
 
 export const definitionsRouter = createTRPCRouter({
-  create: authenticatedProcedure
+  create: contributorProcedure
     .input(
       z.object({
-        term: z.string().trim().min(1, "Term is required"),
-        definition: z.string().trim().min(1, "You must give a definition"),
-        examples: z.string().trim().min(1, "You must give an example"),
+        term: z.string().trim().min(1, "Term is required").max(TERM_MAX_LENGTH),
+        definition: z
+          .string()
+          .trim()
+          .min(1, "You must give a definition")
+          .max(DEFINITION_MAX_LENGTH),
+        examples: z
+          .string()
+          .trim()
+          .min(1, "You must give an example")
+          .max(EXAMPLE_MAX_LENGTH),
         // The interactive add flow: no term-level auto-AI definition; the
         // author refines their own definition on the definition page instead
         interactive: z.boolean().default(false)
@@ -134,13 +152,21 @@ export const definitionsRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.number(),
-        definition: z.string().trim().min(1, "Definition is required"),
-        example: z.string().trim().min(1, "Example of use is required"),
+        definition: z
+          .string()
+          .trim()
+          .min(1, "Definition is required")
+          .max(DEFINITION_MAX_LENGTH),
+        example: z
+          .string()
+          .trim()
+          .min(1, "Example of use is required")
+          .max(EXAMPLE_MAX_LENGTH),
         changeNote: z
           .string()
           .trim()
           .min(3, "Briefly describe what changed")
-          .max(500),
+          .max(CHANGE_NOTE_MAX_LENGTH),
         expectedRevisionId: z.number()
       })
     )
@@ -200,7 +226,7 @@ export const definitionsRouter = createTRPCRouter({
         definitionId: z.number(),
         revisionId: z.number(),
         expectedRevisionId: z.number(),
-        changeNote: z.string().trim().min(3).max(500)
+        changeNote: z.string().trim().min(3).max(CHANGE_NOTE_MAX_LENGTH)
       })
     )
     .mutation(

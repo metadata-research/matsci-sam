@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 
 /*
  * Discussion comment box offering two distinct actions on the same text:
@@ -46,9 +47,11 @@ export const DiscussionCommentBox = ({
   const loginToast = () =>
     toast("You must be logged in to take part!", {
       action: (
-        <Link href="/api/login" className="ml-auto">
-          <Button>Login</Button>
-        </Link>
+        <Button asChild>
+          <Link href="/api/login" className="ml-auto">
+            Login
+          </Link>
+        </Button>
       ),
       position: "top-center"
     })
@@ -70,9 +73,7 @@ export const DiscussionCommentBox = ({
   const suggest = trpc.discussion.suggest.useMutation({
     onSuccess: (data) => setSuggestion(data),
     onError: (e) =>
-      e.data?.code === "UNAUTHORIZED"
-        ? loginToast()
-        : toast("The model could not produce a revision. Try again.")
+      e.data?.code === "UNAUTHORIZED" ? loginToast() : toast.error(e.message)
   })
 
   const accept = trpc.discussion.acceptSuggestion.useMutation({
@@ -108,6 +109,7 @@ export const DiscussionCommentBox = ({
           placeholder="What would you change about this definition?"
           aria-label="Your comment"
           disabled={busy}
+          maxLength={COMMENT_MAX_LENGTH}
         />
 
         <div className="flex flex-wrap items-center gap-2">

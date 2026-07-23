@@ -21,11 +21,12 @@ import { SITE_NAME } from "@/lib/site"
 export const metadata: Metadata = { title: `Sign in | ${SITE_NAME}` }
 
 export default function LoginPage() {
-  if (isDevAuthEnabled()) redirect("/dev-login")
-
+  const devEnabled = isDevAuthEnabled()
   const emailEnabled = isEmailAuthEnabled()
   const orcidEnabled = isOrcidAuthEnabled()
-  if (!emailEnabled && !orcidEnabled) redirect("/api/auth/google")
+  if (!devEnabled && !emailEnabled && !orcidEnabled)
+    redirect("/api/auth/google")
+  if (devEnabled && !emailEnabled && !orcidEnabled) redirect("/dev-login")
 
   return (
     <main className="px-4 py-12">
@@ -96,6 +97,18 @@ export default function LoginPage() {
                 New here? Verifying your email creates your account
                 automatically.
               </p>
+            </>
+          ) : null}
+          {devEnabled ? (
+            <>
+              <div className="flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                Development
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <Button asChild variant="ghost" className="w-full">
+                <Link href="/dev-login">Use development sign-in</Link>
+              </Button>
             </>
           ) : null}
         </CardContent>
