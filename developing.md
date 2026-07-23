@@ -632,7 +632,11 @@ Tags are many-to-many with definitions. See `trpc/routers/tags.ts` for the API a
 Ensure all required variables are set (see `.env.example`):
 
 - `DATABASE_URL` - PostgreSQL connection
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` - OAuth
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` - Google
+  OAuth web client
+- `GOOGLE_AUTH_ACCESS_MODE` - `existing-or-allowlisted` or `open`
+- `GOOGLE_AUTH_ALLOWED_EMAILS` - optional exact comma-separated accounts
+  allowed to create users in the restricted mode
 - `SESSION_PASSWORD` - Session encryption (32+ chars)
 - `OLLAMA_HOST` - AI service URL
 - `SYSTEM_PROMPT_KEY` - Name of an AI system prompt from `lib/prompts.json` — see [AI System Prompts](#ai-system-prompts)
