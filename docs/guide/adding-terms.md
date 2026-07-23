@@ -11,23 +11,26 @@ The form asks for three things.
 - **Definition.** Name the class of thing, then what distinguishes it.
   For austenite, "A face-centered cubic phase of iron and its alloys,
   able to dissolve considerably more carbon than ferrite."
-- **Examples.** One or more sentences using the term in context.
+- **Example of use.** One or more sentences showing the term in a materials
+  science context.
 
-The **Interactive AI refinement** switch chooses between two modes.
+The form offers two AI workflows. Your definition is published first in
+either workflow.
 
-**Classic.** Your definition is added as written. When a term is defined
-for the first time and the model service is available, the application
-requests an independent AI definition for comparison. Adding another
-definition to an existing term does not request a new independent AI
-definition.
+**Publish and compare.** Your definition is added as written. When a term is
+defined for the first time and the model service is available, the application
+requests an independent, separately attributed AI definition for comparison.
+Adding another definition to an existing term does not request a new
+independent AI definition.
 
-**Interactive AI refinement.** Your definition is added as written without
-an independent AI definition. The definition page offers a **Refine with
-AI** button. The model request begins only when you select that button.
-See [AI refinement](/docs/ai-refinement) for the review loop.
+**Publish, then refine.** Your definition is added as written without an
+independent AI definition. The definition page offers a **Refine with AI**
+button. The model request begins only when you select that button. See
+[AI refinement](/docs/ai-refinement) for the review loop.
 
-After submitting, you arrive at version 1 of your definition. The definition
-keeps the same identifier and URL when you publish later revisions. You can
-tag your contribution, review votes and comments, and start refinement when
-interactive mode was selected. [Community review and revisions](/docs/community)
-explains how revisions affect voting, comments, and provenance.
+After selecting **Publish definition**, you arrive at version 1 of your
+definition. The definition keeps the same identifier and URL when you publish
+later revisions. You can tag your contribution, review votes and comments, and
+start refinement when **Publish, then refine** was selected.
+[Community review and revisions](/docs/community) explains how revisions
+affect voting, comments, and provenance.

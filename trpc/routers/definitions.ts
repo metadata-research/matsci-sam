@@ -15,7 +15,16 @@ import {
   definitionRevisionsTable,
   discussionSuggestionsTable
 } from "@yamz/db"
-import { and, desc, eq, getTableColumns, like, or, sql } from "drizzle-orm"
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  isNull,
+  like,
+  or,
+  sql
+} from "drizzle-orm"
 import { slugify, uniqueSlug } from "@/lib/slug"
 import { adminProcedure, authenticatedProcedure } from "../procedures"
 import { revalidatePath } from "next/cache"
@@ -33,9 +42,9 @@ export const definitionsRouter = createTRPCRouter({
   create: authenticatedProcedure
     .input(
       z.object({
-        term: z.string().nonempty("Term is required"),
-        definition: z.string().nonempty("You must give a definition"),
-        examples: z.string().nonempty("You must give an example"),
+        term: z.string().trim().min(1, "Term is required"),
+        definition: z.string().trim().min(1, "You must give a definition"),
+        examples: z.string().trim().min(1, "You must give an example"),
         // The interactive add flow: no term-level auto-AI definition; the
         // author refines their own definition on the definition page instead
         interactive: z.boolean().default(false)
@@ -86,6 +95,21 @@ export const definitionsRouter = createTRPCRouter({
 
           dbTerm = insertedTerm
         }
+
+        const existingOriginal = await tx.query.definitionsTable.findFirst({
+          columns: { id: true },
+          where: and(
+            eq(definitionsTable.termId, dbTerm.id),
+            eq(definitionsTable.authorId, authorId),
+            isNull(definitionsTable.refinedFromId)
+          )
+        })
+        if (existingOriginal)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "You already contributed a definition for this term. Open your existing definition to publish a revision."
+          })
 
         const { definition: insertedDefinition } =
           await createDefinitionWithInitialRevision(tx, {
