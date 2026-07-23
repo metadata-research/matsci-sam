@@ -62,17 +62,26 @@ sudo certbot --nginx --redirect -d ego.cci.drexel.edu
 sudo certbot renew --dry-run
 ```
 
-Until Ego's public ports and certificate are available, the application can be
-demonstrated over the Drexel network at `http://superego.cci.drexel.edu` with:
+Superego has its own browser-trusted certificate and can be used directly over
+the Drexel network or VPN with:
 
 ```dotenv
-NEXT_PUBLIC_SITE_URL=http://superego.cci.drexel.edu
-GOOGLE_CALLBACK_URL=http://superego.cci.drexel.edu/api/auth/callback
+NEXT_PUBLIC_SITE_URL=https://superego.cci.drexel.edu
+GOOGLE_CALLBACK_URL=https://superego.cci.drexel.edu/api/auth/callback
+SESSION_COOKIE_SECURE=true
 ```
 
-Do not enable Google authentication for this HTTP-only interim deployment.
-After Ego has a valid certificate, change both values to the HTTPS Ego URL and
-rebuild.
+Use a separate Google OAuth web client for Superego. Its exact authorized
+redirect URI is
+`https://superego.cci.drexel.edu/api/auth/callback`. Configure
+`GOOGLE_AUTH_ACCESS_MODE=existing-or-allowlisted` for a closed trial or
+`GOOGLE_AUTH_ACCESS_MODE=open` to let any verified Google account create a
+user. Existing database users can sign in in either mode; the optional
+`GOOGLE_AUTH_ALLOWED_EMAILS` setting controls which new users are invited in
+the restricted mode. During the transition, `/api/auth/google` can test Google
+sign-in while the gated development login remains enabled; disable and remove
+the temporary development-login settings only after all intended identities
+have passed.
 
 Superego accepts `ego.cci.drexel.edu`, `superego.cci.drexel.edu`, and
 `sam.cci.drexel.edu`, so the server and database layout do not change when the

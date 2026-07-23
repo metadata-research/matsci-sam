@@ -1,3 +1,4 @@
 export interface YAMZSession {
-  id?: number;
+  id?: number
+  googleOAuthState?: string
 }
