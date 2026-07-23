@@ -2,9 +2,10 @@ name: Deploy to Superego Development
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - dev
+
+# Development deployments are intentionally manual. Some releases include
+# database migrations whose rollback must restore both code and data; pushing
+# the source branch must not bypass that review and approval boundary.
 
 permissions:
   contents: read
