@@ -31,12 +31,19 @@ export const POST = async (request: NextRequest) => {
   }
 
   const form = await request.formData()
-  const username = String(form.get("username") ?? "").trim().toLowerCase()
+  const username = String(form.get("username") ?? "")
+    .trim()
+    .toLowerCase()
   const password = String(form.get("password") ?? "")
-  const configuredUser = users.find((candidate) => candidate.username === username)
+  const configuredUser = users.find(
+    (candidate) => candidate.username === username
+  )
 
   if (!configuredUser || !sameSecret(password, expectedPassword))
     return loginRedirect("invalid")
+
+  const [firstName, ...lastNameParts] = configuredUser.name.split(/\s+/)
+  const lastName = lastNameParts.join(" ") || null
 
   let user = await db.query.usersTable.findFirst({
     where: sql`lower(${usersTable.email}) = ${configuredUser.email}`
@@ -47,15 +54,21 @@ export const POST = async (request: NextRequest) => {
       .insert(usersTable)
       .values({
         name: configuredUser.name,
+        firstName,
+        lastName,
         email: configuredUser.email,
         role: "user"
       })
       .returning()
     user = inserted
-  } else if (!user.name) {
+  } else if (!user.name || !user.firstName || !user.lastName) {
     const [updated] = await db
       .update(usersTable)
-      .set({ name: configuredUser.name })
+      .set({
+        name: user.name || configuredUser.name,
+        firstName: user.firstName || firstName,
+        lastName: user.lastName || lastName
+      })
       .where(eq(usersTable.id, user.id))
       .returning()
     user = updated

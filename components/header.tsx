@@ -77,7 +77,7 @@ const AuthSection = async () => {
           <Link href="/profile">
             <DropdownMenuItem>Profile</DropdownMenuItem>
           </Link>
-          <Link href="/profile/terms">
+          <Link href="/profile#authored-terms">
             <DropdownMenuItem>Definitions</DropdownMenuItem>
           </Link>
           <DropdownMenuSeparator />
