@@ -1,8 +1,12 @@
 import { SearchSection } from "./search-section"
 import { SITE_NAME } from "@/lib/site"
-import { HydrateClient, trpc } from "@/trpc/server"
+import { HydrateClient } from "@/trpc/server"
 import Link from "next/link"
-import { Icon } from "@iconify/react"
+import {
+  BookOpenIcon,
+  FilePlus2Icon,
+  MessagesSquareIcon
+} from "lucide-react"
 import { db, definitionsTable, termsTable } from "@yamz/db"
 import { desc, eq, sql } from "drizzle-orm"
 import { getSession } from "@/lib/session"
@@ -17,7 +21,6 @@ import {
 import { Separator } from "@/components/ui/separator"
 
 export default async function Home() {
-  await trpc.search.definitions.prefetch({ query: "", limit: 4 })
   const sesh = await getSession()
 
   const latestTerms = await db
@@ -44,14 +47,18 @@ export default async function Home() {
               Welcome to the {SITE_NAME}
             </h1>
             <p className="text-muted-foreground">
-              The collaborative dictionary for materials science metadata.
-              Designed for researchers and professionals, {SITE_NAME} provides a
-              shared space to define, discuss, and refine key terms used
-              across the materials science community. By contributing
-              definitions, commenting, and voting, you help build a living,
-              community-driven vocabulary that promotes clarity,
-              interoperability, and shared understanding in materials
-              research.
+              {SITE_NAME}, short for Semantic Alignment and Standardization, is
+              a web-based metadata dictionary developed by the{" "}
+              <a
+                href="https://mrc.cci.drexel.edu/"
+                className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary"
+              >
+                Metadata Research Center at Drexel University
+              </a>
+              . The system uses expert crowdsourcing and human-in-the-group AI
+              to develop consensus terminology for materials science.
+              Consistent terminology improves the discovery and reuse of
+              materials science data.
             </p>
           </section>
 
@@ -59,11 +66,11 @@ export default async function Home() {
           <section className="rounded-lg border bg-card p-6 space-y-4">
             <h2 className="text-2xl font-semibold font-serif">Get Started</h2>
             <p className="text-muted-foreground">
-              Ready to explore the language of materials science? Use the
-              search bar to discover terms, browse definitions, and see how
-              the community describes key concepts in materials metadata. You
-              can also contribute by refining existing entries or adding new
-              terms to expand the shared vocabulary.
+              Search the vocabulary to compare definitions and examples of
+              use. Sign in to submit a term or definition, vote and comment on
+              existing definitions, or request AI-assisted refinement. These
+              activities help the community evaluate alternatives and develop
+              consensus.
             </p>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
               <SearchSection hideResults />
@@ -124,22 +131,74 @@ export default async function Home() {
             </ul>
           </section>
 
+          {/* Process and standards */}
+          <section className="space-y-4">
+            <h2 className="text-2xl font-semibold font-serif">
+              How {SITE_NAME} Works
+            </h2>
+            <div className="grid gap-6 md:grid-cols-2">
+              <article className="space-y-2">
+                <h3 className="text-lg font-semibold">
+                  Human-in-the-Group Refinement
+                </h3>
+                <p className="text-muted-foreground">
+                  Authors can ask a locally hosted language model to revise a
+                  definition or respond to feedback. The author accepts the
+                  suggestion, keeps the original, or requests another pass. An
+                  accepted suggestion is published as a separate definition
+                  attributed to the author and the named model.
+                </p>
+                <Link
+                  href="/docs/ai-refinement"
+                  className="inline-block text-sm text-primary hover:underline"
+                >
+                  Read about AI refinement
+                </Link>
+              </article>
+              <article className="space-y-2">
+                <h3 className="text-lg font-semibold">
+                  Metadata and Provenance
+                </h3>
+                <p className="text-muted-foreground">
+                  Each term is published as a Simple Knowledge Organization
+                  System (SKOS) record with Dublin Core attribution. W3C PROV-O
+                  records comments, votes, edits, and AI-assisted revisions.{" "}
+                  {SITE_NAME} publishes the content and curation history of the
+                  vocabulary according to the FAIR (Findable, Accessible,
+                  Interoperable, Reusable) principles. This workflow supports
+                  data description and the reuse of results promoted by the
+                  Materials Genome Initiative.
+                </p>
+                <Link
+                  href="/docs/metadata-access"
+                  className="inline-block text-sm text-primary hover:underline"
+                >
+                  View metadata and provenance documentation
+                </Link>
+              </article>
+            </div>
+          </section>
+
           {/* Cards */}
           <section className="grid gap-4 md:grid-cols-3">
             <Link href="/add" className="block">
               <Card className="h-full transition-colors hover:bg-secondary/50">
                 <CardHeader className="gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-primary shrink-0">
-                      <Icon icon="lets-icons:upload" className="size-6" />
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <FilePlus2Icon
+                        className="size-5"
+                        strokeWidth={1.75}
+                        aria-hidden
+                      />
                     </span>
                     <CardTitle className="text-lg leading-snug">
                       Contribute a Definition
                     </CardTitle>
                   </div>
                   <CardDescription>
-                    Add a new term or propose your own definition for an
-                    existing one, and help expand the shared vocabulary.
+                    Submit a term, definition, and examples of use, or add
+                    another definition to an existing term.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -149,16 +208,20 @@ export default async function Home() {
               <Card className="h-full transition-colors hover:bg-secondary/50">
                 <CardHeader className="gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-foreground shrink-0">
-                      <Icon icon="ri:book-fill" className="size-6" />
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <BookOpenIcon
+                        className="size-5"
+                        strokeWidth={1.75}
+                        aria-hidden
+                      />
                     </span>
                     <CardTitle className="text-lg leading-snug">
                       View All Terms
                     </CardTitle>
                   </div>
                   <CardDescription>
-                    Browse the full dictionary of materials science metadata
-                    and compare how the community defines each term.
+                    Browse the vocabulary, compare definitions, and inspect the
+                    metadata and provenance published for each term.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -168,10 +231,11 @@ export default async function Home() {
               <Card className="h-full transition-colors hover:bg-secondary/50">
                 <CardHeader className="gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-ai shrink-0">
-                      <Icon
-                        icon="tdesign:cooperate-filled"
-                        className="size-6"
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <MessagesSquareIcon
+                        className="size-5"
+                        strokeWidth={1.75}
+                        aria-hidden
                       />
                     </span>
                     <CardTitle className="text-lg leading-snug">
@@ -179,8 +243,8 @@ export default async function Home() {
                     </CardTitle>
                   </div>
                   <CardDescription>
-                    Critique and appraise existing definitions, weigh in on
-                    competing viewpoints, and help build consensus.
+                    Vote and comment on definitions to help the community
+                    evaluate alternatives and develop consensus.
                   </CardDescription>
                 </CardHeader>
               </Card>

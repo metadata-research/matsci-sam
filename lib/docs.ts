@@ -16,6 +16,7 @@ const GUIDE_DIR = path.join(process.cwd(), "docs", "guide")
 const PAGE_ORDER = [
   "adding-terms",
   "ai-refinement",
+  "discussion",
   "community",
   "search",
   "provenance",

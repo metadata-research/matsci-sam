@@ -1,8 +1,7 @@
 # Metadata access
 
-The dictionary publishes standards-based serializations alongside every
-human-readable page, for researchers, harvesters, and semantic web
-tooling.
+The dictionary publishes standards-based serializations for researchers,
+harvesters, and semantic web tools.
 
 | Resource | URL | Format |
 | --- | --- | --- |
@@ -12,39 +11,40 @@ tooling.
 | Term history | `/terms/{id}/provenance.ttl` | PROV-O, Turtle |
 
 Each term is published as a `skos:Concept`. The term is the
-`skos:prefLabel`, each community definition a `skos:definition` with
-Dublin Core attribution, and examples appear as `skos:example`. On
-co-authored definitions the model is listed as a `dcterms:contributor`.
-Editorial notes record each definition's community status.
+`skos:prefLabel`, definitions appear as `skos:definition`, and examples
+appear as `skos:example`. Dublin Core contributor values identify the
+people and named models associated with definitions of the term.
+Editorial notes associate each definition with its contribution date,
+contributors, and community status.
 
 ## Concept identifiers
 
-The `@id` of every concept in these exports is its human-readable IRI, not a
-database key:
+The `@id` of every concept is a human-readable IRI, not a database key.
+The application constructs the authority from `NEXT_PUBLIC_SITE_URL` and
+adds the term slug:
 
 ```
-https://sam.cci.drexel.edu/vocabulary/martensite
+https://<public-host>/vocabulary/martensite
 ```
 
-The whole scheme is identified by `https://sam.cci.drexel.edu/vocabulary`,
-which is the object of every `skos:inScheme` statement and resolves to a
-description of the vocabulary.
+The concept scheme uses the corresponding
+`https://<public-host>/vocabulary` IRI. It is the object of each
+`skos:inScheme` statement and resolves to a human-readable vocabulary
+page with embedded JSON-LD.
 
-These IRIs changed once, when the application was renamed from MatSci YAMZ to
-MatSci SAM and moved to this host, and when concept identifiers moved from the
-numeric `/terms/{id}` form to the readable `/vocabulary/{term}` form. Anything
-harvested before that change should be re-fetched. The old numeric URLs still
-resolve — they issue a permanent redirect — but the identifiers asserted in the
-RDF are the new ones.
+Changing `NEXT_PUBLIC_SITE_URL` changes every concept and scheme IRI.
+Deployments should set the final public host before external citation or
+harvesting. Numeric `/terms/{id}` pages on the same host issue a
+permanent redirect to the readable concept address.
 
 If you are storing these IRIs, see [Identifiers and citation](/docs/identifiers)
-for how they are formed, how homographs are numbered, and what stability to
-expect from them.
+for how slugs are formed, how normalization collisions are numbered, and
+what stability to expect.
 
 Term pages embed schema.org DefinedTerm markup for crawlers. Tags with a
 declared ontology mapping contribute `skos:exactMatch` or related
 mapping statements to the exports, connecting the vocabulary to external
 ontologies such as EMMO or PMDco.
 
-Links to the SKOS serializations of a term sit next to its Provenance
-link, and the PROV-O download is on the provenance page itself.
+The term page links to its SKOS Turtle and JSON-LD serializations. The
+PROV-O Turtle download is linked from the provenance page.

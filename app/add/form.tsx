@@ -61,7 +61,7 @@ export const DefineTermForm = ({
             </div>
             <p className="text-sm text-muted-foreground">
               {interactive
-                ? "After you add your definition, the model generates a suggested revision. Accept it, keep your original, or give feedback and request another pass. An accepted suggestion is published as a separate definition credited to you and the model."
+                ? "After you add your definition, its page offers AI refinement. Start a round to request a suggestion, then accept it, keep your original, or give feedback and request another pass. An accepted suggestion is published as a separate definition credited to you and the model."
                 : "Your definition is added as-is. When a term is defined for the first time, the site also generates an independent AI definition for comparison."}
             </p>
           </div>

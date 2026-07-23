@@ -14,32 +14,49 @@ export const SearchSection = ({ hideResults = false }: { hideResults?: boolean }
   const { data } = trpc.search.definitions.useQuery(
     { query, limit: 4 },
     {
+      enabled: !hideResults,
       placeholderData: (old) => old
     }
   )
 
   const handleSearch = () => {
-    router.push(`/terms?q=${encodeURIComponent(query)}`)
+    const trimmedQuery = query.trim()
+    router.push(
+      trimmedQuery
+        ? `/search?q=${encodeURIComponent(trimmedQuery)}`
+        : "/search"
+    )
   }
 
   return (
     <div className="max-w-xl w-full space-y-2">
-      <div className="relative h-[36px] bg-card rounded-md">
-        <SearchIcon className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2" />
+      <form
+        className="relative h-[36px] bg-card rounded-md"
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault()
+          handleSearch()
+        }}
+      >
+        <SearchIcon
+          className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          aria-hidden
+        />
         <Input
+          type="search"
           className="absolute inset-0 pl-8 pr-24"
           placeholder="Search to get started..."
+          aria-label="Search terms and definitions"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
         />
         <button
-          onClick={handleSearch}
+          type="submit"
           className="absolute right-1 top-1/2 -translate-y-1/2 h-[28px] px-3 bg-secondary text-secondary-foreground text-sm rounded-md border cursor-pointer hover:bg-accent transition-colors"
         >
           Search
         </button>
-      </div>
+      </form>
       {!hideResults && data?.map((item) => (
         <Card
           onClick={() => router.push(`/definition/${item.id}`)}

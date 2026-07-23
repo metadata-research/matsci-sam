@@ -2,17 +2,34 @@
 
 ## Search
 
-The search field in the navigation bar searches term names, definition
-bodies, and examples together. Results rank exact term matches first,
-then terms starting with your query, then matches inside definitions.
+The search field in the navigation bar and the **Get Started** search on
+the homepage both open the Search page. Search covers term names,
+definition text, and examples of use.
 
-Search understands word forms and typos. A search for "quench" finds
-"quenching", and "austenit" finds terms whose definitions mention
-austenite. Quoted phrases and minus-signs work as in a web search.
+Results are divided into **Terms** and **Definitions**. Checkboxes show
+or hide either result type. The **By** filter narrows definitions to
+people or AI authors and does not apply to term results.
+
+Exact term names rank first, followed by term names that begin with the
+query. Full-text relevance and term-name similarity order the remaining
+results. English stemming can match related word forms, such as "quench"
+and "quenching". Term-name similarity can recover some misspellings.
+Quoted phrases, `OR`, and a leading minus sign use PostgreSQL web-search
+syntax.
+
+Search filters and the query are stored in the URL so the result view can
+be bookmarked or shared.
 
 ## Browse
 
-The **Browse** page lists every term alphabetically with its definition
-count in parentheses. A letter index stays pinned to the top of the page
-while you scroll. Arriving at Browse from a search shows only matching
-terms, with a link to clear the filter.
+The **Browse** page lists every defined term alphabetically with its
+definition count in parentheses. A letter index stays pinned to the top
+of the page while you scroll.
+
+The **Filter these terms** field performs a direct substring filter on
+the terms already displayed. Press Escape or use the clear control to
+remove that filter.
+
+A bookmarked `/terms?q=...` address applies the full search engine before
+the page loads and provides a **Show all terms** link. The ordinary
+navigation search opens `/search` instead of sending queries to Browse.
