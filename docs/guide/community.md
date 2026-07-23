@@ -16,6 +16,9 @@ the contributor's display name, affiliation, verified ORCID when one is
 linked, and the terms with definitions attributed to the account. It does not
 show the email address or authentication details.
 
+The [account access guide](/docs/account-access) explains how sign-in methods
+and linked ORCID iDs relate to the contributor account.
+
 The profile setting controls the public profile page and links from contributor
 names. Names remain attached to definitions, comments, and provenance as
 attribution even when the profile is private. Turning the setting off makes the

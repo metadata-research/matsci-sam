@@ -20,33 +20,109 @@ export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
 
 // --- USERS ---
 export type User = typeof usersTable.$inferSelect
-export const usersTable = pgTable("users", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  googleId: varchar().unique(undefined, { nulls: "distinct" }),
-  // Reserved for a future verified ORCID OAuth/linking flow. Do not populate
-  // this from an unverified profile form.
-  orcidId: varchar({ length: 19 }).unique(undefined, { nulls: "distinct" }),
-  name: varchar({ length: 255 }),
-  firstName: varchar({ length: 100 }),
-  lastName: varchar({ length: 100 }),
-  affiliation: varchar({ length: 255 }),
-  email: varchar({ length: 254 }),
-  isAi: boolean().notNull().default(false),
-  // Explicit consent for the public contributor page. Attribution remains
-  // visible when this is false, but names render as plain text.
-  isProfilePublic: boolean().notNull().default(false),
-  role: userRoleEnum().notNull().default("user"),
-  // Reputation multiplier, stored per user; not yet applied to vote tallies
-  weight: real().notNull().default(1),
-  createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-  notifications: boolean().default(false)
-})
+export const usersTable = pgTable(
+  "users",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    googleId: varchar().unique(undefined, { nulls: "distinct" }),
+    // Populated only by the verified ORCID OAuth/linking flow. Never accept an
+    // ORCID iD from a profile form.
+    orcidId: varchar({ length: 19 }).unique(undefined, { nulls: "distinct" }),
+    name: varchar({ length: 255 }),
+    firstName: varchar({ length: 100 }),
+    lastName: varchar({ length: 100 }),
+    affiliation: varchar({ length: 255 }),
+    email: varchar({ length: 254 }),
+    // Google identities are verified by Google. Passwordless email identities
+    // set this timestamp only after a one-time link has been claimed.
+    emailVerifiedAt: timestamp({ mode: "string" }),
+    isAi: boolean().notNull().default(false),
+    // Explicit consent for the public contributor page. Attribution remains
+    // visible when this is false, but names render as plain text.
+    isProfilePublic: boolean().notNull().default(false),
+    role: userRoleEnum().notNull().default("user"),
+    // Reputation multiplier, stored per user; not yet applied to vote tallies
+    weight: real().notNull().default(1),
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    notifications: boolean().default(false)
+  },
+  (table) => [
+    // Authentication treats email case-insensitively. AI identities do not
+    // authenticate and are excluded from this human-account constraint.
+    uniqueIndex("users_human_email_normalized_unique")
+      .on(sql`lower(${table.email})`)
+      .where(sql`${table.email} IS NOT NULL AND NOT ${table.isAi}`)
+  ]
+)
+
+// --- EXTERNAL AUTHENTICATION ---
+export const oauthAccountsTable = pgTable(
+  "oauthAccounts",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .references(() => usersTable.id, { onDelete: "cascade" })
+      .notNull(),
+    provider: varchar({ length: 32 }).notNull(),
+    subject: varchar({ length: 255 }).notNull(),
+    // Provider tokens are encrypted before storage. They are never selected by
+    // profile/public queries or returned to a browser.
+    accessTokenEncrypted: text(),
+    refreshTokenEncrypted: text(),
+    scope: text(),
+    expiresAt: timestamp({ mode: "string" }),
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    updatedAt: timestamp({ mode: "string" }).defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("oauth_accounts_provider_subject_unique").on(
+      table.provider,
+      table.subject
+    ),
+    uniqueIndex("oauth_accounts_user_provider_unique").on(
+      table.userId,
+      table.provider
+    ),
+    index("oauth_accounts_user_idx").on(table.userId)
+  ]
+)
+
+export const emailAuthTokensTable = pgTable(
+  "emailAuthTokens",
+  {
+    // Only the SHA-256 digest is stored. The raw token exists only in the
+    // message delivered to the requested mailbox.
+    tokenHash: varchar({ length: 64 }).primaryKey(),
+    email: varchar({ length: 254 }).notNull(),
+    expiresAt: timestamp({ mode: "string" }).notNull(),
+    usedAt: timestamp({ mode: "string" }),
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull()
+  },
+  (table) => [
+    index("email_auth_tokens_email_created_idx").on(
+      table.email,
+      table.createdAt
+    ),
+    index("email_auth_tokens_expires_idx").on(table.expiresAt)
+  ]
+)
 
 export const usersTableRelations = relations(usersTable, ({ many }) => ({
   definitions: many(definitionsTable),
   comments: many(commentsTable),
-  votes: many(votesTable)
+  votes: many(votesTable),
+  oauthAccounts: many(oauthAccountsTable)
 }))
+
+export const oauthAccountsTableRelations = relations(
+  oauthAccountsTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [oauthAccountsTable.userId],
+      references: [usersTable.id]
+    })
+  })
+)
 
 // --- TERMS ---
 export type Term = typeof termsTable.$inferSelect

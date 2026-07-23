@@ -14,6 +14,7 @@ const GUIDE_DIR = path.join(process.cwd(), "docs", "guide")
 // listed here sort after these, alphabetically, so adding a file never
 // requires touching this list.
 const PAGE_ORDER = [
+  "account-access",
   "adding-terms",
   "community",
   "ai-refinement",

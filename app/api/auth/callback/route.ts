@@ -9,7 +9,7 @@ import {
 import { getSession } from "@/lib/session"
 import { redirect } from "next/navigation"
 import { NextRequest } from "next/server"
-import { eq, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 
 const stateMatches = (submitted: string, expected: string) => {
   const submittedBuffer = Buffer.from(submitted)
@@ -83,7 +83,10 @@ export const GET = async (req: NextRequest) => {
   // the transition to production authentication.
   if (!user) {
     user = await db.query.usersTable.findFirst({
-      where: sql`lower(${usersTable.email}) = ${normalizedEmail}`
+      where: and(
+        sql`lower(${usersTable.email}) = ${normalizedEmail}`,
+        eq(usersTable.isAi, false)
+      )
     })
   }
 
@@ -107,6 +110,7 @@ export const GET = async (req: NextRequest) => {
         googleId: userId,
         name: name || user.name,
         email: normalizedEmail,
+        emailVerifiedAt: user.emailVerifiedAt || new Date().toISOString(),
         firstName: user.firstName || givenName || null,
         lastName: user.lastName || familyName || null
       })
@@ -120,6 +124,7 @@ export const GET = async (req: NextRequest) => {
         googleId: userId,
         name: name || "",
         email: normalizedEmail,
+        emailVerifiedAt: new Date().toISOString(),
         firstName: givenName || null,
         lastName: familyName || null
       })

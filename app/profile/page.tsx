@@ -138,7 +138,7 @@ export default async function ProfilePage() {
                       <ExternalLinkIcon className="size-3.5" />
                     </a>
                   ) : (
-                    "Not linked. Verified ORCID linking will be added here."
+                    "Not linked. Connect an ORCID iD from Edit profile when that option is available."
                   )
                 }
               />
