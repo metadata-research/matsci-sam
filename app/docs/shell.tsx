@@ -15,7 +15,7 @@ export const DocsShell = ({
   activeSlug?: string
 }) => (
   <main className="px-4 py-8">
-    <div className="max-w-5xl w-full mx-auto flex gap-8">
+    <div className="max-w-5xl w-full mx-auto flex flex-col gap-8 md:flex-row">
       <aside className="hidden md:block w-56 shrink-0">
         <div className="sticky top-4 space-y-1">
           <Link
@@ -42,13 +42,35 @@ export const DocsShell = ({
               {entry.title}
             </Link>
           ))}
+          <div className="mt-3 border-t border-border pt-3">
+            <Link
+              href="/about"
+              className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              About MatSci SAM
+            </Link>
+          </div>
         </div>
       </aside>
+      <nav
+        aria-label="Project information"
+        className="flex flex-wrap gap-x-5 gap-y-2 border-b border-border pb-4 text-sm md:hidden"
+      >
+        <Link href="/about" className="text-primary hover:underline">
+          About MatSci SAM
+        </Link>
+        <Link
+          href="/docs/metadata-access"
+          className="text-primary hover:underline"
+        >
+          Metadata access
+        </Link>
+      </nav>
       <article
         className="prose dark:prose-invert max-w-none flex-1 min-w-0
           prose-headings:font-serif prose-a:text-primary
           prose-code:before:content-none prose-code:after:content-none
-          prose-table:block prose-table:overflow-x-auto"
+        prose-table:block prose-table:overflow-x-auto"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

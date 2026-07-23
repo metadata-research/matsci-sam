@@ -1,5 +1,12 @@
-import { chatsTable, db, refinementsTable } from "@yamz/db"
-import { and, asc, eq, lt, sql } from "drizzle-orm"
+import {
+  chatsTable,
+  db,
+  definitionRevisionsTable,
+  definitionsTable,
+  refinementsTable,
+  termsTable
+} from "@yamz/db"
+import { and, asc, eq, getTableColumns, lt, sql } from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { Message, Ollama } from "ollama"
 import { z } from "zod"
@@ -54,15 +61,16 @@ export const makeGenerationStamp = (
   promptText: string
 ) => ({
   promptKey,
-  promptHash: createHash("sha256").update(promptText).digest("hex").slice(0, 16),
+  promptHash: createHash("sha256")
+    .update(promptText)
+    .digest("hex")
+    .slice(0, 16),
   promptText,
   model: OllamaModel
 })
 
 export const generationStamp = makeGenerationStamp(
-  process.env.SYSTEM_PROMPT
-    ? null
-    : (process.env.SYSTEM_PROMPT_KEY ?? null),
+  process.env.SYSTEM_PROMPT ? null : (process.env.SYSTEM_PROMPT_KEY ?? null),
   LLMSystemPrompt
 )
 
@@ -138,10 +146,26 @@ export const reviseDefinition = async (termId: number) => {
 // prior rounds of that definition — deliberately NOT from chatsTable, which
 // belongs to the term-level AI definition thread.
 export const runRefinementRound = async (refinementId: number) => {
-  const round = await db.query.refinementsTable.findFirst({
-    where: eq(refinementsTable.id, refinementId),
-    with: { definition: { with: { term: true } } }
-  })
+  const [round] = await db
+    .select({
+      ...getTableColumns(refinementsTable),
+      term: termsTable.term,
+      currentDefinition: definitionsTable.definition,
+      currentExample: definitionsTable.example,
+      sourceDefinition: definitionRevisionsTable.definition,
+      sourceExample: definitionRevisionsTable.example
+    })
+    .from(refinementsTable)
+    .innerJoin(
+      definitionsTable,
+      eq(definitionsTable.id, refinementsTable.definitionId)
+    )
+    .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
+    .leftJoin(
+      definitionRevisionsTable,
+      eq(definitionRevisionsTable.id, refinementsTable.sourceRevisionId)
+    )
+    .where(eq(refinementsTable.id, refinementId))
 
   if (!round) throw new Error(`Refinement ${refinementId} doesn't exist`)
   if (round.status !== "pending")
@@ -161,7 +185,7 @@ export const runRefinementRound = async (refinementId: number) => {
     const messages: Message[] = [
       {
         role: "user",
-        content: `<term>\n${round.definition.term.term}\n\n<definition>\n${round.definition.definition}\n\n<example>\n${round.definition.example}`
+        content: `<term>\n${round.term}\n\n<definition>\n${round.sourceDefinition ?? round.currentDefinition}\n\n<example>\n${round.sourceExample ?? round.currentExample}`
       }
     ]
 

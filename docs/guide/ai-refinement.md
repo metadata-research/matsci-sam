@@ -1,21 +1,21 @@
 # AI refinement
 
-When you add a term with the interactive toggle on, your definition page
-shows a **Refine with AI** button. Refinement is a conversation about
-your definition, held in place on the page rather than in a chat window.
+When you add a definition with **Interactive AI refinement** on, your
+definition page shows a **Refine with AI** button. Only the author of the
+original definition can use this multi-round refinement panel.
 
 ## The loop
 
-1. Click Refine. The model reads your definition and example and drafts
-   a suggested revision. The first round after the site has been idle can
-   take up to half a minute while the model loads. The wait survives a
-   page refresh.
+1. Select **Refine with AI**. The application sends your term, definition,
+   and example to the locally hosted language model. A round can take up
+   to half a minute when the model must load. The pending round is stored,
+   so a page refresh does not discard it.
 2. The suggestion appears as a card, with changed wording highlighted
    against your current text. You have three choices.
    - **Accept suggestion** publishes the revision.
    - **Keep mine** closes the round with your original standing.
-   - **Re-evaluate** sends your feedback and requests another pass. Type
-     what should change first, for example "mention that the
+   - **Re-evaluate** sends your feedback with a request for another pass.
+     Type what should change first, for example "mention that the
      transformation is diffusionless".
 3. Each new round appears as its own card. Decided rounds collapse into
    one-line history entries you can expand later.
@@ -25,14 +25,26 @@ plainly and offers a Retry button.
 
 ## What accepting does
 
-An accepted suggestion becomes a **separate definition**, credited to you
-and to the model by name, in the style of a co-authored commit. Your
-original definition is never overwritten. The two definitions link to
-each other, and the refined one shows a "Refined" badge wherever it
-appears. Readers can vote on either.
+The first accepted suggestion creates a **separate definition** credited
+to you and to the model by name. Your original definition remains
+unchanged. The two definitions link to each other, and the refined one
+shows a "Refined" label. Readers can vote on either definition.
 
-You can refine again after a round is decided, and the model sees the
-whole earlier conversation, including what you told it before.
+You can refine the original again after a round is decided. The request
+includes the suggestions and feedback from earlier rounds. Accepting a
+later round publishes a new version of the existing refined definition. The
+new version records the accepting author, named model, prompt, accepted
+suggestion, and relationship to the preceding version. It starts with a new
+vote tally. Earlier versions and their vote totals remain available in the
+revision history.
+
+A refinement request records the source version. The application does not
+accept the suggestion if that source changes while the round is open. Start a
+new round from the latest version in that case.
 
 Every request, suggestion, decision, and piece of feedback is recorded in
-the term's [provenance](/docs/provenance).
+the stored [provenance](/docs/provenance) for the term.
+
+The ordinary **Edit** action uses the same immutable revision mechanism.
+[Community review and revisions](/docs/community) describes the revision
+record and the handling of votes and comments.

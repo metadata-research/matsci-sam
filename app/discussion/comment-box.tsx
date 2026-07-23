@@ -21,19 +21,23 @@ import { toast } from "sonner"
  *                       definition the existing comments.create path still
  *                       feeds the model its own revision.
  *
- * The suggestion lives in component state until accepted, so an abandoned
- * proposal leaves nothing behind.
+ * The server persists the exact suggestion before returning it. Component
+ * state keeps only its display and acceptance id, so model attribution cannot
+ * be attached to client-altered text.
  */
 export const DiscussionCommentBox = ({
-  definitionId
+  definitionId,
+  revisionId
 }: {
   definitionId: number
+  revisionId: number
 }) => {
   const router = useRouter()
   const utils = trpc.useUtils()
 
   const [comment, setComment] = useState("")
   const [suggestion, setSuggestion] = useState<{
+    suggestionId: number
     definition: string
     example: string
     model: string
@@ -57,7 +61,10 @@ export const DiscussionCommentBox = ({
       toast("Comment posted.")
       router.refresh()
     },
-    onError: loginToast
+    onError: (error) =>
+      error.data?.code === "UNAUTHORIZED"
+        ? loginToast()
+        : toast.error(error.message)
   })
 
   const suggest = trpc.discussion.suggest.useMutation({
@@ -75,7 +82,10 @@ export const DiscussionCommentBox = ({
       toast("Published as a new definition.")
       router.push(`/definition/${created.id}`)
     },
-    onError: loginToast
+    onError: (error) =>
+      error.data?.code === "UNAUTHORIZED"
+        ? loginToast()
+        : toast.error(error.message)
   })
 
   const busy = suggest.isPending || accept.isPending || plainComment.isPending
@@ -88,7 +98,7 @@ export const DiscussionCommentBox = ({
       <form
         onSubmit={(e) => {
           e.preventDefault()
-          if (!empty) suggest.mutate({ definitionId, comment })
+          if (!empty) suggest.mutate({ definitionId, revisionId, comment })
         }}
         className="space-y-2"
       >
@@ -109,7 +119,9 @@ export const DiscussionCommentBox = ({
             type="button"
             variant="outline"
             disabled={busy || empty}
-            onClick={() => plainComment.mutate({ id: definitionId, comment })}
+            onClick={() =>
+              plainComment.mutate({ id: definitionId, revisionId, comment })
+            }
           >
             {plainComment.isPending ? "Posting..." : "Comment"}
           </Button>
@@ -145,10 +157,7 @@ export const DiscussionCommentBox = ({
               disabled={busy}
               onClick={() =>
                 accept.mutate({
-                  definitionId,
-                  comment,
-                  definition: suggestion.definition,
-                  example: suggestion.example
+                  suggestionId: suggestion.suggestionId
                 })
               }
             >
@@ -157,7 +166,9 @@ export const DiscussionCommentBox = ({
             <Button
               variant="outline"
               disabled={busy}
-              onClick={() => plainComment.mutate({ id: definitionId, comment })}
+              onClick={() =>
+                plainComment.mutate({ id: definitionId, revisionId, comment })
+              }
             >
               Just comment instead
             </Button>

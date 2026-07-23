@@ -5,8 +5,10 @@ import { asc, eq, sql } from "drizzle-orm"
 import {
   Building2Icon,
   ExternalLinkIcon,
+  Globe2Icon,
   MailIcon,
   PencilIcon,
+  ShieldIcon,
   UserRoundCheckIcon
 } from "lucide-react"
 import { auth } from "@/lib/auth"
@@ -61,13 +63,49 @@ export default async function ProfilePage() {
               Account profile and contribution history
             </p>
           </div>
-          <Button asChild variant="outline">
-            <Link href="/profile/edit">
-              <PencilIcon className="size-4" />
-              Edit profile
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {user.isProfilePublic && (
+              <Button asChild variant="outline">
+                <Link href={`/people/${user.id}`}>
+                  <ExternalLinkIcon className="size-4" />
+                  View public profile
+                </Link>
+              </Button>
+            )}
+            <Button asChild variant="outline">
+              <Link href="/profile/edit">
+                <PencilIcon className="size-4" />
+                Edit profile
+              </Link>
+            </Button>
+          </div>
         </section>
+
+        <Card>
+          <CardContent className="flex items-start gap-3">
+            {user.isProfilePublic ? (
+              <Globe2Icon
+                className="mt-0.5 size-4 shrink-0 text-primary"
+                aria-hidden
+              />
+            ) : (
+              <ShieldIcon
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+            )}
+            <div className="space-y-1">
+              <p className="font-medium">
+                Public profile {user.isProfilePublic ? "enabled" : "disabled"}
+              </p>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {user.isProfilePublic
+                  ? "Your public page connects your contributor name with your affiliation, verified ORCID, and authored terms."
+                  : "Your contributions remain attributed, but your name is not linked to a public profile."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -100,7 +138,7 @@ export default async function ProfilePage() {
                       <ExternalLinkIcon className="size-3.5" />
                     </a>
                   ) : (
-                    "Not linked. Verified ORCID linking will be added here."
+                    "Not linked. Connect an ORCID iD from Edit profile when that option is available."
                   )
                 }
               />

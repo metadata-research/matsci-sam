@@ -1,68 +1,103 @@
-import Link from "next/link";
+import Link from "next/link"
+import Image from "next/image"
 import { SITE_NAME } from "@/lib/site"
-import { ThemeToggle } from "./theme-provider";
-import { getSession } from "@/lib/session";
-import { db, usersTable } from "@yamz/db";
-import { eq } from "drizzle-orm";
+import { ThemeToggle } from "./theme-provider"
+import { getSession } from "@/lib/session"
+import { db, usersTable } from "@yamz/db"
+import { eq } from "drizzle-orm"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { Suspense } from "react";
-import { Button } from "./ui/button";
-import { UserCircleIcon } from "lucide-react";
-import { LogoutButton } from "./logout";
-import { HeaderSearch } from "./header-search";
+  DropdownMenuTrigger
+} from "./ui/dropdown-menu"
+import { cache, Suspense } from "react"
+import { Button } from "./ui/button"
+import { MenuIcon, UserCircleIcon } from "lucide-react"
+import { LogoutButton } from "./logout"
+import { HeaderSearch } from "./header-search"
 import styles from "./header.module.css"
 
 export const Header = () => {
   return (
     <div className={styles.wrapper}>
       <header className={styles.navbar}>
-        <img src="/logo.svg" alt={SITE_NAME} className={styles.logo} />
-        <Link href="/" className={styles.logoText}>
-          {SITE_NAME}
+        <Link
+          href="/"
+          className={styles.logoHome}
+          aria-label={`${SITE_NAME} home`}
+        >
+          <Image
+            src="/logo.svg"
+            alt=""
+            width={30}
+            height={30}
+            className={styles.logo}
+            priority
+          />
+          <span className={styles.logoText}>{SITE_NAME}</span>
         </Link>
         {/* The search field replaces the old "Search" nav link: it flexes into
             the space the spacer used to hold, and going to /search is what
             submitting it does. */}
         <HeaderSearch />
         <div className={styles.spacer} />
-        <div className={styles.navLinks}>
-          <Link href="/terms" className={styles.navButton}>Browse</Link>
-          <Link href="/discussion" className={styles.navButton}>Discussion</Link>
-          <Link href="/add" className={styles.navButton}>Add</Link>
-          <Link href="/docs" className={styles.navButton}>Docs</Link>
+        <nav className={styles.navLinks} aria-label="Primary">
+          <Link href="/terms" className={styles.navButton}>
+            Browse
+          </Link>
+          <Link href="/discussion" className={styles.navButton}>
+            Discussion
+          </Link>
+          <Link href="/add" className={styles.navButton}>
+            Contribute
+          </Link>
+          <Link href="/docs" className={styles.navButton}>
+            Documentation
+          </Link>
           <ThemeToggle />
           <Suspense fallback={null}>
             <AuthSection />
           </Suspense>
-        </div>
+        </nav>
+        <details className={styles.mobileMenu}>
+          <summary aria-label="Open navigation menu">
+            <MenuIcon aria-hidden />
+          </summary>
+          <div className={styles.mobileMenuPanel}>
+            <nav aria-label="Mobile">
+              <Link href="/terms">Browse</Link>
+              <Link href="/discussion">Discussion</Link>
+              <Link href="/add">Contribute</Link>
+              <Link href="/docs">Documentation</Link>
+            </nav>
+            <div className={styles.mobileUtility}>
+              <span>Appearance</span>
+              <ThemeToggle alwaysVisible />
+            </div>
+            <div className={styles.mobileAccount}>
+              <Suspense fallback={null}>
+                <AuthSection />
+              </Suspense>
+            </div>
+          </div>
+        </details>
       </header>
     </div>
-  );
-};
+  )
+}
 
 const AuthSection = async () => {
-  const sesh = await getSession();
+  const user = await getHeaderUser()
 
-  if (sesh.id) {
-    const [user] = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, sesh.id));
-
+  if (user)
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline">
             <UserCircleIcon className="size-4" />
-            <a className="hidden sm:block">
-              {user.name}
-            </a>
+            <span className="hidden sm:block">{user.name}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
@@ -84,12 +119,24 @@ const AuthSection = async () => {
           <LogoutButton />
         </DropdownMenuContent>
       </DropdownMenu>
-    );
-  }
+    )
 
   return (
     <Link href="/api/login">
       <Button variant="outline">Login</Button>
     </Link>
-  );
-};
+  )
+}
+
+const getHeaderUser = cache(async () => {
+  const sesh = await getSession()
+
+  if (!sesh.id) return null
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, sesh.id))
+
+  return user ?? null
+})

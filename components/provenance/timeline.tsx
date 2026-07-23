@@ -1,7 +1,8 @@
-import { Badge } from "@/components/ui/badge";
-import { ProvDetail } from "./detail";
-import type { ProvEvent } from "@/lib/provenance";
-import { formatDateTime } from "@/lib/date";
+import { Badge } from "@/components/ui/badge"
+import { PublicProfileName } from "@/components/public-profile-name"
+import { ProvDetail } from "./detail"
+import type { ProvEvent } from "@/lib/provenance"
+import { formatDateTime } from "@/lib/date"
 import {
   BotIcon,
   CheckIcon,
@@ -15,16 +16,16 @@ import {
   TriangleAlertIcon,
   UndoIcon,
   UserIcon,
-  WandSparklesIcon,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+  WandSparklesIcon
+} from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
-const KIND: Record<
-  ProvEvent["kind"],
-  { icon: LucideIcon; color: string }
-> = {
+const KIND: Record<ProvEvent["kind"], { icon: LucideIcon; color: string }> = {
   "term-created": { icon: TagIcon, color: "text-green-600" },
-  "initial-message": { icon: MessageCircleIcon, color: "text-muted-foreground" },
+  "initial-message": {
+    icon: MessageCircleIcon,
+    color: "text-muted-foreground"
+  },
   feedback: { icon: MessageCircleIcon, color: "text-amber-600" },
   "ai-generation": { icon: SparklesIcon, color: "text-ai" },
   "ai-revision": { icon: BotIcon, color: "text-ai" },
@@ -36,13 +37,13 @@ const KIND: Record<
   "refine-suggested": { icon: SparklesIcon, color: "text-ai" },
   "refine-accepted": { icon: CheckIcon, color: "text-green-600" },
   "refine-kept": { icon: UndoIcon, color: "text-muted-foreground" },
-  "refine-failed": { icon: TriangleAlertIcon, color: "text-destructive" },
-};
+  "refine-failed": { icon: TriangleAlertIcon, color: "text-destructive" }
+}
 
 export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
   <ol className="relative border-l ml-3 space-y-6">
     {events.map((event) => {
-      const { icon: Icon, color } = KIND[event.kind];
+      const { icon: Icon, color } = KIND[event.kind]
 
       return (
         <li key={event.id} className="ml-6">
@@ -59,7 +60,18 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
                 ) : (
                   <UserIcon className="size-3.5" />
                 )}
-                {event.actor}
+                {event.profileUserId ? (
+                  <PublicProfileName
+                    user={{
+                      id: event.profileUserId,
+                      name: event.actor,
+                      isAi: false,
+                      isProfilePublic: true
+                    }}
+                  />
+                ) : (
+                  event.actor
+                )}
               </span>
             )}
             {event.model && (
@@ -83,7 +95,7 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
             />
           )}
         </li>
-      );
+      )
     })}
   </ol>
-);
+)

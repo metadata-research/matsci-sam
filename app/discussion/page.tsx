@@ -7,6 +7,16 @@ import { DiscussionCommentBox } from "./comment-box"
 import { formatDate } from "@/lib/date"
 import { ChevronRightIcon, SparklesIcon } from "lucide-react"
 import Link from "next/link"
+import { PublicProfileName } from "@/components/public-profile-name"
+
+const revisionSourceLabels = {
+  initial: "Initial version",
+  author_edit: "Author revision",
+  ai_refinement: "AI-assisted revision",
+  ai_generation: "AI-generated revision",
+  rollback: "Restored revision",
+  legacy: "Imported revision"
+} as const
 
 export const metadata: Metadata = {
   title: `Discussion | ${SITE_NAME}`,
@@ -91,29 +101,49 @@ export default async function DiscussionPage() {
                   </summary>
 
                   <ol className="mt-3 space-y-3 border-l pl-4">
-                    {item.history.map((event, i) => (
-                      <li key={i} className="space-y-0.5">
+                    {item.history.map((event) => (
+                      <li key={event.eventId} className="space-y-0.5">
                         <div className="flex flex-wrap items-baseline gap-x-2 text-xs">
-                          <span
+                          <Link
+                            href={`/definition/${event.definitionId}?version=${event.version}`}
                             className={
                               event.kind === "comment"
-                                ? "font-semibold uppercase tracking-[0.12em] text-muted-foreground"
-                                : "font-semibold uppercase tracking-[0.12em] text-primary"
+                                ? "font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:underline"
+                                : "font-semibold uppercase tracking-[0.12em] text-primary hover:underline"
                             }
                           >
                             {event.kind === "comment"
-                              ? "Comment"
-                              : event.isRefinement
-                                ? "Refined definition"
-                                : "Definition"}
-                          </span>
+                              ? `Comment on v${event.version}`
+                              : `v${event.version} · ${revisionSourceLabels[event.source]}`}
+                          </Link>
+                          {event.legacyIncomplete && (
+                            <span className="text-muted-foreground">
+                              partial legacy record
+                            </span>
+                          )}
+                          {event.migratedLegacy && (
+                            <span className="text-muted-foreground">
+                              version inferred during import
+                            </span>
+                          )}
                           <span className="text-muted-foreground flex items-center gap-1">
                             {event.isAi && (
                               <SparklesIcon className="size-3 text-ai" />
                             )}
-                            {event.author ?? "unknown"}
+                            <PublicProfileName
+                              user={{
+                                id: event.authorId,
+                                name: event.author,
+                                isAi: event.isAi,
+                                isProfilePublic: event.isProfilePublic
+                              }}
+                              fallback="unknown"
+                            />
                           </span>
-                          <span aria-hidden className="text-muted-foreground/50">
+                          <span
+                            aria-hidden
+                            className="text-muted-foreground/50"
+                          >
                             &middot;
                           </span>
                           <span className="text-muted-foreground">
@@ -129,6 +159,11 @@ export default async function DiscussionPage() {
                         >
                           {event.body}
                         </p>
+                        {event.kind === "revision" && event.changeNote && (
+                          <p className="text-xs text-muted-foreground">
+                            Change note: {event.changeNote}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ol>
@@ -136,7 +171,10 @@ export default async function DiscussionPage() {
               )}
 
               <div className="pt-1">
-                <DiscussionCommentBox definitionId={item.def.definitionId} />
+                <DiscussionCommentBox
+                  definitionId={item.def.definitionId}
+                  revisionId={item.def.revisionId}
+                />
               </div>
 
               {/* Credit line: date, then everyone who has contributed, oldest
@@ -144,14 +182,23 @@ export default async function DiscussionPage() {
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                 <span>added {formatDate(item.createdAt)}</span>
                 {item.contributors.map((c) => (
-                  <span key={c.name} className="flex items-center gap-1">
+                  <span
+                    key={c.id ?? `${c.isAi ? "ai" : "unknown"}-${c.name}`}
+                    className="flex items-center gap-1"
+                  >
                     <span aria-hidden className="text-muted-foreground/50">
                       &middot;
                     </span>
                     {c.isAi && <SparklesIcon className="size-3 text-ai" />}
-                    <span className={c.isAi ? "text-ai font-mono" : ""}>
-                      {c.name}
-                    </span>
+                    <PublicProfileName
+                      user={{
+                        id: c.id,
+                        name: c.name,
+                        isAi: c.isAi,
+                        isProfilePublic: c.isProfilePublic
+                      }}
+                      className={c.isAi ? "text-ai font-mono" : undefined}
+                    />
                   </span>
                 ))}
               </div>

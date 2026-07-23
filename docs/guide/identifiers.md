@@ -1,87 +1,83 @@
 # Identifiers and citation
 
-Every term in this vocabulary has a stable, human-readable address. This page
-describes how those addresses are formed, what you can rely on, and how to cite
-a term in published work.
+Every term receives a readable slug when it is created. The application
+combines that slug with the configured public site URL to produce the
+concept IRI.
 
-## The shape of an identifier
+## Identifier paths
 
-A term's identifier is its name, lowercased, with spaces written as
-underscores:
+The term page displays the full IRI for the active deployment. Its path
+has this form:
 
 ```
-https://sam.cci.drexel.edu/vocabulary/sintering
-https://sam.cci.drexel.edu/vocabulary/high-entropy_alloy
-https://sam.cci.drexel.edu/vocabulary/density_functional_theory_dft
+/vocabulary/sintering
+/vocabulary/high-entropy_alloy
+/vocabulary/density_functional_theory_dft
 ```
 
-Underscores stand in for spaces so that hyphens keep their meaning. In
-materials science a hyphen is often part of the term itself — a *high-entropy
-alloy* is not a *high entropy alloy* — and writing spaces as hyphens would
-erase that distinction. Wikipedia uses underscores for the same reason.
+The application lowercases term names and writes spaces as underscores.
+Hyphens remain part of the slug, so _high-entropy alloy_ and _high
+entropy alloy_ produce different paths. Characters outside `a-z`,
+`0-9`, `_`, and `-` are dropped. For example, _density functional theory
+(DFT)_ becomes `density_functional_theory_dft`.
 
-Characters outside `a-z`, `0-9`, `_` and `-` are dropped, which is why
-*density functional theory (dft)* becomes `density_functional_theory_dft`.
+## What remains stable
 
-## What is stable
+The slug is assigned when a term is created. The application has no term
+rename operation and does not reassign an existing slug to another term.
 
-An identifier is assigned once, when a term is first defined, and is never
-reassigned to a different concept. Links, citations, and RDF references can
-rely on this.
+The authority portion of the IRI comes from `NEXT_PUBLIC_SITE_URL`.
+Changing that setting changes the full IRI even though the slug remains
+the same. Copy the IRI displayed on the term page instead of assuming a
+hostname from this guide.
 
-Older links of the form `/terms/41` still work. They issue a permanent
-redirect to the term's `/vocabulary/` address, so nothing published before the
-change is broken.
+A numeric path such as `/terms/41` issues a permanent redirect to the
+readable `/vocabulary/` path on the same host.
 
-## Terms that share a name
+## Normalization collisions
 
-Where two distinct concepts would produce the same identifier, the second and
-subsequent ones take a numeric suffix — `band_gap`, `band_gap_2` — following
-the convention the *Oxford English Dictionary* uses to number homographs. The
-number distinguishes entries; it does not rank them.
+Different term labels can produce the same slug after punctuation is
+removed. The first term receives the base slug. A later collision
+receives a numeric suffix such as `_2`, followed by `_3` when needed.
+The number resolves an identifier collision and does not rank the terms.
 
-Note that this is different from a term having several *definitions*. A term
-with five community definitions is still one concept with one identifier. The
-definitions are alternative formulations of it, each individually addressable
-at its own `/definition/` URL, with the highest-voted one marked as the
-default.
+Several definitions of one term remain part of one concept with one
+identifier. Definitions have their own `/definition/{id}` pages. The
+definition path remains the same when its author publishes a revision. The
+base path displays the current revision, and `?version={number}` identifies a
+historical version on that stable page. The term page orders current revisions
+by score, with the newest definition first when scores are equal.
+[Community review and revisions](/docs/community) describes the score and
+status rules.
 
 ## Machine-readable forms
 
-Every term is a `skos:Concept` within the scheme at
-`https://sam.cci.drexel.edu/vocabulary`, which itself resolves to a description of
-the vocabulary.
+Every term is a `skos:Concept` in the concept scheme at `/vocabulary`.
+The term page links to two serializations:
 
-Two serializations are linked from each term page:
+- **SKOS (Turtle):** `/terms/{id}/skos.ttl`
+- **JSON-LD:** `/terms/{id}/skos.jsonld`
 
-- **SKOS** (Turtle) — `/terms/<id>/skos.ttl`
-- **JSON-LD** — `/terms/<id>/skos.jsonld`
-
-Each term page also embeds a schema.org `DefinedTerm` block, which is what
-search engines and reference managers read.
-
-Provenance — who wrote what, when, and which model was involved — is published
-separately as PROV-O from the Provenance link on each term page. The SKOS
-record describes the vocabulary's current state; the PROV-O record describes
-how it got there.
+Each term page also embeds a schema.org `DefinedTerm` block. Provenance
+is published separately as W3C PROV-O from the **Provenance** link on the
+term page. The SKOS record describes the published vocabulary state. The
+PROV-O record describes the stored contribution history.
 
 ## Citing a term
 
-Cite the `/vocabulary/` address rather than the numeric one. It is readable in
-a bibliography, it survives changes to the underlying database, and it is the
-address the RDF output publishes as the concept's identifier.
+Use the full IRI displayed on the term page, not the numeric route. A
+minimal citation has this form:
 
-> sintering. *MatSci SAM*. https://sam.cci.drexel.edu/vocabulary/sintering
+> sintering. _MatSci SAM_. [IRI displayed on the term page]
 
-Identifiers moved to this host as part of the move from YAMZ to SAM. That
-change was made once, deliberately, before the vocabulary was cited anywhere
-external. It is the last such change we intend to make by editing identifiers
-directly — see below.
+Confirm the public authority before external citation. A move to another
+host changes the full IRI unless a persistent redirect layer is already
+in place.
 
 ## Persistent identifiers
 
-Work is underway to place these identifiers behind a persistent-identifier
-service, so that citations survive a change of domain as well as a change of
-database. The identifier scheme above is designed for it: because the mapping
-is pattern-based, one redirect rule covers every term in the vocabulary,
-present and future, and the readable part of the address does not change.
+The application does not implement a domain-independent
+persistent-identifier layer. A service such as w3id.org or an
+institutionally managed redirect can preserve citations across a future
+change of host. The slug pattern allows one redirect rule to map the
+vocabulary and its terms to a new authority.

@@ -14,9 +14,11 @@ const GUIDE_DIR = path.join(process.cwd(), "docs", "guide")
 // listed here sort after these, alphabetically, so adding a file never
 // requires touching this list.
 const PAGE_ORDER = [
+  "account-access",
   "adding-terms",
-  "ai-refinement",
   "community",
+  "ai-refinement",
+  "discussion",
   "search",
   "provenance",
   "metadata-access",
@@ -55,14 +57,10 @@ export const listDocs = async (): Promise<DocEntry[]> => {
 // rules out path traversal.
 export const renderDoc = async (slug: string) => {
   const valid =
-    slug === "index" ||
-    (await listDocs()).some((entry) => entry.slug === slug)
+    slug === "index" || (await listDocs()).some((entry) => entry.slug === slug)
   if (!valid) return null
 
-  const content = await fs.readFile(
-    path.join(GUIDE_DIR, `${slug}.md`),
-    "utf8"
-  )
+  const content = await fs.readFile(path.join(GUIDE_DIR, `${slug}.md`), "utf8")
 
   return {
     title: titleOf(content, slug),

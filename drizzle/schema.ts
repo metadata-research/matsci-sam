@@ -11,6 +11,8 @@ import {
   real,
   index,
   uniqueIndex,
+  foreignKey,
+  check,
   type AnyPgColumn
 } from "drizzle-orm/pg-core"
 
@@ -18,30 +20,109 @@ export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
 
 // --- USERS ---
 export type User = typeof usersTable.$inferSelect
-export const usersTable = pgTable("users", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  googleId: varchar().unique(undefined, { nulls: "distinct" }),
-  // Reserved for a future verified ORCID OAuth/linking flow. Do not populate
-  // this from an unverified profile form.
-  orcidId: varchar({ length: 19 }).unique(undefined, { nulls: "distinct" }),
-  name: varchar({ length: 255 }),
-  firstName: varchar({ length: 100 }),
-  lastName: varchar({ length: 100 }),
-  affiliation: varchar({ length: 255 }),
-  email: varchar({ length: 254 }),
-  isAi: boolean().notNull().default(false),
-  role: userRoleEnum().notNull().default("user"),
-  // Reputation multiplier, stored per user; not yet applied to vote tallies
-  weight: real().notNull().default(1),
-  createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-  notifications: boolean().default(false)
-})
+export const usersTable = pgTable(
+  "users",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    googleId: varchar().unique(undefined, { nulls: "distinct" }),
+    // Populated only by the verified ORCID OAuth/linking flow. Never accept an
+    // ORCID iD from a profile form.
+    orcidId: varchar({ length: 19 }).unique(undefined, { nulls: "distinct" }),
+    name: varchar({ length: 255 }),
+    firstName: varchar({ length: 100 }),
+    lastName: varchar({ length: 100 }),
+    affiliation: varchar({ length: 255 }),
+    email: varchar({ length: 254 }),
+    // Google identities are verified by Google. Passwordless email identities
+    // set this timestamp only after a one-time link has been claimed.
+    emailVerifiedAt: timestamp({ mode: "string" }),
+    isAi: boolean().notNull().default(false),
+    // Explicit consent for the public contributor page. Attribution remains
+    // visible when this is false, but names render as plain text.
+    isProfilePublic: boolean().notNull().default(false),
+    role: userRoleEnum().notNull().default("user"),
+    // Reputation multiplier, stored per user; not yet applied to vote tallies
+    weight: real().notNull().default(1),
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    notifications: boolean().default(false)
+  },
+  (table) => [
+    // Authentication treats email case-insensitively. AI identities do not
+    // authenticate and are excluded from this human-account constraint.
+    uniqueIndex("users_human_email_normalized_unique")
+      .on(sql`lower(${table.email})`)
+      .where(sql`${table.email} IS NOT NULL AND NOT ${table.isAi}`)
+  ]
+)
 
-export const usersTableRelations = relations(usersTable, ({ one, many }) => ({
+// --- EXTERNAL AUTHENTICATION ---
+export const oauthAccountsTable = pgTable(
+  "oauthAccounts",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .references(() => usersTable.id, { onDelete: "cascade" })
+      .notNull(),
+    provider: varchar({ length: 32 }).notNull(),
+    subject: varchar({ length: 255 }).notNull(),
+    // Provider tokens are encrypted before storage. They are never selected by
+    // profile/public queries or returned to a browser.
+    accessTokenEncrypted: text(),
+    refreshTokenEncrypted: text(),
+    scope: text(),
+    expiresAt: timestamp({ mode: "string" }),
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    updatedAt: timestamp({ mode: "string" }).defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("oauth_accounts_provider_subject_unique").on(
+      table.provider,
+      table.subject
+    ),
+    uniqueIndex("oauth_accounts_user_provider_unique").on(
+      table.userId,
+      table.provider
+    ),
+    index("oauth_accounts_user_idx").on(table.userId)
+  ]
+)
+
+export const emailAuthTokensTable = pgTable(
+  "emailAuthTokens",
+  {
+    // Only the SHA-256 digest is stored. The raw token exists only in the
+    // message delivered to the requested mailbox.
+    tokenHash: varchar({ length: 64 }).primaryKey(),
+    email: varchar({ length: 254 }).notNull(),
+    expiresAt: timestamp({ mode: "string" }).notNull(),
+    usedAt: timestamp({ mode: "string" }),
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull()
+  },
+  (table) => [
+    index("email_auth_tokens_email_created_idx").on(
+      table.email,
+      table.createdAt
+    ),
+    index("email_auth_tokens_expires_idx").on(table.expiresAt)
+  ]
+)
+
+export const usersTableRelations = relations(usersTable, ({ many }) => ({
   definitions: many(definitionsTable),
   comments: many(commentsTable),
-  votes: many(votesTable)
+  votes: many(votesTable),
+  oauthAccounts: many(oauthAccountsTable)
 }))
+
+export const oauthAccountsTableRelations = relations(
+  oauthAccountsTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [oauthAccountsTable.userId],
+      references: [usersTable.id]
+    })
+  })
+)
 
 // --- TERMS ---
 export type Term = typeof termsTable.$inferSelect
@@ -56,7 +137,7 @@ export const termsTable = pgTable("terms", {
   slug: text().notNull().unique()
 })
 
-export const termsTableRelations = relations(termsTable, ({ one, many }) => ({
+export const termsTableRelations = relations(termsTable, ({ many }) => ({
   definitions: many(definitionsTable),
   chats: many(chatsTable)
 }))
@@ -90,6 +171,14 @@ export const definitionsTable = pgTable(
     // Which add flow created this definition; interactive definitions get the
     // refine panel and skip the automatic term-level AI definition
     createdVia: definitionSourceEnum().notNull().default("classic"),
+    // Stable definitions keep their public id/URL while this pointer selects
+    // the immutable revision currently shown, searched, ranked, and voted on.
+    // It stays nullable at the database level because creating a definition and
+    // its first revision is a two-insert transaction; committed application
+    // rows must always have it set.
+    currentRevisionId: integer().references(
+      (): AnyPgColumn => definitionRevisionsTable.id
+    ),
     score: integer().notNull().default(0),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
@@ -105,7 +194,8 @@ export const definitionsTable = pgTable(
     // with the author's original
     uniqueIndex("definitions_author_term_original_unique")
       .on(table.authorId, table.termId)
-      .where(sql`${table.refinedFromId} IS NULL`)
+      .where(sql`${table.refinedFromId} IS NULL`),
+    index("definitions_current_revision_idx").on(table.currentRevisionId)
   ]
 )
 
@@ -130,6 +220,14 @@ export const definitionsTableRelations = relations(
     }),
     coauthors: many(coauthorsTable),
     refinements: many(refinementsTable),
+    revisions: many(definitionRevisionsTable, {
+      relationName: "definitionRevisionHistory"
+    }),
+    currentRevision: one(definitionRevisionsTable, {
+      fields: [definitionsTable.currentRevisionId],
+      references: [definitionRevisionsTable.id],
+      relationName: "currentDefinitionRevision"
+    }),
     edits: many(editsTable),
     comments: many(commentsTable),
     votes: many(votesTable),
@@ -182,32 +280,55 @@ export const refinementStatusEnum = pgEnum("refinement_status", [
 ])
 
 export type Refinement = typeof refinementsTable.$inferSelect
-export const refinementsTable = pgTable("definitionRefinements", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  definitionId: integer()
-    .references(() => definitionsTable.id)
-    .notNull(),
-  round: integer().notNull(),
-  // The author feedback that prompted this round; null on round 1
-  userComment: text(),
-  suggestedDefinition: text(),
-  suggestedExample: text(),
-  // Generation provenance, same shape as chats: set once the LLM has run
-  promptKey: text(),
-  promptHash: text(),
-  promptText: text(),
-  model: text(),
-  status: refinementStatusEnum().notNull().default("pending"),
-  errorMessage: text(),
-  createdAt: timestamp({ mode: "string", withTimezone: true })
-    .default(sql`now()`)
-    .notNull(),
-  // When the suggestion (or failure) landed — the generation activity's end
-  // time in the provenance timeline
-  suggestedAt: timestamp({ mode: "string", withTimezone: true }),
-  // When the author accepted/kept, or the round was superseded
-  decidedAt: timestamp({ mode: "string", withTimezone: true })
-})
+export const refinementsTable = pgTable(
+  "definitionRefinements",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    definitionId: integer()
+      .references(() => definitionsTable.id)
+      .notNull(),
+    // Exact immutable definition content shown to the model when this round
+    // began. This prevents later author edits from changing the recorded input.
+    sourceRevisionId: integer().notNull(),
+    round: integer().notNull(),
+    // The author feedback that prompted this round; null on round 1
+    userComment: text(),
+    suggestedDefinition: text(),
+    suggestedExample: text(),
+    // Generation provenance, same shape as chats: set once the LLM has run
+    promptKey: text(),
+    promptHash: text(),
+    promptText: text(),
+    model: text(),
+    status: refinementStatusEnum().notNull().default("pending"),
+    errorMessage: text(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    // When the suggestion (or failure) landed — the generation activity's end
+    // time in the provenance timeline
+    suggestedAt: timestamp({ mode: "string", withTimezone: true }),
+    // When the author accepted/kept, or the round was superseded
+    decidedAt: timestamp({ mode: "string", withTimezone: true })
+  },
+  (table) => [
+    uniqueIndex("definition_refinements_definition_round_unique").on(
+      table.definitionId,
+      table.round
+    ),
+    index("definition_refinements_source_revision_idx").on(
+      table.sourceRevisionId
+    ),
+    foreignKey({
+      columns: [table.sourceRevisionId, table.definitionId],
+      foreignColumns: [
+        definitionRevisionsTable.id,
+        definitionRevisionsTable.definitionId
+      ],
+      name: "definition_refinements_source_same_definition_fk"
+    })
+  ]
+)
 
 export const refinementsTableRelations = relations(
   refinementsTable,
@@ -215,11 +336,222 @@ export const refinementsTableRelations = relations(
     definition: one(definitionsTable, {
       fields: [refinementsTable.definitionId],
       references: [definitionsTable.id]
+    }),
+    sourceRevision: one(definitionRevisionsTable, {
+      fields: [refinementsTable.sourceRevisionId],
+      references: [definitionRevisionsTable.id]
     })
   })
 )
 
+// --- IMMUTABLE DEFINITION REVISIONS ---
+export const definitionRevisionSourceEnum = pgEnum(
+  "definition_revision_source",
+  [
+    "initial",
+    "author_edit",
+    "ai_refinement",
+    "ai_generation",
+    "rollback",
+    "legacy"
+  ]
+)
+
+export type DefinitionRevision = typeof definitionRevisionsTable.$inferSelect
+export const definitionRevisionsTable = pgTable(
+  "definitionRevisions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    definitionId: integer()
+      .references(() => definitionsTable.id)
+      .notNull(),
+    version: integer().notNull(),
+    previousRevisionId: integer(),
+    definition: text().notNull(),
+    // Historical definitionEdits never stored the prior example, editor, or
+    // change note. Those fields may be null only on rows explicitly marked as
+    // incomplete legacy imports; every newly published revision supplies them.
+    example: text(),
+    editorId: integer().references(() => usersTable.id),
+    changeNote: text(),
+    legacyIncomplete: boolean().notNull().default(false),
+    source: definitionRevisionSourceEnum().notNull(),
+    model: text(),
+    prompt: text(),
+    // Exact non-chronological source when this content restores or derives
+    // from another revision. previousRevisionId remains the linear history
+    // predecessor; this link records semantic derivation across that history
+    // or across stable definitions.
+    derivedFromRevisionId: integer(),
+    sourceRefinementId: integer().references(
+      (): AnyPgColumn => refinementsTable.id
+    ),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (table) => [
+    uniqueIndex("definition_revisions_definition_version_unique").on(
+      table.definitionId,
+      table.version
+    ),
+    // Composite FKs use this pair to prove that a revision-scoped activity or
+    // predecessor and its stable definition id name the same contribution.
+    uniqueIndex("definition_revisions_id_definition_unique").on(
+      table.id,
+      table.definitionId
+    ),
+    uniqueIndex("definition_revisions_previous_unique")
+      .on(table.previousRevisionId)
+      .where(sql`${table.previousRevisionId} IS NOT NULL`),
+    uniqueIndex("definition_revisions_source_refinement_unique")
+      .on(table.sourceRefinementId)
+      .where(sql`${table.sourceRefinementId} IS NOT NULL`),
+    index("definition_revisions_editor_idx").on(table.editorId),
+    index("definition_revisions_derived_from_idx").on(
+      table.derivedFromRevisionId
+    ),
+    check("definition_revisions_version_positive", sql`${table.version} > 0`),
+    check(
+      "definition_revisions_predecessor_shape",
+      sql`(${table.version} = 1 AND ${table.previousRevisionId} IS NULL)
+          OR (${table.version} > 1 AND ${table.previousRevisionId} IS NOT NULL)`
+    ),
+    check(
+      "definition_revisions_nonblank_definition",
+      sql`btrim(${table.definition}) <> ''`
+    ),
+    check(
+      "definition_revisions_complete_or_legacy",
+      sql`${table.legacyIncomplete}
+          OR (${table.example} IS NOT NULL
+              AND ${table.editorId} IS NOT NULL
+              AND ${table.changeNote} IS NOT NULL)`
+    ),
+    check(
+      "definition_revisions_nonblank_optional_text",
+      sql`(${table.example} IS NULL OR btrim(${table.example}) <> '')
+          AND (${table.changeNote} IS NULL OR btrim(${table.changeNote}) <> '')`
+    ),
+    foreignKey({
+      columns: [table.previousRevisionId, table.definitionId],
+      foreignColumns: [table.id, table.definitionId],
+      name: "definition_revisions_previous_same_definition_fk"
+    }),
+    foreignKey({
+      columns: [table.derivedFromRevisionId],
+      foreignColumns: [table.id],
+      name: "definition_revisions_derived_from_fk"
+    })
+  ]
+)
+
+export const definitionRevisionsTableRelations = relations(
+  definitionRevisionsTable,
+  ({ one, many }) => ({
+    definitionRecord: one(definitionsTable, {
+      fields: [definitionRevisionsTable.definitionId],
+      references: [definitionsTable.id],
+      relationName: "definitionRevisionHistory"
+    }),
+    currentForDefinition: one(definitionsTable, {
+      fields: [definitionRevisionsTable.id],
+      references: [definitionsTable.currentRevisionId],
+      relationName: "currentDefinitionRevision"
+    }),
+    previousRevision: one(definitionRevisionsTable, {
+      fields: [definitionRevisionsTable.previousRevisionId],
+      references: [definitionRevisionsTable.id],
+      relationName: "definitionRevisionChain"
+    }),
+    nextRevision: one(definitionRevisionsTable, {
+      fields: [definitionRevisionsTable.id],
+      references: [definitionRevisionsTable.previousRevisionId],
+      relationName: "definitionRevisionChain"
+    }),
+    derivedFromRevision: one(definitionRevisionsTable, {
+      fields: [definitionRevisionsTable.derivedFromRevisionId],
+      references: [definitionRevisionsTable.id],
+      relationName: "definitionRevisionDerivation"
+    }),
+    derivedRevisions: many(definitionRevisionsTable, {
+      relationName: "definitionRevisionDerivation"
+    }),
+    editor: one(usersTable, {
+      fields: [definitionRevisionsTable.editorId],
+      references: [usersTable.id]
+    }),
+    sourceRefinement: one(refinementsTable, {
+      fields: [definitionRevisionsTable.sourceRefinementId],
+      references: [refinementsTable.id]
+    }),
+    comments: many(commentsTable),
+    votes: many(votesTable)
+  })
+)
+
+// --- DISCUSSION SUGGESTIONS ---
+// A Discussion suggestion is generated before the user decides whether to
+// publish it. Persisting the exact source revision and model output prevents a
+// client from altering text while retaining false AI attribution.
+export const discussionSuggestionsTable = pgTable(
+  "discussionSuggestions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    definitionId: integer()
+      .references(() => definitionsTable.id)
+      .notNull(),
+    revisionId: integer().notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    comment: text().notNull(),
+    suggestedDefinition: text().notNull(),
+    suggestedExample: text().notNull(),
+    model: text().notNull(),
+    prompt: text().notNull(),
+    outputDefinitionId: integer().references(() => definitionsTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    acceptedAt: timestamp({ mode: "string", withTimezone: true })
+  },
+  (table) => [
+    index("discussion_suggestions_source_idx").on(
+      table.definitionId,
+      table.createdAt
+    ),
+    index("discussion_suggestions_user_idx").on(table.userId, table.createdAt),
+    uniqueIndex("discussion_suggestions_output_unique")
+      .on(table.outputDefinitionId)
+      .where(sql`${table.outputDefinitionId} IS NOT NULL`),
+    foreignKey({
+      columns: [table.revisionId, table.definitionId],
+      foreignColumns: [
+        definitionRevisionsTable.id,
+        definitionRevisionsTable.definitionId
+      ],
+      name: "discussion_suggestions_revision_same_definition_fk"
+    }),
+    check(
+      "discussion_suggestions_acceptance_pair",
+      sql`(${table.acceptedAt} IS NULL AND ${table.outputDefinitionId} IS NULL)
+          OR (${table.acceptedAt} IS NOT NULL AND ${table.outputDefinitionId} IS NOT NULL)`
+    ),
+    check(
+      "discussion_suggestions_nonblank_content",
+      sql`btrim(${table.comment}) <> ''
+          AND btrim(${table.suggestedDefinition}) <> ''
+          AND btrim(${table.suggestedExample}) <> ''
+          AND btrim(${table.model}) <> ''
+          AND btrim(${table.prompt}) <> ''`
+    )
+  ]
+)
+
 // --- DEFINITION EDITS ---
+// Legacy expand/rollback compatibility only. New edits append a complete row to
+// definitionRevisions and advance definitions.currentRevisionId.
 export const editsTable = pgTable("definitionEdits", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   definitionId: integer()
@@ -244,6 +576,7 @@ export type Vote = typeof votesTable.$inferSelect
 export const votesTable = pgTable(
   "votes",
   {
+    revisionId: integer().notNull(),
     definitionId: integer()
       .references(() => definitionsTable.id)
       .notNull(),
@@ -255,12 +588,30 @@ export const votesTable = pgTable(
     // definition's createdAt (the real time was never recorded)
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
-      .notNull()
+      .notNull(),
+    // Existing votes are attached to the revision current at migration time
+    // because their historical timestamps may be placeholders.
+    migratedLegacy: boolean().notNull().default(false)
   },
-  (table) => [primaryKey({ columns: [table.definitionId, table.userId] })]
+  (table) => [
+    primaryKey({ columns: [table.revisionId, table.userId] }),
+    index("votes_definition_revision_idx").on(
+      table.definitionId,
+      table.revisionId
+    ),
+    index("votes_user_idx").on(table.userId),
+    foreignKey({
+      columns: [table.revisionId, table.definitionId],
+      foreignColumns: [
+        definitionRevisionsTable.id,
+        definitionRevisionsTable.definitionId
+      ],
+      name: "votes_revision_same_definition_fk"
+    })
+  ]
 )
 
-export const votesTableRelations = relations(votesTable, ({ one, many }) => ({
+export const votesTableRelations = relations(votesTable, ({ one }) => ({
   author: one(usersTable, {
     fields: [votesTable.userId],
     references: [usersTable.id]
@@ -268,24 +619,52 @@ export const votesTableRelations = relations(votesTable, ({ one, many }) => ({
   term: one(definitionsTable, {
     fields: [votesTable.definitionId],
     references: [definitionsTable.id]
+  }),
+  revision: one(definitionRevisionsTable, {
+    fields: [votesTable.revisionId],
+    references: [definitionRevisionsTable.id]
   })
 }))
 
 // --- COMMENTS ---
 export type Comment = typeof commentsTable.$inferSelect
-export const commentsTable = pgTable("comments", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  definitionId: integer()
-    .references(() => definitionsTable.id)
-    .notNull(),
-  userId: integer()
-    .references(() => usersTable.id)
-    .notNull(),
-  message: text().notNull(),
-  createdAt: timestamp({ mode: "string", withTimezone: true })
-    .default(sql`now()`)
-    .notNull()
-})
+export const commentsTable = pgTable(
+  "comments",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    definitionId: integer()
+      .references(() => definitionsTable.id)
+      .notNull(),
+    revisionId: integer().notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    message: text().notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    // Backfilled comments use the revision visible at their recorded time. This
+    // flag lets provenance disclose that the association was inferred.
+    migratedLegacy: boolean().notNull().default(false)
+  },
+  (table) => [
+    index("comments_definition_created_idx").on(
+      table.definitionId,
+      table.createdAt,
+      table.id
+    ),
+    index("comments_revision_idx").on(table.revisionId),
+    index("comments_user_idx").on(table.userId),
+    foreignKey({
+      columns: [table.revisionId, table.definitionId],
+      foreignColumns: [
+        definitionRevisionsTable.id,
+        definitionRevisionsTable.definitionId
+      ],
+      name: "comments_revision_same_definition_fk"
+    })
+  ]
+)
 
 export const commentsTableRelations = relations(commentsTable, ({ one }) => ({
   author: one(usersTable, {
@@ -295,6 +674,10 @@ export const commentsTableRelations = relations(commentsTable, ({ one }) => ({
   term: one(definitionsTable, {
     fields: [commentsTable.definitionId],
     references: [definitionsTable.id]
+  }),
+  revision: one(definitionRevisionsTable, {
+    fields: [commentsTable.revisionId],
+    references: [definitionRevisionsTable.id]
   })
 }))
 
