@@ -40,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} min-h-screen antialiased bg-background flex flex-col text-foreground font-sans`}
       >
         <TRPCProvider>

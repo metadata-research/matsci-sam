@@ -10,12 +10,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { EditProfile, EditProfileSchema } from "@/lib/schemas/profile"
 import { trpc } from "@/trpc/client"
 
@@ -26,7 +28,8 @@ export const EditProfileForm = ({ defaults }: { defaults: User }) => {
     defaultValues: {
       firstName: defaults.firstName || "",
       lastName: defaults.lastName || "",
-      affiliation: defaults.affiliation || ""
+      affiliation: defaults.affiliation || "",
+      isProfilePublic: defaults.isProfilePublic
     }
   })
 
@@ -89,6 +92,31 @@ export const EditProfileForm = ({ defaults }: { defaults: User }) => {
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isProfilePublic"
+              render={({ field }) => (
+                <FormItem className="flex items-start justify-between gap-5 rounded-lg border p-4">
+                  <div className="space-y-2">
+                    <FormLabel>Public profile</FormLabel>
+                    <FormDescription className="leading-6">
+                      When enabled, your name, affiliation, verified ORCID, and
+                      authored terms become available on a public page. Your
+                      email and authentication details stay private. Attribution
+                      remains public either way. Turning this off makes the page
+                      unavailable and shows your name as plain text in bylines.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="mt-1"
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

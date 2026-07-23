@@ -8,7 +8,13 @@ import { termsRouter } from "./terms"
 import { refinementsRouter } from "./refinements"
 import { discussionRouter } from "./discussion"
 import { z } from "zod"
-import { db, definitionsTable, termsTable, usersTable } from "@yamz/db"
+import {
+  db,
+  definitionRevisionsTable,
+  definitionsTable,
+  termsTable,
+  usersTable
+} from "@yamz/db"
 import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm"
 import { authenticatedProcedure } from "../procedures"
 import { votesRouter } from "./votes"
@@ -98,13 +104,21 @@ export const appRouter = createTRPCRouter({
         const results = await db
           .select({
             ...getTableColumns(definitionsTable),
+            revisionId: definitionRevisionsTable.id,
+            version: definitionRevisionsTable.version,
             isAi: usersTable.isAi,
+            author: usersTable.name,
+            authorProfilePublic: usersTable.isProfilePublic,
             term: termsTable.term
           })
           .from(termsTable)
           .innerJoin(
             definitionsTable,
             eq(termsTable.id, definitionsTable.termId)
+          )
+          .innerJoin(
+            definitionRevisionsTable,
+            eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
           )
           .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
           // Empty query keeps the newest-first browse the homepage prefetches.

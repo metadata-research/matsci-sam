@@ -44,9 +44,11 @@ const DiffText = ({ from, to }: { from: string; to: string }) => (
 // standing suggestion offers actions.
 export const RefinePanel = ({
   definitionId,
+  revisionId,
   current
 }: {
   definitionId: number
+  revisionId: number
   current: { definition: string; example: string }
 }) => {
   const router = useRouter()
@@ -186,7 +188,11 @@ export const RefinePanel = ({
                     variant="secondary"
                     disabled={busy || !comment.trim()}
                     onClick={() =>
-                      request.mutate({ definitionId, comment: comment.trim() })
+                      request.mutate({
+                        definitionId,
+                        expectedRevisionId: revisionId,
+                        comment: comment.trim()
+                      })
                     }
                   >
                     Re-evaluate
@@ -236,7 +242,9 @@ export const RefinePanel = ({
         <Button
           variant={rounds.data.length ? "outline" : "default"}
           disabled={busy}
-          onClick={() => request.mutate({ definitionId })}
+          onClick={() =>
+            request.mutate({ definitionId, expectedRevisionId: revisionId })
+          }
         >
           <SparklesIcon className="size-4 mr-1" />
           {rounds.data.length ? "Refine again" : "Refine with AI"}

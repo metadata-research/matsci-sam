@@ -8,16 +8,17 @@ suggested revisions from a locally hosted language model and decide whether to
 publish them. The site also publishes standards-based metadata for data
 consumers and semantic web tools.
 
-These guides cover what the site can do today.
+These guides cover what the site can do today, including the limits of the
+pilot workflows.
 
-- [Adding a term](/docs/adding-terms) covers the Add page and the two
+- [Adding a term](/docs/adding-terms) covers the Contribute page and the two
   modes.
+- [Community review and revisions](/docs/community) covers voting,
+  score and status, author editing, comments, and removal limits.
 - [AI refinement](/docs/ai-refinement) covers the interactive loop for
   requesting and reviewing suggested revisions.
 - [Discussion](/docs/discussion) covers the recent-term feed, ordinary
   comments, and one-step revision suggestions.
-- [Votes, comments, and status](/docs/community) covers how definitions
-  are ordered and earn standing.
 - [Search and browse](/docs/search) covers search filters and the
   alphabetical term list.
 - [Provenance](/docs/provenance) covers the recorded history associated

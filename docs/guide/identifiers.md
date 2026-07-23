@@ -16,10 +16,10 @@ has this form:
 ```
 
 The application lowercases term names and writes spaces as underscores.
-Hyphens remain part of the slug, so *high-entropy alloy* and *high
-entropy alloy* produce different paths. Characters outside `a-z`,
-`0-9`, `_`, and `-` are dropped. For example, *density functional theory
-(DFT)* becomes `density_functional_theory_dft`.
+Hyphens remain part of the slug, so _high-entropy alloy_ and _high
+entropy alloy_ produce different paths. Characters outside `a-z`,
+`0-9`, `_`, and `-` are dropped. For example, _density functional theory
+(DFT)_ becomes `density_functional_theory_dft`.
 
 ## What remains stable
 
@@ -43,8 +43,12 @@ The number resolves an identifier collision and does not rank the terms.
 
 Several definitions of one term remain part of one concept with one
 identifier. Definitions have their own `/definition/{id}` pages. The
-term page orders them by score, with the newest definition first when
-scores are equal.
+definition path remains the same when its author publishes a revision. The
+base path displays the current revision, and `?version={number}` identifies a
+historical version on that stable page. The term page orders current revisions
+by score, with the newest definition first when scores are equal.
+[Community review and revisions](/docs/community) describes the score and
+status rules.
 
 ## Machine-readable forms
 
@@ -64,7 +68,7 @@ PROV-O record describes the stored contribution history.
 Use the full IRI displayed on the term page, not the numeric route. A
 minimal citation has this form:
 
-> sintering. *MatSci SAM*. [IRI displayed on the term page]
+> sintering. _MatSci SAM_. [IRI displayed on the term page]
 
 Confirm the public authority before external citation. A move to another
 host changes the full IRI unless a persistent redirect layer is already

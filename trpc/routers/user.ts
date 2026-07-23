@@ -3,6 +3,7 @@ import { createTRPCRouter } from "../init"
 import { authenticatedProcedure } from "../procedures"
 import { db, usersTable } from "@yamz/db"
 import { eq } from "drizzle-orm"
+import { revalidatePath } from "next/cache"
 
 export const userRouter = createTRPCRouter({
   edit: authenticatedProcedure
@@ -16,9 +17,12 @@ export const userRouter = createTRPCRouter({
           name,
           firstName: data.firstName,
           lastName: data.lastName,
-          affiliation: data.affiliation || null
+          affiliation: data.affiliation || null,
+          isProfilePublic: data.isProfilePublic
         })
         .where(eq(usersTable.id, userId))
+
+      revalidatePath(`/people/${userId}`)
 
       return { ok: true }
     })

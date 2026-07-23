@@ -120,6 +120,48 @@
       "when": 1784724749967,
       "tag": "0016_flawless_changeling",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784822808350,
+      "tag": "0017_brief_ultimatum",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784824025757,
+      "tag": "0018_trusted_revision_derivations",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784824273825,
+      "tag": "0019_refinement_source_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1784824979770,
+      "tag": "0020_discussion_suggestion_content_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784825643340,
+      "tag": "0021_revision_head_commit_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1784830474240,
+      "tag": "0022_cold_lady_bullseye",
+      "breakpoints": true
     }
   ]
 }

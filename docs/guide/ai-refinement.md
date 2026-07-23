@@ -32,8 +32,19 @@ shows a "Refined" label. Readers can vote on either definition.
 
 You can refine the original again after a round is decided. The request
 includes the suggestions and feedback from earlier rounds. Accepting a
-later round updates the existing refined definition and records an edit
-instead of creating another refined definition.
+later round publishes a new version of the existing refined definition. The
+new version records the accepting author, named model, prompt, accepted
+suggestion, and relationship to the preceding version. It starts with a new
+vote tally. Earlier versions and their vote totals remain available in the
+revision history.
+
+A refinement request records the source version. The application does not
+accept the suggestion if that source changes while the round is open. Start a
+new round from the latest version in that case.
 
 Every request, suggestion, decision, and piece of feedback is recorded in
 the stored [provenance](/docs/provenance) for the term.
+
+The ordinary **Edit** action uses the same immutable revision mechanism.
+[Community review and revisions](/docs/community) describes the revision
+record and the handling of votes and comments.

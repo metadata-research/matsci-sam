@@ -1,6 +1,11 @@
-import { db, definitionsTable, editsTable, usersTable } from "@yamz/db"
+import { db, definitionsTable, usersTable } from "@yamz/db"
 import { and, eq } from "drizzle-orm"
 import { cache } from "react"
+import {
+  createDefinitionWithInitialRevision,
+  publishDefinitionRevision,
+  RevisionNoChangeError
+} from "@/lib/definition-revisions"
 
 export const GetUser = cache((userId: number) =>
   db.query.usersTable.findFirst({
@@ -54,29 +59,46 @@ export const UpsertAIDefinition = async (
 ) => {
   const aiUser = await GetAiUser()
 
-  const existingDef = await db.query.definitionsTable.findFirst({
-    where: and(
-      eq(definitionsTable.termId, termId),
-      eq(definitionsTable.authorId, aiUser.id)
-    )
-  })
-
-  if (existingDef) {
-    await db
-      .update(definitionsTable)
-      .set({ ...data, ...generation })
-      .where(eq(definitionsTable.id, existingDef.id))
-
-    await db.insert(editsTable).values({
-      definitionId: existingDef.id,
-      definition: existingDef.definition,
-      newDefinition: data.definition
+  return db.transaction(async (tx) => {
+    const existingDef = await tx.query.definitionsTable.findFirst({
+      where: and(
+        eq(definitionsTable.termId, termId),
+        eq(definitionsTable.authorId, aiUser.id)
+      )
     })
-  } else
-    await db.insert(definitionsTable).values({
+
+    if (existingDef) {
+      try {
+        return await publishDefinitionRevision(tx, {
+          definitionId: existingDef.id,
+          editorId: aiUser.id,
+          definition: data.definition,
+          example: data.example,
+          changeNote: "Regenerated after community feedback",
+          source: "ai_generation",
+          expectedRevisionId: existingDef.currentRevisionId ?? undefined,
+          model: generation.model,
+          prompt: generation.prompt
+        })
+      } catch (error) {
+        // An identical regeneration is still present in the chat/refinement
+        // provenance, but it must not create a content version or erase the
+        // standing vote tally.
+        if (error instanceof RevisionNoChangeError)
+          return { definition: existingDef, revision: null }
+        throw error
+      }
+    }
+
+    return createDefinitionWithInitialRevision(tx, {
       termId,
-      ...data,
-      ...generation,
-      authorId: aiUser.id
+      authorId: aiUser.id,
+      definition: data.definition,
+      example: data.example,
+      changeNote: "Initial AI-generated definition",
+      source: "ai_generation",
+      model: generation.model,
+      prompt: generation.prompt
     })
+  })
 }

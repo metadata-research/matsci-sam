@@ -2,24 +2,28 @@ import "server-only"
 
 import {
   chatsTable,
-  coauthorsTable,
   commentsTable,
   db,
+  definitionRevisionsTable,
   definitionsTable,
-  editsTable,
+  discussionSuggestionsTable,
   refinementsTable,
   termsTable,
   usersTable,
   votesTable
 } from "@yamz/db"
-import { asc, eq, getTableColumns, inArray } from "drizzle-orm"
+import { and, asc, eq, getTableColumns, inArray, isNotNull } from "drizzle-orm"
 
-// Read-only PROV-O mapping over the existing domain tables. Nothing here is
-// stored: terms, definitions, definitionEdits, comments, and chats already
-// record every event with timestamps and attribution, so the provenance
-// record is derived on demand.
+// Read-only PROV-O mapping over the domain tables. Definition revisions are
+// the canonical version record; the mutable definitions row is used only for
+// the stable contribution identity, author, term, and current-revision pointer.
 
-export type ProvNodeType = "term" | "entity" | "activity" | "person" | "software"
+export type ProvNodeType =
+  | "term"
+  | "entity"
+  | "activity"
+  | "person"
+  | "software"
 
 export type ProvRelation =
   | "wasGeneratedBy"
@@ -32,6 +36,7 @@ export type ProvNode = {
   id: string
   label: string
   type: ProvNodeType
+  profileUserId?: number
   // shown in the node details panel
   detail?: string
   meta?: Record<string, string | number | null>
@@ -64,6 +69,7 @@ export type ProvEvent = {
     | "refine-failed"
   actor: string
   actorKind: "person" | "software" | "unknown"
+  profileUserId?: number
   summary: string
   detail?: string
   model?: string | null
@@ -78,10 +84,30 @@ const excerpt = (text: string, max = 240) =>
 const naiveUtcToIso = (ts: string) =>
   /[zZ]|[+-]\d\d(:?\d\d)?$/.test(ts) ? ts : `${ts.replace(" ", "T")}Z`
 
+const generatedChatContent = (message: string) => {
+  const match = message.match(
+    /^<definition>\n([\s\S]*?)\n\n<example>\n([\s\S]*)$/
+  )
+  return match ? { definition: match[1], example: match[2] } : null
+}
+
+const revisionNodeId = (definitionId: number, version: number) =>
+  `def_${definitionId}_v${version}`
+
+type ProfileCapableUser = {
+  id: number
+  name: string | null
+  isAi?: boolean | null
+  isProfilePublic?: boolean | null
+}
+
+const publicProfileUserId = (user: ProfileCapableUser | null | undefined) =>
+  user?.isProfilePublic === true && user.isAi === false ? user.id : undefined
+
 export const buildTermProvenance = async (
   termId: number,
-  // The public view shows vote events without voter identities; the admin
-  // view passes nothing and keeps full detail
+  // Public provenance keeps the vote itself visible but does not reveal the
+  // voter node or identity.
   options: { anonymizeVoters?: boolean } = {}
 ) => {
   const term = await db.query.termsTable.findFirst({
@@ -92,42 +118,82 @@ export const buildTermProvenance = async (
   const definitions = await db
     .select({
       id: definitionsTable.id,
-      definition: definitionsTable.definition,
-      example: definitionsTable.example,
-      model: definitionsTable.model,
-      prompt: definitionsTable.prompt,
+      currentRevisionId: definitionsTable.currentRevisionId,
       refinedFromId: definitionsTable.refinedFromId,
-      score: definitionsTable.score,
       createdAt: definitionsTable.createdAt,
-      author: { id: usersTable.id, name: usersTable.name, isAi: usersTable.isAi }
+      author: {
+        id: usersTable.id,
+        name: usersTable.name,
+        isAi: usersTable.isAi,
+        isProfilePublic: usersTable.isProfilePublic
+      }
     })
     .from(definitionsTable)
-    .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
+    .leftJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
     .where(eq(definitionsTable.termId, termId))
     .orderBy(asc(definitionsTable.createdAt))
 
-  const definitionIds = definitions.map((d) => d.id)
+  const definitionIds = definitions.map((definition) => definition.id)
 
-  const [edits, comments, chats, votes, refinements, coauthors] =
-    await Promise.all([
+  const [
+    revisions,
+    comments,
+    chats,
+    votes,
+    refinements,
+    discussionSuggestions
+  ] = await Promise.all([
     definitionIds.length
       ? db
-          .select()
-          .from(editsTable)
-          .where(inArray(editsTable.definitionId, definitionIds))
-          .orderBy(asc(editsTable.editedAt))
+          .select({
+            id: definitionRevisionsTable.id,
+            definitionId: definitionRevisionsTable.definitionId,
+            version: definitionRevisionsTable.version,
+            previousRevisionId: definitionRevisionsTable.previousRevisionId,
+            definition: definitionRevisionsTable.definition,
+            example: definitionRevisionsTable.example,
+            editorId: definitionRevisionsTable.editorId,
+            changeNote: definitionRevisionsTable.changeNote,
+            legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
+            source: definitionRevisionsTable.source,
+            model: definitionRevisionsTable.model,
+            prompt: definitionRevisionsTable.prompt,
+            derivedFromRevisionId:
+              definitionRevisionsTable.derivedFromRevisionId,
+            sourceRefinementId: definitionRevisionsTable.sourceRefinementId,
+            createdAt: definitionRevisionsTable.createdAt,
+            editor: {
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            }
+          })
+          .from(definitionRevisionsTable)
+          .leftJoin(
+            usersTable,
+            eq(definitionRevisionsTable.editorId, usersTable.id)
+          )
+          .where(inArray(definitionRevisionsTable.definitionId, definitionIds))
+          .orderBy(
+            asc(definitionRevisionsTable.definitionId),
+            asc(definitionRevisionsTable.version)
+          )
       : Promise.resolve([]),
     definitionIds.length
       ? db
           .select({
             id: commentsTable.id,
             definitionId: commentsTable.definitionId,
+            revisionId: commentsTable.revisionId,
             message: commentsTable.message,
             createdAt: commentsTable.createdAt,
+            migratedLegacy: commentsTable.migratedLegacy,
             author: {
               id: usersTable.id,
               name: usersTable.name,
-              isAi: usersTable.isAi
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
             }
           })
           .from(commentsTable)
@@ -139,7 +205,9 @@ export const buildTermProvenance = async (
       .select({
         ...getTableColumns(chatsTable),
         authorName: usersTable.name,
-        authorId: usersTable.id
+        authorId: usersTable.id,
+        authorIsAi: usersTable.isAi,
+        authorProfilePublic: usersTable.isProfilePublic
       })
       .from(chatsTable)
       .leftJoin(usersTable, eq(chatsTable.userId, usersTable.id))
@@ -148,10 +216,17 @@ export const buildTermProvenance = async (
     definitionIds.length
       ? db
           .select({
+            revisionId: votesTable.revisionId,
             definitionId: votesTable.definitionId,
             kind: votesTable.kind,
             createdAt: votesTable.createdAt,
-            author: { id: usersTable.id, name: usersTable.name }
+            migratedLegacy: votesTable.migratedLegacy,
+            author: {
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            }
           })
           .from(votesTable)
           .innerJoin(usersTable, eq(votesTable.userId, usersTable.id))
@@ -163,17 +238,35 @@ export const buildTermProvenance = async (
           .select()
           .from(refinementsTable)
           .where(inArray(refinementsTable.definitionId, definitionIds))
-          .orderBy(asc(refinementsTable.round))
+          .orderBy(
+            asc(refinementsTable.definitionId),
+            asc(refinementsTable.round)
+          )
       : Promise.resolve([]),
     definitionIds.length
       ? db
           .select({
-            definitionId: coauthorsTable.definitionId,
-            user: { id: usersTable.id, name: usersTable.name, isAi: usersTable.isAi }
+            ...getTableColumns(discussionSuggestionsTable),
+            requester: {
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            }
           })
-          .from(coauthorsTable)
-          .innerJoin(usersTable, eq(coauthorsTable.userId, usersTable.id))
-          .where(inArray(coauthorsTable.definitionId, definitionIds))
+          .from(discussionSuggestionsTable)
+          .innerJoin(
+            usersTable,
+            eq(discussionSuggestionsTable.userId, usersTable.id)
+          )
+          .where(
+            and(
+              inArray(discussionSuggestionsTable.definitionId, definitionIds),
+              isNotNull(discussionSuggestionsTable.acceptedAt),
+              isNotNull(discussionSuggestionsTable.outputDefinitionId)
+            )
+          )
+          .orderBy(asc(discussionSuggestionsTable.createdAt))
       : Promise.resolve([])
   ])
 
@@ -211,10 +304,15 @@ export const buildTermProvenance = async (
     summary: `Term "${term.term}" created`
   })
 
-  // --- agents ---
-  const personNode = (author: { id: number; name: string | null }) => {
+  // --- agents and prompts ---
+  const personNode = (author: ProfileCapableUser) => {
     const id = `user_${author.id}`
-    addNode({ id, label: author.name ?? `User ${author.id}`, type: "person" })
+    addNode({
+      id,
+      label: author.name ?? `User ${author.id}`,
+      type: "person",
+      profileUserId: publicProfileUserId(author)
+    })
     return id
   }
   const modelNode = (model: string) => {
@@ -222,7 +320,11 @@ export const buildTermProvenance = async (
     addNode({ id, label: model, type: "software" })
     return id
   }
-  const promptNode = (hash: string, text: string | null, key: string | null) => {
+  const promptNode = (
+    hash: string,
+    text: string | null,
+    key: string | null
+  ) => {
     const id = `prompt_${hash}`
     addNode({
       id,
@@ -233,142 +335,305 @@ export const buildTermProvenance = async (
     })
     return id
   }
-
-  // Comments on AI definitions are mirrored into the chat thread as
-  // "<feedback>\n<text>" user rows; treat the comment as the canonical
-  // entity so the pair does not appear twice.
-  const mirroredChatIds = new Set<number>()
-  const feedbackEntityForChat = new Map<number, string>()
-  const userChats = chats.filter((c) => c.role === "user")
-  for (const chat of userChats) {
-    const match = comments.find(
-      (c) => `<feedback>\n${c.message}` === chat.message
-    )
-    if (match) {
-      mirroredChatIds.add(chat.id)
-      feedbackEntityForChat.set(chat.id, `comment_${match.id}`)
-    }
+  const revisionPromptNode = (revision: (typeof revisions)[number]) => {
+    const id = `prompt_revision_${revision.id}`
+    addNode({
+      id,
+      label: `Stored prompt for definition v${revision.version}`,
+      type: "entity",
+      detail: revision.prompt ?? undefined,
+      meta: { revisionId: revision.id }
+    })
+    return id
   }
 
-  // --- definitions with their version chains ---
-  const aiDefinition = definitions.find((d) => d.author.isAi)
-  const systemChats = chats.filter((c) => c.role === "system")
-
-  for (const definition of definitions) {
-    const defEdits = edits.filter((e) => e.definitionId === definition.id)
-    const isAi = definition.author.isAi
-
-    // versions: v1 text is the oldest edit's "before"; the definition row is
-    // always the latest text
-    const versions = [
-      ...defEdits.map((e, i) => ({
-        text: e.definition,
-        at:
-          i === 0
-            ? definition.createdAt
-            : defEdits[i - 1].editedAt.toISOString()
-      })),
-      {
-        text: definition.definition,
-        at: defEdits.length
-          ? defEdits[defEdits.length - 1].editedAt.toISOString()
-          : definition.createdAt
-      }
-    ]
-
-    const isRefined = definition.refinedFromId !== null
-    const defCoauthors = coauthors.filter(
-      (c) => c.definitionId === definition.id
+  const definitionById = new Map(
+    definitions.map((definition) => [definition.id, definition])
+  )
+  const revisionById = new Map(
+    revisions.map((revision) => [revision.id, revision])
+  )
+  const scoreByRevisionId = new Map<number, number>()
+  for (const vote of votes)
+    scoreByRevisionId.set(
+      vote.revisionId,
+      (scoreByRevisionId.get(vote.revisionId) ?? 0) +
+        (vote.kind === "up" ? 1 : -1)
     )
 
-    versions.forEach((version, i) => {
-      const id = `def_${definition.id}_v${i + 1}`
-      const isLatest = i === versions.length - 1
+  // A chat row and a revision are linked only when their stored definition and
+  // example match unambiguously. Ambiguous duplicate generations stay as
+  // separate transcript activities rather than receiving a guessed link.
+  const chatForRevision = new Map<number, (typeof chats)[number]>()
+  const revisionForChat = new Map<number, (typeof revisions)[number]>()
+  for (const chat of chats.filter((row) => row.role === "system")) {
+    const generated = generatedChatContent(chat.message)
+    if (!generated) continue
+
+    const candidates = revisions.filter((revision) => {
+      const definition = definitionById.get(revision.definitionId)
+      return (
+        definition?.author?.isAi === true &&
+        revision.example !== null &&
+        revision.definition === generated.definition &&
+        revision.example === generated.example &&
+        (!revision.model || !chat.model || revision.model === chat.model) &&
+        (!revision.prompt ||
+          !chat.promptText ||
+          revision.prompt === chat.promptText) &&
+        !chatForRevision.has(revision.id)
+      )
+    })
+
+    if (candidates.length === 1) {
+      chatForRevision.set(candidates[0].id, chat)
+      revisionForChat.set(chat.id, candidates[0])
+    }
+  }
+  const revisionActivityId = (revision: (typeof revisions)[number]) => {
+    const matchedChat = chatForRevision.get(revision.id)
+    return matchedChat
+      ? `act_chat_${matchedChat.id}`
+      : `act_revision_${revision.id}`
+  }
+
+  // Comments on AI definitions are mirrored into the chat thread as
+  // "<feedback>\n<text>" user rows. Pair them one-to-one and use the
+  // revision-scoped comment as the canonical entity.
+  const mirroredChatIds = new Set<number>()
+  const feedbackEntityForChat = new Map<number, string>()
+  const matchedCommentIds = new Set<number>()
+  for (const chat of chats.filter((row) => row.role === "user")) {
+    const match = comments.find(
+      (comment) =>
+        !matchedCommentIds.has(comment.id) &&
+        `<feedback>\n${comment.message}` === chat.message &&
+        (chat.authorId === null || chat.authorId === comment.author.id)
+    )
+    if (!match) continue
+    matchedCommentIds.add(match.id)
+    mirroredChatIds.add(chat.id)
+    feedbackEntityForChat.set(chat.id, `comment_${match.id}`)
+  }
+
+  // --- immutable definition revisions ---
+  for (const definition of definitions) {
+    const definitionRevisions = revisions.filter(
+      (revision) => revision.definitionId === definition.id
+    )
+    const isRefined = definition.refinedFromId !== null
+    const isAiDefinition = definition.author?.isAi === true
+    for (const revision of definitionRevisions) {
+      const id = revisionNodeId(definition.id, revision.version)
+      const isCurrent = definition.currentRevisionId === revision.id
+      const meta: Record<string, string | number | null> = {
+        definitionId: definition.id,
+        revisionId: revision.id,
+        version: revision.version,
+        published: revision.createdAt,
+        source: revision.source,
+        score: scoreByRevisionId.get(revision.id) ?? 0,
+        current: isCurrent ? "yes" : "no",
+        legacyIncomplete: revision.legacyIncomplete ? "yes" : "no"
+      }
+
+      if (revision.previousRevisionId !== null)
+        meta.previousRevisionId = revision.previousRevisionId
+      if (revision.derivedFromRevisionId !== null)
+        meta.derivedFromRevisionId = revision.derivedFromRevisionId
+      if (revision.example !== null) meta.example = revision.example
+      if (revision.editorId !== null) meta.editorId = revision.editorId
+      if (revision.editor?.name) meta.editor = revision.editor.name
+      if (revision.changeNote !== null) meta.changeNote = revision.changeNote
+      if (revision.model !== null) meta.model = revision.model
+      if (revision.prompt !== null) meta.prompt = revision.prompt
+      if (revision.sourceRefinementId !== null)
+        meta.sourceRefinementId = revision.sourceRefinementId
+
       addNode({
         id,
         label: `${
-          isRefined ? "Refined definition" : isAi ? "AI definition" : "Definition"
-        } v${i + 1}${isLatest ? " (current)" : ""}`,
+          isRefined
+            ? "Refined definition"
+            : isAiDefinition
+              ? "AI definition"
+              : "Definition"
+        } v${revision.version}${isCurrent ? " (current)" : ""}`,
         type: "entity",
-        detail: version.text,
-        meta: isLatest
-          ? { score: definition.score, example: definition.example }
-          : undefined
+        detail: revision.definition,
+        meta
       })
-      if (i === 0) addEdge(id, termNode, "wasDerivedFrom")
-      else addEdge(id, `def_${definition.id}_v${i}`, "wasDerivedFrom")
 
-      if (!isAi) {
-        // human authorship/edit activities; the edits table records no editor,
-        // so edits are attributed to the definition author. Every version of
-        // a refined definition is an accepted AI suggestion.
-        const actId = `act_def_${definition.id}_v${i + 1}`
-        addNode({
-          id: actId,
-          label: isRefined
-            ? "Accept AI suggestion"
-            : i === 0
-              ? "Write definition"
-              : "Edit definition",
-          type: "activity",
-          meta: { at: version.at }
-        })
-        addEdge(id, actId, "wasGeneratedBy")
-        addEdge(actId, personNode(definition.author), "wasAssociatedWith")
-        addEdge(id, personNode(definition.author), "wasAttributedTo")
-
-        // co-authors (the model whose suggestion was accepted) share
-        // attribution, GitHub-style
-        for (const coauthor of defCoauthors)
+      if (revision.previousRevisionId === null)
+        addEdge(id, termNode, "wasDerivedFrom")
+      else {
+        const previous = revisionById.get(revision.previousRevisionId)
+        if (previous)
           addEdge(
             id,
-            coauthor.user.isAi
-              ? modelNode(coauthor.user.name ?? `model ${coauthor.user.id}`)
-              : personNode(coauthor.user),
-            "wasAttributedTo"
+            revisionNodeId(previous.definitionId, previous.version),
+            "wasDerivedFrom"
           )
       }
-    })
 
-    if (!isAi) {
-      events.push({
-        id: `def_${definition.id}_created`,
-        at: definition.createdAt,
-        kind: "definition-created",
-        actor: definition.author.name ?? `User ${definition.author.id}`,
-        actorKind: "person",
-        summary: isRefined
-          ? "Refined definition published (accepted AI suggestion)"
-          : "Definition written",
-        detail: excerpt(definition.definition)
+      // The chronological predecessor records sequence; this independently
+      // stored pointer records the exact content source for restores and
+      // cross-definition derivations.
+      if (revision.derivedFromRevisionId !== null) {
+        const derivedFrom = revisionById.get(revision.derivedFromRevisionId)
+        if (derivedFrom)
+          addEdge(
+            id,
+            revisionNodeId(derivedFrom.definitionId, derivedFrom.version),
+            "wasDerivedFrom"
+          )
+      }
+
+      const matchedChat = chatForRevision.get(revision.id)
+      const activityId = revisionActivityId(revision)
+      const activityLabel =
+        revision.source === "rollback"
+          ? "Restore earlier revision"
+          : revision.source === "ai_refinement"
+            ? "Accept AI suggestion"
+            : revision.source === "ai_generation"
+              ? revision.version === 1
+                ? "Generate definition"
+                : "Regenerate definition"
+              : revision.source === "author_edit"
+                ? "Edit definition"
+                : revision.source === "legacy"
+                  ? "Imported historical revision"
+                  : "Write definition"
+
+      addNode({
+        id: activityId,
+        label: activityLabel,
+        type: "activity",
+        meta: {
+          at: revision.createdAt,
+          revisionId: revision.id,
+          source: revision.source
+        }
       })
-    }
+      addEdge(id, activityId, "wasGeneratedBy")
 
-    for (const [i, edit] of defEdits.entries()) {
+      if (revision.editor) {
+        const editorNode = revision.editor.isAi
+          ? modelNode(
+              revision.model ??
+                revision.editor.name ??
+                `AI user ${revision.editor.id}`
+            )
+          : personNode(revision.editor)
+        addEdge(activityId, editorNode, "wasAssociatedWith")
+        addEdge(id, editorNode, "wasAttributedTo")
+      }
+
+      if (
+        revision.model &&
+        (revision.source === "ai_generation" ||
+          revision.source === "ai_refinement")
+      ) {
+        const model = modelNode(revision.model)
+        addEdge(id, model, "wasAttributedTo")
+        if (revision.source === "ai_generation")
+          addEdge(activityId, model, "wasAssociatedWith")
+      }
+
+      if (revision.prompt) {
+        const prompt =
+          matchedChat?.promptHash && matchedChat.promptText === revision.prompt
+            ? promptNode(
+                matchedChat.promptHash,
+                matchedChat.promptText,
+                matchedChat.promptKey
+              )
+            : revisionPromptNode(revision)
+        addEdge(activityId, prompt, "used")
+      }
+
+      const actor =
+        revision.editor === null
+          ? {
+              name: "unknown",
+              kind: "unknown" as const,
+              profileUserId: undefined
+            }
+          : revision.editor.isAi
+            ? {
+                name:
+                  revision.model ??
+                  revision.editor.name ??
+                  `AI user ${revision.editor.id}`,
+                kind: "software" as const,
+                profileUserId: undefined
+              }
+            : {
+                name: revision.editor.name ?? `User ${revision.editor.id}`,
+                kind: "person" as const,
+                profileUserId: publicProfileUserId(revision.editor)
+              }
+
+      const isAiGeneration = revision.source === "ai_generation"
+      const kind =
+        isAiGeneration && revision.version === 1
+          ? ("ai-generation" as const)
+          : isAiGeneration
+            ? ("ai-revision" as const)
+            : revision.version === 1
+              ? ("definition-created" as const)
+              : ("definition-edited" as const)
+      const summary =
+        revision.source === "legacy"
+          ? `Imported historical definition snapshot (v${revision.version})`
+          : revision.source === "rollback"
+            ? `Earlier content restored as v${revision.version}`
+            : revision.source === "ai_refinement"
+              ? revision.version === 1
+                ? "AI-assisted definition published (v1)"
+                : `AI-assisted revision published (v${revision.version})`
+              : isAiGeneration
+                ? revision.version === 1
+                  ? "AI generated a definition (v1)"
+                  : `AI revised its definition (v${revision.version})`
+                : revision.version === 1
+                  ? "Definition written (v1)"
+                  : `Definition revised (v${revision.version})`
+      const detail = revision.changeNote
+        ? `${revision.changeNote}\n\n${excerpt(revision.definition)}`
+        : excerpt(revision.definition)
+
       events.push({
-        id: `edit_${edit.id}`,
-        at: edit.editedAt.toISOString(),
-        kind: "definition-edited",
-        actor: isAi
-          ? "AI revision"
-          : (definition.author.name ?? `User ${definition.author.id}`),
-        actorKind: isAi ? "software" : "person",
-        summary: `${isAi ? "AI definition" : "Definition"} revised (v${i + 1} → v${i + 2})`,
-        detail: excerpt(edit.newDefinition ?? "")
+        id:
+          revision.version === 1
+            ? `def_${definition.id}_created`
+            : `revision_${revision.id}`,
+        at: revision.createdAt,
+        kind,
+        actor: actor.name,
+        actorKind: actor.kind,
+        profileUserId: actor.profileUserId,
+        summary,
+        detail,
+        model: isAiGeneration ? revision.model : null,
+        promptRef: matchedChat
+          ? (matchedChat.promptKey ?? matchedChat.promptHash)
+          : revision.prompt
+            ? `revision ${revision.id}`
+            : null
       })
     }
   }
 
-  // --- AI activities from the chat thread ---
-  // The nth system chat produced the nth version of the AI definition.
-  let aiVersionIndex = 0
-  for (const [i, chat] of chats.entries()) {
+  // --- term-level AI transcript activities ---
+  for (const [index, chat] of chats.entries()) {
     if (chat.role === "user") {
       if (!mirroredChatIds.has(chat.id)) {
         const id = `chat_${chat.id}`
         addNode({
           id,
-          label: i === 0 ? "Initial message" : "Feedback",
+          label: index === 0 ? "Initial message" : "Feedback",
           type: "entity",
           detail: chat.message
         })
@@ -376,67 +641,87 @@ export const buildTermProvenance = async (
         if (chat.authorId !== null)
           addEdge(
             id,
-            personNode({ id: chat.authorId, name: chat.authorName }),
+            personNode({
+              id: chat.authorId,
+              name: chat.authorName,
+              isAi: chat.authorIsAi,
+              isProfilePublic: chat.authorProfilePublic
+            }),
             "wasAttributedTo"
           )
-        // mirrored feedback is already covered by its comment event, which
-        // carries author attribution
         events.push({
-          id: `chat_${chat.id}`,
+          id,
           at: chat.createdAt,
-          kind: i === 0 ? "initial-message" : "feedback",
+          kind: index === 0 ? "initial-message" : "feedback",
           actor: chat.authorName ?? "user",
           actorKind: chat.authorName ? "person" : "unknown",
-          summary: i === 0 ? "Initial message submitted" : "Feedback for the AI",
+          profileUserId:
+            chat.authorId === null
+              ? undefined
+              : publicProfileUserId({
+                  id: chat.authorId,
+                  name: chat.authorName,
+                  isAi: chat.authorIsAi,
+                  isProfilePublic: chat.authorProfilePublic
+                }),
+          summary:
+            index === 0 ? "Initial message submitted" : "Feedback for the AI",
           detail: excerpt(chat.message)
         })
       }
       continue
     }
 
-    // system chat: a generation/revision activity
-    aiVersionIndex += 1
-    const actId = `act_chat_${chat.id}`
-    const isInitial = aiVersionIndex === 1
+    const matchedRevision = revisionForChat.get(chat.id)
+    const activityId = `act_chat_${chat.id}`
+    const systemIndex = chats
+      .slice(0, index + 1)
+      .filter((row) => row.role === "system").length
     addNode({
-      id: actId,
-      label: isInitial ? "Generate definition" : "Revise definition",
+      id: activityId,
+      label:
+        matchedRevision?.version === 1 ||
+        (!matchedRevision && systemIndex === 1)
+          ? "Generate definition"
+          : "Revise definition",
       type: "activity",
-      meta: { at: chat.createdAt, model: chat.model }
+      meta: {
+        at: matchedRevision?.createdAt ?? chat.createdAt,
+        model: chat.model
+      }
     })
 
-    if (chat.model) addEdge(actId, modelNode(chat.model), "wasAssociatedWith")
+    if (chat.model)
+      addEdge(activityId, modelNode(chat.model), "wasAssociatedWith")
     if (chat.promptHash)
       addEdge(
-        actId,
+        activityId,
         promptNode(chat.promptHash, chat.promptText, chat.promptKey),
         "used"
       )
 
-    // the activity consumed everything the user said since the last AI response
-    for (let j = i - 1; j >= 0; j--) {
-      const prior = chats[j]
+    // The activity consumed everything the user said since the prior AI
+    // response. Mirrored feedback resolves to its revision-scoped comment.
+    for (let priorIndex = index - 1; priorIndex >= 0; priorIndex--) {
+      const prior = chats[priorIndex]
       if (prior.role === "system") break
       const feedback = feedbackEntityForChat.get(prior.id)
-      if (feedback) addEdge(actId, feedback, "used")
+      if (feedback) addEdge(activityId, feedback, "used")
     }
 
-    if (aiDefinition) {
-      const versionId = `def_${aiDefinition.id}_v${aiVersionIndex}`
-      if (seen.has(versionId)) {
-        addEdge(versionId, actId, "wasGeneratedBy")
-        if (chat.model)
-          addEdge(versionId, modelNode(chat.model), "wasAttributedTo")
-      }
-    }
+    // A matched revision already supplied the canonical timeline event.
+    if (matchedRevision) continue
 
     events.push({
       id: `chat_${chat.id}`,
       at: chat.createdAt,
-      kind: isInitial ? "ai-generation" : "ai-revision",
+      kind: systemIndex === 1 ? "ai-generation" : "ai-revision",
       actor: chat.model ?? "AI",
       actorKind: "software",
-      summary: isInitial ? "AI generated a definition" : "AI revised its definition",
+      summary:
+        systemIndex === 1
+          ? "AI generated a definition"
+          : "AI revised its definition",
       detail: excerpt(chat.message),
       model: chat.model,
       promptRef: chat.promptKey ?? chat.promptHash
@@ -444,37 +729,40 @@ export const buildTermProvenance = async (
   }
 
   // --- interactive refinement rounds ---
-  // Each round is an activity associated with both agents (the author who
-  // requested it, the model that generated); it used the author's current
-  // definition version and their feedback, and generated a suggestion
-  // entity. An accepted suggestion is what the refined definition (rendered
-  // by the definitions loop above) was derived from.
   for (const round of refinements) {
-    const definition = definitions.find((d) => d.id === round.definitionId)
+    const definition = definitionById.get(round.definitionId)
     if (!definition) continue
-    const authorName = definition.author.name ?? `User ${definition.author.id}`
+    const authorName = definition.author
+      ? (definition.author.name ?? `User ${definition.author.id}`)
+      : "unknown"
+    const sourceRevision = revisionById.get(round.sourceRevisionId)
+    const sourceVersion = sourceRevision
+      ? revisionNodeId(sourceRevision.definitionId, sourceRevision.version)
+      : null
 
-    // the round reviewed the author's then-current (= latest) version
-    const currentVersion = `def_${definition.id}_v${
-      edits.filter((e) => e.definitionId === definition.id).length + 1
-    }`
-
-    const actId = `act_refine_${round.id}`
+    const activityId = `act_refine_${round.id}`
     addNode({
-      id: actId,
+      id: activityId,
       label: `Refine definition (round ${round.round})`,
       type: "activity",
-      meta: { at: round.createdAt, model: round.model, status: round.status }
+      meta: {
+        at: round.createdAt,
+        model: round.model,
+        status: round.status,
+        sourceRevisionId: round.sourceRevisionId
+      }
     })
-    addEdge(actId, personNode(definition.author), "wasAssociatedWith")
-    if (round.model) addEdge(actId, modelNode(round.model), "wasAssociatedWith")
+    if (definition.author)
+      addEdge(activityId, personNode(definition.author), "wasAssociatedWith")
+    if (round.model)
+      addEdge(activityId, modelNode(round.model), "wasAssociatedWith")
     if (round.promptHash)
       addEdge(
-        actId,
+        activityId,
         promptNode(round.promptHash, round.promptText, round.promptKey),
         "used"
       )
-    if (seen.has(currentVersion)) addEdge(actId, currentVersion, "used")
+    if (sourceVersion) addEdge(activityId, sourceVersion, "used")
 
     if (round.userComment) {
       const feedbackId = `refine_feedback_${round.id}`
@@ -484,8 +772,9 @@ export const buildTermProvenance = async (
         type: "entity",
         detail: round.userComment
       })
-      addEdge(feedbackId, personNode(definition.author), "wasAttributedTo")
-      addEdge(actId, feedbackId, "used")
+      if (definition.author)
+        addEdge(feedbackId, personNode(definition.author), "wasAttributedTo")
+      addEdge(activityId, feedbackId, "used")
     }
 
     events.push({
@@ -493,7 +782,8 @@ export const buildTermProvenance = async (
       at: round.createdAt,
       kind: "refine-requested",
       actor: authorName,
-      actorKind: "person",
+      actorKind: definition.author ? "person" : "unknown",
+      profileUserId: publicProfileUserId(definition.author),
       summary: round.userComment
         ? `Re-evaluation requested (round ${round.round})`
         : `AI refinement requested (round ${round.round})`,
@@ -513,21 +803,27 @@ export const buildTermProvenance = async (
       continue
     }
 
-    if (!round.suggestedDefinition) continue // still pending
+    if (!round.suggestedDefinition) continue
 
-    const sugId = `refine_sug_${round.id}`
+    const suggestionId = `refine_sug_${round.id}`
+    const suggestionMeta: Record<string, string | number | null> = {
+      sourceRevisionId: round.sourceRevisionId
+    }
+    if (round.suggestedExample !== null)
+      suggestionMeta.example = round.suggestedExample
     addNode({
-      id: sugId,
+      id: suggestionId,
       label: `Suggestion (round ${round.round})`,
       type: "entity",
       detail: round.suggestedDefinition,
-      meta: { example: round.suggestedExample }
+      meta: suggestionMeta
     })
-    addEdge(sugId, actId, "wasGeneratedBy")
-    if (round.model) addEdge(sugId, modelNode(round.model), "wasAttributedTo")
+    addEdge(suggestionId, activityId, "wasGeneratedBy")
+    if (round.model)
+      addEdge(suggestionId, modelNode(round.model), "wasAttributedTo")
 
     events.push({
-      id: sugId,
+      id: suggestionId,
       at: round.suggestedAt ?? round.createdAt,
       kind: "refine-suggested",
       actor: round.model ?? "AI",
@@ -539,24 +835,17 @@ export const buildTermProvenance = async (
     })
 
     if (round.status === "accepted") {
-      const refined = definitions.find(
-        (d) => d.refinedFromId === definition.id
+      const publishedRevision = revisions.find(
+        (revision) => revision.sourceRefinementId === round.id
       )
-      if (refined) {
-        // acceptances are the only writes to a refined definition, so the
-        // nth accepted round produced its nth version
-        const versionIndex =
-          refinements
-            .filter(
-              (r) =>
-                r.definitionId === definition.id && r.status === "accepted"
-            )
-            .findIndex((r) => r.id === round.id) + 1
-        const refinedVersion = `def_${refined.id}_v${versionIndex}`
-        if (seen.has(refinedVersion)) {
-          addEdge(refinedVersion, sugId, "wasDerivedFrom")
-          addEdge(refinedVersion, currentVersion, "wasDerivedFrom")
-        }
+      if (publishedRevision) {
+        const publishedVersion = revisionNodeId(
+          publishedRevision.definitionId,
+          publishedRevision.version
+        )
+        addEdge(publishedVersion, suggestionId, "wasDerivedFrom")
+        if (sourceVersion)
+          addEdge(publishedVersion, sourceVersion, "wasDerivedFrom")
       }
 
       events.push({
@@ -564,7 +853,8 @@ export const buildTermProvenance = async (
         at: round.decidedAt ?? round.suggestedAt ?? round.createdAt,
         kind: "refine-accepted",
         actor: authorName,
-        actorKind: "person",
+        actorKind: definition.author ? "person" : "unknown",
+        profileUserId: publicProfileUserId(definition.author),
         summary: `Suggestion accepted (round ${round.round})`,
         detail: excerpt(round.suggestedDefinition)
       })
@@ -576,49 +866,232 @@ export const buildTermProvenance = async (
         at: round.decidedAt ?? round.suggestedAt ?? round.createdAt,
         kind: "refine-kept",
         actor: authorName,
-        actorKind: "person",
+        actorKind: definition.author ? "person" : "unknown",
+        profileUserId: publicProfileUserId(definition.author),
         summary: `Author kept their original (round ${round.round})`
       })
   }
 
-  // --- comments ---
+  // --- accepted discussion suggestions ---
+  // These records persist the request, exact model output, source revision, and
+  // output stable definition. Link an output revision only when its immutable
+  // v1 snapshot confirms every stored field and derivation pointer.
+  for (const suggestion of discussionSuggestions) {
+    if (
+      suggestion.acceptedAt === null ||
+      suggestion.outputDefinitionId === null
+    )
+      continue
+
+    const sourceRevision = revisionById.get(suggestion.revisionId)
+    const sourceVersion = sourceRevision
+      ? revisionNodeId(sourceRevision.definitionId, sourceRevision.version)
+      : null
+    const outputRevision = revisions.find(
+      (revision) =>
+        revision.definitionId === suggestion.outputDefinitionId &&
+        revision.version === 1 &&
+        revision.derivedFromRevisionId === suggestion.revisionId &&
+        revision.definition === suggestion.suggestedDefinition &&
+        revision.example === suggestion.suggestedExample &&
+        revision.model === suggestion.model &&
+        revision.prompt === suggestion.prompt
+    )
+    const outputVersion = outputRevision
+      ? revisionNodeId(outputRevision.definitionId, outputRevision.version)
+      : null
+
+    const feedbackId = `discussion_feedback_${suggestion.id}`
+    addNode({
+      id: feedbackId,
+      label: `Discussion feedback by ${
+        suggestion.requester.name ?? `User ${suggestion.requester.id}`
+      }`,
+      type: "entity",
+      detail: suggestion.comment,
+      meta: {
+        sourceRevisionId: suggestion.revisionId,
+        requestedAt: suggestion.createdAt
+      }
+    })
+    addEdge(feedbackId, personNode(suggestion.requester), "wasAttributedTo")
+
+    const promptId = `prompt_discussion_${suggestion.id}`
+    addNode({
+      id: promptId,
+      label: "Stored discussion-refinement prompt",
+      type: "entity",
+      detail: suggestion.prompt,
+      meta: { suggestionId: suggestion.id }
+    })
+
+    const activityId = `act_discussion_suggestion_${suggestion.id}`
+    addNode({
+      id: activityId,
+      label: "Generate discussion revision suggestion",
+      type: "activity",
+      meta: {
+        at: suggestion.createdAt,
+        model: suggestion.model,
+        sourceRevisionId: suggestion.revisionId
+      }
+    })
+    addEdge(activityId, modelNode(suggestion.model), "wasAssociatedWith")
+    addEdge(activityId, promptId, "used")
+    addEdge(activityId, feedbackId, "used")
+    if (sourceVersion) addEdge(activityId, sourceVersion, "used")
+
+    const suggestionId = `discussion_suggestion_${suggestion.id}`
+    const suggestionMeta: Record<string, string | number | null> = {
+      sourceRevisionId: suggestion.revisionId,
+      outputDefinitionId: suggestion.outputDefinitionId,
+      generatedAt: suggestion.createdAt,
+      acceptedAt: suggestion.acceptedAt,
+      model: suggestion.model,
+      example: suggestion.suggestedExample
+    }
+    if (outputRevision) suggestionMeta.outputRevisionId = outputRevision.id
+    addNode({
+      id: suggestionId,
+      label: "Accepted discussion revision suggestion",
+      type: "entity",
+      detail: suggestion.suggestedDefinition,
+      meta: suggestionMeta
+    })
+    addEdge(suggestionId, activityId, "wasGeneratedBy")
+    addEdge(suggestionId, modelNode(suggestion.model), "wasAttributedTo")
+    if (sourceVersion) addEdge(suggestionId, sourceVersion, "wasDerivedFrom")
+
+    events.push({
+      id: feedbackId,
+      at: suggestion.createdAt,
+      kind: "feedback",
+      actor: suggestion.requester.name ?? `User ${suggestion.requester.id}`,
+      actorKind: "person",
+      profileUserId: publicProfileUserId(suggestion.requester),
+      summary: sourceRevision
+        ? `Revision feedback submitted on definition v${sourceRevision.version}`
+        : "Revision feedback submitted",
+      detail: excerpt(suggestion.comment)
+    })
+    events.push({
+      id: suggestionId,
+      at: suggestion.createdAt,
+      kind: "refine-suggested",
+      actor: suggestion.model,
+      actorKind: "software",
+      summary: "AI generated a discussion revision suggestion",
+      detail: excerpt(suggestion.suggestedDefinition),
+      model: suggestion.model,
+      promptRef: "stored discussion prompt"
+    })
+
+    if (outputRevision && outputVersion) {
+      addEdge(outputVersion, suggestionId, "wasDerivedFrom")
+      if (sourceVersion) addEdge(outputVersion, sourceVersion, "wasDerivedFrom")
+
+      const acceptanceActivity = revisionActivityId(outputRevision)
+      addEdge(acceptanceActivity, suggestionId, "used")
+      if (sourceVersion) addEdge(acceptanceActivity, sourceVersion, "used")
+      addEdge(
+        acceptanceActivity,
+        personNode(suggestion.requester),
+        "wasAssociatedWith"
+      )
+    }
+
+    events.push({
+      id: `discussion_accept_${suggestion.id}`,
+      at: suggestion.acceptedAt,
+      kind: "refine-accepted",
+      actor: suggestion.requester.name ?? `User ${suggestion.requester.id}`,
+      actorKind: "person",
+      profileUserId: publicProfileUserId(suggestion.requester),
+      summary: outputRevision
+        ? `Discussion suggestion accepted and published as definition v${outputRevision.version}`
+        : "Discussion suggestion accepted",
+      detail: excerpt(suggestion.suggestedDefinition)
+    })
+  }
+
+  // --- revision-scoped comments ---
   for (const comment of comments) {
     const id = `comment_${comment.id}`
+    const revision = revisionById.get(comment.revisionId)
+    const versionId = revision
+      ? revisionNodeId(revision.definitionId, revision.version)
+      : null
+    const commentMeta: Record<string, string | number | null> = {
+      revisionId: comment.revisionId,
+      legacyAssociationInferred: comment.migratedLegacy ? "yes" : "no"
+    }
+    if (revision) commentMeta.version = revision.version
+
     addNode({
       id,
       label: `Comment by ${comment.author.name ?? "user"}`,
       type: "entity",
-      detail: comment.message
+      detail: comment.message,
+      meta: commentMeta
     })
     addEdge(id, personNode(comment.author), "wasAttributedTo")
+    if (versionId) addEdge(id, versionId, "wasDerivedFrom")
     events.push({
       id,
       at: comment.createdAt,
       kind: "comment",
       actor: comment.author.name ?? `User ${comment.author.id}`,
       actorKind: "person",
-      summary: "Comment posted",
+      profileUserId: publicProfileUserId(comment.author),
+      summary: revision
+        ? `Comment posted on definition v${revision.version}`
+        : `Comment posted on revision ${comment.revisionId}`,
       detail: excerpt(comment.message)
     })
   }
 
-  // --- votes ---
-  // Votes that predate timestamp tracking carry their definition's
-  // createdAt, which is close enough to present as the vote date.
-  for (const [i, vote] of votes.entries()) {
-    const definition = definitions.find((d) => d.id === vote.definitionId)
-    if (!definition) continue
+  // --- revision-scoped votes ---
+  // A vote row records the user's current vote on one immutable revision, not
+  // a ledger of every toggle. Migrated rows disclose their inferred binding.
+  for (const [voteIndex, vote] of votes.entries()) {
+    const revision = revisionById.get(vote.revisionId)
+    const definition = definitionById.get(vote.definitionId)
+    const activityId = options.anonymizeVoters
+      ? `anonymous_vote_${voteIndex + 1}`
+      : `vote_${vote.revisionId}_${vote.author.id}`
+    const versionId = revision
+      ? revisionNodeId(revision.definitionId, revision.version)
+      : null
+    addNode({
+      id: activityId,
+      label: `${vote.kind === "up" ? "Upvote" : "Downvote"}${
+        revision ? ` on v${revision.version}` : ""
+      }`,
+      type: "activity",
+      meta: {
+        at: vote.createdAt,
+        revisionId: vote.revisionId,
+        legacyAssociationInferred: vote.migratedLegacy ? "yes" : "no"
+      }
+    })
+    if (versionId) addEdge(activityId, versionId, "used")
+    if (!options.anonymizeVoters)
+      addEdge(activityId, personNode(vote.author), "wasAssociatedWith")
+
     events.push({
-      id: `vote_${vote.definitionId}_${vote.author.id}_${i}`,
+      id: activityId,
       at: vote.createdAt,
       kind: "vote",
       actor: options.anonymizeVoters
         ? "A community member"
         : (vote.author.name ?? `User ${vote.author.id}`),
       actorKind: "person",
+      profileUserId: options.anonymizeVoters
+        ? undefined
+        : publicProfileUserId(vote.author),
       summary: `${vote.kind === "up" ? "Upvoted" : "Downvoted"} the ${
-        definition.author.isAi ? "AI definition" : "definition"
-      }`
+        definition?.author?.isAi ? "AI definition" : "definition"
+      }${revision ? ` (v${revision.version})` : ""}`
     })
   }
 

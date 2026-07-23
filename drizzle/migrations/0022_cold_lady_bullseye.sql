@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "isProfilePublic" boolean DEFAULT false NOT NULL;

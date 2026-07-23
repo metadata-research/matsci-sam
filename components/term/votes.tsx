@@ -1,27 +1,38 @@
-"use client";
+"use client"
 
-import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
-import { Button } from "../ui/button";
-import { Card } from "../ui/card";
-import { cn } from "@/lib/utils";
-import { trpc } from "@/trpc/client";
-import { toast } from "sonner";
-import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { ArrowDownIcon, ArrowUpIcon } from "lucide-react"
+import { Button } from "../ui/button"
+import { Card } from "../ui/card"
+import { cn } from "@/lib/utils"
+import { trpc } from "@/trpc/client"
+import { toast } from "sonner"
+import Link from "next/link"
+import { useEffect, useRef } from "react"
 
 interface Props {
-  definitionId: number;
+  definitionId: number
+  revisionId: number
   initial: {
-    score: number;
-    vote: "up" | "down" | null;
-  };
+    score: number
+    vote: "up" | "down" | null
+  }
+  readOnly?: boolean
   // Fired whenever this definition's score changes, so a parent list can
   // re-sort. Optional; most callers do not reorder.
-  onScoreChange?: (score: number) => void;
+  onScoreChange?: (score: number) => void
 }
 
-export const TermVotes = ({ definitionId, initial, onScoreChange }: Props) => {
-  const { data, refetch } = trpc.votes.get.useQuery({ definitionId }, { initialData: initial })
+export const TermVotes = ({
+  definitionId,
+  revisionId,
+  initial,
+  readOnly = false,
+  onScoreChange
+}: Props) => {
+  const { data, refetch } = trpc.votes.get.useQuery(
+    { definitionId, revisionId },
+    { initialData: initial }
+  )
 
   // Report score changes up without re-subscribing the effect on every render:
   // the callback lives in a ref, the effect depends only on the score.
@@ -37,19 +48,23 @@ export const TermVotes = ({ definitionId, initial, onScoreChange }: Props) => {
 
   const { isPending, mutate } = trpc.votes.vote.useMutation({
     onSuccess: () => refetch(),
-    onError: () => toast("You must be logged in to vote on a definition!", {
-      action: <Link href="/api/login" className="ml-auto">
-        <Button>Login</Button>
-      </Link>,
-      position: 'top-center'
-    })
+    onError: (error) => {
+      if (error.data?.code === "UNAUTHORIZED")
+        toast("You must be logged in to vote on a definition!", {
+          action: (
+            <Link href="/api/login" className="ml-auto">
+              <Button>Login</Button>
+            </Link>
+          ),
+          position: "top-center"
+        })
+      else toast.error(error.message)
+    }
   })
 
   return (
-    // The whole definition card is a <Link>. A disabled Button has
-    // pointer-events:none, so a click during a pending vote falls through to
-    // the anchor and navigates. Cancel navigation here on the rail itself,
-    // which never disables, so it catches the click either way.
+    // Keep clicks inside the vote rail from reaching a surrounding link in
+    // legacy or embedded uses of this control.
     <Card
       onClick={(e) => {
         e.preventDefault()
@@ -58,34 +73,38 @@ export const TermVotes = ({ definitionId, initial, onScoreChange }: Props) => {
       className="flex flex-col items-center !p-1 !gap-1 h-min rounded-full"
     >
       <Button
+        aria-label="Upvote definition"
         className={cn(
           "rounded-t-full !px-2 !pb-1",
-          data?.vote === "up" ? "text-primary" : "",
+          data?.vote === "up" ? "text-primary" : ""
         )}
-        disabled={isPending}
+        disabled={isPending || readOnly}
         onClick={(e) => {
-          e.preventDefault();
-          mutate({ vote: "up", definitionId });
+          e.preventDefault()
+          mutate({ vote: "up", definitionId, revisionId })
         }}
+        title={readOnly ? "Earlier versions are read-only" : undefined}
         variant="ghost"
       >
         <ArrowUpIcon />
       </Button>
       <span className="font-bold">{data?.score || 0}</span>
       <Button
+        aria-label="Downvote definition"
         className={cn(
           "rounded-b-full !px-2 !pt-1",
-          data?.vote === "down" ? "text-primary" : "",
+          data?.vote === "down" ? "text-primary" : ""
         )}
-        disabled={isPending}
+        disabled={isPending || readOnly}
         onClick={(e) => {
-          e.preventDefault();
-          mutate({ vote: "down", definitionId });
+          e.preventDefault()
+          mutate({ vote: "down", definitionId, revisionId })
         }}
+        title={readOnly ? "Earlier versions are read-only" : undefined}
         variant="ghost"
       >
         <ArrowDownIcon />
       </Button>
     </Card>
-  );
-};
+  )
+}

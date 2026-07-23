@@ -1,5 +1,11 @@
-import { chatsTable, db, definitionsTable, termsTable } from "@/drizzle"
-import { desc } from "drizzle-orm"
+import {
+  chatsTable,
+  db,
+  definitionRevisionsTable,
+  definitionsTable,
+  termsTable
+} from "@/drizzle"
+import { asc, desc } from "drizzle-orm"
 
 const main = async () => {
   const terms = await db.query.termsTable.findMany({
@@ -22,16 +28,13 @@ const main = async () => {
     for (const definition of definitions) {
       const aiGenerated = definition.authorId === aiUser.id
 
-      console.log(
-        `=> Definition: ${definition.definition}\n   Example: ${definition.example}\n   AI Generated: ${aiGenerated}`
-      )
-
-      const [comments, edits, chats] = await Promise.all([
+      const [comments, revisions, chats] = await Promise.all([
         db.query.commentsTable.findMany({
           where: (c, { eq }) => eq(c.definitionId, definition.id)
         }),
-        db.query.editsTable.findMany({
-          where: (e, { eq }) => eq(e.definitionId, definition.id)
+        db.query.definitionRevisionsTable.findMany({
+          where: (revision, { eq }) => eq(revision.definitionId, definition.id),
+          orderBy: asc(definitionRevisionsTable.version)
         }),
         aiGenerated
           ? db.query.chatsTable.findMany({
@@ -41,45 +44,66 @@ const main = async () => {
           : []
       ])
 
+      const currentRevision =
+        revisions.find(
+          (revision) => revision.id === definition.currentRevisionId
+        ) ?? revisions.at(-1)
+
+      if (!currentRevision) {
+        console.log(
+          `=> Definition record ${definition.id} has no revision history`
+        )
+        continue
+      }
+
+      console.log(
+        `=> Current revision: v${currentRevision.version}\n   Definition: ${currentRevision.definition}\n   Example: ${currentRevision.example ?? "[not retained in legacy record]"}\n   AI Generated: ${aiGenerated}`
+      )
+
+      const versionsById = new Map(
+        revisions.map((revision) => [revision.id, revision.version])
+      )
+
       const history = [
         ...comments.map((c) => ({
           ...c,
-          createdAt: new Date(
-            new Date(c.createdAt).getTime() - 4 * 60 * 60 * 1000
-          ),
+          createdAt: new Date(c.createdAt),
           type: "comment" as const
         })),
-        ...edits.map((e) => ({
-          ...e,
-          createdAt: e.editedAt,
-          type: "edit" as const
+        ...revisions.map((revision) => ({
+          ...revision,
+          createdAt: new Date(revision.createdAt),
+          type: "revision" as const
         })),
         ...chats.map((c) => ({
           ...c,
           type: "chat" as const,
-          createdAt: new Date(
-            new Date(c.createdAt).getTime() - 4 * 60 * 60 * 1000
-          )
+          createdAt: new Date(c.createdAt)
         }))
       ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
       for (const item of history) {
         if (item.type == "comment") {
-          console.log(`\t[${item.createdAt}] [COMMENT] ${item.message} `)
+          const version = versionsById.get(item.revisionId)
+          const importNote = item.migratedLegacy
+            ? " [VERSION ASSOCIATION INFERRED DURING IMPORT]"
+            : ""
+
+          console.log(
+            `\t[${item.createdAt.toISOString()}] [COMMENT ON v${version ?? "unknown"}]${importNote} ${item.message}`
+          )
         } else if (item.type === "chat") {
           const safeMsg = item.message.replaceAll(/[\r\n]+/g, "")
-          if (item.role === "user") {
-            console.log(
-              `\t[${item.createdAt}] [AI FEEDBACK] [${item.role.toUpperCase()}] ${safeMsg}`
-            )
-          } else {
-            console.log(
-              `\t[${item.createdAt}] [EDIT] New Definition: ${safeMsg}`
-            )
-          }
-        } else {
           console.log(
-            `\t[${item.createdAt}] [EDIT] Previous Definition: ${item.definition}`
+            `\t[${item.createdAt.toISOString()}] [AI CHAT] [${item.role.toUpperCase()}] ${safeMsg}`
+          )
+        } else {
+          const legacyNote = item.legacyIncomplete
+            ? " [PARTIAL LEGACY RECORD]"
+            : ""
+
+          console.log(
+            `\t[${item.createdAt.toISOString()}] [REVISION v${item.version}] [${item.source}]${legacyNote}\n\t  Definition: ${item.definition}\n\t  Example: ${item.example ?? "[not retained]"}\n\t  Change note: ${item.changeNote ?? "[not retained]"}\n\t  Editor ID: ${item.editorId ?? "[not retained]"}`
           )
         }
       }

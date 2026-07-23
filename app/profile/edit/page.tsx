@@ -25,8 +25,10 @@ export default async function EditProfilePage() {
         <section className="space-y-2">
           <h1 className="font-serif text-3xl font-bold">Edit profile</h1>
           <p className="text-muted-foreground">
-            Update the name and affiliation shown with your contributions.
-            Authentication manages your email address and linked identities.
+            Update the name and affiliation shown with your contributions. You
+            can also choose whether those details and your authored terms appear
+            together on a public profile. Authentication manages your email
+            address and linked identities.
           </p>
         </section>
         <EditProfileForm defaults={user} />
