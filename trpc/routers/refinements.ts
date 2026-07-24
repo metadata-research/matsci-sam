@@ -20,6 +20,7 @@ import {
   RevisionConflictError,
   RevisionNoChangeError
 } from "@/lib/definition-revisions"
+import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 
 // Refinement is only offered on definitions the caller authored, and only on
@@ -97,7 +98,7 @@ export const refinementsRouter = createTRPCRouter({
             throw new TRPCError({
               code: "CONFLICT",
               message:
-                "This definition changed after you opened it. Review the current version before refining it."
+                "This definition changed after you opened it. Review the current revision before refining it."
             })
 
           const rounds = await tx.query.refinementsTable.findMany({
@@ -207,7 +208,7 @@ export const refinementsRouter = createTRPCRouter({
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              "The source definition changed during this refinement round. Start a new round from the current version."
+              "The source definition changed during this refinement round. Start a new round from the current revision."
           })
 
         await tx
@@ -216,7 +217,7 @@ export const refinementsRouter = createTRPCRouter({
           .where(eq(refinementsTable.id, round.id))
 
         // One refined definition per original: later acceptances update it
-        // through the edit path so the version history stays derivable.
+        // through the edit path so the revision history stays derivable.
         const existing = await tx.query.definitionsTable.findFirst({
           where: and(
             eq(definitionsTable.refinedFromId, original.id),
@@ -232,24 +233,30 @@ export const refinementsRouter = createTRPCRouter({
 
         if (existing) {
           try {
-            const { definition } = await publishDefinitionRevision(tx, {
-              definitionId: existing.id,
-              editorId: userId,
-              definition: round.suggestedDefinition!,
-              example: round.suggestedExample!,
-              changeNote: `Accepted AI refinement round ${round.round}`,
-              source: "ai_refinement",
-              expectedRevisionId: existing.currentRevisionId ?? undefined,
-              model: round.model,
-              prompt: round.promptText,
-              derivedFromRevisionId: round.sourceRevisionId,
-              sourceRefinementId: round.id
-            })
+            const { definition, revision } = await publishDefinitionRevision(
+              tx,
+              {
+                definitionId: existing.id,
+                editorId: userId,
+                definition: round.suggestedDefinition!,
+                example: round.suggestedExample!,
+                changeNote: `Accepted AI refinement round ${round.round}`,
+                source: "ai_refinement",
+                expectedRevisionId: existing.currentRevisionId ?? undefined,
+                model: round.model,
+                prompt: round.promptText,
+                derivedFromRevisionId: round.sourceRevisionId,
+                sourceRefinementId: round.id
+              }
+            )
             await tx
               .insert(coauthorsTable)
               .values({ definitionId: definition.id, userId: modelUser.id })
               .onConflictDoNothing()
-            return definition
+            return {
+              ...definition,
+              publishedVersion: revision.version
+            }
           } catch (error) {
             if (error instanceof RevisionConflictError)
               throw new TRPCError({
@@ -260,13 +267,13 @@ export const refinementsRouter = createTRPCRouter({
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:
-                  "This suggestion matches the current refined definition, so no new version was published."
+                  "This suggestion matches the current refined definition, so no new revision was published."
               })
             throw error
           }
         }
 
-        const { definition: inserted } =
+        const { definition: inserted, revision } =
           await createDefinitionWithInitialRevision(tx, {
             termId: original.termId,
             authorId: userId,
@@ -286,11 +293,16 @@ export const refinementsRouter = createTRPCRouter({
           .insert(coauthorsTable)
           .values({ definitionId: inserted.id, userId: modelUser.id })
 
-        return inserted
+        return { ...inserted, publishedVersion: revision.version }
       })
 
       revalidatePath("/terms")
-      revalidatePath(`/definition/${refined.id}`)
+      await revalidatePublicDefinition({
+        definitionId: refined.id,
+        definitionNumber: refined.definitionNumber,
+        termId: refined.termId,
+        version: refined.publishedVersion
+      })
 
       return refined
     }),
@@ -339,7 +351,7 @@ export const refinementsRouter = createTRPCRouter({
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              "The source definition changed during this refinement round. Start a new round from the current version."
+              "The source definition changed during this refinement round. Start a new round from the current revision."
           })
 
         const [updated] = await tx
@@ -396,7 +408,7 @@ export const refinementsRouter = createTRPCRouter({
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              "The source definition changed during this refinement round. Start a new round from the current version."
+              "The source definition changed during this refinement round. Start a new round from the current revision."
           })
 
         const [retried] = await tx

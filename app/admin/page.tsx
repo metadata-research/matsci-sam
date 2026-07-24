@@ -14,6 +14,7 @@ import { AdminPageHeader } from "./page-header"
 import { DashboardSummary } from "./dashboard-summary"
 import styles from "./admin.module.css"
 import { Suspense } from "react"
+import { revisionPath } from "@/lib/public-identifiers"
 
 export default async function AdminOverviewPage() {
   const overviewPromise = trpc.admin.overview()
@@ -100,7 +101,11 @@ export default async function AdminOverviewPage() {
                     </td>
                     <td>
                       <Link
-                        href={`/definition/${activity.definitionId}?version=${activity.version}`}
+                        href={revisionPath(
+                          activity.slug,
+                          activity.definitionNumber,
+                          activity.version
+                        )}
                         className={styles.activityTerm}
                       >
                         {activity.term}

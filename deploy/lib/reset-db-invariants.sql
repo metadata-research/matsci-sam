@@ -33,6 +33,37 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
+    FROM "definitions"
+    WHERE "definitionNumber" IS NULL OR "definitionNumber" <= 0
+  ) THEN
+    RAISE EXCEPTION 'invalid public definition number';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM "definitions"
+    GROUP BY "termId", "definitionNumber"
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'duplicate public definition number within a term';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM "terms" t
+    LEFT JOIN (
+      SELECT "termId", max("definitionNumber") AS maximum_definition_number
+      FROM "definitions"
+      GROUP BY "termId"
+    ) d ON d."termId" = t.id
+    WHERE t."nextDefinitionNumber" <=
+      COALESCE(d.maximum_definition_number, 0)
+  ) THEN
+    RAISE EXCEPTION 'public definition number allocator is not ahead of assigned numbers';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
     FROM "votes" v
     LEFT JOIN "definitionRevisions" r ON r.id = v."revisionId"
     WHERE r.id IS NULL OR r."definitionId" <> v."definitionId"

@@ -3,6 +3,7 @@ import "server-only"
 import {
   coauthorsTable,
   db,
+  definitionRevisionsTable,
   definitionsTable,
   tagsTable,
   tagsToDefinitions,
@@ -12,24 +13,26 @@ import {
 import { asc, eq, inArray } from "drizzle-orm"
 import { SITE_NAME, SITE_URL } from "./site"
 import { definitionStatus } from "./status"
+import {
+  applicationMetadataNamespaceUri,
+  definitionUri,
+  revisionUri,
+  schemeUri,
+  termUri
+} from "./public-identifiers"
+
+export { schemeUri, termUri } from "./public-identifiers"
 
 /*
  * SKOS view of the dictionary, derived on demand from the domain tables in
  * the same spirit as the PROV-O view. A term is a skos:Concept, its name the
- * prefLabel, each community definition a skos:definition with Dublin Core
- * attribution, and examples skos:example. Tags appear as dcterms:subject
- * links to tag concepts; curated tags may carry a SKOS mapping to a class in
- * an external ontology. The SKOS record describes current state; history
- * belongs to the PROV-O serialization.
+ * prefLabel, and each current definition revision an identified
+ * skos:definition resource with its text, example, and Dublin Core
+ * attribution. Tags appear as dcterms:subject links to tag concepts; curated
+ * tags may carry a SKOS mapping to a class in an external ontology. The SKOS
+ * record describes current state; history belongs to the PROV-O serialization.
  */
 
-export const schemeUri = `${SITE_URL}/vocabulary`
-
-// Concept IRI. Slug rather than id: this is the identifier that gets cited and
-// resolved, so it should be readable and independent of the database key. The
-// slug is assigned once and never reassigned (lib/slug.ts); /terms/<id> 308s
-// here, so previously published id-based IRIs keep resolving.
-export const termUri = (slug: string) => `${SITE_URL}/vocabulary/${slug}`
 export const tagUri = (id: number) => `${SITE_URL}/tags/${id}`
 
 export type TermSkos = {
@@ -37,11 +40,18 @@ export type TermSkos = {
   prefLabel: string
   created: string
   definitions: {
-    text: string
-    example: string
-    contributors: string[]
+    uri: string
+    definitionNumber: number
     created: string
-    status: string
+    currentRevision: {
+      uri: string
+      version: number
+      text: string
+      example: string
+      contributors: string[]
+      created: string
+      status: string
+    }
   }[]
   subjects: {
     uri: string
@@ -62,18 +72,26 @@ export const buildTermSkos = async (
   const definitions = await db
     .select({
       id: definitionsTable.id,
-      definition: definitionsTable.definition,
-      example: definitionsTable.example,
+      definitionNumber: definitionsTable.definitionNumber,
+      definitionCreatedAt: definitionsTable.createdAt,
+      revisionDefinition: definitionRevisionsTable.definition,
+      revisionExample: definitionRevisionsTable.example,
+      legacyExample: definitionsTable.example,
+      revisionVersion: definitionRevisionsTable.version,
+      revisionCreatedAt: definitionRevisionsTable.createdAt,
+      revisionModel: definitionRevisionsTable.model,
       score: definitionsTable.score,
-      createdAt: definitionsTable.createdAt,
-      model: definitionsTable.model,
       authorName: usersTable.name,
       authorIsAi: usersTable.isAi
     })
     .from(definitionsTable)
+    .innerJoin(
+      definitionRevisionsTable,
+      eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
+    )
     .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
     .where(eq(definitionsTable.termId, termId))
-    .orderBy(asc(definitionsTable.createdAt))
+    .orderBy(asc(definitionsTable.definitionNumber))
 
   const definitionIds = definitions.map((d) => d.id)
 
@@ -82,7 +100,8 @@ export const buildTermSkos = async (
       ? db
           .select({
             definitionId: coauthorsTable.definitionId,
-            name: usersTable.name
+            name: usersTable.name,
+            isAi: usersTable.isAi
           })
           .from(coauthorsTable)
           .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
@@ -106,18 +125,39 @@ export const buildTermSkos = async (
     uri: termUri(term.slug),
     prefLabel: term.term,
     created: term.createdAt.slice(0, 10),
-    definitions: definitions.map((d) => ({
-      text: d.definition,
-      example: d.example,
-      contributors: [
-        d.authorIsAi ? (d.model ?? "AI") : (d.authorName ?? "unknown"),
+    definitions: definitions.map((d) => {
+      const contributors = [
+        d.authorIsAi
+          ? (d.revisionModel ?? d.authorName ?? "AI")
+          : (d.authorName ?? "unknown"),
         ...coauthors
-          .filter((c) => c.definitionId === d.id)
+          .filter(
+            (c) =>
+              c.definitionId === d.id &&
+              c.isAi &&
+              d.revisionModel !== null &&
+              c.name === d.revisionModel
+          )
           .map((c) => c.name ?? "unknown")
-      ],
-      created: d.createdAt.slice(0, 10),
-      status: definitionStatus(d.score)
-    })),
+      ]
+
+      return {
+        uri: definitionUri(term.slug, d.definitionNumber),
+        definitionNumber: d.definitionNumber,
+        created: d.definitionCreatedAt,
+        currentRevision: {
+          uri: revisionUri(term.slug, d.definitionNumber, d.revisionVersion),
+          version: d.revisionVersion,
+          text: d.revisionDefinition,
+          // Legacy revision imports may not contain the historical example.
+          // The stable row mirrors the current content and supplies it here.
+          example: d.revisionExample ?? d.legacyExample,
+          contributors: [...new Set(contributors)],
+          created: d.revisionCreatedAt,
+          status: definitionStatus(d.score)
+        }
+      }
+    }),
     subjects: tags.map((t) => ({
       uri: tagUri(t.id),
       label: t.name,
@@ -131,6 +171,9 @@ export const buildTermSkos = async (
 
 const TTL_PREFIXES = `@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix matsci: <${applicationMetadataNamespaceUri}> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 `
@@ -145,6 +188,10 @@ const lit = (value: string) =>
 
 const en = (value: string) => `${lit(value)}@en`
 const date = (value: string) => `${lit(value)}^^xsd:date`
+const dateTime = (value: string) =>
+  `${lit(new Date(value).toISOString())}^^xsd:dateTime`
+const positiveInteger = (value: number) =>
+  `${lit(String(value))}^^xsd:positiveInteger`
 
 const conceptTurtle = (skos: TermSkos) => {
   const lines: string[] = []
@@ -153,31 +200,53 @@ const conceptTurtle = (skos: TermSkos) => {
   lines.push(`  skos:prefLabel ${en(skos.prefLabel)} ;`)
 
   for (const d of skos.definitions) {
-    lines.push(`  skos:definition ${en(d.text)} ;`)
-    if (d.example) lines.push(`  skos:example ${en(d.example)} ;`)
-    lines.push(
-      `  skos:editorialNote ${en(
-        `Definition contributed ${d.created} by ${d.contributors.join(" and ")}; community status ${d.status}.`
-      )} ;`
-    )
+    lines.push(`  skos:definition <${d.currentRevision.uri}> ;`)
   }
 
   const contributors = [
-    ...new Set(skos.definitions.flatMap((d) => d.contributors))
+    ...new Set(skos.definitions.flatMap((d) => d.currentRevision.contributors))
   ]
   for (const c of contributors) lines.push(`  dcterms:contributor ${lit(c)} ;`)
   for (const s of skos.subjects) lines.push(`  dcterms:subject <${s.uri}> ;`)
 
   lines.push(`  dcterms:created ${date(skos.created)} .`)
 
+  for (const d of skos.definitions) {
+    const revision = d.currentRevision
+
+    lines.push("")
+    lines.push(`<${d.uri}> a matsci:Definition ;`)
+    lines.push(`  dcterms:isPartOf <${skos.uri}> ;`)
+    lines.push(
+      `  matsci:definitionNumber ${positiveInteger(d.definitionNumber)} ;`
+    )
+    lines.push(`  matsci:currentRevision <${revision.uri}> ;`)
+    lines.push(`  dcterms:hasVersion <${revision.uri}> ;`)
+    lines.push(`  dcterms:created ${dateTime(d.created)} .`)
+
+    lines.push("")
+    lines.push(`<${revision.uri}> a matsci:DefinitionRevision ;`)
+    lines.push(`  rdf:value ${en(revision.text)} ;`)
+    if (revision.example) lines.push(`  skos:example ${en(revision.example)} ;`)
+    lines.push(`  dcterms:isVersionOf <${d.uri}> ;`)
+    lines.push(`  prov:specializationOf <${d.uri}> ;`)
+    for (const contributor of revision.contributors)
+      lines.push(`  dcterms:creator ${lit(contributor)} ;`)
+    lines.push(`  matsci:version ${positiveInteger(revision.version)} ;`)
+    lines.push(`  matsci:status ${lit(revision.status)} ;`)
+    lines.push(`  dcterms:created ${dateTime(revision.created)} .`)
+  }
+
   for (const s of skos.subjects) {
     lines.push("")
     lines.push(`<${s.uri}> a skos:Concept ;`)
-    lines.push(`  skos:prefLabel ${en(s.label)} ${
-      s.mappingIri && s.mappingRelation
-        ? `;\n  skos:${s.mappingRelation} <${s.mappingIri}> .`
-        : "."
-    }`)
+    lines.push(
+      `  skos:prefLabel ${en(s.label)} ${
+        s.mappingIri && s.mappingRelation
+          ? `;\n  skos:${s.mappingRelation} <${s.mappingIri}> .`
+          : "."
+      }`
+    )
   }
 
   return lines.join("\n") + "\n"
@@ -213,21 +282,61 @@ export const schemeTurtle = async () => {
 export const termJsonLd = (skos: TermSkos) => ({
   "@context": {
     skos: "http://www.w3.org/2004/02/skos/core#",
-    dcterms: "http://purl.org/dc/terms/"
+    dcterms: "http://purl.org/dc/terms/",
+    prov: "http://www.w3.org/ns/prov#",
+    rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    matsci: applicationMetadataNamespaceUri,
+    xsd: "http://www.w3.org/2001/XMLSchema#"
   },
   "@id": skos.uri,
   "@type": "skos:Concept",
   "skos:inScheme": { "@id": schemeUri },
   "skos:prefLabel": { "@value": skos.prefLabel, "@language": "en" },
-  "skos:definition": skos.definitions.map((d) => ({
-    "@value": d.text,
-    "@language": "en"
-  })),
-  "skos:example": skos.definitions
-    .filter((d) => d.example)
-    .map((d) => ({ "@value": d.example, "@language": "en" })),
+  "skos:definition": skos.definitions.map((d) => {
+    const revision = d.currentRevision
+
+    return {
+      "@id": revision.uri,
+      "@type": "matsci:DefinitionRevision",
+      "rdf:value": { "@value": revision.text, "@language": "en" },
+      ...(revision.example
+        ? {
+            "skos:example": {
+              "@value": revision.example,
+              "@language": "en"
+            }
+          }
+        : {}),
+      "dcterms:creator": revision.contributors,
+      "dcterms:created": {
+        "@value": new Date(revision.created).toISOString(),
+        "@type": "xsd:dateTime"
+      },
+      "dcterms:isVersionOf": {
+        "@id": d.uri,
+        "@type": "matsci:Definition",
+        "dcterms:isPartOf": { "@id": skos.uri },
+        "dcterms:created": {
+          "@value": new Date(d.created).toISOString(),
+          "@type": "xsd:dateTime"
+        },
+        "dcterms:hasVersion": { "@id": revision.uri },
+        "matsci:definitionNumber": {
+          "@value": d.definitionNumber,
+          "@type": "xsd:positiveInteger"
+        },
+        "matsci:currentRevision": { "@id": revision.uri }
+      },
+      "prov:specializationOf": { "@id": d.uri },
+      "matsci:version": {
+        "@value": revision.version,
+        "@type": "xsd:positiveInteger"
+      },
+      "matsci:status": revision.status
+    }
+  }),
   "dcterms:contributor": [
-    ...new Set(skos.definitions.flatMap((d) => d.contributors))
+    ...new Set(skos.definitions.flatMap((d) => d.currentRevision.contributors))
   ],
   "dcterms:subject": skos.subjects.map((s) => ({ "@id": s.uri })),
   "dcterms:created": skos.created

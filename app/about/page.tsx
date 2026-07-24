@@ -143,6 +143,10 @@ export default function AboutPage() {
             </dl>
 
             <div className={styles.linkRow}>
+              <Link href="/metadata/matcore" className={styles.textLink}>
+                Explore MatCore metadata
+                <ArrowRightIcon aria-hidden />
+              </Link>
               <Link href="/docs/metadata-access" className={styles.textLink}>
                 Read the metadata guide
                 <ArrowRightIcon aria-hidden />

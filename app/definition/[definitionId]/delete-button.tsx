@@ -61,11 +61,12 @@ export const DeleteDefinitionButton = ({
               This administrator cleanup action removes the definition of{" "}
               <span className="font-medium text-foreground">{term}</span> and
               its votes, comments, tags, edit history, AI refinement rounds,
-              Discussion suggestions, and refined versions.
+              Discussion suggestions, and refined definitions.
             </span>
             <span className="block">
-              If this is the last definition, the shared term is also removed.
-              This action cannot be undone.
+              The shared term remains, and this definition&apos;s public number
+              is permanently reserved rather than reassigned. This action cannot
+              be undone.
             </span>
           </DialogDescription>
         </DialogHeader>

@@ -24,6 +24,7 @@ import {
 import { diffWords } from "@/lib/word-diff"
 import { toast } from "sonner"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
+import { definitionPath } from "@/lib/public-identifiers"
 
 const DiffText = ({ from, to }: { from: string; to: string }) => (
   <>
@@ -46,10 +47,12 @@ const DiffText = ({ from, to }: { from: string; to: string }) => (
 export const RefinePanel = ({
   definitionId,
   revisionId,
+  termSlug,
   current
 }: {
   definitionId: number
   revisionId: number
+  termSlug: string
   current: { definition: string; example: string }
 }) => {
   const router = useRouter()
@@ -77,7 +80,7 @@ export const RefinePanel = ({
   const accept = trpc.refinements.accept.useMutation({
     onSuccess: (refined) => {
       invalidate()
-      router.push(`/definition/${refined.id}`)
+      router.push(definitionPath(termSlug, refined.definitionNumber))
     },
     onError
   })

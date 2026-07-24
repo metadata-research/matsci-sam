@@ -117,9 +117,10 @@ export const EditDefinitionDialog = ({
                 Publish a revision
               </DialogTitle>
               <DialogDescription>
-                This publishes a new immutable version under the same definition
-                URL. Its definition, example, editor, and change note remain in
-                history. Community voting restarts for the new version.
+                This publishes a new immutable revision under the same
+                definition URL. Its definition, example, editor, and change note
+                remain in history. Community voting restarts for the new
+                revision.
               </DialogDescription>
             </DialogHeader>
             <FormField

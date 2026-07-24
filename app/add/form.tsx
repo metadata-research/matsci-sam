@@ -33,6 +33,7 @@ import {
   EXAMPLE_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
+import { definitionPath } from "@/lib/public-identifiers"
 
 const AI_WORKFLOWS = [
   {
@@ -119,7 +120,8 @@ export const DefineTermForm = ({
   })
 
   const mutation = trpc.definitions.create.useMutation({
-    onSuccess: ({ definition }) => router.push(`/definition/${definition.id}`)
+    onSuccess: ({ definition, term }) =>
+      router.push(definitionPath(term.slug, definition.definitionNumber))
   })
 
   const { data: terms, isLoading: termsAreLoading } =

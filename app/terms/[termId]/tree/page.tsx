@@ -6,7 +6,7 @@ import { HistoryIcon, MessageCircleIcon } from "lucide-react"
 import { notFound } from "next/navigation"
 
 const revisionSourceLabels = {
-  initial: "Initial version",
+  initial: "Initial revision",
   author_edit: "Author revision",
   ai_refinement: "AI-assisted revision",
   ai_generation: "AI-generated revision",
@@ -43,6 +43,7 @@ export default async function TermTreePage(props: {
               <Definition
                 definition={{
                   ...definition,
+                  termSlug: term.slug,
                   author: definition.author?.name,
                   authorProfilePublic:
                     definition.author?.isProfilePublic ?? false
@@ -74,7 +75,7 @@ export default async function TermTreePage(props: {
                         <p className="text-xs font-semibold opacity-80">
                           COMMENT
                           {history.version !== null
-                            ? ` ON v${history.version}`
+                            ? ` ON DEFINITION ${definition.definitionNumber} · REVISION ${history.version}`
                             : ""}
                           {history.migratedLegacy
                             ? " · VERSION INFERRED DURING IMPORT"
@@ -87,7 +88,8 @@ export default async function TermTreePage(props: {
                       <>
                         <p className="text-xs font-semibold opacity-80 flex flex-wrap gap-x-2">
                           <span>
-                            v{history.version} ·{" "}
+                            Definition {definition.definitionNumber} · revision{" "}
+                            {history.version} ·{" "}
                             {revisionSourceLabels[history.source]}
                           </span>
                           {history.legacyIncomplete && (

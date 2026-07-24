@@ -13,6 +13,7 @@ import {
 import { Badge } from "./ui/badge"
 import { definitionStatus, type DefinitionStatus } from "@/lib/status"
 import { PublicProfileName } from "./public-profile-name"
+import { definitionPath } from "@/lib/public-identifiers"
 
 // Shared by the definition cards and the single-definition page so both use
 // one label treatment.
@@ -72,6 +73,7 @@ export const Definition = ({
     comments?: number | null
     revisionId: number
     version: number
+    termSlug: string
   }
   // The term's leading definition: highest voted, newest breaking ties. Callers
   // decide -- this component does not rank, it only marks. Left false when a
@@ -104,7 +106,7 @@ export const Definition = ({
     )}
     <section className="min-w-0 flex-1 space-y-2">
       <Link
-        href={`/definition/${definition.id}`}
+        href={definitionPath(definition.termSlug, definition.definitionNumber)}
         className="block space-y-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {children}
@@ -149,7 +151,10 @@ export const Definition = ({
           )
         )}
         <span>{formatDate(definition.createdAt)}</span>
-        <span>v{definition.version}</span>
+        <span>
+          Definition {definition.definitionNumber} · revision{" "}
+          {definition.version}
+        </span>
         <StatusChip score={definition.score} />
         {typeof definition.comments === "number" && (
           <span

@@ -36,6 +36,30 @@ fail() {
   exit 1
 }
 
+verify_redirect_headers() {
+  local headers=$1
+  local expected_status=$2
+  local expected_location=$3
+  local context=$4
+  local status
+  local location
+
+  status=$(awk 'NR == 1 {print $2}' <<<"${headers}")
+  location=$(
+    awk '
+      tolower($1) == "location:" {
+        sub(/\r$/, "", $2)
+        print $2
+        exit
+      }
+    ' <<<"${headers}"
+  )
+  [[ ${status} == "${expected_status}" ]] ||
+    fail "${context} returned HTTP ${status}, expected ${expected_status}."
+  [[ ${location} == "${expected_location}" ]] ||
+    fail "${context} redirected to an unexpected canonical path."
+}
+
 wait_for_local_health() {
   local attempts=${1:-30}
   local attempt
@@ -748,6 +772,40 @@ actual_facts=$(
   fail "The migrated live database differs from the verified scratch result."
 cleanup_scratch_database
 
+IFS=$'\t' read -r _ _ _ _ _ definition_probe <<<"${actual_facts}"
+definition_legacy_path=
+definition_canonical_path=
+revision_canonical_path=
+if ((definition_probe > 0)); then
+  definition_identity=$(
+    runuser -u matsci-sam -- psql \
+      --host=/var/run/postgresql \
+      --port=5432 \
+      --dbname="${database}" \
+      --no-align \
+      --tuples-only \
+      --field-separator=$'\t' \
+      --command="
+        SELECT t.slug, d.\"definitionNumber\", r.version
+        FROM \"definitions\" d
+        JOIN \"terms\" t ON t.id = d.\"termId\"
+        JOIN \"definitionRevisions\" r ON r.id = d.\"currentRevisionId\"
+        WHERE d.id = ${definition_probe};
+      "
+  )
+  IFS=$'\t' read -r definition_slug definition_number revision_number \
+    <<<"${definition_identity}"
+  [[ ${definition_slug} =~ ^[a-z0-9][a-z0-9_-]*$ ]] ||
+    fail "The definition probe has an unsafe term slug."
+  [[ ${definition_number} =~ ^[1-9][0-9]*$ ]] ||
+    fail "The definition probe has an invalid public definition number."
+  [[ ${revision_number} =~ ^[1-9][0-9]*$ ]] ||
+    fail "The definition probe has an invalid revision number."
+  definition_legacy_path="/definition/${definition_probe}"
+  definition_canonical_path="/vocabulary/${definition_slug}/definitions/${definition_number}"
+  revision_canonical_path="${definition_canonical_path}/revisions/${revision_number}"
+fi
+
 printf '%s %s\n' \
   "${manifest[commit]}" \
   "${manifest[archive_sha256]}" \
@@ -771,10 +829,24 @@ if awk '{print $4}' <<<"${listeners}" | grep -qv '^127\.0\.0\.1:3000$'; then
   fail "Port 3000 is not loopback-only."
 fi
 
-local_paths=(/ /search /terms /docs /about)
-IFS=$'\t' read -r _ _ _ _ _ definition_probe <<<"${actual_facts}"
+local_paths=(/ /search /terms /docs /about /metadata/matcore)
 if ((definition_probe > 0)); then
-  local_paths+=("/definition/${definition_probe}")
+  local_redirect_headers=$(
+    curl \
+      --connect-timeout 3 \
+      --max-time 10 \
+      --silent \
+      --show-error \
+      --output /dev/null \
+      --dump-header - \
+      "http://127.0.0.1:3000${definition_legacy_path}"
+  )
+  verify_redirect_headers \
+    "${local_redirect_headers}" \
+    308 \
+    "${definition_canonical_path}" \
+    "The local legacy definition route"
+  local_paths+=("${definition_canonical_path}" "${revision_canonical_path}")
 fi
 for path in "${local_paths[@]}"; do
   code=$(
@@ -796,9 +868,25 @@ systemctl start nginx.service
   fail "Nginx did not start."
 
 host=superego.cci.drexel.edu
-public_paths=(/ /search /terms /docs /about)
+public_paths=(/ /search /terms /docs /about /metadata/matcore)
 if ((definition_probe > 0)); then
-  public_paths+=("/definition/${definition_probe}")
+  public_redirect_headers=$(
+    curl \
+      --resolve "${host}:443:127.0.0.1" \
+      --connect-timeout 3 \
+      --max-time 10 \
+      --silent \
+      --show-error \
+      --output /dev/null \
+      --dump-header - \
+      "https://${host}${definition_legacy_path}"
+  )
+  verify_redirect_headers \
+    "${public_redirect_headers}" \
+    308 \
+    "${definition_canonical_path}" \
+    "The public legacy definition route"
+  public_paths+=("${definition_canonical_path}" "${revision_canonical_path}")
 fi
 for path in "${public_paths[@]}"; do
   code=$(

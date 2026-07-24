@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/date"
 import { AdminPageHeader } from "../page-header"
 import { JobsTable } from "../terms/table"
 import styles from "../admin.module.css"
+import { definitionPath } from "@/lib/public-identifiers"
 
 export default async function AdminReviewPage() {
   const [terms, refinements] = await Promise.all([
@@ -136,7 +137,10 @@ function RefinementQueue({ refinements }: { refinements: Refinement[] }) {
                   </td>
                   <td>
                     <Link
-                      href={`/definition/${refinement.definitionId}`}
+                      href={definitionPath(
+                        refinement.termSlug,
+                        refinement.definitionNumber
+                      )}
                       className={styles.textLink}
                     >
                       Open

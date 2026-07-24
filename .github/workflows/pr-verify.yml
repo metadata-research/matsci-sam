@@ -9,33 +9,40 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-      
-    - uses: pnpm/action-setup@v4
-      with:
-        version: 10
+      - uses: actions/checkout@v4
 
-    - name: Install Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: 24
-        cache: pnpm
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-    - name: Install Dependencies
-      run: |
-        pnpm install --frozen-lockfile
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
 
-    - name: Lint
-      run: |
-        pnpm lint
+      - name: Install Dependencies
+        run: |
+          pnpm install --frozen-lockfile
 
-    - name: Check Types
-      run: |
-        pnpm check-types
+      - name: Lint
+        run: |
+          pnpm lint
 
-    - name: Check Migrations
-      run: |
-        pnpm db:check
+      - name: Check Types
+        run: |
+          pnpm check-types
 
+      - name: Test Authentication
+        run: |
+          pnpm test:auth
+
+      - name: Test Public Identifiers
+        run: |
+          pnpm test:identifiers
+
+      - name: Check Migrations
+        run: |
+          pnpm db:check

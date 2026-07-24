@@ -80,7 +80,7 @@ export const votesRouter = createTRPCRouter({
             throw new TRPCError({
               code: "CONFLICT",
               message:
-                "A newer version is available. Review it before voting again."
+                "A newer revision is available. Review it before voting again."
             })
 
           const voteConstraint = and(

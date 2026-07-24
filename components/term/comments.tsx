@@ -15,6 +15,7 @@ import { PublicProfileName } from "../public-profile-name"
 
 interface Props {
   id: number
+  definitionNumber: number
 }
 
 export const TermVotesFallback = () => {
@@ -31,7 +32,7 @@ export const TermVotesFallback = () => {
   )
 }
 
-export const TermComments = ({ id }: Props) => {
+export const TermComments = ({ id, definitionNumber }: Props) => {
   const [comments] = trpc.comments.get.useSuspenseQuery(id)
 
   if (comments.length === 0) {
@@ -63,7 +64,7 @@ export const TermComments = ({ id }: Props) => {
                 {formatDateTime(comment.createdAt)}
               </time>
               <span className="rounded-full border px-2 py-0.5 text-[0.68rem] text-muted-foreground">
-                on v{comment.version}
+                Definition {definitionNumber} · revision {comment.version}
                 {comment.migratedLegacy ? " · imported" : ""}
               </span>
             </header>

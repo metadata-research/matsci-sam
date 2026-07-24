@@ -121,7 +121,8 @@ export const appRouter = createTRPCRouter({
             isAi: usersTable.isAi,
             author: usersTable.name,
             authorProfilePublic: usersTable.isProfilePublic,
-            term: termsTable.term
+            term: termsTable.term,
+            termSlug: termsTable.slug
           })
           .from(termsTable)
           .innerJoin(

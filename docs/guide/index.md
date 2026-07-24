@@ -27,5 +27,12 @@ pilot workflows.
   with each term.
 - [Metadata access](/docs/metadata-access) covers the SKOS and PROV-O
   serializations for data consumers.
-- [Identifiers and citation](/docs/identifiers) explains term IRIs,
-  readable slugs, and the present persistence limits.
+- [Identifiers and citation](/docs/identifiers) explains term, definition, and
+  revision IRIs, readable slugs, rank lookups, and the present persistence
+  limits.
+
+## Metadata models
+
+- [MatCore metadata](/metadata/matcore) presents a MatSci SAM transcription of
+  the preliminary Minimal and DFT metadata elements published in the 2025
+  MatCore paper, with one clearly synthetic example record.

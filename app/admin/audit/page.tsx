@@ -9,6 +9,7 @@ import { trpc } from "@/trpc/server"
 import { formatDate } from "@/lib/date"
 import { AdminPageHeader } from "../page-header"
 import styles from "../admin.module.css"
+import { revisionPath } from "@/lib/public-identifiers"
 
 export default async function AdminAuditPage() {
   const overview = await trpc.admin.overview()
@@ -84,7 +85,10 @@ export default async function AdminAuditPage() {
                     <td className="font-serif font-semibold">
                       {activity.term}
                     </td>
-                    <td>v{activity.version}</td>
+                    <td>
+                      Definition {activity.definitionNumber} · revision{" "}
+                      {activity.version}
+                    </td>
                     <td className={styles.codeText}>
                       {activity.source.replaceAll("_", " ")}
                     </td>
@@ -95,7 +99,11 @@ export default async function AdminAuditPage() {
                     </td>
                     <td>
                       <Link
-                        href={`/definition/${activity.definitionId}?version=${activity.version}`}
+                        href={revisionPath(
+                          activity.slug,
+                          activity.definitionNumber,
+                          activity.version
+                        )}
                         className={styles.textLink}
                       >
                         Open

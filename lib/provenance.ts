@@ -13,6 +13,7 @@ import {
   votesTable
 } from "@yamz/db"
 import { and, asc, eq, getTableColumns, inArray, isNotNull } from "drizzle-orm"
+import { definitionUri, revisionUri, termUri } from "./public-identifiers"
 
 // Read-only PROV-O mapping over the domain tables. Definition revisions are
 // the canonical version record; the mutable definitions row is used only for
@@ -36,6 +37,11 @@ export type ProvNode = {
   id: string
   label: string
   type: ProvNodeType
+  publicResource?: {
+    uri: string
+    specializationOf?: string
+    wasRevisionOf?: string
+  }
   profileUserId?: number
   // shown in the node details panel
   detail?: string
@@ -118,8 +124,8 @@ export const buildTermProvenance = async (
   const definitions = await db
     .select({
       id: definitionsTable.id,
+      definitionNumber: definitionsTable.definitionNumber,
       currentRevisionId: definitionsTable.currentRevisionId,
-      refinedFromId: definitionsTable.refinedFromId,
       createdAt: definitionsTable.createdAt,
       author: {
         id: usersTable.id,
@@ -293,6 +299,7 @@ export const buildTermProvenance = async (
     id: termNode,
     label: term.term,
     type: "term",
+    publicResource: { uri: termUri(term.slug) },
     meta: { created: term.createdAt }
   })
   events.push({
@@ -335,11 +342,29 @@ export const buildTermProvenance = async (
     })
     return id
   }
+  const definitionById = new Map(
+    definitions.map((definition) => [definition.id, definition])
+  )
+  const revisionById = new Map(
+    revisions.map((revision) => [revision.id, revision])
+  )
+  const revisionCoordinate = (revision: (typeof revisions)[number]) => {
+    const definition = definitionById.get(revision.definitionId)
+    return definition
+      ? `definition ${definition.definitionNumber} · revision ${revision.version}`
+      : `revision ${revision.version}`
+  }
+  const revisionLabel = (revision: (typeof revisions)[number]) => {
+    const definition = definitionById.get(revision.definitionId)
+    return definition
+      ? `Definition ${definition.definitionNumber} · revision ${revision.version}`
+      : `Revision ${revision.version}`
+  }
   const revisionPromptNode = (revision: (typeof revisions)[number]) => {
     const id = `prompt_revision_${revision.id}`
     addNode({
       id,
-      label: `Stored prompt for definition v${revision.version}`,
+      label: `Stored prompt for ${revisionCoordinate(revision)}`,
       type: "entity",
       detail: revision.prompt ?? undefined,
       meta: { revisionId: revision.id }
@@ -347,12 +372,6 @@ export const buildTermProvenance = async (
     return id
   }
 
-  const definitionById = new Map(
-    definitions.map((definition) => [definition.id, definition])
-  )
-  const revisionById = new Map(
-    revisions.map((revision) => [revision.id, revision])
-  )
   const scoreByRevisionId = new Map<number, number>()
   for (const vote of votes)
     scoreByRevisionId.set(
@@ -421,13 +440,20 @@ export const buildTermProvenance = async (
     const definitionRevisions = revisions.filter(
       (revision) => revision.definitionId === definition.id
     )
-    const isRefined = definition.refinedFromId !== null
-    const isAiDefinition = definition.author?.isAi === true
     for (const revision of definitionRevisions) {
       const id = revisionNodeId(definition.id, revision.version)
       const isCurrent = definition.currentRevisionId === revision.id
+      const stableDefinitionUri = definitionUri(
+        term.slug,
+        definition.definitionNumber
+      )
+      const previousRevision =
+        revision.previousRevisionId === null
+          ? undefined
+          : revisionById.get(revision.previousRevisionId)
       const meta: Record<string, string | number | null> = {
         definitionId: definition.id,
+        definitionNumber: definition.definitionNumber,
         revisionId: revision.id,
         version: revision.version,
         published: revision.createdAt,
@@ -452,14 +478,25 @@ export const buildTermProvenance = async (
 
       addNode({
         id,
-        label: `${
-          isRefined
-            ? "Refined definition"
-            : isAiDefinition
-              ? "AI definition"
-              : "Definition"
-        } v${revision.version}${isCurrent ? " (current)" : ""}`,
+        label: `${revisionLabel(revision)}${isCurrent ? " (current)" : ""}`,
         type: "entity",
+        publicResource: {
+          uri: revisionUri(
+            term.slug,
+            definition.definitionNumber,
+            revision.version
+          ),
+          specializationOf: stableDefinitionUri,
+          ...(previousRevision
+            ? {
+                wasRevisionOf: revisionUri(
+                  term.slug,
+                  definition.definitionNumber,
+                  previousRevision.version
+                )
+              }
+            : {})
+        },
         detail: revision.definition,
         meta
       })
@@ -467,11 +504,13 @@ export const buildTermProvenance = async (
       if (revision.previousRevisionId === null)
         addEdge(id, termNode, "wasDerivedFrom")
       else {
-        const previous = revisionById.get(revision.previousRevisionId)
-        if (previous)
+        if (previousRevision)
           addEdge(
             id,
-            revisionNodeId(previous.definitionId, previous.version),
+            revisionNodeId(
+              previousRevision.definitionId,
+              previousRevision.version
+            ),
             "wasDerivedFrom"
           )
       }
@@ -586,20 +625,16 @@ export const buildTermProvenance = async (
               : ("definition-edited" as const)
       const summary =
         revision.source === "legacy"
-          ? `Imported historical definition snapshot (v${revision.version})`
+          ? `Imported historical ${revisionCoordinate(revision)} snapshot`
           : revision.source === "rollback"
-            ? `Earlier content restored as v${revision.version}`
+            ? `Earlier content restored as ${revisionCoordinate(revision)}`
             : revision.source === "ai_refinement"
-              ? revision.version === 1
-                ? "AI-assisted definition published (v1)"
-                : `AI-assisted revision published (v${revision.version})`
+              ? `${revisionLabel(revision)} published with AI assistance`
               : isAiGeneration
-                ? revision.version === 1
-                  ? "AI generated a definition (v1)"
-                  : `AI revised its definition (v${revision.version})`
+                ? `${revisionLabel(revision)} generated by AI`
                 : revision.version === 1
-                  ? "Definition written (v1)"
-                  : `Definition revised (v${revision.version})`
+                  ? `${revisionLabel(revision)} written`
+                  : `${revisionLabel(revision)} revised`
       const detail = revision.changeNote
         ? `${revision.changeNote}\n\n${excerpt(revision.definition)}`
         : excerpt(revision.definition)
@@ -970,7 +1005,7 @@ export const buildTermProvenance = async (
       actorKind: "person",
       profileUserId: publicProfileUserId(suggestion.requester),
       summary: sourceRevision
-        ? `Revision feedback submitted on definition v${sourceRevision.version}`
+        ? `Revision feedback submitted on ${revisionCoordinate(sourceRevision)}`
         : "Revision feedback submitted",
       detail: excerpt(suggestion.comment)
     })
@@ -1008,7 +1043,7 @@ export const buildTermProvenance = async (
       actorKind: "person",
       profileUserId: publicProfileUserId(suggestion.requester),
       summary: outputRevision
-        ? `Discussion suggestion accepted and published as definition v${outputRevision.version}`
+        ? `Discussion suggestion accepted and published as ${revisionCoordinate(outputRevision)}`
         : "Discussion suggestion accepted",
       detail: excerpt(suggestion.suggestedDefinition)
     })
@@ -1044,7 +1079,7 @@ export const buildTermProvenance = async (
       actorKind: "person",
       profileUserId: publicProfileUserId(comment.author),
       summary: revision
-        ? `Comment posted on definition v${revision.version}`
+        ? `Comment posted on ${revisionCoordinate(revision)}`
         : `Comment posted on revision ${comment.revisionId}`,
       detail: excerpt(comment.message)
     })
@@ -1065,7 +1100,7 @@ export const buildTermProvenance = async (
     addNode({
       id: activityId,
       label: `${vote.kind === "up" ? "Upvote" : "Downvote"}${
-        revision ? ` on v${revision.version}` : ""
+        revision ? ` on ${revisionCoordinate(revision)}` : ""
       }`,
       type: "activity",
       meta: {
@@ -1089,9 +1124,9 @@ export const buildTermProvenance = async (
       profileUserId: options.anonymizeVoters
         ? undefined
         : publicProfileUserId(vote.author),
-      summary: `${vote.kind === "up" ? "Upvoted" : "Downvoted"} the ${
-        definition?.author?.isAi ? "AI definition" : "definition"
-      }${revision ? ` (v${revision.version})` : ""}`
+      summary: `${vote.kind === "up" ? "Upvoted" : "Downvoted"} ${
+        definition?.author?.isAi ? "AI-authored " : ""
+      }${revision ? revisionCoordinate(revision) : "definition"}`
     })
   }
 

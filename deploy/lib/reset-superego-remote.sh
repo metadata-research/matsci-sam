@@ -31,6 +31,30 @@ fail() {
   exit 1
 }
 
+verify_redirect_headers() {
+  local headers=$1
+  local expected_status=$2
+  local expected_location=$3
+  local context=$4
+  local status
+  local location
+
+  status=$(awk 'NR == 1 {print $2}' <<<"${headers}")
+  location=$(
+    awk '
+      tolower($1) == "location:" {
+        sub(/\r$/, "", $2)
+        print $2
+        exit
+      }
+    ' <<<"${headers}"
+  )
+  [[ ${status} == "${expected_status}" ]] ||
+    fail "${context} returned HTTP ${status}, expected ${expected_status}."
+  [[ ${location} == "${expected_location}" ]] ||
+    fail "${context} redirected to an unexpected canonical path."
+}
+
 if [[ $(id -u) -ne 0 ]]; then
   fail "Run this helper with sudo."
 fi
@@ -488,6 +512,39 @@ expected=$(
 )
 [[ ${actual} == "${expected}" ]] || fail "Restored database facts do not match."
 
+definition_legacy_path=
+definition_canonical_path=
+revision_canonical_path=
+if ((manifest[definition_probe] > 0)); then
+  definition_identity=$(
+    runuser -u matsci-sam -- psql \
+      --host=/var/run/postgresql \
+      --port=5432 \
+      --dbname="${database}" \
+      --no-align \
+      --tuples-only \
+      --field-separator=$'\t' \
+      --command="
+        SELECT t.slug, d.\"definitionNumber\", r.version
+        FROM \"definitions\" d
+        JOIN \"terms\" t ON t.id = d.\"termId\"
+        JOIN \"definitionRevisions\" r ON r.id = d.\"currentRevisionId\"
+        WHERE d.id = ${manifest[definition_probe]};
+      "
+  )
+  IFS=$'\t' read -r definition_slug definition_number revision_number \
+    <<<"${definition_identity}"
+  [[ ${definition_slug} =~ ^[a-z0-9][a-z0-9_-]*$ ]] ||
+    fail "The definition probe has an unsafe term slug."
+  [[ ${definition_number} =~ ^[1-9][0-9]*$ ]] ||
+    fail "The definition probe has an invalid public definition number."
+  [[ ${revision_number} =~ ^[1-9][0-9]*$ ]] ||
+    fail "The definition probe has an invalid revision number."
+  definition_legacy_path="/definition/${manifest[definition_probe]}"
+  definition_canonical_path="/vocabulary/${definition_slug}/definitions/${definition_number}"
+  revision_canonical_path="${definition_canonical_path}/revisions/${revision_number}"
+fi
+
 next_link=${app_root}/.current-${manifest[commit]:0:12}-${stamp}-$$
 [[ ! -e ${next_link} && ! -L ${next_link} ]] ||
   fail "The temporary release pointer already exists."
@@ -506,9 +563,25 @@ if awk '{print $4}' <<<"${listeners}" | grep -qv '^127\.0\.0\.1:3000$'; then
 fi
 
 host=superego.cci.drexel.edu
-paths=(/ /search /docs /about)
+paths=(/ /search /terms /docs /about /metadata/matcore)
 if ((manifest[definition_probe] > 0)); then
-  paths+=("/definition/${manifest[definition_probe]}")
+  redirect_headers=$(
+    curl \
+      --resolve "${host}:443:127.0.0.1" \
+      --connect-timeout 3 \
+      --max-time 10 \
+      --silent \
+      --show-error \
+      --output /dev/null \
+      --dump-header - \
+      "https://${host}${definition_legacy_path}"
+  )
+  verify_redirect_headers \
+    "${redirect_headers}" \
+    308 \
+    "${definition_canonical_path}" \
+    "The legacy definition route"
+  paths+=("${definition_canonical_path}" "${revision_canonical_path}")
 fi
 for path in "${paths[@]}"; do
   code=$(

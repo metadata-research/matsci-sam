@@ -22,22 +22,24 @@ export function RestoreRevisionButton({
   definitionId,
   revisionId,
   version,
-  expectedRevisionId
+  expectedRevisionId,
+  returnHref
 }: {
   definitionId: number
   revisionId: number
   version: number
   expectedRevisionId: number
+  returnHref: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [changeNote, setChangeNote] = useState(`Restore version ${version}`)
+  const [changeNote, setChangeNote] = useState(`Restore revision ${version}`)
 
   const restore = trpc.definitions.restoreRevision.useMutation({
     onSuccess: (result) => {
       setOpen(false)
-      toast.success(`Published version ${result.revision.version}.`)
-      router.push(`/definition/${definitionId}`)
+      toast.success(`Published revision ${result.revision.version}.`)
+      router.push(returnHref)
       router.refresh()
     },
     onError: (error) => toast.error(error.message)
@@ -48,17 +50,17 @@ export function RestoreRevisionButton({
       <DialogTrigger asChild>
         <Button type="button" variant="outline" size="sm">
           <RotateCcwIcon aria-hidden />
-          Restore this version
+          Restore this revision
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl">
-            Restore version {version}
+            Restore revision {version}
           </DialogTitle>
           <DialogDescription>
             Restoration does not erase later history. It copies this text and
-            example into a new current version, with a fresh community vote
+            example into a new current revision, with a fresh community vote
             tally.
           </DialogDescription>
         </DialogHeader>

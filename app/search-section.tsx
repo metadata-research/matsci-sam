@@ -7,6 +7,7 @@ import { SearchIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { definitionPath } from "@/lib/public-identifiers"
 
 export const SearchSection = ({
   hideResults = false,
@@ -79,7 +80,9 @@ export const SearchSection = ({
       {!hideResults &&
         data?.map((item) => (
           <Card
-            onClick={() => router.push(`/definition/${item.id}`)}
+            onClick={() =>
+              router.push(definitionPath(item.termSlug, item.definitionNumber))
+            }
             className="!gap-0 !p-2 cursor-pointer"
             key={item.id}
           >

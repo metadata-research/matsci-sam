@@ -46,7 +46,11 @@ export default async function VocabularyTermPage(props: {
   // exported here is the one the page marks "Default".
   const topDefinition = await db.query.definitionsTable.findFirst({
     where: eq(definitionsTable.termId, term.id),
-    orderBy: [desc(definitionsTable.score), desc(definitionsTable.createdAt)]
+    orderBy: [
+      desc(definitionsTable.score),
+      desc(definitionsTable.createdAt),
+      desc(definitionsTable.definitionNumber)
+    ]
   })
 
   const jsonLd = JSON.stringify(
@@ -102,7 +106,7 @@ export default async function VocabularyTermPage(props: {
           </div>
 
           <div className="space-y-2">
-            <DefinitionList termId={term.id} />
+            <DefinitionList termId={term.id} termSlug={term.slug} />
           </div>
         </section>
       </main>

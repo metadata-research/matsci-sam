@@ -8,9 +8,10 @@ import { formatDate } from "@/lib/date"
 import { ChevronRightIcon, SparklesIcon } from "lucide-react"
 import Link from "next/link"
 import { PublicProfileName } from "@/components/public-profile-name"
+import { revisionPath } from "@/lib/public-identifiers"
 
 const revisionSourceLabels = {
-  initial: "Initial version",
+  initial: "Initial revision",
   author_edit: "Author revision",
   ai_refinement: "AI-assisted revision",
   ai_generation: "AI-generated revision",
@@ -105,7 +106,11 @@ export default async function DiscussionPage() {
                       <li key={event.eventId} className="space-y-0.5">
                         <div className="flex flex-wrap items-baseline gap-x-2 text-xs">
                           <Link
-                            href={`/definition/${event.definitionId}?version=${event.version}`}
+                            href={revisionPath(
+                              item.slug,
+                              event.definitionNumber,
+                              event.version
+                            )}
                             className={
                               event.kind === "comment"
                                 ? "font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:underline"
@@ -113,8 +118,8 @@ export default async function DiscussionPage() {
                             }
                           >
                             {event.kind === "comment"
-                              ? `Comment on v${event.version}`
-                              : `v${event.version} · ${revisionSourceLabels[event.source]}`}
+                              ? `Comment on Definition ${event.definitionNumber} · revision ${event.version}`
+                              : `Definition ${event.definitionNumber} · revision ${event.version} · ${revisionSourceLabels[event.source]}`}
                           </Link>
                           {event.legacyIncomplete && (
                             <span className="text-muted-foreground">
@@ -174,6 +179,7 @@ export default async function DiscussionPage() {
                 <DiscussionCommentBox
                   definitionId={item.def.definitionId}
                   revisionId={item.def.revisionId}
+                  termSlug={item.slug}
                 />
               </div>
 

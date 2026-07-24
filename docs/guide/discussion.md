@@ -30,15 +30,15 @@ altered browser data from being published with false model attribution.
   suggested definition. It follows the ordinary behavior described in
   [Community review and revisions](/docs/community).
 - **Discard** closes the preview. The unaccepted suggestion remains an
-  unpublished audit record; it does not become vocabulary content or appear
-  in the public provenance view.
+  unpublished audit record. It does not become vocabulary content or appear in
+  the public provenance view.
 
 This is a one-step workflow available to any signed-in contributor. The
 author-only, multi-round workflow is described in
 [AI refinement](/docs/ai-refinement).
 
 The request targets the displayed source revision. If that definition changes
-before you publish, the application asks you to review the latest version and
+before you publish, the application asks you to review the latest revision and
 request another suggestion.
 
 ## Post an ordinary comment

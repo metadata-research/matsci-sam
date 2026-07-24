@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:identifiers": "tsx scripts/test-public-identifiers.ts",
     "test:auth": "tsx scripts/test-auth-plumbing.ts",
     "auth:gmail": "tsx scripts/authorize-gmail-sender.ts",
     "db:migrate": "drizzle-kit migrate",

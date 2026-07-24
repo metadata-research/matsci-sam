@@ -47,6 +47,7 @@ import {
   EXAMPLE_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
+import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 
 export const definitionsRouter = createTRPCRouter({
   create: contributorProcedure
@@ -145,6 +146,12 @@ export const definitionsRouter = createTRPCRouter({
 
       revalidatePath("/terms")
       revalidatePath(`/terms/${term.id}`)
+      await revalidatePublicDefinition({
+        definitionId: definition.id,
+        definitionNumber: definition.definitionNumber,
+        termId: term.id,
+        version: 1
+      })
 
       return { term, definition }
     }),
@@ -202,8 +209,13 @@ export const definitionsRouter = createTRPCRouter({
             })
           })
 
-          revalidatePath(`/definition/${id}`)
           revalidatePath("/terms")
+          await revalidatePublicDefinition({
+            definitionId: result.definition.id,
+            definitionNumber: result.definition.definitionNumber,
+            termId: result.definition.termId,
+            version: result.revision.version
+          })
           return result
         } catch (error) {
           if (error instanceof RevisionConflictError)
@@ -279,8 +291,13 @@ export const definitionsRouter = createTRPCRouter({
             })
           })
 
-          revalidatePath(`/definition/${definitionId}`)
           revalidatePath("/terms")
+          await revalidatePublicDefinition({
+            definitionId: result.definition.id,
+            definitionNumber: result.definition.definitionNumber,
+            termId: result.definition.termId,
+            version: result.revision.version
+          })
           return result
         } catch (error) {
           if (error instanceof RevisionConflictError)
@@ -365,7 +382,7 @@ export const definitionsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "NOT_FOUND",
           message: version
-            ? `Version ${version} does not exist`
+            ? `Revision ${version} does not exist`
             : "Definition has no current revision"
         })
 
@@ -399,12 +416,20 @@ export const definitionsRouter = createTRPCRouter({
             )
         : []
 
-      // The AI-refined version derived from this definition, if any
-      const refinedVersion =
+      // Public identities for both sides of the accepted-refinement lineage.
+      // Internal row IDs remain relationship keys only and are not exposed in
+      // the links rendered by the definition page.
+      const [refinedFrom, refinedVersion] = await Promise.all([
+        def.refinedFromId === null
+          ? null
+          : db.query.definitionsTable.findFirst({
+              columns: { definitionNumber: true },
+              where: eq(definitionsTable.id, def.refinedFromId)
+            }),
         def.authorId === null
           ? null
-          : await db.query.definitionsTable.findFirst({
-              columns: { id: true },
+          : db.query.definitionsTable.findFirst({
+              columns: { id: true, definitionNumber: true },
               where: and(
                 eq(definitionsTable.refinedFromId, def.id),
                 eq(definitionsTable.authorId, def.authorId),
@@ -416,6 +441,7 @@ export const definitionsRouter = createTRPCRouter({
                 )`
               )
             })
+      ])
 
       const currentVersion =
         revisions.find((revision) => revision.id === def.currentRevisionId)
@@ -439,7 +465,9 @@ export const definitionsRouter = createTRPCRouter({
         editor: selectedRevision.editor,
         revisions,
         coauthors,
-        refinedVersionId: refinedVersion?.id ?? null
+        refinedFromDefinitionNumber: refinedFrom?.definitionNumber ?? null,
+        refinedVersionId: refinedVersion?.id ?? null,
+        refinedVersionDefinitionNumber: refinedVersion?.definitionNumber ?? null
       }
     }),
   mine: authenticatedProcedure.query(async ({ ctx: { userId } }) => {
@@ -477,11 +505,16 @@ export const definitionsRouter = createTRPCRouter({
           eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
         )
         .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
-        // Highest voted first, newest breaking ties. The tiebreak matters:
+        // Highest voted first, newest breaking ties, then the permanent
+        // definition number for identical timestamps. The tiebreak matters:
         // score alone left equal-scored definitions in whatever order the
         // planner returned, so the one shown first -- the term's default --
         // could change between requests.
-        .orderBy(desc(definitionsTable.score), desc(definitionsTable.createdAt))
+        .orderBy(
+          desc(definitionsTable.score),
+          desc(definitionsTable.createdAt),
+          desc(definitionsTable.definitionNumber)
+        )
 
       if (userId)
         definitionsQuery.leftJoin(
@@ -498,7 +531,7 @@ export const definitionsRouter = createTRPCRouter({
     .input(z.number())
     .mutation(async ({ input: definitionId }) => {
       // start a tx so if something fails, everything will get restored
-      return await db.transaction(async (tx) => {
+      const deleted = await db.transaction(async (tx) => {
         // everything that references a single definition row
         const deleteDefinitionRows = async (id: number) => {
           await tx
@@ -572,24 +605,20 @@ export const definitionsRouter = createTRPCRouter({
             message: "Definition does not exist"
           })
 
-        // check if there exists any other definitions
-        const otherDef = await tx.query.definitionsTable.findFirst({
-          where: eq(definitionsTable.termId, deletedDef.termId)
-        })
-
-        // if there arent, delete the term as well so that a new
-        // AI def will be created when its redefined
-        if (!otherDef) {
-          await tx
-            .delete(chatsTable)
-            .where(eq(chatsTable.termId, deletedDef.termId))
-
-          await tx
-            .delete(termsTable)
-            .where(eq(termsTable.id, deletedDef.termId))
-        }
+        // Keep the term row even when its last definition is removed. Its slug
+        // and nextDefinitionNumber are part of the public identifier ledger:
+        // deleting the row would allow /vocabulary/<slug>/definitions/1 to be
+        // minted again for unrelated content. A future withdrawal lifecycle
+        // will replace this pre-pilot hard delete with a resolvable tombstone.
 
         return deletedDef
       })
+
+      await revalidatePublicDefinition({
+        definitionId: deleted.id,
+        definitionNumber: deleted.definitionNumber,
+        termId: deleted.termId
+      })
+      return deleted
     })
 })

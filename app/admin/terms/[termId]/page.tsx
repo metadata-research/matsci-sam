@@ -10,6 +10,7 @@ import { ArrowLeftIcon, ExternalLinkIcon, NetworkIcon } from "lucide-react"
 import { auth } from "@/lib/auth"
 import { AdminPageHeader } from "../../page-header"
 import styles from "../../admin.module.css"
+import { definitionPath } from "@/lib/public-identifiers"
 
 export default async function JobPage(props: {
   params: Promise<{ termId: string }>
@@ -59,7 +60,7 @@ export default async function JobPage(props: {
           </Link>
           {aiDefinition && (
             <Link
-              href={`/definition/${aiDefinition.id}`}
+              href={definitionPath(term.slug, aiDefinition.definitionNumber)}
               className="flex items-center text-primary mb-2"
             >
               <ExternalLinkIcon aria-hidden className="mr-2 size-4" />

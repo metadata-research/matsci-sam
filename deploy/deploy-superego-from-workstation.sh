@@ -176,6 +176,7 @@ echo "Checking source, authentication plumbing, and migrations."
 (
   cd "${repo}"
   pnpm check-types
+  pnpm test:identifiers
   pnpm test:auth
   pnpm db:check
 )

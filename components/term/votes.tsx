@@ -87,7 +87,7 @@ export const TermVotes = ({
           e.preventDefault()
           mutate({ vote: "up", definitionId, revisionId })
         }}
-        title={readOnly ? "Earlier versions are read-only" : undefined}
+        title={readOnly ? "Earlier revisions are read-only" : undefined}
         variant="ghost"
       >
         <ArrowUpIcon />
@@ -104,7 +104,7 @@ export const TermVotes = ({
           e.preventDefault()
           mutate({ vote: "down", definitionId, revisionId })
         }}
-        title={readOnly ? "Earlier versions are read-only" : undefined}
+        title={readOnly ? "Earlier revisions are read-only" : undefined}
         variant="ghost"
       >
         <ArrowDownIcon />

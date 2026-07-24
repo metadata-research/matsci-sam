@@ -6,6 +6,7 @@ import {
   publishDefinitionRevision,
   RevisionNoChangeError
 } from "@/lib/definition-revisions"
+import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 
 export const GetUser = cache((userId: number) =>
   db.query.usersTable.findFirst({
@@ -60,7 +61,7 @@ export const UpsertAIDefinition = async (
 ) => {
   const aiUser = await GetAiUser()
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const existingDef = await tx.query.definitionsTable.findFirst({
       where: and(
         eq(definitionsTable.termId, termId),
@@ -102,4 +103,14 @@ export const UpsertAIDefinition = async (
       prompt: generation.prompt
     })
   })
+
+  if (result.revision)
+    await revalidatePublicDefinition({
+      definitionId: result.definition.id,
+      definitionNumber: result.definition.definitionNumber,
+      termId: result.definition.termId,
+      version: result.revision.version
+    })
+
+  return result
 }

@@ -61,7 +61,7 @@ export const commentsRouter = createTRPCRouter({
             throw new TRPCError({
               code: "NOT_FOUND",
               message:
-                "The definition version you commented on no longer exists."
+                "The definition revision you commented on no longer exists."
             })
 
           const [insertedComment] = await tx

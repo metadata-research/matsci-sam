@@ -18,7 +18,7 @@ import {
   termsTable,
   usersTable
 } from "@yamz/db"
-import { desc, eq, sql } from "drizzle-orm"
+import { asc, desc, eq, inArray, sql } from "drizzle-orm"
 import { SearchSection } from "./search-section"
 import { SITE_NAME } from "@/lib/site"
 import { getSession } from "@/lib/session"
@@ -28,8 +28,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PublicProfileName } from "@/components/public-profile-name"
 import styles from "./home.module.css"
+import { definitionPath } from "@/lib/public-identifiers"
 
-const FEATURED_TERM_SLUG = "martensite"
+const MILLISECONDS_PER_DAY = 86_400_000
+const FEATURED_SHOWCASE_SLUGS = ["fatigue", "martensite", "sintering"] as const
 
 type FeaturedDefinition = Awaited<ReturnType<typeof getFeaturedDefinition>>
 
@@ -203,7 +205,10 @@ export default async function Home() {
                     {recentDiscussion.map((comment) => (
                       <li key={comment.id}>
                         <Link
-                          href={`/definition/${comment.definitionId}#discussion`}
+                          href={`${definitionPath(
+                            comment.termSlug,
+                            comment.definitionNumber
+                          )}#discussion`}
                           className={styles.discussionActivity}
                         >
                           <span className={styles.termName}>
@@ -314,7 +319,9 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
       <div className={styles.featuredHeader}>
         <div>
           <div className={styles.featuredTitleRow}>
-            <h2>{featured.term}</h2>
+            <h2>
+              <Link href={`/vocabulary/${featured.slug}`}>{featured.term}</Link>
+            </h2>
             <Badge variant="outline">
               {featured.definitionCount}{" "}
               {featured.definitionCount === 1 ? "definition" : "definitions"}
@@ -455,7 +462,7 @@ function PersonalWorkSection({
         <ul className={styles.personalList}>
           {personalWork.map((item) => (
             <li key={item.id}>
-              <Link href={`/definition/${item.id}`}>
+              <Link href={definitionPath(item.termSlug, item.definitionNumber)}>
                 <span className={styles.personalTerm}>
                   <strong>{item.term}</strong>
                   <small>
@@ -519,6 +526,7 @@ async function getRecentDiscussion() {
     .select({
       id: commentsTable.id,
       definitionId: commentsTable.definitionId,
+      definitionNumber: definitionsTable.definitionNumber,
       message: commentsTable.message,
       createdAt: commentsTable.createdAt,
       authorId: usersTable.id,
@@ -526,7 +534,8 @@ async function getRecentDiscussion() {
       authorIsAi: usersTable.isAi,
       authorProfilePublic: usersTable.isProfilePublic,
       termId: termsTable.id,
-      term: termsTable.term
+      term: termsTable.term,
+      termSlug: termsTable.slug
     })
     .from(commentsTable)
     .innerJoin(
@@ -552,7 +561,9 @@ async function getPersonalWork(userId: number) {
   return db
     .select({
       id: definitionsTable.id,
+      definitionNumber: definitionsTable.definitionNumber,
       term: termsTable.term,
+      termSlug: termsTable.slug,
       score: definitionsTable.score,
       createdAt: definitionsTable.createdAt,
       updatedAt: definitionsTable.updatedAt,
@@ -584,6 +595,27 @@ async function getPersonalWork(userId: number) {
 }
 
 async function getFeaturedDefinition() {
+  const candidateTerms = await db
+    .select({
+      termId: termsTable.id,
+      definitionCount:
+        sql<number>`cast(count(${definitionsTable.id}) as int)`.mapWith(Number)
+    })
+    .from(termsTable)
+    .innerJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
+    .where(inArray(termsTable.slug, FEATURED_SHOWCASE_SLUGS))
+    .groupBy(termsTable.id)
+    .orderBy(asc(termsTable.slug))
+
+  if (!candidateTerms.length) return null
+
+  // A UTC-day index gives everyone the same featured term for the day while
+  // rotating only through records reviewed for the conference-facing
+  // showcase. Score is a community signal, not an editorial quality gate.
+  const rotationIndex =
+    Math.floor(Date.now() / MILLISECONDS_PER_DAY) % candidateTerms.length
+  const candidate = candidateTerms[rotationIndex]
+
   const buildQuery = () =>
     db
       .select({
@@ -614,7 +646,7 @@ async function getFeaturedDefinition() {
       )
 
   const preferred = await buildQuery()
-    .where(eq(termsTable.slug, FEATURED_TERM_SLUG))
+    .where(eq(termsTable.id, candidate.termId))
     .groupBy(definitionsTable.id, termsTable.id, usersTable.id)
     .orderBy(
       desc(
@@ -624,23 +656,8 @@ async function getFeaturedDefinition() {
       desc(definitionsTable.createdAt)
     )
 
-  let featured = preferred[0]
-  let definitionCount = preferred.length
-
-  if (!featured) {
-    const fallback = await buildQuery()
-      .groupBy(definitionsTable.id, termsTable.id, usersTable.id)
-      .orderBy(desc(definitionsTable.createdAt))
-      .limit(1)
-
-    featured = fallback[0]
-    if (!featured) return null
-
-    definitionCount = await db.$count(
-      definitionsTable,
-      eq(definitionsTable.termId, featured.termId)
-    )
-  }
+  const featured = preferred[0]
+  if (!featured) return null
 
   let sourceCreatedAt: string | null = null
   let suggestedAt: string | null = null
@@ -666,7 +683,7 @@ async function getFeaturedDefinition() {
 
   return {
     ...featured,
-    definitionCount,
+    definitionCount: candidate.definitionCount,
     sourceCreatedAt,
     suggestedAt,
     decidedAt

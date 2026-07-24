@@ -18,6 +18,7 @@ import { OllamaModel, RefineSystemPrompt, runLLM } from "@/lib/apis/ollama"
 import { GetModelUser } from "@/lib/crud"
 import { createDefinitionWithInitialRevision } from "@/lib/definition-revisions"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
+import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 
 /*
  * Feed for the /discussion page: the most-recent terms, each paired with the
@@ -52,6 +53,7 @@ export const discussionRouter = createTRPCRouter({
         .select({
           termId: definitionsTable.termId,
           definitionId: definitionsTable.id,
+          definitionNumber: definitionsTable.definitionNumber,
           revisionId: definitionRevisionsTable.id,
           version: definitionRevisionsTable.version,
           definition: definitionRevisionsTable.definition,
@@ -82,6 +84,12 @@ export const discussionRouter = createTRPCRouter({
       // Every immutable revision and comment on these definitions, for the
       // interleaved plain-language history.
       const definitionIds = defs.map((d) => d.definitionId)
+      const definitionNumberById = new Map(
+        defs.map((definition) => [
+          definition.definitionId,
+          definition.definitionNumber
+        ])
+      )
       const [revisions, comments] = definitionIds.length
         ? await Promise.all([
             db
@@ -164,6 +172,9 @@ export const discussionRouter = createTRPCRouter({
               isProfilePublic: revision.editorProfilePublic ?? false,
               body: revision.definition,
               definitionId: revision.definitionId,
+              definitionNumber: definitionNumberById.get(
+                revision.definitionId
+              )!,
               version: revision.version,
               source: revision.source,
               changeNote: revision.changeNote,
@@ -182,6 +193,7 @@ export const discussionRouter = createTRPCRouter({
               isProfilePublic: c.authorProfilePublic,
               body: c.message,
               definitionId: c.definitionId,
+              definitionNumber: definitionNumberById.get(c.definitionId)!,
               version: c.version,
               source: null,
               changeNote: null,
@@ -310,7 +322,7 @@ export const discussionRouter = createTRPCRouter({
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              "A newer version is available. Review it before requesting a suggestion."
+              "A newer revision is available. Review it before requesting a suggestion."
           })
 
         const result = await runLLM(
@@ -341,7 +353,7 @@ export const discussionRouter = createTRPCRouter({
             throw new TRPCError({
               code: "CONFLICT",
               message:
-                "The source definition changed while the suggestion was being generated. Request another suggestion from the current version."
+                "The source definition changed while the suggestion was being generated. Request another suggestion from the current revision."
             })
 
           return tx
@@ -425,7 +437,7 @@ export const discussionRouter = createTRPCRouter({
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              "The source definition changed. Request a new suggestion from the current version."
+              "The source definition changed. Request a new suggestion from the current revision."
           })
 
         await tx.insert(commentsTable).values({
@@ -466,7 +478,12 @@ export const discussionRouter = createTRPCRouter({
       })
 
       revalidatePath("/discussion")
-      revalidatePath(`/definition/${created.id}`)
+      await revalidatePublicDefinition({
+        definitionId: created.id,
+        definitionNumber: created.definitionNumber,
+        termId: created.termId,
+        version: 1
+      })
 
       return created
     })

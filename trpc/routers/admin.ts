@@ -95,10 +95,12 @@ export const adminRouter = createTRPCRouter({
       .select({
         id: refinementsTable.id,
         definitionId: refinementsTable.definitionId,
+        definitionNumber: definitionsTable.definitionNumber,
         round: refinementsTable.round,
         status: refinementsTable.status,
         createdAt: refinementsTable.createdAt,
         term: termsTable.term,
+        termSlug: termsTable.slug,
         authorName: usersTable.name
       })
       .from(refinementsTable)
@@ -160,6 +162,7 @@ export const adminRouter = createTRPCRouter({
         .select({
           id: definitionRevisionsTable.id,
           definitionId: definitionRevisionsTable.definitionId,
+          definitionNumber: definitionsTable.definitionNumber,
           version: definitionRevisionsTable.version,
           source: definitionRevisionsTable.source,
           model: definitionRevisionsTable.model,

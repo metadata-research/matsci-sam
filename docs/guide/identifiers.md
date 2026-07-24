@@ -1,83 +1,114 @@
 # Identifiers and citation
 
-Every term receives a readable slug when it is created. The application
-combines that slug with the configured public site URL to produce the
-concept IRI.
+MatSci SAM assigns public identifiers to terms, contributed definitions, and
+immutable revisions. Public paths use a readable term slug and stored numbers.
+They do not expose database primary keys.
 
 ## Identifier paths
 
-The term page displays the full IRI for the active deployment. Its path
-has this form:
+The three canonical path forms are:
 
+```text
+/vocabulary/{term-slug}
+/vocabulary/{term-slug}/definitions/{definition-number}
+/vocabulary/{term-slug}/definitions/{definition-number}/revisions/{revision-number}
 ```
-/vocabulary/sintering
-/vocabulary/high-entropy_alloy
-/vocabulary/density_functional_theory_dft
+
+Martensite can therefore have these resources:
+
+```text
+/vocabulary/martensite
+/vocabulary/martensite/definitions/1
+/vocabulary/martensite/definitions/1/revisions/1
+/vocabulary/martensite/definitions/2
+/vocabulary/martensite/definitions/2/revisions/1
 ```
 
-The application lowercases term names and writes spaces as underscores.
-Hyphens remain part of the slug, so _high-entropy alloy_ and _high
-entropy alloy_ produce different paths. Characters outside `a-z`,
-`0-9`, `_`, and `-` are dropped. For example, _density functional theory
-(DFT)_ becomes `density_functional_theory_dft`.
+The term path identifies the shared concept. A definition path identifies one
+contributed interpretation as it develops and displays its current revision.
+A revision path identifies one immutable state of that definition.
 
-## What remains stable
+The interface labels the last two resources with both coordinates, such as
+`Definition 2 · revision 1`. Competing definitions can both have revision 1
+because each definition has an independent revision sequence.
 
-The slug is assigned when a term is created. The application has no term
-rename operation and does not reassign an existing slug to another term.
+## Term slugs
 
-The authority portion of the IRI comes from `NEXT_PUBLIC_SITE_URL`.
-Changing that setting changes the full IRI even though the slug remains
-the same. Copy the IRI displayed on the term page instead of assuming a
-hostname from this guide.
+The application assigns a slug when a term is created. It lowercases the term
+name, writes spaces as underscores, and retains hyphens. Characters outside
+`a-z`, `0-9`, `_`, and `-` are dropped.
 
-A numeric path such as `/terms/41` issues a permanent redirect to the
-readable `/vocabulary/` path on the same host.
+For example, _density functional theory (DFT)_ receives the slug
+`density_functional_theory_dft`.
 
-## Normalization collisions
+Different labels can produce the same normalized slug. The first term receives
+the base slug. A later collision receives a suffix such as `_2`, followed by
+`_3` when needed. This suffix resolves a slug collision. It does not express a
+rank.
 
-Different term labels can produce the same slug after punctuation is
-removed. The first term receives the base slug. A later collision
-receives a numeric suffix such as `_2`, followed by `_3` when needed.
-The number resolves an identifier collision and does not rank the terms.
+The assigned slug remains identifier data even if the preferred display label
+changes.
 
-Several definitions of one term remain part of one concept with one
-identifier. Definitions have their own `/definition/{id}` pages. The
-definition path remains the same when its author publishes a revision. The
-base path displays the current revision, and `?version={number}` identifies a
-historical version on that stable page. The term page orders current revisions
-by score, with the newest definition first when scores are equal.
-[Community review and revisions](/docs/community) describes the score and
-status rules.
+## Definition and revision numbers
+
+Each competing definition receives a positive number within its term. The
+application assigns these numbers in creation order and stores them. A score,
+page position, author, or AI status does not change the number.
+
+Each immutable revision receives a positive number within its definition.
+Publishing an edit or restoration increments the revision number while
+retaining the definition number. AI involvement is recorded through
+attribution and provenance, not through the identifier.
+
+Numeric legacy routes such as `/definition/{legacy-id}` remain compatibility
+aliases. They redirect permanently to the canonical term-scoped path. New
+links and metadata use the canonical path.
+
+## Live rank lookup
+
+A term also has a dynamic rank lookup:
+
+```text
+/vocabulary/{term-slug}/rank/{rank}
+```
+
+For example, `/vocabulary/martensite/rank/1` redirects temporarily to the
+definition that holds first place when the request is evaluated. Voting can
+change that target. A rank path is a lookup, not a persistent identifier. Do
+not cite or store it as the identity of a definition.
+
+## Citation
+
+Use the term IRI when citing the shared concept. Use a definition IRI when the
+citation concerns the contribution as it develops. Use the exact revision IRI
+for a quotation or reproducible analysis.
+
+A minimal exact citation has this form:
+
+> martensite, Definition 2, revision 1. _MatSci SAM_. [full revision IRI]
+
+The pages display full IRIs for the active deployment. Copy the displayed IRI
+instead of assuming a hostname.
 
 ## Machine-readable forms
 
-Every term is a `skos:Concept` in the concept scheme at `/vocabulary`.
-The term page links to two serializations:
+Every term is a `skos:Concept` in the concept scheme at `/vocabulary`. SKOS
+records identify current definition revisions as related resources. Those
+resources associate the text with its example, creators, date, status, and
+revision number. PROV-O records use the same definition and revision IRIs for
+the revision chain and derivation history.
 
-- **SKOS (Turtle):** `/terms/{id}/skos.ttl`
-- **JSON-LD:** `/terms/{id}/skos.jsonld`
+The [Metadata access](/docs/metadata-access) guide lists the Turtle and JSON-LD
+endpoints.
 
-Each term page also embeds a schema.org `DefinedTerm` block. Provenance
-is published separately as W3C PROV-O from the **Provenance** link on the
-term page. The SKOS record describes the published vocabulary state. The
-PROV-O record describes the stored contribution history.
+## Persistence limit
 
-## Citing a term
+The authority portion of development IRIs comes from
+`NEXT_PUBLIC_SITE_URL`. Changing that setting changes the full IRI even though
+the path remains the same.
 
-Use the full IRI displayed on the term page, not the numeric route. A
-minimal citation has this form:
-
-> sintering. _MatSci SAM_. [IRI displayed on the term page]
-
-Confirm the public authority before external citation. A move to another
-host changes the full IRI unless a persistent redirect layer is already
-in place.
-
-## Persistent identifiers
-
-The application does not implement a domain-independent
-persistent-identifier layer. A service such as w3id.org or an
-institutionally managed redirect can preserve citations across a future
-change of host. The slug pattern allows one redirect rule to map the
-vocabulary and its terms to a new authority.
+MatSci SAM does not yet publish these resources through an independent
+persistent-identifier authority. The project must select an authority such as
+w3id.org, an institutional resolver, or a project-controlled domain before
+external publication. A persistent resolver can preserve the complete path
+grammar while application hosts change.

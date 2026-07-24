@@ -1,5 +1,10 @@
-import { db, definitionRevisionsTable, definitionsTable } from "@yamz/db"
-import { and, desc, eq } from "drizzle-orm"
+import {
+  db,
+  definitionRevisionsTable,
+  definitionsTable,
+  termsTable
+} from "@yamz/db"
+import { and, desc, eq, sql } from "drizzle-orm"
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -9,7 +14,7 @@ export type DefinitionRevisionSource =
 export class RevisionConflictError extends Error {
   constructor() {
     super(
-      "This definition changed after you opened it. Review the current version before publishing your revision."
+      "This definition changed after you opened it. Review the current revision before publishing your revision."
     )
     this.name = "RevisionConflictError"
   }
@@ -64,10 +69,27 @@ export async function createDefinitionWithInitialRevision(
   tx: DatabaseTransaction,
   input: CreateDefinitionWithInitialRevisionInput
 ) {
+  // Incrementing the term-owned counter both allocates the number and takes a
+  // row lock until this transaction commits. Concurrent contributions for the
+  // same term therefore receive different permanent numbers. A failed
+  // definition/revision insert rolls the increment back with the transaction.
+  const [allocation] = await tx
+    .update(termsTable)
+    .set({
+      nextDefinitionNumber: sql`${termsTable.nextDefinitionNumber} + 1`
+    })
+    .where(eq(termsTable.id, input.termId))
+    .returning({
+      definitionNumber: sql<number>`${termsTable.nextDefinitionNumber} - 1`
+    })
+
+  if (!allocation) throw new Error(`Term ${input.termId} does not exist`)
+
   const [insertedDefinition] = await tx
     .insert(definitionsTable)
     .values({
       termId: input.termId,
+      definitionNumber: allocation.definitionNumber,
       authorId: input.authorId,
       definition: input.definition,
       example: input.example,

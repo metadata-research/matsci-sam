@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
+import { definitionPath } from "@/lib/public-identifiers"
 
 /*
  * Discussion comment box offering two distinct actions on the same text:
@@ -28,10 +29,12 @@ import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
  */
 export const DiscussionCommentBox = ({
   definitionId,
-  revisionId
+  revisionId,
+  termSlug
 }: {
   definitionId: number
   revisionId: number
+  termSlug: string
 }) => {
   const router = useRouter()
   const utils = trpc.useUtils()
@@ -81,7 +84,7 @@ export const DiscussionCommentBox = ({
       setComment("")
       setSuggestion(null)
       toast("Published as a new definition.")
-      router.push(`/definition/${created.id}`)
+      router.push(definitionPath(termSlug, created.definitionNumber))
     },
     onError: (error) =>
       error.data?.code === "UNAUTHORIZED"
