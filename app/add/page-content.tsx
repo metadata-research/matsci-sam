@@ -1,9 +1,11 @@
 import { DefineTermForm } from "./form"
 
 export function AddTermPageContent({
-  interactive = false
+  interactive = false,
+  initialTerm = ""
 }: {
   interactive?: boolean
+  initialTerm?: string
 }) {
   return (
     <main className="flex-1 px-4 py-8 sm:py-10">
@@ -18,7 +20,7 @@ export function AddTermPageContent({
             comments, and alternatives.
           </p>
         </section>
-        <DefineTermForm interactive={interactive} />
+        <DefineTermForm interactive={interactive} initialTerm={initialTerm} />
       </div>
     </main>
   )

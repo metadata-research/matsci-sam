@@ -7,6 +7,7 @@ import {
   BookOpenIcon,
   ClipboardCheckIcon,
   HomeIcon,
+  MessageSquareTextIcon,
   ShieldCheckIcon,
   SparklesIcon,
   UsersIcon
@@ -25,6 +26,12 @@ const SECTIONS = [
     label: "Review",
     icon: ClipboardCheckIcon,
     matches: ["/admin/review"]
+  },
+  {
+    href: "/admin/feedback",
+    label: "Feedback",
+    icon: MessageSquareTextIcon,
+    matches: ["/admin/feedback"]
   },
   {
     href: "/admin/terms",

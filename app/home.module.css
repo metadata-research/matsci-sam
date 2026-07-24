@@ -65,7 +65,7 @@
   text-decoration-color: currentColor;
 }
 
-.searchPanel {
+.contributionPanel {
   scroll-margin-top: 1rem;
   margin-top: 1.5rem;
   padding: 1.1rem;
@@ -75,21 +75,52 @@
   box-shadow: 0 8px 28px rgb(0 0 0 / 0.035);
 }
 
-.searchPanel h2 {
+.contributionPanel h2 {
   margin-bottom: 0.7rem;
   font-family: var(--font-plex-serif);
   font-size: 1.15rem;
   font-weight: 650;
 }
 
-.searchActions {
+.contributionIntro {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.definitionStarter {
+  margin-top: 0.9rem;
+}
+
+.definitionStarter label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.definitionStarterRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.contributionNote {
+  margin-top: 0.55rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.contributionActions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
   margin-top: 0.85rem;
 }
 
-.searchPanel > .textLink {
+.contributionPanel > .textLink {
   margin-top: 0.9rem;
 }
 
@@ -829,7 +860,7 @@
 }
 
 @media (max-width: 440px) {
-  .searchPanel,
+  .contributionPanel,
   .featuredHeader,
   .featuredDefinition,
   .provenanceTrace,
@@ -839,8 +870,12 @@
     padding-left: 1rem;
   }
 
-  .searchActions > * {
+  .contributionActions > * {
     width: 100%;
+  }
+
+  .definitionStarterRow {
+    grid-template-columns: 1fr;
   }
 
   .featuredLinks {

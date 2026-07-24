@@ -25,10 +25,9 @@ export default function AboutPage() {
           <p className={styles.eyebrow}>Project and method</p>
           <h1>About {SITE_NAME}</h1>
           <p className={styles.lead}>
-            {SITE_NAME} (Semantic Alignment and Standardization) is a community
-            metadata dictionary for developing shared materials science
-            terminology through expert contributions, discussion, and
-            human-in-the-group AI.
+            {SITE_NAME} (Semantic Alignment Metadata) is a community metadata
+            dictionary for developing shared materials science terminology
+            through expert contributions, discussion, and human-in-the-group AI.
           </p>
           <p>
             Developed by the{" "}

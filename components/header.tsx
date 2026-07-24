@@ -2,9 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { SITE_NAME } from "@/lib/site"
 import { ThemeToggle } from "./theme-provider"
-import { getSession } from "@/lib/session"
-import { db, usersTable } from "@yamz/db"
-import { eq } from "drizzle-orm"
+import { getCurrentUser } from "@/lib/current-user"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +17,7 @@ import { HeaderSearch } from "./header-search"
 import styles from "./header.module.css"
 
 export const Header = async () => {
-  const user = await getHeaderUser()
+  const user = await getCurrentUser()
 
   return (
     <div className={styles.wrapper}>
@@ -39,12 +37,15 @@ export const Header = async () => {
           />
           <span className={styles.logoText}>{SITE_NAME}</span>
         </Link>
-        {/* The search field replaces the old "Search" nav link: it flexes into
-            the space the spacer used to hold, and going to /search is what
-            submitting it does. */}
+        {/* The field is the fast path for a known query. The explicit Search
+            link below remains the discoverable route to the full interface,
+            including its syntax examples and filters. */}
         <HeaderSearch />
         <div className={styles.spacer} />
         <nav className={styles.navLinks} aria-label="Primary">
+          <Link href="/search" className={styles.navButton}>
+            Search
+          </Link>
           <Link href="/terms" className={styles.navButton}>
             Browse
           </Link>
@@ -66,6 +67,7 @@ export const Header = async () => {
           </summary>
           <div className={styles.mobileMenuPanel}>
             <nav aria-label="Mobile">
+              <Link href="/search">Search</Link>
               <Link href="/terms">Browse</Link>
               <Link href="/discussion">Discussion</Link>
               <Link href="/add">Contribute</Link>
@@ -88,7 +90,7 @@ export const Header = async () => {
 const AuthSection = ({
   user
 }: {
-  user: Awaited<ReturnType<typeof getHeaderUser>>
+  user: Awaited<ReturnType<typeof getCurrentUser>>
 }) => {
   if (user)
     return (
@@ -123,17 +125,4 @@ const AuthSection = ({
       <Link href="/api/login">Login</Link>
     </Button>
   )
-}
-
-const getHeaderUser = async () => {
-  const sesh = await getSession()
-
-  if (!sesh.id) return null
-
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, sesh.id))
-
-  return user ?? null
 }

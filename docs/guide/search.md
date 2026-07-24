@@ -2,9 +2,9 @@
 
 ## Search
 
-The search field in the navigation bar and the **Get Started** search on
-the homepage both open the Search page. Search covers term names,
-definition text, and examples of use.
+The **Search** navigation link opens the complete Search page without requiring
+a query. The quick-search field in the navigation bar opens the same page with
+a query. Search covers term names, definition text, and examples of use.
 
 Results are divided into **Terms** and **Definitions**. Checkboxes show
 or hide either result type. The **By** filter narrows definitions to
@@ -14,11 +14,17 @@ Exact term names rank first, followed by term names that begin with the
 query. Full-text relevance and term-name similarity order the remaining
 results. English stemming can match related word forms, such as "quench"
 and "quenching". Term-name similarity can recover some misspellings.
-Quoted phrases, `OR`, and a leading minus sign use PostgreSQL web-search
-syntax.
+Search uses PostgreSQL web-search syntax: quotation marks search for words as
+a phrase, uppercase `OR` matches either alternative, and a minus sign
+immediately before a word excludes it. The example buttons beneath the search
+field can insert each form.
 
 Search filters and the query are stored in the URL so the result view can
 be bookmarked or shared.
+
+The empty Search page does not list the whole vocabulary. Begin typing to see
+matching term suggestions and definitions, or use **Browse** to scan every
+defined term alphabetically.
 
 ## Browse
 

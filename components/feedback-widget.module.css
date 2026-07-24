@@ -1,0 +1,204 @@
+.positioner {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 45;
+  transition: opacity 120ms ease;
+}
+
+.trigger {
+  border-color: color-mix(in oklab, var(--border) 86%, var(--primary));
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--card) 94%, transparent);
+  color: var(--muted-foreground);
+  box-shadow:
+    0 0.25rem 0.9rem color-mix(in oklab, var(--foreground) 8%, transparent),
+    inset 0 1px color-mix(in oklab, white 42%, transparent);
+  backdrop-filter: blur(0.75rem);
+}
+
+.trigger:hover {
+  border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+  color: var(--foreground);
+}
+
+.panel {
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: min(36rem, calc(100vh - 2rem));
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.35rem);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow:
+    0 1.25rem 3.25rem color-mix(in oklab, var(--foreground) 16%, transparent),
+    0 0.2rem 0.8rem color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.eyebrow {
+  margin: 0 0 0.15rem;
+  color: var(--primary);
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-plex-serif), serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.close {
+  width: 2rem;
+  height: 2rem;
+  margin: -0.25rem -0.25rem 0 0;
+  color: var(--muted-foreground);
+}
+
+.form {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.intro {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.context {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.context strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.location {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.field textarea {
+  min-height: 7.25rem;
+  resize: vertical;
+}
+
+.counter {
+  justify-self: end;
+  color: var(--muted-foreground);
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.68rem;
+}
+
+.honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.error {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.success {
+  display: grid;
+  justify-items: start;
+  gap: 0.8rem;
+  padding: 1.25rem 1rem 1rem;
+}
+
+.success > svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  color: var(--primary);
+}
+
+.success p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 520px) {
+  .positioner {
+    right: 0.75rem;
+    bottom: 0.75rem;
+  }
+
+  .trigger {
+    width: 2.5rem;
+    padding: 0;
+  }
+
+  .triggerLabel {
+    display: none;
+  }
+
+  body:has(main input:focus, main textarea:focus, main select:focus)
+    .positioner {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .panel {
+    width: calc(100vw - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+}
+
+@media print {
+  .positioner {
+    display: none;
+  }
+}
