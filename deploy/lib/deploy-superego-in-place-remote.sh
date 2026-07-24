@@ -3,6 +3,12 @@ set -Eeuo pipefail
 
 umask 0077
 
+# The sudo session inherits cr625's domain-managed home as its working
+# directory. Root cannot reliably traverse that directory, which can make
+# find(1) and runuser(1) fail when they restore or inherit the original cwd.
+# All deployment paths below are absolute, so begin from a root-owned path.
+cd /
+
 stage=${1:-}
 app_root=/opt/matsci-sam
 database=matsci-sam
