@@ -18,43 +18,52 @@ export function VerifyEmailLink() {
   const [error, setError] = useState<string>()
 
   useEffect(() => {
-    const hash = new URLSearchParams(window.location.hash.slice(1))
-    const token = hash.get("token")
-    window.history.replaceState(null, "", window.location.pathname)
+    const controller = new AbortController()
+    let active = true
 
-    if (!token) {
-      setError("This sign-in link is invalid.")
-      return
+    const verify = async () => {
+      const hash = new URLSearchParams(window.location.hash.slice(1))
+      const token = hash.get("token")
+      window.history.replaceState(null, "", window.location.pathname)
+
+      if (!token) throw new Error("This sign-in link is invalid.")
+
+      const response = await fetch("/api/auth/email/verify", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+        signal: controller.signal
+      })
+
+      const result = (await response.json()) as {
+        error?: string
+        redirectTo?: string
+      }
+      if (!response.ok || !result.redirectTo)
+        throw new Error(result.error || "The sign-in link could not be used.")
+
+      router.replace(result.redirectTo)
+      router.refresh()
     }
 
-    const controller = new AbortController()
-    void fetch("/api/auth/email/verify", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-      signal: controller.signal
-    })
-      .then(async (response) => {
-        const result = (await response.json()) as {
-          error?: string
-          redirectTo?: string
-        }
-        if (!response.ok || !result.redirectTo)
-          throw new Error(result.error || "The sign-in link could not be used.")
-        router.replace(result.redirectTo)
-        router.refresh()
-      })
-      .catch((reason: unknown) => {
-        if (controller.signal.aborted) return
+    queueMicrotask(() => {
+      if (!active) return
+
+      void verify().catch((reason: unknown) => {
+        if (!active || controller.signal.aborted) return
         setError(
           reason instanceof Error
             ? reason.message
             : "The sign-in link could not be used."
         )
       })
+    })
 
-    return () => controller.abort()
+    return () => {
+      active = false
+      controller.abort()
+    }
   }, [router])
 
   return (

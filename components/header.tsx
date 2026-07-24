@@ -12,14 +12,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "./ui/dropdown-menu"
-import { cache, Suspense } from "react"
-import { Button } from "./ui/button"
+import { Button, buttonVariants } from "./ui/button"
 import { MenuIcon, UserCircleIcon } from "lucide-react"
 import { LogoutButton } from "./logout"
 import { HeaderSearch } from "./header-search"
 import styles from "./header.module.css"
 
-export const Header = () => {
+export const Header = async () => {
+  const user = await getHeaderUser()
+
   return (
     <div className={styles.wrapper}>
       <header className={styles.navbar}>
@@ -34,7 +35,7 @@ export const Header = () => {
             width={30}
             height={30}
             className={styles.logo}
-            priority
+            preload
           />
           <span className={styles.logoText}>{SITE_NAME}</span>
         </Link>
@@ -57,9 +58,7 @@ export const Header = () => {
             Documentation
           </Link>
           <ThemeToggle />
-          <Suspense fallback={null}>
-            <AuthSection />
-          </Suspense>
+          <AuthSection user={user} />
         </nav>
         <details className={styles.mobileMenu}>
           <summary aria-label="Open navigation menu">
@@ -77,9 +76,7 @@ export const Header = () => {
               <ThemeToggle alwaysVisible />
             </div>
             <div className={styles.mobileAccount}>
-              <Suspense fallback={null}>
-                <AuthSection />
-              </Suspense>
+              <AuthSection user={user} />
             </div>
           </div>
         </details>
@@ -88,17 +85,17 @@ export const Header = () => {
   )
 }
 
-const AuthSection = async () => {
-  const user = await getHeaderUser()
-
+const AuthSection = ({
+  user
+}: {
+  user: Awaited<ReturnType<typeof getHeaderUser>>
+}) => {
   if (user)
     return (
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline">
-            <UserCircleIcon className="size-4" />
-            <span className="hidden sm:block">{user.name}</span>
-          </Button>
+        <DropdownMenuTrigger className={buttonVariants({ variant: "outline" })}>
+          <UserCircleIcon className="size-4" />
+          <span className="hidden sm:block">{user.name}</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {user.role === "admin" && (
@@ -128,7 +125,7 @@ const AuthSection = async () => {
   )
 }
 
-const getHeaderUser = cache(async () => {
+const getHeaderUser = async () => {
   const sesh = await getSession()
 
   if (!sesh.id) return null
@@ -139,4 +136,4 @@ const getHeaderUser = cache(async () => {
     .where(eq(usersTable.id, sesh.id))
 
   return user ?? null
-})
+}

@@ -1,4 +1,6 @@
-export default {
+const prettierConfig = {
   semi: false,
-  trailingComma: "none",
-};
+  trailingComma: "none"
+}
+
+export default prettierConfig

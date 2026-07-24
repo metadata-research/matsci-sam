@@ -41,7 +41,9 @@ export const TermVotes = ({
   // string (and null when a definition has no votes), so coerce it. null means
   // no votes, which the display renders as 0 -- match that for sorting.
   const cbRef = useRef(onScoreChange)
-  cbRef.current = onScoreChange
+  useEffect(() => {
+    cbRef.current = onScoreChange
+  }, [onScoreChange])
   useEffect(() => {
     cbRef.current?.(data?.score == null ? 0 : Number(data.score))
   }, [data?.score])
