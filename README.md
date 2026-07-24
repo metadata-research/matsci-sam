@@ -31,16 +31,17 @@ pnpm build
 Feature work enters the `dev` branch through a pull request. A merge to `dev`
 updates source control but does not deploy Superego.
 
-Superego deployment is a separate maintainer operation. The cleaned `dev`
-branch does not grant a self-hosted runner authority to migrate its database
-or restart its service. The files in [`deploy/`](deploy/) contain
-host-provisioning components and the reviewed PA90-to-Superego reset entry
-point. Private environment policy remains in `docs-internal`.
+Superego deployment is a separate maintainer operation. The `dev` branch does
+not grant a self-hosted runner authority to migrate its database or restart
+its service. The files in [`deploy/`](deploy/) contain
+host-provisioning components, the reviewed in-place Superego release wrapper,
+and the one-way Superego database snapshot wrapper. Private environment
+policy remains in `docs-internal`.
 
-Do not merge or push `dev` to `main` yet. As of 2026-07-23, `origin/main`
-still contains the legacy production deployment workflow, so a `main` update
-can migrate and restart the legacy public environment. Retire or disable that
-workflow through a separately reviewed production change first.
+Do not merge or push any commit to `main`. Its active legacy production
+workflow can migrate and restart the legacy public environment. Retire or
+disable that workflow through a separately reviewed production change first,
+then verify the new boundary before using `main`.
 
 ## Project structure
 
@@ -50,4 +51,4 @@ workflow through a separately reviewed production change first.
 - `drizzle/`: database schema and migrations
 - `lib/`: authentication, metadata, mail, and AI integrations
 - `scripts/`: development and diagnostic helpers
-- `deploy/`: provisioning files and the maintained Superego reset wrapper
+- `deploy/`: provisioning and reviewed environment-operation wrappers

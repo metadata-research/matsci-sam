@@ -3,6 +3,10 @@ set -Eeuo pipefail
 
 umask 0077
 
+# sudo may preserve an administrator's private working directory. Start from
+# a root-owned directory before service-account commands and cleanup tools.
+cd /
+
 stage=${1:-}
 database=matsci-sam
 authority_file=/home/cr625/superego-admin/DATA-AUTHORITY
@@ -265,7 +269,7 @@ chown cr625 "${dump}" "${manifest}"
 chmod 0600 "${dump}" "${manifest}"
 export_complete=true
 
-printf '\nSuperego snapshot is ready for the PA90 pull wrapper.\n'
+printf '\nSuperego snapshot is ready for the workstation pull wrapper.\n'
 printf 'users=%s\n' "${users}"
 printf 'terms=%s\n' "${terms}"
 printf 'definitions=%s\n' "${definitions}"

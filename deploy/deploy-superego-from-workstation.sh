@@ -146,8 +146,10 @@ git -C "${repo}" fetch --prune origin dev
 branch=$(git -C "${repo}" branch --show-current)
 [[ ${branch} == dev ]] ||
   fail "The control-workstation checkout must be on dev."
-[[ -z $(git -C "${repo}" status --porcelain=v1) ]] ||
+if [[ -n $(git -C "${repo}" status --porcelain=v1) ]]; then
+  git -C "${repo}" status --short >&2
   fail "The control-workstation worktree must be clean."
+fi
 candidate=$(git -C "${repo}" rev-parse HEAD)
 origin_dev=$(git -C "${repo}" rev-parse refs/remotes/origin/dev)
 [[ ${candidate} == "${origin_dev}" ]] ||
@@ -179,8 +181,10 @@ echo "Checking source, authentication plumbing, and migrations."
 )
 
 git -C "${repo}" fetch --prune origin dev
-[[ -z $(git -C "${repo}" status --porcelain=v1) ]] ||
-  fail "The worktree changed during deployment preparation."
+if [[ -n $(git -C "${repo}" status --porcelain=v1) ]]; then
+  git -C "${repo}" status --short >&2
+  fail "The worktree changed during deployment preparation. Review generated files before retrying."
+fi
 [[ $(git -C "${repo}" rev-parse HEAD) == "${candidate}" &&
   $(git -C "${repo}" rev-parse refs/remotes/origin/dev) == "${candidate}" ]] ||
   fail "origin/dev changed during deployment preparation; start again."

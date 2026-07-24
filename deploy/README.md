@@ -1,8 +1,8 @@
-# Host provisioning reference
+# Deployment and host provisioning
 
-This directory contains the stable components needed to provision a new
-MatSci SAM application host. It is not the operator runbook for an existing
-Superego or Ego server.
+This directory contains the reviewed wrappers for Superego operations and the
+stable components needed to provision a new MatSci SAM application host.
+Private authority, runtime, and server facts remain in the internal runbooks.
 
 | Purpose | Location on a provisioned host |
 | --- | --- |
@@ -51,74 +51,46 @@ protected environment, TLS configuration, and first release.
 
 ## Deployment boundary
 
-A merge to `dev` does not deploy Superego. The maintained `dev` branch has no
-self-hosted workflow with permission to migrate its database or restart the
-application.
+A merge to `dev` updates source control only. It does not deploy Superego.
+Consult `docs-internal/CURRENT-DEV-STATE.md` and
+`docs-internal/SUPEREGO-DEV-ACCESS.md` before an operation. Do not merge or
+push any commit to `main` while its active legacy production workflow can
+migrate or restart a public environment.
 
-As of 2026-07-23, `origin/main` still contains the legacy production
-deployment workflow. Do not merge or push to `main` until that workflow is
-retired or disabled through a separately reviewed production change.
-
-An operator must select the data authority before deployment:
-
-- A disposable development target can be reset from a verified source
-  snapshot.
-- A target with unique user data requires a write pause, verified database
-  backup, forward migration, and database-aware rollback.
-
-While PA90 is recorded as the authority for development data, a maintainer can
-run this command from a clean `dev` checkout:
+When both authority records identify Superego as the shared-data authority,
+run this from the recorded control workstation:
 
 ```bash
-./deploy/reset-superego-from-pa90.sh
-```
-
-The command requires an explicit destructive confirmation. It restores the
-PA90 database into a disposable database, applies the candidate migrations,
-validates the result, and creates the transfer snapshot from that migrated
-copy. One interactive sudo operation on Superego test-restores a protected
-backup, builds a fresh release, replaces the resettable database, and checks
-the application before completing. A failure during that operation triggers
-an automatic attempt to restore the prior release and database. An
-unverified rollback leaves the application stopped and reports the recovery
-failure.
-
-Do not run the reset after Superego begins holding unique shared-test data.
-The private state record and the independent remote authority interlock
-control that boundary.
-
-## Shared-data Superego
-
-When `CURRENT-DEV-STATE.md` and the Superego interlock both record
-`superego`, deploy reviewed source from the active control workstation:
-
-```bash
-./deploy/deploy-superego-from-workstation.sh --check-only
 ./deploy/deploy-superego-from-workstation.sh
 ```
 
-The wrapper first builds and proves the candidate against an online,
-internally consistent scratch snapshot while the current site remains
-available. It then stops public writes, creates and test-restores the exact
-server-local rollback backup, rehearses migrations against that frozen
-restore, migrates the authoritative database in place, validates the
-candidate privately, and only then reopens Nginx. It never transfers a
-workstation database to Superego.
+The command validates the clean reviewed source and release artifact before
+it requests confirmation or sudo. Use `--check-only` for an optional
+non-mutating diagnostic. A separate dry run is not required because the
+mutating command performs the same checks.
 
-Refresh a registered, replaceable workstation database separately:
+Run a deployment in a supervised foreground terminal. The existing site
+remains available while the candidate builds. If a failure occurs before the
+wrapper reports that public access is closing, the live release and database
+are unchanged. The protected rollback boundary and forward-repair behavior
+are documented in the private runbook.
+
+Refresh a registered workstation database with:
 
 ```bash
-./deploy/pull-superego-db-to-workstation.sh --check-only
 ./deploy/pull-superego-db-to-workstation.sh
 ```
 
-The wrapper performs a verified online export from Superego, test-restores and
-migrates it locally, backs up the previous local database, and activates it
-with a brief database-name swap. This is a complete one-way snapshot, not
-row-level synchronization.
+This is a complete one-way Superego snapshot. It replaces only the local
+database. `--check-only` is also available as an optional diagnostic.
 
-The wrappers require a clean `dev` checkout equal to `origin/dev`, explicit
-authority agreement, one interactive confirmation, and one interactive
-Superego sudo session. All privileged Superego helpers share one lock.
+The inactive `reset-superego-from-pa90.sh` path is available only when both
+authority records explicitly identify PA90 and Superego is disposable. Do
+not use it as a release shortcut.
 
-Public-edge changes require separate Nginx and TLS review.
+Privileged helpers start from `/` before invoking service accounts or cleanup
+utilities. This prevents an inherited private administrator home directory
+from breaking `runuser` or `find`. Preserve that invariant in new helpers.
+
+All privileged Superego operations share one lock. Public-edge changes require
+separate Nginx and TLS review.

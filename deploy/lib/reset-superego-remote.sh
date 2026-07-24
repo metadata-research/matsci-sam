@@ -3,6 +3,10 @@ set -Eeuo pipefail
 
 umask 0077
 
+# sudo may preserve an administrator's private working directory. Start from
+# a root-owned directory before service-account commands and cleanup tools.
+cd /
+
 stage=${1:-}
 app_root=/opt/matsci-sam
 database=matsci-sam

@@ -42,7 +42,7 @@ Visit `http://localhost:3000` to see the app running.
 
 ## Technology Stack
 
-- **Frontend**: Next.js 15 (App Router), React 19, TypeScript
+- **Frontend**: Next.js 16 (App Router), React 19, TypeScript
 - **Backend**: tRPC for type-safe APIs
 - **Database**: PostgreSQL with Drizzle ORM
 - **Styling**: Tailwind CSS 4 + shadcn/ui components
@@ -668,14 +668,13 @@ service coordination, release switching, health checks, or rollback.
 
 ### Server deployment
 
-A merge to `dev` does not deploy Superego after the retired workflow has been
-removed from that branch. Maintainers use the runbook for the target
-environment.
+A merge to `dev` does not deploy Superego. Maintainers use the runbook for the
+target environment.
 
-Do not merge or push to `main` yet. As of 2026-07-23, `origin/main` still
-contains a legacy self-hosted production workflow that can migrate and restart
-the public environment. Retire or disable that workflow through a separate
-production change first.
+Do not merge or push any commit to `main`. Its active legacy self-hosted
+workflow can migrate and restart the public environment. Retire or disable it
+through a separate production change first, then verify the new boundary
+before using `main`.
 
 Before deployment, decide which database contains the authoritative data. A
 disposable development target may be reset from a verified source snapshot. A

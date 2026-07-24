@@ -8,6 +8,10 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+# Keep later runuser calls independent of the invoking administrator's home
+# directory permissions.
+cd /
+
 APP_USER=matsci-sam
 APP_GROUP=matsci-sam
 APP_ROOT=/opt/matsci-sam

@@ -34,7 +34,7 @@ usage() {
 Usage: deploy/pull-superego-db-to-workstation.sh [options]
 
 Replace a registered workstation's local MatSci SAM database with a verified
-Superego snapshot. Superego is never modified.
+Superego snapshot. The authoritative Superego database is never modified.
 
 Options:
   --yes-replace-local-data  Skip the destructive confirmation prompt
@@ -338,8 +338,10 @@ git -C "${repo}" fetch --prune origin dev
 branch=$(git -C "${repo}" branch --show-current)
 [[ ${branch} == dev ]] ||
   fail "The workstation checkout must be on dev."
-[[ -z $(git -C "${repo}" status --porcelain=v1) ]] ||
+if [[ -n $(git -C "${repo}" status --porcelain=v1) ]]; then
+  git -C "${repo}" status --short >&2
   fail "The workstation worktree must be clean."
+fi
 head_commit=$(git -C "${repo}" rev-parse HEAD)
 origin_dev=$(git -C "${repo}" rev-parse refs/remotes/origin/dev)
 [[ ${head_commit} == "${origin_dev}" ]] ||

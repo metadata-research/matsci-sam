@@ -10,12 +10,16 @@ fail() {
   exit 1
 }
 
-[[ -n ${migrations_dir} && -d ${migrations_dir} &&
+[[ ${migrations_dir} == /* && -d ${migrations_dir} &&
   ! -L ${migrations_dir} ]] ||
   fail "Usage: verify-migration-ledger.sh /path/to/drizzle/migrations"
 [[ -f ${migrations_dir}/meta/_journal.json &&
   ! -L ${migrations_dir}/meta/_journal.json ]] ||
   fail "The Drizzle migration journal is missing."
+
+# GNU find saves and restores its starting directory even when it receives an
+# absolute path. Use a directory every service account can traverse.
+cd /
 
 for command in awk cmp diff find jq psql sha256sum
 do

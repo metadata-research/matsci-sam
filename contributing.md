@@ -34,9 +34,8 @@ MatSci SAM uses `dev` as its integration branch.
 
 6. A maintainer deploys a reviewed `dev` commit through the environment
    runbook. Promotion to `main` and public deployment are separate decisions.
-   Do not merge or push to `main` while its legacy production workflow
-   remains active. As of 2026-07-23, such an update can migrate and restart
-   the legacy public environment.
+   Do not merge or push any commit to `main` while its active legacy
+   production workflow can migrate and restart the public environment.
 
 Never put credentials, database dumps, private environment files, or TLS keys
 in a branch, pull request, issue, workflow log, or build artifact.
