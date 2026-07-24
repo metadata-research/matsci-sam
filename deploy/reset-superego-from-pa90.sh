@@ -219,7 +219,7 @@ source_database_identity=$(
       SELECT
         current_database(),
         (pg_control_system()).system_identifier,
-        current_setting('port')::integer;
+        current_setting($$port$$)::integer;
     '
 )
 IFS=$'\t' read -r source_database_name _ source_database_port \
