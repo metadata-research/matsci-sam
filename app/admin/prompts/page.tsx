@@ -1,50 +1,70 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import prompts from "@/lib/prompts.json";
+  CardTitle
+} from "@/components/ui/card"
+import prompts from "@/lib/prompts.json"
+import { AdminPageHeader } from "../page-header"
+import { AiSubnav } from "../ai-subnav"
+import styles from "../admin.module.css"
+import { FileCode2Icon } from "lucide-react"
 
 export default function AdminPromptsPage() {
-  const rawOverride = Boolean(process.env.SYSTEM_PROMPT);
-  const activeKey = process.env.SYSTEM_PROMPT_KEY;
+  const rawOverride = Boolean(process.env.SYSTEM_PROMPT)
+  const activeKey = process.env.SYSTEM_PROMPT_KEY
 
   return (
-    <div className="space-y-2">
-      <h2 className="text-2xl font-semibold">Prompts</h2>
-      <p className="text-sm text-muted-foreground">
-        System prompts available to the AI definition pipeline. The registry
-        lives in <code>lib/prompts.json</code>; the active prompt is selected
-        with the <code>SYSTEM_PROMPT_KEY</code> environment variable.
-      </p>
+    <div className={styles.sectionStack}>
+      <AdminPageHeader
+        title="Prompt registry"
+        description="Inspect the versioned instructions available to the AI definition and refinement pipelines."
+      />
+      <AiSubnav />
       {rawOverride && (
-        <Card className="border-yellow-500">
+        <Card className="border-ai">
           <CardHeader>
             <CardTitle>Raw override active</CardTitle>
             <CardDescription>
               The <code>SYSTEM_PROMPT</code> environment variable is set and
-              takes precedence over the registry: {process.env.SYSTEM_PROMPT}
+              takes precedence over the named registry.
             </CardDescription>
           </CardHeader>
         </Card>
       )}
-      {Object.entries(prompts).map(([key, { description, prompt }]) => (
-        <Card key={key} className="!gap-3">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-mono text-base">
-              {key}
-              {!rawOverride && key === activeKey && <Badge>Active</Badge>}
-            </CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm italic">{prompt}</p>
-          </CardContent>
-        </Card>
-      ))}
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <h2 className={styles.panelTitle}>
+            <FileCode2Icon aria-hidden />
+            Available prompts
+          </h2>
+          <span className={styles.panelMeta}>
+            {Object.keys(prompts).length} registered
+          </span>
+        </div>
+        <div className="divide-y">
+          {Object.entries(prompts).map(([key, { description, prompt }]) => (
+            <article key={key} className="space-y-3 px-5 py-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className={styles.codeText}>{key}</h3>
+                {!rawOverride && key === activeKey && (
+                  <Badge className="bg-ai text-white">Active</Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{description}</p>
+              <details className="text-sm">
+                <summary className="cursor-pointer text-primary">
+                  View prompt text
+                </summary>
+                <p className="mt-3 whitespace-pre-wrap border-l-2 pl-4 text-muted-foreground">
+                  {prompt}
+                </p>
+              </details>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
-  );
+  )
 }

@@ -1,26 +1,38 @@
-import { chatsTable, commentsTable, db, definitionsTable, termsTable, userRoleEnum, usersTable, votesTable } from "@yamz/db";
-import { wolframConfigured, wolframMaskedKey, wolframQuery } from "@/lib/apis/wolfram";
-import { buildTermProvenance } from "@/lib/provenance";
-import { createTRPCRouter } from "../init";
-import { adminProcedure } from "../procedures";
-import { ollama, OllamaModel, reviseDefinition } from "@/lib/apis/ollama";
-import { z } from "zod";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { TRPCError } from "@trpc/server";
+import {
+  chatsTable,
+  commentsTable,
+  db,
+  definitionRevisionsTable,
+  definitionsTable,
+  refinementsTable,
+  termsTable,
+  userRoleEnum,
+  usersTable,
+  votesTable
+} from "@yamz/db"
+import { wolframConfigured, wolframQuery } from "@/lib/apis/wolfram"
+import { buildTermProvenance } from "@/lib/provenance"
+import { createTRPCRouter } from "../init"
+import { adminProcedure } from "../procedures"
+import { reviseDefinition } from "@/lib/apis/ollama"
+import { z } from "zod"
+import { asc, desc, eq, inArray, ne, sql } from "drizzle-orm"
+import { TRPCError } from "@trpc/server"
+import {
+  getConfiguredServiceHealth,
+  getOllamaHealth,
+  getServiceHealth
+} from "@/lib/admin/integration-readiness"
 
 export const adminRouter = createTRPCRouter({
-  ollama: adminProcedure.query(async () => {
-    const response = await ollama.show({ model: OllamaModel })
-      .then(model => ({ ok: true as const, model }))
-      .catch(err => ({ ok: false as const, message: String(err) }))
-
-    return response
-  }),
+  ollama: adminProcedure.query(() => getOllamaHealth()),
+  serviceHealth: adminProcedure.query(() => getServiceHealth()),
   chats: adminProcedure.input(z.number()).query(async ({ input: termId }) => {
     return await db.query.chatsTable.findMany({
       where: eq(chatsTable.termId, termId),
       with: { author: { columns: { name: true } } },
-    });
+      orderBy: [asc(chatsTable.createdAt), asc(chatsTable.id)]
+    })
   }),
   terms: adminProcedure.query(async () => {
     const chatsQ = db
@@ -29,84 +41,193 @@ export const adminRouter = createTRPCRouter({
       .limit(1)
       .where(eq(chatsTable.termId, termsTable.id))
       .orderBy(desc(chatsTable.createdAt))
-      .as("chats");
+      .as("chats")
 
     const defCountsQ = db
       .select({
         total: sql<number>`count(*)`.mapWith(Number).as("total"),
         ai: sql<number>`count(*) FILTER (WHERE ${usersTable.isAi})`
           .mapWith(Number)
-          .as("ai"),
+          .as("ai")
       })
       .from(definitionsTable)
       .leftJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
       .where(eq(definitionsTable.termId, termsTable.id))
-      .as("defCounts");
+      .as("defCounts")
 
     const commentsQ = db
       .select({
-        count: sql<number>`count(*)`.mapWith(Number).as("count"),
+        count: sql<number>`count(*)`.mapWith(Number).as("count")
       })
       .from(commentsTable)
       .innerJoin(
         definitionsTable,
-        eq(commentsTable.definitionId, definitionsTable.id),
+        eq(commentsTable.definitionId, definitionsTable.id)
       )
       .where(eq(definitionsTable.termId, termsTable.id))
-      .as("termComments");
+      .as("termComments")
 
     const x = await db
       .select({
         id: termsTable.id,
         term: termsTable.term,
+        slug: termsTable.slug,
         pending: sql<boolean>`${chatsQ.role} = 'user'`.as("pending"),
         definitions: defCountsQ.total,
         aiDefinitions: defCountsQ.ai,
-        comments: commentsQ.count,
+        comments: commentsQ.count
       })
       .from(termsTable)
       .leftJoinLateral(chatsQ, sql`TRUE`)
       .leftJoinLateral(defCountsQ, sql`TRUE`)
-      .leftJoinLateral(commentsQ, sql`TRUE`);
+      .leftJoinLateral(commentsQ, sql`TRUE`)
+      .orderBy(asc(termsTable.term))
 
-    return x;
+    return x
   }),
   run: adminProcedure.input(z.number()).mutation(async ({ input: termId }) => {
     const { insertedChat } = await reviseDefinition(termId)
 
-    return insertedChat;
+    return insertedChat
   }),
-  provenance: adminProcedure.input(z.number()).query(async ({ input: termId }) => {
-    const provenance = await buildTermProvenance(termId)
-    if (!provenance)
-      throw new TRPCError({ code: "NOT_FOUND", message: "No such term" })
+  refinementQueue: adminProcedure.query(async () => {
+    return await db
+      .select({
+        id: refinementsTable.id,
+        definitionId: refinementsTable.definitionId,
+        round: refinementsTable.round,
+        status: refinementsTable.status,
+        createdAt: refinementsTable.createdAt,
+        term: termsTable.term,
+        authorName: usersTable.name
+      })
+      .from(refinementsTable)
+      .innerJoin(
+        definitionsTable,
+        eq(refinementsTable.definitionId, definitionsTable.id)
+      )
+      .innerJoin(termsTable, eq(definitionsTable.termId, termsTable.id))
+      .leftJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
+      .where(inArray(refinementsTable.status, ["pending", "failed"]))
+      .orderBy(desc(refinementsTable.createdAt), desc(refinementsTable.id))
+  }),
+  provenance: adminProcedure
+    .input(z.number())
+    .query(async ({ input: termId }) => {
+      const provenance = await buildTermProvenance(termId)
+      if (!provenance)
+        throw new TRPCError({ code: "NOT_FOUND", message: "No such term" })
 
-    return provenance
-  }),
+      return provenance
+    }),
   stats: adminProcedure.query(async () => {
     const [terms, definitions, users, votes] = await Promise.all([
       db.$count(termsTable),
       db.$count(definitionsTable),
       db.$count(usersTable),
-      db.$count(votesTable),
-    ]);
+      db.$count(votesTable)
+    ])
 
-    return { terms, definitions, users, votes };
+    return { terms, definitions, users, votes }
+  }),
+  overview: adminProcedure.query(async () => {
+    const [
+      terms,
+      definitions,
+      people,
+      votes,
+      chats,
+      refinementAttention,
+      recentActivity
+    ] = await Promise.all([
+      db.$count(termsTable),
+      db.$count(definitionsTable),
+      db.$count(usersTable, eq(usersTable.isAi, false)),
+      db.$count(votesTable),
+      db
+        .select({
+          id: chatsTable.id,
+          termId: chatsTable.termId,
+          role: chatsTable.role
+        })
+        .from(chatsTable)
+        .orderBy(desc(chatsTable.createdAt), desc(chatsTable.id)),
+      db
+        .select({ status: refinementsTable.status })
+        .from(refinementsTable)
+        .where(inArray(refinementsTable.status, ["pending", "failed"])),
+      db
+        .select({
+          id: definitionRevisionsTable.id,
+          definitionId: definitionRevisionsTable.definitionId,
+          version: definitionRevisionsTable.version,
+          source: definitionRevisionsTable.source,
+          model: definitionRevisionsTable.model,
+          createdAt: definitionRevisionsTable.createdAt,
+          termId: termsTable.id,
+          term: termsTable.term,
+          slug: termsTable.slug,
+          editorName: usersTable.name,
+          editorIsAi: usersTable.isAi
+        })
+        .from(definitionRevisionsTable)
+        .innerJoin(
+          definitionsTable,
+          eq(definitionRevisionsTable.definitionId, definitionsTable.id)
+        )
+        .innerJoin(termsTable, eq(definitionsTable.termId, termsTable.id))
+        .leftJoin(
+          usersTable,
+          eq(definitionRevisionsTable.editorId, usersTable.id)
+        )
+        .where(ne(definitionRevisionsTable.source, "legacy"))
+        .orderBy(
+          desc(definitionRevisionsTable.createdAt),
+          desc(definitionRevisionsTable.id)
+        )
+        .limit(5)
+    ])
+
+    const latestTermChats = new Map<number, (typeof chats)[number]>()
+    for (const chat of chats)
+      if (!latestTermChats.has(chat.termId))
+        latestTermChats.set(chat.termId, chat)
+
+    const termThreadsWaiting = Array.from(latestTermChats.values()).filter(
+      ({ role }) => role === "user"
+    ).length
+    const pendingRefinements = refinementAttention.filter(
+      ({ status }) => status === "pending"
+    ).length
+    const failedRefinements = refinementAttention.filter(
+      ({ status }) => status === "failed"
+    ).length
+
+    return {
+      totals: { terms, definitions, people, votes },
+      generationAttention: {
+        termThreadsWaiting,
+        pendingRefinements,
+        failedRefinements,
+        waiting: termThreadsWaiting + pendingRefinements
+      },
+      recentActivity
+    }
   }),
   integrations: adminProcedure.query(async () => {
     return {
       wolfram: {
-        configured: wolframConfigured(),
-        maskedKey: wolframMaskedKey(),
+        configured: wolframConfigured()
       },
-    };
+      services: getConfiguredServiceHealth()
+    }
   }),
   wolframTest: adminProcedure.mutation(async () => {
     const content = await wolframQuery(
-      "What is the melting point of titanium in kelvin? Answer in one sentence.",
-    );
+      "What is the melting point of titanium in kelvin? Answer in one sentence."
+    )
 
-    return { content };
+    return { content }
   }),
   users: adminProcedure.query(async () => {
     return await db.query.usersTable.findMany({
@@ -115,37 +236,38 @@ export const adminRouter = createTRPCRouter({
         name: true,
         email: true,
         isAi: true,
+        isProfilePublic: true,
         role: true,
         weight: true,
-        createdAt: true,
+        createdAt: true
       },
-      orderBy: asc(usersTable.id),
-    });
+      orderBy: asc(usersTable.id)
+    })
   }),
   updateUser: adminProcedure
     .input(
       z.object({
         userId: z.number(),
         role: z.enum(userRoleEnum.enumValues).optional(),
-        weight: z.number().min(0).optional(),
-      }),
+        weight: z.number().min(0).optional()
+      })
     )
     .mutation(async ({ input, ctx }) => {
       if (input.userId === ctx.userId && input.role && input.role !== "admin")
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "You cannot remove your own admin access",
-        });
+          message: "You cannot remove your own admin access"
+        })
 
       const [updated] = await db
         .update(usersTable)
         .set({ role: input.role, weight: input.weight })
         .where(eq(usersTable.id, input.userId))
-        .returning();
+        .returning()
 
       if (!updated)
-        throw new TRPCError({ code: "NOT_FOUND", message: "No such user" });
+        throw new TRPCError({ code: "NOT_FOUND", message: "No such user" })
 
-      return { ok: true };
-    }),
-});
+      return { ok: true }
+    })
+})

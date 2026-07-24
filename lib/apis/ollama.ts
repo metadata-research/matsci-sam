@@ -115,8 +115,9 @@ export const reviseDefinition = async (termId: number) => {
   })
 
   const lastChat = chats[chats.length - 1]
+  if (!lastChat) throw new Error("No user request is waiting for AI generation")
   if (lastChat.role !== "user")
-    throw new Error("Last message was not created by the AI") // dont run if last message was from ai
+    throw new Error("The latest user request already has an AI response")
 
   const result = await runLLM(
     chats.map((chat) => ({ role: chat.role, content: chat.message }))

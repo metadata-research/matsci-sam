@@ -1,15 +1,17 @@
-import { HydrateClient, trpc } from "@/trpc/server";
-import { UsersTable } from "./table";
+import { trpc } from "@/trpc/server"
+import { UsersTable } from "./table"
+import { AdminPageHeader } from "../page-header"
 
 export default async function AdminUsersPage() {
-  await trpc.admin.users.prefetch();
+  const users = await trpc.admin.users()
 
   return (
-    <HydrateClient>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold">Users</h2>
-        <UsersTable />
-      </div>
-    </HydrateClient>
-  );
+    <>
+      <AdminPageHeader
+        title="People"
+        description="Find contributor accounts and manage administrative roles."
+      />
+      <UsersTable initialData={users} />
+    </>
+  )
 }

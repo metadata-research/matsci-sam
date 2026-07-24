@@ -1,15 +1,17 @@
-import { HydrateClient, trpc } from "@/trpc/server";
-import { JobsTable } from "./table";
+import { HydrateClient, trpc } from "@/trpc/server"
+import { JobsTable } from "./table"
+import { AdminPageHeader } from "../page-header"
 
 export default async function AdminTermsPage() {
-  await trpc.admin.terms.prefetch();
+  await trpc.admin.terms.prefetch()
 
   return (
     <HydrateClient>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold">Terms</h2>
-        <JobsTable />
-      </div>
+      <AdminPageHeader
+        title="Vocabulary"
+        description="Find terms, inspect definition activity, and open the records used by the community."
+      />
+      <JobsTable />
     </HydrateClient>
-  );
+  )
 }

@@ -1,5 +1,5 @@
 import { db, definitionsTable, usersTable } from "@yamz/db"
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq, isNull } from "drizzle-orm"
 import { cache } from "react"
 import {
   createDefinitionWithInitialRevision,
@@ -15,7 +15,8 @@ export const GetUser = cache((userId: number) =>
 
 export const GetAiUser = async () => {
   let aiUser = await db.query.usersTable.findFirst({
-    where: eq(usersTable.isAi, true)
+    where: and(eq(usersTable.isAi, true), isNull(usersTable.name)),
+    orderBy: asc(usersTable.id)
   })
 
   if (!aiUser) {

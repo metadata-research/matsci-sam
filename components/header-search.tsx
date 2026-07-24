@@ -24,7 +24,9 @@ export const HeaderSearch = () => {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    router.push(query.trim() ? `/search?q=${encodeURIComponent(query)}` : "/search")
+    router.push(
+      query.trim() ? `/search?q=${encodeURIComponent(query)}` : "/search"
+    )
   }
 
   return (
@@ -33,6 +35,7 @@ export const HeaderSearch = () => {
         <SearchIcon className={styles.searchIcon} aria-hidden />
         <input
           type="search"
+          suppressHydrationWarning
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search terms and definitions..."
