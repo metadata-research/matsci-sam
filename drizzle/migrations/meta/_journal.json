@@ -169,6 +169,13 @@
       "when": 1784837196452,
       "tag": "0023_loose_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784863461500,
+      "tag": "0024_repair_legacy_0004_ledger",
+      "breakpoints": true
     }
   ]
 }

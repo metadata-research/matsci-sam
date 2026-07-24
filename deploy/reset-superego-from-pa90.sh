@@ -7,7 +7,6 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd -- "${script_dir}/.." && pwd)
 remote_helper=${script_dir}/lib/reset-superego-remote.sh
 invariants=${script_dir}/lib/reset-db-invariants.sql
-authority_file=${repo}/docs-internal/superego-codex/DATA-AUTHORITY
 state_file=${repo}/docs-internal/CURRENT-DEV-STATE.md
 local_db_host=/var/run/postgresql
 local_db_port=5432
@@ -131,13 +130,6 @@ state_authority=$(
   echo "CURRENT-DEV-STATE.md does not authorize a PA90 data reset." >&2
   exit 1
 }
-[[ -f ${authority_file} && ! -L ${authority_file} &&
-  $(<"${authority_file}") == pa90 ]] || {
-  echo "PA90 is not recorded as the Superego data authority." >&2
-  echo "Review CURRENT-DEV-STATE.md and both DATA-AUTHORITY markers." >&2
-  exit 1
-}
-
 origin_url=$(git -C "${repo}" remote get-url origin)
 case ${origin_url} in
   https://github.com/metadata-research/matsci-yamz.git|\

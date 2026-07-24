@@ -42,8 +42,8 @@ fi
 [[ $(<"${authority_file}") == pa90 ]] ||
   fail "Superego is not marked as a PA90-authoritative reset target."
 
-exec 9>/run/lock/matsci-sam-reset.lock
-flock --nonblock 9 || fail "Another MatSci reset is running."
+exec 9>/run/lock/matsci-sam-operation.lock
+flock --nonblock 9 || fail "Another MatSci operation is running."
 
 declare -A manifest=()
 allowed_keys=(
@@ -441,7 +441,7 @@ printf '%s %s\n' \
   "${manifest[commit]}" \
   "${manifest[archive_sha256]}" \
   >"${release}/.matsci-release-source"
-chown matsci-sam:matsci-sam "${release}/.matsci-release-source"
+chown root:matsci-sam "${release}/.matsci-release-source"
 chmod 0640 "${release}/.matsci-release-source"
 
 echo "Validating the restored snapshot."

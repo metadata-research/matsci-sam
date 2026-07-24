@@ -19,10 +19,16 @@ Superego or Ego server.
 - `systemd/matsci-sam.service` is the canonical service unit.
 - `nginx/matsci-sam.conf` is an HTTP bootstrap configuration. It is not the
   complete TLS configuration installed on an existing host.
-- `reset-superego-from-pa90.sh` is the one supported reset entry point for the
-  private Superego development environment.
-- `lib/reset-superego-remote.sh` and `lib/reset-db-invariants.sql` are internal
-  parts of that reset. Do not invoke them as a separate deployment process.
+- `deploy-superego-from-workstation.sh` publishes reviewed source while
+  preserving and migrating the Superego-authoritative database.
+- `pull-superego-db-to-workstation.sh` refreshes the replaceable local
+  database from a verified Superego snapshot.
+- `workstations.tsv` is the reviewed registry of local orchestration hosts
+  and snapshot recipients. It does not grant release-control authority.
+- `reset-superego-from-pa90.sh` remains only for explicitly disposable,
+  PA90-authoritative data.
+- Files under `lib/` are staged implementation details. Do not invoke them
+  directly.
 
 Do not rerun the bootstrap script on an existing server. It installs packages
 and replaces Nginx and systemd configuration.
@@ -78,6 +84,41 @@ unverified rollback leaves the application stopped and reports the recovery
 failure.
 
 Do not run the reset after Superego begins holding unique shared-test data.
-The private environment record and the `DATA-AUTHORITY` markers on PA90 and
-Superego control that transition. Public-edge changes require separate Nginx
-and TLS review.
+The private state record and the independent remote authority interlock
+control that boundary.
+
+## Shared-data Superego
+
+When `CURRENT-DEV-STATE.md` and the Superego interlock both record
+`superego`, deploy reviewed source from the active control workstation:
+
+```bash
+./deploy/deploy-superego-from-workstation.sh --check-only
+./deploy/deploy-superego-from-workstation.sh
+```
+
+The wrapper first builds and proves the candidate against an online,
+internally consistent scratch snapshot while the current site remains
+available. It then stops public writes, creates and test-restores the exact
+server-local rollback backup, rehearses migrations against that frozen
+restore, migrates the authoritative database in place, validates the
+candidate privately, and only then reopens Nginx. It never transfers a
+workstation database to Superego.
+
+Refresh a registered, replaceable workstation database separately:
+
+```bash
+./deploy/pull-superego-db-to-workstation.sh --check-only
+./deploy/pull-superego-db-to-workstation.sh
+```
+
+The wrapper performs a verified online export from Superego, test-restores and
+migrates it locally, backs up the previous local database, and activates it
+with a brief database-name swap. This is a complete one-way snapshot, not
+row-level synchronization.
+
+The wrappers require a clean `dev` checkout equal to `origin/dev`, explicit
+authority agreement, one interactive confirmation, and one interactive
+Superego sudo session. All privileged Superego helpers share one lock.
+
+Public-edge changes require separate Nginx and TLS review.
