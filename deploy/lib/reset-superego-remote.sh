@@ -325,7 +325,7 @@ psql \
     SELECT
       current_database(),
       (pg_control_system()).system_identifier,
-      inet_server_port();
+      current_setting('port')::integer;
   "
 PROTECTED_DATABASE
 )
@@ -341,7 +341,7 @@ socket_database_identity=$(
       SELECT
         current_database(),
         (pg_control_system()).system_identifier,
-        inet_server_port();
+        current_setting('port')::integer;
     "
 )
 [[ ${protected_database_identity} == "${socket_database_identity}" ]] ||
