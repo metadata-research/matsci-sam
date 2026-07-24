@@ -1,6 +1,7 @@
-# MatSci YAMZ Developer Guide
+# MatSci SAM developer guide
 
-Welcome to the MatSci YAMZ development guide! This document will help you understand how to add features, modify pages, and work with the database in this codebase.
+This guide covers local setup, application changes, database migrations,
+authentication, and release boundaries.
 
 ## Table of Contents
 
@@ -75,15 +76,18 @@ Visit `http://localhost:3000` to see the app running.
 
 ### Understanding the Schema
 
-The database schema is defined in `drizzle/schema.ts`. Main tables:
+The database schema is defined in `drizzle/schema.ts`. Its main records
+include:
 
-- **users** - User accounts (Google OAuth)
-- **terms** - Material science terms
-- **definitions** - Definitions for terms (one per user per term)
-- **votes** - User votes on definitions
-- **comments** - Comments on definitions
-- **tags** - Category tags
-- **definitionEdits** - Edit history
+- `users` for human and named model identities, profile consent, roles, and
+  reputation weight
+- `oauthAccounts` and `emailAuthTokens` for external and verified-email
+  authentication
+- `terms` for vocabulary concepts
+- `definitions` for the stable definition identity and current revision head
+- `definitionRevisions` for immutable content versions and provenance
+- `votes` and `comments`, each scoped to a definition revision
+- `tags`, coauthors, refinement records, and discussion suggestions
 
 ### Creating a Migration
 
@@ -177,7 +181,7 @@ export default function MyPage() {
 
 ```tsx
 export const metadata = {
-  title: "My Page - MatSci YAMZ",
+  title: "My Page - MatSci SAM",
   description: "Description of my page",
 }
 ```
@@ -408,17 +412,17 @@ The theme supports dark mode automatically via CSS variables.
 **In Server Components:**
 
 ```tsx
-import { getIronSession } from "iron-session"
-import { sessionOptions } from "@/lib/session"
-import { cookies } from "next/headers"
+import { GetUser } from "@/lib/crud"
+import { getSession } from "@/lib/session"
 
 export default async function MyPage() {
-  const session = await getIronSession(await cookies(), sessionOptions)
-  const user = session.user
-
-  if (!user) {
+  const session = await getSession()
+  if (!session.id) {
     return <div>Please log in</div>
   }
+
+  const user = await GetUser(session.id)
+  if (!user) return <div>Account unavailable</div>
 
   return <div>Welcome, {user.name}!</div>
 }
@@ -432,7 +436,7 @@ export default async function MyPage() {
 import { trpc } from "@/trpc/client"
 
 export function MyComponent() {
-  const { data: user } = trpc.user.me.useQuery()
+  const { data: user } = trpc.me.useQuery()
 
   if (!user) return <div>Not logged in</div>
 
@@ -456,9 +460,9 @@ create: authenticatedProcedure
 ### Checking Admin Status
 
 ```tsx
-const { data: user } = trpc.user.me.useQuery()
+const { data: user } = trpc.me.useQuery()
 
-if (user?.isAdmin) {
+if (user?.role === "admin") {
   // Admin-only UI
 }
 ```
@@ -519,11 +523,12 @@ startup with a list of available prompt names.
 4. **Restart the dev server** (`pnpm dev`). The prompt is resolved once at
    startup, so edits to the JSON or `.env` are not picked up by a running server.
 
-### Production
+### Deployed environments
 
-The same applies on the server: update `lib/prompts.json` via a normal
-deploy (`./scripts/upgrade.sh`), set `SYSTEM_PROMPT_KEY` in the production
-`.env`, and restart the service (the upgrade script restarts it for you).
+The same selection rules apply to a deployed environment. Commit changes to
+`lib/prompts.json`, update `SYSTEM_PROMPT_KEY` in the protected environment,
+and rebuild through the environment runbook. Do not edit a deployed release
+in place.
 
 ### Generation provenance
 
@@ -642,7 +647,7 @@ Ensure all required variables are set (see `.env.example`):
 - `SYSTEM_PROMPT_KEY` - Name of an AI system prompt from `lib/prompts.json` — see [AI System Prompts](#ai-system-prompts)
 - `SYSTEM_PROMPT` - Raw AI prompt text; optional, takes precedence over `SYSTEM_PROMPT_KEY`
 
-### Production Build
+### Production build
 
 ```bash
 # Install dependencies
@@ -658,15 +663,24 @@ pnpm build
 pnpm start
 ```
 
-### Upgrade Script
+These commands build one checkout. They do not provide database backup,
+service coordination, release switching, health checks, or rollback.
 
-For production deployments, use the upgrade script:
+### Server deployment
 
-```bash
-./scripts/upgrade.sh
-```
+A merge to `dev` does not deploy Superego after the retired workflow has been
+removed from that branch. Maintainers use the runbook for the target
+environment.
 
-This script handles pulling code, installing dependencies, running migrations, and restarting the service.
+Do not merge or push to `main` yet. As of 2026-07-23, `origin/main` still
+contains a legacy self-hosted production workflow that can migrate and restart
+the public environment. Retire or disable that workflow through a separate
+production change first.
+
+Before deployment, decide which database contains the authoritative data. A
+disposable development target may be reset from a verified source snapshot. A
+server with unique user data requires a write pause, a verified database
+backup, forward migration, and database-aware rollback.
 
 ---
 

@@ -1,125 +1,83 @@
-# Production server layout
+# Host provisioning reference
 
-The production host uses system-level software and a dedicated non-login
-account. Nothing is installed into an administrator's home directory.
+This directory contains the stable components needed to provision a new
+MatSci SAM application host. It is not the operator runbook for an existing
+Superego or Ego server.
 
-| Purpose                        | Location                                           |
-| ------------------------------ | -------------------------------------------------- |
-| Releases and `current` symlink | `/opt/matsci-sam`                                  |
-| Runtime secrets and settings   | `/etc/matsci-sam/app.env`                          |
-| Persistent application state   | `/var/lib/matsci-sam`                              |
-| Service logs                   | systemd journal (`journalctl -u matsci-sam`)       |
-| PostgreSQL data                | Ubuntu package default under `/var/lib/postgresql` |
+| Purpose | Location on a provisioned host |
+| --- | --- |
+| Releases and `current` symlink | `/opt/matsci-sam` |
+| Protected settings | `/etc/matsci-sam/app.env` |
+| Persistent application state | `/var/lib/matsci-sam` |
+| Service logs | systemd journal |
+| PostgreSQL data | distribution-managed PostgreSQL directory |
 
-## Bootstrap
+## Files
 
-Copy this `deploy` directory to the server and run:
+- `bootstrap-server.sh` provisions a new application host.
+- `app.env.example` lists supported runtime settings without secret values.
+- `systemd/matsci-sam.service` is the canonical service unit.
+- `nginx/matsci-sam.conf` is an HTTP bootstrap configuration. It is not the
+  complete TLS configuration installed on an existing host.
+- `reset-superego-from-pa90.sh` is the one supported reset entry point for the
+  private Superego development environment.
+- `lib/reset-superego-remote.sh` and `lib/reset-db-invariants.sql` are internal
+  parts of that reset. Do not invoke them as a separate deployment process.
+
+Do not rerun the bootstrap script on an existing server. It installs packages
+and replaces Nginx and systemd configuration.
+
+## New-host bootstrap
+
+Review the script and configuration for the target environment, copy this
+directory to a new host, then run:
 
 ```bash
 sudo ./deploy/bootstrap-server.sh
 ```
 
-The script installs Node.js 24, pnpm 10, nginx, PostgreSQL 17, and pgvector from
-the official PostgreSQL Apt repository. This matches the development database's
-PostgreSQL major version and provides pgvector 0.8 or newer. It creates the
-`matsci-sam` operating-system account, database role, and database. PostgreSQL
-accepts local Unix-socket connections only; it is not exposed through the
-firewall.
+The script installs Node.js 24, pnpm 10, Nginx, PostgreSQL 17, and pgvector. It
+creates the `matsci-sam` service account, local database role, database, and
+standard directories. PostgreSQL accepts local Unix-socket connections only.
 
-The systemd service is installed but is not enabled or started because the
-application release and required secrets do not exist during bootstrap.
+The application service remains disabled until an administrator installs the
+protected environment, TLS configuration, and first release.
 
-## Rename an existing development database
+## Deployment boundary
 
-The application's database and role names come from `DATABASE_URL`. After
-changing a development `.env` from `matsci_yamz` to `matsci-sam`, preserve the
-existing data and role by running:
+A merge to `dev` does not deploy Superego. The maintained `dev` branch has no
+self-hosted workflow with permission to migrate its database or restart the
+application.
 
-```bash
-sudo ./deploy/rename-database.sh
-```
+As of 2026-07-23, `origin/main` still contains the legacy production
+deployment workflow. Do not merge or push to `main` until that workflow is
+retired or disabled through a separately reviewed production change.
 
-The helper is idempotent and refuses to create an empty replacement if the old
-database does not exist. PostgreSQL's default SCRAM password verifier survives
-a role rename; an older MD5 verifier must be reset because it incorporates the
-old role name.
+An operator must select the data authority before deployment:
 
-## Public proxy and hostname transition
+- A disposable development target can be reset from a verified source
+  snapshot.
+- A target with unique user data requires a write pause, verified database
+  backup, forward migration, and database-aware rollback.
 
-The public `ego.cci.drexel.edu` host terminates TLS and proxies to the private
-Superego application host. Copy the `deploy` directory to Ego and run:
+While PA90 is recorded as the authority for development data, a maintainer can
+run this command from a clean `dev` checkout:
 
 ```bash
-sudo ./deploy/setup-public-proxy.sh
+./deploy/reset-superego-from-pa90.sh
 ```
 
-The script installs nginx and Certbot into system locations and configures the
-HTTP reverse proxy. After public port 80 is reachable, request and install the
-certificate:
+The command requires an explicit destructive confirmation. It restores the
+PA90 database into a disposable database, applies the candidate migrations,
+validates the result, and creates the transfer snapshot from that migrated
+copy. One interactive sudo operation on Superego test-restores a protected
+backup, builds a fresh release, replaces the resettable database, and checks
+the application before completing. A failure during that operation triggers
+an automatic attempt to restore the prior release and database. An
+unverified rollback leaves the application stopped and reports the recovery
+failure.
 
-```bash
-sudo certbot --nginx --redirect -d ego.cci.drexel.edu
-sudo certbot renew --dry-run
-```
-
-Superego has its own browser-trusted certificate and can be used directly over
-the Drexel network or VPN with:
-
-```dotenv
-NEXT_PUBLIC_SITE_URL=https://superego.cci.drexel.edu
-GOOGLE_CALLBACK_URL=https://superego.cci.drexel.edu/api/auth/callback
-SESSION_COOKIE_SECURE=true
-```
-
-Use a separate Google OAuth web client for Superego. Its exact authorized
-redirect URI is
-`https://superego.cci.drexel.edu/api/auth/callback`. Configure
-`GOOGLE_AUTH_ACCESS_MODE=existing-or-allowlisted` for a closed trial or
-`GOOGLE_AUTH_ACCESS_MODE=open` to let any verified Google account create a
-user. Existing database users can sign in in either mode; the optional
-`GOOGLE_AUTH_ALLOWED_EMAILS` setting controls which new users are invited in
-the restricted mode. During the transition, `/api/auth/google` can test Google
-sign-in while the gated development login remains enabled; disable and remove
-the temporary development-login settings only after all intended identities
-have passed.
-
-Superego accepts `ego.cci.drexel.edu`, `superego.cci.drexel.edu`, and
-`sam.cci.drexel.edu`, so the server and database layout do not change when the
-production name becomes available. The hostname-dependent settings are
-centralized in `/etc/matsci-sam/app.env`:
-
-```dotenv
-NEXT_PUBLIC_SITE_URL=https://ego.cci.drexel.edu
-GOOGLE_CALLBACK_URL=https://ego.cci.drexel.edu/api/auth/callback
-```
-
-`NEXT_PUBLIC_SITE_URL` is compiled into the Next.js browser bundle. Changing it
-therefore requires a new build and deployment. The Google OAuth client must also
-allow the new callback URL.
-
-When `sam.cci.drexel.edu` is ready, point it at the public proxy, add the name and
-certificate there, update these two settings to the SAM URL, and rebuild. Do not
-expose authenticated production traffic over plain HTTP.
-
-## Development deployment runner
-
-The `dev` branch deploys to this host through a repository-level GitHub Actions
-runner with only the custom `superego-dev` label. It is deliberately registered
-with `--no-default-labels`; therefore the existing production workflow, which
-selects `self-hosted`, cannot run on this machine.
-
-The runner uses the dedicated `matsci-runner` account and installs under
-`/opt/actions-runner-superego`. Its sudo policy permits it to act as the
-unprivileged `matsci-sam` account and to restart only `matsci-sam.service`.
-
-Generate a repository runner registration token, place it in the root-readable
-file `/tmp/matsci-sam-runner-token`, and run:
-
-```bash
-sudo ./deploy/setup-dev-runner.sh
-```
-
-The setup script consumes and deletes the short-lived token file. Merging a PR
-into `dev` then builds an immutable release under `/opt/matsci-sam/releases`,
-runs migrations, atomically updates `/opt/matsci-sam/current`, restarts the
-service, and rolls back the symlink if the health check fails.
+Do not run the reset after Superego begins holding unique shared-test data.
+The private environment record and the `DATA-AUTHORITY` markers on PA90 and
+Superego control that transition. Public-edge changes require separate Nginx
+and TLS review.
