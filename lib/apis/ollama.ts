@@ -4,15 +4,28 @@ import {
   definitionRevisionsTable,
   definitionsTable,
   refinementsTable,
-  termsTable
+  termsTable,
+  usersTable
 } from "@yamz/db"
-import { and, asc, eq, getTableColumns, lt, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  eq,
+  getTableColumns,
+  isNull,
+  lt,
+  sql
+} from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { Message, Ollama } from "ollama"
 import { z } from "zod"
 import zodToJsonSchema from "zod-to-json-schema"
 import { UpsertAIDefinition } from "../crud"
 import prompts from "@/lib/prompts.json"
+import {
+  buildRevisionMessages,
+  needsReconstructedDefinitionContext
+} from "./ollama-revision-context"
 
 export type DefinitionOutput = z.infer<typeof DefinitionOutput>
 export const DefinitionOutput = z.object({
@@ -119,8 +132,39 @@ export const reviseDefinition = async (termId: number) => {
   if (lastChat.role !== "user")
     throw new Error("The latest user request already has an AI response")
 
+  // EGO_SEED_CHAT_FALLBACK: the one-time public seed deliberately removes
+  // private term chat transcripts, so a later public feedback thread may
+  // begin without the original term context.
+  let reconstructedContext
+  if (needsReconstructedDefinitionContext(chats)) {
+    const [currentAI] = await db
+      .select({
+        term: termsTable.term,
+        definition: definitionsTable.definition,
+        example: definitionsTable.example
+      })
+      .from(termsTable)
+      .innerJoin(
+        definitionsTable,
+        eq(definitionsTable.termId, termsTable.id)
+      )
+      .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+      .where(
+        and(
+          eq(termsTable.id, termId),
+          eq(usersTable.isAi, true),
+          isNull(usersTable.name),
+          isNull(definitionsTable.refinedFromId)
+        )
+      )
+      .orderBy(asc(definitionsTable.id))
+      .limit(1)
+
+    reconstructedContext = currentAI
+  }
+
   const result = await runLLM(
-    chats.map((chat) => ({ role: chat.role, content: chat.message }))
+    buildRevisionMessages(chats, reconstructedContext)
   )
   if (!result) throw new Error("Something went wrong")
 

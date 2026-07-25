@@ -99,18 +99,26 @@ case $1 in
       fail "The protected application environment is unavailable."
     awk -F= '
       BEGIN {
-        split(
-          "NEXT_PUBLIC_SITE_URL NEXT_PUBLIC_SITE_NAME DATABASE_URL " \
-          "GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_CALLBACK_URL " \
-          "GOOGLE_AUTH_ACCESS_MODE GOOGLE_AUTH_ALLOWED_EMAILS " \
-          "SESSION_PASSWORD SESSION_COOKIE_SECURE " \
-          "AUTH_TOKEN_ENCRYPTION_KEY ORCID_AUTH_ENABLED " \
-          "EMAIL_AUTH_ENABLED DEV_AUTH_ENABLED OLLAMA_HOST " \
-          "SYSTEM_PROMPT_KEY REFINE_PROMPT_KEY",
-          expected,
-          " "
-        )
-        for (i in expected) wanted[expected[i]] = 1
+        expected[++expected_count] = "NEXT_PUBLIC_SITE_URL"
+        expected[++expected_count] = "NEXT_PUBLIC_SITE_NAME"
+        expected[++expected_count] = "DATABASE_URL"
+        expected[++expected_count] = "GOOGLE_CLIENT_ID"
+        expected[++expected_count] = "GOOGLE_CLIENT_SECRET"
+        expected[++expected_count] = "GOOGLE_CALLBACK_URL"
+        expected[++expected_count] = "GOOGLE_AUTH_ACCESS_MODE"
+        expected[++expected_count] = "GOOGLE_AUTH_ALLOWED_EMAILS"
+        expected[++expected_count] = "SESSION_PASSWORD"
+        expected[++expected_count] = "SESSION_COOKIE_SECURE"
+        expected[++expected_count] = "AUTH_TOKEN_ENCRYPTION_KEY"
+        expected[++expected_count] = "ORCID_AUTH_ENABLED"
+        expected[++expected_count] = "EMAIL_AUTH_ENABLED"
+        expected[++expected_count] = "DEV_AUTH_ENABLED"
+        expected[++expected_count] = "OLLAMA_HOST"
+        expected[++expected_count] = "SYSTEM_PROMPT_KEY"
+        expected[++expected_count] = "REFINE_PROMPT_KEY"
+        for (i = 1; i <= expected_count; i++) {
+          wanted[expected[i]] = 1
+        }
       }
       /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
       {
@@ -125,7 +133,7 @@ case $1 in
         if (length(value) > 0) present[key] = 1
       }
       END {
-        for (i in expected) {
+        for (i = 1; i <= expected_count; i++) {
           key = expected[i]
           if (count[key] == 0) {
             state = "missing"
