@@ -109,10 +109,7 @@ if [[ -e ${stage}/prepare-state.tsv || -L ${stage}/prepare-state.tsv ]]; then
     phase=$(
       awk -F '\t' '$1 == "phase" { count++; value = $2 }
         END {
-          if (
-            count == 1 &&
-            value == "awaiting-offhost"
-          ) print value
+          if (count == 1 && value == "awaiting-offhost") print value
           else print "ambiguous"
         }' \
         "${stage}/prepare-state.tsv"
@@ -282,9 +279,10 @@ git -C "${repo}" show "${public_commit}:lib/apis/ollama.ts" |
 
 superego_authority=$(
   ssh -o BatchMode=yes -o ConnectTimeout=8 superego \
-    'if [[ -f /home/cr625/superego-admin/DATA-AUTHORITY &&
-       ! -L /home/cr625/superego-admin/DATA-AUTHORITY ]]; then
-       sed -n "1p" /home/cr625/superego-admin/DATA-AUTHORITY
+    'marker=/home/cr625/superego-admin/DATA-AUTHORITY
+     if [[ -f ${marker} && ! -L ${marker} &&
+       $(stat -c "%U:%a" "${marker}") == cr625:600 ]]; then
+       sed -n "1p" "${marker}"
      else
        echo missing
      fi'
