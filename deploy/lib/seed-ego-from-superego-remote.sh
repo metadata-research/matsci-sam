@@ -598,6 +598,11 @@ environment_contract=$(
       expected["ORCID_AUTH_ENABLED"] = "false"
       expected["EMAIL_AUTH_ENABLED"] = "false"
       expected["DEV_AUTH_ENABLED"] = "false"
+      required["GOOGLE_CLIENT_ID"] = 1
+      required["GOOGLE_CLIENT_SECRET"] = 1
+      required["GOOGLE_AUTH_ALLOWED_EMAILS"] = 1
+      required["SESSION_PASSWORD"] = 1
+      required["AUTH_TOKEN_ENCRYPTION_KEY"] = 1
     }
     /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
     {
@@ -609,13 +614,7 @@ environment_contract=$(
       sub(/^[[:space:]]*/, "", value)
       sub(/[[:space:]]*$/, "", value)
       if (key in expected && value != expected[key]) bad[key] = 1
-      if (
-        key == "GOOGLE_CLIENT_ID" ||
-        key == "GOOGLE_CLIENT_SECRET" ||
-        key == "GOOGLE_AUTH_ALLOWED_EMAILS" ||
-        key == "SESSION_PASSWORD" ||
-        key == "AUTH_TOKEN_ENCRYPTION_KEY"
-      ) {
+      if (key in required) {
         if (length(value) > 0) present[key]++
       }
     }
@@ -623,13 +622,7 @@ environment_contract=$(
       for (key in expected) {
         if (count[key] != 1 || bad[key]) print key
       }
-      required[1] = "GOOGLE_CLIENT_ID"
-      required[2] = "GOOGLE_CLIENT_SECRET"
-      required[3] = "GOOGLE_AUTH_ALLOWED_EMAILS"
-      required[4] = "SESSION_PASSWORD"
-      required[5] = "AUTH_TOKEN_ENCRYPTION_KEY"
-      for (i = 1; i <= 5; i++) {
-        key = required[i]
+      for (key in required) {
         if (count[key] != 1 || present[key] != 1) print key
       }
       if (count["DEV_AUTH_USERS"] != 0) print "DEV_AUTH_USERS"

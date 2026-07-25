@@ -159,6 +159,57 @@ const egoSeedInvariants = read(
   "deploy/lib/ego-public-seed-invariants.sql"
 )
 
+const seedEnvironmentProgram = egoSeedHelper.match(
+  /environment_contract=\$\(\s+awk -F= '\n([\s\S]*?)\n  ' \/etc\/matsci-sam\/app\.env \|/
+)
+assert(
+  seedEnvironmentProgram,
+  "Could not locate the Ego seed environment-contract awk program"
+)
+const seedEnvironmentOutput = execFileSync(
+  "mawk",
+  [
+    "-F=",
+    seedEnvironmentProgram[1],
+    resolve(root, "deploy/ego/app.env.example")
+  ],
+  { encoding: "utf8" }
+)
+  .trim()
+  .split("\n")
+  .filter(Boolean)
+  .sort()
+assert.deepEqual(seedEnvironmentOutput, [
+  "AUTH_TOKEN_ENCRYPTION_KEY",
+  "GOOGLE_AUTH_ALLOWED_EMAILS",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "SESSION_PASSWORD"
+])
+
+const seedCleanupProgram = egoSeedWrapper.match(
+  /phase=\$\(\s+awk -F '\\t' '([\s\S]*?)' \\\s+"\$\{stage\}\/prepare-state\.tsv"\s+\)/
+)
+assert(
+  seedCleanupProgram,
+  "Could not locate the Ego seed cleanup-state awk program"
+)
+const seedCleanupDirectory = mkdtempSync(
+  resolve(tmpdir(), "matsci-sam-seed-cleanup-")
+)
+const seedCleanupPath = resolve(seedCleanupDirectory, "prepare-state.tsv")
+writeFileSync(seedCleanupPath, "phase\tawaiting-offhost\n", { mode: 0o600 })
+try {
+  assert.equal(
+    execFileSync("mawk", ["-F", "\t", seedCleanupProgram[1], seedCleanupPath], {
+      encoding: "utf8"
+    }).trim(),
+    "awaiting-offhost"
+  )
+} finally {
+  rmSync(seedCleanupDirectory, { recursive: true, force: true })
+}
+
 assert.match(egoSeedWrapper, /EGO_SEED_CHAT_FALLBACK/)
 assert.match(
   egoSeedWrapper,
@@ -174,6 +225,10 @@ assert.match(egoSeedWrapper, /phase\\toffhost-verified/)
 assert.match(egoSeedWrapper, /ego_audit=/)
 assert.match(egoSeedWrapper, /Reusing the previously verified off-host seed backup/)
 assert.match(egoSeedWrapper, /existing off-host seed backup does not match/)
+assert.match(
+  egoSeedWrapper,
+  /stat -c "%U:%a" "\$\{marker\}"\) == cr625:600/
+)
 assert.match(
   egoSeedWrapper,
   /\/var\/lib\/matsci-sam-admin\/backups\/ego-initial-seed-/
