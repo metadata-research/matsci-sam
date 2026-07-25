@@ -269,6 +269,14 @@ assert.match(
   /install -o root -g root -m 0400[\s\S]*"\$\{stage\}\/\$\{staged_file\}"[\s\S]*"\$\{input_dir\}\/\$\{staged_file\}"/
 )
 assert.match(egoSeedExportHelper, /CREATE EXTENSION IF NOT EXISTS vector/)
+assert.match(
+  egoSeedExportHelper,
+  /CREATE EXTENSION IF NOT EXISTS vector[\s\S]*pg_restore[\s\S]*--no-comments[\s\S]*<"\$\{dump\}"/
+)
+assert.match(
+  egoSeedHelper,
+  /restore_dump\(\)[\s\S]*pg_restore[\s\S]*--no-comments[\s\S]*<"\$\{dump\}"/
+)
 
 const transformIndex = egoSeedHelper.indexOf(
   'echo "Applying the reviewed public privacy transformation."'
@@ -454,7 +462,7 @@ assert.match(
 assert.match(egoReleaseRemote, /pg_dump[\s\S]*--format=custom/)
 assert.match(
   egoReleaseRemote,
-  /pg_restore[\s\S]*--dbname="\$\{scratch_database\}"/
+  /createdb[\s\S]*CREATE EXTENSION IF NOT EXISTS vector[\s\S]*pg_restore[\s\S]*--dbname="\$\{scratch_database\}"[\s\S]*--no-comments[\s\S]*<"\$\{backup_partial\}"/
 )
 assert.match(
   egoReleaseRemote,
@@ -568,7 +576,7 @@ assert.match(
 )
 assert.match(
   egoCutoverRemote,
-  /pg_restore[\s\S]*--dbname="\$\{scratch_database\}"[\s\S]*<"\$\{database_backup\}"/
+  /createdb[\s\S]*CREATE EXTENSION IF NOT EXISTS vector[\s\S]*pg_restore[\s\S]*--dbname="\$\{scratch_database\}"[\s\S]*--no-comments[\s\S]*<"\$\{database_backup\}"/
 )
 assert.match(
   egoCutoverRemote,

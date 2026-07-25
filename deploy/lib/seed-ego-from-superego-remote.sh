@@ -92,6 +92,9 @@ assert_pgvector() {
 restore_dump() {
   local name=$1
   local dump=$2
+  # pgvector is deliberately installed by postgres. A dump made from that
+  # database can contain COMMENT ON EXTENSION vector, which the application
+  # role must not own or alter.
   runuser -u "${app_user}" -- pg_restore \
     --host=/var/run/postgresql \
     --port=5432 \
@@ -100,6 +103,7 @@ restore_dump() {
     --single-transaction \
     --no-owner \
     --no-privileges \
+    --no-comments \
     <"${dump}"
 }
 
