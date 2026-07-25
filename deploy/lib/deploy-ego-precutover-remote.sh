@@ -533,7 +533,7 @@ for protected_parent in "${app_root}" "${app_root}/releases"; do
   [[ -d ${protected_parent} && ! -L ${protected_parent} ]] ||
     fail "A release parent is missing or unsafe."
   chown root:root "${protected_parent}"
-  chmod 0755 "${protected_parent}"
+  chmod 00755 "${protected_parent}"
   [[ $(stat -c '%U:%G:%a' "${protected_parent}") == root:root:755 ]] ||
     fail "A release parent could not be protected from the service account."
 done
@@ -721,13 +721,13 @@ else
   install -d -o matsci-sam -g matsci-sam -m 0750 "${runtime_cache}"
 fi
 chown -hR matsci-sam:matsci-sam "${runtime_cache}"
-find "${runtime_cache}" -xdev -type d -exec chmod 0750 {} +
+find "${runtime_cache}" -xdev -type d -exec chmod 00750 {} +
 find "${runtime_cache}" -xdev -type f -exec chmod 0640 {} +
 ln -s "${runtime_cache}" "${release}/.next/cache"
 
 echo "Freezing the built release and recording its deterministic artifact manifest."
 chown -hR root:root "${release}"
-find "${release}" -xdev -type d -exec chmod 0555 {} +
+find "${release}" -xdev -type d -exec chmod 00555 {} +
 find "${release}" -xdev -type f -perm /111 -exec chmod 0555 {} +
 find "${release}" -xdev -type f ! -perm /111 -exec chmod 0444 {} +
 artifact_manifest_partial=${root_work}/release-artifacts
