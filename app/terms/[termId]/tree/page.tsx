@@ -2,8 +2,17 @@ import { Definition } from "@/components/definition"
 import { db, termsTable } from "@/drizzle"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { eq } from "drizzle-orm"
-import { MessageCircleIcon, PenIcon } from "lucide-react"
+import { HistoryIcon, MessageCircleIcon } from "lucide-react"
 import { notFound } from "next/navigation"
+
+const revisionSourceLabels = {
+  initial: "Initial revision",
+  author_edit: "Author revision",
+  ai_refinement: "AI-assisted revision",
+  ai_generation: "AI-generated revision",
+  rollback: "Restored revision",
+  legacy: "Imported revision"
+} as const
 
 export default async function TermTreePage(props: {
   params: Promise<{ termId: string }>
@@ -31,12 +40,25 @@ export default async function TermTreePage(props: {
               <div className="absolute top-4 left-1/2 w-1/2 h-1 bg-foreground" />
             </div>
             <div className="flex-1 pb-4">
-              <Definition definition={definition} />
+              <Definition
+                definition={{
+                  ...definition,
+                  termSlug: term.slug,
+                  author: definition.author?.name,
+                  authorProfilePublic:
+                    definition.author?.isProfilePublic ?? false
+                }}
+              />
               {definition.history.map((history, index) => (
-                <div className="flex items-stretch group" key={history.id}>
+                <div
+                  className="flex items-stretch group"
+                  key={`${history.type}-${history.id}`}
+                >
                   <div className="w-8 shrink-0 relative">
                     <div className="rounded-full z-10 bg-secondary border size-6 flex items-center justify-center absolute left-1/2 -translate-x-1/2 top-2">
-                      {history.type == "edit" && <PenIcon className="size-3" />}
+                      {history.type == "revision" && (
+                        <HistoryIcon className="size-3" />
+                      )}
                       {history.type == "comment" && (
                         <MessageCircleIcon className="size-3" />
                       )}
@@ -52,19 +74,41 @@ export default async function TermTreePage(props: {
                       <>
                         <p className="text-xs font-semibold opacity-80">
                           COMMENT
+                          {history.version !== null
+                            ? ` ON DEFINITION ${definition.definitionNumber} · REVISION ${history.version}`
+                            : ""}
+                          {history.migratedLegacy
+                            ? " · VERSION INFERRED DURING IMPORT"
+                            : ""}
                         </p>
                         {history.message}
                       </>
                     )}
-                    {history.type == "edit" && (
+                    {history.type == "revision" && (
                       <>
-                        <p className="text-xs font-semibold opacity-80">
-                          DEFINITION CHANGED
+                        <p className="text-xs font-semibold opacity-80 flex flex-wrap gap-x-2">
+                          <span>
+                            Definition {definition.definitionNumber} · revision{" "}
+                            {history.version} ·{" "}
+                            {revisionSourceLabels[history.source]}
+                          </span>
+                          {history.legacyIncomplete && (
+                            <span className="font-normal">
+                              Partial legacy record
+                            </span>
+                          )}
                         </p>
-                        <span className="italic">From</span>:{" "}
-                        {history.definition} <br />
-                        <span className="italic">To</span>:{" "}
-                        {history.newDefinition}
+                        {history.changeNote && (
+                          <p className="text-xs text-muted-foreground">
+                            {history.changeNote}
+                          </p>
+                        )}
+                        <p>{history.definition}</p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="italic">Example:</span>{" "}
+                          {history.example ??
+                            "Not retained in this imported legacy record"}
+                        </p>
                       </>
                     )}
                   </div>

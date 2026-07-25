@@ -1,3 +1,11 @@
 export interface YAMZSession {
-  id?: number;
+  id?: number
+  googleOAuthState?: string
+  orcidOAuth?: {
+    state: string
+    nonce: string
+    codeVerifier: string
+    intent: "connect" | "login"
+    startedAt: number
+  }
 }

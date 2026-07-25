@@ -1,25 +1,48 @@
-.navbar{
-    display: flex;
-    align-items: center;
-    height: 53px;
-    background-color: #202536;
-    border-bottom: 1px solid #202536;
-    padding: 0 8px;
-    white-space: nowrap;
+/* Floating pill nav. Surfaces come from the theme tokens so both modes carry
+   it. Deliberately not sticky: page-level elements (e.g. the Browse letter
+   index) get the floating role instead.
 
+   Width follows the homepage shell at large viewports and still frames the
+   narrower content columns used by the application routes. */
+.wrapper {
+  padding: 12px 16px 4px;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  max-width: 80rem;
+  margin-inline: auto;
+  height: 52px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--card) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.06);
+  white-space: nowrap;
 }
 
 .logo {
-  width: 33px;
-  height: 33px;
-  object-fit: cover;
+  width: 30px;
+  height: 30px;
+  /* the SVG chip brings its own corner radius */
+  object-fit: contain;
+}
+
+.logoHome {
+  display: flex;
+  align-items: center;
+  flex: none;
+  color: var(--foreground);
+  text-decoration: none;
 }
 
 .logoText {
-  color: #ffffff;
   font-size: 16px;
-  font-weight: 400;
-  font-family: var(--font-roboto-serif);
+  font-weight: 600;
+  font-family: var(--font-plex-serif);
   padding-left: 8px;
   text-decoration: none;
 }
@@ -32,60 +55,211 @@
 .navLinks {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 4px;
+}
+
+.mobileMenu {
+  position: relative;
+  display: none;
+}
+
+.mobileMenu summary {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  color: var(--foreground);
+  cursor: pointer;
+  list-style: none;
+  transition: background-color 120ms ease;
+}
+
+.mobileMenu summary:hover,
+.mobileMenu[open] summary {
+  background: var(--accent);
+}
+
+.mobileMenu summary::-webkit-details-marker {
+  display: none;
+}
+
+.mobileMenu summary svg {
+  width: 17px;
+  height: 17px;
+}
+
+.mobileMenuPanel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(17rem, calc(100vw - 32px));
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.14);
+}
+
+.mobileMenuPanel nav {
+  display: grid;
+}
+
+.mobileMenuPanel nav a {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.mobileMenuPanel nav a:hover {
+  background: var(--accent);
+}
+
+.mobileUtility,
+.mobileAccount {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  padding: 8px 10px 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.mobileAccount {
+  padding-bottom: 2px;
+}
+
+/* Search field lives between the wordmark and the nav buttons. It shrinks but
+   never grows, leaving .spacer to absorb the slack -- so the nav keeps its
+   layout on /search and on mobile, where this field is not rendered at all. */
+.searchForm {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 20rem;
+  min-width: 0;
+  margin-inline: 12px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  width: 15px;
+  height: 15px;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px 0 30px;
+  font-size: 14px;
+  font-family: var(--font-plex-sans);
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--background) 60%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  outline: none;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.searchInput::placeholder {
+  color: var(--muted-foreground);
+}
+
+.searchInput:focus {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 30%, transparent);
+}
+
+/* Chrome/WebKit draw their own clear affordance for type=search; it collides
+   with the pill's rounded end. */
+.searchInput::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* Icon-only fallback shown where the input is hidden. */
+.searchLink {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  width: 30px;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.searchLink:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .navButton {
-  background-color: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 9999px;
   height: 36px;
-  padding: 0 16px;
+  padding: 0 14px;
   font-size: 14px;
-  color: #0a0a0a;
-  font-family: var(--font-open-sans);
-  box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+  color: var(--muted-foreground);
+  font-family: var(--font-plex-sans);
   display: flex;
   align-items: center;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .navButton:hover {
-  background-color: #8300FD;
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .navButton:active {
-  background-color: #E2F600;
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
-@media (max-width: 768px) {
-  .logoText {
+@media (max-width: 1020px) {
+  .wrapper {
+    padding: 8px 8px 4px;
+  }
+
+  /* No room for an input beside the primary tasks; use the icon link and
+     preserve every destination in an explicit menu. */
+  .searchForm {
     display: none;
   }
 
+  .searchLink {
+    display: flex;
+  }
+
   .navLinks {
-    gap: 6px;
+    display: none;
   }
 
-  .navButton {
-    padding: 0 10px;
-    font-size: 12px;
-    height: 30px;
+  .mobileMenu {
+    display: block;
   }
 }
 
-/* Dark mode */
-:global(.dark) .navButton {
-  background-color: #2a3050;
-  border-color: #3d4a6b;
-  color: white;
-}
-
-:global(.dark) .navButton:hover {
-  background-color: #8300FD;
-}
-
-:global(.dark) .navButton:active {
-  background-color: #E2F600;
+@media (max-width: 360px) {
+  .logoText {
+    display: none;
+  }
 }

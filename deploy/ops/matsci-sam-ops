@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+service=matsci-sam.service
+database=matsci-sam
+config=/etc/matsci-sam/app.env
+
+fail() {
+  echo "$*" >&2
+  exit 1
+}
+
+[[ ${EUID} -eq 0 ]] ||
+  fail "Run through sudo: sudo /usr/local/sbin/matsci-sam-ops <operation>"
+[[ $# -eq 1 ]] ||
+  fail "Allowed operations: status, runtime-summary, database-counts, config-presence, installation-contract"
+
+case $1 in
+  status)
+    systemctl show \
+      --no-pager \
+      --property=ActiveState \
+      --property=SubState \
+      --property=UnitFileState \
+      "${service}"
+    ;;
+  runtime-summary)
+    printf 'host=%s\n' "$(hostname)"
+    printf 'node=%s\n' "$(node --version 2>/dev/null || echo unavailable)"
+    printf 'pnpm=%s\n' "$(pnpm --version 2>/dev/null || echo unavailable)"
+    printf 'postgres=%s\n' \
+      "$(psql --version 2>/dev/null | awk '{print $3}' || echo unavailable)"
+    printf 'pgvector=%s\n' "$(
+      runuser -u postgres -- psql \
+        --host=/var/run/postgresql \
+        --port=5432 \
+        --dbname="${database}" \
+        --no-align \
+        --tuples-only \
+        --command="SELECT extversion FROM pg_extension WHERE extname = 'vector'" \
+        2>/dev/null || echo unavailable
+    )"
+    printf 'application=%s\n' \
+      "$(systemctl is-active "${service}" 2>/dev/null || true)"
+    printf 'application_enabled=%s\n' \
+      "$(systemctl is-enabled "${service}" 2>/dev/null || true)"
+    printf 'release=%s\n' \
+      "$(readlink -e /opt/matsci-sam/current 2>/dev/null || echo unavailable)"
+    printf 'port_3000=%s\n' "$(
+      if ss -ltnH '( sport = :3000 )' | grep -q .; then
+        echo listening
+      else
+        echo closed
+      fi
+    )"
+    ;;
+  database-counts)
+    initialized=$(
+      runuser -u postgres -- psql \
+        --host=/var/run/postgresql \
+        --port=5432 \
+        --dbname="${database}" \
+        --no-align \
+        --tuples-only \
+        --command="
+          SELECT CASE
+            WHEN to_regclass('public.users') IS NOT NULL
+             AND to_regclass('public.terms') IS NOT NULL
+             AND to_regclass('public.definitions') IS NOT NULL
+             AND to_regclass('drizzle.__drizzle_migrations') IS NOT NULL
+            THEN 'yes'
+            ELSE 'no'
+          END;
+        "
+    )
+    printf 'initialized=%s\n' "${initialized}"
+    if [[ ${initialized} == yes ]]; then
+      runuser -u postgres -- psql \
+        --host=/var/run/postgresql \
+        --port=5432 \
+        --dbname="${database}" \
+        --no-align \
+        --tuples-only \
+        --command="
+          SELECT 'terms=' || count(*) FROM terms
+          UNION ALL
+          SELECT 'definitions=' || count(*) FROM definitions
+          UNION ALL
+          SELECT 'users=' || count(*) FROM users
+          UNION ALL
+          SELECT 'migrations=' || count(*)
+          FROM drizzle.__drizzle_migrations;
+        "
+    fi
+    ;;
+  config-presence)
+    [[ -f ${config} && ! -L ${config} ]] ||
+      fail "The protected application environment is unavailable."
+    awk -F= '
+      BEGIN {
+        expected[++expected_count] = "NEXT_PUBLIC_SITE_URL"
+        expected[++expected_count] = "NEXT_PUBLIC_SITE_NAME"
+        expected[++expected_count] = "DATABASE_URL"
+        expected[++expected_count] = "GOOGLE_CLIENT_ID"
+        expected[++expected_count] = "GOOGLE_CLIENT_SECRET"
+        expected[++expected_count] = "GOOGLE_CALLBACK_URL"
+        expected[++expected_count] = "GOOGLE_AUTH_ACCESS_MODE"
+        expected[++expected_count] = "GOOGLE_AUTH_ALLOWED_EMAILS"
+        expected[++expected_count] = "SESSION_PASSWORD"
+        expected[++expected_count] = "SESSION_COOKIE_SECURE"
+        expected[++expected_count] = "AUTH_TOKEN_ENCRYPTION_KEY"
+        expected[++expected_count] = "ORCID_AUTH_ENABLED"
+        expected[++expected_count] = "EMAIL_AUTH_ENABLED"
+        expected[++expected_count] = "DEV_AUTH_ENABLED"
+        expected[++expected_count] = "OLLAMA_HOST"
+        expected[++expected_count] = "SYSTEM_PROMPT_KEY"
+        expected[++expected_count] = "REFINE_PROMPT_KEY"
+        for (i = 1; i <= expected_count; i++) {
+          wanted[expected[i]] = 1
+        }
+      }
+      /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+      {
+        key = $1
+        sub(/^[[:space:]]*/, "", key)
+        sub(/[[:space:]]*$/, "", key)
+        if (!(key in wanted)) next
+        count[key]++
+        value = substr($0, index($0, "=") + 1)
+        sub(/^[[:space:]]*/, "", value)
+        sub(/[[:space:]]*$/, "", value)
+        if (length(value) > 0) present[key] = 1
+      }
+      END {
+        for (i = 1; i <= expected_count; i++) {
+          key = expected[i]
+          if (count[key] == 0) {
+            state = "missing"
+          } else if (count[key] > 1) {
+            state = "duplicate"
+          } else if (present[key]) {
+            state = "set"
+          } else {
+            state = "blank"
+          }
+          print key "=" state
+        }
+      }
+    ' "${config}" | sort
+    ;;
+  installation-contract)
+    for path in \
+      /usr/local/sbin/matsci-sam-ops \
+      /etc/sudoers.d/matsci-sam-ops \
+      /etc/systemd/system/matsci-sam.service \
+      /etc/nginx/sites-available/matsci-sam-public-local-ready
+    do
+      label=${path##*/}
+      if [[ -f ${path} && ! -L ${path} ]]; then
+        printf '%s=%s\n' \
+          "${label}" \
+          "$(sha256sum "${path}" | awk '{print $1}')"
+      else
+        printf '%s=unavailable\n' "${label}"
+      fi
+    done
+    ;;
+  *)
+    fail "Operation not permitted: $1"
+    ;;
+esac

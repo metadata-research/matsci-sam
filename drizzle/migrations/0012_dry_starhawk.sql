@@ -1,0 +1,1 @@
+ALTER TABLE "definitionRefinements" ADD COLUMN "suggestedAt" timestamp with time zone;

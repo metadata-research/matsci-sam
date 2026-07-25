@@ -5,6 +5,12 @@ node_modules
 .pnp
 .pnp.js
 
+# Production database backups — contain real user data, never commit
+prod-backup-*/
+
+# Playwright MCP browser artifacts
+.playwright-mcp/
+
 # Local env files
 .env
 .env.local
@@ -33,6 +39,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Editor/IDE settings
+.vscode/
+.idea/
+
+# Machine-local Claude Code notes
+CLAUDE.local.md
+
 # Misc
 .DS_Store
 *.pem
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Internal docs
+docs-internal

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage MatSci Environments"
+  short_description: "Orchestrate workstations, Superego, and Ego"
+  default_prompt: "Use $manage-matsci-environments to inspect live MatSci state, confirm source and data authority, and route the operation safely."

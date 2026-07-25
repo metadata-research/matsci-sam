@@ -33,7 +33,7 @@
 }
 
 .indexTitle {
-  font-family: var(--font-open-sans);
+  font-family: var(--font-plex-sans);
   font-size: 20px;
   font-weight: 400;
   color: inherit;
@@ -41,7 +41,7 @@
 }
 
 .letterLink {
-  font-family: var(--font-open-sans);
+  font-family: var(--font-plex-sans);
   font-size: 18px;
   color: #2b7fff;
   text-decoration: none;

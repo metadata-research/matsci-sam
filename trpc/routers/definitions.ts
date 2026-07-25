@@ -9,22 +9,64 @@ import {
   chatsTable,
   usersTable,
   commentsTable,
-  tagsTable,
-  tagsToDefinitions
+  tagsToDefinitions,
+  refinementsTable,
+  coauthorsTable,
+  definitionRevisionsTable,
+  discussionSuggestionsTable
 } from "@yamz/db"
-import { and, desc, eq, getTableColumns, sql } from "drizzle-orm"
-import { adminProcedure, authenticatedProcedure } from "../procedures"
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  isNull,
+  like,
+  or,
+  sql
+} from "drizzle-orm"
+import { slugify, uniqueSlug } from "@/lib/slug"
+import {
+  adminProcedure,
+  authenticatedProcedure,
+  contributorProcedure
+} from "../procedures"
 import { revalidatePath } from "next/cache"
 import { reviseDefinition } from "@/lib/apis/ollama"
 import { after } from "next/server"
+import { TRPCError } from "@trpc/server"
+import {
+  createDefinitionWithInitialRevision,
+  publishDefinitionRevision,
+  RevisionConflictError,
+  RevisionNoChangeError
+} from "@/lib/definition-revisions"
+import {
+  CHANGE_NOTE_MAX_LENGTH,
+  DEFINITION_MAX_LENGTH,
+  EXAMPLE_MAX_LENGTH,
+  TERM_MAX_LENGTH
+} from "@/lib/input-limits"
+import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 
 export const definitionsRouter = createTRPCRouter({
-  create: authenticatedProcedure
+  create: contributorProcedure
     .input(
       z.object({
-        term: z.string().nonempty("Term is required"),
-        definition: z.string().nonempty("You must give a definition"),
-        examples: z.string().nonempty("You must give an example")
+        term: z.string().trim().min(1, "Term is required").max(TERM_MAX_LENGTH),
+        definition: z
+          .string()
+          .trim()
+          .min(1, "You must give a definition")
+          .max(DEFINITION_MAX_LENGTH),
+        examples: z
+          .string()
+          .trim()
+          .min(1, "You must give an example")
+          .max(EXAMPLE_MAX_LENGTH),
+        // The interactive add flow: no term-level auto-AI definition; the
+        // author refines their own definition on the definition page instead
+        interactive: z.boolean().default(false)
       })
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
@@ -36,42 +78,80 @@ export const definitionsRouter = createTRPCRouter({
           where: eq(termsTable.term, term)
         })
         if (!dbTerm) {
-          //first time term has been defined, so create it
+          // First time this term has been defined, so create it -- with its
+          // public slug. Distinct terms can normalize to the same slug
+          // ("Band Gap" vs "band gap"), so check what is taken and let
+          // uniqueSlug() number the collision the way OED numbers homographs.
+          // Read inside the transaction so a concurrent insert cannot slip a
+          // colliding slug in between; the unique index is the backstop.
+          const conflicting = await tx
+            .select({ slug: termsTable.slug })
+            .from(termsTable)
+            .where(like(termsTable.slug, `${slugify(term)}%`))
+
           const [insertedTerm] = await tx
             .insert(termsTable)
-            .values({ term })
+            .values({
+              term,
+              slug: uniqueSlug(term, new Set(conflicting.map((c) => c.slug)))
+            })
             .returning()
 
-          // insert the ai chat
-          await tx.insert(chatsTable).values({
-            role: "user",
-            message: `<term>\n${term}\n<example>\n${input.examples}`,
-            termId: insertedTerm.id
-          })
+          if (!input.interactive) {
+            // insert the ai chat
+            await tx.insert(chatsTable).values({
+              role: "user",
+              userId: authorId,
+              message: `<term>\n${term}\n<example>\n${input.examples}`,
+              termId: insertedTerm.id
+            })
 
-          after(() => {
-            // Automatically create AI definition on new term creation
-            reviseDefinition(insertedTerm.id)
-          })
+            after(() => {
+              // Automatically create AI definition on new term creation
+              reviseDefinition(insertedTerm.id)
+            })
+          }
 
           dbTerm = insertedTerm
         }
 
-        const [insertedDefinition] = await tx
-          .insert(definitionsTable)
-          .values({
+        const existingOriginal = await tx.query.definitionsTable.findFirst({
+          columns: { id: true },
+          where: and(
+            eq(definitionsTable.termId, dbTerm.id),
+            eq(definitionsTable.authorId, authorId),
+            isNull(definitionsTable.refinedFromId)
+          )
+        })
+        if (existingOriginal)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "You already contributed a definition for this term. Open your existing definition to publish a revision."
+          })
+
+        const { definition: insertedDefinition } =
+          await createDefinitionWithInitialRevision(tx, {
             termId: dbTerm.id,
             authorId,
             definition: input.definition,
-            example: input.examples
+            example: input.examples,
+            changeNote: "Initial contribution",
+            source: "initial",
+            createdVia: input.interactive ? "interactive" : "classic"
           })
-          .returning()
 
         return { term: dbTerm, definition: insertedDefinition }
       })
 
       revalidatePath("/terms")
       revalidatePath(`/terms/${term.id}`)
+      await revalidatePublicDefinition({
+        definitionId: definition.id,
+        definitionNumber: definition.definitionNumber,
+        termId: term.id,
+        version: 1
+      })
 
       return { term, definition }
     }),
@@ -79,76 +159,316 @@ export const definitionsRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.number(),
-        definition: z.string(),
-        example: z.string()
+        definition: z
+          .string()
+          .trim()
+          .min(1, "Definition is required")
+          .max(DEFINITION_MAX_LENGTH),
+        example: z
+          .string()
+          .trim()
+          .min(1, "Example of use is required")
+          .max(EXAMPLE_MAX_LENGTH),
+        changeNote: z
+          .string()
+          .trim()
+          .min(3, "Briefly describe what changed")
+          .max(CHANGE_NOTE_MAX_LENGTH),
+        expectedRevisionId: z.number()
       })
     )
     .mutation(
-      async ({ ctx: { userId }, input: { id, definition, example } }) => {
-        const res = await db.transaction(async (tx) => {
-          const where = and(
-            eq(definitionsTable.authorId, userId),
-            eq(definitionsTable.id, id)
-          )
+      async ({
+        ctx: { userId },
+        input: { id, definition, example, changeNote, expectedRevisionId }
+      }) => {
+        try {
+          const result = await db.transaction(async (tx) => {
+            const owned = await tx.query.definitionsTable.findFirst({
+              columns: { id: true },
+              where: and(
+                eq(definitionsTable.authorId, userId),
+                eq(definitionsTable.id, id)
+              )
+            })
 
-          // find the old definition
-          const def = await db.query.definitionsTable.findFirst({
-            where
+            if (!owned)
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Definition doesn't exist or isn't yours"
+              })
+
+            return publishDefinitionRevision(tx, {
+              definitionId: id,
+              editorId: userId,
+              definition,
+              example,
+              changeNote,
+              source: "author_edit",
+              expectedRevisionId
+            })
           })
 
-          if (!def) throw new Error("Definition doesn't exist")
+          revalidatePath("/terms")
+          await revalidatePublicDefinition({
+            definitionId: result.definition.id,
+            definitionNumber: result.definition.definitionNumber,
+            termId: result.definition.termId,
+            version: result.revision.version
+          })
+          return result
+        } catch (error) {
+          if (error instanceof RevisionConflictError)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: error.message
+            })
+          if (error instanceof RevisionNoChangeError)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: error.message
+            })
+          throw error
+        }
+      }
+    ),
+  restoreRevision: authenticatedProcedure
+    .input(
+      z.object({
+        definitionId: z.number(),
+        revisionId: z.number(),
+        expectedRevisionId: z.number(),
+        changeNote: z.string().trim().min(3).max(CHANGE_NOTE_MAX_LENGTH)
+      })
+    )
+    .mutation(
+      async ({
+        ctx: { userId },
+        input: { definitionId, revisionId, expectedRevisionId, changeNote }
+      }) => {
+        try {
+          const result = await db.transaction(async (tx) => {
+            const definition = await tx.query.definitionsTable.findFirst({
+              columns: { id: true },
+              where: and(
+                eq(definitionsTable.id, definitionId),
+                eq(definitionsTable.authorId, userId)
+              )
+            })
+            if (!definition)
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Definition doesn't exist or isn't yours"
+              })
 
-          // update it
-          const [updatedDef] = await tx
-            .update(definitionsTable)
-            .set({ definition, example })
-            .where(where)
-            .returning()
+            const target = await tx.query.definitionRevisionsTable.findFirst({
+              where: and(
+                eq(definitionRevisionsTable.id, revisionId),
+                eq(definitionRevisionsTable.definitionId, definitionId)
+              )
+            })
+            if (!target)
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "No such revision"
+              })
+            if (target.example === null)
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "This imported legacy revision has no recorded example and cannot be restored directly."
+              })
 
-          await db.insert(editsTable).values({
-            definitionId: def.id,
-            definition: def.definition,
-            newDefinition: definition
+            return publishDefinitionRevision(tx, {
+              definitionId,
+              editorId: userId,
+              definition: target.definition,
+              example: target.example,
+              changeNote,
+              source: "rollback",
+              expectedRevisionId,
+              derivedFromRevisionId: target.id
+            })
           })
 
-          return updatedDef
-        })
-
-        return res
+          revalidatePath("/terms")
+          await revalidatePublicDefinition({
+            definitionId: result.definition.id,
+            definitionNumber: result.definition.definitionNumber,
+            termId: result.definition.termId,
+            version: result.revision.version
+          })
+          return result
+        } catch (error) {
+          if (error instanceof RevisionConflictError)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: error.message
+            })
+          if (error instanceof RevisionNoChangeError)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: error.message
+            })
+          throw error
+        }
       }
     ),
   get: baseProcedure
-    .input(z.object({ definitionId: z.number() }))
-    .query(async ({ ctx: { userId }, input: { definitionId } }) => {
-      const definitionsQuery = db
+    .input(
+      z.object({ definitionId: z.number(), version: z.number().optional() })
+    )
+    .query(async ({ ctx: { userId }, input: { definitionId, version } }) => {
+      const [def] = await db
         .select({
           ...getTableColumns(definitionsTable),
           author: {
+            id: usersTable.id,
             name: usersTable.name,
-            isAi: usersTable.isAi
+            isAi: usersTable.isAi,
+            isProfilePublic: usersTable.isProfilePublic
           },
           term: termsTable.term,
-          vote: userId
-            ? sql<"up" | "down" | null>`${votesTable.kind}`.as("vote")
-            : sql<"up" | "down" | null>`null`.as("vote")
+          termSlug: termsTable.slug
         })
         .from(definitionsTable)
         .where(eq(definitionsTable.id, definitionId))
         .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
         .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
 
-      if (userId)
-        definitionsQuery.leftJoin(
-          votesTable,
-          and(
-            eq(votesTable.userId, userId),
-            eq(votesTable.definitionId, definitionsTable.id)
-          )
+      if (!def) return def
+
+      const revisions = await db
+        .select({
+          id: definitionRevisionsTable.id,
+          version: definitionRevisionsTable.version,
+          definition: definitionRevisionsTable.definition,
+          example: definitionRevisionsTable.example,
+          changeNote: definitionRevisionsTable.changeNote,
+          source: definitionRevisionsTable.source,
+          model: definitionRevisionsTable.model,
+          prompt: definitionRevisionsTable.prompt,
+          createdAt: definitionRevisionsTable.createdAt,
+          legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
+          editor: {
+            id: usersTable.id,
+            name: usersTable.name,
+            isAi: usersTable.isAi,
+            isProfilePublic: usersTable.isProfilePublic
+          },
+          score:
+            sql<number>`coalesce(sum(case when ${votesTable.kind} = 'up' then 1 when ${votesTable.kind} = 'down' then -1 else 0 end), 0)`
+              .mapWith(Number)
+              .as("score")
+        })
+        .from(definitionRevisionsTable)
+        .leftJoin(
+          usersTable,
+          eq(usersTable.id, definitionRevisionsTable.editorId)
         )
+        .leftJoin(
+          votesTable,
+          eq(votesTable.revisionId, definitionRevisionsTable.id)
+        )
+        .where(eq(definitionRevisionsTable.definitionId, definitionId))
+        .groupBy(definitionRevisionsTable.id, usersTable.id)
+        .orderBy(desc(definitionRevisionsTable.version))
 
-      const [def] = await definitionsQuery
+      const selectedRevision = version
+        ? revisions.find((revision) => revision.version === version)
+        : revisions.find((revision) => revision.id === def.currentRevisionId)
 
-      return def
+      if (!selectedRevision)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: version
+            ? `Revision ${version} does not exist`
+            : "Definition has no current revision"
+        })
+
+      const vote = userId
+        ? await db.query.votesTable.findFirst({
+            columns: { kind: true },
+            where: and(
+              eq(votesTable.userId, userId),
+              eq(votesTable.revisionId, selectedRevision.id)
+            )
+          })
+        : null
+
+      // Additional authors (the model, for accepted AI refinements)
+      const coauthors = selectedRevision.model
+        ? await db
+            .select({
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            })
+            .from(coauthorsTable)
+            .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
+            .where(
+              and(
+                eq(coauthorsTable.definitionId, def.id),
+                eq(usersTable.isAi, true),
+                eq(usersTable.name, selectedRevision.model)
+              )
+            )
+        : []
+
+      // Public identities for both sides of the accepted-refinement lineage.
+      // Internal row IDs remain relationship keys only and are not exposed in
+      // the links rendered by the definition page.
+      const [refinedFrom, refinedVersion] = await Promise.all([
+        def.refinedFromId === null
+          ? null
+          : db.query.definitionsTable.findFirst({
+              columns: { definitionNumber: true },
+              where: eq(definitionsTable.id, def.refinedFromId)
+            }),
+        def.authorId === null
+          ? null
+          : db.query.definitionsTable.findFirst({
+              columns: { id: true, definitionNumber: true },
+              where: and(
+                eq(definitionsTable.refinedFromId, def.id),
+                eq(definitionsTable.authorId, def.authorId),
+                sql`exists (
+                  select 1
+                  from ${definitionRevisionsTable} artifact_revision
+                  where artifact_revision."definitionId" = ${definitionsTable.id}
+                    and artifact_revision."sourceRefinementId" is not null
+                )`
+              )
+            })
+      ])
+
+      const currentVersion =
+        revisions.find((revision) => revision.id === def.currentRevisionId)
+          ?.version ?? selectedRevision.version
+
+      return {
+        ...def,
+        definition: selectedRevision.definition,
+        example: selectedRevision.example,
+        model: selectedRevision.model,
+        prompt: selectedRevision.prompt,
+        score: selectedRevision.score,
+        vote: vote?.kind ?? null,
+        revisionId: selectedRevision.id,
+        version: selectedRevision.version,
+        currentVersion,
+        isCurrentRevision: selectedRevision.id === def.currentRevisionId,
+        revisionCreatedAt: selectedRevision.createdAt,
+        changeNote: selectedRevision.changeNote,
+        legacyIncomplete: selectedRevision.legacyIncomplete,
+        editor: selectedRevision.editor,
+        revisions,
+        coauthors,
+        refinedFromDefinitionNumber: refinedFrom?.definitionNumber ?? null,
+        refinedVersionId: refinedVersion?.id ?? null,
+        refinedVersionDefinitionNumber: refinedVersion?.definitionNumber ?? null
+      }
     }),
   mine: authenticatedProcedure.query(async ({ ctx: { userId } }) => {
     const definitionsQuery = db.query.definitionsTable.findMany({
@@ -165,22 +485,43 @@ export const definitionsRouter = createTRPCRouter({
       const definitionsQuery = db
         .select({
           ...getTableColumns(definitionsTable),
+          revisionId: definitionRevisionsTable.id,
+          version: definitionRevisionsTable.version,
           isAi: usersTable.isAi,
+          author: usersTable.name,
+          authorProfilePublic: usersTable.isProfilePublic,
+          comments:
+            sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
+              .mapWith(Number)
+              .as("comments"),
           vote: userId
             ? sql<"up" | "down" | null>`${votesTable.kind}`.as("vote")
             : sql<"up" | "down" | null>`null`.as("vote")
         })
         .from(definitionsTable)
         .where(and(eq(definitionsTable.termId, termId)))
+        .innerJoin(
+          definitionRevisionsTable,
+          eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
+        )
         .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
-        .orderBy(desc(definitionsTable.score))
+        // Highest voted first, newest breaking ties, then the permanent
+        // definition number for identical timestamps. The tiebreak matters:
+        // score alone left equal-scored definitions in whatever order the
+        // planner returned, so the one shown first -- the term's default --
+        // could change between requests.
+        .orderBy(
+          desc(definitionsTable.score),
+          desc(definitionsTable.createdAt),
+          desc(definitionsTable.definitionNumber)
+        )
 
       if (userId)
         definitionsQuery.leftJoin(
           votesTable,
           and(
             eq(votesTable.userId, userId),
-            eq(votesTable.definitionId, definitionsTable.id)
+            eq(votesTable.revisionId, definitionRevisionsTable.id)
           )
         )
 
@@ -190,46 +531,94 @@ export const definitionsRouter = createTRPCRouter({
     .input(z.number())
     .mutation(async ({ input: definitionId }) => {
       // start a tx so if something fails, everything will get restored
-      return await db.transaction(async (tx) => {
-        await tx
-          .delete(commentsTable)
-          .where(eq(commentsTable.definitionId, definitionId))
-
-        await tx
-          .delete(votesTable)
-          .where(eq(votesTable.definitionId, definitionId))
-
-        await tx
-          .delete(editsTable)
-          .where(eq(editsTable.definitionId, definitionId))
-
-        await tx
-          .delete(tagsToDefinitions)
-          .where(eq(tagsToDefinitions.definitionId, definitionId))
-
-        const [deletedDef] = await tx
-          .delete(definitionsTable)
-          .where(eq(definitionsTable.id, definitionId))
-          .returning()
-
-        // check if there exists any other definitions
-        const otherDef = await tx.query.definitionsTable.findFirst({
-          where: eq(definitionsTable.termId, deletedDef.termId)
-        })
-
-        // if there arent, delete the term as well so that a new
-        // AI def will be created when its redefined
-        if (!otherDef) {
+      const deleted = await db.transaction(async (tx) => {
+        // everything that references a single definition row
+        const deleteDefinitionRows = async (id: number) => {
           await tx
-            .delete(chatsTable)
-            .where(eq(chatsTable.termId, deletedDef.termId))
+            .delete(discussionSuggestionsTable)
+            .where(
+              or(
+                eq(discussionSuggestionsTable.definitionId, id),
+                eq(discussionSuggestionsTable.outputDefinitionId, id)
+              )
+            )
 
           await tx
-            .delete(termsTable)
-            .where(eq(termsTable.id, deletedDef.termId))
+            .delete(commentsTable)
+            .where(eq(commentsTable.definitionId, id))
+
+          await tx.delete(votesTable).where(eq(votesTable.definitionId, id))
+
+          await tx.delete(editsTable).where(eq(editsTable.definitionId, id))
+
+          await tx
+            .delete(tagsToDefinitions)
+            .where(eq(tagsToDefinitions.definitionId, id))
+
+          await tx
+            .delete(refinementsTable)
+            .where(eq(refinementsTable.definitionId, id))
+
+          await tx
+            .delete(coauthorsTable)
+            .where(eq(coauthorsTable.definitionId, id))
+
+          await tx
+            .update(definitionsTable)
+            .set({ currentRevisionId: null })
+            .where(eq(definitionsTable.id, id))
+
+          await tx
+            .delete(definitionRevisionsTable)
+            .where(eq(definitionRevisionsTable.definitionId, id))
+
+          const [deleted] = await tx
+            .delete(definitionsTable)
+            .where(eq(definitionsTable.id, id))
+            .returning()
+
+          return deleted
         }
+
+        // Refined alternatives can themselves be sources for Discussion
+        // suggestions. Delete the complete descendant graph bottom-up so no
+        // refinedFromId or exact-revision derivation is left dangling.
+        const visited = new Set<number>()
+        const deleteDefinitionGraph = async (id: number) => {
+          if (visited.has(id)) return null
+          visited.add(id)
+
+          const refinedChildren = await tx.query.definitionsTable.findMany({
+            columns: { id: true },
+            where: eq(definitionsTable.refinedFromId, id)
+          })
+          for (const child of refinedChildren)
+            await deleteDefinitionGraph(child.id)
+
+          return deleteDefinitionRows(id)
+        }
+
+        const deletedDef = await deleteDefinitionGraph(definitionId)
+        if (!deletedDef)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Definition does not exist"
+          })
+
+        // Keep the term row even when its last definition is removed. Its slug
+        // and nextDefinitionNumber are part of the public identifier ledger:
+        // deleting the row would allow /vocabulary/<slug>/definitions/1 to be
+        // minted again for unrelated content. A future withdrawal lifecycle
+        // will replace this pre-pilot hard delete with a resolvable tombstone.
 
         return deletedDef
       })
+
+      await revalidatePublicDefinition({
+        definitionId: deleted.id,
+        definitionNumber: deleted.definitionNumber,
+        termId: deleted.termId
+      })
+      return deleted
     })
 })

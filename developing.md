@@ -1,6 +1,7 @@
-# MatSci YAMZ Developer Guide
+# MatSci SAM developer guide
 
-Welcome to the MatSci YAMZ development guide! This document will help you understand how to add features, modify pages, and work with the database in this codebase.
+This guide covers local setup, application changes, database migrations,
+authentication, and release boundaries.
 
 ## Table of Contents
 
@@ -12,6 +13,7 @@ Welcome to the MatSci YAMZ development guide! This document will help you unders
 - [Working with tRPC APIs](#working-with-trpc-apis)
 - [UI Components](#ui-components)
 - [Authentication](#authentication)
+- [AI System Prompts](#ai-system-prompts)
 - [Common Tasks](#common-tasks)
 - [Deployment](#deployment)
 
@@ -40,7 +42,7 @@ Visit `http://localhost:3000` to see the app running.
 
 ## Technology Stack
 
-- **Frontend**: Next.js 15 (App Router), React 19, TypeScript
+- **Frontend**: Next.js 16 (App Router), React 19, TypeScript
 - **Backend**: tRPC for type-safe APIs
 - **Database**: PostgreSQL with Drizzle ORM
 - **Styling**: Tailwind CSS 4 + shadcn/ui components
@@ -74,15 +76,18 @@ Visit `http://localhost:3000` to see the app running.
 
 ### Understanding the Schema
 
-The database schema is defined in `drizzle/schema.ts`. Main tables:
+The database schema is defined in `drizzle/schema.ts`. Its main records
+include:
 
-- **users** - User accounts (Google OAuth)
-- **terms** - Material science terms
-- **definitions** - Definitions for terms (one per user per term)
-- **votes** - User votes on definitions
-- **comments** - Comments on definitions
-- **tags** - Category tags
-- **definitionEdits** - Edit history
+- `users` for human and named model identities, profile consent, roles, and
+  reputation weight
+- `oauthAccounts` and `emailAuthTokens` for external and verified-email
+  authentication
+- `terms` for vocabulary concepts
+- `definitions` for the stable definition identity and current revision head
+- `definitionRevisions` for immutable content versions and provenance
+- `votes` and `comments`, each scoped to a definition revision
+- `tags`, coauthors, refinement records, and discussion suggestions
 
 ### Creating a Migration
 
@@ -176,7 +181,7 @@ export default function MyPage() {
 
 ```tsx
 export const metadata = {
-  title: "My Page - MatSci YAMZ",
+  title: "My Page - MatSci SAM",
   description: "Description of my page",
 }
 ```
@@ -407,17 +412,17 @@ The theme supports dark mode automatically via CSS variables.
 **In Server Components:**
 
 ```tsx
-import { getIronSession } from "iron-session"
-import { sessionOptions } from "@/lib/session"
-import { cookies } from "next/headers"
+import { GetUser } from "@/lib/crud"
+import { getSession } from "@/lib/session"
 
 export default async function MyPage() {
-  const session = await getIronSession(await cookies(), sessionOptions)
-  const user = session.user
-
-  if (!user) {
+  const session = await getSession()
+  if (!session.id) {
     return <div>Please log in</div>
   }
+
+  const user = await GetUser(session.id)
+  if (!user) return <div>Account unavailable</div>
 
   return <div>Welcome, {user.name}!</div>
 }
@@ -431,7 +436,7 @@ export default async function MyPage() {
 import { trpc } from "@/trpc/client"
 
 export function MyComponent() {
-  const { data: user } = trpc.user.me.useQuery()
+  const { data: user } = trpc.me.useQuery()
 
   if (!user) return <div>Not logged in</div>
 
@@ -455,12 +460,84 @@ create: authenticatedProcedure
 ### Checking Admin Status
 
 ```tsx
-const { data: user } = trpc.user.me.useQuery()
+const { data: user } = trpc.me.useQuery()
 
-if (user?.isAdmin) {
+if (user?.role === "admin") {
   // Admin-only UI
 }
 ```
+
+---
+
+## AI System Prompts
+
+The AI definition feature sends a **system prompt** to Ollama with every request.
+All prompts live in one file:
+
+```
+lib/prompts.json
+```
+
+### File format
+
+Each entry is a named prompt with a human-readable description:
+
+```json
+{
+  "materials-reference": {
+    "description": "Steers the model toward materials-science-literature style and requires an original example.",
+    "prompt": "You are a materials science reference. When given a term, ..."
+  }
+}
+```
+
+### Which prompt does the app use?
+
+Selection happens at startup in `lib/apis/ollama.ts`, controlled by two
+environment variables in `.env`:
+
+- `SYSTEM_PROMPT_KEY` — the name of an entry in `lib/prompts.json`
+  (e.g. `SYSTEM_PROMPT_KEY=materials-reference`). This is the normal way.
+- `SYSTEM_PROMPT` — raw prompt text. Optional; if set, it **takes precedence**
+  over `SYSTEM_PROMPT_KEY`. Mainly for quick experiments and older deployments.
+
+If neither is set, or the key doesn't exist in the file, the app throws at
+startup with a list of available prompt names.
+
+### Changing or adding a prompt
+
+1. Edit `lib/prompts.json` — either revise an existing entry's `prompt` text or
+   add a new entry with a unique key, a `description`, and a `prompt`.
+   Prefer adding a new entry over rewriting an old one, so the previous wording
+   stays available for comparison.
+2. Test it against the live model **without touching the database**:
+
+   ```bash
+   pnpm exec tsx scripts/test-prompt.ts "austenite"
+   pnpm exec tsx scripts/test-prompt.ts "creep" "The turbine blade failed by creep."
+   ```
+
+   The script runs *every* prompt in the file against the same term and prints
+   each definition/example side by side, with timing.
+3. Point the app at your prompt: set `SYSTEM_PROMPT_KEY=<your-key>` in `.env`.
+4. **Restart the dev server** (`pnpm dev`). The prompt is resolved once at
+   startup, so edits to the JSON or `.env` are not picked up by a running server.
+
+### Deployed environments
+
+The same selection rules apply to a deployed environment. Commit changes to
+`lib/prompts.json`, update `SYSTEM_PROMPT_KEY` in the protected environment,
+and rebuild through the environment runbook. Do not edit a deployed release
+in place.
+
+### Generation provenance
+
+Every AI response row in the `chats` table is stamped with the exact
+conditions that produced it: `promptKey`, `promptHash`, `promptText`, and
+`model`. This makes prompt experiments reportable after the fact — you can
+attribute any generated definition to the prompt version and model that wrote
+it (e.g. `SELECT "promptKey", "promptHash", count(*) FROM chats GROUP BY 1, 2`).
+Don't remove or bypass these fields when touching the AI pipeline.
 
 ---
 
@@ -560,12 +637,17 @@ Tags are many-to-many with definitions. See `trpc/routers/tags.ts` for the API a
 Ensure all required variables are set (see `.env.example`):
 
 - `DATABASE_URL` - PostgreSQL connection
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` - OAuth
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` - Google
+  OAuth web client
+- `GOOGLE_AUTH_ACCESS_MODE` - `existing-or-allowlisted` or `open`
+- `GOOGLE_AUTH_ALLOWED_EMAILS` - optional exact comma-separated accounts
+  allowed to create users in the restricted mode
 - `SESSION_PASSWORD` - Session encryption (32+ chars)
 - `OLLAMA_HOST` - AI service URL
-- `SYSTEM_PROMPT` - AI prompt configuration
+- `SYSTEM_PROMPT_KEY` - Name of an AI system prompt from `lib/prompts.json` — see [AI System Prompts](#ai-system-prompts)
+- `SYSTEM_PROMPT` - Raw AI prompt text; optional, takes precedence over `SYSTEM_PROMPT_KEY`
 
-### Production Build
+### Production build
 
 ```bash
 # Install dependencies
@@ -581,15 +663,26 @@ pnpm build
 pnpm start
 ```
 
-### Upgrade Script
+These commands build one checkout. They do not provide database backup,
+service coordination, release switching, health checks, or rollback.
 
-For production deployments, use the upgrade script:
+### Server deployment
 
-```bash
-./scripts/upgrade.sh
-```
+A merge to `dev` does not deploy Superego. Maintainers use the runbook for the
+target environment. Superego owns private development data; Ego owns its
+independent public database after initialization.
 
-This script handles pulling code, installing dependencies, running migrations, and restarting the service.
+The legacy deployment workflows are disabled. Do not merge or push a public
+candidate to `main` until their self-hosted runners and deployment privileges
+are retired and the old deployment workflow is removed. After that boundary
+is verified, promote only a Git tree already deployed and validated on
+Superego, then build it independently on Ego under the protected public
+environment.
+
+Before deployment, decide which database contains the authoritative data. A
+disposable development target may be reset from a verified source snapshot. A
+server with unique user data requires a write pause, a verified database
+backup, forward migration, and database-aware rollback.
 
 ---
 

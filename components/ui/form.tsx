@@ -97,7 +97,12 @@ function FormLabel({
     <Label
       data-slot="form-label"
       data-error={!!error}
-      className={cn("data-[error=true]:text-destructive", className)}
+      // eyebrow style: labels annotate the field like axis labels on a plot
+      className={cn(
+        "text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground",
+        "data-[error=true]:text-destructive",
+        className,
+      )}
       htmlFor={formItemId}
       {...props}
     />

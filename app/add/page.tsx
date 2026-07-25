@@ -1,26 +1,23 @@
 import type { Metadata } from "next"
-export const metadata: Metadata = { title: "Add Definition | MatSci YAMZ" }
-import { auth } from "@/lib/auth";
-import { DefineTermForm } from "./form";
-import { HydrateClient, trpc } from "@/trpc/server";
+import { SITE_NAME } from "@/lib/site"
+export const metadata: Metadata = { title: `Add Definition | ${SITE_NAME}` }
+import { auth } from "@/lib/auth"
+import { HydrateClient, trpc } from "@/trpc/server"
+import { initialTermFromSearchParam } from "./initial-term"
+import { AddTermPageContent } from "./page-content"
 
-export default async function AddTermPage() {
-  await auth();
-  await trpc.terms.list.prefetch(undefined);
+export default async function AddTermPage({
+  searchParams
+}: {
+  searchParams: Promise<{ term?: string | string[] }>
+}) {
+  await auth()
+  await trpc.terms.list.prefetch(undefined)
+  const { term } = await searchParams
 
   return (
     <HydrateClient>
-      <main className="flex-1 px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-4">
-            <h1 className="text-3xl font-bold leading-none">Define a Term</h1>
-            <p className="text-secondary-foreground mt-2">
-              Instructions will go here
-            </p>
-          </div>
-          <DefineTermForm />
-        </div>
-      </main>
+      <AddTermPageContent initialTerm={initialTermFromSearchParam(term)} />
     </HydrateClient>
-  );
+  )
 }

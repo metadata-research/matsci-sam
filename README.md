@@ -1,36 +1,56 @@
-# MatSci YAMZ Metadictionary
+# MatSci SAM
 
-This is the source code for matsci.yamz.net
+MatSci SAM is a community metadata dictionary for materials science
+terminology. The application uses Next.js, PostgreSQL, Drizzle ORM, tRPC, and
+an optional Ollama service for AI-assisted definition work.
 
-## Requirements
+## Local development
 
-Running the MatSci YAMZ web server requires two other services to be running
+1. Copy `.env.example` to `.env` and set the local values.
+2. Install dependencies with `pnpm install`.
+3. Apply local migrations with `pnpm db:migrate`.
+4. Start the development server with `pnpm dev`.
+5. Open <http://localhost:3000>.
 
-1. PostgreSQL (database)
-2. Ollama (running LLM models)
+PostgreSQL is required. Ollama is required only for AI generation and
+refinement.
 
-## Installation
+## Verification
 
-1. Copy `.env.example` to `.env` and fill in each environment variable with it's appropriate value
-2. Run `pnpm install` to install all required dependencies
-3. Run `pnpm db:migrate` to get your database setup
-4. For development, run `pnpm dev`
-5. For production, run `pnpm build` to build the project and then `pnpm start` to serve the app
+Run these checks before opening a pull request:
 
-## Upgrading
+```bash
+pnpm lint
+pnpm check-types
+pnpm db:check
+pnpm build
+```
 
-After pulling a new version of MatSci YAMZ use the upgrade script in `scripts/upgrade.sh` to install dependencies, migrate the database, and build the new version of the app
+## Branches and deployment
 
-## Stack
+Feature work enters the `dev` branch through a pull request. A merge to `dev`
+updates source control but does not deploy Superego.
 
-- **NextJS**: The web framework used for generating server and client side pages
-- **DrizzleORM**: ORM for interacting with the postgres database
-- **TRPc**: Used to easily make server side actions that can be used on the server and client
+Superego deployment is a separate maintainer operation. The `dev` branch does
+not grant a self-hosted runner authority to migrate its database or restart
+its service. The files in [`deploy/`](deploy/) contain shared host
+provisioning, the reviewed in-place Superego release wrapper, the independent
+Ego runtime profile, and the one-way Superego database snapshot wrapper.
+Private environment policy remains in `docs-internal`.
 
-## Folder Structure
+The legacy production workflows are disabled. Do not merge or push a public
+candidate to `main` until their self-hosted runners and deployment privileges
+have also been retired and the old deployment workflow has been removed.
+After that boundary is verified, the intended public path promotes a tree
+already validated on Superego from `dev` to `main` and builds it independently
+on Ego.
 
-- `/app` - Each `page.tsx` refers to a page on the website
-- `/trpc` - CRUD operations
-- `/scripts` - Helper scripts for dumping the database and upgrading
-- `/drizzle` - Database schema and migrations
-- `/lib` - Helper functions for interacting with Google and Ollama API
+## Project structure
+
+- `app/`: Next.js routes and server actions
+- `components/`: shared interface components
+- `trpc/`: application procedures
+- `drizzle/`: database schema and migrations
+- `lib/`: authentication, metadata, mail, and AI integrations
+- `scripts/`: development and diagnostic helpers
+- `deploy/`: provisioning and reviewed environment-operation wrappers

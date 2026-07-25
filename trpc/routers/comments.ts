@@ -5,12 +5,15 @@ import {
   commentsTable,
   usersTable,
   definitionsTable,
-  chatsTable
+  chatsTable,
+  definitionRevisionsTable
 } from "@yamz/db"
-import { asc, eq, getTableColumns } from "drizzle-orm"
-import { authenticatedProcedure } from "../procedures"
+import { and, asc, eq, getTableColumns } from "drizzle-orm"
 import { reviseDefinition } from "@/lib/apis/ollama"
 import { after } from "next/server"
+import { TRPCError } from "@trpc/server"
+import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
+import { contributorProcedure } from "../procedures"
 
 export const commentsRouter = createTRPCRouter({
   get: baseProcedure.input(z.number()).query(async ({ input: id }) => {
@@ -18,58 +21,91 @@ export const commentsRouter = createTRPCRouter({
       .select({
         ...getTableColumns(commentsTable),
         author: {
-          name: usersTable.name
-        }
+          id: usersTable.id,
+          name: usersTable.name,
+          isAi: usersTable.isAi,
+          isProfilePublic: usersTable.isProfilePublic
+        },
+        version: definitionRevisionsTable.version
       })
       .from(commentsTable)
       .where(eq(commentsTable.definitionId, id))
       .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
+      .innerJoin(
+        definitionRevisionsTable,
+        eq(definitionRevisionsTable.id, commentsTable.revisionId)
+      )
       .orderBy(asc(commentsTable.createdAt))
 
     return comments
   }),
-  create: authenticatedProcedure
-    .input(z.object({ id: z.number(), comment: z.string().nonempty() }))
-    .mutation(async ({ input: { id, comment }, ctx: { userId } }) => {
-      const insertedComment = await db.transaction(async (tx) => {
-        const [insertedComment] = await tx
-          .insert(commentsTable)
-          .values({
-            definitionId: id,
-            userId,
-            message: comment
+  create: contributorProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        revisionId: z.number(),
+        comment: z.string().trim().min(1).max(COMMENT_MAX_LENGTH)
+      })
+    )
+    .mutation(
+      async ({ input: { id, revisionId, comment }, ctx: { userId } }) => {
+        const insertedComment = await db.transaction(async (tx) => {
+          const revision = await tx.query.definitionRevisionsTable.findFirst({
+            columns: { id: true },
+            where: and(
+              eq(definitionRevisionsTable.id, revisionId),
+              eq(definitionRevisionsTable.definitionId, id)
+            )
           })
-          .returning()
+          if (!revision)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message:
+                "The definition revision you commented on no longer exists."
+            })
 
-        // fetch some info about this term
-        const [definition] = await tx
-          .select({
-            isAi: usersTable.isAi,
-            termId: definitionsTable.termId,
-            id: definitionsTable.id
-          })
-          .from(definitionsTable)
-          .where(eq(definitionsTable.id, id))
-          .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
-          .limit(1)
+          const [insertedComment] = await tx
+            .insert(commentsTable)
+            .values({
+              definitionId: id,
+              revisionId,
+              userId,
+              message: comment
+            })
+            .returning()
 
-        // if ai made, create feedback chat
-        if (definition.isAi) {
-          await tx.insert(chatsTable).values({
-            role: "user",
-            message: `<feedback>\n${comment}`,
-            termId: definition.termId
-          })
+          // fetch some info about this term
+          const [definition] = await tx
+            .select({
+              isAi: usersTable.isAi,
+              termId: definitionsTable.termId,
+              id: definitionsTable.id,
+              currentRevisionId: definitionsTable.currentRevisionId
+            })
+            .from(definitionsTable)
+            .where(eq(definitionsTable.id, id))
+            .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+            .limit(1)
 
-          after(() =>
-            // Revise our definition with the new comment
-            reviseDefinition(definition.termId)
-          )
-        }
+          // if ai made, create feedback chat
+          if (definition.isAi && definition.currentRevisionId === revisionId) {
+            await tx.insert(chatsTable).values({
+              role: "user",
+              userId,
+              message: `<feedback>\n${comment}`,
+              termId: definition.termId
+            })
+
+            after(() =>
+              // Revise our definition with the new comment
+              reviseDefinition(definition.termId)
+            )
+          }
+
+          return insertedComment
+        })
 
         return insertedComment
-      })
-
-      return insertedComment
-    })
+      }
+    )
 })

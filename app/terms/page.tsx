@@ -1,11 +1,11 @@
 import type { Metadata } from "next"
-export const metadata: Metadata = { title: "Browse Terms | MatSci YAMZ" }
+import { SITE_NAME } from "@/lib/site"
+export const metadata: Metadata = { title: `Browse Terms | ${SITE_NAME}` }
 import { db, definitionsTable, termsTable } from "@yamz/db"
 import { asc, eq, sql } from "drizzle-orm"
+import { searchMatch } from "@/lib/search"
 import Link from "next/link"
-import styles from "./terms.module.css"
-import { LetterNav } from "@/components/letter-nav"
-
+import { BrowseList } from "./browse-list"
 
 export default async function TermsPage({
   searchParams,
@@ -17,48 +17,45 @@ export default async function TermsPage({
     .select({
       term: termsTable.term,
       id: termsTable.id,
+      slug: termsTable.slug,
       count: sql<number>`cast(count(*) as int)`
     })
     .from(definitionsTable)
     .leftJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-    .where(q ? sql`${termsTable.term} ilike ${'%' + q + '%'}` : undefined)
+    // Same engine as /search (FTS + trigram + stemming); the alphabetical
+    // letter-group layout keeps its own ordering, so only the filter changes
+    .where(q?.trim() ? searchMatch(q) : undefined)
     .orderBy(asc(termsTable.term))
     .groupBy(termsTable.term, termsTable.id)
 
-  // Group terms by first character
-  const groups: Record<string, typeof terms> = {}
-  for (const t of terms) {
-    const firstChar = t.term?.[0]?.toUpperCase() || "#"
-    const key = /[A-Z]/.test(firstChar) ? firstChar : "#"
-    if (!groups[key]) groups[key] = []
-    groups[key].push(t)
-  }
-
-  // Sort groups: # first, then A-Z
-  const sorted = Object.entries(groups).sort(([a], [b]) => {
-    if (a === "#") return -1
-    if (b === "#") return 1
-    return a.localeCompare(b)
-  })
-
   return (
-    <main className={styles.page}>
-      <LetterNav letters={sorted.map(([letter]) => letter)} />
-      <h1 className={styles.heading}>Browse Terms</h1>
-      <div className={styles.sections}>
-        {sorted.map(([letter, items]) => (
-          <section key={letter} id={`letter-${letter}`} className={styles.letterGroup}>
-            <h2 className={styles.letterHeader}>{letter}</h2>
-            <div className={styles.cardGrid}>
-              {items.map(({ term, count, id }) => (
-                <Link key={id} href={`/terms/${id}`} className={styles.card}>
-                  {term} - {count}
-                </Link>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+    <main className="px-4 py-8">
+      <section className="max-w-4xl w-full mx-auto">
+        <h1 className="text-4xl font-bold font-serif mb-2">Browse Terms</h1>
+        <p className="text-muted-foreground mb-6">
+          Every defined term, grouped alphabetically. The number in
+          parentheses is the count of definitions for that term.
+        </p>
+
+        {/* An active ?q= arrives from the site search, which runs the full
+            engine (stemming, typos, definition bodies). The filter inside
+            BrowseList narrows whatever that returned. */}
+        {q?.trim() && (
+          <p className="text-sm text-muted-foreground mb-6 flex flex-wrap items-center gap-2">
+            <span>
+              Showing results for{" "}
+              <span className="font-medium text-foreground">
+                &ldquo;{q.trim()}&rdquo;
+              </span>
+            </span>
+            <Link href="/terms" className="text-primary">
+              Show all terms
+            </Link>
+          </p>
+        )}
+
+        <BrowseList terms={terms} />
+      </section>
     </main>
   )
 }

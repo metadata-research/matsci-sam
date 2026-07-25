@@ -61,7 +61,7 @@ export const EditTags = ({ definitionId }: Props) => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" className="!p-1 !h-min">
-          <Edit2Icon className="size-4 text-blue-500" />
+          <Edit2Icon className="size-4 text-primary" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">

@@ -1,64 +1,119 @@
-import { db, definitionsTable, termsTable } from "@yamz/db";
-import { eq } from "drizzle-orm";
-import { RunButton } from "./run";
-import { HydrateClient, trpc } from "@/trpc/server";
-import { Chats } from "./chats";
-import { notFound, redirect } from "next/navigation";
-import { GetAiUser } from "@/lib/crud";
-import Link from "next/link";
-import { ArrowLeftIcon, ExternalLinkIcon } from "lucide-react";
-import { LLMSystemPrompt } from "@/lib/apis/ollama";
+import { db, definitionsTable, termsTable } from "@yamz/db"
+import { eq } from "drizzle-orm"
+import { RunButton } from "./run"
+import { HydrateClient, trpc } from "@/trpc/server"
+import { Chats } from "./chats"
+import { notFound, redirect } from "next/navigation"
+import { GetAiUser } from "@/lib/crud"
+import Link from "next/link"
+import { ArrowLeftIcon, ExternalLinkIcon, NetworkIcon } from "lucide-react"
 import { auth } from "@/lib/auth"
+import { AdminPageHeader } from "../../page-header"
+import styles from "../../admin.module.css"
+import { definitionPath } from "@/lib/public-identifiers"
 
 export default async function JobPage(props: {
-  params: Promise<{ termId: string }>;
+  params: Promise<{ termId: string }>
 }) {
   const { user } = await auth()
-  if (!user?.isAdmin) redirect('/')
+  if (user?.role !== "admin") redirect("/")
 
-  const params = await props.params;
-  const termId = Number(params.termId);
+  const params = await props.params
+  const termId = Number(params.termId)
 
-  const aiUser = await GetAiUser();
+  const aiUser = await GetAiUser()
 
-  const [term] = await Promise.all([
+  const [term, chats] = await Promise.all([
     db.query.termsTable.findFirst({
       where: eq(termsTable.id, termId),
       with: {
         definitions: {
-          where: eq(definitionsTable.authorId, aiUser.id),
-        },
-      },
+          where: eq(definitionsTable.authorId, aiUser.id)
+        }
+      }
     }),
-    trpc.admin.chats.prefetch(termId),
-  ]);
+    trpc.admin.chats(termId)
+  ])
 
   const aiDefinition = term?.definitions[0]
+  const canRun = chats.at(-1)?.role === "user"
 
-  if (!term) notFound();
+  if (!term) notFound()
 
   return (
     <HydrateClient>
-      <main className="max-w-6xl w-full mx-auto p-4 space-y-4">
-        <section className="flex justify-between items-center">
-          <Link href="/admin" className="flex items-center text-blue-500 mb-2">
-            <ArrowLeftIcon className="mr-2 size-4" /> All Terms
-          </Link>
-          {aiDefinition &&
-            <Link href={`/definition/${aiDefinition.id}`} className="flex items-center text-blue-500 mb-2">
-              <ExternalLinkIcon className="mr-2 size-4" /> Go To Term
+      <div className={styles.sectionStack}>
+        <AdminPageHeader
+          title={term.term}
+          description="Inspect the term-level AI definition, generation conversation, and recorded provenance."
+          actions={
+            <Link href="/admin/terms" className={styles.textLink}>
+              <ArrowLeftIcon aria-hidden />
+              Vocabulary
             </Link>
           }
+        />
+        <nav className={styles.subnavigation} aria-label="Term administration">
+          <Link href={`/admin/terms/${termId}/provenance`}>
+            <NetworkIcon aria-hidden className="mr-2 size-4" />
+            Provenance
+          </Link>
+          {aiDefinition && (
+            <Link
+              href={definitionPath(term.slug, aiDefinition.definitionNumber)}
+              className="flex items-center text-primary mb-2"
+            >
+              <ExternalLinkIcon aria-hidden className="mr-2 size-4" />
+              Public definition
+            </Link>
+          )}
+        </nav>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Standing AI definition</h2>
+            <span className={styles.panelMeta}>
+              Prompt:{" "}
+              <span className={styles.codeText}>
+                {process.env.SYSTEM_PROMPT
+                  ? "raw override"
+                  : (process.env.SYSTEM_PROMPT_KEY ?? "not selected")}
+              </span>
+            </span>
+          </div>
+          {aiDefinition && (
+            <dl className="grid gap-5 px-5 py-4 text-sm">
+              <div>
+                <dt className="mb-1 text-xs font-medium text-muted-foreground">
+                  Definition
+                </dt>
+                <dd className="leading-6">{aiDefinition.definition}</dd>
+              </div>
+              <div>
+                <dt className="mb-1 text-xs font-medium text-muted-foreground">
+                  Example
+                </dt>
+                <dd className="leading-6">{aiDefinition.example}</dd>
+              </div>
+            </dl>
+          )}
+          {!aiDefinition && (
+            <p className="px-5 py-6 text-sm text-muted-foreground">
+              No term-level AI definition has been published.
+            </p>
+          )}
         </section>
-        <section>
-          <h1 className="text-4xl font-semibold">{term.term}</h1>
-          <p>Definition: {term.definitions[0]?.definition}</p>
-          <p>Example: {term.definitions[0]?.example}</p>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Generation conversation</h2>
+          </div>
+          <Chats termId={termId} initialData={chats} />
+          <div className={styles.panelFooter}>
+            <RunButton termId={termId} canRun={canRun} />
+          </div>
         </section>
-        <section className="italic text-sm max-w-3/4 mx-auto text-center">System Prompt: {LLMSystemPrompt}</section>
-        <Chats termId={termId} />
-        <RunButton termId={termId} />
-      </main>
+      </div>
     </HydrateClient>
-  );
+  )
 }

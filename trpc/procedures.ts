@@ -1,39 +1,51 @@
-import { TRPCError } from "@trpc/server";
-import { baseProcedure } from "./init";
-import { GetUser } from "@/lib/crud";
+import { TRPCError } from "@trpc/server"
+import { baseProcedure } from "./init"
+import { GetUser } from "@/lib/crud"
 
 export const authenticatedProcedure = baseProcedure.use((opts) => {
   if (!opts.ctx.userId)
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "You must be logged in to perform this action",
-    });
+      message: "You must be logged in to perform this action"
+    })
 
   return opts.next({
     ctx: {
-      userId: opts.ctx.userId!,
-    },
-  });
-});
+      userId: opts.ctx.userId!
+    }
+  })
+})
+
+export const contributorProcedure = authenticatedProcedure.use(async (opts) => {
+  const user = await GetUser(opts.ctx.userId)
+
+  if (!user?.name?.trim())
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Complete your profile before contributing."
+    })
+
+  return opts.next()
+})
 
 export const adminProcedure = baseProcedure.use(async (opts) => {
   if (!opts.ctx.userId)
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "You must be logged in to perform this action",
-    });
+      message: "You must be logged in to perform this action"
+    })
 
-  const user = await GetUser(opts.ctx.userId);
+  const user = await GetUser(opts.ctx.userId)
 
-  if (!user?.isAdmin)
+  if (user?.role !== "admin")
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "You must be logged in to perform this action",
-    });
+      message: "You must be logged in to perform this action"
+    })
 
   return opts.next({
     ctx: {
-      userId: opts.ctx.userId!,
-    },
-  });
-});
+      userId: opts.ctx.userId!
+    }
+  })
+})

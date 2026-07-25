@@ -1,42 +1,44 @@
 # Contributing
 
-To make changes to the Matsci YAMZ repository, follow these steps to ensure they get deployed safely and properly.
+MatSci SAM uses `dev` as its integration branch.
 
-1. Create a new feature branch locally by running `git checkout -b feature/[your-feature-name-here]` from the main branch. 
-2. Once you're done with your changes, add them to a commit and push the changes (make sure you are pushing to the feature branch you created, not the main branch). Keep in mind that since created your branch locally, you will have to create the branch on the remote by running `git push --set-upstream origin [your-feature-branch]`. Here's what will happen if you dont add the set upstream option:
+1. Update local `dev`, then create a short-lived feature branch.
 
-```
-addyire in ~/projects/matsci-yamz on feature/ci-cd λ git push
-fatal: The current branch feature/ci-cd has no upstream branch.
-To push the current branch and set the remote as upstream, use
+   ```bash
+   git switch dev
+   git pull --ff-only
+   git switch -c feature/short-description
+   ```
 
-    git push --set-upstream origin feature/ci-cd
+2. Make and verify the change. Run the checks that match its scope. The normal
+   pre-review set is:
 
-To have this happen automatically for branches without a tracking
-upstream, see 'push.autoSetupRemote' in 'git help config'.
-```
+   ```bash
+   pnpm lint
+   pnpm check-types
+   pnpm db:check
+   pnpm build
+   ```
 
-3. After successfully pushing your changes, the next step is to create a pull request (PR) on GitHub. This can easily be done by clicking the link when pushing your new branch to remote for the first time, or by going to GitHub (MSYAMZ Repo -> Pull Request -> Create). Ensure that you are merging your feature branch into main. 
+3. Commit the intended files and push the feature branch.
 
-```
-addyire in ~/projects/matsci-yamz on feature/ci-cd λ  git push --set-upstream origin feature/ci-cd
-Enumerating objects: 12, done.
-Counting objects: 100% (12/12), done.
-Delta compression using up to 10 threads
-Compressing objects: 100% (8/8), done.
-Writing objects: 100% (9/9), 17.71 KiB | 2.95 MiB/s, done.
-Total 9 (delta 3), reused 0 (delta 0), pack-reused 0 (from 0)
-remote: Resolving deltas: 100% (3/3), completed with 3 local objects.
-remote:
-remote: Create a pull request for 'feature/ci-cd' on GitHub by visiting:
-remote:      https://github.com/metadata-research/matsci-yamz/pull/new/feature/ci-cd <== CLICK THIS
-remote:
-To github.com:metadata-research/matsci-yamz.git
- * [new branch]      feature/ci-cd -> feature/ci-cd
-branch 'feature/ci-cd' set up to track 'origin/feature/ci-cd'.
-```
+   ```bash
+   git push --set-upstream origin feature/short-description
+   ```
 
-4. Once the PR is created, GitHub will run a workflow to ensure the code lints, builds, and ensures the DB migrations are consistent. This action MUST run successfully before the feature branch can be merged into main. If it fails, check the logs of the action to see why, make the necessary changes, and then push any updates to the feature branch (you don't need to make a new PR).
+4. Open a pull request from the feature branch into `dev`. GitHub must report
+   the required verification job as successful before merge.
 
-5. Once the PR checks have passed successfully, you should then be able to click "Merge Pull Request". Merging the PR will first merge the changes into the main branch and then kick off the deploy script on the id.cci server.
+5. A maintainer merges the pull request into `dev`. The merge updates source
+   control only. It does not deploy Superego or another server.
 
+6. A maintainer deploys a reviewed `dev` commit to Superego through the
+   environment runbook. Promotion to `main` and deployment to the independent
+   Ego public runtime are separate decisions. The legacy workflows are
+   disabled, but `main` remains blocked until their self-hosted runners and
+   deployment privileges are retired and the old deployment workflow is
+   removed. A public candidate must use the same Git tree already validated on
+   Superego.
+
+Never put credentials, database dumps, private environment files, or TLS keys
+in a branch, pull request, issue, workflow log, or build artifact.
