@@ -675,8 +675,11 @@ independent public database after initialization.
 The legacy deployment workflows are disabled. Do not merge or push a public
 candidate to `main` until their self-hosted runners and deployment privileges
 are retired and the old deployment workflow is removed. After that boundary
-is verified, promote only a Git tree already deployed and validated on
-Superego, then build it independently on Ego under the protected public
+is verified, keep reviewed `dev` and promoted `main` on the same exact tree.
+Require the application, schema, migration, dependency, build, service, and
+runtime-configuration content to match the release already validated on
+Superego; only the exact reviewed non-runtime operations allowlist may differ.
+Then build the promoted tree independently on Ego under the protected public
 environment.
 
 Before deployment, decide which database contains the authoritative data. A

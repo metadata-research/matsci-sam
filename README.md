@@ -41,9 +41,11 @@ Private environment policy remains in `docs-internal`.
 The legacy production workflows are disabled. Do not merge or push a public
 candidate to `main` until their self-hosted runners and deployment privileges
 have also been retired and the old deployment workflow has been removed.
-After that boundary is verified, the intended public path promotes a tree
-already validated on Superego from `dev` to `main` and builds it independently
-on Ego.
+After that boundary is verified, the intended public path keeps reviewed
+`dev` and promoted `main` on the same exact tree, requires its application
+content to match the release validated on Superego, and builds it independently
+on Ego. Only an exact reviewed non-runtime operations allowlist may differ from
+the Superego release.
 
 ## Project structure
 

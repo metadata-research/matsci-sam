@@ -3,6 +3,25 @@
 set -Eeuo pipefail
 
 umask 0077
+export GIT_NO_REPLACE_OBJECTS=1
+unset \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES \
+  GIT_COMMON_DIR \
+  GIT_CONFIG_COUNT \
+  GIT_CONFIG_PARAMETERS \
+  GIT_DEFAULT_HASH \
+  GIT_DEFAULT_REF_FORMAT \
+  GIT_DIR \
+  GIT_GLOB_PATHSPECS \
+  GIT_ICASE_PATHSPECS \
+  GIT_INDEX_FILE \
+  GIT_LITERAL_PATHSPECS \
+  GIT_NOGLOB_PATHSPECS \
+  GIT_NAMESPACE \
+  GIT_OBJECT_DIRECTORY \
+  GIT_SHALLOW_FILE \
+  GIT_TEMPLATE_DIR \
+  GIT_WORK_TREE
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd -- "${script_dir}/.." && pwd)
@@ -12,6 +31,7 @@ base_invariants=${script_dir}/lib/reset-db-invariants.sql
 privacy_transform=${script_dir}/lib/ego-public-seed-transform.sql
 privacy_invariants=${script_dir}/lib/ego-public-seed-invariants.sql
 ledger_verifier=${script_dir}/lib/verify-migration-ledger.sh
+superego_content_verifier=${script_dir}/lib/verify-superego-public-content.sh
 maintenance_config=${script_dir}/nginx/matsci-sam-public-maintenance.conf
 operations_file=${script_dir}/ops/matsci-sam-ops
 state_file=${repo}/docs-internal/CURRENT-DEV-STATE.md
@@ -48,6 +68,39 @@ USAGE
 fail() {
   echo "$*" >&2
   exit 1
+}
+
+verify_reviewed_worktree() {
+  local commit=$1
+  local helper_path=deploy/lib/verify-superego-public-content.sh
+  local helper_entry
+  local helper_mode
+  local helper_type
+  local expected_hash
+  local entry_path
+  local actual_hash
+
+  helper_entry=$(git -C "${repo}" ls-tree "${commit}" -- "${helper_path}")
+  [[ -n ${helper_entry} && ${helper_entry} != *$'\n'* ]] ||
+    fail "The reviewed source does not uniquely identify the content verifier."
+  read -r helper_mode helper_type expected_hash entry_path <<<"${helper_entry}"
+  [[ ${helper_mode} == 100755 &&
+    ${helper_type} == blob &&
+    ${expected_hash} =~ ^[0-9a-f]{40}$ &&
+    ${entry_path} == "${helper_path}" &&
+    -f ${superego_content_verifier} &&
+    ! -L ${superego_content_verifier} &&
+    -x ${superego_content_verifier} ]] ||
+    fail "The reviewed content verifier contract is invalid."
+  actual_hash=$(
+    git -C "${repo}" hash-object \
+      --no-filters \
+      -- "${superego_content_verifier}"
+  )
+  [[ ${actual_hash} == "${expected_hash}" ]] ||
+    fail "The executed content verifier differs from reviewed source."
+  "${superego_content_verifier}" --verify-worktree "${repo}" "${commit}" ||
+    fail "The raw worktree does not match reviewed source."
 }
 
 remove_remote_stage() {
@@ -193,6 +246,7 @@ required_files=(
   "${privacy_transform}"
   "${privacy_invariants}"
   "${ledger_verifier}"
+  "${superego_content_verifier}"
   "${maintenance_config}"
   "${operations_file}"
   "${state_file}"
@@ -273,6 +327,7 @@ public_tree=$(git -C "${repo}" rev-parse "${public_commit}^{tree}")
 dev_tree=$(git -C "${repo}" rev-parse "${origin_dev}^{tree}")
 [[ ${public_tree} == "${dev_tree}" ]] ||
   fail "origin/main does not contain the exact reviewed origin/dev tree."
+verify_reviewed_worktree "${public_commit}"
 git -C "${repo}" show "${public_commit}:lib/apis/ollama.ts" |
   grep -q 'EGO_SEED_CHAT_FALLBACK' ||
   fail "The promoted public tree lacks the seeded-chat reconstruction fallback."
@@ -307,8 +362,12 @@ superego_commit=${superego_name:0:40}
 git -C "${repo}" cat-file -e "${superego_commit}^{commit}" 2>/dev/null ||
   fail "The active Superego commit is not present in local Git history."
 superego_tree=$(git -C "${repo}" rev-parse "${superego_commit}^{tree}")
-[[ ${superego_tree} == "${public_tree}" ]] ||
-  fail "origin/main is not the exact tree currently validated on Superego."
+superego_validation=$(
+  "${superego_content_verifier}" \
+    "${repo}" \
+    "${superego_commit}" \
+    "${public_commit}"
+) || fail "The public application content is not the content validated on Superego."
 
 echo "Checking the public seed contract and migration source."
 (
@@ -323,6 +382,7 @@ git -C "${repo}" fetch --prune origin dev main
   $(git -C "${repo}" rev-parse refs/remotes/origin/main) == "${public_commit}" &&
   $(git -C "${repo}" rev-parse "${public_commit}^{tree}") == "${public_tree}" ]] ||
   fail "Reviewed source changed during the seed contract checks."
+verify_reviewed_worktree "${public_commit}"
 
 maintenance_sha=$(sha256sum "${maintenance_config}" | awk '{print $1}')
 ego_summary=$(
@@ -380,6 +440,8 @@ REMOTE
 printf '%s\n' "${ego_summary}"
 printf 'public_commit=%s\n' "${public_commit}"
 printf 'validated_superego_commit=%s\n' "${superego_commit}"
+printf 'validated_superego_tree=%s\n' "${superego_tree}"
+printf 'superego_validation=%s\n' "${superego_validation}"
 
 if [[ ${check_only} == true ]]; then
   echo "One-time Ego seed prerequisites passed."
@@ -503,13 +565,14 @@ done
   "${source[dump_sha256]}" ]] ||
   fail "The transferred Superego snapshot checksum does not match."
 
+verify_reviewed_worktree "${public_commit}"
 source_archive=${work_dir}/source.tar
-git -C "${repo}" archive \
-  --format=tar \
-  --prefix=source/ \
+"${superego_content_verifier}" \
+  --create-archive \
+  "${repo}" \
   "${public_commit}" \
-  >"${source_archive}"
-tar --list --file="${source_archive}" >/dev/null
+  "${source_archive}" \
+  --prefix=source/
 
 {
   printf 'format\t1\n'
@@ -543,6 +606,8 @@ tar --list --file="${source_archive}" >/dev/null
   printf 'maintenance_sha256\t%s\n' "${maintenance_sha}"
   printf 'operations_sha256\t%s\n' \
     "$(sha256sum "${operations_file}" | awk '{print $1}')"
+  printf 'workstation_registry_sha256\t%s\n' \
+    "$(sha256sum "${workstation_registry}" | awk '{print $1}')"
 } >"${seed_manifest}"
 chmod 0600 "${seed_manifest}" "${source_archive}"
 
@@ -553,6 +618,7 @@ git -C "${repo}" fetch --prune origin dev main
   $(git -C "${repo}" rev-parse refs/remotes/origin/main) == "${public_commit}" &&
   $(git -C "${repo}" rev-parse "${public_commit}^{tree}") == "${public_tree}" ]] ||
   fail "Reviewed source changed while the seed snapshot was prepared."
+verify_reviewed_worktree "${public_commit}"
 
 ego_id="seed-${public_commit:0:12}-$(date -u +%Y%m%dT%H%M%SZ)"
 ego_dir="/home/cr625/ego-admin/incoming/${ego_id}"
@@ -574,6 +640,7 @@ scp \
   "${seed_manifest}" \
   "${source_archive}" \
   "${source_manifest}" \
+  "${workstation_registry}" \
   "ego:${ego_dir}/"
 ssh ego "chmod 0600 '${ego_dir}'/*"
 

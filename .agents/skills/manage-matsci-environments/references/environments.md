@@ -11,8 +11,7 @@ copied state file.
 - Repository: `/home/chris/systemada/dev/matsci-yamz`
 - Private documentation:
   `/mnt/d/OneDrive/Working/Matsci/docs-internal`
-- Role: current control-workstation candidate, builds, tests, release
-  preparation, and local preview
+- Role: registered development workstation
 
 The repository path `docs-internal` is a symlink to the D-drive OneDrive
 directory.
@@ -22,11 +21,12 @@ not this registry, identifies the active control workstation.
 
 ## Area51
 
-- Role: planned standby development and local-inference workstation
+- Host: `Area51`
+- Repository: `/home/chris/systemada/dev/matsci-yamz`
+- Private documentation:
+  `/mnt/c/Users/Chris/OneDrive/Working/Matsci/docs-internal`
+- Role: registered development and local-inference workstation
 
-Do not invent its hostname, paths, database role, or SSH configuration. Verify
-those facts during onboarding before adding it to
-`deploy/workstations.tsv`.
 Running an LLM does not grant source, release, or data authority.
 
 ## Superego
@@ -81,11 +81,12 @@ The Ego authority marker is
 runtime provisioning and changes to `ego` after the reviewed one-time seed.
 Never replace or refresh the database from Superego after that transition.
 
-Ego does not own a source-editing workspace. Public source is a reviewed tree
-validated on Superego, promoted to `origin/main`, and deployed from the control
-workstation. Inspect the complete effective Nginx configuration, preserve a
-known-good backup, validate with `nginx -t`, and verify the public endpoint
-contract before and after a reload.
+Ego does not own a source-editing workspace. Public `origin/main` must exactly
+match reviewed `origin/dev`. Application content must already be validated on
+Superego; only the exact reviewed non-runtime allowlist may differ. Deployment
+originates on the recorded control workstation. Inspect the complete effective
+Nginx configuration, preserve a known-good backup, validate with `nginx -t`,
+and verify the public endpoint contract before and after a reload.
 
 ## Legacy production
 

@@ -10,8 +10,8 @@ at `ego.cci.drexel.edu`.
 - A reviewed tree promoted to `origin/main` is the public release source.
 - Ego owns its public TLS, Nginx, application releases, protected
   configuration, and PostgreSQL database.
-- PA90 is the control workstation for tests, release preparation, and
-  deployment initiation.
+- The sole control workstation recorded in `CURRENT-DEV-STATE.md` owns tests,
+  release preparation, and deployment initiation.
 
 Run `$manage-matsci-environments` and inspect live state before acting.
 
@@ -28,8 +28,10 @@ Run `$manage-matsci-environments` and inspect live state before acting.
 - Run the one-time seed, first pre-cutover release, and public cutover only
   from the recorded control workstation. Do not invoke files under
   `deploy/lib/` directly.
-- A public candidate must use the exact Git tree already deployed and verified
-  on Superego, then promoted to `origin/main`.
+- Promoted `origin/main` must exactly match reviewed `origin/dev`. Application,
+  schema, migration, dependency, build, service, and runtime-configuration
+  content must already be validated on Superego; only the exact reviewed
+  non-runtime allowlist may differ.
 - `deploy/deploy-ego-from-workstation.sh` prepares only the first release
   after the seed. It verifies the Ego-authoritative database, builds under the
   protected public environment, starts the application on loopback, and keeps
@@ -49,5 +51,6 @@ Run `$manage-matsci-environments` and inspect live state before acting.
   cancelled operation.
 - Do not create a source worktree or copied rolling-state document here.
 
-Exact commits, releases, database facts, and data-authority state are recorded
-only in `docs-internal/CURRENT-DEV-STATE.md` on PA90.
+Exact commits, releases, database facts, control-workstation identity, and
+data-authority state are recorded only in
+`docs-internal/CURRENT-DEV-STATE.md` on the control workstation.

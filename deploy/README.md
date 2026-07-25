@@ -105,9 +105,11 @@ conversation records must not become public by accident. A successful seed
 changes the Ego authority marker from `uninitialized` to `ego`. After that
 change, never replace or refresh the Ego database from Superego.
 
-Configure and validate the separate public OAuth client first. Then, after the
-exact promoted tree is running on Superego, run the seed in a supervised
-foreground terminal:
+Configure and validate the public OAuth client first. Then, after the promoted
+application content is verified on Superego, run the seed in a supervised
+foreground terminal. Reviewed public-operation changes may differ only through
+the exact fail-closed allowlist in
+`deploy/lib/verify-superego-public-content.sh`:
 
 ```bash
 ./deploy/seed-ego-from-superego.sh --check-only
@@ -182,12 +184,15 @@ The release path is:
 
 ```text
 reviewed origin/dev -> Superego validation
-identical reviewed tree -> origin/main -> Ego
+exact reviewed dev tree -> origin/main -> Ego
 ```
 
 The main commit may differ from the validated dev commit when GitHub creates a
-merge commit. The application tree and migration tree must match. Ego builds
-that tree again with the public environment because
+merge commit. `origin/main` and `origin/dev` must have the same exact tree.
+Application, schema, migration, dependency, build, service, and runtime
+configuration content must match the Superego-validated release; only the
+explicit reviewed non-runtime allowlist may differ. Ego builds the promoted
+tree again with the public environment because
 `NEXT_PUBLIC_SITE_URL` is build-time configuration.
 
 When both authority records identify Superego as the shared-data authority,

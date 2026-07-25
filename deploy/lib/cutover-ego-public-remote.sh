@@ -286,7 +286,8 @@ expected_stage_files=$(
     cutover-ego-public-remote.sh \
     manifest \
     matsci-sam-public-local-ready.conf \
-    matsci-sam-public-maintenance.conf |
+    matsci-sam-public-maintenance.conf \
+    workstations.tsv |
     sort
 )
 actual_stage_files=$(
@@ -337,6 +338,7 @@ manifest_keys=(
   helper_sha256
   maintenance_sha256
   candidate_sha256
+  workstation_registry_sha256
 )
 is_manifest_key() {
   local candidate=$1
@@ -360,14 +362,17 @@ for key in "${manifest_keys[@]}"; do
   [[ -v "manifest[${key}]" ]] ||
     fail "The cutover manifest is incomplete."
 done
-[[ ${manifest[format]} == 1 && ${manifest[source_host]} == pa90 ]] ||
+[[ ${manifest[format]} == 1 &&
+  ${manifest[source_host]} =~ ^[a-z][a-z0-9-]*$ ]] ||
   fail "The cutover manifest has an invalid source contract."
 [[ ${manifest[expected_commit]} =~ ^[0-9a-f]{40}$ &&
   ${manifest[expected_tree]} =~ ^[0-9a-f]{40}$ ]] ||
   fail "The cutover manifest has an invalid release identity."
 [[ ${manifest[expected_release]} =~ ^/opt/matsci-sam/releases/${manifest[expected_commit]}-[A-Za-z0-9]{8}$ ]] ||
   fail "The cutover manifest has an invalid release path."
-for key in helper_sha256 maintenance_sha256 candidate_sha256; do
+for key in helper_sha256 maintenance_sha256 candidate_sha256 \
+  workstation_registry_sha256
+do
   [[ ${manifest[${key}]} =~ ^[0-9a-f]{64}$ ]] ||
     fail "The cutover manifest has an invalid file hash."
 done
@@ -380,6 +385,23 @@ done
 [[ $(sha256sum "${stage}/matsci-sam-public-local-ready.conf" |
   awk '{print $1}') == "${manifest[candidate_sha256]}" ]] ||
   fail "The staged local candidate hash is invalid."
+[[ $(sha256sum "${stage}/workstations.tsv" | awk '{print $1}') == \
+  "${manifest[workstation_registry_sha256]}" ]] ||
+  fail "The staged workstation registry hash is invalid."
+
+registered_source=$(
+  awk -F '\t' -v source="${manifest[source_host]}" '
+    /^#/ || /^[[:space:]]*$/ { next }
+    NF != 3 { exit 2 }
+    $1 !~ /^[a-z][a-z0-9-]*$/ { exit 2 }
+    $2 !~ /^[A-Za-z0-9][A-Za-z0-9.-]*$/ { exit 2 }
+    $3 != "yes" && $3 != "no" { exit 2 }
+    ++seen_id[$1] > 1 || ++seen_host[$2] > 1 { exit 2 }
+    $1 == source { print $0 }
+  ' "${stage}/workstations.tsv"
+) || fail "The staged workstation registry is malformed."
+[[ -n ${registered_source} && ${registered_source} != *$'\n'* ]] ||
+  fail "The source workstation is not uniquely registered."
 
 [[ -f ${authority_file} && ! -L ${authority_file} &&
   $(stat -c '%U:%a' "${authority_file}") == cr625:600 &&
@@ -389,6 +411,10 @@ release=$(readlink -e /opt/matsci-sam/current) ||
   fail "The current Ego release pointer is unresolved."
 [[ ${release} == "${manifest[expected_release]}" && -d ${release} ]] ||
   fail "The current Ego release changed after cutover preparation."
+cmp --silent \
+  "${stage}/workstations.tsv" \
+  "${release}/deploy/workstations.tsv" ||
+  fail "The staged workstation registry differs from promoted source."
 for protected_parent in /opt/matsci-sam /opt/matsci-sam/releases; do
   [[ -d ${protected_parent} && ! -L ${protected_parent} &&
     $(stat -c '%U:%G:%a' "${protected_parent}") == root:root:755 ]] ||

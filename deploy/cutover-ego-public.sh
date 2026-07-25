@@ -3,10 +3,30 @@
 set -Eeuo pipefail
 
 umask 0077
+export GIT_NO_REPLACE_OBJECTS=1
+unset \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES \
+  GIT_COMMON_DIR \
+  GIT_CONFIG_COUNT \
+  GIT_CONFIG_PARAMETERS \
+  GIT_DEFAULT_HASH \
+  GIT_DEFAULT_REF_FORMAT \
+  GIT_DIR \
+  GIT_GLOB_PATHSPECS \
+  GIT_ICASE_PATHSPECS \
+  GIT_INDEX_FILE \
+  GIT_LITERAL_PATHSPECS \
+  GIT_NOGLOB_PATHSPECS \
+  GIT_NAMESPACE \
+  GIT_OBJECT_DIRECTORY \
+  GIT_SHALLOW_FILE \
+  GIT_TEMPLATE_DIR \
+  GIT_WORK_TREE
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd -- "${script_dir}/.." && pwd)
 remote_helper=${script_dir}/lib/cutover-ego-public-remote.sh
+superego_content_verifier=${script_dir}/lib/verify-superego-public-content.sh
 maintenance_config=${script_dir}/nginx/matsci-sam-public-maintenance.conf
 local_candidate=${script_dir}/nginx/matsci-sam-public-local-ready.conf
 state_file=${repo}/docs-internal/CURRENT-DEV-STATE.md
@@ -40,6 +60,39 @@ USAGE
 fail() {
   echo "$*" >&2
   exit 1
+}
+
+verify_reviewed_worktree() {
+  local commit=$1
+  local helper_path=deploy/lib/verify-superego-public-content.sh
+  local helper_entry
+  local helper_mode
+  local helper_type
+  local expected_hash
+  local entry_path
+  local actual_hash
+
+  helper_entry=$(git -C "${repo}" ls-tree "${commit}" -- "${helper_path}")
+  [[ -n ${helper_entry} && ${helper_entry} != *$'\n'* ]] ||
+    fail "The reviewed source does not uniquely identify the content verifier."
+  read -r helper_mode helper_type expected_hash entry_path <<<"${helper_entry}"
+  [[ ${helper_mode} == 100755 &&
+    ${helper_type} == blob &&
+    ${expected_hash} =~ ^[0-9a-f]{40}$ &&
+    ${entry_path} == "${helper_path}" &&
+    -f ${superego_content_verifier} &&
+    ! -L ${superego_content_verifier} &&
+    -x ${superego_content_verifier} ]] ||
+    fail "The reviewed content verifier contract is invalid."
+  actual_hash=$(
+    git -C "${repo}" hash-object \
+      --no-filters \
+      -- "${superego_content_verifier}"
+  )
+  [[ ${actual_hash} == "${expected_hash}" ]] ||
+    fail "The executed content verifier differs from reviewed source."
+  "${superego_content_verifier}" --verify-worktree "${repo}" "${commit}" ||
+    fail "The raw worktree does not match reviewed source."
 }
 
 cleanup() {
@@ -88,6 +141,7 @@ done
 
 for file in \
   "${remote_helper}" \
+  "${superego_content_verifier}" \
   "${maintenance_config}" \
   "${local_candidate}" \
   "${state_file}" \
@@ -156,6 +210,7 @@ dev_tree=$(git -C "${repo}" rev-parse "${origin_dev}^{tree}")
   fail "The promoted public source ref is invalid."
 [[ ${dev_tree} == "${expected_tree}" ]] ||
   fail "origin/main is not the exact reviewed origin/dev tree."
+verify_reviewed_worktree "${expected_commit}"
 
 maintenance_sha=$(sha256sum "${maintenance_config}" | awk '{print $1}')
 candidate_sha=$(sha256sum "${local_candidate}" | awk '{print $1}')
@@ -233,6 +288,21 @@ IFS= read -r confirmation
 [[ ${confirmation} == "CUT OVER EGO PUBLIC" ]] ||
   fail "Public cutover cancelled."
 
+git -C "${repo}" fetch --prune origin dev main
+[[ -z $(git -C "${repo}" status --porcelain=v1) &&
+  $(git -C "${repo}" rev-parse HEAD) == "${origin_dev}" &&
+  $(git -C "${repo}" rev-parse refs/remotes/origin/dev) == "${origin_dev}" &&
+  $(git -C "${repo}" rev-parse refs/remotes/origin/main) == "${expected_commit}" &&
+  $(git -C "${repo}" rev-parse "${expected_commit}^{tree}") == "${expected_tree}" ]] ||
+  fail "Reviewed source changed during the public-cutover checks."
+verify_reviewed_worktree "${expected_commit}"
+[[ $(sha256sum "${maintenance_config}" | awk '{print $1}') == \
+  "${maintenance_sha}" &&
+  $(sha256sum "${local_candidate}" | awk '{print $1}') == \
+  "${candidate_sha}" &&
+  $(sha256sum "${remote_helper}" | awk '{print $1}') == "${helper_sha}" ]] ||
+  fail "A reviewed cutover input changed during the public-cutover checks."
+
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 remote_dir="/home/cr625/ego-admin/incoming/public-cutover-${expected_commit:0:12}-${stamp}"
 ssh ego \
@@ -254,6 +324,8 @@ manifest=$(mktemp)
   printf 'helper_sha256\t%s\n' "${helper_sha}"
   printf 'maintenance_sha256\t%s\n' "${maintenance_sha}"
   printf 'candidate_sha256\t%s\n' "${candidate_sha}"
+  printf 'workstation_registry_sha256\t%s\n' \
+    "$(sha256sum "${workstation_registry}" | awk '{print $1}')"
 } >"${manifest}"
 
 scp "${manifest}" "ego:${remote_dir}/manifest"
@@ -261,13 +333,15 @@ scp \
   "${remote_helper}" \
   "${maintenance_config}" \
   "${local_candidate}" \
+  "${workstation_registry}" \
   "ego:${remote_dir}/"
 ssh ego \
   "chmod 0600 \
      '${remote_dir}/manifest' \
      '${remote_dir}/cutover-ego-public-remote.sh' \
      '${remote_dir}/matsci-sam-public-maintenance.conf' \
-     '${remote_dir}/matsci-sam-public-local-ready.conf'"
+     '${remote_dir}/matsci-sam-public-local-ready.conf' \
+     '${remote_dir}/workstations.tsv'"
 rm -f "${manifest}"
 manifest=
 

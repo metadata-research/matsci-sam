@@ -29,9 +29,12 @@ Those facts change too often.
 - `origin/dev` owns reviewed source. Exactly one recorded control workstation
   owns builds, tests, migrations, release preparation, private documentation,
   and deployment initiation.
-- A public candidate must use a Git tree already deployed and verified on
-  Superego. Promote that tree to `origin/main`, then build it again under the
-  protected Ego environment.
+- A public candidate must keep reviewed `origin/dev` and promoted
+  `origin/main` on the same exact tree. Its application, schema, migration,
+  dependency, build, service, and runtime-configuration content must already
+  be deployed and verified on Superego. A reviewed public-operations change
+  may differ only through the exact fail-closed allowlist enforced by
+  `deploy/lib/verify-superego-public-content.sh`.
 - A workstation must be explicitly registered before it can deploy or receive
   a shared-data snapshot. The reviewed registry is
   `deploy/workstations.tsv`; the state file separately selects the sole
@@ -126,8 +129,9 @@ After the seed, prepare Ego's first release without changing the public edge:
 ./deploy/deploy-ego-from-workstation.sh
 ```
 
-This first-release wrapper requires the same tree on reviewed `dev`,
-Superego, and promoted `main`. It leaves Nginx in maintenance. Public
+This first-release wrapper requires the same exact tree on reviewed `dev` and
+promoted `main`, plus application content already validated on Superego under
+the reviewed non-runtime allowlist. It leaves Nginx in maintenance. Public
 activation is a separate supervised operation:
 
 ```bash
