@@ -190,11 +190,11 @@ installation_contract=$(
 )
 printf 'operations_sha256\t%s\n' "$(
   sed -n 's/^matsci-sam-ops=//p' <<<"${installation_contract}" |
-    head -n 1
+    sed -n '1p'
 )"
 printf 'sudoers_sha256\t%s\n' "$(
-  sed -n 's/^matsci-sam-ops.sudoers=//p' <<<"${installation_contract}" |
-    head -n 1
+  sed -n 's/^matsci-sam-ops=//p' <<<"${installation_contract}" |
+    sed -n '2p'
 )"
 for endpoint in root ready terms index; do
   case ${endpoint} in

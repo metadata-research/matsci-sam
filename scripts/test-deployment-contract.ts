@@ -111,6 +111,13 @@ assert.match(
   /^ExecStart=\/usr\/bin\/pnpm exec next start --hostname 127\.0\.0\.1 --port 3000$/m
 )
 
+const egoProvisioner = read("deploy/lib/provision-ego-runtime-remote.sh")
+assert.match(egoProvisioner, /umask 0022\s+npm install --global/)
+assert.match(
+  egoProvisioner,
+  /runuser -u "\$\{app_user\}" -- \/usr\/bin\/pnpm --version/
+)
+
 const healthRoute = read("app/api/health/route.ts")
 assert.match(healthRoute, /drizzle\."__drizzle_migrations"/)
 for (const table of ['"users"', '"terms"', '"definitions"']) {

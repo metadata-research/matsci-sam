@@ -637,7 +637,15 @@ apt-get install -y \
   "postgresql-common=${versions[POSTGRES_COMMON_PACKAGE_VERSION]}" \
   "postgresql-${versions[POSTGRES_MAJOR]}=${versions[POSTGRES_PACKAGE_VERSION]}" \
   "postgresql-${versions[POSTGRES_MAJOR]}-pgvector=${versions[PGVECTOR_PACKAGE_VERSION]}"
-npm install --global "pnpm@${versions[PNPM_VERSION]}"
+(
+  umask 0022
+  npm install --global "pnpm@${versions[PNPM_VERSION]}"
+)
+pnpm_package_dir=/usr/lib/node_modules/pnpm
+[[ -d ${pnpm_package_dir} && ! -L ${pnpm_package_dir} &&
+  $(stat -c '%U:%G' "${pnpm_package_dir}") == root:root ]] ||
+  fail "The global pnpm package has unexpected metadata."
+chmod -R u=rwX,go=rX "${pnpm_package_dir}"
 
 [[ $(node --version) == "${versions[NODE_VERSION]}" ]] ||
   fail "Installed Node.js differs from the runtime contract."
@@ -671,6 +679,9 @@ fi
   $(getent passwd "${app_user}" | awk -F: '{print $6 ":" $7}') == \
     "${app_state}:/usr/sbin/nologin" ]] ||
   fail "The application service account differs from the reviewed contract."
+[[ $(runuser -u "${app_user}" -- /usr/bin/pnpm --version) == \
+  "${versions[PNPM_VERSION]}" ]] ||
+  fail "The application service account cannot execute the reviewed pnpm."
 install -d -o root -g "${app_group}" -m 2775 \
   "${app_root}" \
   "${app_root}/releases" \

@@ -135,7 +135,15 @@ EOF
 
 apt-get update
 apt-get install -y "nodejs=${NODE_PACKAGE_VERSION}"
-npm install --global "pnpm@${PNPM_VERSION}"
+(
+  umask 0022
+  npm install --global "pnpm@${PNPM_VERSION}"
+)
+pnpm_package_dir=/usr/lib/node_modules/pnpm
+[[ -d ${pnpm_package_dir} && ! -L ${pnpm_package_dir} &&
+  $(stat -c '%U:%G' "${pnpm_package_dir}") == root:root ]] ||
+  { echo "The global pnpm package has unexpected metadata." >&2; exit 1; }
+chmod -R u=rwX,go=rX "${pnpm_package_dir}"
 
 echo "Creating the application service account and standard directories..."
 if ! getent group "${APP_GROUP}" >/dev/null; then
@@ -151,6 +159,9 @@ if ! id "${APP_USER}" >/dev/null 2>&1; then
     --shell /usr/sbin/nologin \
     "${APP_USER}"
 fi
+[[ $(runuser -u "${APP_USER}" -- /usr/bin/pnpm --version) == \
+  "${PNPM_VERSION}" ]] ||
+  { echo "The application service account cannot execute pnpm." >&2; exit 1; }
 
 install -d -o root -g "${APP_GROUP}" -m 2775 \
   "${APP_ROOT}" \
