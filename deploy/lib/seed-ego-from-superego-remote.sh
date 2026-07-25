@@ -92,6 +92,9 @@ assert_pgvector() {
 restore_dump() {
   local name=$1
   local dump=$2
+  # pgvector is deliberately installed by postgres. A dump made from that
+  # database can contain COMMENT ON EXTENSION vector, which the application
+  # role must not own or alter.
   runuser -u "${app_user}" -- pg_restore \
     --host=/var/run/postgresql \
     --port=5432 \
@@ -100,6 +103,7 @@ restore_dump() {
     --single-transaction \
     --no-owner \
     --no-privileges \
+    --no-comments \
     <"${dump}"
 }
 
@@ -383,7 +387,8 @@ if [[ ${mode} == prepare ]]; then
       source.tar \
       superego-database.dump \
       superego-manifest.tsv \
-      verify-migration-ledger.sh |
+      verify-migration-ledger.sh \
+      workstations.tsv |
       sort
   )
 else
@@ -400,7 +405,8 @@ else
       result.tsv \
       seed-ego-from-superego-remote.sh \
       source.tar \
-      verify-migration-ledger.sh |
+      verify-migration-ledger.sh \
+      workstations.tsv |
       sort
   )
 fi
@@ -466,14 +472,15 @@ expected_manifest_keys=$(
     source_archive_sha256 \
     source_host \
     source_manifest_sha256 \
-    validated_superego_commit |
+    validated_superego_commit \
+    workstation_registry_sha256 |
     sort
 )
 actual_manifest_keys=$(printf '%s\n' "${!manifest[@]}" | sort)
 [[ ${actual_manifest_keys} == "${expected_manifest_keys}" ]] ||
   fail "The seed manifest has an unexpected key set."
 [[ ${manifest[format]} == 1 &&
-  ${manifest[source_host]} == pa90 &&
+  ${manifest[source_host]} =~ ^[a-z][a-z0-9-]*$ &&
   ${manifest[expected_authority]} == uninitialized &&
   ${manifest[validated_superego_commit]} =~ ^[0-9a-f]{40}$ &&
   ${manifest[public_commit]} =~ ^[0-9a-f]{40}$ &&
@@ -488,7 +495,7 @@ done
 for key in raw_dump_sha256 source_archive_sha256 source_manifest_sha256 \
   helper_sha256 base_invariants_sha256 privacy_transform_sha256 \
   privacy_invariants_sha256 ledger_verifier_sha256 maintenance_sha256 \
-  operations_sha256
+  operations_sha256 workstation_registry_sha256
 do
   [[ ${manifest[${key}]} =~ ^[0-9a-f]{64}$ ]] ||
     fail "The seed manifest has an invalid ${key}."
@@ -518,6 +525,28 @@ fi
   "${manifest[ledger_verifier_sha256]}" ]]
 [[ $(sha256sum "${input_dir}/matsci-sam-ops" | awk '{print $1}') == \
   "${manifest[operations_sha256]}" ]]
+[[ $(sha256sum "${input_dir}/workstations.tsv" | awk '{print $1}') == \
+  "${manifest[workstation_registry_sha256]}" ]]
+tar --extract \
+  --to-stdout \
+  --file="${input_dir}/source.tar" \
+  source/deploy/workstations.tsv |
+  cmp --silent - "${input_dir}/workstations.tsv" ||
+  fail "The staged workstation registry differs from promoted source."
+
+registered_source=$(
+  awk -F '\t' -v source="${manifest[source_host]}" '
+    /^#/ || /^[[:space:]]*$/ { next }
+    NF != 3 { exit 2 }
+    $1 !~ /^[a-z][a-z0-9-]*$/ { exit 2 }
+    $2 !~ /^[A-Za-z0-9][A-Za-z0-9.-]*$/ { exit 2 }
+    $3 != "yes" && $3 != "no" { exit 2 }
+    ++seen_id[$1] > 1 || ++seen_host[$2] > 1 { exit 2 }
+    $1 == source { print $0 }
+  ' "${input_dir}/workstations.tsv"
+) || fail "The staged workstation registry is malformed."
+[[ -n ${registered_source} && ${registered_source} != *$'\n'* ]] ||
+  fail "The source workstation is not uniquely registered."
 
 exec 9>/run/lock/matsci-sam-operation.lock
 flock --nonblock 9 || fail "Another MatSci operation is running on Ego."

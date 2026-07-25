@@ -2,17 +2,425 @@ import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import {
+  chmodSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync
 } from "node:fs"
 import { tmpdir } from "node:os"
-import { resolve } from "node:path"
+import { dirname, resolve } from "node:path"
 
 const root = process.cwd()
 
 const read = (path: string) => readFileSync(resolve(root, path), "utf8")
+
+const workstationRows = read("deploy/workstations.tsv")
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => line && !line.startsWith("#"))
+  .map((line) => line.split("\t"))
+assert(workstationRows.length > 0, "The workstation registry is empty")
+const workstationIds = new Set<string>()
+const workstationHosts = new Set<string>()
+for (const [id, host, snapshotRecipient, ...extra] of workstationRows) {
+  assert.match(id, /^[a-z][a-z0-9-]*$/, "Invalid workstation ID")
+  assert.match(
+    host,
+    /^[A-Za-z0-9][A-Za-z0-9.-]*$/,
+    "Invalid workstation hostname"
+  )
+  assert(
+    snapshotRecipient === "yes" || snapshotRecipient === "no",
+    "Invalid snapshot permission"
+  )
+  assert.equal(extra.length, 0, "The workstation registry has extra fields")
+  assert(!workstationIds.has(id), `Duplicate workstation ID: ${id}`)
+  assert(!workstationHosts.has(host), `Duplicate workstation host: ${host}`)
+  workstationIds.add(id)
+  workstationHosts.add(host)
+}
+
+const superegoContentVerifier = read(
+  "deploy/lib/verify-superego-public-content.sh"
+)
+const operationsOnlyMatch = superegoContentVerifier.match(
+  /operations_only_paths=\(\n([\s\S]*?)\n\)/
+)
+assert(
+  operationsOnlyMatch,
+  "Could not locate the reviewed operations-only path list"
+)
+const expectedOperationsOnlyPaths = [
+  ".agents/skills/manage-matsci-environments/SKILL.md",
+  ".agents/skills/manage-matsci-environments/references/environments.md",
+  ".github/workflows/pr-verify.yml",
+  "README.md",
+  "developing.md",
+  "deploy/README.md",
+  "deploy/cutover-ego-public.sh",
+  "deploy/deploy-ego-from-workstation.sh",
+  "deploy/ego/AGENTS.md",
+  "deploy/lib/cutover-ego-public-remote.sh",
+  "deploy/lib/deploy-ego-precutover-remote.sh",
+  "deploy/lib/export-superego-for-ego-seed-remote.sh",
+  "deploy/lib/seed-ego-from-superego-remote.sh",
+  "deploy/lib/verify-superego-public-content.sh",
+  "deploy/seed-ego-from-superego.sh",
+  "deploy/workstations.tsv",
+  "scripts/test-deployment-contract.ts"
+]
+assert.deepEqual(
+  operationsOnlyMatch[1]
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean),
+  expectedOperationsOnlyPaths
+)
+assert.equal(
+  execFileSync(
+    resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+    ["--print-allowlist"],
+    { encoding: "utf8" }
+  ).trim(),
+  operationsOnlyMatch[1]
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
+)
+assert.match(
+  superegoContentVerifier,
+  /merge-base --is-ancestor[\s\S]*validated_commit[\s\S]*candidate_commit/
+)
+assert.match(
+  superegoContentVerifier,
+  /--no-ext-diff[\s\S]*--no-textconv[\s\S]*--no-renames[\s\S]*--ignore-submodules=none/
+)
+assert.match(superegoContentVerifier, /export GIT_NO_REPLACE_OBJECTS=1/)
+assert.match(
+  superegoContentVerifier,
+  /--verify-worktree[\s\S]*ls-files -v[\s\S]*write-tree[\s\S]*hash-object --no-filters/
+)
+
+const equivalenceDirectory = mkdtempSync(
+  resolve(tmpdir(), "matsci-sam-source-equivalence-")
+)
+const runGit = (...args: string[]) =>
+  execFileSync("git", ["-C", equivalenceDirectory, ...args], {
+    encoding: "utf8"
+  }).trim()
+const commitIndex = (message: string) => {
+  runGit(
+    "-c",
+    "user.name=MatSci deployment test",
+    "-c",
+    "user.email=deployment-test@example.invalid",
+    "commit",
+    "--quiet",
+    "-m",
+    message
+  )
+  return runGit("rev-parse", "HEAD")
+}
+const commitFixture = (message: string) => {
+  runGit("add", ".")
+  return commitIndex(message)
+}
+try {
+  runGit("init", "--quiet")
+  for (const path of expectedOperationsOnlyPaths) {
+    const fixture = resolve(equivalenceDirectory, path)
+    mkdirSync(dirname(fixture), { recursive: true })
+    writeFileSync(fixture, `validated ${path}\n`)
+  }
+  mkdirSync(resolve(equivalenceDirectory, "app"), { recursive: true })
+  writeFileSync(
+    resolve(equivalenceDirectory, "app/page.tsx"),
+    "export default function Page() { return null }\n"
+  )
+  const validatedCommit = commitFixture("validated application")
+  assert.equal(
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, validatedCommit],
+      { encoding: "utf8" }
+    ).trim(),
+    "exact-tree"
+  )
+  execFileSync(
+    resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+    ["--verify-worktree", equivalenceDirectory, validatedCommit],
+    { stdio: "pipe" }
+  )
+
+  const hiddenVerifierPath =
+    "deploy/lib/verify-superego-public-content.sh"
+  for (const [hide, unhide] of [
+    ["--skip-worktree", "--no-skip-worktree"],
+    ["--assume-unchanged", "--no-assume-unchanged"]
+  ] as const) {
+    runGit("update-index", hide, hiddenVerifierPath)
+    writeFileSync(
+      resolve(equivalenceDirectory, hiddenVerifierPath),
+      `hidden modification via ${hide}\n`
+    )
+    assert.equal(
+      runGit("status", "--porcelain=v1"),
+      "",
+      `${hide} no longer reproduces an empty porcelain status`
+    )
+    assert.throws(() =>
+      execFileSync(
+        resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+        ["--verify-worktree", equivalenceDirectory, validatedCommit],
+        { stdio: "pipe" }
+      )
+    )
+    runGit("update-index", unhide, hiddenVerifierPath)
+    writeFileSync(
+      resolve(equivalenceDirectory, hiddenVerifierPath),
+      `validated ${hiddenVerifierPath}\n`
+    )
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      ["--verify-worktree", equivalenceDirectory, validatedCommit],
+      { stdio: "pipe" }
+    )
+  }
+
+  const archiveDirectory = mkdtempSync(
+    resolve(tmpdir(), "matsci-sam-source-archive-")
+  )
+  try {
+    const ambientAttributes = resolve(
+      equivalenceDirectory,
+      ".git/info/attributes"
+    )
+    writeFileSync(ambientAttributes, "app/page.tsx export-ignore\n")
+    const unsafeArchive = resolve(archiveDirectory, "unsafe.tar")
+    execFileSync(
+      "git",
+      [
+        "-C",
+        equivalenceDirectory,
+        "archive",
+        "--format=tar",
+        `--output=${unsafeArchive}`,
+        validatedCommit
+      ],
+      { stdio: "pipe" }
+    )
+    const unsafeEntries = execFileSync(
+      "tar",
+      ["--list", `--file=${unsafeArchive}`],
+      { encoding: "utf8" }
+    )
+    assert(
+      !unsafeEntries.split("\n").includes("app/page.tsx"),
+      "The ambient export-ignore regression fixture is ineffective"
+    )
+
+    const globalAttributes = resolve(archiveDirectory, "global-attributes")
+    writeFileSync(globalAttributes, "app/page.tsx export-ignore\n")
+    const maliciousTemplate = resolve(archiveDirectory, "template")
+    mkdirSync(resolve(maliciousTemplate, "info"), { recursive: true })
+    writeFileSync(
+      resolve(maliciousTemplate, "info/attributes"),
+      "app/page.tsx export-ignore\n"
+    )
+    const hostileGitEnvironment = {
+      ...process.env,
+      GIT_CONFIG_COUNT: "1",
+      GIT_CONFIG_KEY_0: "core.attributesFile",
+      GIT_CONFIG_VALUE_0: globalAttributes,
+      GIT_TEMPLATE_DIR: maliciousTemplate
+    }
+    for (const [name, prefix, expectedEntry] of [
+      ["root.tar", undefined, "app/page.tsx"],
+      ["prefixed.tar", "--prefix=source/", "source/app/page.tsx"]
+    ] as const) {
+      const safeArchive = resolve(archiveDirectory, name)
+      const arguments_ = [
+        "--create-archive",
+        equivalenceDirectory,
+        validatedCommit,
+        safeArchive
+      ]
+      if (prefix) arguments_.push(prefix)
+      execFileSync(
+        resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+        arguments_,
+        { env: hostileGitEnvironment, stdio: "pipe" }
+      )
+      const safeEntries = execFileSync(
+        "tar",
+        ["--list", `--file=${safeArchive}`],
+        { encoding: "utf8" }
+      )
+      assert(
+        safeEntries.split("\n").includes(expectedEntry),
+        "The reviewed archive inherited ambient export-ignore attributes"
+      )
+    }
+  } finally {
+    rmSync(archiveDirectory, { recursive: true, force: true })
+  }
+
+  for (const path of expectedOperationsOnlyPaths) {
+    writeFileSync(
+      resolve(equivalenceDirectory, path),
+      `reviewed operations change ${path}\n`
+    )
+  }
+  const operationsCommit = commitFixture("change reviewed operations")
+  assert.equal(
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, operationsCommit],
+      { encoding: "utf8" }
+    ).trim(),
+    "reviewed-operations-only"
+  )
+
+  writeFileSync(
+    resolve(equivalenceDirectory, "app/page.tsx"),
+    "export default function Page() { return <main>changed</main> }\n"
+  )
+  const applicationCommit = commitFixture("change application")
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, applicationCommit],
+      { stdio: "pipe" }
+    )
+  )
+  const validatedTree = runGit("rev-parse", `${validatedCommit}^{tree}`)
+  const replacementCommit = runGit(
+    "-c",
+    "user.name=MatSci deployment test",
+    "-c",
+    "user.email=deployment-test@example.invalid",
+    "commit-tree",
+    validatedTree,
+    "-p",
+    validatedCommit,
+    "-m",
+    "malicious local replacement"
+  )
+  runGit("replace", applicationCommit, replacementCommit)
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, applicationCommit],
+      { stdio: "pipe" }
+    )
+  )
+  runGit("replace", "-d", applicationCommit)
+
+  writeFileSync(
+    resolve(equivalenceDirectory, "app/page.tsx"),
+    "export default function Page() { return null }\n"
+  )
+  mkdirSync(resolve(equivalenceDirectory, "drizzle"), { recursive: true })
+  writeFileSync(
+    resolve(equivalenceDirectory, "drizzle/schema.ts"),
+    "export const changedSchema = true\n"
+  )
+  const schemaCommit = commitFixture("change schema")
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, schemaCommit],
+      { stdio: "pipe" }
+    )
+  )
+
+  rmSync(resolve(equivalenceDirectory, "drizzle"), {
+    recursive: true,
+    force: true
+  })
+  writeFileSync(resolve(equivalenceDirectory, "pnpm-lock.yaml"), "changed\n")
+  const dependencyCommit = commitFixture("change dependency lock")
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, dependencyCommit],
+      { stdio: "pipe" }
+    )
+  )
+
+  rmSync(resolve(equivalenceDirectory, "pnpm-lock.yaml"))
+  writeFileSync(
+    resolve(equivalenceDirectory, "deploy/lib/reset-db-invariants.sql"),
+    "SELECT false;\n"
+  )
+  const invariantCommit = commitFixture("change protected invariant")
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, invariantCommit],
+      { stdio: "pipe" }
+    )
+  )
+
+  rmSync(resolve(equivalenceDirectory, "deploy/lib/reset-db-invariants.sql"))
+  chmodSync(resolve(equivalenceDirectory, "app/page.tsx"), 0o755)
+  const modeCommit = commitFixture("change application mode")
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, modeCommit],
+      { stdio: "pipe" }
+    )
+  )
+
+  chmodSync(resolve(equivalenceDirectory, "app/page.tsx"), 0o644)
+  renameSync(
+    resolve(equivalenceDirectory, "deploy/README.md"),
+    resolve(equivalenceDirectory, "app/deploy-readme.md")
+  )
+  const moveCommit = commitFixture("move allowed path into application")
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, moveCommit],
+      { stdio: "pipe" }
+    )
+  )
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, "not-a-commit", moveCommit],
+      { stdio: "pipe" }
+    )
+  )
+
+  renameSync(
+    resolve(equivalenceDirectory, "app/deploy-readme.md"),
+    resolve(equivalenceDirectory, "deploy/README.md")
+  )
+  runGit("add", ".")
+  runGit("config", "diff.ignoreSubmodules", "all")
+  runGit(
+    "update-index",
+    "--add",
+    "--cacheinfo",
+    `160000,${operationsCommit},vendor/ignored`
+  )
+  const gitlinkCommit = commitIndex("add disallowed gitlink")
+  assert.throws(() =>
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      [equivalenceDirectory, validatedCommit, gitlinkCommit],
+      { stdio: "pipe" }
+    )
+  )
+} finally {
+  rmSync(equivalenceDirectory, { recursive: true, force: true })
+}
 
 const parseAssignments = (path: string) => {
   const result = new Map<string, string>()
@@ -158,6 +566,7 @@ const egoSeedTransform = read(
 const egoSeedInvariants = read(
   "deploy/lib/ego-public-seed-invariants.sql"
 )
+assert.match(egoSeedWrapper, /export GIT_NO_REPLACE_OBJECTS=1/)
 
 const seedEnvironmentProgram = egoSeedHelper.match(
   /environment_contract=\$\(\s+awk -F= '\n([\s\S]*?)\n  ' \/etc\/matsci-sam\/app\.env \|/
@@ -213,8 +622,15 @@ try {
 assert.match(egoSeedWrapper, /EGO_SEED_CHAT_FALLBACK/)
 assert.match(
   egoSeedWrapper,
-  /git -C "\$\{repo\}" archive[\s\S]*"\$\{public_commit\}"/
+  /superego_content_verifier[\s\S]*superego_commit[\s\S]*public_commit/
 )
+assert.match(egoSeedWrapper, /public_tree} == "\$\{dev_tree\}"/)
+assert.doesNotMatch(egoSeedWrapper, /superego_tree} == "\$\{public_tree\}"/)
+assert.match(
+  egoSeedWrapper,
+  /superego_content_verifier}"[\s\S]*--create-archive[\s\S]*public_commit[\s\S]*--prefix=source\//
+)
+assert.doesNotMatch(egoSeedWrapper, /git -C "\$\{repo\}" archive/)
 assert.match(
   egoSeedWrapper,
   /\.local\/state\/matsci-sam\/backups/
@@ -247,6 +663,23 @@ assert(!egoSeedHelper.includes("md5("))
 assert.match(egoSeedHelper, /CREATE EXTENSION IF NOT EXISTS vector/)
 assert.match(egoSeedHelper, /assert_pgvector "\$\{database\}"/)
 assert.match(egoSeedHelper, /phase\]} == offhost-verified/)
+assert.match(
+  egoSeedHelper,
+  /workstations\.tsv[\s\S]*source workstation is not uniquely registered/
+)
+const seedSourceGrammarIndex = egoSeedHelper.indexOf(
+  "${manifest[source_host]} =~ ^[a-z][a-z0-9-]*$"
+)
+assert(
+  seedSourceGrammarIndex >= 0 &&
+    seedSourceGrammarIndex < egoSeedHelper.indexOf("registered_source=$("),
+  "The seed helper must validate source_host before its registry lookup"
+)
+assert.match(
+  egoSeedHelper,
+  /source\/deploy\/workstations\.tsv[\s\S]*cmp --silent/
+)
+assert.doesNotMatch(egoSeedHelper, /manifest\[source_host\]\} == pa90/)
 assert.match(egoSeedHelper, /admin_state=\/var\/lib\/matsci-sam-admin/)
 assert.match(egoSeedHelper, /backup_dir=\$\{admin_state\}\/backups/)
 assert.match(egoSeedHelper, /stat -c '%U:%G:%a'[\s\S]*root:root:700/)
@@ -269,6 +702,14 @@ assert.match(
   /install -o root -g root -m 0400[\s\S]*"\$\{stage\}\/\$\{staged_file\}"[\s\S]*"\$\{input_dir\}\/\$\{staged_file\}"/
 )
 assert.match(egoSeedExportHelper, /CREATE EXTENSION IF NOT EXISTS vector/)
+assert.match(
+  egoSeedExportHelper,
+  /CREATE EXTENSION IF NOT EXISTS vector[\s\S]*pg_restore[\s\S]*--no-comments[\s\S]*<"\$\{dump\}"/
+)
+assert.match(
+  egoSeedHelper,
+  /restore_dump\(\)[\s\S]*pg_restore[\s\S]*--no-comments[\s\S]*<"\$\{dump\}"/
+)
 
 const transformIndex = egoSeedHelper.indexOf(
   'echo "Applying the reviewed public privacy transformation."'
@@ -418,10 +859,45 @@ const egoCutoverWrapper = read("deploy/cutover-ego-public.sh")
 const egoCutoverRemote = read(
   "deploy/lib/cutover-ego-public-remote.sh"
 )
+for (const wrapper of [
+  egoSeedWrapper,
+  egoReleaseWrapper,
+  egoCutoverWrapper
+]) {
+  assert.match(wrapper, /verify_reviewed_worktree\(\)/)
+  assert.match(
+    wrapper,
+    /hash-object[\s\S]*--no-filters[\s\S]*--verify-worktree/
+  )
+  assert.match(wrapper, /unset[\s\S]*GIT_INDEX_FILE/)
+}
+for (const wrapper of [
+  egoReleaseWrapper,
+  egoCutoverWrapper
+]) {
+  assert.match(wrapper, /export GIT_NO_REPLACE_OBJECTS=1/)
+}
+for (const [name, remote] of [
+  ["first-release", egoReleaseRemote],
+  ["cutover", egoCutoverRemote]
+] as const) {
+  const grammarIndex = remote.indexOf(
+    "${manifest[source_host]} =~ ^[a-z][a-z0-9-]*$"
+  )
+  const lookupIndex = remote.indexOf("registered_source=$(")
+  assert(
+    grammarIndex >= 0 && grammarIndex < lookupIndex,
+    `The ${name} helper must validate source_host before its registry lookup`
+  )
+}
 
 assert.match(egoReleaseWrapper, /state_authority} == ego/)
 assert.match(egoReleaseWrapper, /remote_authority} == ego/)
 assert.match(
+  egoReleaseWrapper,
+  /superego_content_verifier[\s\S]*superego_commit[\s\S]*candidate/
+)
+assert.doesNotMatch(
   egoReleaseWrapper,
   /candidate_tree} == "\$\{superego_tree\}"/
 )
@@ -429,6 +905,11 @@ assert.match(
   egoReleaseWrapper,
   /candidate_tree} == "\$\{dev_tree\}"/
 )
+assert.match(
+  egoReleaseWrapper,
+  /superego_content_verifier}"[\s\S]*--create-archive[\s\S]*candidate/
+)
+assert.doesNotMatch(egoReleaseWrapper, /git -C "\$\{repo\}" archive/)
 assert.match(
   egoReleaseWrapper,
   /release=absent\\nservice=inactive\\nenabled=disabled/
@@ -454,7 +935,7 @@ assert.match(
 assert.match(egoReleaseRemote, /pg_dump[\s\S]*--format=custom/)
 assert.match(
   egoReleaseRemote,
-  /pg_restore[\s\S]*--dbname="\$\{scratch_database\}"/
+  /createdb[\s\S]*CREATE EXTENSION IF NOT EXISTS vector[\s\S]*pg_restore[\s\S]*--dbname="\$\{scratch_database\}"[\s\S]*--no-comments[\s\S]*<"\$\{backup_partial\}"/
 )
 assert.match(
   egoReleaseRemote,
@@ -547,6 +1028,19 @@ assert.match(
   egoCutoverWrapper,
   /second gate requires a real browser Google login/
 )
+assert.match(
+  egoCutoverWrapper,
+  /workstation_registry_sha256[\s\S]*workstations\.tsv/
+)
+assert.match(
+  egoCutoverRemote,
+  /workstations\.tsv[\s\S]*source workstation is not uniquely registered/
+)
+assert.match(
+  egoCutoverRemote,
+  /stage}\/workstations\.tsv[\s\S]*release}\/deploy\/workstations\.tsv/
+)
+assert.doesNotMatch(egoCutoverRemote, /manifest\[source_host\]\} == pa90/)
 assert.match(egoCutoverRemote, /\[\[ -t 0 && -t 1 \]\]/)
 assert.match(
   egoCutoverRemote,
@@ -568,7 +1062,7 @@ assert.match(
 )
 assert.match(
   egoCutoverRemote,
-  /pg_restore[\s\S]*--dbname="\$\{scratch_database\}"[\s\S]*<"\$\{database_backup\}"/
+  /createdb[\s\S]*CREATE EXTENSION IF NOT EXISTS vector[\s\S]*pg_restore[\s\S]*--dbname="\$\{scratch_database\}"[\s\S]*--no-comments[\s\S]*<"\$\{database_backup\}"/
 )
 assert.match(
   egoCutoverRemote,
