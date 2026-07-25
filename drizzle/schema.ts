@@ -17,6 +17,10 @@ import {
 } from "drizzle-orm/pg-core"
 
 export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
+export const feedbackStatusEnum = pgEnum("feedback_status", [
+  "open",
+  "resolved"
+])
 
 // --- USERS ---
 export type User = typeof usersTable.$inferSelect
@@ -111,7 +115,13 @@ export const usersTableRelations = relations(usersTable, ({ many }) => ({
   definitions: many(definitionsTable),
   comments: many(commentsTable),
   votes: many(votesTable),
-  oauthAccounts: many(oauthAccountsTable)
+  oauthAccounts: many(oauthAccountsTable),
+  siteFeedback: many(siteFeedbackTable, {
+    relationName: "siteFeedbackAuthor"
+  }),
+  resolvedSiteFeedback: many(siteFeedbackTable, {
+    relationName: "siteFeedbackResolver"
+  })
 }))
 
 export const oauthAccountsTableRelations = relations(
@@ -120,6 +130,82 @@ export const oauthAccountsTableRelations = relations(
     user: one(usersTable, {
       fields: [oauthAccountsTable.userId],
       references: [usersTable.id]
+    })
+  })
+)
+
+// --- SITE FEEDBACK ---
+// Lightweight, private feedback about the interface. Identity is taken from
+// the server session; a null userId means the submission was anonymous.
+export type SiteFeedback = typeof siteFeedbackTable.$inferSelect
+export const siteFeedbackTable = pgTable(
+  "siteFeedback",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer().references(() => usersTable.id, {
+      onDelete: "set null"
+    }),
+    // Store only the root-relative pathname. Query strings and fragments can
+    // contain credentials or other sensitive values and are deliberately
+    // excluded by both application validation and the database check below.
+    pagePath: varchar({ length: 512 }).notNull(),
+    message: text().notNull(),
+    status: feedbackStatusEnum().notNull().default("open"),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    resolvedAt: timestamp({ mode: "string", withTimezone: true }),
+    resolvedByUserId: integer().references(() => usersTable.id, {
+      onDelete: "set null"
+    })
+  },
+  (table) => [
+    // Equality on status followed by the identity cursor supports the
+    // newest-first administrative inbox without an unbounded OFFSET.
+    index("site_feedback_status_id_idx").on(table.status, table.id),
+    index("site_feedback_user_idx").on(table.userId),
+    index("site_feedback_resolved_by_user_idx").on(table.resolvedByUserId),
+    check(
+      "site_feedback_page_path_shape",
+      sql`char_length(${table.pagePath}) > 0
+          AND left(${table.pagePath}, 1) = '/'
+          AND left(${table.pagePath}, 2) <> '//'
+          AND position(chr(92) in ${table.pagePath}) = 0
+          AND position('?' in ${table.pagePath}) = 0
+          AND position('#' in ${table.pagePath}) = 0
+          AND ${table.pagePath} !~ '[[:cntrl:]]'`
+    ),
+    check(
+      "site_feedback_message_content",
+      sql`btrim(${table.message}) <> ''
+          AND char_length(${table.message}) <= 2000`
+    ),
+    // Reopening clears resolution metadata. resolvedByUserId may later become
+    // null if an administrator account is deleted, while resolvedAt preserves
+    // the durable lifecycle event.
+    check(
+      "site_feedback_resolution_shape",
+      sql`(${table.status} = 'open'
+            AND ${table.resolvedAt} IS NULL
+            AND ${table.resolvedByUserId} IS NULL)
+          OR (${table.status} = 'resolved'
+            AND ${table.resolvedAt} IS NOT NULL)`
+    )
+  ]
+)
+
+export const siteFeedbackTableRelations = relations(
+  siteFeedbackTable,
+  ({ one }) => ({
+    author: one(usersTable, {
+      fields: [siteFeedbackTable.userId],
+      references: [usersTable.id],
+      relationName: "siteFeedbackAuthor"
+    }),
+    resolver: one(usersTable, {
+      fields: [siteFeedbackTable.resolvedByUserId],
+      references: [usersTable.id],
+      relationName: "siteFeedbackResolver"
     })
   })
 )

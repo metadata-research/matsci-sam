@@ -1,11 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
-import "./globals.css";
-import { Header } from "@/components/header";
-import { ThemeProvider } from "@/components/theme-provider";
-import { TRPCProvider } from "@/trpc/client";
-import { Toaster } from "@/components/ui/sonner";
-import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google";
+import "./globals.css"
+import { Header } from "@/components/header"
+import { FeedbackWidget } from "@/components/feedback-widget"
+import { ThemeProvider } from "@/components/theme-provider"
+import { TRPCProvider } from "@/trpc/client"
+import { Toaster } from "@/components/ui/sonner"
+import { getCurrentUser } from "@/lib/current-user"
+import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google"
 
 // One designed family across roles: Plex Sans for body and UI, Plex Serif
 // for term headwords and the logo, Plex Mono for model names, prompt keys,
@@ -13,30 +15,35 @@ import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google";
 const plexSans = IBM_Plex_Sans({
   variable: "--font-plex-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
+  weight: ["400", "500", "600", "700"]
+})
 
 const plexSerif = IBM_Plex_Serif({
   variable: "--font-plex-serif",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
+  weight: ["500", "600", "700"]
+})
 
 const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
   subsets: ["latin"],
-  weight: ["400", "500"],
-});
+  weight: ["400", "500"]
+})
 
 export const metadata: Metadata = {
-  title: SITE_NAME,
-};
+  title: SITE_NAME
+}
 
-export default function RootLayout({
-  children,
+export default async function RootLayout({
+  children
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
+  const user = await getCurrentUser()
+  const feedbackIdentity = user
+    ? user.name?.trim() || user.email?.trim() || "Signed-in contributor"
+    : "Anonymous"
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -53,11 +60,12 @@ export default function RootLayout({
             <Header />
             {/* overflow-x-clip, not -hidden: clip does not create a scroll
               container, so position:sticky keeps working inside pages */}
-          <div className="flex-1 overflow-x-clip">{children}</div>
+            <div className="flex-1 overflow-x-clip">{children}</div>
+            <FeedbackWidget identity={feedbackIdentity} />
             <Toaster />
           </ThemeProvider>
         </TRPCProvider>
       </body>
     </html>
-  );
+  )
 }

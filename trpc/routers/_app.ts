@@ -3,6 +3,7 @@ import { tagsRouter } from "./tags"
 import { userRouter } from "./user"
 import { definitionsRouter } from "./definitions"
 import { commentsRouter } from "./comments"
+import { feedbackRouter } from "./feedback"
 import { adminRouter } from "./admin"
 import { termsRouter } from "./terms"
 import { refinementsRouter } from "./refinements"
@@ -43,6 +44,7 @@ export const appRouter = createTRPCRouter({
   votes: votesRouter,
   terms: termsRouter,
   comments: commentsRouter,
+  feedback: feedbackRouter,
   admin: adminRouter,
   discussion: discussionRouter,
   me: authenticatedProcedure.query(async ({ ctx }) => {
@@ -71,7 +73,9 @@ export const appRouter = createTRPCRouter({
         const results = await db
           .select({
             ...getTableColumns(termsTable),
-            count: sql<number>`count(*)`.as("count")
+            count: sql<number>`cast(count(*) as int)`
+              .mapWith(Number)
+              .as("count")
           })
           .from(termsTable)
           .rightJoin(

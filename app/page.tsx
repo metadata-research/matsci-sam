@@ -2,8 +2,6 @@ import Image from "next/image"
 import Link from "next/link"
 import {
   ArrowRightIcon,
-  BookOpenIcon,
-  FilePlus2Icon,
   MessageSquareTextIcon,
   NetworkIcon,
   SearchIcon,
@@ -19,7 +17,7 @@ import {
   usersTable
 } from "@yamz/db"
 import { asc, desc, eq, inArray, sql } from "drizzle-orm"
-import { SearchSection } from "./search-section"
+import { DefinitionStarter } from "./definition-starter"
 import { SITE_NAME } from "@/lib/site"
 import { getSession } from "@/lib/session"
 import { formatDate } from "@/lib/date"
@@ -45,14 +43,23 @@ export default async function Home() {
   const personalWorkPromise = sesh.id
     ? getPersonalWork(sesh.id)
     : Promise.resolve([])
+  const contributionTermsPromise = sesh.id
+    ? getContributionTerms()
+    : Promise.resolve([])
 
-  const [latestTerms, recentDiscussion, featured, personalWork] =
-    await Promise.all([
-      latestTermsPromise,
-      recentDiscussionPromise,
-      featuredDefinitionPromise,
-      personalWorkPromise
-    ])
+  const [
+    latestTerms,
+    recentDiscussion,
+    featured,
+    personalWork,
+    contributionTerms
+  ] = await Promise.all([
+    latestTermsPromise,
+    recentDiscussionPromise,
+    featuredDefinitionPromise,
+    personalWorkPromise,
+    contributionTermsPromise
+  ])
 
   const featuredProvenanceHref = featured
     ? `/terms/${featured.termId}/provenance`
@@ -104,8 +111,7 @@ export default async function Home() {
                 recording how terminology changes.
               </p>
               <p className={styles.projectLine}>
-                {SITE_NAME} (Semantic Alignment and Standardization) is a
-                project of the{" "}
+                {SITE_NAME} (Semantic Alignment Metadata) is a project of the{" "}
                 <a
                   href="https://mrc.cci.drexel.edu/"
                   target="_blank"
@@ -116,37 +122,24 @@ export default async function Home() {
                 .
               </p>
 
-              <div
-                id="search-vocabulary"
-                className={styles.searchPanel}
-                aria-labelledby="search-heading"
+              <section
+                id="contribute"
+                className={styles.contributionPanel}
+                aria-labelledby="contribution-heading"
               >
-                <h2 id="search-heading">Search the vocabulary</h2>
-                <SearchSection hideResults prominent />
-                <div className={styles.searchActions}>
-                  <Button asChild>
-                    <Link href="/terms">
-                      <BookOpenIcon aria-hidden />
-                      Browse all terms
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href={sesh.id ? "/add" : "/api/login"}>
-                      <FilePlus2Icon aria-hidden />
-                      {sesh.id
-                        ? "Contribute a definition"
-                        : "Sign in to contribute"}
-                    </Link>
-                  </Button>
-                </div>
+                <h2 id="contribution-heading">Contribute a definition</h2>
+                <DefinitionStarter
+                  signedIn={Boolean(sesh.id)}
+                  terms={contributionTerms}
+                />
                 <Link
                   href="/about#definition-workflow"
                   className={styles.textLink}
                 >
-                  See how consensus develops
+                  How contributions work
                   <ArrowRightIcon aria-hidden />
                 </Link>
-              </div>
+              </section>
             </div>
 
             <FeaturedRecord featured={featured} />
@@ -592,6 +585,16 @@ async function getPersonalWork(userId: number) {
       )
     )
     .limit(3)
+}
+
+async function getContributionTerms() {
+  return db
+    .select({
+      id: termsTable.id,
+      term: termsTable.term
+    })
+    .from(termsTable)
+    .orderBy(asc(termsTable.term))
 }
 
 async function getFeaturedDefinition() {

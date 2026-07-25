@@ -43,6 +43,17 @@ jobs:
         run: |
           pnpm test:identifiers
 
+      - name: Test Interface State
+        run: |
+          pnpm test:interface
+
       - name: Check Migrations
         run: |
           pnpm db:check
+
+      - name: Build
+        env:
+          SYSTEM_PROMPT_KEY: materials-reference
+          REFINE_PROMPT_KEY: refine
+        run: |
+          pnpm build

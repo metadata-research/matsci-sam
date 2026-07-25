@@ -4,7 +4,9 @@ import {
   db,
   definitionRevisionsTable,
   definitionsTable,
+  feedbackStatusEnum,
   refinementsTable,
+  siteFeedbackTable,
   termsTable,
   userRoleEnum,
   usersTable,
@@ -16,7 +18,7 @@ import { createTRPCRouter } from "../init"
 import { adminProcedure } from "../procedures"
 import { reviseDefinition } from "@/lib/apis/ollama"
 import { z } from "zod"
-import { asc, desc, eq, inArray, ne, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, lt, ne, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import {
   getConfiguredServiceHealth,
@@ -27,6 +29,71 @@ import {
 export const adminRouter = createTRPCRouter({
   ollama: adminProcedure.query(() => getOllamaHealth()),
   serviceHealth: adminProcedure.query(() => getServiceHealth()),
+  feedbackInbox: adminProcedure
+    .input(
+      z
+        .object({
+          status: z.enum(["open", "resolved", "all"]).default("open"),
+          cursor: z.number().int().positive().optional(),
+          limit: z.number().int().min(1).max(100).default(50)
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      const status = input?.status ?? "open"
+      const limit = input?.limit ?? 50
+      const rows = await db.query.siteFeedbackTable.findMany({
+        where: and(
+          status === "all" ? undefined : eq(siteFeedbackTable.status, status),
+          input?.cursor ? lt(siteFeedbackTable.id, input.cursor) : undefined
+        ),
+        with: {
+          author: { columns: { id: true, name: true } },
+          resolver: { columns: { id: true, name: true } }
+        },
+        orderBy: desc(siteFeedbackTable.id),
+        limit: limit + 1
+      })
+      const hasMore = rows.length > limit
+      const items = hasMore ? rows.slice(0, limit) : rows
+
+      return {
+        items,
+        nextCursor: hasMore ? (items.at(-1)?.id ?? null) : null
+      }
+    }),
+  setFeedbackStatus: adminProcedure
+    .input(
+      z.object({
+        feedbackId: z.number().int().positive(),
+        status: z.enum(feedbackStatusEnum.enumValues)
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const resolved = input.status === "resolved"
+      const [updated] = await db
+        .update(siteFeedbackTable)
+        .set({
+          status: input.status,
+          resolvedAt: resolved ? sql`now()` : null,
+          resolvedByUserId: resolved ? ctx.userId : null
+        })
+        .where(eq(siteFeedbackTable.id, input.feedbackId))
+        .returning({
+          id: siteFeedbackTable.id,
+          status: siteFeedbackTable.status,
+          resolvedAt: siteFeedbackTable.resolvedAt,
+          resolvedByUserId: siteFeedbackTable.resolvedByUserId
+        })
+
+      if (!updated)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No such feedback submission"
+        })
+
+      return updated
+    }),
   chats: adminProcedure.input(z.number()).query(async ({ input: termId }) => {
     return await db.query.chatsTable.findMany({
       where: eq(chatsTable.termId, termId),

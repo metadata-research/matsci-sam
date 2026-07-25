@@ -7,13 +7,13 @@ import { useState } from "react"
 import styles from "./header.module.css"
 
 /*
- * Search entry point in the nav, so every page can start a search without
- * routing through the homepage hero or a separate Search page first.
+ * Quick-search entry point in the nav, so a known query can start from any
+ * page. The primary navigation also links to /search directly so the complete
+ * interface remains discoverable without submitting a query.
  *
  * Hidden on /search itself: that page owns a full search field plus the filter
- * panel, and a second box in the nav driving the same query is the redundancy
- * this replaces. Below the md breakpoint the field collapses to a plain icon
- * link -- the pill nav has no room for an input next to four nav buttons.
+ * panel. Below the md breakpoint the field collapses to a plain icon link --
+ * the pill nav has no room for an input beside the primary tasks.
  */
 export const HeaderSearch = () => {
   const pathname = usePathname()

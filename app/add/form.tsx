@@ -98,11 +98,13 @@ function TermGuidance({
 }
 
 export const DefineTermForm = ({
-  interactive: interactiveDefault = false
+  interactive: interactiveDefault = false,
+  initialTerm = ""
 }: {
   // Initial mode; /add starts classic, /add/interactive starts interactive.
   // The choices switch modes in place without losing typed input.
   interactive?: boolean
+  initialTerm?: string
 }) => {
   const router = useRouter()
   const [interactive, setInteractive] = useState(interactiveDefault)
@@ -116,7 +118,7 @@ export const DefineTermForm = ({
 
   const form = useForm<DefineTerm>({
     resolver: zodResolver(DefineTermSchema),
-    defaultValues: { term: "", examples: "", definition: "" }
+    defaultValues: { term: initialTerm, examples: "", definition: "" }
   })
 
   const mutation = trpc.definitions.create.useMutation({
@@ -129,7 +131,7 @@ export const DefineTermForm = ({
   const termValue = useWatch({
     control: form.control,
     name: "term",
-    defaultValue: ""
+    defaultValue: initialTerm
   })
   const normalizedTerm = termValue.trim().toLowerCase()
   const existingTerms = useMemo(

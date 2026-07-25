@@ -25,6 +25,19 @@ attribution even when the profile is private. Turning the setting off makes the
 profile URL unavailable and returns contributor names to plain text. It does
 not remove contributions or revision history.
 
+## Interface feedback
+
+A collapsed **Feedback** control is available on every page. Use it to report
+something confusing or missing, suggest an improvement, or note something
+that works especially well without leaving the page you are reviewing.
+
+Each feedback record contains the comment, the relative MatSci SAM page
+path, and the submission time. Query parameters and page fragments are not
+stored. When the contributor is signed in, the record is also linked to that
+account; otherwise it is recorded as Anonymous. The account identity is
+determined by the server and is not an editable form field. Administrators can
+review the feedback inbox and mark an item resolved or reopen it.
+
 ## Voting and score
 
 Each signed-in account has one current vote on the current revision of a
