@@ -8,6 +8,7 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+VERSIONS_FILE=${SCRIPT_DIR}/runtime-versions.env
 # Keep later runuser calls independent of the invoking administrator's home
 # directory permissions.
 cd /
@@ -19,8 +20,37 @@ APP_STATE=/var/lib/matsci-sam
 APP_CONFIG=/etc/matsci-sam
 DB_NAME=matsci-sam
 DB_ROLE=matsci-sam
-NODE_MAJOR=24
-POSTGRES_MAJOR=17
+POSTGRES_KEY_FINGERPRINT=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+NODESOURCE_KEY_FINGERPRINT=6F71F525282841EEDAF851B42F59B5F99B1BE0B4
+postgres_key=
+nodesource_key=
+
+cleanup() {
+  [[ -z ${postgres_key} || ! -e ${postgres_key} ]] ||
+    rm -f "${postgres_key}"
+  [[ -z ${nodesource_key} || ! -e ${nodesource_key} ]] ||
+    rm -f "${nodesource_key}"
+}
+trap cleanup EXIT
+
+[[ -f ${VERSIONS_FILE} && ! -L ${VERSIONS_FILE} ]] ||
+  { echo "The reviewed runtime-version contract is unavailable." >&2; exit 1; }
+while IFS= read -r line || [[ -n ${line} ]]; do
+  [[ ${line} =~ ^[[:space:]]*# || ${line} =~ ^[[:space:]]*$ ]] && continue
+  [[ ${line} =~ ^[A-Z0-9_]+=[A-Za-z0-9.+:~-]+$ ]] ||
+    { echo "Malformed runtime-version line." >&2; exit 1; }
+done <"${VERSIONS_FILE}"
+# shellcheck disable=SC1090
+source "${VERSIONS_FILE}"
+NODE_MAJOR=${NODE_VERSION#v}
+NODE_MAJOR=${NODE_MAJOR%%.*}
+[[ ${NODE_MAJOR} =~ ^[0-9]+$ ]] ||
+  { echo "The reviewed Node.js version is invalid." >&2; exit 1; }
+. /etc/os-release
+[[ ${ID} == ubuntu && ${VERSION_ID} == "${UBUNTU_VERSION}" ]] ||
+  { echo "The host does not match the reviewed Ubuntu version." >&2; exit 1; }
+[[ $(dpkg --print-architecture) == "${ARCHITECTURE}" ]] ||
+  { echo "The host does not match the reviewed architecture." >&2; exit 1; }
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -32,9 +62,8 @@ apt-get install -y \
   curl \
   git \
   gnupg \
-  nginx \
+  "nginx=${NGINX_PACKAGE_VERSION}" \
   openssl \
-  postgresql-common \
   xz-utils
 
 echo "Configuring the official PostgreSQL Apt repository..."
@@ -45,10 +74,21 @@ if [[ -z ${VERSION_CODENAME:-} ]]; then
 fi
 
 install -d -m 0755 /usr/share/postgresql-common/pgdg
+postgres_key=$(mktemp)
 curl --fail --silent --show-error \
   https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-  -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
-chmod 0644 /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+  -o "${postgres_key}"
+postgres_key_fingerprint=$(
+  gpg --batch --show-keys --with-colons "${postgres_key}" |
+    awk -F: '$1 == "fpr" { print $10; exit }'
+)
+[[ ${postgres_key_fingerprint} == "${POSTGRES_KEY_FINGERPRINT}" ]] ||
+  { echo "The PostgreSQL repository signing key fingerprint changed." >&2; exit 1; }
+install -o root -g root -m 0644 \
+  "${postgres_key}" \
+  /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+rm -f "${postgres_key}"
+postgres_key=
 
 cat >/etc/apt/sources.list.d/pgdg.sources <<EOF
 Types: deb
@@ -61,20 +101,28 @@ EOF
 
 apt-get update
 apt-get install -y \
-  "postgresql-${POSTGRES_MAJOR}" \
-  "postgresql-${POSTGRES_MAJOR}-pgvector"
+  "postgresql-common=${POSTGRES_COMMON_PACKAGE_VERSION}" \
+  "postgresql-${POSTGRES_MAJOR}=${POSTGRES_PACKAGE_VERSION}" \
+  "postgresql-${POSTGRES_MAJOR}-pgvector=${PGVECTOR_PACKAGE_VERSION}"
 
 echo "Configuring the NodeSource Node.js ${NODE_MAJOR}.x repository..."
 install -d -m 0755 /etc/apt/keyrings
 nodesource_key=$(mktemp)
-trap 'rm -f "${nodesource_key}"' EXIT
 curl -fsSL \
   https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
   -o "${nodesource_key}"
+nodesource_key_fingerprint=$(
+  gpg --batch --show-keys --with-colons "${nodesource_key}" |
+    awk -F: '$1 == "fpr" { print $10; exit }'
+)
+[[ ${nodesource_key_fingerprint} == "${NODESOURCE_KEY_FINGERPRINT}" ]] ||
+  { echo "The NodeSource repository signing key fingerprint changed." >&2; exit 1; }
 gpg --batch --yes --dearmor \
   --output /etc/apt/keyrings/nodesource.gpg \
   "${nodesource_key}"
 chmod 0644 /etc/apt/keyrings/nodesource.gpg
+rm -f "${nodesource_key}"
+nodesource_key=
 
 cat >/etc/apt/sources.list.d/nodesource.sources <<EOF
 Types: deb
@@ -86,8 +134,8 @@ Signed-By: /etc/apt/keyrings/nodesource.gpg
 EOF
 
 apt-get update
-apt-get install -y nodejs
-npm install --global pnpm@10
+apt-get install -y "nodejs=${NODE_PACKAGE_VERSION}"
+npm install --global "pnpm@${PNPM_VERSION}"
 
 echo "Creating the application service account and standard directories..."
 if ! getent group "${APP_GROUP}" >/dev/null; then
@@ -116,10 +164,14 @@ if [[ ! -e "${APP_CONFIG}/app.env" ]]; then
     "${SCRIPT_DIR}/app.env.example" \
     "${APP_CONFIG}/app.env"
   session_password=$(openssl rand -hex 32)
+  auth_encryption_key=$(openssl rand -base64 32 | tr -d '\n')
   sed -i \
     "s/^SESSION_PASSWORD=$/SESSION_PASSWORD=${session_password}/" \
     "${APP_CONFIG}/app.env"
-  unset session_password
+  sed -i \
+    "s|^AUTH_TOKEN_ENCRYPTION_KEY=$|AUTH_TOKEN_ENCRYPTION_KEY=${auth_encryption_key}|" \
+    "${APP_CONFIG}/app.env"
+  unset session_password auth_encryption_key
 fi
 
 echo "Creating the local application database and enabling pgvector..."
@@ -147,7 +199,7 @@ systemctl restart postgresql
 
 echo "Installing nginx and systemd configuration..."
 install -o root -g root -m 0644 \
-  "${SCRIPT_DIR}/nginx/matsci-sam.conf" \
+  "${SCRIPT_DIR}/nginx/matsci-sam-superego.conf" \
   /etc/nginx/sites-available/matsci-sam
 ln -sfn /etc/nginx/sites-available/matsci-sam \
   /etc/nginx/sites-enabled/matsci-sam

@@ -2,6 +2,7 @@
   "name": "matsci-sam",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "next dev",
     "check-types": "next typegen && tsc --noEmit",
@@ -11,6 +12,7 @@
     "test:identifiers": "tsx scripts/test-public-identifiers.ts",
     "test:auth": "tsx scripts/test-auth-plumbing.ts",
     "test:interface": "tsx scripts/test-interface-state.ts",
+    "test:deployment": "tsx scripts/test-deployment-contract.ts",
     "auth:gmail": "tsx scripts/authorize-gmail-sender.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

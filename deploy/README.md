@@ -1,8 +1,8 @@
 # Deployment and host provisioning
 
-This directory contains the reviewed wrappers for Superego operations and the
-stable components needed to provision a new MatSci SAM application host.
-Private authority, runtime, and server facts remain in the internal runbooks.
+This directory contains the reviewed wrappers and host profiles for the
+Superego development runtime and the independent Ego public runtime. Private
+authority, release, and server facts remain in the internal runbooks.
 
 | Purpose | Location on a provisioned host |
 | --- | --- |
@@ -14,11 +14,22 @@ Private authority, runtime, and server facts remain in the internal runbooks.
 
 ## Files
 
-- `bootstrap-server.sh` provisions a new application host.
-- `app.env.example` lists supported runtime settings without secret values.
+- `bootstrap-server.sh` provisions a replacement private development host.
+- `runtime-versions.env` pins the shared host runtime contract.
+- `app.env.example` is the Superego configuration profile without secrets.
+- `ego/app.env.example` is the independent Ego public profile.
 - `systemd/matsci-sam.service` is the canonical service unit.
-- `nginx/matsci-sam.conf` is an HTTP bootstrap configuration. It is not the
-  complete TLS configuration installed on an existing host.
+- `nginx/matsci-sam-superego.conf` is the private development HTTP bootstrap
+  configuration. It contains no Ego proxy path and is not the complete TLS
+  configuration installed on an existing host.
+- `nginx/matsci-sam-public-maintenance.conf` is the known-good Ego maintenance
+  configuration.
+- `nginx/matsci-sam-public-local-ready.conf` is the disabled Ego candidate
+  that proxies to the local loopback application.
+- `provision-ego-runtime.sh` installs the runtime and empty local database
+  without changing public maintenance behavior.
+- `check-runtime-parity.sh` compares non-secret host versions, service
+  configuration, listener boundaries, and authority markers.
 - `deploy-superego-from-workstation.sh` publishes reviewed source while
   preserving and migrating the Superego-authoritative database.
 - `pull-superego-db-to-workstation.sh` refreshes the replaceable local
@@ -30,8 +41,9 @@ Private authority, runtime, and server facts remain in the internal runbooks.
 - Files under `lib/` are staged implementation details. Do not invoke them
   directly.
 
-Do not rerun the bootstrap script on an existing server. It installs packages
-and replaces Nginx and systemd configuration.
+Do not run `bootstrap-server.sh` on Ego. That script replaces the enabled
+Nginx site on a new host. Ego already has public TLS and a protected
+maintenance contract.
 
 ## New-host bootstrap
 
@@ -49,13 +61,61 @@ standard directories. PostgreSQL accepts local Unix-socket connections only.
 The application service remains disabled until an administrator installs the
 protected environment, TLS configuration, and first release.
 
+## Ego runtime provisioning
+
+Ego uses the same Node.js, pnpm, PostgreSQL, pgvector, service-unit, directory,
+and socket-only database contract as Superego. It has distinct configuration,
+OAuth credentials, session and token keys, database rows, releases, TLS, and
+Nginx configuration.
+
+Run the optional preflight and then the supervised provisioning command from
+the recorded control workstation on a clean `dev` checkout equal to
+`origin/dev`:
+
+```bash
+./deploy/provision-ego-runtime.sh --check-only
+./deploy/provision-ego-runtime.sh
+```
+
+The command requires the user to enter sudo on Ego. It leaves the known-good
+maintenance site active, keeps `matsci-sam.service` disabled, creates an empty
+local `matsci-sam` database with pgvector, and records the Ego data authority
+as `uninitialized`.
+
+Verify runtime parity with:
+
+```bash
+./deploy/check-runtime-parity.sh
+```
+
+Provisioning does not seed data, install OAuth credentials, deploy an
+application release, or activate the public application configuration.
+
+The later one-time seed requires a privacy review of the Superego snapshot.
+User identities, provider-bound OAuth tokens, private feedback, and
+conversation records must not become public by accident. A successful seed
+changes the Ego authority marker from `uninitialized` to `ego`. After that
+change, never replace or refresh the Ego database from Superego.
+
 ## Deployment boundary
 
 A merge to `dev` updates source control only. It does not deploy Superego.
 Consult `docs-internal/CURRENT-DEV-STATE.md` and
 `docs-internal/SUPEREGO-DEV-ACCESS.md` before an operation. Do not merge or
-push any commit to `main` while its active legacy production workflow can
-migrate or restart a public environment.
+push a public candidate to `main` until the disabled legacy production
+workflow and its self-hosted runner have been retired.
+
+The release path is:
+
+```text
+reviewed origin/dev -> Superego validation
+identical reviewed tree -> origin/main -> Ego
+```
+
+The main commit may differ from the validated dev commit when GitHub creates a
+merge commit. The application tree and migration tree must match. Ego builds
+that tree again with the public environment because
+`NEXT_PUBLIC_SITE_URL` is build-time configuration.
 
 When both authority records identify Superego as the shared-data authority,
 run this from the recorded control workstation:

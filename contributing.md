@@ -32,10 +32,13 @@ MatSci SAM uses `dev` as its integration branch.
 5. A maintainer merges the pull request into `dev`. The merge updates source
    control only. It does not deploy Superego or another server.
 
-6. A maintainer deploys a reviewed `dev` commit through the environment
-   runbook. Promotion to `main` and public deployment are separate decisions.
-   Do not merge or push any commit to `main` while its active legacy
-   production workflow can migrate and restart the public environment.
+6. A maintainer deploys a reviewed `dev` commit to Superego through the
+   environment runbook. Promotion to `main` and deployment to the independent
+   Ego public runtime are separate decisions. The legacy workflows are
+   disabled, but `main` remains blocked until their self-hosted runners and
+   deployment privileges are retired and the old deployment workflow is
+   removed. A public candidate must use the same Git tree already validated on
+   Superego.
 
 Never put credentials, database dumps, private environment files, or TLS keys
 in a branch, pull request, issue, workflow log, or build artifact.
