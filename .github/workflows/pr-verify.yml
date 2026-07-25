@@ -47,15 +47,29 @@ jobs:
         run: |
           pnpm test:interface
 
+      - name: Test Ollama Revision Context
+        run: |
+          pnpm test:ollama-context
+
       - name: Test Deployment Contract
         run: |
           pnpm test:deployment
           bash -n \
             deploy/bootstrap-server.sh \
             deploy/check-runtime-parity.sh \
+            deploy/deploy-superego-from-workstation.sh \
+            deploy/lib/deploy-superego-in-place-remote.sh \
             deploy/provision-ego-runtime.sh \
+            deploy/seed-ego-from-superego.sh \
+            deploy/deploy-ego-from-workstation.sh \
+            deploy/cutover-ego-public.sh \
             deploy/lib/provision-ego-runtime-remote.sh \
-            deploy/ops/matsci-sam-ops
+            deploy/lib/export-superego-for-ego-seed-remote.sh \
+            deploy/lib/seed-ego-from-superego-remote.sh \
+            deploy/lib/deploy-ego-precutover-remote.sh \
+            deploy/lib/cutover-ego-public-remote.sh \
+            deploy/ops/matsci-sam-ops \
+            .agents/skills/manage-matsci-environments/scripts/status.sh
 
       - name: Check Migrations
         run: |

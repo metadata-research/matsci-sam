@@ -9,6 +9,7 @@ authority, release, and server facts remain in the internal runbooks.
 | Releases and `current` symlink | `/opt/matsci-sam` |
 | Protected settings | `/etc/matsci-sam/app.env` |
 | Persistent application state | `/var/lib/matsci-sam` |
+| Root-only deployment records and backups | `/var/lib/matsci-sam-admin` |
 | Service logs | systemd journal |
 | PostgreSQL data | distribution-managed PostgreSQL directory |
 
@@ -28,6 +29,13 @@ authority, release, and server facts remain in the internal runbooks.
   that proxies to the local loopback application.
 - `provision-ego-runtime.sh` installs the runtime and empty local database
   without changing public maintenance behavior.
+- `seed-ego-from-superego.sh` performs the sole privacy-filtered initialization
+  while Ego still records authority `uninitialized`.
+- `deploy-ego-from-workstation.sh` prepares only Ego's first seeded
+  application release on loopback; it does not perform public cutover or
+  support later in-place releases.
+- `cutover-ego-public.sh` performs the separately approved, fail-closed
+  transition from maintenance to the already-verified first Ego release.
 - `check-runtime-parity.sh` compares non-secret host versions, service
   configuration, listener boundaries, and authority markers.
 - `deploy-superego-from-workstation.sh` publishes reviewed source while
@@ -96,6 +104,71 @@ User identities, provider-bound OAuth tokens, private feedback, and
 conversation records must not become public by accident. A successful seed
 changes the Ego authority marker from `uninitialized` to `ego`. After that
 change, never replace or refresh the Ego database from Superego.
+
+Configure and validate the separate public OAuth client first. Then, after the
+exact promoted tree is running on Superego, run the seed in a supervised
+foreground terminal:
+
+```bash
+./deploy/seed-ego-from-superego.sh --check-only
+./deploy/seed-ego-from-superego.sh
+```
+
+Enter the existing Google contributor email at the private prompt; do not put
+it on a documented command line. The seed test-restores the raw snapshot,
+deletes provider-token rows, email tokens, private feedback, raw term chats,
+unaccepted AI work, and legacy edits, prunes non-contributors, and erases
+retained human email addresses. Google subjects remain so the first successful
+public login can repopulate the verified address without breaking attribution.
+Only public-profile fields explicitly opted into remain.
+
+The sanitized dump is restored and checked a second time. The promoted source
+then receives a frozen dependency install, migration rehearsal, and public
+build against that scratch database before the empty live database changes.
+The authority marker is the final commit point. A root mode-`0400` backup
+remains on Ego and a checksum-verified mode-`0600` copy is stored under the
+control user's WSL state directory, outside Git and OneDrive. The raw snapshot
+is transient.
+
+Because the seed removes raw term chats, the promoted application must retain
+the `EGO_SEED_CHAT_FALLBACK` contract. It reconstructs the term and current AI
+definition when later feedback starts a new chat thread. Both the wrapper and
+deployment contract test refuse a public tree without that fallback.
+
+After the reviewed seed records authority `ego`, prepare Ego's first release
+with:
+
+```bash
+./deploy/deploy-ego-from-workstation.sh --check-only
+./deploy/deploy-ego-from-workstation.sh
+```
+
+The wrapper requires clean `dev`, an identical `origin/main` tree, no prior
+Ego release, and an inactive, disabled application service. It verifies the
+seed privacy contract and exact migration ledger without changing the live
+database, creates and test-restores a backup, builds against the restored
+scratch database under Ego's protected environment, and starts Next.js only
+on loopback. Nginx remains on the known-good maintenance site. A successful
+run writes a root-owned pre-cutover marker for the separate public-edge
+operation. Do not reuse this first-release wrapper for a later deployment.
+
+Then run the separately approved cutover in the foreground:
+
+```bash
+./deploy/cutover-ego-public.sh --check-only
+./deploy/cutover-ego-public.sh
+```
+
+The mutating command atomically activates the reviewed local Nginx candidate,
+checks both the trusted local edge and the public hostname, and then pauses
+for up to 15 minutes. During that pause, sign in through Google with the
+existing contributor account and verify its expected profile and
+contributions. Type the exact confirmation shown by the command only after
+that browser check. Automated redirect and cookie checks do not prove the
+Google client secret, callback registration, or identity continuity. EOF,
+interruption, timeout, a wrong confirmation, or a later failed check restores
+the exact maintenance configuration and leaves the application service
+disabled for reboot.
 
 ## Deployment boundary
 

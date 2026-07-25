@@ -12,7 +12,9 @@ cd /
 stage=${1:-}
 app_root=/opt/matsci-sam
 database=matsci-sam
-backup_dir=/var/lib/matsci-sam/backups
+admin_root=/var/lib/matsci-sam-admin
+backup_dir=${admin_root}/backups
+cache_root=/var/lib/matsci-sam/release-cache
 authority_file=/home/cr625/superego-admin/DATA-AUTHORITY
 deployment_complete=false
 public_reopened=false
@@ -22,6 +24,7 @@ database_mutation_started=false
 backup_ready=false
 pointer_switch_attempted=false
 new_release_created=false
+cache_created=false
 scratch_database_created=false
 root_work=
 previous=
@@ -30,6 +33,9 @@ backup=
 backup_partial=
 scratch_database=
 predeploy_facts=
+runtime_cache=
+sudoers_partial=
+operations_partial=
 
 fail() {
   echo "$*" >&2
@@ -156,12 +162,27 @@ cleanup_partial_backup() {
   fi
 }
 
+cleanup_partial_diagnostics() {
+  if [[ -n ${sudoers_partial} && -f ${sudoers_partial} ]]; then
+    unlink "${sudoers_partial}"
+  fi
+  if [[ -n ${operations_partial} && -f ${operations_partial} ]]; then
+    unlink "${operations_partial}"
+  fi
+}
+
 remove_failed_release() {
   if [[ ${new_release_created} == true && -n ${release} && -d ${release} ]] &&
     [[ $(readlink -e "${app_root}/current" 2>/dev/null || true) != "${release}" ]]
   then
     find "${release}" -mindepth 1 -delete
     rmdir "${release}"
+  fi
+  if [[ ${cache_created} == true && -n ${runtime_cache} &&
+    ${runtime_cache} == "${cache_root}/"* && -d ${runtime_cache} ]]
+  then
+    find "${runtime_cache}" -mindepth 1 -delete
+    rmdir "${runtime_cache}"
   fi
 }
 
@@ -222,6 +243,7 @@ rollback_on_failure() {
   if [[ ${deployment_complete} == true ]]; then
     cleanup_scratch_database >/dev/null 2>&1 || true
     cleanup_partial_backup || true
+    cleanup_partial_diagnostics || true
     cleanup_root_work || true
     exit 0
   fi
@@ -236,6 +258,7 @@ rollback_on_failure() {
     fi
     cleanup_scratch_database >/dev/null 2>&1 || true
     cleanup_partial_backup || true
+    cleanup_partial_diagnostics || true
     cleanup_root_work || true
     exit "${status}"
   fi
@@ -243,6 +266,7 @@ rollback_on_failure() {
   if [[ ${nginx_stop_attempted} != true && ${app_stop_attempted} != true ]]; then
     cleanup_scratch_database >/dev/null 2>&1 || true
     cleanup_partial_backup || true
+    cleanup_partial_diagnostics || true
     remove_failed_release || true
     cleanup_root_work || true
     exit "${status}"
@@ -295,6 +319,7 @@ rollback_on_failure() {
   fi
 
   cleanup_partial_backup || true
+  cleanup_partial_diagnostics || true
   cleanup_root_work || true
   exit "${status}"
 }
@@ -339,8 +364,9 @@ for staged_file in ${expected_stage_files}; do
     fail "A deployment staging entry is not a regular file."
 done
 
-for command in awk cmp createdb curl diff dropdb find flock grep jq pg_dump \
-  pg_restore pnpm psql runuser sha256sum ss systemctl tar
+for command in awk chmod chown cmp createdb curl cut diff dropdb find flock \
+  getent grep install jq mv pg_dump pg_restore pgrep pnpm psql runuser \
+  sha256sum ss stat systemctl tar unlink usermod visudo
 do
   command -v "${command}" >/dev/null ||
     fail "Required command is unavailable: ${command}"
@@ -440,13 +466,43 @@ stamp=$(date -u +%Y%m%dT%H%M%SZ)
 backup=${backup_dir}/matsci-sam-before-in-place-deploy-${stamp}.dump
 scratch_database="matsci_deploy_check_${stamp}_$$"
 
-root_work=$(mktemp -d /var/lib/matsci-sam/deploy-work.XXXXXX)
+if [[ -e ${admin_root} || -L ${admin_root} ]]; then
+  [[ -d ${admin_root} && ! -L ${admin_root} &&
+    $(stat -c '%U:%G:%a' "${admin_root}") == root:root:700 ]] ||
+    fail "The privileged MatSci administration directory is unsafe."
+else
+  install -d -o root -g root -m 0700 "${admin_root}"
+fi
+root_work=$(mktemp -d "${admin_root}/superego-deploy.XXXXXXXX")
 install -m 0600 "${archive}" "${root_work}/source.tar"
 archive=${root_work}/source.tar
+diagnostic_candidate_dir=${root_work}/diagnostic
+install -d -o root -g root -m 0700 "${diagnostic_candidate_dir}"
+tar --extract \
+  --file="${archive}" \
+  --directory="${diagnostic_candidate_dir}" \
+  deploy/ops/matsci-sam-ops \
+  deploy/ops/matsci-sam-ops.sudoers
+candidate_operations=${diagnostic_candidate_dir}/deploy/ops/matsci-sam-ops
+candidate_sudoers=${diagnostic_candidate_dir}/deploy/ops/matsci-sam-ops.sudoers
+chown -R root:root "${diagnostic_candidate_dir}"
+chmod 0700 \
+  "${diagnostic_candidate_dir}/deploy" \
+  "${diagnostic_candidate_dir}/deploy/ops"
+chmod 0500 "${candidate_operations}"
+chmod 0400 "${candidate_sudoers}"
+bash -n "${candidate_operations}"
+visudo -cf "${candidate_sudoers}" >/dev/null
 
 verify_protected_database_identity
 
 echo "Preparing and building the candidate while Superego remains available."
+for protected_parent in "${app_root}" "${app_root}/releases"; do
+  [[ -d ${protected_parent} && ! -L ${protected_parent} ]] ||
+    fail "A protected release parent is missing or unsafe."
+  chown root:root "${protected_parent}"
+  chmod 0755 "${protected_parent}"
+done
 new_release_created=true
 release=$(mktemp -d "${app_root}/releases/${manifest[commit]}-XXXXXXXX")
 chown matsci-sam:matsci-sam "${release}"
@@ -813,6 +869,38 @@ printf '%s %s\n' \
 chown root:matsci-sam "${release}/.matsci-release-source"
 chmod 0640 "${release}/.matsci-release-source"
 
+release_name=$(basename "${release}")
+runtime_cache=${cache_root}/${release_name}
+[[ ${release_name} =~ ^${manifest[commit]}-[A-Za-z0-9]{8}$ &&
+  ! -e ${runtime_cache} && ! -L ${runtime_cache} ]] ||
+  fail "The Superego release cache path is unsafe or already exists."
+if [[ -e ${cache_root} || -L ${cache_root} ]]; then
+  [[ -d ${cache_root} && ! -L ${cache_root} &&
+    $(stat -c '%U:%G:%a' "${cache_root}") == root:matsci-sam:750 ]] ||
+    fail "The Superego release-cache directory is unsafe."
+else
+  install -d -o root -g matsci-sam -m 0750 "${cache_root}"
+fi
+cache_created=true
+if [[ -d ${release}/.next/cache && ! -L ${release}/.next/cache ]]; then
+  mv -T "${release}/.next/cache" "${runtime_cache}"
+else
+  [[ ! -e ${release}/.next/cache && ! -L ${release}/.next/cache ]] ||
+    fail "The Next.js cache path is not a regular directory."
+  install -d -o matsci-sam -g matsci-sam -m 0750 "${runtime_cache}"
+fi
+chown -hR matsci-sam:matsci-sam "${runtime_cache}"
+find "${runtime_cache}" -xdev -type d -exec chmod 0750 {} +
+find "${runtime_cache}" -xdev -type f -exec chmod 0640 {} +
+ln -s "${runtime_cache}" "${release}/.next/cache"
+
+# The running service may write only its external cache. Source, dependencies,
+# and built server assets are immutable and cannot replace privileged helpers.
+chown -hR root:root "${release}"
+find "${release}" -xdev -type d -exec chmod 0555 {} +
+find "${release}" -xdev -type f -perm /111 -exec chmod 0555 {} +
+find "${release}" -xdev -type f ! -perm /111 -exec chmod 0444 {} +
+
 next_link=${app_root}/.current-${manifest[commit]:0:12}-${stamp}-$$
 [[ ! -e ${next_link} && ! -L ${next_link} ]] ||
   fail "The temporary release pointer already exists."
@@ -861,6 +949,113 @@ for path in "${local_paths[@]}"; do
   )
   [[ ${code} == 200 ]] || fail "Unexpected local status for ${path}: ${code}"
 done
+
+# Replace the legacy mutating operations helper with the reviewed
+# presence-only diagnostic shipped in this release. The read-only sudo
+# contract is installed before public access reopens. The candidate files
+# came directly from the root-owned source archive, not the writable release
+# tree, so the application account cannot replace them after validation.
+installed_operations=/usr/local/sbin/matsci-sam-ops
+installed_sudoers=/etc/sudoers.d/matsci-sam-ops
+legacy_operations_sha=97ca9ca00d0fbed806188d3bb76355d218a30ee4ee543fc753992a104088a50c
+
+candidate_operations_sha=$(
+  sha256sum "${candidate_operations}" | awk '{print $1}'
+)
+installed_operations_sha=$(
+  sha256sum "${installed_operations}" | awk '{print $1}'
+)
+[[ ${installed_operations_sha} == "${legacy_operations_sha}" ||
+  ${installed_operations_sha} == "${candidate_operations_sha}" ]] ||
+  fail "The installed Superego operations helper is not a reviewed predecessor."
+
+diagnostic_backup=/root/matsci-sam-diagnostics-before-${stamp}
+[[ ! -e ${diagnostic_backup} && ! -L ${diagnostic_backup} ]] ||
+  fail "The diagnostic backup path already exists."
+install -d -o root -g root -m 0700 "${diagnostic_backup}"
+install -o root -g root -m 0400 \
+  "${installed_operations}" \
+  "${diagnostic_backup}/matsci-sam-ops"
+if [[ -e ${installed_sudoers} || -L ${installed_sudoers} ]]; then
+  [[ -f ${installed_sudoers} && ! -L ${installed_sudoers} ]] ||
+    fail "The installed diagnostic sudoers entry is unsafe."
+  install -o root -g root -m 0400 \
+    "${installed_sudoers}" \
+    "${diagnostic_backup}/matsci-sam-ops.sudoers"
+fi
+
+sudoers_partial=$(mktemp /etc/sudoers.d/.matsci-sam-ops.XXXXXXXX)
+operations_partial=$(mktemp /usr/local/sbin/.matsci-sam-ops.XXXXXXXX)
+install -o root -g root -m 0440 "${candidate_sudoers}" "${sudoers_partial}"
+install -o root -g root -m 0755 \
+  "${candidate_operations}" \
+  "${operations_partial}"
+visudo -cf "${sudoers_partial}" >/dev/null
+mv -Tf "${sudoers_partial}" "${installed_sudoers}"
+sudoers_partial=
+mv -Tf "${operations_partial}" "${installed_operations}"
+operations_partial=
+[[ $(stat -c '%U:%G:%a' "${installed_sudoers}") == root:root:440 &&
+  $(stat -c '%U:%G:%a' "${installed_operations}") == root:root:755 &&
+  $(sha256sum "${installed_operations}" | awk '{print $1}') == \
+    "${candidate_operations_sha}" ]] ||
+  fail "The reviewed Superego diagnostic contract was not installed."
+
+# The repository-level runner registration was already deleted. Retire the
+# remaining host-local service and sudo privilege in the same supervised sudo
+# session, preserving recoverable root-only copies. The runner payload stays
+# on disk but becomes inaccessible to its locked service account.
+runner_unit_name=actions.runner.metadata-research-matsci-yamz.superego-dev.service
+runner_unit=/etc/systemd/system/${runner_unit_name}
+runner_sudoers=/etc/sudoers.d/matsci-sam-runner
+runner_directory=/opt/actions-runner-superego
+runner_user=matsci-runner
+runner_retirement=already-absent
+
+if [[ -e ${runner_unit} || -L ${runner_unit} ||
+  -e ${runner_sudoers} || -L ${runner_sudoers} ]]
+then
+  for runner_file in "${runner_unit}" "${runner_sudoers}"; do
+    [[ -f ${runner_file} && ! -L ${runner_file} &&
+      $(stat -c '%U:%G' "${runner_file}") == root:root ]] ||
+      fail "The obsolete Superego runner has an unexpected privileged file."
+  done
+  [[ $(stat -c '%a' "${runner_sudoers}") == 440 ]] ||
+    fail "The obsolete runner sudoers mode is unexpected."
+  visudo -cf "${runner_sudoers}" >/dev/null
+  [[ $(systemctl is-active "${runner_unit_name}" 2>/dev/null || true) != active ]] ||
+    fail "The obsolete Superego runner unexpectedly became active."
+  [[ -d ${runner_directory} && ! -L ${runner_directory} ]] ||
+    fail "The obsolete runner directory is missing or unsafe."
+  getent passwd "${runner_user}" >/dev/null ||
+    fail "The obsolete runner account is missing."
+  [[ -z $(pgrep -u "${runner_user}" 2>/dev/null || true) ]] ||
+    fail "The obsolete runner account still owns a process."
+
+  install -o root -g root -m 0400 \
+    "${runner_unit}" \
+    "${diagnostic_backup}/${runner_unit_name}"
+  install -o root -g root -m 0400 \
+    "${runner_sudoers}" \
+    "${diagnostic_backup}/matsci-sam-runner.sudoers"
+  systemctl disable --now "${runner_unit_name}" >/dev/null
+  unlink "${runner_sudoers}"
+  unlink "${runner_unit}"
+  systemctl daemon-reload
+  chown root:root "${runner_directory}"
+  chmod 0700 "${runner_directory}"
+  usermod --lock --shell /usr/sbin/nologin "${runner_user}"
+
+  [[ ! -e ${runner_unit} && ! -L ${runner_unit} &&
+    ! -e ${runner_sudoers} && ! -L ${runner_sudoers} &&
+    $(stat -c '%U:%G:%a' "${runner_directory}") == root:root:700 &&
+    $(getent passwd "${runner_user}" | cut -d: -f7) == /usr/sbin/nologin ]] ||
+    fail "The obsolete Superego runner was not fully retired."
+  runner_retirement=retired-now
+else
+  [[ $(systemctl is-active "${runner_unit_name}" 2>/dev/null || true) != active ]] ||
+    fail "The obsolete runner service is active without its reviewed unit."
+fi
 
 public_reopened=true
 systemctl start nginx.service
@@ -945,3 +1140,5 @@ printf 'users=%s\n' "${users}"
 printf 'terms=%s\n' "${terms}"
 printf 'definitions=%s\n' "${definitions}"
 printf 'migrations=%s\n' "${migrations}"
+printf 'diagnostic_backup=%s\n' "${diagnostic_backup}"
+printf 'legacy_runner=%s\n' "${runner_retirement}"

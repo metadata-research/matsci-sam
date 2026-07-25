@@ -23,11 +23,21 @@ Run `$manage-matsci-environments` and inspect live state before acting.
 - Never print or copy `/etc/matsci-sam/app.env`, database credentials, OAuth
   secrets, session secrets, authentication tokens, or TLS private keys.
 - The initial `DATA-AUTHORITY` value is `uninitialized`. A reviewed one-time
-  seed may change it to `ego`. After that change, never replace or refresh the
-  Ego database from Superego.
-- No public deployment wrapper exists yet. Do not deploy an application
-  release, initialize data, or enable Nginx until those separate wrappers are
-  reviewed. A future public candidate must first pass on Superego.
+  seed through `deploy/seed-ego-from-superego.sh` may change it to `ego`.
+  After that change, never replace or refresh the Ego database from Superego.
+- Run the one-time seed, first pre-cutover release, and public cutover only
+  from the recorded control workstation. Do not invoke files under
+  `deploy/lib/` directly.
+- A public candidate must use the exact Git tree already deployed and verified
+  on Superego, then promoted to `origin/main`.
+- `deploy/deploy-ego-from-workstation.sh` prepares only the first release
+  after the seed. It verifies the Ego-authoritative database, builds under the
+  protected public environment, starts the application on loopback, and keeps
+  maintenance active. Do not reuse it for a later in-place release.
+- `deploy/cutover-ego-public.sh` is the separate public-edge operation. Run it
+  only after the pre-cutover marker exists and the user gives separate
+  approval. It backs up and validates Nginx, tests the public contract, and
+  restores maintenance after an activation failure.
 - Keep PostgreSQL and the Next.js listener local to Ego. PostgreSQL uses the
   Unix socket, and Next.js listens only on `127.0.0.1:3000`.
 - Inspect the complete effective Nginx configuration before a change. Back up
