@@ -523,6 +523,15 @@ runuser -u postgres -- createdb \
   --owner=matsci-sam \
   "${scratch_database}"
 scratch_created=true
+runuser -u postgres -- psql \
+  --host=/var/run/postgresql \
+  --port=5432 \
+  --dbname="${scratch_database}" \
+  --set ON_ERROR_STOP=1 \
+  --command='CREATE EXTENSION IF NOT EXISTS vector' \
+  >/dev/null
+# Match the administrator-owned extension boundary verified during release
+# preparation and skip archive comments during the application-role restore.
 runuser -u matsci-sam -- pg_restore \
   --host=/var/run/postgresql \
   --port=5432 \
@@ -531,6 +540,7 @@ runuser -u matsci-sam -- pg_restore \
   --single-transaction \
   --no-owner \
   --no-privileges \
+  --no-comments \
   <"${database_backup}"
 restored_database_facts=$(database_facts "${scratch_database}")
 restored_database_facts_sha256=$(

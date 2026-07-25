@@ -269,6 +269,8 @@ runuser -u postgres -- psql \
   --command='CREATE EXTENSION IF NOT EXISTS vector' \
   >/dev/null
 assert_pgvector "${check_database}"
+# Keep an administrator-owned extension immutable during an application-role
+# restore, including when a future source archive carries its default comment.
 runuser -u "${app_user}" -- pg_restore \
   --host=/var/run/postgresql \
   --port=5432 \
@@ -277,6 +279,7 @@ runuser -u "${app_user}" -- pg_restore \
   --single-transaction \
   --no-owner \
   --no-privileges \
+  --no-comments \
   <"${dump}"
 assert_pgvector "${check_database}"
 runuser -u "${app_user}" -- psql \
