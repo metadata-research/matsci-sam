@@ -6,9 +6,8 @@ import {
   FEEDBACK_MESSAGE_MIN_LENGTH,
   FEEDBACK_PAGE_PATH_MAX_LENGTH
 } from "@/lib/input-limits"
+import { isFeedbackPagePath } from "@/lib/feedback-path"
 import { baseProcedure, createTRPCRouter } from "../init"
-
-const unsafePathCharacter = /[\\?#\u0000-\u001f\u007f]/
 
 const pagePathSchema = z
   .string()
@@ -16,11 +15,8 @@ const pagePathSchema = z
   .min(1)
   .max(FEEDBACK_PAGE_PATH_MAX_LENGTH)
   .refine(
-    (path) =>
-      path.startsWith("/") &&
-      !path.startsWith("//") &&
-      !unsafePathCharacter.test(path),
-    "Page location must be an internal path without a query or fragment."
+    isFeedbackPagePath,
+    "Page location must be a navigable MatSci SAM page without a query or fragment."
   )
 
 export const feedbackRouter = createTRPCRouter({

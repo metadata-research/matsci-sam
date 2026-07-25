@@ -43,6 +43,14 @@ jobs:
         run: |
           pnpm test:identifiers
 
+      - name: Test Interface State
+        run: |
+          pnpm test:interface
+
       - name: Check Migrations
         run: |
           pnpm db:check
+
+      - name: Build
+        run: |
+          pnpm build

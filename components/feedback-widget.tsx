@@ -18,22 +18,34 @@ import {
 import { trpc } from "@/trpc/client"
 import styles from "./feedback-widget.module.css"
 
-const getRelativeLocation = () => {
-  if (typeof window === "undefined") return "/"
-
-  // Keep the page context useful without retaining query parameters or
-  // fragments, which may contain one-time authentication material.
-  return window.location.pathname.slice(0, FEEDBACK_PAGE_PATH_MAX_LENGTH)
-}
-
 export const FeedbackWidget = ({ identity }: { identity: string }) => {
   const pathname = usePathname()
+  const pagePath = (pathname || "/").slice(0, FEEDBACK_PAGE_PATH_MAX_LENGTH)
+
+  // Root layouts persist through client navigation. Keying the page-specific
+  // form closes it and discards its draft when the pathname changes, so a
+  // comment cannot silently acquire the destination page as its context.
+  return (
+    <PageFeedbackWidget
+      key={pathname || "/"}
+      identity={identity}
+      pagePath={pagePath}
+    />
+  )
+}
+
+const PageFeedbackWidget = ({
+  identity,
+  pagePath
+}: {
+  identity: string
+  pagePath: string
+}) => {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState("")
   const [submitted, setSubmitted] = useState(false)
-  const pagePath = (pathname || "/").slice(0, FEEDBACK_PAGE_PATH_MAX_LENGTH)
 
   const submit = trpc.feedback.submit.useMutation({
     onSuccess: () => {
@@ -128,10 +140,7 @@ export const FeedbackWidget = ({ identity }: { identity: string }) => {
 
                 submit.mutate({
                   message: trimmedMessage,
-                  // Read from the browser at submission time as well as from
-                  // Next's current route so navigation while this non-modal
-                  // panel is open cannot leave stale page attribution.
-                  pagePath: getRelativeLocation(),
+                  pagePath,
                   website
                 })
               }}

@@ -11,6 +11,7 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { formatDateTime } from "@/lib/date"
+import { isFeedbackPagePath } from "@/lib/feedback-path"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import styles from "../admin.module.css"
@@ -206,16 +207,20 @@ function FeedbackRow({
       <p className={styles.feedbackMessage}>{item.message}</p>
 
       <div className={styles.feedbackMeta}>
-        <Link
-          href={item.pagePath}
-          target="_blank"
-          rel="noreferrer"
-          className={styles.feedbackPath}
-          aria-label={`Open ${item.pagePath} in a new tab`}
-        >
-          {item.pagePath}
-          <ExternalLinkIcon aria-hidden />
-        </Link>
+        {isFeedbackPagePath(item.pagePath) ? (
+          <Link
+            href={item.pagePath}
+            target="_blank"
+            rel="noreferrer"
+            className={styles.feedbackPath}
+            aria-label={`Open ${item.pagePath} in a new tab`}
+          >
+            {item.pagePath}
+            <ExternalLinkIcon aria-hidden />
+          </Link>
+        ) : (
+          <span className={styles.feedbackPath}>{item.pagePath}</span>
+        )}
         <time
           dateTime={item.createdAt}
           className={styles.feedbackDate}

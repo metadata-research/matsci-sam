@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:identifiers": "tsx scripts/test-public-identifiers.ts",
     "test:auth": "tsx scripts/test-auth-plumbing.ts",
+    "test:interface": "tsx scripts/test-interface-state.ts",
     "auth:gmail": "tsx scripts/authorize-gmail-sender.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

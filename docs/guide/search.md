@@ -7,8 +7,8 @@ a query. The quick-search field in the navigation bar opens the same page with
 a query. Search covers term names, definition text, and examples of use.
 
 Results are divided into **Terms** and **Definitions**. Checkboxes show
-or hide either result type. The **By** filter narrows definitions to
-people or AI authors and does not apply to term results.
+or hide either result type; at least one remains selected. The **By** filter
+narrows definitions to people or AI authors and does not apply to term results.
 
 Exact term names rank first, followed by term names that begin with the
 query. Full-text relevance and term-name similarity order the remaining

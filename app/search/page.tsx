@@ -11,6 +11,12 @@ import { ArrowRight, BookOpen, SearchIcon } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useEffect, useRef, useState } from "react"
+import {
+  parseSearchAuthor,
+  type SearchAuthor,
+  type SearchResultType,
+  updateSearchResultSelection
+} from "./search-state"
 
 export default function SuspenseSearchPage() {
   return (
@@ -20,15 +26,13 @@ export default function SuspenseSearchPage() {
   )
 }
 
-type Author = "all" | "human" | "ai"
-
 /*
  * Filters are declared as data so adding one is a matter of extending this
  * list plus its state key, not restructuring the panel. Result type is a
  * multi-select (both kinds can show at once, which the old Tabs could not
  * express); author is single-select.
  */
-const AUTHORS: { value: Author; label: string }[] = [
+const AUTHORS: { value: SearchAuthor; label: string }[] = [
   { value: "all", label: "Anyone" },
   { value: "human", label: "People" },
   { value: "ai", label: "AI" }
@@ -63,8 +67,8 @@ const SearchPage = () => {
   const [showDefinitions, setShowDefinitions] = useState(
     searchParams.get("types") !== "terms"
   )
-  const [author, setAuthor] = useState<Author>(
-    (searchParams.get("author") as Author) || "all"
+  const [author, setAuthor] = useState<SearchAuthor>(() =>
+    parseSearchAuthor(searchParams.get("author"))
   )
 
   useEffect(() => {
@@ -78,12 +82,21 @@ const SearchPage = () => {
     router.replace(next, { scroll: false })
   }, [query, showTerms, showDefinitions, author, router])
 
-  const nothingSelected = !showTerms && !showDefinitions
   const hasQuery = query.trim().length > 0
 
   const useExample = (example: string) => {
     setQuery(example)
     inputRef.current?.focus()
+  }
+
+  const setResultType = (type: SearchResultType, checked: boolean) => {
+    const next = updateSearchResultSelection(
+      { showTerms, showDefinitions },
+      type,
+      checked
+    )
+    setShowTerms(next.showTerms)
+    setShowDefinitions(next.showDefinitions)
   }
 
   return (
@@ -122,13 +135,15 @@ const SearchPage = () => {
                     id="filter-terms"
                     label="Terms"
                     checked={showTerms}
-                    onChange={setShowTerms}
+                    onChange={(checked) => setResultType("terms", checked)}
                   />
                   <Checkbox
                     id="filter-definitions"
                     label="Definitions"
                     checked={showDefinitions}
-                    onChange={setShowDefinitions}
+                    onChange={(checked) =>
+                      setResultType("definitions", checked)
+                    }
                   />
                 </fieldset>
 
@@ -167,11 +182,7 @@ const SearchPage = () => {
               </div>
             </Card>
 
-            {nothingSelected ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Select at least one result type to see results.
-              </p>
-            ) : showDefinitions ? (
+            {showDefinitions ? (
               <DefinitionsSearch query={query} author={author} />
             ) : (
               <p className="py-4 text-sm text-muted-foreground">
@@ -269,7 +280,7 @@ const TermSuggestions = ({ query }: { query: string }) => {
         <p className="text-sm text-muted-foreground">Finding terms…</p>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No matching term names. Definition text may still match below.
+          No terms or definitions match this search.
         </p>
       )}
     </section>
@@ -322,7 +333,7 @@ const DefinitionsSearch = ({
   author
 }: {
   query: string
-  author: Author
+  author: SearchAuthor
 }) => {
   const { data } = trpc.search.definitions.useQuery(
     { query, limit: 10, author },
