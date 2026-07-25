@@ -68,6 +68,7 @@ jobs:
             deploy/lib/seed-ego-from-superego-remote.sh \
             deploy/lib/deploy-ego-precutover-remote.sh \
             deploy/lib/cutover-ego-public-remote.sh \
+            deploy/lib/verify-superego-public-content.sh \
             deploy/ops/matsci-sam-ops \
             .agents/skills/manage-matsci-environments/scripts/status.sh
 

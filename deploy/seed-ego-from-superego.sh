@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 umask 0077
+export GIT_NO_REPLACE_OBJECTS=1
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd -- "${script_dir}/.." && pwd)
@@ -12,6 +13,7 @@ base_invariants=${script_dir}/lib/reset-db-invariants.sql
 privacy_transform=${script_dir}/lib/ego-public-seed-transform.sql
 privacy_invariants=${script_dir}/lib/ego-public-seed-invariants.sql
 ledger_verifier=${script_dir}/lib/verify-migration-ledger.sh
+superego_content_verifier=${script_dir}/lib/verify-superego-public-content.sh
 maintenance_config=${script_dir}/nginx/matsci-sam-public-maintenance.conf
 operations_file=${script_dir}/ops/matsci-sam-ops
 state_file=${repo}/docs-internal/CURRENT-DEV-STATE.md
@@ -193,6 +195,7 @@ required_files=(
   "${privacy_transform}"
   "${privacy_invariants}"
   "${ledger_verifier}"
+  "${superego_content_verifier}"
   "${maintenance_config}"
   "${operations_file}"
   "${state_file}"
@@ -307,8 +310,12 @@ superego_commit=${superego_name:0:40}
 git -C "${repo}" cat-file -e "${superego_commit}^{commit}" 2>/dev/null ||
   fail "The active Superego commit is not present in local Git history."
 superego_tree=$(git -C "${repo}" rev-parse "${superego_commit}^{tree}")
-[[ ${superego_tree} == "${public_tree}" ]] ||
-  fail "origin/main is not the exact tree currently validated on Superego."
+superego_validation=$(
+  "${superego_content_verifier}" \
+    "${repo}" \
+    "${superego_commit}" \
+    "${public_commit}"
+) || fail "The public application content is not the content validated on Superego."
 
 echo "Checking the public seed contract and migration source."
 (
@@ -380,6 +387,8 @@ REMOTE
 printf '%s\n' "${ego_summary}"
 printf 'public_commit=%s\n' "${public_commit}"
 printf 'validated_superego_commit=%s\n' "${superego_commit}"
+printf 'validated_superego_tree=%s\n' "${superego_tree}"
+printf 'superego_validation=%s\n' "${superego_validation}"
 
 if [[ ${check_only} == true ]]; then
   echo "One-time Ego seed prerequisites passed."
@@ -504,12 +513,12 @@ done
   fail "The transferred Superego snapshot checksum does not match."
 
 source_archive=${work_dir}/source.tar
-git -C "${repo}" archive \
-  --format=tar \
-  --prefix=source/ \
+"${superego_content_verifier}" \
+  --create-archive \
+  "${repo}" \
   "${public_commit}" \
-  >"${source_archive}"
-tar --list --file="${source_archive}" >/dev/null
+  "${source_archive}" \
+  --prefix=source/
 
 {
   printf 'format\t1\n'
@@ -543,6 +552,8 @@ tar --list --file="${source_archive}" >/dev/null
   printf 'maintenance_sha256\t%s\n' "${maintenance_sha}"
   printf 'operations_sha256\t%s\n' \
     "$(sha256sum "${operations_file}" | awk '{print $1}')"
+  printf 'workstation_registry_sha256\t%s\n' \
+    "$(sha256sum "${workstation_registry}" | awk '{print $1}')"
 } >"${seed_manifest}"
 chmod 0600 "${seed_manifest}" "${source_archive}"
 
@@ -574,6 +585,7 @@ scp \
   "${seed_manifest}" \
   "${source_archive}" \
   "${source_manifest}" \
+  "${workstation_registry}" \
   "ego:${ego_dir}/"
 ssh ego "chmod 0600 '${ego_dir}'/*"
 

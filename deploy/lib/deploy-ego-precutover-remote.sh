@@ -444,6 +444,8 @@ for key in "${allowed_keys[@]}"; do
   [[ -v "manifest[${key}]" ]] || fail "The deployment manifest is incomplete."
 done
 [[ ${manifest[format]} == 1 ]] || fail "Unsupported manifest format."
+[[ ${manifest[source_host]} =~ ^[a-z][a-z0-9-]*$ ]] ||
+  fail "Invalid source workstation identifier."
 for key in validated_superego_commit commit tree; do
   [[ ${manifest[${key}]} =~ ^[0-9a-f]{40}$ ]] ||
     fail "Invalid manifest identifier for ${key}."

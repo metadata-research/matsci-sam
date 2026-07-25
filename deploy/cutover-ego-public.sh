@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 umask 0077
+export GIT_NO_REPLACE_OBJECTS=1
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd -- "${script_dir}/.." && pwd)
@@ -254,6 +255,8 @@ manifest=$(mktemp)
   printf 'helper_sha256\t%s\n' "${helper_sha}"
   printf 'maintenance_sha256\t%s\n' "${maintenance_sha}"
   printf 'candidate_sha256\t%s\n' "${candidate_sha}"
+  printf 'workstation_registry_sha256\t%s\n' \
+    "$(sha256sum "${workstation_registry}" | awk '{print $1}')"
 } >"${manifest}"
 
 scp "${manifest}" "ego:${remote_dir}/manifest"
@@ -261,13 +264,15 @@ scp \
   "${remote_helper}" \
   "${maintenance_config}" \
   "${local_candidate}" \
+  "${workstation_registry}" \
   "ego:${remote_dir}/"
 ssh ego \
   "chmod 0600 \
      '${remote_dir}/manifest' \
      '${remote_dir}/cutover-ego-public-remote.sh' \
      '${remote_dir}/matsci-sam-public-maintenance.conf' \
-     '${remote_dir}/matsci-sam-public-local-ready.conf'"
+     '${remote_dir}/matsci-sam-public-local-ready.conf' \
+     '${remote_dir}/workstations.tsv'"
 rm -f "${manifest}"
 manifest=
 

@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 umask 0077
+export GIT_NO_REPLACE_OBJECTS=1
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd -- "${script_dir}/.." && pwd)
@@ -9,6 +10,7 @@ remote_helper=${script_dir}/lib/deploy-ego-precutover-remote.sh
 invariants=${script_dir}/lib/reset-db-invariants.sql
 seed_invariants=${script_dir}/lib/ego-public-seed-invariants.sql
 ledger_verifier=${script_dir}/lib/verify-migration-ledger.sh
+superego_content_verifier=${script_dir}/lib/verify-superego-public-content.sh
 maintenance_config=${script_dir}/nginx/matsci-sam-public-maintenance.conf
 local_candidate=${script_dir}/nginx/matsci-sam-public-local-ready.conf
 state_file=${repo}/docs-internal/CURRENT-DEV-STATE.md
@@ -94,7 +96,7 @@ done
 
 for file in "${remote_helper}" "${invariants}" "${seed_invariants}" \
   "${ledger_verifier}" "${maintenance_config}" "${local_candidate}" \
-  "${state_file}" "${workstation_registry}"
+  "${superego_content_verifier}" "${state_file}" "${workstation_registry}"
 do
   [[ -f ${file} && ! -L ${file} ]] ||
     fail "Required deployment file is missing or unsafe: ${file}"
@@ -180,8 +182,12 @@ superego_commit=${superego_name:0:40}
 git -C "${repo}" cat-file -e "${superego_commit}^{commit}" 2>/dev/null ||
   fail "The active Superego commit is not present in local Git history."
 superego_tree=$(git -C "${repo}" rev-parse "${superego_commit}^{tree}")
-[[ ${candidate_tree} == "${superego_tree}" ]] ||
-  fail "origin/main is not the exact tree currently validated on Superego."
+superego_validation=$(
+  "${superego_content_verifier}" \
+    "${repo}" \
+    "${superego_commit}" \
+    "${candidate}"
+) || fail "The public application content is not the content validated on Superego."
 
 ego_release_state=$(
   ssh -o BatchMode=yes ego '
@@ -227,8 +233,11 @@ fi
 work_dir=$(mktemp -d)
 archive=${work_dir}/source.tar
 manifest=${work_dir}/manifest.tsv
-git -C "${repo}" archive --format=tar "${candidate}" >"${archive}"
-tar --list --file="${archive}" >/dev/null
+"${superego_content_verifier}" \
+  --create-archive \
+  "${repo}" \
+  "${candidate}" \
+  "${archive}"
 archive_sha=$(sha256sum "${archive}" | awk '{print $1}')
 
 {
@@ -246,6 +255,9 @@ archive_sha=$(sha256sum "${archive}" | awk '{print $1}')
 
 printf 'Validated Ego pre-cutover artifact for origin/main commit %s.\n' \
   "${candidate}"
+printf 'validated_superego_commit=%s\n' "${superego_commit}"
+printf 'validated_superego_tree=%s\n' "${superego_tree}"
+printf 'superego_validation=%s\n' "${superego_validation}"
 if [[ ${check_only} == true ]]; then
   echo "Ego pre-cutover artifact validation passed."
   exit 0
