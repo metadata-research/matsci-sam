@@ -932,7 +932,7 @@ export DATABASE_URL="postgresql:///${scratch_database}?host=/var/run/postgresql"
 cd "${source_dir}"
 /usr/bin/pnpm install --frozen-lockfile
 /usr/bin/pnpm db:migrate
-/usr/bin/pnpm build
+NODE_OPTIONS=--max-old-space-size=3072 /usr/bin/pnpm build
 BUILD
 run_invariants "${check_database}" "${input_dir}/reset-db-invariants.sql"
 run_invariants "${check_database}" "${input_dir}/ego-public-seed-invariants.sql"

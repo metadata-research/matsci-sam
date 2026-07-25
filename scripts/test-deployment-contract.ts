@@ -651,7 +651,10 @@ assert.match(
 )
 assert.match(egoSeedHelper, /pnpm install --frozen-lockfile/)
 assert.match(egoSeedHelper, /pnpm db:migrate/)
-assert.match(egoSeedHelper, /pnpm build/)
+assert.match(
+  egoSeedHelper,
+  /NODE_OPTIONS=--max-old-space-size=3072 \/usr\/bin\/pnpm build/
+)
 assert.match(egoSeedHelper, /install -o root -g root -m 0400/)
 assert.match(egoSeedHelper, /install -o cr625[\s\S]*-m 0600/)
 assert.match(egoSeedHelper, /old_operations_sha=/)
