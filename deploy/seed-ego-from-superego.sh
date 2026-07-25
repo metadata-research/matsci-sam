@@ -4,6 +4,24 @@ set -Eeuo pipefail
 
 umask 0077
 export GIT_NO_REPLACE_OBJECTS=1
+unset \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES \
+  GIT_COMMON_DIR \
+  GIT_CONFIG_COUNT \
+  GIT_CONFIG_PARAMETERS \
+  GIT_DEFAULT_HASH \
+  GIT_DEFAULT_REF_FORMAT \
+  GIT_DIR \
+  GIT_GLOB_PATHSPECS \
+  GIT_ICASE_PATHSPECS \
+  GIT_INDEX_FILE \
+  GIT_LITERAL_PATHSPECS \
+  GIT_NOGLOB_PATHSPECS \
+  GIT_NAMESPACE \
+  GIT_OBJECT_DIRECTORY \
+  GIT_SHALLOW_FILE \
+  GIT_TEMPLATE_DIR \
+  GIT_WORK_TREE
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd -- "${script_dir}/.." && pwd)
@@ -50,6 +68,39 @@ USAGE
 fail() {
   echo "$*" >&2
   exit 1
+}
+
+verify_reviewed_worktree() {
+  local commit=$1
+  local helper_path=deploy/lib/verify-superego-public-content.sh
+  local helper_entry
+  local helper_mode
+  local helper_type
+  local expected_hash
+  local entry_path
+  local actual_hash
+
+  helper_entry=$(git -C "${repo}" ls-tree "${commit}" -- "${helper_path}")
+  [[ -n ${helper_entry} && ${helper_entry} != *$'\n'* ]] ||
+    fail "The reviewed source does not uniquely identify the content verifier."
+  read -r helper_mode helper_type expected_hash entry_path <<<"${helper_entry}"
+  [[ ${helper_mode} == 100755 &&
+    ${helper_type} == blob &&
+    ${expected_hash} =~ ^[0-9a-f]{40}$ &&
+    ${entry_path} == "${helper_path}" &&
+    -f ${superego_content_verifier} &&
+    ! -L ${superego_content_verifier} &&
+    -x ${superego_content_verifier} ]] ||
+    fail "The reviewed content verifier contract is invalid."
+  actual_hash=$(
+    git -C "${repo}" hash-object \
+      --no-filters \
+      -- "${superego_content_verifier}"
+  )
+  [[ ${actual_hash} == "${expected_hash}" ]] ||
+    fail "The executed content verifier differs from reviewed source."
+  "${superego_content_verifier}" --verify-worktree "${repo}" "${commit}" ||
+    fail "The raw worktree does not match reviewed source."
 }
 
 remove_remote_stage() {
@@ -276,6 +327,7 @@ public_tree=$(git -C "${repo}" rev-parse "${public_commit}^{tree}")
 dev_tree=$(git -C "${repo}" rev-parse "${origin_dev}^{tree}")
 [[ ${public_tree} == "${dev_tree}" ]] ||
   fail "origin/main does not contain the exact reviewed origin/dev tree."
+verify_reviewed_worktree "${public_commit}"
 git -C "${repo}" show "${public_commit}:lib/apis/ollama.ts" |
   grep -q 'EGO_SEED_CHAT_FALLBACK' ||
   fail "The promoted public tree lacks the seeded-chat reconstruction fallback."
@@ -330,6 +382,7 @@ git -C "${repo}" fetch --prune origin dev main
   $(git -C "${repo}" rev-parse refs/remotes/origin/main) == "${public_commit}" &&
   $(git -C "${repo}" rev-parse "${public_commit}^{tree}") == "${public_tree}" ]] ||
   fail "Reviewed source changed during the seed contract checks."
+verify_reviewed_worktree "${public_commit}"
 
 maintenance_sha=$(sha256sum "${maintenance_config}" | awk '{print $1}')
 ego_summary=$(
@@ -512,6 +565,7 @@ done
   "${source[dump_sha256]}" ]] ||
   fail "The transferred Superego snapshot checksum does not match."
 
+verify_reviewed_worktree "${public_commit}"
 source_archive=${work_dir}/source.tar
 "${superego_content_verifier}" \
   --create-archive \
@@ -564,6 +618,7 @@ git -C "${repo}" fetch --prune origin dev main
   $(git -C "${repo}" rev-parse refs/remotes/origin/main) == "${public_commit}" &&
   $(git -C "${repo}" rev-parse "${public_commit}^{tree}") == "${public_tree}" ]] ||
   fail "Reviewed source changed while the seed snapshot was prepared."
+verify_reviewed_worktree "${public_commit}"
 
 ego_id="seed-${public_commit:0:12}-$(date -u +%Y%m%dT%H%M%SZ)"
 ego_dir="/home/cr625/ego-admin/incoming/${ego_id}"

@@ -100,6 +100,10 @@ assert.match(
   /--no-ext-diff[\s\S]*--no-textconv[\s\S]*--no-renames[\s\S]*--ignore-submodules=none/
 )
 assert.match(superegoContentVerifier, /export GIT_NO_REPLACE_OBJECTS=1/)
+assert.match(
+  superegoContentVerifier,
+  /--verify-worktree[\s\S]*ls-files -v[\s\S]*write-tree[\s\S]*hash-object --no-filters/
+)
 
 const equivalenceDirectory = mkdtempSync(
   resolve(tmpdir(), "matsci-sam-source-equivalence-")
@@ -146,6 +150,46 @@ try {
     ).trim(),
     "exact-tree"
   )
+  execFileSync(
+    resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+    ["--verify-worktree", equivalenceDirectory, validatedCommit],
+    { stdio: "pipe" }
+  )
+
+  const hiddenVerifierPath =
+    "deploy/lib/verify-superego-public-content.sh"
+  for (const [hide, unhide] of [
+    ["--skip-worktree", "--no-skip-worktree"],
+    ["--assume-unchanged", "--no-assume-unchanged"]
+  ] as const) {
+    runGit("update-index", hide, hiddenVerifierPath)
+    writeFileSync(
+      resolve(equivalenceDirectory, hiddenVerifierPath),
+      `hidden modification via ${hide}\n`
+    )
+    assert.equal(
+      runGit("status", "--porcelain=v1"),
+      "",
+      `${hide} no longer reproduces an empty porcelain status`
+    )
+    assert.throws(() =>
+      execFileSync(
+        resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+        ["--verify-worktree", equivalenceDirectory, validatedCommit],
+        { stdio: "pipe" }
+      )
+    )
+    runGit("update-index", unhide, hiddenVerifierPath)
+    writeFileSync(
+      resolve(equivalenceDirectory, hiddenVerifierPath),
+      `validated ${hiddenVerifierPath}\n`
+    )
+    execFileSync(
+      resolve(root, "deploy/lib/verify-superego-public-content.sh"),
+      ["--verify-worktree", equivalenceDirectory, validatedCommit],
+      { stdio: "pipe" }
+    )
+  }
 
   const archiveDirectory = mkdtempSync(
     resolve(tmpdir(), "matsci-sam-source-archive-")
@@ -815,6 +859,18 @@ const egoCutoverWrapper = read("deploy/cutover-ego-public.sh")
 const egoCutoverRemote = read(
   "deploy/lib/cutover-ego-public-remote.sh"
 )
+for (const wrapper of [
+  egoSeedWrapper,
+  egoReleaseWrapper,
+  egoCutoverWrapper
+]) {
+  assert.match(wrapper, /verify_reviewed_worktree\(\)/)
+  assert.match(
+    wrapper,
+    /hash-object[\s\S]*--no-filters[\s\S]*--verify-worktree/
+  )
+  assert.match(wrapper, /unset[\s\S]*GIT_INDEX_FILE/)
+}
 for (const wrapper of [
   egoReleaseWrapper,
   egoCutoverWrapper

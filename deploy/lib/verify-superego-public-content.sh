@@ -59,6 +59,73 @@ if [[ ${1:-} == --print-allowlist && $# -eq 1 ]]; then
   exit 0
 fi
 
+if [[ ${1:-} == --verify-worktree ]]; then
+  [[ $# -eq 3 ]] ||
+    fail "Usage: verify-superego-public-content.sh --verify-worktree REPOSITORY COMMIT"
+
+  repo=$2
+  worktree_commit=$3
+  [[ -d ${repo}/.git && ! -L ${repo}/.git ]] ||
+    fail "The repository path is missing or unsafe."
+  [[ ${worktree_commit} =~ ^[0-9a-f]{40}$ ]] ||
+    fail "The worktree commit identifier is malformed."
+  git -C "${repo}" cat-file -e "${worktree_commit}^{commit}" 2>/dev/null ||
+    fail "The worktree commit is unavailable."
+
+  hidden_index_entries=$(
+    git -C "${repo}" ls-files -v |
+      awk '
+        substr($0, 1, 1) == "S" ||
+        substr($0, 1, 1) ~ /^[a-z]$/ {
+          print substr($0, 3)
+        }
+      '
+  )
+  if [[ -n ${hidden_index_entries} ]]; then
+    echo "The Git index contains hidden worktree state:" >&2
+    printf '%s\n' "${hidden_index_entries}" >&2
+    fail "Refusing assume-unchanged or skip-worktree entries."
+  fi
+
+  expected_tree=$(git -C "${repo}" rev-parse "${worktree_commit}^{tree}")
+  index_tree=$(git -C "${repo}" write-tree)
+  [[ ${index_tree} == "${expected_tree}" ]] ||
+    fail "The Git index does not match the reviewed source tree."
+
+  verified_entries=0
+  while IFS= read -r -d '' tree_entry; do
+    [[ ${tree_entry} == *$'\t'* ]] ||
+      fail "The reviewed source tree contains a malformed entry."
+    entry_metadata=${tree_entry%%$'\t'*}
+    entry_path=${tree_entry#*$'\t'}
+    read -r entry_mode entry_type entry_hash <<<"${entry_metadata}"
+    [[ (${entry_mode} == 100644 || ${entry_mode} == 100755) &&
+      ${entry_type} == blob &&
+      ${entry_hash} =~ ^[0-9a-f]{40}$ &&
+      -n ${entry_path} &&
+      ${entry_path} != /* ]] ||
+      fail "The reviewed source tree contains an unsupported entry."
+
+    worktree_file=${repo}/${entry_path}
+    [[ -f ${worktree_file} && ! -L ${worktree_file} ]] ||
+      fail "A reviewed worktree file is missing or unsafe: ${entry_path}"
+    actual_hash=$(git hash-object --no-filters -- "${worktree_file}")
+    [[ ${actual_hash} == "${entry_hash}" ]] ||
+      fail "A reviewed worktree file differs from source: ${entry_path}"
+    if [[ ${entry_mode} == 100755 ]]; then
+      [[ -x ${worktree_file} ]] ||
+        fail "A reviewed executable lost its executable mode: ${entry_path}"
+    else
+      [[ ! -x ${worktree_file} ]] ||
+        fail "A reviewed non-executable gained executable mode: ${entry_path}"
+    fi
+    ((verified_entries += 1))
+  done < <(git -C "${repo}" ls-tree -r -z "${worktree_commit}")
+  ((verified_entries > 0)) ||
+    fail "The reviewed source tree is empty."
+  exit 0
+fi
+
 if [[ ${1:-} == --create-archive ]]; then
   [[ $# -eq 4 || ($# -eq 5 && ${5} == --prefix=source/) ]] ||
     fail "Usage: verify-superego-public-content.sh --create-archive REPOSITORY COMMIT OUTPUT [--prefix=source/]"
