@@ -669,12 +669,15 @@ service coordination, release switching, health checks, or rollback.
 ### Server deployment
 
 A merge to `dev` does not deploy Superego. Maintainers use the runbook for the
-target environment.
+target environment. Superego owns private development data; Ego owns its
+independent public database after initialization.
 
-Do not merge or push any commit to `main`. Its active legacy self-hosted
-workflow can migrate and restart the public environment. Retire or disable it
-through a separate production change first, then verify the new boundary
-before using `main`.
+The legacy deployment workflows are disabled. Do not merge or push a public
+candidate to `main` until their self-hosted runners and deployment privileges
+are retired and the old deployment workflow is removed. After that boundary
+is verified, promote only a Git tree already deployed and validated on
+Superego, then build it independently on Ego under the protected public
+environment.
 
 Before deployment, decide which database contains the authoritative data. A
 disposable development target may be reset from a verified source snapshot. A

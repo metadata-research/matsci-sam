@@ -33,15 +33,17 @@ updates source control but does not deploy Superego.
 
 Superego deployment is a separate maintainer operation. The `dev` branch does
 not grant a self-hosted runner authority to migrate its database or restart
-its service. The files in [`deploy/`](deploy/) contain
-host-provisioning components, the reviewed in-place Superego release wrapper,
-and the one-way Superego database snapshot wrapper. Private environment
-policy remains in `docs-internal`.
+its service. The files in [`deploy/`](deploy/) contain shared host
+provisioning, the reviewed in-place Superego release wrapper, the independent
+Ego runtime profile, and the one-way Superego database snapshot wrapper.
+Private environment policy remains in `docs-internal`.
 
-Do not merge or push any commit to `main`. Its active legacy production
-workflow can migrate and restart the legacy public environment. Retire or
-disable that workflow through a separately reviewed production change first,
-then verify the new boundary before using `main`.
+The legacy production workflows are disabled. Do not merge or push a public
+candidate to `main` until their self-hosted runners and deployment privileges
+have also been retired and the old deployment workflow has been removed.
+After that boundary is verified, the intended public path promotes a tree
+already validated on Superego from `dev` to `main` and builds it independently
+on Ego.
 
 ## Project structure
 

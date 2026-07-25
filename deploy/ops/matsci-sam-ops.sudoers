@@ -1,0 +1,5 @@
+cr625 ALL=(root) NOPASSWD: /usr/local/sbin/matsci-sam-ops status
+cr625 ALL=(root) NOPASSWD: /usr/local/sbin/matsci-sam-ops runtime-summary
+cr625 ALL=(root) NOPASSWD: /usr/local/sbin/matsci-sam-ops database-counts
+cr625 ALL=(root) NOPASSWD: /usr/local/sbin/matsci-sam-ops config-presence
+cr625 ALL=(root) NOPASSWD: /usr/local/sbin/matsci-sam-ops installation-contract

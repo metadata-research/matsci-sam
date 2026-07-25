@@ -15,12 +15,12 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.34.5
 
       - name: Install Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 24.18.0
           cache: pnpm
 
       - name: Install Dependencies
@@ -46,6 +46,16 @@ jobs:
       - name: Test Interface State
         run: |
           pnpm test:interface
+
+      - name: Test Deployment Contract
+        run: |
+          pnpm test:deployment
+          bash -n \
+            deploy/bootstrap-server.sh \
+            deploy/check-runtime-parity.sh \
+            deploy/provision-ego-runtime.sh \
+            deploy/lib/provision-ego-runtime-remote.sh \
+            deploy/ops/matsci-sam-ops
 
       - name: Check Migrations
         run: |
