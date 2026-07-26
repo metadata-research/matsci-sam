@@ -86,58 +86,79 @@ verify_database() {
 write_release_artifact_manifest() {
   local release_dir=$1
   local output=$2
-  local path
-  local relative
-  local target
+  local record
+  local hash
+  local separator
+  local hashed_path
+  local entry_type
   local mode
+  local ownership
+  local path
+  local target
+  local relative
+  local -A file_hashes=()
 
   [[ -d ${release_dir} && ! -L ${release_dir} &&
     $(stat -c '%U:%G:%a' "${release_dir}") == root:root:555 ]] ||
     fail "The release root is not frozen and root-owned."
-  : >"${output}"
-  while IFS= read -r -d '' path; do
+
+  [[ -z $(
+    find "${release_dir}" -xdev -mindepth 1 \
+      \( -name $'*\n*' -o -name $'*\t*' \
+      -o -lname $'*\n*' -o -lname $'*\t*' \) \
+      -print -quit
+  ) ]] ||
+    fail "The release contains a path that cannot be recorded safely."
+
+  while IFS= read -r -d '' record; do
+    hash=${record:0:64}
+    separator=${record:64:2}
+    hashed_path=${record:66}
+    [[ ${hash} =~ ^[0-9a-f]{64}$ && ${separator} == '  ' &&
+      -n ${hashed_path} ]] ||
+      fail "The release hash listing is malformed."
+    file_hashes[${hashed_path}]=${hash}
+  done < <(
+    find "${release_dir}" -xdev -mindepth 1 -type f -print0 |
+      xargs --null --no-run-if-empty sha256sum --zero
+  )
+
+  while IFS=$'\t' read -r entry_type mode ownership path target; do
     relative=${path#"${release_dir}/"}
     case ${relative} in
       .matsci-release-artifacts|.matsci-precutover-verified)
         continue
         ;;
     esac
-    [[ ${relative} != *$'\n'* && ${relative} != *$'\t'* ]] ||
-      fail "The release contains a path that cannot be recorded safely."
-
-    if [[ -L ${path} ]]; then
-      target=$(readlink "${path}")
-      [[ ${target} != *$'\n'* && ${target} != *$'\t'* ]] ||
-        fail "The release contains an unsafe symbolic-link target."
-      [[ $(stat -c '%U:%G' "${path}") == root:root ]] ||
-        fail "A release symbolic link is not root-owned."
-      printf 'l\t%s\t%s\n' "${target}" "${relative}" >>"${output}"
-    elif [[ -f ${path} ]]; then
-      mode=$(stat -c '%a' "${path}")
-      [[ $(stat -c '%U:%G' "${path}") == root:root &&
-        ( ${mode} == 444 || ${mode} == 555 ) ]] ||
-        fail "A release file is not frozen and root-owned."
-      printf 'f\t%s\t%s\t%s\n' \
-        "${mode}" \
-        "$(sha256sum "${path}" | awk '{print $1}')" \
-        "${relative}" \
-        >>"${output}"
-    elif [[ -d ${path} ]]; then
-      mode=$(stat -c '%a' "${path}")
-      [[ $(stat -c '%U:%G' "${path}") == root:root &&
-        ${mode} == 555 ]] ||
-        fail "A release directory is not frozen and root-owned."
-      printf 'd\t%s\t%s\n' \
-        "${mode}" \
-        "${relative}" \
-        >>"${output}"
-    else
-      fail "The release contains an unsupported filesystem entry."
-    fi
+    case ${entry_type} in
+      l)
+        [[ ${ownership} == root:root ]] ||
+          fail "A release symbolic link is not root-owned."
+        printf 'l\t%s\t%s\n' "${target}" "${relative}"
+        ;;
+      f)
+        [[ ${ownership} == root:root &&
+          ( ${mode} == 444 || ${mode} == 555 ) ]] ||
+          fail "A release file is not frozen and root-owned."
+        hash=${file_hashes[${path}]:-}
+        [[ -n ${hash} ]] ||
+          fail "The release changed while its manifest was recorded."
+        printf 'f\t%s\t%s\t%s\n' "${mode}" "${hash}" "${relative}"
+        ;;
+      d)
+        [[ ${ownership} == root:root && ${mode} == 555 ]] ||
+          fail "A release directory is not frozen and root-owned."
+        printf 'd\t%s\t%s\n' "${mode}" "${relative}"
+        ;;
+      *)
+        fail "The release contains an unsupported filesystem entry."
+        ;;
+    esac
   done < <(
-    find "${release_dir}" -xdev -mindepth 1 -print0 |
-      LC_ALL=C sort --zero-terminated
-  )
+    find "${release_dir}" -xdev -mindepth 1 \
+      -printf '%y\t%m\t%u:%g\t%p\t%l\n' |
+      LC_ALL=C sort --field-separator=$'\t' --key=4,4
+  ) >"${output}"
 }
 
 cleanup_scratch() {
@@ -381,7 +402,7 @@ done <<<"${expected_stage_files}"
 
 for command in awk cmp createdb curl dropdb find flock grep install jq \
   mktemp nginx node pg_dump pg_restore pnpm psql readlink runuser sha256sum \
-  sort ss stat systemctl tar
+  sleep sort ss stat systemctl tar xargs
 do
   command -v "${command}" >/dev/null ||
     fail "Required command is unavailable: ${command}"

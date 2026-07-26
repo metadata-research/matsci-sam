@@ -1112,6 +1112,23 @@ assert(
   serviceEnable > oauthGate,
   "The Ego service must not be enabled before human OAuth validation"
 )
+const reloadSettle = egoCutoverRemote.indexOf("reload_settled=true")
+assert(
+  reloadSettle >= 0 && reloadSettle < localEdgeCheck,
+  "Ego cutover must wait for the reloaded edge before the local edge check"
+)
+assert.match(
+  egoCutoverRemote,
+  /systemctl reload nginx\.service[\s\S]*did not begin serving within 30 seconds/
+)
+assert.match(
+  egoCutoverRemote,
+  /xargs --null --no-run-if-empty sha256sum --zero/
+)
+assert.match(
+  egoReleaseRemote,
+  /xargs --null --no-run-if-empty sha256sum --zero/
+)
 assert.match(
   egoCutoverRemote,
   /IFS= read -r -t 900 human_confirmation[\s\S]*\$\{human_confirmation\} == "EGO OAUTH IDENTITY VERIFIED"/
