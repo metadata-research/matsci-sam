@@ -1011,7 +1011,11 @@ assert.match(
 )
 assert.match(
   egoReleaseRemote,
-  /chown -hR root:root "\$\{release\}"[\s\S]*find "\$\{release\}" -xdev -type d -exec chmod 0555[\s\S]*find "\$\{release\}" -xdev -type f ! -perm \/111 -exec chmod 0444/
+  /chown -hR root:root "\$\{release\}"[\s\S]*find "\$\{release\}" -xdev -type d -exec chmod 00555[\s\S]*find "\$\{release\}" -xdev -type f ! -perm \/111 -exec chmod 0444/
+)
+assert.match(
+  egoReleaseRemote,
+  /find "\$\{runtime_cache\}" -xdev -type d -exec chmod 00750/
 )
 assert.match(
   egoReleaseRemote,
@@ -1019,7 +1023,7 @@ assert.match(
 )
 assert.match(
   egoReleaseRemote,
-  /for protected_parent in "\$\{app_root\}" "\$\{app_root\}\/releases"[\s\S]*chown root:root "\$\{protected_parent\}"[\s\S]*chmod 0755 "\$\{protected_parent\}"/
+  /for protected_parent in "\$\{app_root\}" "\$\{app_root\}\/releases"[\s\S]*chown root:root "\$\{protected_parent\}"[\s\S]*chmod 00755 "\$\{protected_parent\}"/
 )
 assert.match(egoReleaseRemote, /public_mode=maintenance/)
 
