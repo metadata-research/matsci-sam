@@ -86,54 +86,79 @@ verify_database() {
 write_release_artifact_manifest() {
   local release_dir=$1
   local output=$2
-  local path
-  local relative
-  local target
+  local record
+  local hash
+  local separator
+  local hashed_path
+  local entry_type
   local mode
+  local ownership
+  local path
+  local target
+  local relative
+  local -A file_hashes=()
 
   [[ -d ${release_dir} && ! -L ${release_dir} &&
     $(stat -c '%U:%G:%a' "${release_dir}") == root:root:555 ]] ||
     fail "The release root is not frozen and root-owned."
-  : >"${output}"
-  while IFS= read -r -d '' path; do
+
+  [[ -z $(
+    find "${release_dir}" -xdev -mindepth 1 \
+      \( -name $'*\n*' -o -name $'*\t*' \
+      -o -lname $'*\n*' -o -lname $'*\t*' \) \
+      -print -quit
+  ) ]] ||
+    fail "The release contains a path that cannot be recorded safely."
+
+  while IFS= read -r -d '' record; do
+    hash=${record:0:64}
+    separator=${record:64:2}
+    hashed_path=${record:66}
+    [[ ${hash} =~ ^[0-9a-f]{64}$ && ${separator} == '  ' &&
+      -n ${hashed_path} ]] ||
+      fail "The release hash listing is malformed."
+    file_hashes[${hashed_path}]=${hash}
+  done < <(
+    find "${release_dir}" -xdev -mindepth 1 -type f -print0 |
+      xargs --null --no-run-if-empty sha256sum --zero
+  )
+
+  while IFS=$'\t' read -r entry_type mode ownership path target; do
     relative=${path#"${release_dir}/"}
     case ${relative} in
       .matsci-release-artifacts|.matsci-precutover-verified)
         continue
         ;;
     esac
-    [[ ${relative} != *$'\n'* && ${relative} != *$'\t'* ]] ||
-      fail "The release contains a path that cannot be recorded safely."
-
-    if [[ -L ${path} ]]; then
-      target=$(readlink "${path}")
-      [[ ${target} != *$'\n'* && ${target} != *$'\t'* &&
-        $(stat -c '%U:%G' "${path}") == root:root ]] ||
-        fail "A release symbolic link is not frozen safely."
-      printf 'l\t%s\t%s\n' "${target}" "${relative}" >>"${output}"
-    elif [[ -f ${path} ]]; then
-      mode=$(stat -c '%a' "${path}")
-      [[ $(stat -c '%U:%G' "${path}") == root:root &&
-        ( ${mode} == 444 || ${mode} == 555 ) ]] ||
-        fail "A release file is not frozen and root-owned."
-      printf 'f\t%s\t%s\t%s\n' \
-        "${mode}" \
-        "$(sha256sum "${path}" | awk '{print $1}')" \
-        "${relative}" \
-        >>"${output}"
-    elif [[ -d ${path} ]]; then
-      mode=$(stat -c '%a' "${path}")
-      [[ $(stat -c '%U:%G' "${path}") == root:root &&
-        ${mode} == 555 ]] ||
-        fail "A release directory is not frozen and root-owned."
-      printf 'd\t%s\t%s\n' "${mode}" "${relative}" >>"${output}"
-    else
-      fail "The release contains an unsupported filesystem entry."
-    fi
+    case ${entry_type} in
+      l)
+        [[ ${ownership} == root:root ]] ||
+          fail "A release symbolic link is not root-owned."
+        printf 'l\t%s\t%s\n' "${target}" "${relative}"
+        ;;
+      f)
+        [[ ${ownership} == root:root &&
+          ( ${mode} == 444 || ${mode} == 555 ) ]] ||
+          fail "A release file is not frozen and root-owned."
+        hash=${file_hashes[${path}]:-}
+        [[ -n ${hash} ]] ||
+          fail "The release changed while its manifest was recorded."
+        printf 'f\t%s\t%s\t%s\n' "${mode}" "${hash}" "${relative}"
+        ;;
+      d)
+        [[ ${ownership} == root:root && ${mode} == 555 ]] ||
+          fail "A release directory is not frozen and root-owned."
+        printf 'd\t%s\t%s\n' "${mode}" "${relative}"
+        ;;
+      *)
+        fail "The release contains an unsupported filesystem entry."
+        ;;
+    esac
   done < <(
-    find "${release_dir}" -xdev -mindepth 1 -print0 |
-      LC_ALL=C sort --zero-terminated
-  )
+    find "${release_dir}" -xdev -mindepth 1 \
+      -printf '%y\t%m\t%u:%g\t%p\t%l\n' |
+      LC_ALL=C sort --field-separator=$'\t' --key=4,4
+  ) >"${output}"
 }
 
 cleanup_scratch() {
@@ -303,7 +328,8 @@ for staged_file in ${expected_stage_files}; do
 done
 
 for command in awk cmp createdb curl dropdb find flock grep install mktemp \
-  nginx pg_restore psql readlink runuser sha256sum sort ss stat systemctl
+  nginx pg_restore psql readlink runuser sha256sum sleep sort ss stat \
+  systemctl xargs
 do
   command -v "${command}" >/dev/null ||
     fail "Required command is unavailable: ${command}"
@@ -786,7 +812,10 @@ verify_https_contract() {
         --write-out '%{http_code}' \
         "https://ego.cci.drexel.edu${route}"
     )
-    [[ ${code} == 200 ]] || return 1
+    [[ ${code} == 200 ]] || {
+      echo "Public-edge check (${mode}): ${route} returned ${code}, expected 200." >&2
+      return 1
+    }
   done
 
   code=$(
@@ -795,7 +824,10 @@ verify_https_contract() {
       --write-out '%{http_code}' \
       https://ego.cci.drexel.edu/dev-login
   )
-  [[ ${code} == 404 ]] || return 1
+  [[ ${code} == 404 ]] || {
+    echo "Public-edge check (${mode}): /dev-login returned ${code}, expected 404." >&2
+    return 1
+  }
 
   code=$(
     curl "${HTTPS_ARGS[@]}" \
@@ -804,7 +836,10 @@ verify_https_contract() {
       --write-out '%{http_code}' \
       https://ego.cci.drexel.edu/api/auth/dev-login
   )
-  [[ ${code} == 404 ]] || return 1
+  [[ ${code} == 404 ]] || {
+    echo "Public-edge check (${mode}): POST /api/auth/dev-login returned ${code}, expected 404." >&2
+    return 1
+  }
 
   : >"${headers_file}"
   code=$(
@@ -814,7 +849,10 @@ verify_https_contract() {
       --write-out '%{http_code}' \
       https://ego.cci.drexel.edu/api/login
   )
-  [[ ${code} == 307 ]] || return 1
+  [[ ${code} == 307 ]] || {
+    echo "Public-edge check (${mode}): /api/login returned ${code}, expected 307." >&2
+    return 1
+  }
   location=$(
     awk '
       tolower($1) == "location:" {
@@ -825,7 +863,10 @@ verify_https_contract() {
       }
     ' "${headers_file}"
   )
-  [[ ${location} == /api/auth/google ]] || return 1
+  [[ ${location} == /api/auth/google ]] || {
+    echo "Public-edge check (${mode}): /api/login redirected to ${location}, expected /api/auth/google." >&2
+    return 1
+  }
 
   : >"${headers_file}"
   code=$(
@@ -835,22 +876,35 @@ verify_https_contract() {
       --write-out '%{http_code}' \
       https://ego.cci.drexel.edu/
   )
-  [[ ${code} == 200 ]] || return 1
-  grep -Eiq '^content-type:[[:space:]]*text/html' "${headers_file}" &&
-    grep -Eiq '^strict-transport-security:[[:space:]]*max-age=86400' \
-      "${headers_file}" &&
-    grep -Eiq '^x-content-type-options:[[:space:]]*nosniff' "${headers_file}" &&
-    grep -Eiq '^x-frame-options:[[:space:]]*DENY' "${headers_file}" &&
-    grep -Eiq '^referrer-policy:[[:space:]]*same-origin' "${headers_file}" &&
-    grep -Eiq '^permissions-policy:.*camera=\(\).*geolocation=\(\).*microphone=\(\)' \
-      "${headers_file}" &&
-    grep -Eiq '^x-robots-tag:.*noindex.*nofollow' "${headers_file}" &&
-    grep -Eiq "^content-security-policy:.*base-uri 'self'.*frame-ancestors 'none'.*object-src 'none'" \
-      "${headers_file}" ||
+  [[ ${code} == 200 ]] || {
+    echo "Public-edge check (${mode}): / returned ${code}, expected 200." >&2
     return 1
+  }
+  local header_pattern
+  for header_pattern in \
+    '^content-type:[[:space:]]*text/html' \
+    '^strict-transport-security:[[:space:]]*max-age=86400' \
+    '^x-content-type-options:[[:space:]]*nosniff' \
+    '^x-frame-options:[[:space:]]*DENY' \
+    '^referrer-policy:[[:space:]]*same-origin' \
+    '^permissions-policy:.*camera=\(\).*geolocation=\(\).*microphone=\(\)' \
+    '^x-robots-tag:.*noindex.*nofollow' \
+    "^content-security-policy:.*base-uri 'self'.*frame-ancestors 'none'.*object-src 'none'"
+  do
+    grep -Eiq "${header_pattern}" "${headers_file}" || {
+      echo "Public-edge check (${mode}): / lacks a header matching ${header_pattern}" >&2
+      return 1
+    }
+  done
 
-  verify_http_redirect "${mode}" &&
-    verify_oauth "${mode}"
+  verify_http_redirect "${mode}" || {
+    echo "Public-edge check (${mode}): the HTTP-to-HTTPS redirect contract failed." >&2
+    return 1
+  }
+  verify_oauth "${mode}" || {
+    echo "Public-edge check (${mode}): the OAuth and secure-cookie contract failed." >&2
+    return 1
+  }
 }
 
 health_code=$(
@@ -926,6 +980,29 @@ systemctl reload nginx.service
   -L ${active_link} &&
   $(readlink -e "${active_link}") == "${active_site}" ]] ||
   fail "The reviewed local candidate is not the active Ego site."
+
+# systemctl reload returns after signaling the Nginx master, not after new
+# workers take over, so a request issued immediately can still be served by
+# an old worker running the maintenance configuration. Wait until the
+# activated configuration answers on a route the maintenance configuration
+# refuses before asserting the strict single-shot contract.
+reload_settled=false
+for ((attempt = 1; attempt <= 30; attempt++)); do
+  https_args local
+  code=$(
+    curl "${HTTPS_ARGS[@]}" \
+      --output /dev/null \
+      --write-out '%{http_code}' \
+      https://ego.cci.drexel.edu/terms 2>/dev/null
+  ) || code=000
+  if [[ ${code} == 200 ]]; then
+    reload_settled=true
+    break
+  fi
+  sleep 1
+done
+[[ ${reload_settled} == true ]] ||
+  fail "The activated configuration did not begin serving within 30 seconds."
 
 verify_https_contract local ||
   fail "The trusted local public-edge contract failed."
