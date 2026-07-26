@@ -55,7 +55,9 @@ assert(
 )
 const expectedOperationsOnlyPaths = [
   ".agents/skills/manage-matsci-environments/SKILL.md",
+  ".agents/skills/manage-matsci-environments/agents/openai.yaml",
   ".agents/skills/manage-matsci-environments/references/environments.md",
+  ".agents/skills/manage-matsci-environments/scripts/status.sh",
   ".github/workflows/pr-verify.yml",
   "README.md",
   "developing.md",
@@ -1119,16 +1121,31 @@ assert(
 )
 assert.match(
   egoCutoverRemote,
-  /systemctl reload nginx\.service[\s\S]*did not begin serving within 30 seconds/
+  /systemctl reload nginx\.service[\s\S]*did not begin serving within 60 seconds/
 )
-assert.match(
-  egoCutoverRemote,
-  /xargs --null --no-run-if-empty sha256sum --zero/
-)
-assert.match(
-  egoReleaseRemote,
-  /xargs --null --no-run-if-empty sha256sum --zero/
-)
+for (const manifestWalk of [egoCutoverRemote, egoReleaseRemote]) {
+  assert.match(manifestWalk, /xargs --null --no-run-if-empty sha256sum --zero/)
+  assert.match(
+    manifestWalk,
+    /unsafe_path=\$\([\s\S]*?\) \|\| fail "The release could not be traversed for unsafe paths\."/
+  )
+  assert.match(
+    manifestWalk,
+    /-printf '%y\\t%m\\t%u:%g\\t%p\\t%l\\0'[\s\S]*sort --zero-terminated/
+  )
+  assert.match(
+    manifestWalk,
+    /while IFS=\$'\\t' read -r -d '' entry_type mode ownership path target/
+  )
+  assert.match(
+    manifestWalk,
+    /\[\[ \$\{path\} == "\$\{release_dir\}"\/\* \]\] \|\|\n\s*fail "The release traversal left the release directory\."/
+  )
+  assert.match(
+    manifestWalk,
+    /recorded_entries \+ skipped_entries\)\) -eq \$\{expected_entries\}/
+  )
+}
 assert.match(
   egoCutoverRemote,
   /IFS= read -r -t 900 human_confirmation[\s\S]*\$\{human_confirmation\} == "EGO OAUTH IDENTITY VERIFIED"/

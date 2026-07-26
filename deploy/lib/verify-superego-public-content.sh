@@ -36,7 +36,9 @@ fail() {
 # outside this exact reviewed list invalidates Superego equivalence.
 operations_only_paths=(
   .agents/skills/manage-matsci-environments/SKILL.md
+  .agents/skills/manage-matsci-environments/agents/openai.yaml
   .agents/skills/manage-matsci-environments/references/environments.md
+  .agents/skills/manage-matsci-environments/scripts/status.sh
   .github/workflows/pr-verify.yml
   README.md
   developing.md

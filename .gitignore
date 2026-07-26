@@ -55,3 +55,6 @@ CLAUDE.local.md
 
 # Internal docs
 docs-internal
+
+# Local agent tooling
+.agents/

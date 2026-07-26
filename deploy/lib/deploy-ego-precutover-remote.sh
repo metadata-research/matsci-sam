@@ -96,26 +96,37 @@ write_release_artifact_manifest() {
   local path
   local target
   local relative
+  local unsafe_path
+  local expected_entries
+  local recorded_entries
+  local skipped_entries=0
   local -A file_hashes=()
 
   [[ -d ${release_dir} && ! -L ${release_dir} &&
     $(stat -c '%U:%G:%a' "${release_dir}") == root:root:555 ]] ||
     fail "The release root is not frozen and root-owned."
 
-  [[ -z $(
+  # Every traversal below must fail closed: an aborted find that prints
+  # nothing must never read as "no unsafe entry exists".
+  unsafe_path=$(
     find "${release_dir}" -xdev -mindepth 1 \
-      \( -name $'*\n*' -o -name $'*\t*' \
-      -o -lname $'*\n*' -o -lname $'*\t*' \) \
+      \( -name $'*\n*' -o -name $'*\t*' -o -name $'*\r*' \
+      -o -lname $'*\n*' -o -lname $'*\t*' -o -lname $'*\r*' \) \
       -print -quit
-  ) ]] ||
+  ) || fail "The release could not be traversed for unsafe paths."
+  [[ -z ${unsafe_path} ]] ||
     fail "The release contains a path that cannot be recorded safely."
+
+  expected_entries=$(
+    find "${release_dir}" -xdev -mindepth 1 -printf 'x\n' | wc -l
+  ) || fail "The release entry count could not be established."
 
   while IFS= read -r -d '' record; do
     hash=${record:0:64}
     separator=${record:64:2}
     hashed_path=${record:66}
     [[ ${hash} =~ ^[0-9a-f]{64}$ && ${separator} == '  ' &&
-      -n ${hashed_path} ]] ||
+      ${hashed_path} == "${release_dir}"/* ]] ||
       fail "The release hash listing is malformed."
     file_hashes[${hashed_path}]=${hash}
   done < <(
@@ -123,15 +134,27 @@ write_release_artifact_manifest() {
       xargs --null --no-run-if-empty sha256sum --zero
   )
 
-  while IFS=$'\t' read -r entry_type mode ownership path target; do
+  # NUL-delimited records keep a hostile name from splitting one entry into
+  # two, and every recorded value is validated in the iteration that writes
+  # it rather than by an earlier separate traversal.
+  while IFS=$'\t' read -r -d '' entry_type mode ownership path target; do
+    [[ ${path} == "${release_dir}"/* ]] ||
+      fail "The release traversal left the release directory."
     relative=${path#"${release_dir}/"}
+    [[ ${relative} != *$'\n'* && ${relative} != *$'\t'* &&
+      ${relative} != *$'\r'* ]] ||
+      fail "The release contains a path that cannot be recorded safely."
     case ${relative} in
       .matsci-release-artifacts|.matsci-precutover-verified)
+        skipped_entries=$((skipped_entries + 1))
         continue
         ;;
     esac
     case ${entry_type} in
       l)
+        [[ ${target} != *$'\n'* && ${target} != *$'\t'* &&
+          ${target} != *$'\r'* ]] ||
+          fail "The release contains an unsafe symbolic-link target."
         [[ ${ownership} == root:root ]] ||
           fail "A release symbolic link is not root-owned."
         printf 'l\t%s\t%s\n' "${target}" "${relative}"
@@ -156,9 +179,13 @@ write_release_artifact_manifest() {
     esac
   done < <(
     find "${release_dir}" -xdev -mindepth 1 \
-      -printf '%y\t%m\t%u:%g\t%p\t%l\n' |
-      LC_ALL=C sort --field-separator=$'\t' --key=4,4
+      -printf '%y\t%m\t%u:%g\t%p\t%l\0' |
+      LC_ALL=C sort --zero-terminated --field-separator=$'\t' --key=4,4
   ) >"${output}"
+
+  recorded_entries=$(wc -l <"${output}")
+  [[ $((recorded_entries + skipped_entries)) -eq ${expected_entries} ]] ||
+    fail "The release manifest does not account for every release entry."
 }
 
 cleanup_scratch() {
