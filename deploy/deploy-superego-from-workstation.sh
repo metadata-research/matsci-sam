@@ -134,6 +134,8 @@ remote_authority=$(
 
 origin_url=$(git -C "${repo}" remote get-url origin)
 case ${origin_url} in
+  https://github.com/metadata-research/matsci-sam.git|\
+  git@github.com:metadata-research/matsci-sam.git|\
   https://github.com/metadata-research/matsci-yamz.git|\
   git@github.com:metadata-research/matsci-yamz.git)
     ;;

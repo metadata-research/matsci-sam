@@ -899,18 +899,21 @@ for (const [name, remote] of [
 
 assert.match(egoReleaseWrapper, /state_authority} == ego/)
 assert.match(egoReleaseWrapper, /remote_authority} == ego/)
+// The public candidate is the reviewed commit itself: no promotion branch,
+// no tree diffing, no path allowlist. Superego equivalence is exact commit
+// equality, and shipping a commit Superego has not run is an explicit,
+// recorded operator override.
+assert.doesNotMatch(egoReleaseWrapper, /refs\/remotes\/origin\/main/)
+assert.match(egoReleaseWrapper, /candidate=\$\{origin_dev\}/)
 assert.match(
   egoReleaseWrapper,
-  /superego_content_verifier[\s\S]*superego_commit[\s\S]*candidate/
-)
-assert.doesNotMatch(
-  egoReleaseWrapper,
-  /candidate_tree} == "\$\{superego_tree\}"/
+  /\[\[ \$\{superego_commit\} == "\$\{candidate\}" \]\][\s\S]*superego_validation=deployed-on-superego/
 )
 assert.match(
   egoReleaseWrapper,
-  /candidate_tree} == "\$\{dev_tree\}"/
+  /allow_undeployed} == true[\s\S]*superego_validation=undeployed-operator-override/
 )
+assert.match(egoReleaseWrapper, /--allow-undeployed/)
 assert.match(
   egoReleaseWrapper,
   /superego_content_verifier}"[\s\S]*--create-archive[\s\S]*candidate/
@@ -1030,6 +1033,8 @@ assert.match(
 )
 assert.match(egoReleaseRemote, /public_mode=maintenance/)
 
+assert.doesNotMatch(egoCutoverWrapper, /refs\/remotes\/origin\/main/)
+assert.match(egoCutoverWrapper, /expected_commit=\$\{origin_dev\}/)
 assert.match(
   egoCutoverWrapper,
   /Type CUT OVER EGO PUBLIC to continue/
