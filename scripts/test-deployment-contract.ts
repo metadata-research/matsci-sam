@@ -59,6 +59,7 @@ const expectedOperationsOnlyPaths = [
   ".agents/skills/manage-matsci-environments/references/environments.md",
   ".agents/skills/manage-matsci-environments/scripts/status.sh",
   ".github/workflows/pr-verify.yml",
+  ".gitignore",
   "README.md",
   "developing.md",
   "deploy/README.md",
