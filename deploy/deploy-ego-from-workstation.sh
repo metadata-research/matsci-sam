@@ -35,6 +35,7 @@ state_file=${repo}/docs-internal/CURRENT-DEV-STATE.md
 workstation_registry=${script_dir}/workstations.tsv
 check_only=false
 yes_deploy=false
+allow_undeployed=false
 remote_staged=false
 remote_dir=
 work_dir=
@@ -43,17 +44,22 @@ usage() {
   cat <<'USAGE'
 Usage: deploy/deploy-ego-from-workstation.sh [options]
 
-Prepare the first promoted origin/main release on Ego after its one-time
-public seed. The operation verifies and backs up the already-current
+Prepare the reviewed origin/dev release on Ego after its one-time public
+seed. The operation verifies and backs up the already-current
 Ego-authoritative database, builds under Ego's protected public environment,
 starts the application on loopback, and leaves public Nginx maintenance
 unchanged. After this succeeds, deploy/cutover-ego-public.sh performs the
 separately approved public-edge activation.
 
+The reviewed commit must already be the commit deployed on Superego, so that
+public content is content that ran on the private runtime first. Shipping a
+commit Superego has not run requires the explicit override below.
+
 Options:
-  --yes-deploy  Skip the deployment confirmation prompt
-  --check-only  Validate source, authority, and the release artifact locally
-  -h, --help    Show this help
+  --yes-deploy         Skip the deployment confirmation prompt
+  --check-only         Validate source, authority, and the release artifact
+  --allow-undeployed   Permit a reviewed commit Superego has not deployed
+  -h, --help           Show this help
 USAGE
 }
 
@@ -127,6 +133,10 @@ while (($#)); do
       check_only=true
       shift
       ;;
+    --allow-undeployed)
+      allow_undeployed=true
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -195,6 +205,8 @@ remote_authority=$(
 
 origin_url=$(git -C "${repo}" remote get-url origin)
 case ${origin_url} in
+  https://github.com/metadata-research/matsci-sam.git|\
+  git@github.com:metadata-research/matsci-sam.git|\
   https://github.com/metadata-research/matsci-yamz.git|\
   git@github.com:metadata-research/matsci-yamz.git)
     ;;
@@ -203,7 +215,7 @@ case ${origin_url} in
     ;;
 esac
 
-git -C "${repo}" fetch --prune origin dev main
+git -C "${repo}" fetch --prune origin dev
 branch=$(git -C "${repo}" branch --show-current)
 [[ ${branch} == dev ]] ||
   fail "The control-workstation checkout must remain on dev."
@@ -214,11 +226,8 @@ fi
 origin_dev=$(git -C "${repo}" rev-parse refs/remotes/origin/dev)
 [[ $(git -C "${repo}" rev-parse HEAD) == "${origin_dev}" ]] ||
   fail "HEAD and origin/dev must identify the same reviewed commit."
-candidate=$(git -C "${repo}" rev-parse refs/remotes/origin/main)
+candidate=${origin_dev}
 candidate_tree=$(git -C "${repo}" rev-parse "${candidate}^{tree}")
-dev_tree=$(git -C "${repo}" rev-parse "${origin_dev}^{tree}")
-[[ ${candidate_tree} == "${dev_tree}" ]] ||
-  fail "origin/main does not contain the exact reviewed origin/dev tree."
 verify_reviewed_worktree "${candidate}"
 
 superego_release=$(
@@ -234,12 +243,15 @@ superego_commit=${superego_name:0:40}
 git -C "${repo}" cat-file -e "${superego_commit}^{commit}" 2>/dev/null ||
   fail "The active Superego commit is not present in local Git history."
 superego_tree=$(git -C "${repo}" rev-parse "${superego_commit}^{tree}")
-superego_validation=$(
-  "${superego_content_verifier}" \
-    "${repo}" \
-    "${superego_commit}" \
-    "${candidate}"
-) || fail "The public application content is not the content validated on Superego."
+if [[ ${superego_commit} == "${candidate}" ]]; then
+  superego_validation=deployed-on-superego
+elif [[ ${allow_undeployed} == true ]]; then
+  superego_validation=undeployed-operator-override
+else
+  echo "Reviewed commit:   ${candidate}" >&2
+  echo "Superego runs:     ${superego_commit}" >&2
+  fail "This commit is not the one deployed on Superego. Deploy it there first, or rerun with --allow-undeployed."
+fi
 
 ego_release_state=$(
   ssh -o BatchMode=yes ego '
@@ -270,17 +282,16 @@ echo "Checking source, authentication plumbing, deployment contracts, and migrat
   pnpm db:check
 )
 
-git -C "${repo}" fetch --prune origin dev main
+git -C "${repo}" fetch --prune origin dev
 if [[ -n $(git -C "${repo}" status --porcelain=v1) ]]; then
   git -C "${repo}" status --short >&2
   fail "The worktree changed during deployment preparation."
 fi
 [[ $(git -C "${repo}" rev-parse HEAD) == "${origin_dev}" &&
-  $(git -C "${repo}" rev-parse refs/remotes/origin/dev) == "${origin_dev}" &&
-  $(git -C "${repo}" rev-parse refs/remotes/origin/main) == "${candidate}" ]] ||
+  $(git -C "${repo}" rev-parse refs/remotes/origin/dev) == "${origin_dev}" ]] ||
   fail "A reviewed source ref changed during deployment preparation."
 [[ $(git -C "${repo}" rev-parse "${candidate}^{tree}") == "${candidate_tree}" ]] ||
-  fail "The promoted public tree changed during deployment preparation."
+  fail "The reviewed tree changed during deployment preparation."
 verify_reviewed_worktree "${candidate}"
 
 work_dir=$(mktemp -d)
@@ -306,7 +317,7 @@ archive_sha=$(sha256sum "${archive}" | awk '{print $1}')
     "$(sha256sum "${local_candidate}" | awk '{print $1}')"
 } >"${manifest}"
 
-printf 'Validated Ego pre-cutover artifact for origin/main commit %s.\n' \
+printf 'Validated Ego pre-cutover artifact for reviewed commit %s.\n' \
   "${candidate}"
 printf 'validated_superego_commit=%s\n' "${superego_commit}"
 printf 'validated_superego_tree=%s\n' "${superego_tree}"

@@ -182,6 +182,8 @@ state_authority=$(
 
 origin_url=$(git -C "${repo}" remote get-url origin)
 case ${origin_url} in
+  https://github.com/metadata-research/matsci-sam.git|\
+  git@github.com:metadata-research/matsci-sam.git|\
   https://github.com/metadata-research/matsci-yamz.git|\
   git@github.com:metadata-research/matsci-yamz.git)
     ;;
@@ -190,7 +192,7 @@ case ${origin_url} in
     ;;
 esac
 
-git -C "${repo}" fetch --prune origin dev main
+git -C "${repo}" fetch --prune origin dev
 branch=$(git -C "${repo}" branch --show-current)
 [[ ${branch} == dev ]] ||
   fail "The control-workstation checkout must remain on dev."
@@ -202,14 +204,11 @@ fi
 origin_dev=$(git -C "${repo}" rev-parse refs/remotes/origin/dev)
 [[ $(git -C "${repo}" rev-parse HEAD) == "${origin_dev}" ]] ||
   fail "HEAD and origin/dev must identify the same reviewed commit."
-expected_commit=$(git -C "${repo}" rev-parse refs/remotes/origin/main)
+expected_commit=${origin_dev}
 expected_tree=$(git -C "${repo}" rev-parse "${expected_commit}^{tree}")
-dev_tree=$(git -C "${repo}" rev-parse "${origin_dev}^{tree}")
 [[ ${expected_commit} =~ ^[0-9a-f]{40}$ &&
   ${expected_tree} =~ ^[0-9a-f]{40}$ ]] ||
-  fail "The promoted public source ref is invalid."
-[[ ${dev_tree} == "${expected_tree}" ]] ||
-  fail "origin/main is not the exact reviewed origin/dev tree."
+  fail "The reviewed source ref is invalid."
 verify_reviewed_worktree "${expected_commit}"
 
 maintenance_sha=$(sha256sum "${maintenance_config}" | awk '{print $1}')
@@ -288,11 +287,10 @@ IFS= read -r confirmation
 [[ ${confirmation} == "CUT OVER EGO PUBLIC" ]] ||
   fail "Public cutover cancelled."
 
-git -C "${repo}" fetch --prune origin dev main
+git -C "${repo}" fetch --prune origin dev
 [[ -z $(git -C "${repo}" status --porcelain=v1) &&
   $(git -C "${repo}" rev-parse HEAD) == "${origin_dev}" &&
   $(git -C "${repo}" rev-parse refs/remotes/origin/dev) == "${origin_dev}" &&
-  $(git -C "${repo}" rev-parse refs/remotes/origin/main) == "${expected_commit}" &&
   $(git -C "${repo}" rev-parse "${expected_commit}^{tree}") == "${expected_tree}" ]] ||
   fail "Reviewed source changed during the public-cutover checks."
 verify_reviewed_worktree "${expected_commit}"

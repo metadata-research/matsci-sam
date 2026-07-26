@@ -183,17 +183,30 @@ workflow and its self-hosted runner have been retired.
 The release path is:
 
 ```text
-reviewed origin/dev -> Superego validation
-exact reviewed dev tree -> origin/main -> Ego
+reviewed origin/dev -> Superego -> Ego
 ```
 
-The main commit may differ from the validated dev commit when GitHub creates a
-merge commit. `origin/main` and `origin/dev` must have the same exact tree.
-Application, schema, migration, dependency, build, service, and runtime
-configuration content must match the Superego-validated release; only the
-explicit reviewed non-runtime allowlist may differ. Ego builds the promoted
-tree again with the public environment because
+`origin/dev` is the single reviewed branch. The commit deployed to Ego must be
+the commit Superego already runs, so public content is content the private
+runtime ran first. That is one exact commit comparison: Superego records its
+deployed commit in its release directory name, and the Ego wrappers require
+equality with the reviewed commit.
+
+Ego builds the reviewed tree again with the public environment because
 `NEXT_PUBLIC_SITE_URL` is build-time configuration.
+
+Shipping a reviewed commit that Superego has not deployed — an operations-only
+correction, for example — requires the explicit `--allow-undeployed` flag,
+which records `superego_validation=undeployed-operator-override` in the
+release manifest. It is a deliberate, recorded exception rather than a
+routine path.
+
+There is no promotion branch. The previous design required every change to be
+promoted from `dev` to `main` on an identical tree and compared against a
+maintained allowlist of non-runtime paths. That produced two pull requests and
+two continuous-integration runs per change, made the file that validates
+deployment tooling a member of its own allowlist, and stranded a verified Ego
+release on 2026-07-26 when a promoted operations-only fix moved `origin/main`.
 
 When both authority records identify Superego as the shared-data authority,
 run this from the recorded control workstation:
