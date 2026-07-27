@@ -16,7 +16,7 @@ const pagePathSchema = z
   .max(FEEDBACK_PAGE_PATH_MAX_LENGTH)
   .refine(
     isFeedbackPagePath,
-    "Page location must be a navigable MatSci SAM page without a query or fragment."
+    "Page location must be a navigable MatSci-SAM page without a query or fragment."
   )
 
 export const feedbackRouter = createTRPCRouter({

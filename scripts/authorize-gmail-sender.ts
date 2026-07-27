@@ -94,7 +94,7 @@ const main = async () => {
 
         response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
         response.end(
-          "<!doctype html><title>MatSci SAM mail authorization</title>" +
+          "<!doctype html><title>MatSci-SAM mail authorization</title>" +
             "<h1>Authorization complete</h1>" +
             "<p>The Gmail refresh token was stored securely in WSL. " +
             "You may close this window and return to Codex.</p>"

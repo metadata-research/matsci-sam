@@ -1,6 +1,6 @@
 # Documentation
 
-MatSci SAM is a collaborative dictionary for materials science
+MatSci-SAM is a collaborative dictionary for materials science
 terminology, built by the Metadata Research Center at Drexel University.
 Signed-in contributors submit definitions and examples of use. Community
 members evaluate definitions through votes and comments. Authors can request
@@ -33,6 +33,6 @@ pilot workflows.
 
 ## Metadata models
 
-- [MatCore metadata](/metadata/matcore) presents a MatSci SAM transcription of
+- [MatCore metadata](/metadata/matcore) presents a MatSci-SAM transcription of
   the preliminary Minimal and DFT metadata elements published in the 2025
   MatCore paper, with one clearly synthetic example record.

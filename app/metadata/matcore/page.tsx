@@ -14,7 +14,7 @@ import styles from "./matcore.module.css"
 export const metadata: Metadata = {
   title: `MatCore metadata | ${SITE_NAME}`,
   description:
-    "A read-only MatSci SAM transcription of the preliminary Minimal and DFT metadata elements published in the 2025 MatCore paper."
+    "A read-only MatSci-SAM transcription of the preliminary Minimal and DFT metadata elements published in the 2025 MatCore paper."
 }
 
 const publishedDate = new Intl.DateTimeFormat("en-US", {
@@ -123,7 +123,7 @@ export default function MatCoreMetadataPage() {
               </div>
               <div className={styles.exampleFooter}>
                 <span>
-                  This example demonstrates structure; MatSci SAM is not storing
+                  This example demonstrates structure; MatSci-SAM is not storing
                   or validating a dataset record here.
                 </span>
                 <Link
@@ -143,7 +143,7 @@ export default function MatCoreMetadataPage() {
               {matCoreSourceSnapshot.citationLabel},{" "}
               {matCoreSourceSnapshot.title}
             </cite>
-            . The element descriptions on this page are concise MatSci SAM
+            . The element descriptions on this page are concise MatSci-SAM
             paraphrases of Figures 3 and 5.
           </p>
         </div>

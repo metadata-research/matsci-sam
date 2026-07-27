@@ -14,7 +14,7 @@ import styles from "./about.module.css"
 export const metadata: Metadata = {
   title: `About | ${SITE_NAME}`,
   description:
-    "How MatSci SAM combines community review, human-controlled AI assistance, and standards-based provenance to develop shared materials science terminology."
+    "How MatSci-SAM combines community review, human-controlled AI assistance, and standards-based provenance to develop shared materials science terminology."
 }
 
 export default function AboutPage() {
@@ -45,7 +45,7 @@ export default function AboutPage() {
           </p>
           <p className={styles.guidePrompt}>
             Looking for instructions?{" "}
-            <Link href="/docs">Open the MatSci SAM user guide.</Link>
+            <Link href="/docs">Open the MatSci-SAM user guide.</Link>
           </p>
         </header>
 
