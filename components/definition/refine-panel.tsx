@@ -166,13 +166,29 @@ export const RefinePanel = ({
                 </div>
               </CardContent>
               <CardFooter className="flex-col items-stretch gap-2">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     disabled={busy}
                     onClick={() => accept.mutate({ refinementId: round.id })}
                   >
                     <CheckIcon className="size-4 mr-1" /> Accept suggestion
                   </Button>
+                  {round.suggestedExample?.trim() !==
+                    current.example.trim() && (
+                    <Button
+                      variant="secondary"
+                      disabled={busy}
+                      onClick={() =>
+                        accept.mutate({
+                          refinementId: round.id,
+                          keepExample: true
+                        })
+                      }
+                    >
+                      <CheckIcon className="size-4 mr-1" /> Accept definition,
+                      keep my example
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     disabled={busy}
