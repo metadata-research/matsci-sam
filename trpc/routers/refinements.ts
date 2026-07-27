@@ -146,8 +146,17 @@ export const refinementsRouter = createTRPCRouter({
     ),
 
   accept: authenticatedProcedure
-    .input(z.object({ refinementId: z.number() }))
-    .mutation(async ({ ctx: { userId }, input: { refinementId } }) => {
+    .input(
+      z.object({
+        refinementId: z.number(),
+        // Accept the revised definition but keep the author's own example of
+        // use. The model earns joint credit for the definition either way;
+        // the example stays the author's work.
+        keepExample: z.boolean().optional()
+      })
+    )
+    .mutation(async ({ ctx: { userId }, input }) => {
+      const { refinementId, keepExample } = input
       const preview = await db.query.refinementsTable.findFirst({
         where: eq(refinementsTable.id, refinementId)
       })
@@ -216,6 +225,17 @@ export const refinementsRouter = createTRPCRouter({
           .set({ status: "accepted", decidedAt: sql`now()` })
           .where(eq(refinementsTable.id, round.id))
 
+        // A round is only acceptable while the definition still sits on its
+        // source revision, so the author's current example is exactly the one
+        // the model was shown.
+        const keptExample = keepExample && original.example?.trim()
+        const acceptedExample = keptExample
+          ? original.example!
+          : round.suggestedExample!
+        const acceptedChangeNote = keptExample
+          ? `Accepted AI refinement round ${round.round}, keeping the author's example`
+          : `Accepted AI refinement round ${round.round}`
+
         // One refined definition per original: later acceptances update it
         // through the edit path so the revision history stays derivable.
         const existing = await tx.query.definitionsTable.findFirst({
@@ -239,8 +259,8 @@ export const refinementsRouter = createTRPCRouter({
                 definitionId: existing.id,
                 editorId: userId,
                 definition: round.suggestedDefinition!,
-                example: round.suggestedExample!,
-                changeNote: `Accepted AI refinement round ${round.round}`,
+                example: acceptedExample,
+                changeNote: acceptedChangeNote,
                 source: "ai_refinement",
                 expectedRevisionId: existing.currentRevisionId ?? undefined,
                 model: round.model,
@@ -278,8 +298,8 @@ export const refinementsRouter = createTRPCRouter({
             termId: original.termId,
             authorId: userId,
             definition: round.suggestedDefinition!,
-            example: round.suggestedExample!,
-            changeNote: `Accepted AI refinement round ${round.round}`,
+            example: acceptedExample,
+            changeNote: acceptedChangeNote,
             source: "ai_refinement",
             model: round.model,
             prompt: round.promptText,
