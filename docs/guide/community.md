@@ -31,7 +31,7 @@ A collapsed **Feedback** control is available on every page. Use it to report
 something confusing or missing, suggest an improvement, or note something
 that works especially well without leaving the page you are reviewing.
 
-Each feedback record contains the comment, the relative MatSci SAM page
+Each feedback record contains the comment, the relative MatSci-SAM page
 path, and the submission time. Query parameters and page fragments are not
 stored. When the contributor is signed in, the record is also linked to that
 account; otherwise it is recorded as Anonymous. The account identity is

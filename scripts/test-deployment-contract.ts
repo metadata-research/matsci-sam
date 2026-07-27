@@ -853,7 +853,7 @@ const maintenanceHash = createHash("sha256")
   .digest("hex")
 assert.equal(
   maintenanceHash,
-  "3a569089e44265314a3cba59237b2619940960543d6f609343d7bf2973d4a4a8",
+  "0cc2bdcf106b8335d7bbacd9e51d445af3760557fb046adf98c4a1fc2593b593",
   "The known-good Ego maintenance configuration changed"
 )
 

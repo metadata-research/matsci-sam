@@ -1,4 +1,4 @@
-# MatSci SAM developer guide
+# MatSci-SAM developer guide
 
 This guide covers local setup, application changes, database migrations,
 authentication, and release boundaries.
@@ -181,7 +181,7 @@ export default function MyPage() {
 
 ```tsx
 export const metadata = {
-  title: "My Page - MatSci SAM",
+  title: "My Page - MatSci-SAM",
   description: "Description of my page",
 }
 ```

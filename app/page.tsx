@@ -274,7 +274,7 @@ export default async function Home() {
             </div>
 
             <nav aria-label="Project information" className={styles.footerNav}>
-              <Link href="/about">About MatSci SAM</Link>
+              <Link href="/about">About MatSci-SAM</Link>
               <Link href="/docs/metadata-access">Metadata access</Link>
             </nav>
           </footer>

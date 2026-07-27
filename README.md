@@ -1,6 +1,6 @@
-# MatSci SAM
+# MatSci-SAM
 
-MatSci SAM is a community metadata dictionary for materials science
+MatSci-SAM is a community metadata dictionary for materials science
 terminology. The application uses Next.js, PostgreSQL, Drizzle ORM, tRPC, and
 an optional Ollama service for AI-assisted definition work.
 

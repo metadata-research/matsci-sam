@@ -46,7 +46,7 @@ export const matCoreSourceSnapshot = {
   sourceUrl: "https://arxiv.org/abs/2502.07106v1",
   status: "preliminary",
   transcriptionNotice:
-    "This is a MatSci SAM transcription of preliminary tables in Figures 3 and 5. It is not an official or current MatCore release."
+    "This is a MatSci-SAM transcription of preliminary tables in Figures 3 and 5. It is not an official or current MatCore release."
 } as const satisfies MatCoreSourceSnapshot
 
 export const minimalMatCoreElements = [
@@ -318,7 +318,7 @@ export const syntheticSiliconDftRecord = {
   description:
     "A static example showing how the preliminary Minimal and DFT profiles can describe one computational dataset.",
   caveat:
-    "Synthetic teaching example created by MatSci SAM. It is not source data from Greenberg et al., a stored dataset record, or validated benchmark data.",
+    "Synthetic teaching example created by MatSci-SAM. It is not source data from Greenberg et al., a stored dataset record, or validated benchmark data.",
   values: {
     minimal: {
       creator: "Example Researcher, Example Materials Laboratory",

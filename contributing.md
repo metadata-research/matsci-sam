@@ -1,6 +1,6 @@
 # Contributing
 
-MatSci SAM uses `dev` as its integration branch.
+MatSci-SAM uses `dev` as its integration branch.
 
 1. Update local `dev`, then create a short-lived feature branch.
 

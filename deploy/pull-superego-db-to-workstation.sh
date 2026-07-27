@@ -33,7 +33,7 @@ usage() {
   cat <<'USAGE'
 Usage: deploy/pull-superego-db-to-workstation.sh [options]
 
-Replace a registered workstation's local MatSci SAM database with a verified
+Replace a registered workstation's local MatSci-SAM database with a verified
 Superego snapshot. The authoritative Superego database is never modified.
 
 Options:

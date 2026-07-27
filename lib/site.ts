@@ -24,4 +24,4 @@ export const SITE_URL =
  *
  * Override with NEXT_PUBLIC_SITE_NAME to rebrand without a code change.
  */
-export const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "MatSci SAM"
+export const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "MatSci-SAM"

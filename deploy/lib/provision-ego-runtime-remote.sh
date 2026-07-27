@@ -662,7 +662,7 @@ chmod -R u=rwX,go=rX "${pnpm_package_dir}"
   "${versions[PGVECTOR_PACKAGE_VERSION]}" ]] ||
   fail "Installed pgvector differs from the runtime contract."
 
-echo "Creating the standard MatSci SAM account and directories."
+echo "Creating the standard MatSci-SAM account and directories."
 if ! getent group "${app_group}" >/dev/null; then
   groupadd --system "${app_group}"
 fi

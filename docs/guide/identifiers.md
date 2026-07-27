@@ -1,6 +1,6 @@
 # Identifiers and citation
 
-MatSci SAM assigns public identifiers to terms, contributed definitions, and
+MatSci-SAM assigns public identifiers to terms, contributed definitions, and
 immutable revisions. Public paths use a readable term slug and stored numbers.
 They do not expose database primary keys.
 
@@ -85,7 +85,7 @@ for a quotation or reproducible analysis.
 
 A minimal exact citation has this form:
 
-> martensite, Definition 2, revision 1. _MatSci SAM_. [full revision IRI]
+> martensite, Definition 2, revision 1. _MatSci-SAM_. [full revision IRI]
 
 The pages display full IRIs for the active deployment. Copy the displayed IRI
 instead of assuming a hostname.
@@ -107,7 +107,7 @@ The authority portion of development IRIs comes from
 `NEXT_PUBLIC_SITE_URL`. Changing that setting changes the full IRI even though
 the path remains the same.
 
-MatSci SAM does not yet publish these resources through an independent
+MatSci-SAM does not yet publish these resources through an independent
 persistent-identifier authority. The project must select an authority such as
 w3id.org, an institutional resolver, or a project-controlled domain before
 external publication. A persistent resolver can preserve the complete path

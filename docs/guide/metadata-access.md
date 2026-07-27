@@ -3,7 +3,7 @@
 The dictionary publishes standards-based serializations for researchers,
 harvesters, and semantic web tools.
 
-MatSci SAM also provides a
+MatSci-SAM also provides a
 [read-only MatCore metadata reference](/metadata/matcore). It transcribes the
 preliminary Minimal and DFT elements from `arXiv:2502.07106v1` and includes a
 clearly synthetic example. It is not an official or current MatCore release,
@@ -61,7 +61,7 @@ Turtle download is linked from the provenance page. Revision entities use
 
 ## Application metadata vocabulary
 
-MatSci SAM uses a small application vocabulary for details that SKOS, Dublin
+MatSci-SAM uses a small application vocabulary for details that SKOS, Dublin
 Core, and PROV-O do not name directly. Its namespace is:
 
 ```text

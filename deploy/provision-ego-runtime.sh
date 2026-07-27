@@ -27,7 +27,7 @@ usage() {
   cat <<'USAGE'
 Usage: deploy/provision-ego-runtime.sh [options]
 
-Install the reviewed MatSci SAM runtime prerequisites on Ego while preserving
+Install the reviewed MatSci-SAM runtime prerequisites on Ego while preserving
 the active HTTPS maintenance site. The command leaves the application
 disabled and the local database uninitialized.
 

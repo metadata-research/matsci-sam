@@ -47,7 +47,7 @@ export const DocsShell = ({
               href="/about"
               className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             >
-              About MatSci SAM
+              About MatSci-SAM
             </Link>
           </div>
         </div>
@@ -57,7 +57,7 @@ export const DocsShell = ({
         className="flex flex-wrap gap-x-5 gap-y-2 border-b border-border pb-4 text-sm md:hidden"
       >
         <Link href="/about" className="text-primary hover:underline">
-          About MatSci SAM
+          About MatSci-SAM
         </Link>
         <Link
           href="/docs/metadata-access"

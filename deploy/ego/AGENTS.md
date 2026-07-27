@@ -1,6 +1,6 @@
 # Ego administration workspace
 
-This user-owned workspace supports the independent public MatSci SAM runtime
+This user-owned workspace supports the independent public MatSci-SAM runtime
 at `ego.cci.drexel.edu`.
 
 ## Ownership
