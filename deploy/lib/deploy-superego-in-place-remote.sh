@@ -727,7 +727,7 @@ restore_database_backup() {
     return 1
   fi
 
-  displaced_database="matsci_${environment_slug}_rollback_old_${stamp}_$$"
+  displaced_database="matsci_${environment_slug}_rollback_old_${database_stamp}_$$"
   if [[ ! ${displaced_database} =~ ^[a-z][a-z0-9_]{0,62}$ ]]; then
     cleanup_scratch_database >/dev/null 2>&1 || true
     return 1
@@ -1130,8 +1130,11 @@ case ${nginx_initial_state} in
 esac
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
+database_stamp=${stamp//[!0-9]/}
+[[ ${database_stamp} =~ ^[0-9]{14}$ ]] ||
+  fail "The database timestamp is malformed."
 backup=${backup_dir}/matsci-sam-${environment_slug}-before-release-${stamp}.dump
-scratch_database="matsci_${environment_slug}_release_check_${stamp}_$$"
+scratch_database="matsci_${environment_slug}_release_check_${database_stamp}_$$"
 
 if [[ -e ${admin_root} || -L ${admin_root} ]]; then
   [[ -d ${admin_root} && ! -L ${admin_root} &&
