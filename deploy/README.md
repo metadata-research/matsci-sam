@@ -237,6 +237,13 @@ two continuous-integration runs per change, made the file that validates
 deployment tooling a member of its own allowlist, and stranded a verified Ego
 release on 2026-07-26 when a promoted operations-only fix moved `origin/main`.
 
+The first routine release after retiring `main` includes the live Ego release
+commit `1779f8cb741cfbadf7ad133c75b6b0d39ef7d4d5` as a one-time history
+parent. Its tree is identical to reviewed `dev` commit
+`68d866ddf2bdc5a6932b63ff75af952b102cb6fb`, so the merge introduces no
+runtime content. It only bridges the retired promotion lineage into `dev`;
+afterward, the normal forward-ancestry rule applies without a special bypass.
+
 Each command validates the clean reviewed source and release artifact before
 it requests confirmation or sudo. Use `--check-only` for an optional
 non-mutating diagnostic. A separate dry run is not required because the
