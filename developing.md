@@ -670,17 +670,22 @@ service coordination, release switching, health checks, or rollback.
 
 A merge to `dev` does not deploy Superego. Maintainers use the runbook for the
 target environment. Superego owns private development data; Ego owns its
-independent public database after initialization.
+independent public database. `origin/dev` is the single reviewed release
+branch; `origin/main` is frozen and does not participate in deployment.
 
-The legacy deployment workflows are disabled. Do not merge or push a public
-candidate to `main` until their self-hosted runners and deployment privileges
-are retired and the old deployment workflow is removed. After that boundary
-is verified, keep reviewed `dev` and promoted `main` on the same exact tree.
-Require the application, schema, migration, dependency, build, service, and
-runtime-configuration content to match the release already validated on
-Superego; only the exact reviewed non-runtime operations allowlist may differ.
-Then build the promoted tree independently on Ego under the protected public
-environment.
+From the registered control workstation, release one clean, reviewed
+`origin/dev` commit in order:
+
+```bash
+./deploy/release.sh superego
+# Exercise the changed behavior on Superego.
+./deploy/release.sh ego
+```
+
+The Ego command accepts only the exact commit already running and healthy on
+Superego. Each host builds under its own protected configuration and migrates
+its own database in place. Never rerun the completed one-time Ego seed or copy
+Superego data over Ego.
 
 Before deployment, decide which database contains the authoritative data. A
 disposable development target may be reset from a verified source snapshot. A

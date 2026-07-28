@@ -10,12 +10,38 @@ umask 0077
 cd /
 
 stage=${1:-}
+target=${2:-superego}
 app_root=/opt/matsci-sam
 database=matsci-sam
 admin_root=/var/lib/matsci-sam-admin
 backup_dir=${admin_root}/backups
 cache_root=/var/lib/matsci-sam/release-cache
-authority_file=/home/cr625/superego-admin/DATA-AUTHORITY
+
+case ${target} in
+  superego)
+    environment_name=Superego
+    environment_slug=superego
+    expected_hostname=cci-superego
+    admin_workspace=/home/cr625/superego-admin
+    authority_file=${admin_workspace}/DATA-AUTHORITY
+    expected_authority=superego
+    public_host=superego.cci.drexel.edu
+    ;;
+  ego)
+    environment_name=Ego
+    environment_slug=ego
+    expected_hostname=cci-ego
+    admin_workspace=/home/cr625/ego-admin
+    authority_file=${admin_workspace}/DATA-AUTHORITY
+    expected_authority=ego
+    public_host=ego.cci.drexel.edu
+    ;;
+  *)
+    echo "Unknown release environment: ${target}" >&2
+    exit 2
+    ;;
+esac
+
 deployment_complete=false
 public_reopened=false
 nginx_stop_attempted=false
@@ -26,6 +52,7 @@ pointer_switch_attempted=false
 new_release_created=false
 cache_created=false
 scratch_database_created=false
+keep_public_access_closed_on_failure=false
 root_work=
 previous=
 release=
@@ -34,8 +61,6 @@ backup_partial=
 scratch_database=
 predeploy_facts=
 runtime_cache=
-sudoers_partial=
-operations_partial=
 
 fail() {
   echo "$*" >&2
@@ -86,17 +111,124 @@ wait_for_local_health() {
   return 1
 }
 
-verify_protected_database_identity() {
-  local protected_database_identity
-  local socket_database_identity
-  local current_database
+wait_for_public_https() {
+  local host=$1
+  local timeout_seconds=${2:-60}
+  local deadline
 
-  protected_database_identity=$(
-    runuser -u matsci-sam -- /bin/bash <<'PROTECTED_DATABASE'
+  [[ ${timeout_seconds} =~ ^[1-9][0-9]*$ ]] || return 1
+  deadline=$((SECONDS + timeout_seconds))
+  while ((SECONDS < deadline)); do
+    if systemctl is-active --quiet nginx.service &&
+      curl \
+        --resolve "${host}:443:127.0.0.1" \
+        --connect-timeout 2 \
+        --max-time 5 \
+        --fail \
+        --silent \
+        --output /dev/null \
+        "https://${host}/"
+    then
+      return 0
+    fi
+    ((SECONDS < deadline)) && sleep 2
+  done
+  return 1
+}
+
+verify_protected_app_config() {
+  runuser -u matsci-sam -- /bin/bash -s -- \
+    "${target}" "https://${public_host}" <<'APP_CONFIG'
 set -Eeuo pipefail
 set -a
 source /etc/matsci-sam/app.env
 set +a
+target=$1
+site_url=$2
+readonly target site_url
+
+[[ ${NEXT_PUBLIC_SITE_URL:-} == "${site_url}" ]] || {
+  echo "NEXT_PUBLIC_SITE_URL does not match this environment." >&2
+  exit 1
+}
+[[ ${NEXT_PUBLIC_SITE_NAME:-} == MatSci-SAM ]] || {
+  echo "NEXT_PUBLIC_SITE_NAME does not match the protected application identity." >&2
+  exit 1
+}
+[[ ${GOOGLE_CALLBACK_URL:-} == "${site_url}/api/auth/callback" ]] || {
+  echo "GOOGLE_CALLBACK_URL does not match this environment." >&2
+  exit 1
+}
+if [[ ${target} == ego ]]; then
+  [[ ${DEV_AUTH_ENABLED:-false} == false ]] || {
+    echo "Development authentication must be disabled on Ego." >&2
+    exit 1
+  }
+  [[ ${SESSION_COOKIE_SECURE:-} == true ]] || {
+    echo "Secure session cookies must be enabled on Ego." >&2
+    exit 1
+  }
+fi
+if [[ ${EMAIL_AUTH_ENABLED:-false} == true ]]; then
+  [[ -n ${EMAIL_AUTH_FROM:-} ]] || {
+    echo "EMAIL_AUTH_FROM is required when email authentication is enabled." >&2
+    exit 1
+  }
+  case ${EMAIL_AUTH_PROVIDER:-} in
+    gmail-api)
+      [[ -n ${EMAIL_AUTH_GMAIL_CLIENT_ID:-} &&
+        -n ${EMAIL_AUTH_GMAIL_CLIENT_SECRET:-} &&
+        -n ${EMAIL_AUTH_GMAIL_REFRESH_TOKEN:-} ]] || {
+        echo "The Gmail sender configuration is incomplete." >&2
+        exit 1
+      }
+      ;;
+    smtp)
+      [[ -n ${EMAIL_AUTH_SMTP_HOST:-} ]] || {
+        echo "The SMTP sender configuration is incomplete." >&2
+        exit 1
+      }
+      ;;
+    *)
+      echo "EMAIL_AUTH_PROVIDER is invalid." >&2
+      exit 1
+      ;;
+  esac
+fi
+APP_CONFIG
+}
+
+verify_protected_database_identity() {
+  local session_mode=${1:-read-write}
+  local protected_database_identity
+  local socket_database_identity
+  local current_database
+  local read_only_flag=false
+  local -a session_command=()
+
+  case ${session_mode} in
+    read-write)
+      ;;
+    read-only)
+      read_only_flag=true
+      session_command=(env "PGOPTIONS=-c default_transaction_read_only=on")
+      ;;
+    *)
+      fail "Unknown protected database verification mode."
+      ;;
+  esac
+
+  protected_database_identity=$(
+    runuser -u matsci-sam -- /bin/bash -s -- \
+      "${read_only_flag}" <<'PROTECTED_DATABASE'
+set -Eeuo pipefail
+read_only_flag=$1
+set -a
+source /etc/matsci-sam/app.env
+set +a
+if [[ ${read_only_flag} == true ]]; then
+  export PGOPTIONS="-c default_transaction_read_only=on"
+fi
 psql \
   "${DATABASE_URL}" \
   --no-align \
@@ -111,7 +243,7 @@ psql \
 PROTECTED_DATABASE
   )
   socket_database_identity=$(
-    runuser -u postgres -- psql \
+    runuser -u postgres -- "${session_command[@]}" psql \
       --host=/var/run/postgresql \
       --port=5432 \
       --dbname="${database}" \
@@ -130,6 +262,109 @@ PROTECTED_DATABASE
   IFS=$'\t' read -r current_database _ _ <<<"${protected_database_identity}"
   [[ ${current_database} == "${database}" ]] ||
     fail "The protected environment points at an unexpected database."
+}
+
+assert_vector_extension() {
+  local target_database=$1
+  local session_mode=${2:-read-write}
+  local extension_identity
+  local -a session_command=()
+
+  case ${session_mode} in
+    read-write)
+      ;;
+    read-only)
+      session_command=(env "PGOPTIONS=-c default_transaction_read_only=on")
+      ;;
+    *)
+      echo "Unknown database verification mode." >&2
+      return 1
+      ;;
+  esac
+
+  extension_identity=$(
+    runuser -u postgres -- "${session_command[@]}" psql \
+      --host=/var/run/postgresql \
+      --port=5432 \
+      --dbname="${target_database}" \
+      --no-align \
+      --tuples-only \
+      --field-separator=$'\t' \
+      --set ON_ERROR_STOP=1 \
+      --command="
+        SELECT extname, pg_get_userbyid(extowner)
+        FROM pg_extension
+        WHERE extname = 'vector';
+      "
+  ) || return 1
+  if [[ ${extension_identity} != $'vector\tpostgres' ]]; then
+    echo "The vector extension is missing or is not owned by postgres." >&2
+    return 1
+  fi
+}
+
+create_and_restore_database() {
+  local target_database=$1
+  local dump_file=$2
+
+  [[ ${target_database} =~ ^[a-z][a-z0-9_-]{0,62}$ ]] || {
+    echo "Refusing to create an unsafe database name." >&2
+    return 1
+  }
+  [[ -f ${dump_file} && ! -L ${dump_file} && -s ${dump_file} ]] || {
+    echo "The database dump is unavailable or unsafe." >&2
+    return 1
+  }
+  pg_restore --list "${dump_file}" >/dev/null || {
+    echo "The database dump cannot be read." >&2
+    return 1
+  }
+
+  runuser -u postgres -- createdb \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --owner=matsci-sam \
+    "${target_database}" || return 1
+  if [[ ${target_database} == "${scratch_database}" ]]; then
+    scratch_database_created=true
+  fi
+
+  if ! runuser -u postgres -- psql \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --dbname="${target_database}" \
+    --set ON_ERROR_STOP=1 \
+    --command='CREATE EXTENSION IF NOT EXISTS vector;' \
+    >/dev/null ||
+    ! runuser -u matsci-sam -- pg_restore \
+      --host=/var/run/postgresql \
+      --port=5432 \
+      --dbname="${target_database}" \
+      --exit-on-error \
+      --single-transaction \
+      --no-owner \
+      --no-privileges \
+      --no-comments \
+      <"${dump_file}" ||
+    ! assert_vector_extension "${target_database}"
+  then
+    if runuser -u postgres -- dropdb \
+      --host=/var/run/postgresql \
+      --port=5432 \
+      --maintenance-db=postgres \
+      --force \
+      --if-exists \
+      "${target_database}" \
+      >/dev/null 2>&1
+    then
+      if [[ ${target_database} == "${scratch_database}" ]]; then
+        scratch_database_created=false
+      fi
+    else
+      echo "The failed restore database could not be removed: ${target_database}" >&2
+    fi
+    return 1
+  fi
 }
 
 cleanup_scratch_database() {
@@ -162,13 +397,276 @@ cleanup_partial_backup() {
   fi
 }
 
-cleanup_partial_diagnostics() {
-  if [[ -n ${sudoers_partial} && -f ${sudoers_partial} ]]; then
-    unlink "${sudoers_partial}"
+read_database_facts() {
+  local target_database=$1
+  local session_mode=${2:-read-write}
+  local -a session_command=()
+
+  case ${session_mode} in
+    read-write)
+      ;;
+    read-only)
+      session_command=(env "PGOPTIONS=-c default_transaction_read_only=on")
+      ;;
+    *)
+      echo "Unknown database verification mode." >&2
+      return 1
+      ;;
+  esac
+
+  runuser -u matsci-sam -- "${session_command[@]}" psql \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --dbname="${target_database}" \
+    --no-align \
+    --tuples-only \
+    --field-separator=$'\t' \
+    --command='
+      SELECT
+        (SELECT count(*) FROM "users"),
+        (SELECT count(*) FROM "terms"),
+        (SELECT count(*) FROM "definitions"),
+        (SELECT count(*) FROM drizzle."__drizzle_migrations"),
+        COALESCE(
+          (SELECT max(created_at) FROM drizzle."__drizzle_migrations"),
+          0
+        ),
+        COALESCE((SELECT min(id) FROM "definitions"), 0);
+    '
+}
+
+verify_live_database_contract() {
+  local verified_release=$1
+  local session_mode=${2:-read-write}
+  local -a session_command=()
+  local -a session_assignment=()
+
+  case ${session_mode} in
+    read-write)
+      ;;
+    read-only)
+      session_command=(env "PGOPTIONS=-c default_transaction_read_only=on")
+      session_assignment=("PGOPTIONS=-c default_transaction_read_only=on")
+      ;;
+    *)
+      fail "Unknown live database verification mode."
+      ;;
+  esac
+
+  assert_vector_extension "${database}" "${session_mode}"
+  runuser -u matsci-sam -- "${session_command[@]}" psql \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --dbname="${database}" \
+    --set ON_ERROR_STOP=1 \
+    <"${verified_release}/deploy/lib/reset-db-invariants.sql" \
+    >/dev/null
+  runuser -u matsci-sam -- env \
+    "${session_assignment[@]}" \
+    PGHOST=/var/run/postgresql \
+    PGPORT=5432 \
+    PGDATABASE="${database}" \
+    /bin/bash "${verified_release}/deploy/lib/verify-migration-ledger.sh" \
+    "${verified_release}/drizzle/migrations"
+  actual_facts=$(read_database_facts "${database}" "${session_mode}")
+}
+
+configure_definition_probe() {
+  IFS=$'\t' read -r _ _ _ _ _ definition_probe <<<"${actual_facts}"
+  definition_legacy_path=
+  definition_canonical_path=
+  revision_canonical_path=
+  if ((definition_probe > 0)); then
+    definition_identity=$(
+      runuser -u matsci-sam -- psql \
+        --host=/var/run/postgresql \
+        --port=5432 \
+        --dbname="${database}" \
+        --no-align \
+        --tuples-only \
+        --field-separator=$'\t' \
+        --command="
+          SELECT t.slug, d.\"definitionNumber\", r.version
+          FROM \"definitions\" d
+          JOIN \"terms\" t ON t.id = d.\"termId\"
+          JOIN \"definitionRevisions\" r ON r.id = d.\"currentRevisionId\"
+          WHERE d.id = ${definition_probe};
+        "
+    )
+    IFS=$'\t' read -r definition_slug definition_number revision_number \
+      <<<"${definition_identity}"
+    [[ ${definition_slug} =~ ^[a-z0-9][a-z0-9_-]*$ ]] ||
+      fail "The definition probe has an unsafe term slug."
+    [[ ${definition_number} =~ ^[1-9][0-9]*$ ]] ||
+      fail "The definition probe has an invalid public definition number."
+    [[ ${revision_number} =~ ^[1-9][0-9]*$ ]] ||
+      fail "The definition probe has an invalid revision number."
+    definition_legacy_path="/definition/${definition_probe}"
+    definition_canonical_path="/vocabulary/${definition_slug}/definitions/${definition_number}"
+    revision_canonical_path="${definition_canonical_path}/revisions/${revision_number}"
   fi
-  if [[ -n ${operations_partial} && -f ${operations_partial} ]]; then
-    unlink "${operations_partial}"
+}
+
+verify_loopback_contract() {
+  systemctl start matsci-sam.service
+  wait_for_local_health 30 ||
+    fail "The candidate application did not become healthy."
+
+  listeners=$(ss -ltnH '( sport = :3000 )')
+  [[ -n ${listeners} ]] || fail "Port 3000 has no listener."
+  if awk '{print $4}' <<<"${listeners}" | grep -qv '^127\.0\.0\.1:3000$'; then
+    fail "Port 3000 is not loopback-only."
   fi
+  if [[ ${target} == ego && -n $(ss -ltnH '( sport = :5432 )') ]]; then
+    fail "PostgreSQL unexpectedly has a TCP listener on Ego."
+  fi
+
+  local local_paths=(/ /api/health /search /terms /docs /about /metadata/matcore)
+  local local_redirect_headers
+  local path
+  local code
+  if ((definition_probe > 0)); then
+    local_redirect_headers=$(
+      curl \
+        --connect-timeout 3 \
+        --max-time 10 \
+        --silent \
+        --show-error \
+        --output /dev/null \
+        --dump-header - \
+        "http://127.0.0.1:3000${definition_legacy_path}"
+    )
+    verify_redirect_headers \
+      "${local_redirect_headers}" \
+      308 \
+      "${definition_canonical_path}" \
+      "The local legacy definition route"
+    local_paths+=("${definition_canonical_path}" "${revision_canonical_path}")
+  fi
+  for path in "${local_paths[@]}"; do
+    code=$(
+      curl \
+        --connect-timeout 3 \
+        --max-time 10 \
+        --silent \
+        --show-error \
+        --output /dev/null \
+        --write-out '%{http_code}' \
+        "http://127.0.0.1:3000${path}"
+    )
+    [[ ${code} == 200 ]] ||
+      fail "Unexpected local status for ${path}: ${code}"
+  done
+}
+
+verify_public_contract() {
+  local host=${public_host}
+  local public_paths=(/ /api/health /search /terms /docs /about /metadata/matcore)
+  local public_redirect_headers
+  local google_headers
+  local path
+  local code
+
+  if ((definition_probe > 0)); then
+    public_redirect_headers=$(
+      curl \
+        --resolve "${host}:443:127.0.0.1" \
+        --connect-timeout 3 \
+        --max-time 10 \
+        --silent \
+        --show-error \
+        --output /dev/null \
+        --dump-header - \
+        "https://${host}${definition_legacy_path}"
+    )
+    verify_redirect_headers \
+      "${public_redirect_headers}" \
+      308 \
+      "${definition_canonical_path}" \
+      "The public legacy definition route"
+    public_paths+=("${definition_canonical_path}" "${revision_canonical_path}")
+  fi
+  for path in "${public_paths[@]}"; do
+    code=$(
+      curl \
+        --resolve "${host}:443:127.0.0.1" \
+        --connect-timeout 3 \
+        --max-time 10 \
+        --silent \
+        --show-error \
+        --output /dev/null \
+        --write-out '%{http_code}' \
+        "https://${host}${path}"
+    )
+    [[ ${code} == 200 ]] ||
+      fail "Unexpected public status for ${path}: ${code}"
+  done
+
+  google_headers=$(
+    curl \
+      --resolve "${host}:443:127.0.0.1" \
+      --connect-timeout 3 \
+      --max-time 10 \
+      --silent \
+      --show-error \
+      --output /dev/null \
+      --dump-header - \
+      "https://${host}/api/auth/google"
+  )
+  [[ $(awk 'NR == 1 {print $2}' <<<"${google_headers}") == 307 ]] ||
+    fail "Google entry did not return HTTP 307."
+  grep -qi '^location: https://accounts.google.com/' <<<"${google_headers}" ||
+    fail "Google entry did not redirect to accounts.google.com."
+}
+
+reopen_and_verify_public() {
+  public_reopened=true
+  systemctl start nginx.service
+  [[ $(systemctl is-active nginx.service) == active ]] ||
+    fail "Nginx did not start."
+  wait_for_public_https "${public_host}" 60 ||
+    fail "Nginx did not become HTTPS-ready within 60 seconds."
+  verify_public_contract
+
+  [[ $(readlink -e "${app_root}/current") == "${release}" ]] ||
+    fail "The active release pointer is incorrect."
+  [[ $(systemctl is-active matsci-sam.service) == active ]] ||
+    fail "The application service is inactive."
+  [[ $(systemctl is-active nginx.service) == active ]] ||
+    fail "Nginx is inactive."
+  if [[ ${target} == ego &&
+    $(systemctl is-enabled matsci-sam.service) != enabled ]]
+  then
+    fail "The Ego application service is not enabled for reboot."
+  fi
+}
+
+complete_operation() {
+  deployment_complete=true
+
+  if ! find "${stage}" -mindepth 1 -delete ||
+    ! rmdir "${stage}"
+  then
+    echo "Warning: temporary root staging could not be removed." >&2
+  fi
+  if ! cleanup_root_work; then
+    echo "Warning: root deployment staging could not be removed." >&2
+  fi
+
+  IFS=$'\t' read -r users terms definitions migrations _ _ <<<"${actual_facts}"
+  if [[ ${operation} == resume-public-verification ]]; then
+    printf '\n%s public verification recovery completed.\n' "${environment_name}"
+  else
+    printf '\n%s in-place release completed.\n' "${environment_name}"
+  fi
+  printf 'release=%s\n' "${release}"
+  if [[ -n ${backup} ]]; then
+    printf 'database_backup=%s\n' "${backup}"
+  fi
+  printf 'users=%s\n' "${users}"
+  printf 'terms=%s\n' "${terms}"
+  printf 'definitions=%s\n' "${definitions}"
+  printf 'migrations=%s\n' "${migrations}"
 }
 
 remove_failed_release() {
@@ -187,36 +685,23 @@ remove_failed_release() {
 }
 
 restore_database_backup() {
-  [[ ${backup_ready} == true && -f ${backup} ]] || return 1
+  local displaced_database
+  local restored_facts
+
+  [[ ${backup_ready} == true && -f ${backup} && ! -L ${backup} &&
+    -s ${backup} ]] || return 1
   pg_restore --list "${backup}" >/dev/null || return 1
 
-  runuser -u postgres -- dropdb \
-    --host=/var/run/postgresql \
-    --port=5432 \
-    --maintenance-db=postgres \
-    --force \
-    --if-exists \
-    "${database}" || return 1
-  runuser -u postgres -- createdb \
-    --host=/var/run/postgresql \
-    --port=5432 \
-    --owner=matsci-sam \
-    "${database}" || return 1
-  runuser -u matsci-sam -- pg_restore \
-    --host=/var/run/postgresql \
-    --port=5432 \
-    --dbname="${database}" \
-    --exit-on-error \
-    --single-transaction \
-    --no-owner \
-    --no-privileges \
-    <"${backup}" || return 1
+  # Restore and validate a complete replacement before moving the live
+  # database out of the way. This preserves the failed live state unless the
+  # reviewed backup is both readable and restorable with the pgvector contract.
+  create_and_restore_database "${scratch_database}" "${backup}" || return 1
 
-  restored_facts=$(
+  if ! restored_facts=$(
     runuser -u matsci-sam -- psql \
       --host=/var/run/postgresql \
       --port=5432 \
-      --dbname="${database}" \
+      --dbname="${scratch_database}" \
       --no-align \
       --tuples-only \
       --field-separator=$'\t' \
@@ -232,8 +717,109 @@ restore_database_backup() {
           ),
           COALESCE((SELECT min(id) FROM "definitions"), 0);
       '
-  ) || return 1
-  [[ ${restored_facts} == "${predeploy_facts}" ]]
+  )
+  then
+    cleanup_scratch_database >/dev/null 2>&1 || true
+    return 1
+  fi
+  if [[ ${restored_facts} != "${predeploy_facts}" ]]; then
+    cleanup_scratch_database >/dev/null 2>&1 || true
+    return 1
+  fi
+
+  displaced_database="matsci_${environment_slug}_rollback_old_${stamp}_$$"
+  if [[ ! ${displaced_database} =~ ^[a-z][a-z0-9_]{0,62}$ ]]; then
+    cleanup_scratch_database >/dev/null 2>&1 || true
+    return 1
+  fi
+  local displaced_exists
+  if ! displaced_exists=$(
+    runuser -u postgres -- psql \
+      --host=/var/run/postgresql \
+      --port=5432 \
+      --dbname=postgres \
+      --no-align \
+      --tuples-only \
+      --command="
+        SELECT 1
+        FROM pg_database
+        WHERE datname = '${displaced_database}';
+      "
+  )
+  then
+    cleanup_scratch_database >/dev/null 2>&1 || true
+    return 1
+  fi
+  if [[ -n ${displaced_exists} ]]; then
+    cleanup_scratch_database >/dev/null 2>&1 || true
+    return 1
+  fi
+
+  runuser -u postgres -- psql \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --dbname=postgres \
+    --set ON_ERROR_STOP=1 \
+    --command="
+      SELECT pg_terminate_backend(pid)
+      FROM pg_stat_activity
+      WHERE datname = '${database}'
+        AND pid <> pg_backend_pid();
+    " \
+    >/dev/null || {
+      cleanup_scratch_database >/dev/null 2>&1 || true
+      return 1
+    }
+  runuser -u postgres -- psql \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --dbname=postgres \
+    --set ON_ERROR_STOP=1 \
+    --command="
+      ALTER DATABASE \"${database}\" RENAME TO \"${displaced_database}\";
+    " \
+    >/dev/null || {
+      cleanup_scratch_database >/dev/null 2>&1 || true
+      return 1
+    }
+  if ! runuser -u postgres -- psql \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --dbname=postgres \
+    --set ON_ERROR_STOP=1 \
+    --command="
+      ALTER DATABASE \"${scratch_database}\" RENAME TO \"${database}\";
+    " \
+    >/dev/null
+  then
+    if runuser -u postgres -- psql \
+      --host=/var/run/postgresql \
+      --port=5432 \
+      --dbname=postgres \
+      --set ON_ERROR_STOP=1 \
+      --command="
+        ALTER DATABASE \"${displaced_database}\" RENAME TO \"${database}\";
+      " \
+      >/dev/null
+    then
+      cleanup_scratch_database >/dev/null 2>&1 || true
+    else
+      echo "The original database remains available as ${displaced_database}." >&2
+      echo "The restored backup remains available as ${scratch_database}." >&2
+    fi
+    return 1
+  fi
+  scratch_database_created=false
+
+  if ! runuser -u postgres -- dropdb \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --maintenance-db=postgres \
+    --force \
+    "${displaced_database}"
+  then
+    echo "Warning: the failed database remains as ${displaced_database}." >&2
+  fi
 }
 
 rollback_on_failure() {
@@ -243,7 +829,6 @@ rollback_on_failure() {
   if [[ ${deployment_complete} == true ]]; then
     cleanup_scratch_database >/dev/null 2>&1 || true
     cleanup_partial_backup || true
-    cleanup_partial_diagnostics || true
     cleanup_root_work || true
     exit 0
   fi
@@ -258,7 +843,6 @@ rollback_on_failure() {
     fi
     cleanup_scratch_database >/dev/null 2>&1 || true
     cleanup_partial_backup || true
-    cleanup_partial_diagnostics || true
     cleanup_root_work || true
     exit "${status}"
   fi
@@ -266,13 +850,12 @@ rollback_on_failure() {
   if [[ ${nginx_stop_attempted} != true && ${app_stop_attempted} != true ]]; then
     cleanup_scratch_database >/dev/null 2>&1 || true
     cleanup_partial_backup || true
-    cleanup_partial_diagnostics || true
     remove_failed_release || true
     cleanup_root_work || true
     exit "${status}"
   fi
 
-  echo "In-place deployment failed before reopening Superego." >&2
+  echo "In-place deployment failed before reopening ${environment_name}." >&2
   echo "Restoring the prior release and database state." >&2
   systemctl stop nginx.service >/dev/null 2>&1 || true
   systemctl stop matsci-sam.service >/dev/null 2>&1 || true
@@ -305,13 +888,20 @@ rollback_on_failure() {
     if [[ ${rollback_ok} == true ]] && ! wait_for_local_health 30; then
       rollback_ok=false
     fi
-    if [[ ${rollback_ok} == true ]]; then
+    if [[ ${rollback_ok} == true &&
+      ${keep_public_access_closed_on_failure} != true ]]
+    then
       systemctl start nginx.service || rollback_ok=false
     fi
   fi
 
   if [[ ${rollback_ok} == true ]]; then
-    echo "The previous Superego release and database were restored." >&2
+    if [[ ${keep_public_access_closed_on_failure} == true ]]; then
+      echo "The previous ${environment_name} release and database were restored." >&2
+      echo "Nginx remains stopped because public access was already closed." >&2
+    else
+      echo "The previous ${environment_name} release and database were restored." >&2
+    fi
   else
     echo "Automatic recovery was incomplete. Application and Nginx remain stopped." >&2
     systemctl stop nginx.service >/dev/null 2>&1 || true
@@ -319,7 +909,6 @@ rollback_on_failure() {
   fi
 
   cleanup_partial_backup || true
-  cleanup_partial_diagnostics || true
   cleanup_root_work || true
   exit "${status}"
 }
@@ -329,20 +918,20 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 [[ $(id -u) -eq 0 ]] || fail "Run this helper with sudo."
-[[ $(hostname) == cci-superego ]] ||
-  fail "This helper runs only on cci-superego."
-[[ ${stage} =~ ^/home/cr625/superego-admin/incoming/deploy-[0-9a-f]{12}-[0-9]{8}T[0-9]{6}Z$ ]] ||
+[[ $(hostname) == "${expected_hostname}" ]] ||
+  fail "This helper runs only on ${expected_hostname}."
+[[ ${stage} =~ ^${admin_root}/incoming/launch-${target}\.[A-Za-z0-9]{8}$ ]] ||
   fail "Invalid staging path."
 [[ -d ${stage} && ! -L ${stage} ]] ||
   fail "Staging directory is unavailable."
-[[ $(stat -c '%U' "${stage}") == cr625 ]] ||
+[[ $(stat -c '%U:%G:%a' "${stage}") == root:root:700 ]] ||
   fail "Unexpected staging owner."
 [[ -f ${authority_file} && ! -L ${authority_file} ]] ||
   fail "The data-authority marker is missing."
 [[ $(stat -c '%U' "${authority_file}") == cr625 ]] ||
   fail "Unexpected data-authority marker owner."
-[[ $(<"${authority_file}") == superego ]] ||
-  fail "Superego is not marked as the authoritative shared database."
+[[ $(<"${authority_file}") == "${expected_authority}" ]] ||
+  fail "${environment_name} does not own its expected database."
 
 expected_stage_files=$(
   printf '%s\n' \
@@ -364,9 +953,9 @@ for staged_file in ${expected_stage_files}; do
     fail "A deployment staging entry is not a regular file."
 done
 
-for command in awk chmod chown cmp createdb curl cut diff dropdb find flock \
-  getent grep install jq mv pg_dump pg_restore pgrep pnpm psql runuser \
-  sha256sum ss stat systemctl tar unlink usermod visudo
+for command in awk chmod chown cmp createdb curl dropdb find flock grep \
+  install mv pg_dump pg_restore pnpm psql runuser sha256sum ss stat systemctl \
+  tar unlink
 do
   command -v "${command}" >/dev/null ||
     fail "Required command is unavailable: ${command}"
@@ -376,7 +965,15 @@ exec 9>/run/lock/matsci-sam-operation.lock
 flock --nonblock 9 || fail "Another MatSci operation is running."
 
 declare -A manifest=()
-allowed_keys=(format source_host previous_commit commit archive_sha256)
+allowed_keys=(
+  format
+  operation
+  environment
+  source_host
+  previous_commit
+  commit
+  archive_sha256
+)
 is_allowed_key() {
   local candidate=$1
   local key
@@ -400,7 +997,14 @@ done <"${manifest_file}"
 for key in "${allowed_keys[@]}"; do
   [[ -v "manifest[${key}]" ]] || fail "The deployment manifest is incomplete."
 done
-[[ ${manifest[format]} == 1 ]] || fail "Unsupported manifest format."
+[[ ${manifest[format]} == 2 ]] || fail "Unsupported manifest format."
+operation=${manifest[operation]}
+[[ ${operation} == release ||
+  ${operation} == forward-repair ||
+  ${operation} == resume-public-verification ]] ||
+  fail "Unsupported release operation."
+[[ ${manifest[environment]} == "${target}" ]] ||
+  fail "The release manifest targets a different environment."
 registered_source=$(
   awk -F '\t' -v source="${manifest[source_host]}" '
     /^#/ || /^[[:space:]]*$/ { next }
@@ -454,17 +1058,80 @@ if [[ ${previous_name} =~ ^[0-9a-f]{40}-[A-Za-z0-9]{8}$ ]]; then
     fail "The current release source record conflicts with its directory."
 fi
 [[ ${previous_commit} == "${manifest[previous_commit]}" ]] ||
-  fail "Superego changed after deployment preparation; start again."
+  fail "${environment_name} changed after release preparation; start again."
+
+if [[ ${operation} == resume-public-verification ]]; then
+  [[ ${previous_commit} == "${manifest[commit]}" ]] ||
+    fail "Public verification recovery requires the selected commit to be active."
+  keep_public_access_closed_on_failure=true
+  nginx_stop_attempted=true
+  systemctl stop nginx.service
+  [[ $(systemctl is-active nginx.service) != active ]] ||
+    fail "Nginx did not stop for public verification recovery."
+  verify_protected_database_identity read-only
+  verify_protected_app_config
+  [[ ${previous_name} =~ ^[0-9a-f]{40}-[A-Za-z0-9]{8}$ &&
+    ${recorded_previous_commit:-} == "${manifest[commit]}" &&
+    ${recorded_previous_sha:-} == "${manifest[archive_sha256]}" ]] ||
+    fail "The active release is not bound to this exact reviewed archive."
+  [[ -z $(find "${previous}" -xdev ! -user root -print -quit) ]] ||
+    fail "The active release contains a non-root-owned entry."
+  [[ -z $(
+    find "${previous}" -xdev \
+      \( -type d -o -type f \) -perm /022 -print -quit
+  ) ]] || fail "The active release contains a writable source entry."
+  cmp --silent \
+    "${stage}/reset-db-invariants.sql" \
+    "${previous}/deploy/lib/reset-db-invariants.sql" ||
+    fail "The staged invariant check differs from the active reviewed release."
+  cmp --silent \
+    "${stage}/verify-migration-ledger.sh" \
+    "${previous}/deploy/lib/verify-migration-ledger.sh" ||
+    fail "The staged ledger verifier differs from the active reviewed release."
+  cmp --silent \
+    "${stage}/deploy-superego-in-place-remote.sh" \
+    "${previous}/deploy/lib/deploy-superego-in-place-remote.sh" ||
+    fail "The recovery helper differs from the active reviewed release."
+  cmp --silent \
+    "${stage}/workstations.tsv" \
+    "${previous}/deploy/workstations.tsv" ||
+    fail "The staged workstation registry differs from the active reviewed release."
+
+  release=${previous}
+  verify_live_database_contract "${release}" read-only
+  configure_definition_probe
+  verify_loopback_contract
+  reopen_and_verify_public
+  complete_operation
+  exit 0
+fi
+
 [[ ${previous_commit} != "${manifest[commit]}" ]] ||
-  fail "Superego already runs the selected commit."
+  fail "${environment_name} already runs the selected commit."
+verify_protected_database_identity
+verify_protected_app_config
 [[ $(systemctl is-active matsci-sam.service) == active ]] ||
   fail "The application service is not active."
-[[ $(systemctl is-active nginx.service) == active ]] ||
-  fail "Nginx is not active."
+nginx_initial_state=$(systemctl is-active nginx.service 2>/dev/null || true)
+case ${nginx_initial_state} in
+  active)
+    [[ ${operation} == release ]] ||
+      fail "Forward repair requires Nginx to be inactive."
+    ;;
+  inactive)
+    [[ ${operation} == forward-repair ]] ||
+      fail "Nginx is inactive. Use the explicit --forward-repair operation."
+    keep_public_access_closed_on_failure=true
+    echo "Nginx is already stopped; proceeding with a forward repair."
+    ;;
+  *)
+    fail "Nginx is neither active nor cleanly inactive."
+    ;;
+esac
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-backup=${backup_dir}/matsci-sam-before-in-place-deploy-${stamp}.dump
-scratch_database="matsci_deploy_check_${stamp}_$$"
+backup=${backup_dir}/matsci-sam-${environment_slug}-before-release-${stamp}.dump
+scratch_database="matsci_${environment_slug}_release_check_${stamp}_$$"
 
 if [[ -e ${admin_root} || -L ${admin_root} ]]; then
   [[ -d ${admin_root} && ! -L ${admin_root} &&
@@ -473,35 +1140,16 @@ if [[ -e ${admin_root} || -L ${admin_root} ]]; then
 else
   install -d -o root -g root -m 0700 "${admin_root}"
 fi
-root_work=$(mktemp -d "${admin_root}/superego-deploy.XXXXXXXX")
+root_work=$(mktemp -d "${admin_root}/${environment_slug}-release.XXXXXXXX")
 install -m 0600 "${archive}" "${root_work}/source.tar"
 archive=${root_work}/source.tar
-diagnostic_candidate_dir=${root_work}/diagnostic
-install -d -o root -g root -m 0700 "${diagnostic_candidate_dir}"
-tar --extract \
-  --file="${archive}" \
-  --directory="${diagnostic_candidate_dir}" \
-  deploy/ops/matsci-sam-ops \
-  deploy/ops/matsci-sam-ops.sudoers
-candidate_operations=${diagnostic_candidate_dir}/deploy/ops/matsci-sam-ops
-candidate_sudoers=${diagnostic_candidate_dir}/deploy/ops/matsci-sam-ops.sudoers
-chown -R root:root "${diagnostic_candidate_dir}"
-chmod 0700 \
-  "${diagnostic_candidate_dir}/deploy" \
-  "${diagnostic_candidate_dir}/deploy/ops"
-chmod 0500 "${candidate_operations}"
-chmod 0400 "${candidate_sudoers}"
-bash -n "${candidate_operations}"
-visudo -cf "${candidate_sudoers}" >/dev/null
 
-verify_protected_database_identity
-
-echo "Preparing and building the candidate while Superego remains available."
+echo "Preparing and building the candidate while ${environment_name} remains available."
 for protected_parent in "${app_root}" "${app_root}/releases"; do
   [[ -d ${protected_parent} && ! -L ${protected_parent} ]] ||
     fail "A protected release parent is missing or unsafe."
   chown root:root "${protected_parent}"
-  chmod 0755 "${protected_parent}"
+  chmod 00755 "${protected_parent}"
 done
 new_release_created=true
 release=$(mktemp -d "${app_root}/releases/${manifest[commit]}-XXXXXXXX")
@@ -542,21 +1190,7 @@ runuser -u matsci-sam -- pg_dump \
 test -s "${preflight_dump}"
 pg_restore --list "${preflight_dump}" >/dev/null
 
-runuser -u postgres -- createdb \
-  --host=/var/run/postgresql \
-  --port=5432 \
-  --owner=matsci-sam \
-  "${scratch_database}"
-scratch_database_created=true
-runuser -u matsci-sam -- pg_restore \
-  --host=/var/run/postgresql \
-  --port=5432 \
-  --dbname="${scratch_database}" \
-  --exit-on-error \
-  --single-transaction \
-  --no-owner \
-  --no-privileges \
-  <"${preflight_dump}"
+create_and_restore_database "${scratch_database}" "${preflight_dump}"
 
 runuser -u matsci-sam -- /bin/bash -s -- \
   "${release}" "${scratch_database}" <<'BUILD'
@@ -564,7 +1198,9 @@ set -Eeuo pipefail
 release=$1
 scratch_database=$2
 cd "${release}"
-pnpm install --frozen-lockfile
+# The release is frozen root-owned below. Real copies prevent that chmod/chown
+# boundary from changing shared pnpm-store inodes through package hardlinks.
+pnpm install --frozen-lockfile --package-import-method=copy
 PGOPTIONS="-c lock_timeout=10s -c statement_timeout=300s -c idle_in_transaction_session_timeout=60s" \
 DATABASE_URL="postgresql:///${scratch_database}?host=/var/run/postgresql&port=5432&user=matsci-sam" \
   pnpm db:migrate
@@ -594,14 +1230,19 @@ unlink "${preflight_dump}"
 
 [[ $(readlink -e "${app_root}/current") == "${previous}" ]] ||
   fail "The active release changed during candidate preparation."
-[[ $(<"${authority_file}") == superego ]] ||
+[[ $(<"${authority_file}") == "${expected_authority}" ]] ||
   fail "The data-authority marker changed during candidate preparation."
 [[ $(systemctl is-active matsci-sam.service) == active ]] ||
   fail "The application stopped during candidate preparation."
-[[ $(systemctl is-active nginx.service) == active ]] ||
-  fail "Nginx stopped during candidate preparation."
+if [[ ${nginx_initial_state} == active ]]; then
+  [[ $(systemctl is-active nginx.service) == active ]] ||
+    fail "Nginx stopped during candidate preparation."
+else
+  [[ $(systemctl is-active nginx.service) != active ]] ||
+    fail "Nginx unexpectedly started during forward-repair preparation."
+fi
 
-echo "Closing public access and stopping the application."
+echo "Closing ${environment_name} application access and stopping the application."
 nginx_stop_attempted=true
 systemctl stop nginx.service
 [[ $(systemctl is-active nginx.service) != active ]] ||
@@ -675,21 +1316,7 @@ runuser -u matsci-sam -- pg_dump \
 test -s "${backup_partial}"
 pg_restore --list "${backup_partial}" >/dev/null
 
-runuser -u postgres -- createdb \
-  --host=/var/run/postgresql \
-  --port=5432 \
-  --owner=matsci-sam \
-  "${scratch_database}"
-scratch_database_created=true
-runuser -u matsci-sam -- pg_restore \
-  --host=/var/run/postgresql \
-  --port=5432 \
-  --dbname="${scratch_database}" \
-  --exit-on-error \
-  --single-transaction \
-  --no-owner \
-  --no-privileges \
-  <"${backup_partial}"
+create_and_restore_database "${scratch_database}" "${backup_partial}"
 
 scratch_predeploy_facts=$(
   runuser -u matsci-sam -- psql \
@@ -789,78 +1416,11 @@ else
   echo "No live database migrations are pending."
 fi
 
-runuser -u matsci-sam -- psql \
-  --host=/var/run/postgresql \
-  --port=5432 \
-  --dbname="${database}" \
-  --set ON_ERROR_STOP=1 \
-  <"${release}/deploy/lib/reset-db-invariants.sql" \
-  >/dev/null
-runuser -u matsci-sam -- env \
-  PGHOST=/var/run/postgresql \
-  PGPORT=5432 \
-  PGDATABASE="${database}" \
-  /bin/bash "${release}/deploy/lib/verify-migration-ledger.sh" \
-  "${release}/drizzle/migrations"
-
-actual_facts=$(
-  runuser -u matsci-sam -- psql \
-    --host=/var/run/postgresql \
-    --port=5432 \
-    --dbname="${database}" \
-    --no-align \
-    --tuples-only \
-    --field-separator=$'\t' \
-    --command='
-      SELECT
-        (SELECT count(*) FROM "users"),
-        (SELECT count(*) FROM "terms"),
-        (SELECT count(*) FROM "definitions"),
-        (SELECT count(*) FROM drizzle."__drizzle_migrations"),
-        COALESCE(
-          (SELECT max(created_at) FROM drizzle."__drizzle_migrations"),
-          0
-        ),
-        COALESCE((SELECT min(id) FROM "definitions"), 0);
-    '
-)
+verify_live_database_contract "${release}"
 [[ ${actual_facts} == "${expected_facts}" ]] ||
   fail "The migrated live database differs from the verified scratch result."
 cleanup_scratch_database
-
-IFS=$'\t' read -r _ _ _ _ _ definition_probe <<<"${actual_facts}"
-definition_legacy_path=
-definition_canonical_path=
-revision_canonical_path=
-if ((definition_probe > 0)); then
-  definition_identity=$(
-    runuser -u matsci-sam -- psql \
-      --host=/var/run/postgresql \
-      --port=5432 \
-      --dbname="${database}" \
-      --no-align \
-      --tuples-only \
-      --field-separator=$'\t' \
-      --command="
-        SELECT t.slug, d.\"definitionNumber\", r.version
-        FROM \"definitions\" d
-        JOIN \"terms\" t ON t.id = d.\"termId\"
-        JOIN \"definitionRevisions\" r ON r.id = d.\"currentRevisionId\"
-        WHERE d.id = ${definition_probe};
-      "
-  )
-  IFS=$'\t' read -r definition_slug definition_number revision_number \
-    <<<"${definition_identity}"
-  [[ ${definition_slug} =~ ^[a-z0-9][a-z0-9_-]*$ ]] ||
-    fail "The definition probe has an unsafe term slug."
-  [[ ${definition_number} =~ ^[1-9][0-9]*$ ]] ||
-    fail "The definition probe has an invalid public definition number."
-  [[ ${revision_number} =~ ^[1-9][0-9]*$ ]] ||
-    fail "The definition probe has an invalid revision number."
-  definition_legacy_path="/definition/${definition_probe}"
-  definition_canonical_path="/vocabulary/${definition_slug}/definitions/${definition_number}"
-  revision_canonical_path="${definition_canonical_path}/revisions/${revision_number}"
-fi
+configure_definition_probe
 
 printf '%s %s\n' \
   "${manifest[commit]}" \
@@ -873,11 +1433,11 @@ release_name=$(basename "${release}")
 runtime_cache=${cache_root}/${release_name}
 [[ ${release_name} =~ ^${manifest[commit]}-[A-Za-z0-9]{8}$ &&
   ! -e ${runtime_cache} && ! -L ${runtime_cache} ]] ||
-  fail "The Superego release cache path is unsafe or already exists."
+  fail "The ${environment_name} release cache path is unsafe or already exists."
 if [[ -e ${cache_root} || -L ${cache_root} ]]; then
   [[ -d ${cache_root} && ! -L ${cache_root} &&
     $(stat -c '%U:%G:%a' "${cache_root}") == root:matsci-sam:750 ]] ||
-    fail "The Superego release-cache directory is unsafe."
+    fail "The ${environment_name} release-cache directory is unsafe."
 else
   install -d -o root -g matsci-sam -m 0750 "${cache_root}"
 fi
@@ -890,16 +1450,16 @@ else
   install -d -o matsci-sam -g matsci-sam -m 0750 "${runtime_cache}"
 fi
 chown -hR matsci-sam:matsci-sam "${runtime_cache}"
-find "${runtime_cache}" -xdev -type d -exec chmod 0750 {} +
-find "${runtime_cache}" -xdev -type f -exec chmod 0640 {} +
+find "${runtime_cache}" -xdev -type d -exec chmod 00750 {} +
+find "${runtime_cache}" -xdev -type f -exec chmod 00640 {} +
 ln -s "${runtime_cache}" "${release}/.next/cache"
 
 # The running service may write only its external cache. Source, dependencies,
 # and built server assets are immutable and cannot replace privileged helpers.
 chown -hR root:root "${release}"
-find "${release}" -xdev -type d -exec chmod 0555 {} +
-find "${release}" -xdev -type f -perm /111 -exec chmod 0555 {} +
-find "${release}" -xdev -type f ! -perm /111 -exec chmod 0444 {} +
+find "${release}" -xdev -type d -exec chmod 00555 {} +
+find "${release}" -xdev -type f -perm /111 -exec chmod 00555 {} +
+find "${release}" -xdev -type f ! -perm /111 -exec chmod 00444 {} +
 
 next_link=${app_root}/.current-${manifest[commit]:0:12}-${stamp}-$$
 [[ ! -e ${next_link} && ! -L ${next_link} ]] ||
@@ -907,238 +1467,6 @@ next_link=${app_root}/.current-${manifest[commit]:0:12}-${stamp}-$$
 pointer_switch_attempted=true
 ln -s "${release}" "${next_link}"
 mv -Tf "${next_link}" "${app_root}/current"
-systemctl start matsci-sam.service
-wait_for_local_health 30 ||
-  fail "The candidate application did not become healthy."
-
-listeners=$(ss -ltnH '( sport = :3000 )')
-[[ -n ${listeners} ]] || fail "Port 3000 has no listener."
-if awk '{print $4}' <<<"${listeners}" | grep -qv '^127\.0\.0\.1:3000$'; then
-  fail "Port 3000 is not loopback-only."
-fi
-
-local_paths=(/ /search /terms /docs /about /metadata/matcore)
-if ((definition_probe > 0)); then
-  local_redirect_headers=$(
-    curl \
-      --connect-timeout 3 \
-      --max-time 10 \
-      --silent \
-      --show-error \
-      --output /dev/null \
-      --dump-header - \
-      "http://127.0.0.1:3000${definition_legacy_path}"
-  )
-  verify_redirect_headers \
-    "${local_redirect_headers}" \
-    308 \
-    "${definition_canonical_path}" \
-    "The local legacy definition route"
-  local_paths+=("${definition_canonical_path}" "${revision_canonical_path}")
-fi
-for path in "${local_paths[@]}"; do
-  code=$(
-    curl \
-      --connect-timeout 3 \
-      --max-time 10 \
-      --silent \
-      --show-error \
-      --output /dev/null \
-      --write-out '%{http_code}' \
-      "http://127.0.0.1:3000${path}"
-  )
-  [[ ${code} == 200 ]] || fail "Unexpected local status for ${path}: ${code}"
-done
-
-# Replace the legacy mutating operations helper with the reviewed
-# presence-only diagnostic shipped in this release. The read-only sudo
-# contract is installed before public access reopens. The candidate files
-# came directly from the root-owned source archive, not the writable release
-# tree, so the application account cannot replace them after validation.
-installed_operations=/usr/local/sbin/matsci-sam-ops
-installed_sudoers=/etc/sudoers.d/matsci-sam-ops
-legacy_operations_sha=97ca9ca00d0fbed806188d3bb76355d218a30ee4ee543fc753992a104088a50c
-
-candidate_operations_sha=$(
-  sha256sum "${candidate_operations}" | awk '{print $1}'
-)
-installed_operations_sha=$(
-  sha256sum "${installed_operations}" | awk '{print $1}'
-)
-[[ ${installed_operations_sha} == "${legacy_operations_sha}" ||
-  ${installed_operations_sha} == "${candidate_operations_sha}" ]] ||
-  fail "The installed Superego operations helper is not a reviewed predecessor."
-
-diagnostic_backup=/root/matsci-sam-diagnostics-before-${stamp}
-[[ ! -e ${diagnostic_backup} && ! -L ${diagnostic_backup} ]] ||
-  fail "The diagnostic backup path already exists."
-install -d -o root -g root -m 0700 "${diagnostic_backup}"
-install -o root -g root -m 0400 \
-  "${installed_operations}" \
-  "${diagnostic_backup}/matsci-sam-ops"
-if [[ -e ${installed_sudoers} || -L ${installed_sudoers} ]]; then
-  [[ -f ${installed_sudoers} && ! -L ${installed_sudoers} ]] ||
-    fail "The installed diagnostic sudoers entry is unsafe."
-  install -o root -g root -m 0400 \
-    "${installed_sudoers}" \
-    "${diagnostic_backup}/matsci-sam-ops.sudoers"
-fi
-
-sudoers_partial=$(mktemp /etc/sudoers.d/.matsci-sam-ops.XXXXXXXX)
-operations_partial=$(mktemp /usr/local/sbin/.matsci-sam-ops.XXXXXXXX)
-install -o root -g root -m 0440 "${candidate_sudoers}" "${sudoers_partial}"
-install -o root -g root -m 0755 \
-  "${candidate_operations}" \
-  "${operations_partial}"
-visudo -cf "${sudoers_partial}" >/dev/null
-mv -Tf "${sudoers_partial}" "${installed_sudoers}"
-sudoers_partial=
-mv -Tf "${operations_partial}" "${installed_operations}"
-operations_partial=
-[[ $(stat -c '%U:%G:%a' "${installed_sudoers}") == root:root:440 &&
-  $(stat -c '%U:%G:%a' "${installed_operations}") == root:root:755 &&
-  $(sha256sum "${installed_operations}" | awk '{print $1}') == \
-    "${candidate_operations_sha}" ]] ||
-  fail "The reviewed Superego diagnostic contract was not installed."
-
-# The repository-level runner registration was already deleted. Retire the
-# remaining host-local service and sudo privilege in the same supervised sudo
-# session, preserving recoverable root-only copies. The runner payload stays
-# on disk but becomes inaccessible to its locked service account.
-runner_unit_name=actions.runner.metadata-research-matsci-yamz.superego-dev.service
-runner_unit=/etc/systemd/system/${runner_unit_name}
-runner_sudoers=/etc/sudoers.d/matsci-sam-runner
-runner_directory=/opt/actions-runner-superego
-runner_user=matsci-runner
-runner_retirement=already-absent
-
-if [[ -e ${runner_unit} || -L ${runner_unit} ||
-  -e ${runner_sudoers} || -L ${runner_sudoers} ]]
-then
-  for runner_file in "${runner_unit}" "${runner_sudoers}"; do
-    [[ -f ${runner_file} && ! -L ${runner_file} &&
-      $(stat -c '%U:%G' "${runner_file}") == root:root ]] ||
-      fail "The obsolete Superego runner has an unexpected privileged file."
-  done
-  [[ $(stat -c '%a' "${runner_sudoers}") == 440 ]] ||
-    fail "The obsolete runner sudoers mode is unexpected."
-  visudo -cf "${runner_sudoers}" >/dev/null
-  [[ $(systemctl is-active "${runner_unit_name}" 2>/dev/null || true) != active ]] ||
-    fail "The obsolete Superego runner unexpectedly became active."
-  [[ -d ${runner_directory} && ! -L ${runner_directory} ]] ||
-    fail "The obsolete runner directory is missing or unsafe."
-  getent passwd "${runner_user}" >/dev/null ||
-    fail "The obsolete runner account is missing."
-  [[ -z $(pgrep -u "${runner_user}" 2>/dev/null || true) ]] ||
-    fail "The obsolete runner account still owns a process."
-
-  install -o root -g root -m 0400 \
-    "${runner_unit}" \
-    "${diagnostic_backup}/${runner_unit_name}"
-  install -o root -g root -m 0400 \
-    "${runner_sudoers}" \
-    "${diagnostic_backup}/matsci-sam-runner.sudoers"
-  systemctl disable --now "${runner_unit_name}" >/dev/null
-  unlink "${runner_sudoers}"
-  unlink "${runner_unit}"
-  systemctl daemon-reload
-  chown root:root "${runner_directory}"
-  chmod 0700 "${runner_directory}"
-  usermod --lock --shell /usr/sbin/nologin "${runner_user}"
-
-  [[ ! -e ${runner_unit} && ! -L ${runner_unit} &&
-    ! -e ${runner_sudoers} && ! -L ${runner_sudoers} &&
-    $(stat -c '%U:%G:%a' "${runner_directory}") == root:root:700 &&
-    $(getent passwd "${runner_user}" | cut -d: -f7) == /usr/sbin/nologin ]] ||
-    fail "The obsolete Superego runner was not fully retired."
-  runner_retirement=retired-now
-else
-  [[ $(systemctl is-active "${runner_unit_name}" 2>/dev/null || true) != active ]] ||
-    fail "The obsolete runner service is active without its reviewed unit."
-fi
-
-public_reopened=true
-systemctl start nginx.service
-[[ $(systemctl is-active nginx.service) == active ]] ||
-  fail "Nginx did not start."
-
-host=superego.cci.drexel.edu
-public_paths=(/ /search /terms /docs /about /metadata/matcore)
-if ((definition_probe > 0)); then
-  public_redirect_headers=$(
-    curl \
-      --resolve "${host}:443:127.0.0.1" \
-      --connect-timeout 3 \
-      --max-time 10 \
-      --silent \
-      --show-error \
-      --output /dev/null \
-      --dump-header - \
-      "https://${host}${definition_legacy_path}"
-  )
-  verify_redirect_headers \
-    "${public_redirect_headers}" \
-    308 \
-    "${definition_canonical_path}" \
-    "The public legacy definition route"
-  public_paths+=("${definition_canonical_path}" "${revision_canonical_path}")
-fi
-for path in "${public_paths[@]}"; do
-  code=$(
-    curl \
-      --resolve "${host}:443:127.0.0.1" \
-      --connect-timeout 3 \
-      --max-time 10 \
-      --silent \
-      --show-error \
-      --output /dev/null \
-      --write-out '%{http_code}' \
-      "https://${host}${path}"
-  )
-  [[ ${code} == 200 ]] || fail "Unexpected public status for ${path}: ${code}"
-done
-
-google_headers=$(
-  curl \
-    --resolve "${host}:443:127.0.0.1" \
-    --connect-timeout 3 \
-    --max-time 10 \
-    --silent \
-    --show-error \
-    --output /dev/null \
-    --dump-header - \
-    "https://${host}/api/auth/google"
-)
-[[ $(awk 'NR == 1 {print $2}' <<<"${google_headers}") == 307 ]] ||
-  fail "Google entry did not return HTTP 307."
-grep -qi '^location: https://accounts.google.com/' <<<"${google_headers}" ||
-  fail "Google entry did not redirect to accounts.google.com."
-
-[[ $(readlink -e "${app_root}/current") == "${release}" ]] ||
-  fail "The active release pointer is incorrect."
-[[ $(systemctl is-active matsci-sam.service) == active ]] ||
-  fail "The application service is inactive."
-[[ $(systemctl is-active nginx.service) == active ]] ||
-  fail "Nginx is inactive."
-
-deployment_complete=true
-
-if ! find "${stage}" -mindepth 1 -delete ||
-  ! rmdir "${stage}"
-then
-  echo "Warning: temporary user staging could not be removed." >&2
-fi
-if ! cleanup_root_work; then
-  echo "Warning: root deployment staging could not be removed." >&2
-fi
-
-IFS=$'\t' read -r users terms definitions migrations _ _ <<<"${actual_facts}"
-printf '\nSuperego in-place deployment completed.\n'
-printf 'release=%s\n' "${release}"
-printf 'database_backup=%s\n' "${backup}"
-printf 'users=%s\n' "${users}"
-printf 'terms=%s\n' "${terms}"
-printf 'definitions=%s\n' "${definitions}"
-printf 'migrations=%s\n' "${migrations}"
-printf 'diagnostic_backup=%s\n' "${diagnostic_backup}"
-printf 'legacy_runner=%s\n' "${runner_retirement}"
+verify_loopback_contract
+reopen_and_verify_public
+complete_operation

@@ -38,14 +38,19 @@ provisioning, the reviewed in-place Superego release wrapper, the independent
 Ego runtime profile, and the one-way Superego database snapshot wrapper.
 Private environment policy remains in `docs-internal`.
 
-The legacy production workflows are disabled. Do not merge or push a public
-candidate to `main` until their self-hosted runners and deployment privileges
-have also been retired and the old deployment workflow has been removed.
-After that boundary is verified, the intended public path keeps reviewed
-`dev` and promoted `main` on the same exact tree, requires its application
-content to match the release validated on Superego, and builds it independently
-on Ego. Only an exact reviewed non-runtime operations allowlist may differ from
-the Superego release.
+The legacy deployment workflows and promotion branch are retired.
+`origin/dev` is the single reviewed release branch. From the registered
+control workstation, deploy and exercise one exact commit on Superego, then
+release that same commit to Ego:
+
+```bash
+./deploy/release.sh superego
+./deploy/release.sh ego
+```
+
+Each environment builds under its own protected configuration and migrates
+its own authoritative database. Never rerun the completed one-time Ego seed
+or replace Ego data from Superego.
 
 ## Project structure
 

@@ -13,6 +13,29 @@ authority, release, and server facts remain in the internal runbooks.
 | Service logs | systemd journal |
 | PostgreSQL data | distribution-managed PostgreSQL directory |
 
+## Routine release
+
+For an existing Superego and Ego installation, the normal release is one
+reviewed `dev` commit and two supervised commands:
+
+```bash
+./deploy/release.sh superego
+# Exercise the changed behavior on the private runtime.
+./deploy/release.sh ego
+```
+
+The Ego command accepts only the exact commit already running and healthy on
+Superego. Each host builds under its own protected environment, preserves its
+own authoritative database, rehearses migrations against a verified restore,
+and pauses writes only for the short live migration and release switch.
+The protected environment on both hosts must set
+`NEXT_PUBLIC_SITE_NAME=MatSci-SAM`; the release refuses a stale display name
+before building.
+
+Do not run the one-time Ego seed, first-release, or cutover wrappers again.
+`--check-only` remains available for diagnostics but is not a required extra
+step before either command.
+
 ## Files
 
 - `bootstrap-server.sh` provisions a replacement private development host.
@@ -38,8 +61,12 @@ authority, release, and server facts remain in the internal runbooks.
   transition from maintenance to the already-verified first Ego release.
 - `check-runtime-parity.sh` compares non-secret host versions, service
   configuration, listener boundaries, and authority markers.
+- `release.sh <superego|ego>` is the repeatable release path. It preserves
+  each environment's own database and requires an Ego commit to be running on
+  Superego first.
 - `deploy-superego-from-workstation.sh` publishes reviewed source while
-  preserving and migrating the Superego-authoritative database.
+  preserving and migrating the Superego-authoritative database. It remains as
+  a compatible direct entry point; routine releases use `release.sh`.
 - `pull-superego-db-to-workstation.sh` refreshes the replaceable local
   database from a verified Superego snapshot.
 - `workstations.tsv` is the reviewed registry of local orchestration hosts
@@ -69,7 +96,11 @@ standard directories. PostgreSQL accepts local Unix-socket connections only.
 The application service remains disabled until an administrator installs the
 protected environment, TLS configuration, and first release.
 
-## Ego runtime provisioning
+## Historical Ego initialization and first publication
+
+The procedures in this section record how the empty Ego runtime was
+provisioned, seeded once, and first published. They are not routine release
+steps.
 
 Ego uses the same Node.js, pnpm, PostgreSQL, pgvector, service-unit, directory,
 and socket-only database contract as Superego. It has distinct configuration,
@@ -176,14 +207,14 @@ disabled for reboot.
 
 A merge to `dev` updates source control only. It does not deploy Superego.
 Consult `docs-internal/CURRENT-DEV-STATE.md` and
-`docs-internal/SUPEREGO-DEV-ACCESS.md` before an operation. Do not merge or
-push a public candidate to `main` until the disabled legacy production
-workflow and its self-hosted runner have been retired.
+`docs-internal/SUPEREGO-DEV-ACCESS.md` before an operation.
 
-The release path is:
+The repeatable release path is:
 
-```text
-reviewed origin/dev -> Superego -> Ego
+```bash
+./deploy/release.sh superego
+# Verify the private runtime, including any changed sign-in workflow.
+./deploy/release.sh ego
 ```
 
 `origin/dev` is the single reviewed branch. The commit deployed to Ego must be
@@ -195,11 +226,9 @@ equality with the reviewed commit.
 Ego builds the reviewed tree again with the public environment because
 `NEXT_PUBLIC_SITE_URL` is build-time configuration.
 
-Shipping a reviewed commit that Superego has not deployed — an operations-only
-correction, for example — requires the explicit `--allow-undeployed` flag,
-which records `superego_validation=undeployed-operator-override` in the
-release manifest. It is a deliberate, recorded exception rather than a
-routine path.
+There is no routine bypass for the Superego-first requirement. If an emergency
+cannot follow this order, stop and handle it as an explicit recovery rather
+than weakening the normal release command.
 
 There is no promotion branch. The previous design required every change to be
 promoted from `dev` to `main` on an identical tree and compared against a
@@ -208,23 +237,51 @@ two continuous-integration runs per change, made the file that validates
 deployment tooling a member of its own allowlist, and stranded a verified Ego
 release on 2026-07-26 when a promoted operations-only fix moved `origin/main`.
 
-When both authority records identify Superego as the shared-data authority,
-run this from the recorded control workstation:
-
-```bash
-./deploy/deploy-superego-from-workstation.sh
-```
-
-The command validates the clean reviewed source and release artifact before
+Each command validates the clean reviewed source and release artifact before
 it requests confirmation or sudo. Use `--check-only` for an optional
 non-mutating diagnostic. A separate dry run is not required because the
-mutating command performs the same checks.
+mutating command performs the same checks. The Superego target briefly closes
+its edge while writes are frozen. Ego does the same: Nginx is stopped for the
+short database migration window and restarted after the candidate and Ego's
+own authoritative database pass verification.
 
 Run a deployment in a supervised foreground terminal. The existing site
 remains available while the candidate builds. If a failure occurs before the
 wrapper reports that public access is closing, the live release and database
-are unchanged. The protected rollback boundary and forward-repair behavior
-are documented in the private runbook.
+are unchanged. Before public access reopens, automatic rollback restores the
+matching release and database backup. Once public access has reopened,
+database restoration is prohibited because it could discard new writes.
+
+If only the final public smoke check fails, the helper retains the active
+candidate and migrated database and stops Nginx. Repair that exact state with:
+
+```bash
+./deploy/release.sh superego --resume-public-verification
+# or, for the public host:
+./deploy/release.sh ego --resume-public-verification
+```
+
+Recovery requires the exact active `origin/dev` commit and its immutable
+source record. It reruns database invariants, the migration ledger, loopback
+checks, and public checks; it does not build, migrate, back up, restore, or
+switch a release. If the check exposes a real code or schema defect, merge a
+new reviewed commit and use the explicit fail-closed forward path:
+
+```bash
+./deploy/release.sh superego --forward-repair
+# Exercise the repaired Superego release, then:
+./deploy/release.sh ego --forward-repair
+```
+
+`--forward-repair` requires Nginx already to be inactive. A normal release
+requires it active, so an unrelated maintenance stop can never be silently
+turned into a public reopen. A failed repair keeps ingress closed; success
+reopens only after the same full release and public verification contract.
+
+The workstation sends one hash-bound transport payload. A small launcher is
+streamed directly into the interactive sudo session, copies and verifies that
+payload in a root-only stage, and only then executes the reviewed helper.
+Remote user-writable staging is never executed as root.
 
 Refresh a registered workstation database with:
 
