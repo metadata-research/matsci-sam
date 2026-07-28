@@ -69,6 +69,40 @@ fail() {
   exit 1
 }
 
+parse_previous_source_record() {
+  local source_record=$1
+  local record_target=$2
+  local source_record_size=$3
+  local current_record_re='^([0-9a-f]{40}) ([0-9a-f]{64})$'
+  local legacy_ego_record_re='^([0-9a-f]{40}) ([0-9a-f]{40}) ([0-9a-f]{40}) ([0-9a-f]{64})$'
+
+  recorded_previous_commit=
+  recorded_previous_sha=
+  recorded_previous_tree=
+  recorded_previous_validated_superego_commit=
+
+  if [[ ${source_record_size} == 106 &&
+    ${source_record} =~ ${current_record_re} ]]
+  then
+    recorded_previous_commit=${BASH_REMATCH[1]}
+    recorded_previous_sha=${BASH_REMATCH[2]}
+    return 0
+  fi
+
+  if [[ ${source_record_size} == 188 &&
+    ${record_target} == ego &&
+    ${source_record} =~ ${legacy_ego_record_re} ]]
+  then
+    recorded_previous_commit=${BASH_REMATCH[1]}
+    recorded_previous_tree=${BASH_REMATCH[2]}
+    recorded_previous_validated_superego_commit=${BASH_REMATCH[3]}
+    recorded_previous_sha=${BASH_REMATCH[4]}
+    return 0
+  fi
+
+  return 1
+}
+
 verify_redirect_headers() {
   local headers=$1
   local expected_status=$2
@@ -1201,23 +1235,25 @@ previous=$(readlink -e "${app_root}/current") ||
 [[ ${previous} == "${app_root}/releases/"* && -d ${previous} ]] ||
   fail "The current release is outside the release directory."
 previous_name=$(basename "${previous}")
-previous_commit=${previous_name:0:40}
-[[ ${previous_commit} =~ ^[0-9a-f]{40}$ ]] ||
+[[ ${previous_name} =~ ^([0-9a-f]{40})-([A-Za-z0-9]{8})$ ]] ||
   fail "The current release does not identify a source commit."
+previous_commit=${BASH_REMATCH[1]}
 previous_source_record=${previous}/.matsci-release-source
-if [[ ${previous_name} =~ ^[0-9a-f]{40}-[A-Za-z0-9]{8}$ ]]; then
-  [[ -f ${previous_source_record} && ! -L ${previous_source_record} &&
-    $(stat -c '%U' "${previous_source_record}") == root ]] ||
-    fail "The current release has no trusted source record."
-  IFS=' ' read -r recorded_previous_commit recorded_previous_sha extra \
-    <"${previous_source_record}"
-  [[ ${recorded_previous_commit} =~ ^[0-9a-f]{40}$ &&
-    ${recorded_previous_sha} =~ ^[0-9a-f]{64}$ &&
-    -z ${extra:-} ]] ||
-    fail "The current release source record is malformed."
-  [[ ${recorded_previous_commit} == "${previous_commit}" ]] ||
-    fail "The current release source record conflicts with its directory."
-fi
+[[ -f ${previous_source_record} && ! -L ${previous_source_record} &&
+  $(stat -c '%U' "${previous_source_record}") == root &&
+  -z $(find "${previous_source_record}" -maxdepth 0 -perm /022 -print -quit) ]] ||
+  fail "The current release has no trusted source record."
+[[ $(awk 'END { print NR }' "${previous_source_record}") == 1 ]] ||
+  fail "The current release source record is malformed."
+source_record_size=$(stat -c '%s' "${previous_source_record}")
+source_record=$(<"${previous_source_record}")
+parse_previous_source_record \
+  "${source_record}" \
+  "${target}" \
+  "${source_record_size}" ||
+  fail "The current release source record is malformed."
+[[ ${recorded_previous_commit} == "${previous_commit}" ]] ||
+  fail "The current release source record conflicts with its directory."
 [[ ${previous_commit} == "${manifest[previous_commit]}" ]] ||
   fail "${environment_name} changed after release preparation; start again."
 

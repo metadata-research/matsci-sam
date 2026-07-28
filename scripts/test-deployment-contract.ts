@@ -711,6 +711,192 @@ assert.match(
 const repeatableReleaseRemote = read(
   "deploy/lib/deploy-superego-in-place-remote.sh"
 )
+const previousSourceRecordParser = repeatableReleaseRemote.match(
+  /^parse_previous_source_record\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  previousSourceRecordParser,
+  "Could not locate the previous-release source-record parser"
+)
+assert.match(
+  previousSourceRecordParser[1],
+  /current_record_re='\^\(\[0-9a-f\]\{40\}\) \(\[0-9a-f\]\{64\}\)\$'[\s\S]*legacy_ego_record_re='\^\(\[0-9a-f\]\{40\}\) \(\[0-9a-f\]\{40\}\) \(\[0-9a-f\]\{40\}\) \(\[0-9a-f\]\{64\}\)\$'/
+)
+const runPreviousSourceRecordParser = (
+  target: "superego" | "ego",
+  sourceRecord: string,
+  sourceRecordSize = Buffer.byteLength(sourceRecord, "utf8") + 1
+) =>
+  execFileSync(
+    "bash",
+    [
+      "-c",
+      `set -Eeuo pipefail
+${previousSourceRecordParser[0]}
+parse_previous_source_record "$1" "$2" "$3"
+printf '%s|%s|%s|%s\\n' \
+  "\${recorded_previous_commit}" \
+  "\${recorded_previous_sha}" \
+  "\${recorded_previous_tree}" \
+  "\${recorded_previous_validated_superego_commit}"
+`,
+      "source-record-parser",
+      sourceRecord,
+      target,
+      String(sourceRecordSize)
+    ],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
+  ).trim()
+
+const currentSourceCommit = "e".repeat(40)
+const currentSourceSha = "f".repeat(64)
+assert.equal(
+  runPreviousSourceRecordParser(
+    "superego",
+    `${currentSourceCommit} ${currentSourceSha}`
+  ),
+  `${currentSourceCommit}|${currentSourceSha}||`
+)
+assert.equal(
+  runPreviousSourceRecordParser(
+    "ego",
+    `${currentSourceCommit} ${currentSourceSha}`
+  ),
+  `${currentSourceCommit}|${currentSourceSha}||`
+)
+const legacyEgoCommit = "a".repeat(40)
+const legacyEgoTree = "b".repeat(40)
+const legacyValidatedSuperego = "c".repeat(40)
+const legacyEgoArchive = "d".repeat(64)
+const legacyEgoRecord = [
+  legacyEgoCommit,
+  legacyEgoTree,
+  legacyValidatedSuperego,
+  legacyEgoArchive
+].join(" ")
+assert.equal(
+  runPreviousSourceRecordParser("ego", legacyEgoRecord),
+  `${legacyEgoCommit}|${legacyEgoArchive}|${legacyEgoTree}|${legacyValidatedSuperego}`
+)
+for (const [target, sourceRecord] of [
+  ["superego", legacyEgoRecord],
+  ["ego", ""],
+  ["ego", legacyEgoCommit],
+  ["ego", `${legacyEgoRecord} extra`],
+  ["ego", `${legacyEgoCommit} ${legacyEgoTree} ${currentSourceSha}`],
+  [
+    "ego",
+    `${legacyEgoCommit}  ${legacyEgoTree} ${legacyValidatedSuperego} ${legacyEgoArchive}`
+  ],
+  ["ego", `${currentSourceCommit}\n${currentSourceSha}`],
+  ["ego", `${currentSourceCommit}  ${currentSourceSha}`],
+  ["ego", `${currentSourceCommit}\t${currentSourceSha}`],
+  ["ego", ` ${currentSourceCommit} ${currentSourceSha}`],
+  ["ego", `${currentSourceCommit} ${currentSourceSha} `],
+  ["ego", `${currentSourceCommit.toUpperCase()} ${currentSourceSha}`],
+  ["ego", `${currentSourceCommit} ${currentSourceSha.toUpperCase()}`],
+  ["ego", `${"g".repeat(40)} ${currentSourceSha}`],
+  ["ego", `${currentSourceCommit} ${"g".repeat(64)}`],
+  ["ego", `${"e".repeat(39)} ${currentSourceSha}`],
+  ["ego", `${"e".repeat(41)} ${currentSourceSha}`],
+  ["ego", `${currentSourceCommit} ${"f".repeat(63)}`],
+  ["ego", `${currentSourceCommit} ${"f".repeat(65)}`],
+  ["ego", `${currentSourceCommit} ${currentSourceSha}\r`]
+] as const) {
+  assert.throws(() => runPreviousSourceRecordParser(target, sourceRecord))
+}
+const legacyEgoFields = [
+  legacyEgoCommit,
+  legacyEgoTree,
+  legacyValidatedSuperego,
+  legacyEgoArchive
+]
+for (const fieldIndex of legacyEgoFields.keys()) {
+  for (const replacement of [
+    legacyEgoFields[fieldIndex].toUpperCase(),
+    `g${legacyEgoFields[fieldIndex].slice(1)}`,
+    legacyEgoFields[fieldIndex].slice(1),
+    `${legacyEgoFields[fieldIndex]}a`
+  ]) {
+    const malformedFields = [...legacyEgoFields]
+    malformedFields[fieldIndex] = replacement
+    assert.throws(() =>
+      runPreviousSourceRecordParser("ego", malformedFields.join(" "))
+    )
+  }
+}
+for (const sourceRecordSize of [105, 107]) {
+  assert.throws(() =>
+    runPreviousSourceRecordParser(
+      "ego",
+      `${currentSourceCommit} ${currentSourceSha}`,
+      sourceRecordSize
+    )
+  )
+}
+for (const sourceRecordSize of [187, 189]) {
+  assert.throws(() =>
+    runPreviousSourceRecordParser("ego", legacyEgoRecord, sourceRecordSize)
+  )
+}
+
+const currentPointerIndex = repeatableReleaseRemote.indexOf(
+  'previous=$(readlink -e "${app_root}/current")'
+)
+const canonicalReleaseNameIndex = repeatableReleaseRemote.indexOf(
+  "[[ ${previous_name} =~ ^([0-9a-f]{40})-([A-Za-z0-9]{8})$ ]]"
+)
+const sourceRecordMetadataIndex = repeatableReleaseRemote.indexOf(
+  `$(stat -c '%U' "\${previous_source_record}") == root`
+)
+const sourceRecordWritableIndex = repeatableReleaseRemote.indexOf(
+  `find "\${previous_source_record}" -maxdepth 0 -perm /022 -print -quit`
+)
+const sourceRecordLineCountIndex = repeatableReleaseRemote.indexOf(
+  `$(awk 'END { print NR }' "\${previous_source_record}") == 1`
+)
+const sourceRecordParserIndex = repeatableReleaseRemote.indexOf(
+  `parse_previous_source_record \\
+  "\${source_record}" \\
+  "\${target}" \\
+  "\${source_record_size}"`
+)
+const previousManifestBindingIndex = repeatableReleaseRemote.indexOf(
+  '[[ ${previous_commit} == "${manifest[previous_commit]}" ]]'
+)
+assert(
+  currentPointerIndex >= 0 &&
+    currentPointerIndex < canonicalReleaseNameIndex &&
+    canonicalReleaseNameIndex < sourceRecordMetadataIndex &&
+    sourceRecordMetadataIndex < sourceRecordWritableIndex &&
+    sourceRecordWritableIndex < sourceRecordLineCountIndex &&
+    sourceRecordLineCountIndex < sourceRecordParserIndex &&
+    sourceRecordParserIndex < previousManifestBindingIndex,
+  "Previous releases must have canonical names and exact trusted records before manifest binding"
+)
+assert.match(
+  repeatableReleaseRemote,
+  /printf '%s %s\\n' \\\n  "\$\{manifest\[commit\]\}" \\\n  "\$\{manifest\[archive_sha256\]\}" \\\n  >"\$\{release\}\/\.matsci-release-source"/
+)
+const resetSuperegoRemote = read("deploy/lib/reset-superego-remote.sh")
+assert.match(
+  resetSuperegoRemote,
+  /chown root:matsci-sam "\$\{release\}\/\.matsci-release-source"\nchmod 0640 "\$\{release\}\/\.matsci-release-source"/
+)
+const historicalEgoReleaseRemote = read(
+  "deploy/lib/deploy-ego-precutover-remote.sh"
+)
+assert.match(
+  historicalEgoReleaseRemote,
+  /printf '%s %s %s %s\\n' \\\n  "\$\{manifest\[commit\]\}" \\\n  "\$\{manifest\[tree\]\}" \\\n  "\$\{manifest\[validated_superego_commit\]\}" \\\n  "\$\{manifest\[archive_sha256\]\}" \\\n  >"\$\{release\}\/\.matsci-release-source"/
+)
+assert.doesNotMatch(
+  repeatableReleaseRemote.slice(
+    sourceRecordMetadataIndex,
+    sourceRecordLineCountIndex
+  ),
+  /%G|%a|root:root:444/
+)
 const reviewedReleaseLauncher = read(
   "deploy/lib/launch-reviewed-release-remote.sh"
 )
