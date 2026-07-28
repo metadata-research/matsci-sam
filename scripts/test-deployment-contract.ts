@@ -860,6 +860,24 @@ assert.match(
   sharedDatabaseRestoreFunction[1],
   /if runuser -u postgres -- dropdb[\s\S]*then[\s\S]*scratch_database_created=false[\s\S]*else[\s\S]*failed restore database could not be removed/
 )
+assert.match(
+  repeatableReleaseRemote,
+  /database_stamp=\$\{stamp\/\/\[!0-9\]\/\}[\s\S]*scratch_database="matsci_\$\{environment_slug\}_release_check_\$\{database_stamp\}_\$\$"/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /displaced_database="matsci_\$\{environment_slug\}_rollback_old_\$\{database_stamp\}_\$\$"/
+)
+for (const environment of ["superego", "ego"]) {
+  const databaseStamp = "20260728T075400Z".replaceAll(/\D/g, "")
+  for (const databaseName of [
+    `matsci_${environment}_release_check_${databaseStamp}_4194304`,
+    `matsci_${environment}_rollback_old_${databaseStamp}_4194304`
+  ]) {
+    assert.match(databaseName, /^[a-z][a-z0-9_]{0,62}$/)
+    assert(Buffer.byteLength(databaseName, "utf8") <= 63)
+  }
+}
 assert.equal(
   [...repeatableReleaseRemote.matchAll(/runuser -u postgres -- createdb/g)]
     .length,
