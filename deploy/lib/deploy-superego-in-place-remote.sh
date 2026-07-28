@@ -61,6 +61,8 @@ backup_partial=
 scratch_database=
 predeploy_facts=
 runtime_cache=
+live_vector_normalization_required=false
+live_vector_normalized=false
 
 fail() {
   echo "$*" >&2
@@ -264,10 +266,9 @@ PROTECTED_DATABASE
     fail "The protected environment points at an unexpected database."
 }
 
-assert_vector_extension() {
+read_vector_extension_identity() {
   local target_database=$1
   local session_mode=${2:-read-write}
-  local extension_identity
   local -a session_command=()
 
   case ${session_mode} in
@@ -282,25 +283,170 @@ assert_vector_extension() {
       ;;
   esac
 
+  runuser -u postgres -- "${session_command[@]}" psql \
+    --host=/var/run/postgresql \
+    --port=5432 \
+    --dbname="${target_database}" \
+    --no-psqlrc \
+    --no-align \
+    --tuples-only \
+    --field-separator=$'\t' \
+    --set ON_ERROR_STOP=1 \
+    --command="
+      SELECT extname, pg_get_userbyid(extowner)
+      FROM pg_extension
+      WHERE extname = 'vector';
+    "
+}
+
+assert_vector_extension() {
+  local target_database=$1
+  local session_mode=${2:-read-write}
+  local extension_identity
+
   extension_identity=$(
-    runuser -u postgres -- "${session_command[@]}" psql \
-      --host=/var/run/postgresql \
-      --port=5432 \
-      --dbname="${target_database}" \
-      --no-align \
-      --tuples-only \
-      --field-separator=$'\t' \
-      --set ON_ERROR_STOP=1 \
-      --command="
-        SELECT extname, pg_get_userbyid(extowner)
-        FROM pg_extension
-        WHERE extname = 'vector';
-      "
+    read_vector_extension_identity "${target_database}" "${session_mode}"
   ) || return 1
   if [[ ${extension_identity} != $'vector\tpostgres' ]]; then
     echo "The vector extension is missing or is not owned by postgres." >&2
     return 1
   fi
+}
+
+normalize_live_vector_extension() {
+  local target_database=$1
+  local extension_identity
+
+  [[ ${target} == superego ]] || {
+    echo "Historical pgvector ownership normalization is restricted to Superego." >&2
+    return 1
+  }
+
+  extension_identity=$(
+    runuser -u postgres -- psql \
+      --host=/var/run/postgresql \
+      --port=5432 \
+      --dbname="${target_database}" \
+      --no-psqlrc \
+      --set=ON_ERROR_STOP=1 \
+      --quiet \
+      --no-align \
+      --tuples-only \
+      --field-separator=$'\t' <<'NORMALIZE_VECTOR'
+BEGIN;
+SET LOCAL lock_timeout = '10s';
+SET LOCAL statement_timeout = '60s';
+SET LOCAL idle_in_transaction_session_timeout = '60s';
+DO $normalize_vector_owner$
+DECLARE
+  extension_owner name;
+  extension_schema name;
+  extension_version text;
+  extension_relocatable boolean;
+  extension_config oid[];
+  extension_condition text[];
+  explicit_dependents bigint;
+  install_schema CONSTANT name := 'matsci_vector_owner_repair';
+BEGIN
+  SELECT
+    pg_get_userbyid(e.extowner),
+    n.nspname,
+    e.extversion,
+    e.extrelocatable,
+    e.extconfig,
+    e.extcondition
+  INTO STRICT
+    extension_owner,
+    extension_schema,
+    extension_version,
+    extension_relocatable,
+    extension_config,
+    extension_condition
+  FROM pg_extension e
+  JOIN pg_namespace n ON n.oid = e.extnamespace
+  WHERE e.extname = 'vector';
+
+  IF extension_owner <> 'matsci-sam' THEN
+    RAISE EXCEPTION
+      'The vector extension owner changed before normalization.';
+  END IF;
+  IF extension_schema <> 'public' OR NOT extension_relocatable THEN
+    RAISE EXCEPTION 'The vector extension has an unexpected installation.';
+  END IF;
+  IF extension_config IS NOT NULL OR extension_condition IS NOT NULL THEN
+    RAISE EXCEPTION 'The vector extension unexpectedly owns configuration data.';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_available_extension_versions
+    WHERE name = 'vector' AND version = extension_version
+  ) THEN
+    RAISE EXCEPTION
+      'The installed vector extension version is not directly available.';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_namespace WHERE nspname = install_schema
+  ) THEN
+    RAISE EXCEPTION 'The temporary vector installation schema already exists.';
+  END IF;
+
+  SELECT count(*)
+  INTO explicit_dependents
+  FROM pg_depend d
+  JOIN pg_extension e
+    ON d.refclassid = 'pg_extension'::regclass
+    AND d.refobjid = e.oid
+  WHERE e.extname = 'vector' AND d.deptype = 'x';
+  IF explicit_dependents <> 0 THEN
+    RAISE EXCEPTION
+      'The vector extension has explicitly dependent objects.';
+  END IF;
+
+  EXECUTE format(
+    'CREATE SCHEMA %I AUTHORIZATION %I',
+    install_schema,
+    'postgres'
+  );
+  EXECUTE 'DROP EXTENSION vector RESTRICT';
+  EXECUTE format(
+    'CREATE EXTENSION vector WITH SCHEMA %I VERSION %L',
+    install_schema,
+    extension_version
+  );
+  EXECUTE format(
+    'ALTER EXTENSION vector SET SCHEMA %I',
+    extension_schema
+  );
+  EXECUTE format('DROP SCHEMA %I RESTRICT', install_schema);
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_extension e
+    JOIN pg_namespace n ON n.oid = e.extnamespace
+    WHERE e.extname = 'vector'
+      AND pg_get_userbyid(e.extowner) = 'postgres'
+      AND n.nspname = extension_schema
+      AND e.extversion = extension_version
+      AND e.extrelocatable = extension_relocatable
+      AND e.extconfig IS NOT DISTINCT FROM extension_config
+      AND e.extcondition IS NOT DISTINCT FROM extension_condition
+  ) THEN
+    RAISE EXCEPTION
+      'The vector extension identity changed during normalization.';
+  END IF;
+END;
+$normalize_vector_owner$;
+COMMIT;
+SELECT e.extname, pg_get_userbyid(e.extowner)
+FROM pg_extension e
+WHERE e.extname = 'vector';
+NORMALIZE_VECTOR
+  ) || return 1
+
+  [[ ${extension_identity} == $'vector\tpostgres' ]] || {
+    echo "The vector extension owner did not verify after normalization." >&2
+    return 1
+  }
 }
 
 create_and_restore_database() {
@@ -856,7 +1002,14 @@ rollback_on_failure() {
   fi
 
   echo "In-place deployment failed before reopening ${environment_name}." >&2
-  echo "Restoring the prior release and database state." >&2
+  if [[ ${database_mutation_started} == true ]]; then
+    echo "Restoring the prior release and database state." >&2
+  elif [[ ${live_vector_normalized} == true ]]; then
+    echo "Restoring the prior release; application data was unchanged." >&2
+    echo "The pgvector extension remains safely administrator-owned." >&2
+  else
+    echo "Restoring the prior release; the database was unchanged." >&2
+  fi
   systemctl stop nginx.service >/dev/null 2>&1 || true
   systemctl stop matsci-sam.service >/dev/null 2>&1 || true
   rollback_ok=true
@@ -897,10 +1050,18 @@ rollback_on_failure() {
 
   if [[ ${rollback_ok} == true ]]; then
     if [[ ${keep_public_access_closed_on_failure} == true ]]; then
-      echo "The previous ${environment_name} release and database were restored." >&2
+      if [[ ${database_mutation_started} == true ]]; then
+        echo "The previous ${environment_name} release and database were restored." >&2
+      else
+        echo "The previous ${environment_name} release was restored; the database was not replaced." >&2
+      fi
       echo "Nginx remains stopped because public access was already closed." >&2
     else
-      echo "The previous ${environment_name} release and database were restored." >&2
+      if [[ ${database_mutation_started} == true ]]; then
+        echo "The previous ${environment_name} release and database were restored." >&2
+      else
+        echo "The previous ${environment_name} release was restored; the database was not replaced." >&2
+      fi
     fi
   else
     echo "Automatic recovery was incomplete. Application and Nginx remain stopped." >&2
@@ -1110,6 +1271,21 @@ fi
   fail "${environment_name} already runs the selected commit."
 verify_protected_database_identity
 verify_protected_app_config
+live_vector_identity=$(read_vector_extension_identity "${database}") ||
+  fail "The live vector extension identity could not be read."
+case ${live_vector_identity} in
+  $'vector\tpostgres')
+    ;;
+  $'vector\tmatsci-sam')
+    [[ ${target} == superego ]] ||
+      fail "Unexpected historical vector extension owner on ${environment_name}."
+    live_vector_normalization_required=true
+    echo "The historical live vector extension will be normalized to postgres ownership."
+    ;;
+  *)
+    fail "The live vector extension is missing or has an unexpected owner."
+    ;;
+esac
 [[ $(systemctl is-active matsci-sam.service) == active ]] ||
   fail "The application service is not active."
 nginx_initial_state=$(systemctl is-active nginx.service 2>/dev/null || true)
@@ -1396,6 +1572,17 @@ expected_facts=$(
         COALESCE((SELECT min(id) FROM "definitions"), 0);
     '
 )
+
+if [[ ${live_vector_normalization_required} == true ]]; then
+  [[ $(read_vector_extension_identity "${database}") == $'vector\tmatsci-sam' ]] ||
+    fail "The live vector extension identity changed during release preparation."
+  echo "Normalizing the historical vector extension ownership."
+  normalize_live_vector_extension "${database}" ||
+    fail "The live vector extension ownership could not be normalized."
+  live_vector_normalized=true
+  assert_vector_extension "${database}" ||
+    fail "The normalized live vector extension did not verify."
+fi
 
 echo "Applying the verified migrations to the authoritative database."
 IFS=$'\t' read -r _ _ _ predeploy_migrations predeploy_latest _ \

@@ -817,6 +817,18 @@ assert.match(
   /find "\$\{release\}" -xdev -type d -exec chmod 00555[\s\S]*find "\$\{release\}" -xdev -type f -perm \/111 -exec chmod 00555[\s\S]*find "\$\{release\}" -xdev -type f ! -perm \/111 -exec chmod 00444/
 )
 
+const vectorExtensionIdentityFunction = repeatableReleaseRemote.match(
+  /^read_vector_extension_identity\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  vectorExtensionIdentityFunction,
+  "Could not locate the shared pgvector ownership reader"
+)
+assert.match(
+  vectorExtensionIdentityFunction[1],
+  /read-only\)[\s\S]*PGOPTIONS=-c default_transaction_read_only=on[\s\S]*pg_get_userbyid\(extowner\)[\s\S]*FROM pg_extension[\s\S]*WHERE extname = 'vector'/
+)
+
 const vectorExtensionAssertionFunction = repeatableReleaseRemote.match(
   /^assert_vector_extension\(\) \{\n([\s\S]*?)^\}$/m
 )
@@ -826,11 +838,7 @@ assert(
 )
 assert.match(
   vectorExtensionAssertionFunction[1],
-  /pg_get_userbyid\(extowner\)[\s\S]*FROM pg_extension[\s\S]*WHERE extname = 'vector'[\s\S]*vector\\tpostgres/
-)
-assert.match(
-  vectorExtensionAssertionFunction[1],
-  /read-only\)[\s\S]*PGOPTIONS=-c default_transaction_read_only=on/
+  /read_vector_extension_identity "\$\{target_database\}" "\$\{session_mode\}"[\s\S]*vector\\tpostgres/
 )
 
 const liveDatabaseContractFunction = repeatableReleaseRemote.match(
@@ -927,6 +935,66 @@ assert(
   rollbackScratchRestoreIndex >= 0 &&
     rollbackScratchRestoreIndex < rollbackLiveRenameIndex,
   "Rollback must restore and verify scratch before displacing the live database"
+)
+assert.match(
+  repeatableReleaseRemote,
+  /case \$\{live_vector_identity\} in[\s\S]*vector\\tpostgres[\s\S]*vector\\tmatsci-sam[\s\S]*target} == superego[\s\S]*live_vector_normalization_required=true[\s\S]*unexpected owner/
+)
+const vectorNormalizationFunction = repeatableReleaseRemote.match(
+  /^normalize_live_vector_extension\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  vectorNormalizationFunction,
+  "Could not locate the one-time live pgvector ownership normalization"
+)
+assert.match(
+  vectorNormalizationFunction[1],
+  /target} == superego[\s\S]*BEGIN;[\s\S]*extension_owner <> 'matsci-sam'[\s\S]*extension_schema <> 'public'[\s\S]*extension_config IS NOT NULL[\s\S]*pg_available_extension_versions[\s\S]*d\.deptype = 'x'[\s\S]*CREATE SCHEMA %I AUTHORIZATION %I[\s\S]*DROP EXTENSION vector RESTRICT[\s\S]*CREATE EXTENSION vector WITH SCHEMA %I VERSION %L[\s\S]*ALTER EXTENSION vector SET SCHEMA %I[\s\S]*pg_get_userbyid\(e\.extowner\) = 'postgres'[\s\S]*COMMIT;/
+)
+assert.doesNotMatch(
+  vectorNormalizationFunction[1],
+  /DROP EXTENSION vector CASCADE/
+)
+const vectorNormalizationBranch = repeatableReleaseRemote.match(
+  /if \[\[ \$\{live_vector_normalization_required\} == true \]\]; then\n([\s\S]*?)\nfi/
+)
+assert(
+  vectorNormalizationBranch,
+  "Could not locate the one-time live pgvector ownership normalization"
+)
+assert.match(
+  vectorNormalizationBranch[1],
+  /read_vector_extension_identity "\$\{database\}"[\s\S]*vector\\tmatsci-sam[\s\S]*normalize_live_vector_extension "\$\{database\}"[\s\S]*live_vector_normalized=true[\s\S]*assert_vector_extension "\$\{database\}"/
+)
+assert.doesNotMatch(
+  vectorNormalizationBranch[1],
+  /restore_database_backup|database_mutation_started=true/
+)
+const vectorNormalizationIndex = repeatableReleaseRemote.indexOf(
+  "if [[ ${live_vector_normalization_required} == true ]]; then"
+)
+const liveMigrationIndex = repeatableReleaseRemote.indexOf(
+  'echo "Applying the verified migrations to the authoritative database."'
+)
+const liveDatabaseVerificationIndex = repeatableReleaseRemote.lastIndexOf(
+  'verify_live_database_contract "${release}"'
+)
+assert(
+  vectorNormalizationIndex >= 0 &&
+    vectorNormalizationIndex < liveMigrationIndex &&
+    liveMigrationIndex < liveDatabaseVerificationIndex,
+  "Historical pgvector ownership must be normalized before live migration and verification"
+)
+const releaseRollbackFunction = repeatableReleaseRemote.match(
+  /^rollback_on_failure\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  releaseRollbackFunction,
+  "Could not locate the repeatable release rollback"
+)
+assert.match(
+  releaseRollbackFunction[1],
+  /database_mutation_started} == true[\s\S]*Restoring the prior release and database state[\s\S]*live_vector_normalized} == true[\s\S]*application data was unchanged[\s\S]*the database was unchanged/
 )
 
 const publicHttpsWaitFunction = repeatableReleaseRemote.match(
