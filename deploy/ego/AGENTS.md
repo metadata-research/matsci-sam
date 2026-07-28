@@ -7,7 +7,8 @@ at `ego.cci.drexel.edu`.
 
 - GitHub `origin/dev` is the reviewed development source.
 - Superego is the private development runtime and shared-test database.
-- A reviewed tree promoted to `origin/main` is the public release source.
+- The exact reviewed `origin/dev` commit already running on Superego is the
+  public release source.
 - Ego owns its public TLS, Nginx, application releases, protected
   configuration, and PostgreSQL database.
 - The sole control workstation recorded in `CURRENT-DEV-STATE.md` owns tests,
@@ -26,17 +27,12 @@ cutover marker exists on this host** and the active site file has not been
 machine-verified against reviewed source since. Confirm the effective
 configuration by inspection before any edge change.
 
-**There is no supported later-release procedure.**
-`deploy/deploy-ego-from-workstation.sh` refuses unless Ego has no release and
-an inactive, disabled service, and `deploy/cutover-ego-public.sh` refuses
-unless the service is disabled and the installed release directory name embeds
-the current `origin/main` commit — a condition the cutover's own
-`systemctl enable` permanently invalidated. Until a reviewed in-place,
-database-aware Ego release operation exists, do not improvise one on this
-host. To restore service quickly, roll back rather than deploy forward: the
-maintenance configuration is retained root-only under `/root`, and its
-reviewed bytes are tracked as
-`deploy/nginx/matsci-sam-public-maintenance.conf`.
+Later releases originate on the recorded control workstation with
+`deploy/release.sh ego`. The wrapper requires the exact commit already running
+on Superego, preserves and migrates Ego's own authoritative database, and
+briefly stops Nginx during the write pause. The one-time seed, first-release,
+and cutover scripts are retained as historical records and are not
+redeployment paths.
 
 ## Rules
 
@@ -51,14 +47,18 @@ reviewed bytes are tracked as
   never run again. Never replace or refresh the Ego database from Superego.
 - Run any Ego operation only from the recorded control workstation. Do not
   invoke files under `deploy/lib/` directly.
-- Promoted `origin/main` must exactly match reviewed `origin/dev`. Application,
-  schema, migration, dependency, build, service, and runtime-configuration
-  content must already be validated on Superego; only the exact reviewed
-  non-runtime allowlist may differ.
+- The reviewed `origin/dev` commit must already run on Superego before the
+  same commit can be released to Ego.
+- If final public verification stops Nginx after the candidate is active, use
+  `deploy/release.sh ego --resume-public-verification` for a same-commit retry.
+  If a reviewed code or schema fix is required, deploy that newer commit to
+  Superego first, then use `deploy/release.sh ego --forward-repair`. Do not
+  start Nginx manually to bypass either path.
 - `deploy/deploy-ego-from-workstation.sh` and `deploy/cutover-ego-public.sh`
   both completed their one-time purpose and now refuse to run against this
   host, by their own preconditions. They are retained as the record of how
-  this release was produced. Neither is a redeployment path.
+  the first release was produced. Use `deploy/release.sh ego` for later
+  releases.
 - Keep PostgreSQL and the Next.js listener local to Ego. PostgreSQL uses the
   Unix socket, and Next.js listens only on `127.0.0.1:3000`.
 - Inspect the complete effective Nginx configuration before a change. Back up

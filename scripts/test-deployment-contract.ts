@@ -488,6 +488,17 @@ assert.equal(
   ego.get("GOOGLE_CALLBACK_URL"),
   "https://ego.cci.drexel.edu/api/auth/callback"
 )
+for (const [environment, values] of [
+  ["local", local],
+  ["Superego", superego],
+  ["Ego", ego]
+] as const) {
+  assert.equal(
+    values.get("NEXT_PUBLIC_SITE_NAME"),
+    "MatSci-SAM",
+    `${environment} must use the protected MatSci-SAM application identity`
+  )
+}
 assert.equal(ego.get("SESSION_COOKIE_SECURE"), "true")
 assert.equal(ego.get("DEV_AUTH_ENABLED"), "false")
 
@@ -556,6 +567,474 @@ assert.match(superegoBootstrap, /server_name superego\.cci\.drexel\.edu;/)
 assert(!superegoBootstrap.includes("server_name ego.cci.drexel.edu"))
 assert(!superegoBootstrap.includes("129.25.202.67"))
 
+const repeatableRelease = read("deploy/release.sh")
+assert.match(
+  repeatableRelease,
+  /Usage: deploy\/release\.sh <superego\|ego>/
+)
+assert.match(
+  repeatableRelease,
+  /deploy\/release\.sh superego[\s\S]*deploy\/release\.sh ego/
+)
+assert.match(
+  repeatableRelease,
+  /--resume-public-verification[\s\S]*resume-public-verification/
+)
+assert.match(
+  repeatableRelease,
+  /--forward-repair[\s\S]*operation=forward-repair/
+)
+assert.match(
+  repeatableRelease,
+  /candidate} == "\$\{superego_commit\}"[\s\S]*Deploy this exact commit to Superego before releasing it to Ego/
+)
+assert.match(
+  repeatableRelease,
+  /source_verifier=\$\{script_dir\}\/lib\/verify-superego-public-content\.sh/
+)
+assert.match(
+  repeatableRelease,
+  /for file in[\s\S]*"\$\{source_verifier\}"[\s\S]*"\$\{state_file\}"[\s\S]*"\$\{workstation_registry\}"/
+)
+assert.match(
+  repeatableRelease,
+  /"\$\{source_verifier\}" --verify-worktree "\$\{repo\}" "\$\{candidate\}"/
+)
+assert.match(
+  repeatableRelease,
+  /"\$\{source_verifier\}" --create-archive "\$\{repo\}" "\$\{candidate\}" "\$\{archive\}"/
+)
+assert.doesNotMatch(repeatableRelease, /^\s*git(?:\s+-C "[^"]+")?\s+archive\b/m)
+
+const releaseForwardAncestryIndex = repeatableRelease.search(
+  /git -C "\$\{repo\}" merge-base --is-ancestor "\$\{active_commit\}" "\$\{candidate\}"/
+)
+const releaseTargetSpecificGateIndex = repeatableRelease.indexOf(
+  "if [[ ${target} == ego ]]; then"
+)
+assert(
+  releaseForwardAncestryIndex >= 0 &&
+    releaseForwardAncestryIndex < releaseTargetSpecificGateIndex,
+  "Both Superego and Ego releases must move forward before target-specific gates"
+)
+
+const releaseWorktreeVerificationIndex = repeatableRelease.search(
+  /"\$\{source_verifier\}" --verify-worktree/
+)
+const releaseArchiveCreationIndex = repeatableRelease.search(
+  /"\$\{source_verifier\}" --create-archive/
+)
+assert(
+  releaseWorktreeVerificationIndex >= 0 &&
+    releaseWorktreeVerificationIndex < releaseArchiveCreationIndex,
+  "The release archive must come from a verified, hardened worktree"
+)
+
+const superegoCandidateFunction = repeatableRelease.match(
+  /^verify_superego_candidate\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  superegoCandidateFunction,
+  "Could not locate the repeatable Superego candidate gate"
+)
+assert.match(
+  superegoCandidateFunction[1],
+  /readlink -e \/opt\/matsci-sam\/current[\s\S]*expected_candidate} == "\$\{superego_commit\}"/
+)
+assert.match(
+  superegoCandidateFunction[1],
+  /systemctl is-active --quiet matsci-sam\.service[\s\S]*systemctl is-active --quiet nginx\.service[\s\S]*curl[\s\S]*http:\/\/127\.0\.0\.1:3000\//
+)
+const superegoCandidateCalls = [
+  ...repeatableRelease.matchAll(
+    /^  verify_superego_candidate "\$\{candidate\}"$/gm
+  )
+]
+assert.equal(
+  superegoCandidateCalls.length,
+  2,
+  "Ego must gate on the exact healthy Superego candidate before preparation and mutation"
+)
+const releaseConfirmationIndex = repeatableRelease.indexOf(
+  'fail "Release cancelled."'
+)
+const candidateRevalidationCalls = [
+  ...repeatableRelease.matchAll(/^revalidate_candidate$/gm)
+]
+assert.equal(
+  candidateRevalidationCalls.length,
+  2,
+  "Every target must revalidate reviewed source before artifact creation and remote staging"
+)
+const lateCandidateRevalidationIndex = repeatableRelease.lastIndexOf(
+  "\nrevalidate_candidate\n"
+)
+const lateSuperegoGateIndex = repeatableRelease.lastIndexOf(
+  '  verify_superego_candidate "${candidate}"'
+)
+const remoteStagingIndex = repeatableRelease.indexOf(
+  'ssh "${ssh_host}" "mkdir --mode=0700'
+)
+assert(
+  releaseConfirmationIndex >= 0 &&
+    releaseConfirmationIndex < lateCandidateRevalidationIndex &&
+    lateCandidateRevalidationIndex < lateSuperegoGateIndex &&
+    lateSuperegoGateIndex < remoteStagingIndex,
+  "Ego must recheck reviewed source and healthy exact-commit Superego immediately before staging"
+)
+assert.match(
+  repeatableRelease.slice(releaseConfirmationIndex, remoteStagingIndex),
+  /revalidate_candidate[\s\S]*if \[\[ \$\{target\} == ego \]\]; then[\s\S]*verify_superego_candidate "\$\{candidate\}"[\s\S]*fi/
+)
+assert.doesNotMatch(repeatableRelease, /refs\/remotes\/origin\/main/)
+assert.doesNotMatch(
+  repeatableRelease,
+  /allow-undeployed|seed-ego-from-superego|deploy-ego-from-workstation|cutover-ego-public/
+)
+assert.doesNotMatch(
+  repeatableRelease,
+  /sudo (?:\/bin\/)?bash ['"]?\$\{remote_dir\}\/deploy-superego-in-place-remote\.sh/
+)
+assert.match(
+  repeatableRelease,
+  /launcher_base64=\$\(base64 --wrap=0 "\$\{remote_launcher\}"\)[\s\S]*base64 --decode[\s\S]*sudo \/bin\/bash -s --[\s\S]*release-payload\.tar[\s\S]*payload_sha/
+)
+assert.match(
+  repeatableRelease,
+  /printf 'format\\t2\\n'[\s\S]*printf 'operation\\t%s\\n' "\$\{operation\}"/
+)
+assert.match(
+  read("deploy/deploy-superego-from-workstation.sh"),
+  /exec "\$\{script_dir\}\/release\.sh" superego "\$@"/
+)
+
+const repeatableReleaseRemote = read(
+  "deploy/lib/deploy-superego-in-place-remote.sh"
+)
+const reviewedReleaseLauncher = read(
+  "deploy/lib/launch-reviewed-release-remote.sh"
+)
+assert.match(
+  reviewedReleaseLauncher,
+  /transport_payload=\$\{1:-\}[\s\S]*target=\$\{2:-\}[\s\S]*expected_payload_sha=\$\{3:-\}/
+)
+assert.match(
+  reviewedReleaseLauncher,
+  /root_payload=\$\{root_stage\}\/\.release-payload\.tar[\s\S]*install -o root -g root -m 0600[\s\S]*sha256sum "\$\{root_payload\}"[\s\S]*expected_payload_sha/
+)
+assert.match(
+  reviewedReleaseLauncher,
+  /expected_members=\$\([\s\S]*deploy-superego-in-place-remote\.sh[\s\S]*manifest\.tsv[\s\S]*reset-db-invariants\.sql[\s\S]*source\.tar[\s\S]*verify-migration-ledger\.sh[\s\S]*workstations\.tsv/
+)
+assert.match(
+  reviewedReleaseLauncher,
+  /root_stage=\$\(mktemp -d "\$\{incoming_root\}\/launch-\$\{target\}\.XXXXXXXX"\)[\s\S]*\/bin\/bash[\s\S]*"\$\{root_stage\}\/deploy-superego-in-place-remote\.sh"/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /stage} =~ \^\$\{admin_root\}\/incoming\/launch-\$\{target\}/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /stat -c '%U:%G:%a' "\$\{stage\}"\) == root:root:700/
+)
+assert.doesNotMatch(
+  repeatableReleaseRemote,
+  /allow-undeployed|seed-ego-from-superego|origin\/main/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /superego\)[\s\S]*expected_hostname=cci-superego[\s\S]*authority_file=\$\{admin_workspace\}\/DATA-AUTHORITY[\s\S]*public_host=superego\.cci\.drexel\.edu/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /ego\)[\s\S]*expected_hostname=cci-ego[\s\S]*expected_authority=ego[\s\S]*public_host=ego\.cci\.drexel\.edu/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /verify_protected_app_config[\s\S]*NEXT_PUBLIC_SITE_URL[\s\S]*GOOGLE_CALLBACK_URL/
+)
+const protectedDatabaseIdentityFunction = repeatableReleaseRemote.match(
+  /^verify_protected_database_identity\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  protectedDatabaseIdentityFunction,
+  "Could not locate the protected database identity gate"
+)
+assert.match(
+  protectedDatabaseIdentityFunction[1],
+  /read-only\)[\s\S]*default_transaction_read_only=on[\s\S]*read_only_flag/
+)
+const repeatableProtectedConfigFunction = repeatableReleaseRemote.match(
+  /^verify_protected_app_config\(\) \{\n([\s\S]*?)^APP_CONFIG\n^\}$/m
+)
+assert(
+  repeatableProtectedConfigFunction,
+  "Could not locate the repeatable release protected-config gate"
+)
+assert.match(
+  repeatableProtectedConfigFunction[1],
+  /\[\[ \$\{NEXT_PUBLIC_SITE_NAME:-\} == MatSci-SAM \]\]/
+)
+const protectedConfigCallIndexes = Array.from(
+  repeatableReleaseRemote.matchAll(/^verify_protected_app_config$/gm),
+  (match) => match.index
+)
+const repeatableBuildStartIndex = repeatableReleaseRemote.indexOf(
+  'echo "Preparing and building the candidate'
+)
+assert.equal(
+  protectedConfigCallIndexes.length,
+  1,
+  "The protected application configuration must be checked exactly once"
+)
+assert(
+  protectedConfigCallIndexes[0] < repeatableBuildStartIndex,
+  "The protected application configuration must be checked before the build"
+)
+assert.match(
+  repeatableReleaseRemote,
+  /target} == ego[\s\S]*DEV_AUTH_ENABLED[\s\S]*SESSION_COOKIE_SECURE/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /EMAIL_AUTH_ENABLED[\s\S]*EMAIL_AUTH_FROM[\s\S]*gmail-api[\s\S]*EMAIL_AUTH_GMAIL_REFRESH_TOKEN[\s\S]*smtp[\s\S]*EMAIL_AUTH_SMTP_HOST/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /systemctl stop nginx\.service[\s\S]*systemctl stop matsci-sam\.service/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /pnpm install --frozen-lockfile --package-import-method=copy/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /find "\$\{runtime_cache\}" -xdev -type d -exec chmod 00750[\s\S]*find "\$\{runtime_cache\}" -xdev -type f -exec chmod 00640/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /find "\$\{release\}" -xdev -type d -exec chmod 00555[\s\S]*find "\$\{release\}" -xdev -type f -perm \/111 -exec chmod 00555[\s\S]*find "\$\{release\}" -xdev -type f ! -perm \/111 -exec chmod 00444/
+)
+
+const vectorExtensionAssertionFunction = repeatableReleaseRemote.match(
+  /^assert_vector_extension\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  vectorExtensionAssertionFunction,
+  "Could not locate the shared pgvector ownership assertion"
+)
+assert.match(
+  vectorExtensionAssertionFunction[1],
+  /pg_get_userbyid\(extowner\)[\s\S]*FROM pg_extension[\s\S]*WHERE extname = 'vector'[\s\S]*vector\\tpostgres/
+)
+assert.match(
+  vectorExtensionAssertionFunction[1],
+  /read-only\)[\s\S]*PGOPTIONS=-c default_transaction_read_only=on/
+)
+
+const liveDatabaseContractFunction = repeatableReleaseRemote.match(
+  /^verify_live_database_contract\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  liveDatabaseContractFunction,
+  "Could not locate the live database verification contract"
+)
+assert.match(
+  liveDatabaseContractFunction[1],
+  /read-only\)[\s\S]*PGOPTIONS=-c default_transaction_read_only=on[\s\S]*assert_vector_extension "\$\{database\}" "\$\{session_mode\}"[\s\S]*read_database_facts "\$\{database\}" "\$\{session_mode\}"/
+)
+
+const sharedDatabaseRestoreFunction = repeatableReleaseRemote.match(
+  /^create_and_restore_database\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  sharedDatabaseRestoreFunction,
+  "Could not locate the shared database restore contract"
+)
+assert.match(
+  sharedDatabaseRestoreFunction[1],
+  /runuser -u postgres -- createdb[\s\S]*--owner=matsci-sam[\s\S]*runuser -u postgres -- psql[\s\S]*CREATE EXTENSION IF NOT EXISTS vector;[\s\S]*runuser -u matsci-sam -- pg_restore[\s\S]*--no-comments[\s\S]*assert_vector_extension "\$\{target_database\}"/
+)
+assert.match(
+  sharedDatabaseRestoreFunction[1],
+  /if runuser -u postgres -- dropdb[\s\S]*then[\s\S]*scratch_database_created=false[\s\S]*else[\s\S]*failed restore database could not be removed/
+)
+assert.equal(
+  [...repeatableReleaseRemote.matchAll(/runuser -u postgres -- createdb/g)]
+    .length,
+  1,
+  "Database creation must stay inside the shared pgvector-safe restore contract"
+)
+assert.equal(
+  [...repeatableReleaseRemote.matchAll(/runuser -u matsci-sam -- pg_restore/g)]
+    .length,
+  1,
+  "Database restores must not bypass the shared pgvector-safe contract"
+)
+
+const sharedDatabaseRestoreCalls = [
+  ...repeatableReleaseRemote.matchAll(
+    /^[ \t]*create_and_restore_database[ \t]+"\$\{([^}]+)\}"[ \t]+"\$\{([^}]+)\}"(?:[ \t]+\|\|[ \t]+return 1)?$/gm
+  )
+]
+assert.equal(
+  sharedDatabaseRestoreCalls.length,
+  3,
+  "Rollback, online rehearsal, and frozen rehearsal must share one restore contract"
+)
+assert(
+  sharedDatabaseRestoreCalls.every((match) => match[1] === "scratch_database"),
+  "Every repeatable restore must complete in scratch before use"
+)
+assert.deepEqual(
+  sharedDatabaseRestoreCalls.map((match) => match[2]).sort(),
+  ["backup", "backup_partial", "preflight_dump"],
+  "The three repeatable restore paths changed"
+)
+const rollbackDatabaseRestoreFunction = repeatableReleaseRemote.match(
+  /^restore_database_backup\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  rollbackDatabaseRestoreFunction,
+  "Could not locate the repeatable release database rollback"
+)
+const rollbackScratchRestoreIndex = rollbackDatabaseRestoreFunction[1].indexOf(
+  'create_and_restore_database "${scratch_database}" "${backup}"'
+)
+const rollbackLiveRenameIndex = rollbackDatabaseRestoreFunction[1].indexOf(
+  'ALTER DATABASE \\"${database}\\" RENAME'
+)
+assert(
+  rollbackScratchRestoreIndex >= 0 &&
+    rollbackScratchRestoreIndex < rollbackLiveRenameIndex,
+  "Rollback must restore and verify scratch before displacing the live database"
+)
+
+const publicHttpsWaitFunction = repeatableReleaseRemote.match(
+  /^wait_for_public_https\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  publicHttpsWaitFunction,
+  "Could not locate the bounded Nginx HTTPS readiness wait"
+)
+assert.match(
+  publicHttpsWaitFunction[1],
+  /timeout_seconds=\$\{2:-60\}[\s\S]*deadline=\$\(\(SECONDS \+ timeout_seconds\)\)[\s\S]*while \(\(SECONDS < deadline\)\)[\s\S]*--resolve "\$\{host\}:443:127\.0\.0\.1"[\s\S]*sleep 2/
+)
+const reopenAndVerifyFunction = repeatableReleaseRemote.match(
+  /^reopen_and_verify_public\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  reopenAndVerifyFunction,
+  "Could not locate the shared public reopen and verification function"
+)
+const publicReopenedIndex = reopenAndVerifyFunction[1].indexOf(
+  "public_reopened=true"
+)
+const finalNginxStartIndex = reopenAndVerifyFunction[1].indexOf(
+  "systemctl start nginx.service"
+)
+const boundedPublicWaitIndex = reopenAndVerifyFunction[1].indexOf(
+  'wait_for_public_https "${public_host}" 60'
+)
+const strictPublicSmokeIndex = reopenAndVerifyFunction[1].indexOf(
+  "verify_public_contract"
+)
+assert(
+  publicReopenedIndex >= 0 &&
+    publicReopenedIndex < finalNginxStartIndex &&
+    finalNginxStartIndex < boundedPublicWaitIndex &&
+    boundedPublicWaitIndex < strictPublicSmokeIndex,
+  "Nginx must settle for a bounded interval before strict public smoke tests"
+)
+assert.equal(
+  [...repeatableReleaseRemote.matchAll(/^[ \t]*reopen_and_verify_public$/gm)]
+    .length,
+  2,
+  "Normal release and explicit recovery must share public verification"
+)
+assert.equal(
+  [...repeatableReleaseRemote.matchAll(/^[ \t]*verify_loopback_contract$/gm)]
+    .length,
+  2,
+  "Normal release and explicit recovery must share loopback verification"
+)
+
+const resumeBranchStart = repeatableReleaseRemote.lastIndexOf(
+  "if [[ ${operation} == resume-public-verification ]]; then"
+)
+const normalReleaseStart = repeatableReleaseRemote.indexOf(
+  '[[ ${previous_commit} != "${manifest[commit]}" ]]',
+  resumeBranchStart
+)
+assert(
+  resumeBranchStart >= 0 && normalReleaseStart > resumeBranchStart,
+  "Could not isolate the explicit public-verification recovery branch"
+)
+const resumeBranch = repeatableReleaseRemote.slice(
+  resumeBranchStart,
+  normalReleaseStart
+)
+assert.match(
+  resumeBranch,
+  /previous_commit} == "\$\{manifest\[commit\]\}"[\s\S]*recorded_previous_sha:-} == "\$\{manifest\[archive_sha256\]\}"/
+)
+assert.match(
+  resumeBranch,
+  /verify_protected_database_identity|verify_live_database_contract/
+)
+assert.match(
+  resumeBranch,
+  /verify_live_database_contract "\$\{release\}" read-only[\s\S]*configure_definition_probe[\s\S]*verify_loopback_contract[\s\S]*reopen_and_verify_public[\s\S]*complete_operation/
+)
+assert.match(
+  resumeBranch,
+  /verify_protected_database_identity read-only/
+)
+const resumeIngressStopIndex = resumeBranch.indexOf(
+  "systemctl stop nginx.service"
+)
+const resumeIngressInactiveIndex = resumeBranch.indexOf(
+  "Nginx did not stop for public verification recovery"
+)
+const resumeDatabaseValidationIndex = resumeBranch.indexOf(
+  "verify_protected_database_identity"
+)
+assert(
+  resumeBranch.includes("keep_public_access_closed_on_failure=true") &&
+    resumeIngressStopIndex >= 0 &&
+    resumeIngressStopIndex < resumeIngressInactiveIndex &&
+    resumeIngressInactiveIndex < resumeDatabaseValidationIndex,
+  "Recovery must close ingress and preserve that closure before validation"
+)
+for (const forbiddenRecoveryMutation of [
+  "pg_dump",
+  "pg_restore",
+  "create_and_restore_database",
+  "pnpm db:migrate",
+  "pnpm build",
+  "pnpm install",
+  "restore_database_backup",
+  'mv -Tf "${next_link}"'
+]) {
+  assert(
+    !resumeBranch.includes(forbiddenRecoveryMutation),
+    `Public verification recovery unexpectedly mutates release state: ${forbiddenRecoveryMutation}`
+  )
+}
+assert.doesNotMatch(
+  repeatableReleaseRemote,
+  /actions\.runner|\/etc\/sudoers\.d\/matsci-sam-runner|usermod --lock/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /keep_public_access_closed_on_failure} != true[\s\S]*systemctl start nginx\.service/
+)
+assert.match(
+  repeatableReleaseRemote,
+  /nginx_initial_state=\$\(systemctl is-active nginx\.service[\s\S]*active\)[\s\S]*operation} == release[\s\S]*inactive\)[\s\S]*operation} == forward-repair[\s\S]*keep_public_access_closed_on_failure=true/
+)
 const egoSeedWrapper = read("deploy/seed-ego-from-superego.sh")
 const egoSeedHelper = read(
   "deploy/lib/seed-ego-from-superego-remote.sh"

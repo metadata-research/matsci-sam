@@ -3,7 +3,6 @@ name: PR Verify
 on:
   pull_request:
     branches:
-      - main
       - dev
 
 jobs:
@@ -57,8 +56,10 @@ jobs:
           bash -n \
             deploy/bootstrap-server.sh \
             deploy/check-runtime-parity.sh \
+            deploy/release.sh \
             deploy/deploy-superego-from-workstation.sh \
             deploy/lib/deploy-superego-in-place-remote.sh \
+            deploy/lib/launch-reviewed-release-remote.sh \
             deploy/provision-ego-runtime.sh \
             deploy/seed-ego-from-superego.sh \
             deploy/deploy-ego-from-workstation.sh \
