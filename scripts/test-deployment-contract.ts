@@ -578,6 +578,14 @@ assert.match(
 )
 assert.match(
   repeatableRelease,
+  /superego\.cci\.drexel\.edu\/login[\s\S]*release this exact commit with: \.\/deploy\/release\.sh ego/
+)
+assert.match(
+  repeatableRelease,
+  /ego\.cci\.drexel\.edu\/login/
+)
+assert.match(
+  repeatableRelease,
   /--resume-public-verification[\s\S]*resume-public-verification/
 )
 assert.match(
@@ -1181,6 +1189,52 @@ assert(
 assert.match(
   releaseRollbackFunction[1],
   /database_mutation_started} == true[\s\S]*Restoring the prior release and database state[\s\S]*live_vector_normalized} == true[\s\S]*application data was unchanged[\s\S]*the database was unchanged/
+)
+
+const loopbackContractFunction = repeatableReleaseRemote.match(
+  /^verify_loopback_contract\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  loopbackContractFunction,
+  "Could not locate the shared loopback verification contract"
+)
+assert.match(
+  loopbackContractFunction[1],
+  /local_paths=\(\/ \/api\/health \/login /
+)
+assert.match(
+  loopbackContractFunction[1],
+  /http:\/\/127\.0\.0\.1:3000\/api\/login[\s\S]*verify_redirect_headers[\s\S]*307[\s\S]*\/login[\s\S]*local login compatibility entry/
+)
+
+const publicContractFunction = repeatableReleaseRemote.match(
+  /^verify_public_contract\(\) \{\n([\s\S]*?)^\}$/m
+)
+assert(
+  publicContractFunction,
+  "Could not locate the shared public verification contract"
+)
+assert.match(
+  publicContractFunction[1],
+  /public_paths=\(\/ \/api\/health \/login /
+)
+const publicLoginCompatibilityIndex = publicContractFunction[1].indexOf(
+  '"https://${host}/api/login"'
+)
+const publicGoogleEntryIndex = publicContractFunction[1].indexOf(
+  '"https://${host}/api/auth/google"'
+)
+assert(
+  publicLoginCompatibilityIndex >= 0 &&
+    publicLoginCompatibilityIndex < publicGoogleEntryIndex &&
+    publicContractFunction[1]
+      .slice(publicLoginCompatibilityIndex, publicGoogleEntryIndex)
+      .includes("The public login compatibility entry"),
+  "Public verification must check the internal login page before Google OAuth"
+)
+assert.match(
+  publicContractFunction[1],
+  /Google entry did not return HTTP 307[\s\S]*accounts\.google\.com/
 )
 
 const publicHttpsWaitFunction = repeatableReleaseRemote.match(

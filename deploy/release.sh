@@ -407,3 +407,11 @@ if [[ ${operation} == resume-public-verification ]]; then
 else
   echo "${environment_name} in-place release and verification completed."
 fi
+if [[ ${target} == superego ]]; then
+  printf 'Next: exercise the changed behavior at %s, including a real sign-in when authentication changed.\n' \
+    'https://superego.cci.drexel.edu/login'
+  echo "After it passes, release this exact commit with: ./deploy/release.sh ego"
+else
+  printf 'Next: verify the public behavior at %s, including a real sign-in when authentication changed.\n' \
+    'https://ego.cci.drexel.edu/login'
+fi

@@ -55,7 +55,7 @@ export const TermVotes = ({
         toast("You must be logged in to vote on a definition!", {
           action: (
             <Button asChild>
-              <Link href="/api/login" className="ml-auto">
+              <Link href="/login" className="ml-auto">
                 Login
               </Link>
             </Button>

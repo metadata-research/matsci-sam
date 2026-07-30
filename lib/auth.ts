@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm"
 
 export const auth = async () => {
   const sesh = await getSession()
-  if (!sesh.id) redirect("/api/login")
+  if (!sesh.id) redirect("/login")
 
   const user = await db.query.usersTable.findFirst({
     where: eq(usersTable.id, sesh.id)
@@ -14,7 +14,7 @@ export const auth = async () => {
   if (!user) {
     sesh.destroy()
     await sesh.save()
-    redirect("/api/login")
+    redirect("/login")
   }
 
   return { sesh, user }

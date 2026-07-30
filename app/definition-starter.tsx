@@ -65,7 +65,7 @@ export function DefinitionStarter({
       <div className={styles.contributionActions}>
         {signedIn ? null : (
           <Button asChild>
-            <Link href="/api/login">
+            <Link href="/login">
               <FilePlus2Icon aria-hidden />
               Sign in to contribute
             </Link>

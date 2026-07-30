@@ -62,7 +62,7 @@ export function TermCommentBox({
       toast("You must be logged in to comment!", {
         action: (
           <Button asChild>
-            <Link href="/api/login" className="ml-auto">
+            <Link href="/login" className="ml-auto">
               Login
             </Link>
           </Button>

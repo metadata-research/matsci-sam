@@ -28,7 +28,7 @@ export const metadata: Metadata = { title: `Profile | ${SITE_NAME}` }
 
 export default async function ProfilePage() {
   const { user } = await auth()
-  if (!user) redirect("/api/login")
+  if (!user) redirect("/login")
 
   const authoredTerms = await db
     .select({

@@ -32,6 +32,12 @@ The protected environment on both hosts must set
 `NEXT_PUBLIC_SITE_NAME=MatSci-SAM`; the release refuses a stale display name
 before building.
 
+After a Superego release, exercise the changed behavior before running the Ego
+command. Authentication changes require a real browser sign-in from
+`https://superego.cci.drexel.edu/login`; automated checks prove the internal
+login and provider redirect contract but cannot prove provider credentials or
+identity continuity. Repeat the real sign-in after the Ego release.
+
 Do not run the one-time Ego seed, first-release, or cutover wrappers again.
 `--check-only` remains available for diagnostics but is not a required extra
 step before either command.

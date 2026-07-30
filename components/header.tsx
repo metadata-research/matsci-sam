@@ -122,7 +122,7 @@ const AuthSection = ({
 
   return (
     <Button asChild variant="outline">
-      <Link href="/api/login">Login</Link>
+      <Link href="/login">Login</Link>
     </Button>
   )
 }

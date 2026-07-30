@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { redirect } from "next/navigation"
 import { MailIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,9 +23,6 @@ export default function LoginPage() {
   const devEnabled = isDevAuthEnabled()
   const emailEnabled = isEmailAuthEnabled()
   const orcidEnabled = isOrcidAuthEnabled()
-  if (!devEnabled && !emailEnabled && !orcidEnabled)
-    redirect("/api/auth/google")
-  if (devEnabled && !emailEnabled && !orcidEnabled) redirect("/dev-login")
 
   return (
     <main className="px-4 py-12">
@@ -42,11 +38,11 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-5">
           <Button asChild variant="outline" className="w-full">
-            <Link href="/api/auth/google">Continue with Google</Link>
+            <a href="/api/auth/google">Continue with Google</a>
           </Button>
           {orcidEnabled ? (
             <Button asChild variant="outline" className="w-full">
-              <Link href="/api/auth/orcid?intent=login">
+              <a href="/api/auth/orcid?intent=login">
                 <Image
                   src="/orcid-id.svg"
                   alt=""
@@ -55,7 +51,7 @@ export default function LoginPage() {
                   aria-hidden
                 />
                 Continue with ORCID
-              </Link>
+              </a>
             </Button>
           ) : null}
           {emailEnabled ? (
