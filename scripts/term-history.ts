@@ -5,6 +5,7 @@ import {
   definitionsTable,
   termsTable
 } from "@/drizzle"
+import { diffToStringSimple } from "@/lib/definition-revisions"
 import { asc, desc } from "drizzle-orm"
 
 const main = async () => {
@@ -38,9 +39,9 @@ const main = async () => {
         }),
         aiGenerated
           ? db.query.chatsTable.findMany({
-              where: (c, { eq }) => eq(c.termId, definition.termId),
-              orderBy: desc(chatsTable.createdAt)
-            })
+            where: (c, { eq }) => eq(c.termId, definition.termId),
+            orderBy: desc(chatsTable.createdAt)
+          })
           : []
       ])
 
@@ -57,7 +58,7 @@ const main = async () => {
       }
 
       console.log(
-        `=> Current revision: v${currentRevision.version}\n   Definition: ${currentRevision.definition}\n   Example: ${currentRevision.example ?? "[not retained in legacy record]"}\n   AI Generated: ${aiGenerated}`
+        `=> Current revision: v${currentRevision.version}\n   Definition: ${currentRevision.definitionDiff}\n   Example: ${currentRevision.exampleDiff ?? "[not retained in legacy record]"}\n   AI Generated: ${aiGenerated}`
       )
 
       const versionsById = new Map(
@@ -103,7 +104,7 @@ const main = async () => {
             : ""
 
           console.log(
-            `\t[${item.createdAt.toISOString()}] [REVISION v${item.version}] [${item.source}]${legacyNote}\n\t  Definition: ${item.definition}\n\t  Example: ${item.example ?? "[not retained]"}\n\t  Change note: ${item.changeNote ?? "[not retained]"}\n\t  Editor ID: ${item.editorId ?? "[not retained]"}`
+            `\t[${item.createdAt.toISOString()}] [REVISION v${item.version}] [${item.source}]${legacyNote}\n\t  Definition: ${item.definitionDiff}\n\t  Example: ${item.exampleDiff ?? "[not retained]"}\n\t  Change note: ${item.changeNote ?? "[not retained]"}\n\t  Editor ID: ${item.editorId ?? "[not retained]"}`
           )
         }
       }

@@ -26,6 +26,7 @@ import {
   buildRevisionMessages,
   needsReconstructedDefinitionContext
 } from "./ollama-revision-context"
+import { diffToStringSimple } from "../definition-revisions"
 
 export type DefinitionOutput = z.infer<typeof DefinitionOutput>
 export const DefinitionOutput = z.object({
@@ -197,8 +198,8 @@ export const runRefinementRound = async (refinementId: number) => {
       term: termsTable.term,
       currentDefinition: definitionsTable.definition,
       currentExample: definitionsTable.example,
-      sourceDefinition: definitionRevisionsTable.definition,
-      sourceExample: definitionRevisionsTable.example
+      sourceDefinition: definitionRevisionsTable.definitionDiff,
+      sourceExample: definitionRevisionsTable.exampleDiff
     })
     .from(refinementsTable)
     .innerJoin(
@@ -227,10 +228,12 @@ export const runRefinementRound = async (refinementId: number) => {
       orderBy: asc(refinementsTable.round)
     })
 
+    const sourceDefinition = diffToStringSimple(round.sourceDefinition ?? []);
+    const sourceExample = diffToStringSimple(round.sourceExample ?? []);
     const messages: Message[] = [
       {
         role: "user",
-        content: `<term>\n${round.term}\n\n<definition>\n${round.sourceDefinition ?? round.currentDefinition}\n\n<example>\n${round.sourceExample ?? round.currentExample}`
+        content: `<term>\n${round.term}\n\n<definition>\n${sourceDefinition == "" ? round.currentDefinition : sourceDefinition}\n\n<example>\n${sourceExample == "" ? round.currentExample : sourceExample}`
       }
     ]
 

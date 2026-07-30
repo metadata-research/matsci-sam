@@ -56,8 +56,8 @@ export const discussionRouter = createTRPCRouter({
           definitionNumber: definitionsTable.definitionNumber,
           revisionId: definitionRevisionsTable.id,
           version: definitionRevisionsTable.version,
-          definition: definitionRevisionsTable.definition,
-          example: definitionRevisionsTable.example,
+          definition: definitionsTable.definition,
+          example: definitionsTable.example,
           model: definitionRevisionsTable.model,
           isAi: usersTable.isAi,
           authorId: usersTable.id,
@@ -92,58 +92,58 @@ export const discussionRouter = createTRPCRouter({
       )
       const [revisions, comments] = definitionIds.length
         ? await Promise.all([
-            db
-              .select({
-                id: definitionRevisionsTable.id,
-                definitionId: definitionRevisionsTable.definitionId,
-                version: definitionRevisionsTable.version,
-                definition: definitionRevisionsTable.definition,
-                source: definitionRevisionsTable.source,
-                changeNote: definitionRevisionsTable.changeNote,
-                legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
-                model: definitionRevisionsTable.model,
-                createdAt: definitionRevisionsTable.createdAt,
-                editorId: usersTable.id,
-                editor: usersTable.name,
-                editorIsAi: usersTable.isAi,
-                editorProfilePublic: usersTable.isProfilePublic
-              })
-              .from(definitionRevisionsTable)
-              .leftJoin(
-                usersTable,
-                eq(usersTable.id, definitionRevisionsTable.editorId)
-              )
-              .where(
-                inArray(definitionRevisionsTable.definitionId, definitionIds)
-              ),
-            db
-              .select({
-                id: commentsTable.id,
-                definitionId: commentsTable.definitionId,
-                revisionId: commentsTable.revisionId,
-                version: definitionRevisionsTable.version,
-                message: commentsTable.message,
-                createdAt: commentsTable.createdAt,
-                migratedLegacy: commentsTable.migratedLegacy,
-                authorId: usersTable.id,
-                author: usersTable.name,
-                isAi: usersTable.isAi,
-                authorProfilePublic: usersTable.isProfilePublic
-              })
-              .from(commentsTable)
-              .innerJoin(
-                definitionRevisionsTable,
-                and(
-                  eq(definitionRevisionsTable.id, commentsTable.revisionId),
-                  eq(
-                    definitionRevisionsTable.definitionId,
-                    commentsTable.definitionId
-                  )
+          db
+            .select({
+              id: definitionRevisionsTable.id,
+              definitionId: definitionRevisionsTable.definitionId,
+              version: definitionRevisionsTable.version,
+              definitionDiff: definitionRevisionsTable.definitionDiff,
+              source: definitionRevisionsTable.source,
+              changeNote: definitionRevisionsTable.changeNote,
+              legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
+              model: definitionRevisionsTable.model,
+              createdAt: definitionRevisionsTable.createdAt,
+              editorId: usersTable.id,
+              editor: usersTable.name,
+              editorIsAi: usersTable.isAi,
+              editorProfilePublic: usersTable.isProfilePublic
+            })
+            .from(definitionRevisionsTable)
+            .leftJoin(
+              usersTable,
+              eq(usersTable.id, definitionRevisionsTable.editorId)
+            )
+            .where(
+              inArray(definitionRevisionsTable.definitionId, definitionIds)
+            ),
+          db
+            .select({
+              id: commentsTable.id,
+              definitionId: commentsTable.definitionId,
+              revisionId: commentsTable.revisionId,
+              version: definitionRevisionsTable.version,
+              message: commentsTable.message,
+              createdAt: commentsTable.createdAt,
+              migratedLegacy: commentsTable.migratedLegacy,
+              authorId: usersTable.id,
+              author: usersTable.name,
+              isAi: usersTable.isAi,
+              authorProfilePublic: usersTable.isProfilePublic
+            })
+            .from(commentsTable)
+            .innerJoin(
+              definitionRevisionsTable,
+              and(
+                eq(definitionRevisionsTable.id, commentsTable.revisionId),
+                eq(
+                  definitionRevisionsTable.definitionId,
+                  commentsTable.definitionId
                 )
               )
-              .innerJoin(usersTable, eq(usersTable.id, commentsTable.userId))
-              .where(inArray(commentsTable.definitionId, definitionIds))
-          ])
+            )
+            .innerJoin(usersTable, eq(usersTable.id, commentsTable.userId))
+            .where(inArray(commentsTable.definitionId, definitionIds))
+        ])
         : [[], []]
 
       // A term's history: its definitions and the comments on them, in the
@@ -170,7 +170,7 @@ export const discussionRouter = createTRPCRouter({
                 (revision.source === "ai_refinement" ||
                   revision.source === "ai_generation"),
               isProfilePublic: revision.editorProfilePublic ?? false,
-              body: revision.definition,
+              body: revision.definitionDiff,
               definitionId: revision.definitionId,
               definitionNumber: definitionNumberById.get(
                 revision.definitionId
@@ -299,18 +299,11 @@ export const discussionRouter = createTRPCRouter({
           .select({
             currentRevisionId: definitionsTable.currentRevisionId,
             term: termsTable.term,
-            definition: definitionRevisionsTable.definition,
-            example: definitionRevisionsTable.example
+            definition: definitionsTable.definition,
+            example: definitionsTable.example
           })
           .from(definitionsTable)
           .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-          .innerJoin(
-            definitionRevisionsTable,
-            and(
-              eq(definitionRevisionsTable.id, revisionId),
-              eq(definitionRevisionsTable.definitionId, definitionsTable.id)
-            )
-          )
           .where(eq(definitionsTable.id, definitionId))
 
         if (!original)

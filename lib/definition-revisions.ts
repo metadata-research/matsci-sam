@@ -1,4 +1,9 @@
 import {
+  Diff,
+  DiffMatchPatch,
+  DiffOp,
+} from "diff-match-patch-ts"
+import {
   db,
   definitionRevisionsTable,
   definitionsTable,
@@ -60,6 +65,17 @@ interface CreateDefinitionWithInitialRevisionInput {
   createdVia?: (typeof definitionsTable.$inferInsert)["createdVia"]
 }
 
+export function diffToStringSimple(diff: Diff[]) {
+  let str = "";
+  for (let i = 0; i < diff.length; i++) {
+    const op = diff[i][0];
+    if (op == DiffOp.Insert || op == DiffOp.Equal) {
+      str += diff[i][1];
+    }
+  }
+  return str
+}
+
 /**
  * Create a stable definition identity and its complete first revision in one
  * transaction. The database validates at commit that no definition can remain
@@ -106,15 +122,17 @@ export async function createDefinitionWithInitialRevision(
       definitionId: insertedDefinition.id,
       version: 1,
       previousRevisionId: null,
-      definition: input.definition,
-      example: input.example,
+      definitionDiff: [[DiffOp.Insert, input.definition]],
+      exampleDiff: [[DiffOp.Insert, input.example]],
       editorId: input.authorId,
       changeNote: input.changeNote.trim(),
       source: input.source,
       model: input.model ?? null,
       prompt: input.prompt ?? null,
       derivedFromRevisionId: input.derivedFromRevisionId ?? null,
-      sourceRefinementId: input.sourceRefinementId ?? null
+      sourceRefinementId: input.sourceRefinementId ?? null,
+      charsAdded: (input.definition.length + input.example.length),
+      changeDelta: "1.000",
     })
     .returning()
 
@@ -155,31 +173,54 @@ export async function publishDefinitionRevision(
 
   const currentRevision = stableDefinition.currentRevisionId
     ? await tx.query.definitionRevisionsTable.findFirst({
-        where: and(
-          eq(definitionRevisionsTable.id, stableDefinition.currentRevisionId),
-          eq(definitionRevisionsTable.definitionId, stableDefinition.id)
-        )
-      })
+      where: and(
+        eq(definitionRevisionsTable.id, stableDefinition.currentRevisionId),
+        eq(definitionRevisionsTable.definitionId, stableDefinition.id)
+      )
+    })
     : await tx.query.definitionRevisionsTable.findFirst({
-        where: eq(definitionRevisionsTable.definitionId, stableDefinition.id),
-        orderBy: desc(definitionRevisionsTable.version)
-      })
+      where: eq(definitionRevisionsTable.definitionId, stableDefinition.id),
+      orderBy: desc(definitionRevisionsTable.version)
+    })
 
   if (
     !input.allowUnchangedContent &&
-    currentRevision?.definition === input.definition &&
-    currentRevision.example === input.example
+    stableDefinition?.definition === input.definition &&
+    stableDefinition.example === input.example
   )
     throw new RevisionNoChangeError()
 
+  // Create diffs
+  const dmp = new DiffMatchPatch();
+  const definitionDiff = dmp.diff_main(stableDefinition.definition, input.definition);
+  const exampleDiff = dmp.diff_main(stableDefinition.example, input.example);
+  // Calculate diff data
+  let charsAdded = 0;
+  let charsRemoved = 0;
+  let unchanged = 0;
+  for (const diffs of [definitionDiff, exampleDiff]) {
+    for (const diff of diffs) {
+      switch (diff[0]) {
+        case DiffOp.Delete:
+          charsRemoved += diff[1].length;
+          break;
+        case DiffOp.Equal:
+          unchanged += diff[1].length;
+          break;
+        case DiffOp.Insert:
+          charsAdded += diff[1].length;
+          break;
+      }
+    }
+  }
   const [revision] = await tx
     .insert(definitionRevisionsTable)
     .values({
       definitionId: stableDefinition.id,
       version: (currentRevision?.version ?? 0) + 1,
       previousRevisionId: currentRevision?.id ?? null,
-      definition: input.definition,
-      example: input.example,
+      definitionDiff,
+      exampleDiff,
       editorId: input.editorId,
       changeNote: input.changeNote.trim(),
       source: input.source,
@@ -188,7 +229,27 @@ export async function publishDefinitionRevision(
       model: input.model ?? null,
       prompt: input.prompt ?? null,
       derivedFromRevisionId: input.derivedFromRevisionId ?? null,
-      sourceRefinementId: input.sourceRefinementId ?? null
+      sourceRefinementId: input.sourceRefinementId ?? null,
+      charsAdded,
+      charsRemoved,
+      changeDelta:
+        (
+          (
+            (
+              charsRemoved
+              /
+              (unchanged + charsRemoved)
+            )
+            +
+            (
+              charsAdded
+              /
+              (unchanged + charsAdded)
+            )
+          )
+          /
+          2
+        ).toPrecision(4),
     })
     .returning()
 
@@ -196,8 +257,8 @@ export async function publishDefinitionRevision(
     .update(definitionsTable)
     .set({
       currentRevisionId: revision.id,
-      definition: revision.definition,
-      example: revision.example!,
+      definition: input.definition,
+      example: input.example!,
       model: revision.model,
       prompt: revision.prompt,
       score: 0

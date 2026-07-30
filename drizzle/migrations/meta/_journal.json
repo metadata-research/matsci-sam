@@ -197,6 +197,13 @@
       "when": 1785413425143,
       "tag": "0027_hard_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1785437778911,
+      "tag": "0028_shiny_puff_adder",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { Definition } from "@/components/definition"
 import { db, termsTable } from "@/drizzle"
+import { diffToStringSimple } from "@/lib/definition-revisions"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { eq } from "drizzle-orm"
 import { HistoryIcon, MessageCircleIcon } from "lucide-react"
@@ -103,11 +104,11 @@ export default async function TermTreePage(props: {
                             {history.changeNote}
                           </p>
                         )}
-                        <p>{history.definition}</p>
+                        <p>{diffToStringSimple(history.definitionDiff)}</p>
                         <p className="text-sm text-muted-foreground">
                           <span className="italic">Example:</span>{" "}
-                          {history.example ??
-                            "Not retained in this imported legacy record"}
+                          {diffToStringSimple(history.exampleDiff ?? []) == "" ?
+                            "Not retained in this imported legacy record" : diffToStringSimple(history.exampleDiff ?? [])}
                         </p>
                       </>
                     )}

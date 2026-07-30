@@ -37,6 +37,7 @@ import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
 import {
   createDefinitionWithInitialRevision,
+  diffToStringSimple,
   publishDefinitionRevision,
   RevisionConflictError,
   RevisionNoChangeError
@@ -143,7 +144,6 @@ export const definitionsRouter = createTRPCRouter({
 
         return { term: dbTerm, definition: insertedDefinition }
       })
-
       revalidatePath("/terms")
       revalidatePath(`/terms/${term.id}`)
       await revalidatePublicDefinition({
@@ -272,7 +272,7 @@ export const definitionsRouter = createTRPCRouter({
                 code: "NOT_FOUND",
                 message: "No such revision"
               })
-            if (target.example === null)
+            if (target.exampleDiff === null)
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:
@@ -282,8 +282,8 @@ export const definitionsRouter = createTRPCRouter({
             return publishDefinitionRevision(tx, {
               definitionId,
               editorId: userId,
-              definition: target.definition,
-              example: target.example,
+              definition: diffToStringSimple(target.definitionDiff),
+              example: diffToStringSimple(target.exampleDiff),
               changeNote,
               source: "rollback",
               expectedRevisionId,
@@ -342,8 +342,8 @@ export const definitionsRouter = createTRPCRouter({
         .select({
           id: definitionRevisionsTable.id,
           version: definitionRevisionsTable.version,
-          definition: definitionRevisionsTable.definition,
-          example: definitionRevisionsTable.example,
+          definitionDiff: definitionRevisionsTable.definitionDiff,
+          exampleDiff: definitionRevisionsTable.exampleDiff,
           changeNote: definitionRevisionsTable.changeNote,
           source: definitionRevisionsTable.source,
           model: definitionRevisionsTable.model,
@@ -388,32 +388,32 @@ export const definitionsRouter = createTRPCRouter({
 
       const vote = userId
         ? await db.query.votesTable.findFirst({
-            columns: { kind: true },
-            where: and(
-              eq(votesTable.userId, userId),
-              eq(votesTable.revisionId, selectedRevision.id)
-            )
-          })
+          columns: { kind: true },
+          where: and(
+            eq(votesTable.userId, userId),
+            eq(votesTable.revisionId, selectedRevision.id)
+          )
+        })
         : null
 
       // Additional authors (the model, for accepted AI refinements)
       const coauthors = selectedRevision.model
         ? await db
-            .select({
-              id: usersTable.id,
-              name: usersTable.name,
-              isAi: usersTable.isAi,
-              isProfilePublic: usersTable.isProfilePublic
-            })
-            .from(coauthorsTable)
-            .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
-            .where(
-              and(
-                eq(coauthorsTable.definitionId, def.id),
-                eq(usersTable.isAi, true),
-                eq(usersTable.name, selectedRevision.model)
-              )
+          .select({
+            id: usersTable.id,
+            name: usersTable.name,
+            isAi: usersTable.isAi,
+            isProfilePublic: usersTable.isProfilePublic
+          })
+          .from(coauthorsTable)
+          .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
+          .where(
+            and(
+              eq(coauthorsTable.definitionId, def.id),
+              eq(usersTable.isAi, true),
+              eq(usersTable.name, selectedRevision.model)
             )
+          )
         : []
 
       // Public identities for both sides of the accepted-refinement lineage.
@@ -423,24 +423,24 @@ export const definitionsRouter = createTRPCRouter({
         def.refinedFromId === null
           ? null
           : db.query.definitionsTable.findFirst({
-              columns: { definitionNumber: true },
-              where: eq(definitionsTable.id, def.refinedFromId)
-            }),
+            columns: { definitionNumber: true },
+            where: eq(definitionsTable.id, def.refinedFromId)
+          }),
         def.authorId === null
           ? null
           : db.query.definitionsTable.findFirst({
-              columns: { id: true, definitionNumber: true },
-              where: and(
-                eq(definitionsTable.refinedFromId, def.id),
-                eq(definitionsTable.authorId, def.authorId),
-                sql`exists (
+            columns: { id: true, definitionNumber: true },
+            where: and(
+              eq(definitionsTable.refinedFromId, def.id),
+              eq(definitionsTable.authorId, def.authorId),
+              sql`exists (
                   select 1
                   from ${definitionRevisionsTable} artifact_revision
                   where artifact_revision."definitionId" = ${definitionsTable.id}
                     and artifact_revision."sourceRefinementId" is not null
                 )`
-              )
-            })
+            )
+          })
       ])
 
       const currentVersion =
@@ -449,8 +449,8 @@ export const definitionsRouter = createTRPCRouter({
 
       return {
         ...def,
-        definition: selectedRevision.definition,
-        example: selectedRevision.example,
+        definition: diffToStringSimple(selectedRevision.definitionDiff),
+        example: diffToStringSimple(selectedRevision.exampleDiff),
         model: selectedRevision.model,
         prompt: selectedRevision.prompt,
         score: selectedRevision.score,
