@@ -1,44 +1,140 @@
-# Contributing
+# Contributing to MatSci-SAM
 
-MatSci-SAM uses `dev` as its integration branch.
+This guide applies to
+[`metadata-research/matsci-sam`](https://github.com/metadata-research/matsci-sam),
+the repository that supplies the Superego development site. Do not open new
+work against the legacy `Systemada/matsci-yamz` repository; it is not connected
+to the current release process.
 
-1. Update local `dev`, then create a short-lived feature branch.
+## Choose the right contribution path
+
+### Vocabulary contributions and site feedback
+
+You do not need a GitHub pull request to add or review materials-science
+terminology. If you have access to the shared development site, sign in at
+[Superego](https://superego.cci.drexel.edu/) and use **Contribute** to add a
+term or definition. The [user guide](https://superego.cci.drexel.edu/docs)
+explains accounts, contributions, review, and revisions.
+
+Superego contains development and shared-test data. Its vocabulary records are
+not copied to the independent Ego public database. Use Superego for development
+testing only unless a maintainer has asked you to enter durable test content
+there.
+
+### Code, interface, schema, and documentation changes
+
+All source changes enter the protected `dev` branch through a pull request.
+Do not edit source, configuration, or database records directly on Superego.
+A pull request changes source control; it does not deploy a server.
+
+## Prepare a local checkout
+
+The project uses Node.js `24.18.0` (recorded in `.nvmrc`) and pnpm `10.34.5`.
+PostgreSQL is required for local application and database work. Ollama is
+optional unless the change involves AI-assisted definition refinement.
+
+1. Fork `metadata-research/matsci-sam` on GitHub, then clone your fork.
 
    ```bash
-   git switch dev
-   git pull --ff-only
-   git switch -c feature/short-description
+   git clone https://github.com/YOUR-USERNAME/matsci-sam.git
+   cd matsci-sam
+   git remote add upstream https://github.com/metadata-research/matsci-sam.git
    ```
 
-2. Make and verify the change. Run the checks that match its scope. The normal
-   pre-review set is:
+   A repository collaborator may instead push a feature branch directly to
+   the canonical repository.
+
+2. Create a short-lived branch from the current upstream `dev`.
 
    ```bash
-   pnpm lint
-   pnpm check-types
-   pnpm db:check
-   pnpm build
+   git fetch upstream
+   git switch -c feature/short-description upstream/dev
    ```
 
-3. Commit the intended files and push the feature branch.
+3. Install dependencies and prepare a local environment.
+
+   ```bash
+   nvm use
+   corepack enable
+   pnpm install --frozen-lockfile
+   cp .env.example .env
+   ```
+
+   Set only local development values in `.env`, then initialize and run the
+   application:
+
+   ```bash
+   pnpm db:migrate
+   pnpm dev
+   ```
+
+   See [`developing.md`](developing.md) for the full setup and architecture
+   notes.
+
+## Make and verify the change
+
+Keep each pull request focused. Follow existing patterns in `app/`,
+`components/`, `lib/`, and `trpc/`. For a schema change, update the tracked
+schema, run `pnpm db:generate`, and include the generated migration. Never
+experiment against the shared Superego or Ego database.
+
+The pull-request workflow runs the following checks:
+
+```bash
+pnpm lint
+pnpm check-types
+pnpm test:auth
+pnpm test:identifiers
+pnpm test:interface
+pnpm test:ollama-context
+pnpm test:deployment
+pnpm db:check
+pnpm build
+```
+
+Run the checks relevant to the change while developing and the complete set
+before requesting review when practical. If a check needs configuration your
+change does not use, explain that in the pull request; GitHub still runs the
+complete verification job in its controlled environment.
+
+## Open the pull request
+
+1. Commit only the intended files and push the feature branch.
 
    ```bash
    git push --set-upstream origin feature/short-description
    ```
 
-4. Open a pull request from the feature branch into `dev`. GitHub must report
-   the required verification job as successful before merge.
+2. Open a pull request in `metadata-research/matsci-sam` with **base:
+   `dev`**. Do not target `main`; it is frozen and is not a deployment branch.
 
-5. A maintainer merges the pull request into `dev`. The merge updates source
-   control only. It does not deploy Superego or another server.
+3. In the pull request:
 
-6. A maintainer deploys a reviewed `dev` commit to Superego through the
-   environment runbook. Promotion to `main` and deployment to the independent
-   Ego public runtime are separate decisions. The legacy workflows are
-   disabled, but `main` remains blocked until their self-hosted runners and
-   deployment privileges are retired and the old deployment workflow is
-   removed. A public candidate must use the same Git tree already validated on
-   Superego.
+   - explain the problem and the resulting behavior;
+   - list the verification commands you ran;
+   - include before-and-after screenshots for visible interface changes;
+   - identify migrations, new environment variables, or operational effects;
+   - describe what a maintainer should exercise on Superego after merge.
 
-Never put credentials, database dumps, private environment files, or TLS keys
-in a branch, pull request, issue, workflow log, or build artifact.
+4. Address review comments and wait for the required GitHub `verify` check to
+   pass. Push follow-up commits to the same branch and pull request.
+
+Never put credentials, tokens, database dumps, private environment files, TLS
+keys, or private user data in a branch, pull request, issue, workflow log, or
+build artifact.
+
+## What happens after review
+
+1. A maintainer merges the approved pull request into `dev`.
+2. The merge updates GitHub only; nothing deploys automatically.
+3. From the registered control workstation, a maintainer releases the exact
+   reviewed commit to Superego.
+4. The changed behavior is exercised on Superego against its own development
+   database. The contributor may be asked to help validate the result.
+5. Promotion to Ego is a separate maintainer decision. If approved, the exact
+   commit already tested on Superego is released to Ego against Ego's
+   independent database.
+
+Contributors do not need server credentials or access to deployment scripts.
+Maintainers follow the protected environment runbook for releases, health
+checks, migrations, and rollback.

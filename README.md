@@ -26,6 +26,19 @@ pnpm db:check
 pnpm build
 ```
 
+## Contributing
+
+Code, interface, schema, and documentation changes enter the protected `dev`
+branch through a pull request. A maintainer then releases the reviewed commit
+to the [Superego development site](https://superego.cci.drexel.edu/) for
+hands-on verification; merging a pull request does not deploy it
+automatically.
+
+See the [contribution guide](contributing.md) for fork and branch setup, the
+complete verification suite, pull-request expectations, and the
+Superego-to-Ego release handoff. Vocabulary contributions made through the
+site do not require a GitHub pull request.
+
 ## Branches and deployment
 
 Feature work enters the `dev` branch through a pull request. A merge to `dev`
