@@ -701,7 +701,8 @@ verify_loopback_contract() {
     fail "PostgreSQL unexpectedly has a TCP listener on Ego."
   fi
 
-  local local_paths=(/ /api/health /search /terms /docs /about /metadata/matcore)
+  local local_paths=(/ /api/health /login /search /terms /docs /about /metadata/matcore)
+  local login_headers
   local local_redirect_headers
   local path
   local code
@@ -737,11 +738,28 @@ verify_loopback_contract() {
     [[ ${code} == 200 ]] ||
       fail "Unexpected local status for ${path}: ${code}"
   done
+
+  login_headers=$(
+    curl \
+      --connect-timeout 3 \
+      --max-time 10 \
+      --silent \
+      --show-error \
+      --output /dev/null \
+      --dump-header - \
+      http://127.0.0.1:3000/api/login
+  )
+  verify_redirect_headers \
+    "${login_headers}" \
+    307 \
+    /login \
+    "The local login compatibility entry"
 }
 
 verify_public_contract() {
   local host=${public_host}
-  local public_paths=(/ /api/health /search /terms /docs /about /metadata/matcore)
+  local public_paths=(/ /api/health /login /search /terms /docs /about /metadata/matcore)
+  local login_headers
   local public_redirect_headers
   local google_headers
   local path
@@ -781,6 +799,23 @@ verify_public_contract() {
     [[ ${code} == 200 ]] ||
       fail "Unexpected public status for ${path}: ${code}"
   done
+
+  login_headers=$(
+    curl \
+      --resolve "${host}:443:127.0.0.1" \
+      --connect-timeout 3 \
+      --max-time 10 \
+      --silent \
+      --show-error \
+      --output /dev/null \
+      --dump-header - \
+      "https://${host}/api/login"
+  )
+  verify_redirect_headers \
+    "${login_headers}" \
+    307 \
+    /login \
+    "The public login compatibility entry"
 
   google_headers=$(
     curl \

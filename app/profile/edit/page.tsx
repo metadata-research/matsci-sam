@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: `Edit Profile | ${SITE_NAME}` }
 
 export default async function EditProfilePage() {
   const { user } = await auth()
-  if (!user) redirect("/api/login")
+  if (!user) redirect("/login")
 
   return (
     <main className="px-4 py-8">
@@ -79,7 +79,7 @@ export default async function EditProfilePage() {
                 </div>
               ) : (
                 <Button asChild variant="outline">
-                  <Link href="/api/auth/orcid?intent=connect">
+                  <a href="/api/auth/orcid?intent=connect">
                     <Image
                       src="/orcid-id.svg"
                       alt=""
@@ -88,7 +88,7 @@ export default async function EditProfilePage() {
                       aria-hidden
                     />
                     Connect your ORCID iD
-                  </Link>
+                  </a>
                 </Button>
               )}
             </CardContent>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { notFound } from "next/navigation"
 import { MailIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -72,9 +71,9 @@ export default async function RegisterPage({
           </form>
           <p className="text-center text-sm text-muted-foreground">
             Prefer your existing identity?{" "}
-            <Link href="/api/auth/google" className="text-primary underline">
+            <a href="/api/auth/google" className="text-primary underline">
               Continue with Google
-            </Link>
+            </a>
           </p>
         </CardContent>
       </Card>
