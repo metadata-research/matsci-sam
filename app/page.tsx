@@ -70,11 +70,12 @@ export default async function Home() {
       <main className={styles.main}>
         <div className={styles.shell}>
           <section
-            className={styles.id4Guide}
-            aria-labelledby="id4-guide-heading"
+            className={styles.conferenceGuide}
+            aria-labelledby="conference-guide-heading"
           >
-            <h2 id="id4-guide-heading">
-              Here with the ID4 community? Explore {SITE_NAME} in 90 seconds
+            <h2 id="conference-guide-heading">
+              Here for the 2026 NSF HDR Ecosystem Conference? Explore{" "}
+              {SITE_NAME} in 90 seconds
             </h2>
             <ol>
               <li>
