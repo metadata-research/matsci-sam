@@ -11,9 +11,9 @@
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 2rem;
+  gap: 1.5rem;
   align-items: start;
-  padding: 1.25rem 0 3rem;
+  padding: 0.85rem 0 2rem;
 }
 
 .heroIntroduction {
@@ -67,7 +67,7 @@
 
 .contributionPanel {
   scroll-margin-top: 1rem;
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   padding: 1.1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
@@ -501,8 +501,8 @@
 }
 
 .communitySection {
-  margin-top: 3.5rem;
-  padding-top: 3rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
 }
 
 .activityColumns {
