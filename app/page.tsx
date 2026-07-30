@@ -74,8 +74,8 @@ export default async function Home() {
             aria-labelledby="conference-guide-heading"
           >
             <h2 id="conference-guide-heading">
-              Here for the 2026 NSF HDR Ecosystem Conference? Explore{" "}
-              {SITE_NAME} in 90 seconds
+              Here for the HDR Ecosystem Conference? Explore {SITE_NAME} in 90
+              seconds
             </h2>
             <ol>
               <li>
