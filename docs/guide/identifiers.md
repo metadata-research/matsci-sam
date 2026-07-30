@@ -108,7 +108,10 @@ The authority portion of development IRIs comes from
 the path remains the same.
 
 MatSci-SAM does not yet publish these resources through an independent
-persistent-identifier authority. The project must select an authority such as
-w3id.org, an institutional resolver, or a project-controlled domain before
-external publication. A persistent resolver can preserve the complete path
-grammar while application hosts change.
+persistent-identifier authority. The public site therefore publishes
+host-bound web identifiers, not a promise that the authority will remain
+unchanged indefinitely. Before promising long-term persistence or recommending
+these IRIs for durable external citation, the project must select an authority
+such as w3id.org, an institutional resolver, or a project-controlled domain. A
+persistent resolver can preserve the complete path grammar while application
+hosts change.

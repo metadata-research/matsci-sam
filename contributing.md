@@ -183,7 +183,7 @@ build artifact.
    reviewed commit to Superego.
 4. The changed behavior is exercised on Superego against its own development
    database. The contributor may be asked to help validate the result.
-5. Promotion to Ego is a separate maintainer decision. If approved, the exact
+5. Release to Ego is a separate maintainer decision. If approved, the exact
    commit already tested on Superego is released to Ego against Ego's
    independent database.
 

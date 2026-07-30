@@ -22,8 +22,12 @@ authentication, and release boundaries.
 ## Quick Start
 
 ```bash
-# Install dependencies
-pnpm install
+# Select the versions recorded in .nvmrc and package.json
+nvm use
+corepack enable
+
+# Install the exact locked dependencies
+pnpm install --frozen-lockfile
 
 # Set up environment
 cp .env.example .env
@@ -46,7 +50,8 @@ Visit `http://localhost:3000` to see the app running.
 - **Backend**: tRPC for type-safe APIs
 - **Database**: PostgreSQL with Drizzle ORM
 - **Styling**: Tailwind CSS 4 + shadcn/ui components
-- **Auth**: Google OAuth with iron-session
+- **Auth**: Google OAuth and optional verified-email links with iron-session;
+  dormant ORCID plumbing is feature-gated
 - **AI**: Ollama for LLM-powered features
 
 ---
@@ -101,7 +106,7 @@ export const termsTable = pgTable("terms", {
   term: text("term").notNull().unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   // Add your new field here:
-  description: text("description"),
+  description: text("description")
 })
 ```
 
@@ -124,10 +129,14 @@ This runs all pending migrations against your database.
 ### Quick Database Commands
 
 ```bash
-pnpm db:studio     # Open Drizzle Studio (visual database editor)
-pnpm db:push       # Push schema changes without migrations (dev only)
-pnpm db:drop       # Drop all tables (careful!)
+pnpm db:studio     # Open Drizzle Studio against your local database
+pnpm db:check      # Validate the tracked migration history
 ```
+
+Use `pnpm db:generate` and commit the generated migration for every tracked
+schema change. The `db:push` and `db:drop` package scripts are local
+experimentation tools, not the contribution or deployment workflow. Never run
+them against Superego or Ego.
 
 ### Example: Adding a New Table
 
@@ -140,7 +149,7 @@ export const myNewTable = pgTable("my_new_table", {
   userId: integer("user_id")
     .references(() => usersTable.id, { onDelete: "cascade" })
     .notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
 })
 
 export type MyNewTable = typeof myNewTable.$inferSelect
@@ -182,7 +191,7 @@ export default function MyPage() {
 ```tsx
 export const metadata = {
   title: "My Page - MatSci-SAM",
-  description: "Description of my page",
+  description: "Description of my page"
 }
 ```
 
@@ -194,7 +203,7 @@ Create `app/my-page/[id]/page.tsx`:
 
 ```tsx
 export default async function MyDynamicPage({
-  params,
+  params
 }: {
   params: Promise<{ id: string }>
 }) {
@@ -222,11 +231,7 @@ import { useState } from "react"
 export default function MyClientComponent() {
   const [count, setCount] = useState(0)
 
-  return (
-    <button onClick={() => setCount(count + 1)}>
-      Count: {count}
-    </button>
-  )
+  return <button onClick={() => setCount(count + 1)}>Count: {count}</button>
 }
 ```
 
@@ -255,29 +260,31 @@ Create or edit a router in `trpc/routers/`. For example, `trpc/routers/my-featur
 
 ```typescript
 import { z } from "zod"
-import { authenticatedProcedure, baseProcedure } from "../procedures"
-import { router } from "../init"
-import { db } from "@yamz/db"
+import { db, myNewTable } from "@yamz/db"
+import { baseProcedure, createTRPCRouter } from "../init"
+import { contributorProcedure } from "../procedures"
 
-export const myFeatureRouter = router({
+export const myFeatureRouter = createTRPCRouter({
   // Public endpoint
   getAll: baseProcedure.query(async () => {
     return await db.select().from(myNewTable)
   }),
 
-  // Authenticated endpoint
-  create: authenticatedProcedure
-    .input(z.object({
-      name: z.string().min(1),
-    }))
+  // Signed-in contributor with a completed profile
+  create: contributorProcedure
+    .input(
+      z.object({
+        name: z.string().min(1)
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       const { userId } = ctx
 
       return await db.insert(myNewTable).values({
         name: input.name,
-        userId,
+        userId
       })
-    }),
+    })
 })
 ```
 
@@ -286,11 +293,12 @@ export const myFeatureRouter = router({
 In `trpc/routers/_app.ts`:
 
 ```typescript
+import { createTRPCRouter } from "../init"
 import { myFeatureRouter } from "./my-feature"
 
-export const appRouter = router({
+export const appRouter = createTRPCRouter({
   // ... existing routers
-  myFeature: myFeatureRouter,
+  myFeature: myFeatureRouter
 })
 ```
 
@@ -313,7 +321,7 @@ export function MyComponent() {
 
   return (
     <div>
-      {data?.map(item => <div key={item.id}>{item.name}</div>)}
+      {data?.map((item) => <div key={item.id}>{item.name}</div>)}
       <button onClick={handleCreate}>Create</button>
     </div>
   )
@@ -323,14 +331,16 @@ export function MyComponent() {
 **Step 4: Use in Server Components**
 
 ```tsx
-import { trpcServer } from "@/trpc/server"
+import { trpc } from "@/trpc/server"
 
 export default async function MyServerComponent() {
-  const data = await trpcServer.myFeature.getAll()
+  const data = await trpc.myFeature.getAll()
 
   return (
     <div>
-      {data.map(item => <div key={item.id}>{item.name}</div>)}
+      {data.map((item) => (
+        <div key={item.id}>{item.name}</div>
+      ))}
     </div>
   )
 }
@@ -340,6 +350,8 @@ export default async function MyServerComponent() {
 
 - `baseProcedure` - Public endpoints
 - `authenticatedProcedure` - Requires logged-in user (has `userId` in context)
+- `contributorProcedure` - Requires a logged-in user with a completed profile
+- `adminProcedure` - Requires a logged-in administrator
 
 ---
 
@@ -352,7 +364,12 @@ The project uses shadcn/ui components in `components/ui/`. To use them:
 ```tsx
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 
 export function MyComponent() {
   return (
@@ -387,6 +404,7 @@ npx shadcn@latest add [component-name]
 ```
 
 For example:
+
 ```bash
 npx shadcn@latest add alert-dialog
 ```
@@ -412,17 +430,11 @@ The theme supports dark mode automatically via CSS variables.
 **In Server Components:**
 
 ```tsx
-import { GetUser } from "@/lib/crud"
-import { getSession } from "@/lib/session"
+import { getCurrentUser } from "@/lib/current-user"
 
 export default async function MyPage() {
-  const session = await getSession()
-  if (!session.id) {
-    return <div>Please log in</div>
-  }
-
-  const user = await GetUser(session.id)
-  if (!user) return <div>Account unavailable</div>
+  const user = await getCurrentUser()
+  if (!user) return <div>Please log in</div>
 
   return <div>Welcome, {user.name}!</div>
 }
@@ -436,9 +448,10 @@ export default async function MyPage() {
 import { trpc } from "@/trpc/client"
 
 export function MyComponent() {
-  const { data: user } = trpc.me.useQuery()
+  const { data: user, error, isLoading } = trpc.me.useQuery()
 
-  if (!user) return <div>Not logged in</div>
+  if (isLoading) return <div>Loading...</div>
+  if (error || !user) return <div>Please log in</div>
 
   return <div>Welcome, {user.name}!</div>
 }
@@ -458,6 +471,22 @@ create: authenticatedProcedure
 ```
 
 ### Checking Admin Status
+
+Protect every admin operation on the server with `adminProcedure`:
+
+```typescript
+import { createTRPCRouter } from "../init"
+import { adminProcedure } from "../procedures"
+
+export const adminRouter = createTRPCRouter({
+  report: adminProcedure.query(async () => {
+    // Return admin-only data.
+  })
+})
+```
+
+A role check in a client component controls presentation only; it is not an
+authorization boundary:
 
 ```tsx
 const { data: user } = trpc.me.useQuery()
@@ -517,8 +546,9 @@ startup with a list of available prompt names.
    pnpm exec tsx scripts/test-prompt.ts "creep" "The turbine blade failed by creep."
    ```
 
-   The script runs *every* prompt in the file against the same term and prints
+   The script runs _every_ prompt in the file against the same term and prints
    each definition/example side by side, with timing.
+
 3. Point the app at your prompt: set `SYSTEM_PROMPT_KEY=<your-key>` in `.env`.
 4. **Restart the dev server** (`pnpm dev`). The prompt is resolved once at
    startup, so edits to the JSON or `.env` are not picked up by a running server.
@@ -552,7 +582,7 @@ import { z } from "zod"
 
 const myFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
+  description: z.string().optional()
 })
 ```
 
@@ -563,14 +593,21 @@ const myFormSchema = z.object({
 
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 export function MyForm() {
   const form = useForm({
     resolver: zodResolver(myFormSchema),
-    defaultValues: { title: "", description: "" },
+    defaultValues: { title: "", description: "" }
   })
 
   const onSubmit = (data) => {
@@ -634,18 +671,30 @@ Tags are many-to-many with definitions. See `trpc/routers/tags.ts` for the API a
 
 ### Environment Variables
 
-Ensure all required variables are set (see `.env.example`):
+Use `.env.example` as the authoritative inventory and starting template. The
+settings are grouped by purpose:
 
-- `DATABASE_URL` - PostgreSQL connection
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` - Google
-  OAuth web client
-- `GOOGLE_AUTH_ACCESS_MODE` - `existing-or-allowlisted` or `open`
-- `GOOGLE_AUTH_ALLOWED_EMAILS` - optional exact comma-separated accounts
-  allowed to create users in the restricted mode
-- `SESSION_PASSWORD` - Session encryption (32+ chars)
-- `OLLAMA_HOST` - AI service URL
-- `SYSTEM_PROMPT_KEY` - Name of an AI system prompt from `lib/prompts.json` — see [AI System Prompts](#ai-system-prompts)
-- `SYSTEM_PROMPT` - Raw AI prompt text; optional, takes precedence over `SYSTEM_PROMPT_KEY`
+- Site and data: `DATABASE_URL`, `NEXT_PUBLIC_SITE_URL`, and
+  `NEXT_PUBLIC_SITE_NAME`
+- Sessions and stored provider tokens: `SESSION_PASSWORD`,
+  `SESSION_COOKIE_SECURE`, and `AUTH_TOKEN_ENCRYPTION_KEY`
+- Google OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+  `GOOGLE_CALLBACK_URL`, `GOOGLE_AUTH_ACCESS_MODE`, and
+  `GOOGLE_AUTH_ALLOWED_EMAILS`
+- Verified-email access: the separate `EMAIL_AUTH_ENABLED` and
+  `EMAIL_AUTH_ACCOUNT_CREATION_ENABLED` switches, link lifetime, sender
+  identity, and the Gmail API or SMTP provider settings
+- ORCID: the dormant, independently gated `ORCID_*` settings
+- Local development access: `DEV_AUTH_ENABLED` and the optional development
+  user settings
+- AI: `OLLAMA_HOST`, `SYSTEM_PROMPT_KEY`, `REFINE_PROMPT_KEY`, and the optional
+  `SYSTEM_PROMPT` override
+- Optional integrations such as `WOLFRAM_API_KEY`
+
+Do not commit `.env`, credentials, tokens, or deployed protected
+configuration. Authentication settings are read at process startup, so
+changing them requires a reviewed rebuild or restart appropriate to the
+environment.
 
 ### Production build
 

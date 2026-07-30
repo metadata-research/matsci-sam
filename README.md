@@ -6,11 +6,16 @@ an optional Ollama service for AI-assisted definition work.
 
 ## Local development
 
-1. Copy `.env.example` to `.env` and set the local values.
-2. Install dependencies with `pnpm install`.
-3. Apply local migrations with `pnpm db:migrate`.
-4. Start the development server with `pnpm dev`.
-5. Open <http://localhost:3000>.
+The required Node.js version is recorded in `.nvmrc`, and the required pnpm
+version is recorded in `package.json`.
+
+1. Select the project Node.js version with `nvm use`, then run
+   `corepack enable`.
+2. Install the locked dependencies with `pnpm install --frozen-lockfile`.
+3. Copy `.env.example` to `.env` and set the local values.
+4. Apply local migrations with `pnpm db:migrate`.
+5. Start the development server with `pnpm dev`.
+6. Open <http://localhost:3000>.
 
 PostgreSQL is required. Ollama is required only for AI generation and
 refinement.
@@ -22,6 +27,11 @@ Run these checks before opening a pull request:
 ```bash
 pnpm lint
 pnpm check-types
+pnpm test:auth
+pnpm test:identifiers
+pnpm test:interface
+pnpm test:ollama-context
+pnpm test:deployment
 pnpm db:check
 pnpm build
 ```

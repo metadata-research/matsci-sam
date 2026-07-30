@@ -4,14 +4,14 @@ This directory contains the reviewed wrappers and host profiles for the
 Superego development runtime and the independent Ego public runtime. Private
 authority, release, and server facts remain in the internal runbooks.
 
-| Purpose | Location on a provisioned host |
-| --- | --- |
-| Releases and `current` symlink | `/opt/matsci-sam` |
-| Protected settings | `/etc/matsci-sam/app.env` |
-| Persistent application state | `/var/lib/matsci-sam` |
-| Root-only deployment records and backups | `/var/lib/matsci-sam-admin` |
-| Service logs | systemd journal |
-| PostgreSQL data | distribution-managed PostgreSQL directory |
+| Purpose                                  | Location on a provisioned host            |
+| ---------------------------------------- | ----------------------------------------- |
+| Releases and `current` symlink           | `/opt/matsci-sam`                         |
+| Protected settings                       | `/etc/matsci-sam/app.env`                 |
+| Persistent application state             | `/var/lib/matsci-sam`                     |
+| Root-only deployment records and backups | `/var/lib/matsci-sam-admin`               |
+| Service logs                             | systemd journal                           |
+| PostgreSQL data                          | distribution-managed PostgreSQL directory |
 
 ## Routine release
 
@@ -146,10 +146,10 @@ conversation records must not become public by accident. A successful seed
 changes the Ego authority marker from `uninitialized` to `ego`. After that
 change, never replace or refresh the Ego database from Superego.
 
-Configure and validate the public OAuth client first. Then, after the promoted
-application content is verified on Superego, run the seed in a supervised
-foreground terminal. Reviewed public-operation changes may differ only through
-the exact fail-closed allowlist in
+Configure and validate the public OAuth client first. Then, after the
+application content promoted under the original workflow is verified on
+Superego, run the seed in a supervised foreground terminal. Reviewed
+public-operation changes may differ only through the exact fail-closed allowlist in
 `deploy/lib/verify-superego-public-content.sh`:
 
 ```bash
@@ -165,18 +165,19 @@ retained human email addresses. Google subjects remain so the first successful
 public login can repopulate the verified address without breaking attribution.
 Only public-profile fields explicitly opted into remain.
 
-The sanitized dump is restored and checked a second time. The promoted source
-then receives a frozen dependency install, migration rehearsal, and public
-build against that scratch database before the empty live database changes.
-The authority marker is the final commit point. A root mode-`0400` backup
-remains on Ego and a checksum-verified mode-`0600` copy is stored under the
-control user's WSL state directory, outside Git and OneDrive. The raw snapshot
-is transient.
+The sanitized dump is restored and checked a second time. The source promoted
+under that workflow then receives a frozen dependency install, migration
+rehearsal, and public build against that scratch database before the empty live
+database changes. The authority marker is the final commit point. A root
+mode-`0400` backup remains on Ego and a checksum-verified mode-`0600` copy is
+stored under the control user's WSL state directory, outside Git and OneDrive.
+The raw snapshot is transient.
 
-Because the seed removes raw term chats, the promoted application must retain
-the `EGO_SEED_CHAT_FALLBACK` contract. It reconstructs the term and current AI
-definition when later feedback starts a new chat thread. Both the wrapper and
-deployment contract test refuse a public tree without that fallback.
+Because the seed removes raw term chats, the application promoted under that
+workflow was required to retain the `EGO_SEED_CHAT_FALLBACK` contract. It
+reconstructs the term and current AI definition when later feedback starts a
+new chat thread. Both the wrapper and deployment contract test refuse a public
+tree without that fallback.
 
 After the reviewed seed records authority `ego`, prepare Ego's first release
 with:
