@@ -1,18 +1,21 @@
 # AI refinement
 
-When you add a definition with **Interactive AI refinement** on, your
+When you add a definition with **Publish, then refine** selected, your
 definition page shows a **Refine with AI** button. Only the author of the
 original definition can use this multi-round refinement panel.
 
 ## The loop
 
 1. Select **Refine with AI**. The application sends your term, definition,
-   and example to the locally hosted language model. A round can take up
-   to half a minute when the model must load. The pending round is stored,
-   so a page refresh does not discard it.
+   and example to the locally hosted language model. A round can take time,
+   especially when the model must first load. The pending round is stored, so
+   a page refresh does not discard it.
 2. The suggestion appears as a card, with changed wording highlighted
-   against your current text. You have three choices.
+   against your current text. Depending on what the model changed, you can:
    - **Accept suggestion** publishes the revision.
+   - **Accept definition, keep my example** publishes the suggested definition
+     while preserving your example verbatim. This choice appears when the
+     model changed the example.
    - **Keep mine** closes the round with your original standing.
    - **Re-evaluate** sends your feedback with a request for another pass.
      Type what should change first, for example "mention that the

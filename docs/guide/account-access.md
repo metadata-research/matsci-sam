@@ -4,17 +4,29 @@ MatSci-SAM keeps one contributor account for each person. The sign-in choices
 shown on the site depend on the configuration of the deployed environment.
 Google sign-in uses the verified identity returned by Google.
 
-## Verified email
+## Verified email sign-in
 
-When email sign-in is available, a contributor can enter an email address to
-create an account or sign in. MatSci-SAM sends a short-lived link to that
-address. The link confirms control of the mailbox and can be used only once.
-No password is stored.
+When email sign-in is available, the form on **Sign in** is for an existing
+account. Enter an email address already attached to that account. MatSci-SAM
+sends a short-lived, one-time link only when the address matches an existing
+contributor. The confirmation page does not reveal whether an address was
+found. No password is stored.
 
-An existing contributor who uses the same verified email address returns to
-the same account. A new address creates an account after the link is verified.
-New contributors complete their name and public-profile choices after sign-in.
-The public profile never displays the email address.
+Following the link returns the contributor to the same account. The public
+profile never displays the email address.
+
+## Create an account by email
+
+When account creation is also available, the sign-in page links to a separate
+**Create an account by email** form. That form is intended for a new
+contributor. After following its one-time link, the contributor completes
+their name and public-profile choices.
+
+If you already have contributions, sign in with the same Google account you
+used before. Creating another account by email can separate you from work
+already attributed to your Google-connected account. A maintainer can enable
+existing-account email sign-in without enabling new account creation, so the
+registration link may not appear in every environment.
 
 Email access depends on reliable delivery. A delayed or filtered message may
 require the contributor to request another link after the short waiting

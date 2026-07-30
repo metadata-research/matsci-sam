@@ -115,7 +115,8 @@ export const RefinePanel = ({
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2Icon className="size-4 animate-spin" />
                 Round {round.round} in progress. The model is generating a
-                suggestion, which can take up to half a minute.
+                suggestion. This can take time, especially while the model
+                loads.
               </div>
             </Card>
           )

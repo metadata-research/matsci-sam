@@ -90,9 +90,10 @@ export default function AboutPage() {
           </ol>
 
           <p className={styles.workflowDecision}>
-            The author can accept a model suggestion, keep the original, or
-            request another pass. An accepted suggestion is attributed to both
-            the author and the named model.
+            The author can accept the full suggestion, accept its definition
+            while preserving the original example, keep the original, or request
+            another pass. An accepted suggestion is attributed to both the
+            author and the named model.
           </p>
           <div className={styles.linkRow}>
             <Link href="/docs/community" className={styles.textLink}>

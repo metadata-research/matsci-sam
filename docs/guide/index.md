@@ -11,8 +11,8 @@ consumers and semantic web tools.
 These guides cover what the site can do today, including the limits of the
 pilot workflows.
 
-- [Account access](/docs/account-access) explains sign-in, verified email
-  accounts, and linked ORCID iDs.
+- [Account access](/docs/account-access) explains Google and verified-email
+  sign-in, email account creation, and linked ORCID iDs.
 - [Adding a term](/docs/adding-terms) covers the Contribute page and the two
   modes.
 - [Community review and revisions](/docs/community) covers voting,
