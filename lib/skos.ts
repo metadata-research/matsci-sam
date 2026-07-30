@@ -20,6 +20,7 @@ import {
   schemeUri,
   termUri
 } from "./public-identifiers"
+import { diffToStringSimple } from "./definition-revisions"
 
 export { schemeUri, termUri } from "./public-identifiers"
 
@@ -74,8 +75,8 @@ export const buildTermSkos = async (
       id: definitionsTable.id,
       definitionNumber: definitionsTable.definitionNumber,
       definitionCreatedAt: definitionsTable.createdAt,
-      revisionDefinition: definitionRevisionsTable.definition,
-      revisionExample: definitionRevisionsTable.example,
+      revisionDefinition: definitionRevisionsTable.definitionDiff,
+      revisionExample: definitionRevisionsTable.exampleDiff,
       legacyExample: definitionsTable.example,
       revisionVersion: definitionRevisionsTable.version,
       revisionCreatedAt: definitionRevisionsTable.createdAt,
@@ -98,26 +99,26 @@ export const buildTermSkos = async (
   const [coauthors, tags] = await Promise.all([
     definitionIds.length
       ? db
-          .select({
-            definitionId: coauthorsTable.definitionId,
-            name: usersTable.name,
-            isAi: usersTable.isAi
-          })
-          .from(coauthorsTable)
-          .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
-          .where(inArray(coauthorsTable.definitionId, definitionIds))
+        .select({
+          definitionId: coauthorsTable.definitionId,
+          name: usersTable.name,
+          isAi: usersTable.isAi
+        })
+        .from(coauthorsTable)
+        .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
+        .where(inArray(coauthorsTable.definitionId, definitionIds))
       : Promise.resolve([]),
     definitionIds.length
       ? db
-          .selectDistinct({
-            id: tagsTable.id,
-            name: tagsTable.name,
-            mappingIri: tagsTable.mappingIri,
-            mappingRelation: tagsTable.mappingRelation
-          })
-          .from(tagsToDefinitions)
-          .innerJoin(tagsTable, eq(tagsTable.id, tagsToDefinitions.tagId))
-          .where(inArray(tagsToDefinitions.definitionId, definitionIds))
+        .selectDistinct({
+          id: tagsTable.id,
+          name: tagsTable.name,
+          mappingIri: tagsTable.mappingIri,
+          mappingRelation: tagsTable.mappingRelation
+        })
+        .from(tagsToDefinitions)
+        .innerJoin(tagsTable, eq(tagsTable.id, tagsToDefinitions.tagId))
+        .where(inArray(tagsToDefinitions.definitionId, definitionIds))
       : Promise.resolve([])
   ])
 
@@ -148,10 +149,10 @@ export const buildTermSkos = async (
         currentRevision: {
           uri: revisionUri(term.slug, d.definitionNumber, d.revisionVersion),
           version: d.revisionVersion,
-          text: d.revisionDefinition,
+          text: diffToStringSimple(d.revisionDefinition),
           // Legacy revision imports may not contain the historical example.
           // The stable row mirrors the current content and supplies it here.
-          example: d.revisionExample ?? d.legacyExample,
+          example: diffToStringSimple(d.revisionExample ?? []) == "" ? d.legacyExample : diffToStringSimple(d.revisionExample ?? []),
           contributors: [...new Set(contributors)],
           created: d.revisionCreatedAt,
           status: definitionStatus(d.score)
@@ -241,10 +242,9 @@ const conceptTurtle = (skos: TermSkos) => {
     lines.push("")
     lines.push(`<${s.uri}> a skos:Concept ;`)
     lines.push(
-      `  skos:prefLabel ${en(s.label)} ${
-        s.mappingIri && s.mappingRelation
-          ? `;\n  skos:${s.mappingRelation} <${s.mappingIri}> .`
-          : "."
+      `  skos:prefLabel ${en(s.label)} ${s.mappingIri && s.mappingRelation
+        ? `;\n  skos:${s.mappingRelation} <${s.mappingIri}> .`
+        : "."
       }`
     )
   }
@@ -301,11 +301,11 @@ export const termJsonLd = (skos: TermSkos) => ({
       "rdf:value": { "@value": revision.text, "@language": "en" },
       ...(revision.example
         ? {
-            "skos:example": {
-              "@value": revision.example,
-              "@language": "en"
-            }
+          "skos:example": {
+            "@value": revision.example,
+            "@language": "en"
           }
+        }
         : {}),
       "dcterms:creator": revision.contributors,
       "dcterms:created": {

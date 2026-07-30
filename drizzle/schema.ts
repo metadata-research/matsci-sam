@@ -1,3 +1,4 @@
+import type { Diff } from "diff-match-patch-ts"
 import { relations, sql } from "drizzle-orm"
 import {
   integer,
@@ -13,7 +14,9 @@ import {
   uniqueIndex,
   foreignKey,
   check,
-  type AnyPgColumn
+  type AnyPgColumn,
+  jsonb,
+  numeric
 } from "drizzle-orm/pg-core"
 
 export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
@@ -481,11 +484,11 @@ export const definitionRevisionsTable = pgTable(
       .notNull(),
     version: integer().notNull(),
     previousRevisionId: integer(),
-    definition: text().notNull(),
+    definitionDiff: jsonb().notNull().$type<Diff[]>(),
     // Historical definitionEdits never stored the prior example, editor, or
     // change note. Those fields may be null only on rows explicitly marked as
     // incomplete legacy imports; every newly published revision supplies them.
-    example: text(),
+    exampleDiff: jsonb().$type<Diff[]>(),
     editorId: integer().references(() => usersTable.id),
     changeNote: text(),
     legacyIncomplete: boolean().notNull().default(false),
@@ -502,7 +505,11 @@ export const definitionRevisionsTable = pgTable(
     ),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
-      .notNull()
+      .notNull(),
+    // Metadata related to revision diffs
+    charsAdded: integer().notNull().default(0),
+    charsRemoved: integer().notNull().default(0),
+    changeDelta: numeric({ precision: 4, scale: 3 }).notNull(),
   },
   (table) => [
     uniqueIndex("definition_revisions_definition_version_unique").on(
@@ -533,18 +540,21 @@ export const definitionRevisionsTable = pgTable(
     ),
     check(
       "definition_revisions_nonblank_definition",
-      sql`btrim(${table.definition}) <> ''`
+      sql`jsonb_typeof(${table.definitionDiff}) = 'array'
+          AND jsonb_array_length(${table.definitionDiff}) > 0`
     ),
     check(
       "definition_revisions_complete_or_legacy",
       sql`${table.legacyIncomplete}
-          OR (${table.example} IS NOT NULL
+          OR (${table.exampleDiff} IS NOT NULL
               AND ${table.editorId} IS NOT NULL
               AND ${table.changeNote} IS NOT NULL)`
     ),
     check(
       "definition_revisions_nonblank_optional_text",
-      sql`(${table.example} IS NULL OR btrim(${table.example}) <> '')
+      sql`(${table.exampleDiff} IS NULL
+          OR (jsonb_typeof(${table.exampleDiff}) = 'array'
+              AND jsonb_array_length(${table.exampleDiff}) > 0))
           AND (${table.changeNote} IS NULL OR btrim(${table.changeNote}) <> '')`
     ),
     foreignKey({

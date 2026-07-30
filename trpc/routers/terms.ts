@@ -71,8 +71,8 @@ export const termsRouter = createTRPCRouter({
             ...revisions.map((revision) => ({
               id: revision.id,
               version: revision.version,
-              definition: revision.definition,
-              example: revision.example,
+              definitionDiff: revision.definitionDiff,
+              exampleDiff: revision.exampleDiff,
               changeNote: revision.changeNote,
               source: revision.source,
               legacyIncomplete: revision.legacyIncomplete,

@@ -29,6 +29,7 @@ pnpm lint
 pnpm check-types
 pnpm test:auth
 pnpm test:identifiers
+pnpm test:revisions
 pnpm test:interface
 pnpm test:ollama-context
 pnpm test:deployment
