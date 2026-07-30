@@ -6,7 +6,7 @@ import {
   connectOrcidAccount,
   findOrcidAccountUserId
 } from "@/lib/orcid-account"
-import { isEmailAuthEnabled } from "@/lib/email-auth"
+import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
 import { getSession } from "@/lib/session"
 import { revalidatePath } from "next/cache"
 import { NextRequest, NextResponse } from "next/server"
@@ -65,7 +65,7 @@ export const GET = async (request: NextRequest) => {
 
   const userId = await findOrcidAccountUserId(tokens.orcidId)
   if (!userId) {
-    if (isEmailAuthEnabled())
+    if (isEmailAccountCreationEnabled())
       return redirectTo(request, "/register?source=orcid")
     return new Response(
       "This ORCID iD is not connected to an account. Sign in with Google first, then connect ORCID from your profile.",

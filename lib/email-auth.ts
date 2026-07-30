@@ -6,6 +6,7 @@ import {
   hashOneTimeToken,
   oneTimeTokenExpiry
 } from "@/lib/auth-tokens"
+export { EmailAuthIntentSchema } from "@/lib/email-auth-intent"
 
 export const EmailAddressSchema = z
   .string()
@@ -16,6 +17,10 @@ export const EmailAddressSchema = z
 
 export const isEmailAuthEnabled = () =>
   process.env.EMAIL_AUTH_ENABLED === "true"
+
+export const isEmailAccountCreationEnabled = () =>
+  isEmailAuthEnabled() &&
+  process.env.EMAIL_AUTH_ACCOUNT_CREATION_ENABLED === "true"
 
 export const getAuthSiteUrl = () => {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim()

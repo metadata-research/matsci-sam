@@ -38,7 +38,10 @@ export const POST = async (request: Request) => {
           gt(emailAuthTokensTable.expiresAt, now)
         )
       )
-      .returning({ email: emailAuthTokensTable.email })
+      .returning({
+        email: emailAuthTokensTable.email,
+        allowAccountCreation: emailAuthTokensTable.allowAccountCreation
+      })
     if (!claimed) return null
 
     const [existingUser] = await tx
@@ -63,7 +66,7 @@ export const POST = async (request: Request) => {
         .where(eq(usersTable.id, user.id))
         .returning()
       user = updatedUser
-    } else {
+    } else if (claimed.allowAccountCreation) {
       const [insertedUser] = await tx
         .insert(usersTable)
         .values({
@@ -90,7 +93,7 @@ export const POST = async (request: Request) => {
       }
     }
 
-    if (!user) throw new Error("Verified account could not be created")
+    if (!user) return null
 
     await tx
       .update(emailAuthTokensTable)

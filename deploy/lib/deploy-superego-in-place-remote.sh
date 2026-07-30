@@ -205,6 +205,13 @@ if [[ ${target} == ego ]]; then
     exit 1
   }
 fi
+if [[ ${EMAIL_AUTH_ACCOUNT_CREATION_ENABLED:-false} == true &&
+  ${EMAIL_AUTH_ENABLED:-false} != true ]]
+then
+  echo "EMAIL_AUTH_ENABLED must be true when email account creation is enabled." >&2
+  exit 1
+fi
+
 if [[ ${EMAIL_AUTH_ENABLED:-false} == true ]]; then
   [[ -n ${EMAIL_AUTH_FROM:-} ]] || {
     echo "EMAIL_AUTH_FROM is required when email authentication is enabled." >&2

@@ -98,6 +98,9 @@ export const emailAuthTokensTable = pgTable(
     // message delivered to the requested mailbox.
     tokenHash: varchar({ length: 64 }).primaryKey(),
     email: varchar({ length: 254 }).notNull(),
+    // A token requested through the explicit registration page may create a
+    // human account. Ordinary sign-in tokens may only claim an existing one.
+    allowAccountCreation: boolean().notNull().default(false),
     expiresAt: timestamp({ mode: "string" }).notNull(),
     usedAt: timestamp({ mode: "string" }),
     createdAt: timestamp({ mode: "string" }).defaultNow().notNull()

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { isEmailAuthEnabled } from "@/lib/email-auth"
+import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
 import { SITE_NAME } from "@/lib/site"
 
 export const metadata: Metadata = {
@@ -23,7 +23,7 @@ export default async function RegisterPage({
 }: {
   searchParams: Promise<{ source?: string }>
 }) {
-  if (!isEmailAuthEnabled()) notFound()
+  if (!isEmailAccountCreationEnabled()) notFound()
   const { source } = await searchParams
 
   return (
@@ -38,7 +38,8 @@ export default async function RegisterPage({
           </CardTitle>
           <CardDescription className="leading-6">
             Enter your email address. We will send a short-lived, one-time link
-            that confirms the address and signs you in. No password is required.
+            that confirms the address and creates your account. No password is
+            required.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -48,11 +49,17 @@ export default async function RegisterPage({
               email first, then connect ORCID from your profile.
             </p>
           ) : null}
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-5">
+            Already have contributions here? Continue with the same Google
+            account first so your existing work stays attached to your account.
+            Email registration is for new contributors.
+          </p>
           <form
             action="/api/auth/email/start"
             method="post"
             className="space-y-4"
           >
+            <input type="hidden" name="intent" value="create" />
             <div className="space-y-2">
               <Label htmlFor="registration-email">Email address</Label>
               <Input
@@ -66,7 +73,7 @@ export default async function RegisterPage({
               />
             </div>
             <Button type="submit" className="w-full">
-              Email me a sign-in link
+              Create account by email
             </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground">

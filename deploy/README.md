@@ -70,6 +70,10 @@ step before either command.
 - `release.sh <superego|ego>` is the repeatable release path. It preserves
   each environment's own database and requires an Ego commit to be running on
   Superego first.
+- `configure-email-auth.sh <superego|ego> <stage|enable|disable>` copies the
+  locally authorized Gmail send-only credentials into protected runtime
+  settings without printing them. It requires supervised remote sudo and does
+  not restart or deploy the application.
 - `deploy-superego-from-workstation.sh` publishes reviewed source while
   preserving and migrating the Superego-authoritative database. It remains as
   a compatible direct entry point; routine releases use `release.sh`.

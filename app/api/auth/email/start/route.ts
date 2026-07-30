@@ -1,12 +1,14 @@
-import { db, emailAuthTokensTable } from "@yamz/db"
+import { db, emailAuthTokensTable, usersTable } from "@yamz/db"
 import { and, eq, gt, isNull, lt, sql } from "drizzle-orm"
 import { after, NextRequest, NextResponse } from "next/server"
 import {
   createEmailAuthToken,
   EmailAddressSchema,
+  EmailAuthIntentSchema,
   emailAuthTokenExpiry,
   getAuthSiteUrl,
   hashEmailAuthToken,
+  isEmailAccountCreationEnabled,
   isEmailAuthEnabled
 } from "@/lib/email-auth"
 import { sendEmailSignInLink } from "@/lib/email"
@@ -23,9 +25,14 @@ export const POST = async (request: NextRequest) => {
 
   const form = await request.formData()
   const parsed = EmailAddressSchema.safeParse(form.get("email"))
-  if (!parsed.success) return genericRedirect()
+  const parsedIntent = EmailAuthIntentSchema.safeParse(form.get("intent"))
+  if (!parsed.success || !parsedIntent.success) return genericRedirect()
 
   const email = parsed.data
+  const allowAccountCreation = parsedIntent.data === "create"
+  if (allowAccountCreation && !isEmailAccountCreationEnabled())
+    return genericRedirect()
+
   const now = new Date().toISOString()
   await db
     .delete(emailAuthTokensTable)
@@ -41,6 +48,20 @@ export const POST = async (request: NextRequest) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${email}, 0))`
     )
+
+    if (!allowAccountCreation) {
+      const [existingUser] = await tx
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(
+          and(
+            sql`lower(${usersTable.email}) = ${email}`,
+            eq(usersTable.isAi, false)
+          )
+        )
+        .limit(1)
+      if (!existingUser) return false
+    }
 
     const recentThreshold = new Date(Date.now() - 60 * 1000).toISOString()
     const [recent] = await tx
@@ -67,6 +88,7 @@ export const POST = async (request: NextRequest) => {
     await tx.insert(emailAuthTokensTable).values({
       tokenHash,
       email,
+      allowAccountCreation,
       expiresAt: emailAuthTokenExpiry()
     })
     return true

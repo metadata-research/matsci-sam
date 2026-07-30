@@ -44,10 +44,12 @@ operations_only_paths=(
   README.md
   developing.md
   deploy/README.md
+  deploy/configure-email-auth.sh
   deploy/cutover-ego-public.sh
   deploy/deploy-ego-from-workstation.sh
   deploy/ego/AGENTS.md
   deploy/lib/cutover-ego-public-remote.sh
+  deploy/lib/configure-email-auth-remote.sh
   deploy/lib/deploy-ego-precutover-remote.sh
   deploy/lib/export-superego-for-ego-seed-remote.sh
   deploy/lib/seed-ego-from-superego-remote.sh

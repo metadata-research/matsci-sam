@@ -7,6 +7,7 @@ import {
   hashOneTimeToken,
   oneTimeTokenExpiry
 } from "../lib/auth-tokens"
+import { EmailAuthIntentSchema } from "../lib/email-auth-intent"
 import {
   DEFINITION_MAX_LENGTH,
   EXAMPLE_MAX_LENGTH,
@@ -62,6 +63,31 @@ assert.notEqual(hashOneTimeToken(firstToken), hashOneTimeToken(secondToken))
 assert.equal(
   oneTimeTokenExpiry({ lifetimeMinutes: 15, now: 0 }),
   "1970-01-01T00:15:00.000Z"
+)
+assert.equal(EmailAuthIntentSchema.safeParse("sign-in").success, true)
+assert.equal(EmailAuthIntentSchema.safeParse("create").success, true)
+assert.equal(EmailAuthIntentSchema.safeParse("register").success, false)
+
+const loginPage = readFileSync(resolve("app/login/page.tsx"), "utf8")
+const registrationPage = readFileSync(resolve("app/register/page.tsx"), "utf8")
+const emailStartRoute = readFileSync(
+  resolve("app/api/auth/email/start/route.ts"),
+  "utf8"
+)
+const emailVerifyRoute = readFileSync(
+  resolve("app/api/auth/email/verify/route.ts"),
+  "utf8"
+)
+assert.match(loginPage, /name="intent" value="sign-in"/)
+assert.match(registrationPage, /name="intent" value="create"/)
+assert.match(registrationPage, /isEmailAccountCreationEnabled\(\)/)
+assert.match(
+  emailStartRoute,
+  /if \(!allowAccountCreation\)[\s\S]*usersTable\.email[\s\S]*if \(!existingUser\) return false/
+)
+assert.match(
+  emailVerifyRoute,
+  /else if \(claimed\.allowAccountCreation\)[\s\S]*insert\(usersTable\)/
 )
 
 const validTerm = {
