@@ -1,0 +1,1 @@
+ALTER TABLE "emailAuthTokens" ADD COLUMN "allowAccountCreation" boolean DEFAULT false NOT NULL;

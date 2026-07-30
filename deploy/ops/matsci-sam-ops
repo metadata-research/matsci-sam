@@ -112,6 +112,7 @@ case $1 in
         expected[++expected_count] = "AUTH_TOKEN_ENCRYPTION_KEY"
         expected[++expected_count] = "ORCID_AUTH_ENABLED"
         expected[++expected_count] = "EMAIL_AUTH_ENABLED"
+        expected[++expected_count] = "EMAIL_AUTH_ACCOUNT_CREATION_ENABLED"
         expected[++expected_count] = "DEV_AUTH_ENABLED"
         expected[++expected_count] = "OLLAMA_HOST"
         expected[++expected_count] = "SYSTEM_PROMPT_KEY"

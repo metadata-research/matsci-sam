@@ -91,7 +91,7 @@ export function VerifyEmailLink() {
                 {error}
               </p>
               <Button asChild variant="outline" className="w-full">
-                <Link href="/register">Request another link</Link>
+                <Link href="/login">Request another link</Link>
               </Button>
             </div>
           ) : (

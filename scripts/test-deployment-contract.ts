@@ -63,10 +63,12 @@ const expectedOperationsOnlyPaths = [
   "README.md",
   "developing.md",
   "deploy/README.md",
+  "deploy/configure-email-auth.sh",
   "deploy/cutover-ego-public.sh",
   "deploy/deploy-ego-from-workstation.sh",
   "deploy/ego/AGENTS.md",
   "deploy/lib/cutover-ego-public-remote.sh",
+  "deploy/lib/configure-email-auth-remote.sh",
   "deploy/lib/deploy-ego-precutover-remote.sh",
   "deploy/lib/export-superego-for-ego-seed-remote.sh",
   "deploy/lib/seed-ego-from-superego-remote.sh",
@@ -498,6 +500,16 @@ for (const [environment, values] of [
     "MatSci-SAM",
     `${environment} must use the protected MatSci-SAM application identity`
   )
+  assert.equal(
+    values.get("EMAIL_AUTH_ENABLED"),
+    "false",
+    `${environment} must default email authentication off`
+  )
+  assert.equal(
+    values.get("EMAIL_AUTH_ACCOUNT_CREATION_ENABLED"),
+    "false",
+    `${environment} must default email account creation off`
+  )
 }
 assert.equal(ego.get("SESSION_COOKIE_SECURE"), "true")
 assert.equal(ego.get("DEV_AUTH_ENABLED"), "false")
@@ -613,6 +625,49 @@ assert.match(
   /"\$\{source_verifier\}" --create-archive "\$\{repo\}" "\$\{candidate\}" "\$\{archive\}"/
 )
 assert.doesNotMatch(repeatableRelease, /^\s*git(?:\s+-C "[^"]+")?\s+archive\b/m)
+
+const emailAuthConfigurator = read("deploy/configure-email-auth.sh")
+const emailAuthConfiguratorRemote = read(
+  "deploy/lib/configure-email-auth-remote.sh"
+)
+assert.match(
+  emailAuthConfigurator,
+  /<superego\|ego> <stage\|enable\|disable>/
+)
+assert.match(
+  emailAuthConfigurator,
+  /status --porcelain=v1[\s\S]*checkout must equal the reviewed origin\/dev commit/
+)
+assert.match(
+  emailAuthConfigurator,
+  /EMAIL_AUTH_GMAIL_REFRESH_TOKEN: tokenDocument\.refresh_token/
+)
+assert.match(
+  emailAuthConfigurator,
+  /base64 --decode[\s\S]*sudo \/bin\/bash -s --/
+)
+assert.doesNotMatch(emailAuthConfigurator, /systemctl|journalctl/)
+assert.match(
+  emailAuthConfiguratorRemote,
+  /expected_hostname=cci-superego[\s\S]*expected_hostname=cci-ego/
+)
+assert.match(
+  emailAuthConfiguratorRemote,
+  /sha256sum "\$\{payload\}"[\s\S]*expected_payload_sha/
+)
+assert.match(
+  emailAuthConfiguratorRemote,
+  /app\.env\.\$\(date -u[\s\S]*install -o root -g root -m 0400/
+)
+assert.match(
+  emailAuthConfiguratorRemote,
+  /chown root:matsci-sam "\$\{partial\}"[\s\S]*chmod 0640 "\$\{partial\}"[\s\S]*mv -f "\$\{partial\}" "\$\{config\}"/
+)
+assert.match(
+  emailAuthConfiguratorRemote,
+  /No secret values were displayed and no service was restarted/
+)
+assert.doesNotMatch(emailAuthConfiguratorRemote, /systemctl|journalctl/)
 
 const releaseForwardAncestryIndex = repeatableRelease.search(
   /git -C "\$\{repo\}" merge-base --is-ancestor "\$\{active_commit\}" "\$\{candidate\}"/
@@ -1631,6 +1686,7 @@ try {
     "AUTH_TOKEN_ENCRYPTION_KEY=missing",
     "DATABASE_URL=blank",
     "DEV_AUTH_ENABLED=missing",
+    "EMAIL_AUTH_ACCOUNT_CREATION_ENABLED=missing",
     "EMAIL_AUTH_ENABLED=missing",
     "GOOGLE_AUTH_ACCESS_MODE=missing",
     "GOOGLE_AUTH_ALLOWED_EMAILS=missing",

@@ -13,7 +13,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { isDevAuthEnabled } from "@/lib/dev-auth"
-import { isEmailAuthEnabled } from "@/lib/email-auth"
+import {
+  isEmailAccountCreationEnabled,
+  isEmailAuthEnabled
+} from "@/lib/email-auth"
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
 import { SITE_NAME } from "@/lib/site"
 
@@ -22,6 +25,7 @@ export const metadata: Metadata = { title: `Sign in | ${SITE_NAME}` }
 export default function LoginPage() {
   const devEnabled = isDevAuthEnabled()
   const emailEnabled = isEmailAuthEnabled()
+  const emailAccountCreationEnabled = isEmailAccountCreationEnabled()
   const orcidEnabled = isOrcidAuthEnabled()
 
   return (
@@ -32,8 +36,7 @@ export default function LoginPage() {
             Sign in to {SITE_NAME}
           </CardTitle>
           <CardDescription>
-            Continue with an existing identity or verify your email to create an
-            account.
+            Continue with an identity already connected to your account.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -66,6 +69,7 @@ export default function LoginPage() {
                 method="post"
                 className="space-y-4"
               >
+                <input type="hidden" name="intent" value="sign-in" />
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email address</Label>
                   <div className="relative">
@@ -89,10 +93,14 @@ export default function LoginPage() {
                   Email me a sign-in link
                 </Button>
               </form>
-              <p className="text-center text-sm text-muted-foreground">
-                New here? Verifying your email creates your account
-                automatically.
-              </p>
+              {emailAccountCreationEnabled ? (
+                <p className="text-center text-sm text-muted-foreground">
+                  New here?{" "}
+                  <Link href="/register" className="text-primary underline">
+                    Create an account by email
+                  </Link>
+                </p>
+              ) : null}
             </>
           ) : null}
           {devEnabled ? (
