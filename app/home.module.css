@@ -393,7 +393,7 @@
 }
 
 .sectionHeading h2,
-.id4Guide h2 {
+.conferenceGuide h2 {
   font-family: var(--font-plex-serif);
   font-size: clamp(1.65rem, 3vw, 2rem);
   font-weight: 650;
@@ -607,7 +607,7 @@
   font-size: 0.875rem;
 }
 
-.id4Guide {
+.conferenceGuide {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 2rem;
@@ -617,20 +617,20 @@
   border-radius: var(--radius-lg);
 }
 
-.id4Guide h2 {
+.conferenceGuide h2 {
   font-size: 1.2rem;
 }
 
-.id4Guide ol {
+.conferenceGuide ol {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
 }
 
-.id4Guide li + li {
+.conferenceGuide li + li {
   border-left: 1px solid var(--border);
 }
 
-.id4Guide a {
+.conferenceGuide a {
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -640,12 +640,12 @@
   line-height: 1.35;
 }
 
-.id4Guide a:hover {
+.conferenceGuide a:hover {
   text-decoration: underline;
   text-underline-offset: 0.22em;
 }
 
-.id4Guide a span {
+.conferenceGuide a span {
   display: grid;
   width: 1.45rem;
   height: 1.45rem;
@@ -721,7 +721,7 @@
 }
 
 @media (max-width: 1180px) {
-  .id4Guide {
+  .conferenceGuide {
     grid-template-columns: 1fr;
     gap: 0.75rem;
   }
@@ -837,16 +837,16 @@
     border-left: 0;
   }
 
-  .id4Guide ol {
+  .conferenceGuide ol {
     grid-template-columns: 1fr;
   }
 
-  .id4Guide li + li {
+  .conferenceGuide li + li {
     border-top: 1px solid var(--border);
     border-left: 0;
   }
 
-  .id4Guide a {
+  .conferenceGuide a {
     padding: 0.65rem 0;
   }
 
