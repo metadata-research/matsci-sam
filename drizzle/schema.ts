@@ -1,4 +1,4 @@
-import { Diff } from "diff-match-patch-ts"
+import type { Diff } from "diff-match-patch-ts"
 import { relations, sql } from "drizzle-orm"
 import {
   integer,
@@ -488,7 +488,7 @@ export const definitionRevisionsTable = pgTable(
     // Historical definitionEdits never stored the prior example, editor, or
     // change note. Those fields may be null only on rows explicitly marked as
     // incomplete legacy imports; every newly published revision supplies them.
-    exampleDiff: jsonb().notNull().$type<Diff[]>(),
+    exampleDiff: jsonb().$type<Diff[]>(),
     editorId: integer().references(() => usersTable.id),
     changeNote: text(),
     legacyIncomplete: boolean().notNull().default(false),
@@ -540,7 +540,8 @@ export const definitionRevisionsTable = pgTable(
     ),
     check(
       "definition_revisions_nonblank_definition",
-      sql`btrim(${table.definitionDiff}) <> ''`
+      sql`jsonb_typeof(${table.definitionDiff}) = 'array'
+          AND jsonb_array_length(${table.definitionDiff}) > 0`
     ),
     check(
       "definition_revisions_complete_or_legacy",
@@ -551,7 +552,9 @@ export const definitionRevisionsTable = pgTable(
     ),
     check(
       "definition_revisions_nonblank_optional_text",
-      sql`(${table.exampleDiff} IS NULL OR btrim(${table.exampleDiff}) <> '')
+      sql`(${table.exampleDiff} IS NULL
+          OR (jsonb_typeof(${table.exampleDiff}) = 'array'
+              AND jsonb_array_length(${table.exampleDiff}) > 0))
           AND (${table.changeNote} IS NULL OR btrim(${table.changeNote}) <> '')`
     ),
     foreignKey({

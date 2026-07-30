@@ -394,7 +394,7 @@
           "name": "exampleDiff",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "editorId": {
           "name": "editorId",
@@ -663,7 +663,7 @@
         },
         "definition_revisions_nonblank_definition": {
           "name": "definition_revisions_nonblank_definition",
-          "value": "btrim(\"definitionRevisions\".\"definitionDiff\") <> ''"
+          "value": "jsonb_typeof(\"definitionRevisions\".\"definitionDiff\") = 'array'\n          AND jsonb_array_length(\"definitionRevisions\".\"definitionDiff\") > 0"
         },
         "definition_revisions_complete_or_legacy": {
           "name": "definition_revisions_complete_or_legacy",
@@ -671,7 +671,7 @@
         },
         "definition_revisions_nonblank_optional_text": {
           "name": "definition_revisions_nonblank_optional_text",
-          "value": "(\"definitionRevisions\".\"exampleDiff\" IS NULL OR btrim(\"definitionRevisions\".\"exampleDiff\") <> '')\n          AND (\"definitionRevisions\".\"changeNote\" IS NULL OR btrim(\"definitionRevisions\".\"changeNote\") <> '')"
+          "value": "(\"definitionRevisions\".\"exampleDiff\" IS NULL\n          OR (jsonb_typeof(\"definitionRevisions\".\"exampleDiff\") = 'array'\n              AND jsonb_array_length(\"definitionRevisions\".\"exampleDiff\") > 0))\n          AND (\"definitionRevisions\".\"changeNote\" IS NULL OR btrim(\"definitionRevisions\".\"changeNote\") <> '')"
         }
       },
       "isRLSEnabled": false

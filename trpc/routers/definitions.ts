@@ -450,7 +450,10 @@ export const definitionsRouter = createTRPCRouter({
       return {
         ...def,
         definition: diffToStringSimple(selectedRevision.definitionDiff),
-        example: diffToStringSimple(selectedRevision.exampleDiff),
+        example:
+          selectedRevision.exampleDiff === null
+            ? null
+            : diffToStringSimple(selectedRevision.exampleDiff),
         model: selectedRevision.model,
         prompt: selectedRevision.prompt,
         score: selectedRevision.score,

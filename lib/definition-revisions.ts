@@ -1,8 +1,8 @@
 import {
-  Diff,
   DiffMatchPatch,
-  DiffOp,
+  DiffOp
 } from "diff-match-patch-ts"
+import type { Diff } from "diff-match-patch-ts"
 import {
   db,
   definitionRevisionsTable,
@@ -66,14 +66,40 @@ interface CreateDefinitionWithInitialRevisionInput {
 }
 
 export function diffToStringSimple(diff: Diff[]) {
-  let str = "";
-  for (let i = 0; i < diff.length; i++) {
-    const op = diff[i][0];
-    if (op == DiffOp.Insert || op == DiffOp.Equal) {
-      str += diff[i][1];
-    }
+  let value = ""
+  for (const [operation, text] of diff) {
+    if (operation === DiffOp.Insert || operation === DiffOp.Equal) value += text
   }
-  return str
+  return value
+}
+
+export function createTextDiff(previous: string, next: string) {
+  return new DiffMatchPatch().diff_main(previous, next)
+}
+
+export function revisionDiffMetrics(diffs: Diff[][]) {
+  let charsAdded = 0
+  let charsRemoved = 0
+  let unchanged = 0
+
+  for (const diff of diffs.flat()) {
+    if (diff[0] === DiffOp.Delete) charsRemoved += diff[1].length
+    else if (diff[0] === DiffOp.Insert) charsAdded += diff[1].length
+    else unchanged += diff[1].length
+  }
+
+  const previousLength = unchanged + charsRemoved
+  const nextLength = unchanged + charsAdded
+  const removalShare =
+    previousLength === 0 ? Number(charsAdded > 0) : charsRemoved / previousLength
+  const additionShare =
+    nextLength === 0 ? Number(charsRemoved > 0) : charsAdded / nextLength
+
+  return {
+    charsAdded,
+    charsRemoved,
+    changeDelta: ((removalShare + additionShare) / 2).toFixed(3)
+  }
 }
 
 /**
@@ -131,8 +157,8 @@ export async function createDefinitionWithInitialRevision(
       prompt: input.prompt ?? null,
       derivedFromRevisionId: input.derivedFromRevisionId ?? null,
       sourceRefinementId: input.sourceRefinementId ?? null,
-      charsAdded: (input.definition.length + input.example.length),
-      changeDelta: "1.000",
+      charsAdded: input.definition.length + input.example.length,
+      changeDelta: "1.000"
     })
     .returning()
 
@@ -190,29 +216,15 @@ export async function publishDefinitionRevision(
   )
     throw new RevisionNoChangeError()
 
-  // Create diffs
-  const dmp = new DiffMatchPatch();
-  const definitionDiff = dmp.diff_main(stableDefinition.definition, input.definition);
-  const exampleDiff = dmp.diff_main(stableDefinition.example, input.example);
-  // Calculate diff data
-  let charsAdded = 0;
-  let charsRemoved = 0;
-  let unchanged = 0;
-  for (const diffs of [definitionDiff, exampleDiff]) {
-    for (const diff of diffs) {
-      switch (diff[0]) {
-        case DiffOp.Delete:
-          charsRemoved += diff[1].length;
-          break;
-        case DiffOp.Equal:
-          unchanged += diff[1].length;
-          break;
-        case DiffOp.Insert:
-          charsAdded += diff[1].length;
-          break;
-      }
-    }
-  }
+  const definitionDiff = createTextDiff(
+    stableDefinition.definition,
+    input.definition
+  )
+  const exampleDiff = createTextDiff(stableDefinition.example, input.example)
+  const { charsAdded, charsRemoved, changeDelta } = revisionDiffMetrics([
+    definitionDiff,
+    exampleDiff
+  ])
   const [revision] = await tx
     .insert(definitionRevisionsTable)
     .values({
@@ -232,24 +244,7 @@ export async function publishDefinitionRevision(
       sourceRefinementId: input.sourceRefinementId ?? null,
       charsAdded,
       charsRemoved,
-      changeDelta:
-        (
-          (
-            (
-              charsRemoved
-              /
-              (unchanged + charsRemoved)
-            )
-            +
-            (
-              charsAdded
-              /
-              (unchanged + charsAdded)
-            )
-          )
-          /
-          2
-        ).toPrecision(4),
+      changeDelta
     })
     .returning()
 

@@ -931,8 +931,11 @@ export const buildTermProvenance = async (
         revision.definitionId === suggestion.outputDefinitionId &&
         revision.version === 1 &&
         revision.derivedFromRevisionId === suggestion.revisionId &&
-        diffToStringSimple(revision.definitionDiff) === suggestion.suggestedDefinition &&
-        diffToStringSimple(revision.exampleDiff) === suggestion.suggestedExample &&
+        revision.exampleDiff !== null &&
+        diffToStringSimple(revision.definitionDiff) ===
+          suggestion.suggestedDefinition &&
+        diffToStringSimple(revision.exampleDiff) ===
+          suggestion.suggestedExample &&
         revision.model === suggestion.model &&
         revision.prompt === suggestion.prompt
     )

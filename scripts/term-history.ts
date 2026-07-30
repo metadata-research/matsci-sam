@@ -58,7 +58,7 @@ const main = async () => {
       }
 
       console.log(
-        `=> Current revision: v${currentRevision.version}\n   Definition: ${currentRevision.definitionDiff}\n   Example: ${currentRevision.exampleDiff ?? "[not retained in legacy record]"}\n   AI Generated: ${aiGenerated}`
+        `=> Current revision: v${currentRevision.version}\n   Definition: ${diffToStringSimple(currentRevision.definitionDiff)}\n   Example: ${currentRevision.exampleDiff === null ? "[not retained in legacy record]" : diffToStringSimple(currentRevision.exampleDiff)}\n   AI Generated: ${aiGenerated}`
       )
 
       const versionsById = new Map(
@@ -104,7 +104,7 @@ const main = async () => {
             : ""
 
           console.log(
-            `\t[${item.createdAt.toISOString()}] [REVISION v${item.version}] [${item.source}]${legacyNote}\n\t  Definition: ${item.definitionDiff}\n\t  Example: ${item.exampleDiff ?? "[not retained]"}\n\t  Change note: ${item.changeNote ?? "[not retained]"}\n\t  Editor ID: ${item.editorId ?? "[not retained]"}`
+            `\t[${item.createdAt.toISOString()}] [REVISION v${item.version}] [${item.source}]${legacyNote}\n\t  Definition: ${diffToStringSimple(item.definitionDiff)}\n\t  Example: ${item.exampleDiff === null ? "[not retained]" : diffToStringSimple(item.exampleDiff)}\n\t  Change note: ${item.changeNote ?? "[not retained]"}\n\t  Editor ID: ${item.editorId ?? "[not retained]"}`
           )
         }
       }

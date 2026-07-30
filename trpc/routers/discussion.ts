@@ -16,7 +16,10 @@ import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
 import { OllamaModel, RefineSystemPrompt, runLLM } from "@/lib/apis/ollama"
 import { GetModelUser } from "@/lib/crud"
-import { createDefinitionWithInitialRevision } from "@/lib/definition-revisions"
+import {
+  createDefinitionWithInitialRevision,
+  diffToStringSimple
+} from "@/lib/definition-revisions"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 
@@ -170,7 +173,7 @@ export const discussionRouter = createTRPCRouter({
                 (revision.source === "ai_refinement" ||
                   revision.source === "ai_generation"),
               isProfilePublic: revision.editorProfilePublic ?? false,
-              body: revision.definitionDiff,
+              body: diffToStringSimple(revision.definitionDiff),
               definitionId: revision.definitionId,
               definitionNumber: definitionNumberById.get(
                 revision.definitionId
