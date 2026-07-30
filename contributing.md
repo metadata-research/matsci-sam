@@ -71,12 +71,64 @@ optional unless the change involves AI-assisted definition refinement.
    See [`developing.md`](developing.md) for the full setup and architecture
    notes.
 
+## Database and data changes
+
+Contributors work against their own local PostgreSQL database. Access to the
+Superego website or Drexel VPN does not grant PostgreSQL, SSH, deployment, or
+database-dump access, and those privileges are not needed for ordinary
+database contributions.
+
+### Schema and migration changes
+
+1. Update the tracked schema in `drizzle/schema.ts`.
+2. Run `pnpm db:generate` and include the generated SQL and migration metadata
+   in the pull request.
+3. Read the generated migration before committing it. Preserve existing rows
+   and call out destructive operations, long-running backfills, table locks,
+   or rollback limitations.
+4. Apply and verify the migration against a local database:
+
+   ```bash
+   pnpm db:migrate
+   pnpm db:check
+   ```
+
+5. In the pull request, explain the schema and data effect, the local test
+   performed, and what a maintainer should verify on Superego.
+
+If a change needs a custom data transformation that Drizzle cannot generate,
+include it as an explicitly reviewed forward migration or propose a separate
+maintainer-run operation. Do not test a migration by running SQL directly on
+Superego or Ego.
+
+### Test content, imports, and corrections
+
+Use the Superego application interface for ordinary test terms, definitions,
+votes, and comments. That shared-test content stays on Superego and is not
+copied to Ego.
+
+Bulk imports, one-off corrections, and administrative data changes require a
+separately reviewed operational plan with validation, a verified backup, and
+a rehearsed recovery path. Do not put private user data or database dumps in
+GitHub, and do not ask a contributor to run ad hoc SQL on a shared database.
+
+### What happens after a database pull request
+
+After review and merge, a maintainer releases the exact commit to Superego
+through the protected release process. The process verifies a database backup
+and rehearses the migration before changing Superego's authoritative
+shared-test database. The migration and affected behavior are then exercised
+on Superego.
+
+If the change is approved for the public site, a maintainer releases the same
+exact commit to Ego. Ego applies the reviewed migration to its own independent
+database; neither Superego rows nor its database are copied to Ego.
+
 ## Make and verify the change
 
 Keep each pull request focused. Follow existing patterns in `app/`,
-`components/`, `lib/`, and `trpc/`. For a schema change, update the tracked
-schema, run `pnpm db:generate`, and include the generated migration. Never
-experiment against the shared Superego or Ego database.
+`components/`, `lib/`, and `trpc/`. Never experiment against the shared
+Superego or Ego database.
 
 The pull-request workflow runs the following checks:
 
