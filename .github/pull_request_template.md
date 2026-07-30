@@ -8,7 +8,8 @@ List the commands and manual checks you ran.
 
 ## Operational impact
 
-- Database migration: none
+- Database change: none
+- Migration, backfill, lock, or rollback considerations: none
 - Configuration or environment change: none
 - Superego behavior a maintainer should exercise after merge:
 
@@ -19,6 +20,8 @@ List the commands and manual checks you ran.
       generated environment files.
 - [ ] Visible interface changes include before-and-after screenshots, or the
       pull request explains why screenshots do not apply.
+- [ ] Database changes were tested locally and include the reviewed migration
+      files, or no database change applies.
 - [ ] Migration, configuration, and deployment effects are described above,
       or marked as not applicable.
 
