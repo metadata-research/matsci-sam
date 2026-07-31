@@ -6,24 +6,10 @@ Describe the problem and the resulting behavior.
 
 List the commands and manual checks you ran.
 
-## Operational impact
-
-- Database change: none
-- Migration, backfill, lock, or rollback considerations: none
-- Configuration or environment change: none
-- Superego behavior a maintainer should exercise after merge:
-
 ## Checklist
 
-- [ ] The pull request targets `dev`, not the frozen `main` branch.
-- [ ] The change is focused and contains no credentials, private data, or
-      generated environment files.
-- [ ] Visible interface changes include before-and-after screenshots, or the
-      pull request explains why screenshots do not apply.
-- [ ] Database changes were tested locally and include the reviewed migration
-      files, or no database change applies.
-- [ ] Migration, configuration, and deployment effects are described above,
-      or marked as not applicable.
-
-Merging updates source control only. A maintainer separately releases the
-reviewed commit to Superego for hands-on verification.
+- [ ] No credentials, private data, or generated environment files.
+- [ ] Visible interface changes include before-and-after screenshots, or an
+      explanation of why they do not apply.
+- [ ] Database changes include the generated migration and describe their
+      effect on existing rows.

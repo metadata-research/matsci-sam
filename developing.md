@@ -159,12 +159,8 @@ environment.
 
 ### Production build
 
-`pnpm build` then `pnpm start` runs a production build locally. It provides no
-backup, coordination, release switching, or rollback; use the release wrappers
-in `deploy/` for a real deployment.
-
-### Server deployment
-
-Releases are a maintainer operation. See `deploy/README.md`.
+`pnpm build` then `pnpm start` runs a production build locally. Releases to a
+server are a separate maintainer operation and are not run from this
+repository.
 ---
 

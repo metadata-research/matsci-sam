@@ -54,22 +54,6 @@ jobs:
         run: |
           pnpm test:ollama-context
 
-      - name: Test Deployment Contract
-        run: |
-          pnpm test:deployment
-          bash -n \
-            deploy/bootstrap-server.sh \
-            deploy/check-runtime-parity.sh \
-            deploy/release.sh \
-            deploy/deploy-superego-from-workstation.sh \
-            deploy/lib/deploy-superego-in-place-remote.sh \
-            deploy/lib/launch-reviewed-release-remote.sh \
-            deploy/lib/verify-superego-public-content.sh \
-            deploy/ops/matsci-sam-ops \
-            deploy/host/install-security-updates.sh \
-            deploy/host/matsci-sam-security-status \
-            deploy/host/harden-ssh.sh
-
       - name: Check Migrations
         run: |
           pnpm db:check

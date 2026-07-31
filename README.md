@@ -32,7 +32,6 @@ pnpm test:identifiers
 pnpm test:revisions
 pnpm test:interface
 pnpm test:ollama-context
-pnpm test:deployment
 pnpm db:check
 pnpm build
 ```
@@ -49,13 +48,6 @@ See the [contribution guide](contributing.md) for setup and pull-request
 expectations. Vocabulary contributions made through the site do not require
 a GitHub pull request.
 
-## Branches and deployment
-
-`origin/dev` is the single reviewed release branch. Releases are a separate
-maintainer operation run from a registered control workstation and
-documented in [`deploy/`](deploy/). Private environment policy remains in
-`docs-internal`.
-
 ## Project structure
 
 - `app/`: Next.js routes and server actions
@@ -64,4 +56,3 @@ documented in [`deploy/`](deploy/). Private environment policy remains in
 - `drizzle/`: database schema and migrations
 - `lib/`: authentication, metadata, mail, and AI integrations
 - `scripts/`: development and diagnostic helpers
-- `deploy/`: provisioning and reviewed environment-operation wrappers
