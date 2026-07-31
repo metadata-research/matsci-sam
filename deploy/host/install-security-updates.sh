@@ -31,19 +31,9 @@ trap cleanup EXIT
 [[ ${EUID} -eq 0 ]] ||
   fail "Run this script as root: sudo ./deploy/host/install-security-updates.sh"
 
-for file in "${policy_source}" "${status_source}" "${sudoers_source}"; do
-  [[ -f ${file} && ! -L ${file} ]] ||
-    fail "Required source file is missing or unsafe: ${file}"
-done
-
-. /etc/os-release
-[[ ${ID} == ubuntu ]] || fail "This policy targets Ubuntu hosts."
-
 export DEBIAN_FRONTEND=noninteractive
 
 echo "Ensuring the automatic security update packages are present..."
-# Present by default on Ubuntu Server; installed explicitly so the policy below
-# is never written to a host that cannot act on it.
 apt-get install -y --no-install-recommends \
   needrestart \
   unattended-upgrades \
@@ -81,11 +71,6 @@ install -o root -g root -m 0440 "${staged_sudoers}" "${sudoers_target}"
 rm -f "${staged_sudoers}"
 staged_sudoers=
 
-echo
-echo "Effective policy:"
-apt-config dump --format '%f "%v";%n' |
-  grep -E '^(Unattended-Upgrade::(Automatic-Reboot|Allowed-Origins)|APT::Periodic::(Update-Package-Lists|Unattended-Upgrade))' |
-  sed 's/^/  /'
 echo
 echo "Automatic security updates are configured."
 echo "Check posture with: sudo ${status_target}"

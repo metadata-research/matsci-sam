@@ -45,36 +45,16 @@ to the [Superego development site](https://superego.cci.drexel.edu/) for
 hands-on verification; merging a pull request does not deploy it
 automatically.
 
-See the [contribution guide](contributing.md) for fork and branch setup, the
-complete verification suite, pull-request expectations, and the
-Superego-to-Ego release handoff. Vocabulary contributions made through the
-site do not require a GitHub pull request.
+See the [contribution guide](contributing.md) for setup and pull-request
+expectations. Vocabulary contributions made through the site do not require
+a GitHub pull request.
 
 ## Branches and deployment
 
-Feature work enters the `dev` branch through a pull request. A merge to `dev`
-updates source control but does not deploy Superego.
-
-Superego deployment is a separate maintainer operation. The `dev` branch does
-not grant a self-hosted runner authority to migrate its database or restart
-its service. The files in [`deploy/`](deploy/) contain shared host
-provisioning, the reviewed in-place Superego release wrapper, the independent
-Ego runtime profile, and the one-way Superego database snapshot wrapper.
-Private environment policy remains in `docs-internal`.
-
-The legacy deployment workflows and promotion branch are retired.
-`origin/dev` is the single reviewed release branch. From the registered
-control workstation, deploy and exercise one exact commit on Superego, then
-release that same commit to Ego:
-
-```bash
-./deploy/release.sh superego
-./deploy/release.sh ego
-```
-
-Each environment builds under its own protected configuration and migrates
-its own authoritative database. Never rerun the completed one-time Ego seed
-or replace Ego data from Superego.
+`origin/dev` is the single reviewed release branch. Releases are a separate
+maintainer operation run from a registered control workstation and
+documented in [`deploy/`](deploy/). Private environment policy remains in
+`docs-internal`.
 
 ## Project structure
 

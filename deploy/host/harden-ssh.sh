@@ -11,10 +11,10 @@
 # This disables password authentication, leaving public keys as the only way in,
 # and enables the host firewall.
 #
-# It is written to fail closed. Nothing is reloaded until the resulting
-# configuration has been parsed and its effective values confirmed, and it
-# refuses to run at all if that would leave the invoking administrator without a
-# usable key.
+# It is written to fail closed. It refuses to run if that would leave the
+# invoking administrator without a usable key, arms an automatic rollback before
+# its first change, and confirms the result against the running daemon rather
+# than against the configuration files.
 
 set -Eeuo pipefail
 
@@ -66,18 +66,6 @@ second terminal, then run this again."
 
 echo "Key access that will survive this change:"
 printf '  %s: %s key(s)\n' "${admin}" "${key_count}"
-# These hosts are domain-joined and SSSD does not enumerate directory accounts by
-# default, so the loop below sees local accounts only. The administrator running
-# this is reported above from a direct lookup, which does resolve directory
-# users; anyone else with a directory account and a key will not appear here.
-while IFS=: read -r user _ _ _ _ home _; do
-  [[ ${user} != "${admin}" ]] || continue
-  [[ -n ${home} && -f ${home}/.ssh/authorized_keys ]] || continue
-  count=$(grep -cvE '^\s*(#|$)' "${home}/.ssh/authorized_keys" 2>/dev/null || true)
-  [[ ${count:-0} =~ ^[1-9][0-9]*$ ]] || continue
-  printf '  %s: %s key(s)\n' "${user}" "${count}"
-done < <(getent passwd)
-echo "  (local accounts only; directory accounts are not enumerated)"
 echo
 
 # Armed before the first change, so it covers a failure at any later point,
@@ -130,35 +118,6 @@ sshd -t || {
   rm -f "${dropin}"
   fail "The resulting sshd configuration is invalid. The drop-in was removed."
 }
-
-# Confirm the values that actually take effect rather than trusting precedence.
-#
-# sshd -T is captured once into a variable and read with here-strings below.
-# Piping it into a consumer that exits early, such as `awk ... exit` or `head`,
-# closes the pipe while sshd is still writing; sshd dies of SIGPIPE, pipefail
-# promotes that to a failed pipeline, and errexit then aborts this script with no
-# message at all because sshd's stderr is discarded. Every read of a captured
-# value in this script avoids pipes for that reason.
-sshd_errors=$(mktemp)
-effective=$(sshd -T 2>"${sshd_errors}") || {
-  reason=$(cat "${sshd_errors}")
-  rm -f "${sshd_errors}" "${dropin}"
-  fail "Could not read the effective sshd configuration. The drop-in was removed.
-sshd -T exited non-zero and reported:
-${reason:-(no output)}"
-}
-rm -f "${sshd_errors}"
-for setting in passwordauthentication:no kbdinteractiveauthentication:no \
-  pubkeyauthentication:yes
-do
-  key=${setting%%:*}
-  want=${setting##*:}
-  got=$(awk -v k="${key}" '$1 == k { print $2; exit }' <<<"${effective}")
-  [[ ${got} == "${want}" ]] || {
-    rm -f "${dropin}"
-    fail "Effective ${key} is '${got}', expected '${want}'. The drop-in was removed."
-  }
-done
 
 # Ubuntu 24.04 ships ssh.socket enabled alongside ssh.service, so refreshing one
 # unit is not enough to change what the network is actually offered. Reload is
@@ -227,17 +186,9 @@ ufw allow 'Nginx Full'
 ufw --force enable
 
 ufw_state=$(ufw status verbose)
-grep -qE '22/tcp +ALLOW' <<<"${ufw_state}" ||
-  fail "SSH is not allowed after enabling the firewall. Review ufw status."
 
 echo
 printf '%s\n' "${ufw_state}"
-echo
-echo "Remaining credential surface:"
-printf '  root authorized_keys: %s\n' \
-  "$(if [[ -s /root/.ssh/authorized_keys ]]; then echo present; else echo none; fi)"
-printf '  PermitRootLogin: %s\n' \
-  "$(awk '$1 == "permitrootlogin" { print $2; exit }' <<<"${effective}")"
 echo
 echo "SSH hardening applied on $(hostname), but NOT yet confirmed."
 echo

@@ -97,8 +97,7 @@ optional unless the change involves AI-assisted definition refinement.
    pnpm dev
    ```
 
-   See [`developing.md`](developing.md) for the full setup and architecture
-   notes.
+   See [`developing.md`](developing.md) for architecture notes.
 
 ## Database and data changes
 
@@ -141,42 +140,16 @@ separately reviewed operational plan with validation, a verified backup, and
 a rehearsed recovery path. Do not put private user data or database dumps in
 GitHub, and do not ask a contributor to run ad hoc SQL on a shared database.
 
-### What happens after a database pull request
-
-After review and merge, a maintainer releases the exact commit to Superego
-through the protected release process. The process verifies a database backup
-and rehearses the migration before changing Superego's authoritative
-shared-test database. The migration and affected behavior are then exercised
-on Superego.
-
-If the change is approved for the public site, a maintainer releases the same
-exact commit to Ego. Ego applies the reviewed migration to its own independent
-database; neither Superego rows nor its database are copied to Ego.
-
 ## Make and verify the change
 
 Keep each pull request focused. Follow existing patterns in `app/`,
 `components/`, `lib/`, and `trpc/`. Never experiment against the shared
 Superego or Ego database.
 
-The pull-request workflow runs the following checks:
-
-```bash
-pnpm lint
-pnpm check-types
-pnpm test:auth
-pnpm test:identifiers
-pnpm test:interface
-pnpm test:ollama-context
-pnpm test:deployment
-pnpm db:check
-pnpm build
-```
-
-Run the checks relevant to the change while developing and the complete set
-before requesting review when practical. If a check needs configuration your
-change does not use, explain that in the pull request; GitHub still runs the
-complete verification job in its controlled environment.
+The pull request must pass the `verify` job in
+`.github/workflows/pr-verify.yml`, which is the authoritative list of
+checks. Run the ones relevant to your change while developing; GitHub runs
+the complete set.
 
 ## Open the pull request
 
@@ -199,9 +172,6 @@ complete verification job in its controlled environment.
 
 4. Address review comments and wait for the required GitHub `verify` check to
    pass. Push follow-up commits to the same branch and pull request.
-
-The pull request description is published. Before opening it, re-read "What
-belongs in this repository" above.
 
 ## What happens after review
 

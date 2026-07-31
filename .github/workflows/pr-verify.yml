@@ -64,8 +64,6 @@ jobs:
             deploy/deploy-superego-from-workstation.sh \
             deploy/lib/deploy-superego-in-place-remote.sh \
             deploy/lib/launch-reviewed-release-remote.sh \
-            deploy/provision-ego-runtime.sh \
-            deploy/lib/provision-ego-runtime-remote.sh \
             deploy/lib/verify-superego-public-content.sh \
             deploy/ops/matsci-sam-ops \
             deploy/host/install-security-updates.sh \

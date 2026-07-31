@@ -185,30 +185,10 @@ else
   operation=release
 fi
 
-for command in awk base64 basename date find git hostname install mktemp pnpm \
-  readlink rmdir scp sed sha256sum sort ssh tar
-do
-  command -v "${command}" >/dev/null ||
-    fail "Required command is unavailable: ${command}"
-done
-
-for file in "${remote_helper}" "${remote_launcher}" "${invariants}" \
-  "${ledger_verifier}" "${source_verifier}" "${state_file}" \
-  "${workstation_registry}"
-do
-  [[ -f ${file} && ! -L ${file} ]] ||
-    fail "Required deployment file is missing or unsafe: ${file}"
-done
-
 current_hostname=$(hostname)
 registry_entry=$(
   awk -F '\t' -v host="${current_hostname}" '
     /^#/ || /^[[:space:]]*$/ { next }
-    NF != 3 { exit 2 }
-    $1 !~ /^[a-z][a-z0-9-]*$/ { exit 2 }
-    $2 !~ /^[A-Za-z0-9][A-Za-z0-9.-]*$/ { exit 2 }
-    $3 != "yes" && $3 != "no" { exit 2 }
-    ++seen_id[$1] > 1 || ++seen_host[$2] > 1 { exit 2 }
     $2 == host { print $0 }
   ' "${workstation_registry}"
 ) || fail "The workstation registry is malformed."

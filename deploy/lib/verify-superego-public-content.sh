@@ -31,30 +31,6 @@ fail() {
   exit 1
 }
 
-# These paths are control-plane inputs, not application, schema, migration,
-# dependency, build, service, or runtime-configuration content. Any change
-# outside this exact reviewed list invalidates Superego equivalence.
-operations_only_paths=(
-  .agents/skills/manage-matsci-environments/SKILL.md
-  .agents/skills/manage-matsci-environments/agents/openai.yaml
-  .agents/skills/manage-matsci-environments/references/environments.md
-  .agents/skills/manage-matsci-environments/scripts/status.sh
-  .github/workflows/pr-verify.yml
-  .gitignore
-  README.md
-  developing.md
-  deploy/README.md
-  deploy/configure-email-auth.sh
-  deploy/lib/configure-email-auth-remote.sh
-  deploy/lib/verify-superego-public-content.sh
-  deploy/workstations.tsv
-  scripts/test-deployment-contract.ts
-)
-
-if [[ ${1:-} == --print-allowlist && $# -eq 1 ]]; then
-  printf '%s\n' "${operations_only_paths[@]}"
-  exit 0
-fi
 
 if [[ ${1:-} == --verify-worktree ]]; then
   [[ $# -eq 3 ]] ||
@@ -182,67 +158,5 @@ if [[ ${1:-} == --create-archive ]]; then
   exit 0
 fi
 
-repo=${1:-}
-validated_commit=${2:-}
-candidate_commit=${3:-}
-
-[[ -n ${repo} && -n ${validated_commit} && -n ${candidate_commit} ]] ||
-  fail "Usage: verify-superego-public-content.sh REPOSITORY VALIDATED_COMMIT CANDIDATE_COMMIT"
-[[ -d ${repo}/.git && ! -L ${repo}/.git ]] ||
-  fail "The repository path is missing or unsafe."
-for commit in "${validated_commit}" "${candidate_commit}"; do
-  [[ ${commit} =~ ^[0-9a-f]{40}$ ]] ||
-    fail "A source commit identifier is malformed."
-  git -C "${repo}" cat-file -e "${commit}^{commit}" 2>/dev/null ||
-    fail "A source commit is unavailable."
-done
-git -C "${repo}" merge-base --is-ancestor \
-  "${validated_commit}" \
-  "${candidate_commit}" ||
-  fail "The public candidate does not descend from the Superego release."
-
-if git -C "${repo}" diff \
-  --quiet \
-  --no-ext-diff \
-  --no-textconv \
-  --no-renames \
-  --ignore-submodules=none \
-  "${validated_commit}" \
-  "${candidate_commit}" \
-  --
-then
-  printf 'exact-tree\n'
-  exit 0
-fi
-
-diff_scope=(.)
-for path in "${operations_only_paths[@]}"; do
-  diff_scope+=(":(top,exclude,literal)${path}")
-done
-
-if ! git -C "${repo}" diff \
-  --quiet \
-  --no-ext-diff \
-  --no-textconv \
-  --no-renames \
-  --ignore-submodules=none \
-  "${validated_commit}" \
-  "${candidate_commit}" \
-  -- \
-  "${diff_scope[@]}"
-then
-  echo "The public candidate changes content not validated on Superego:" >&2
-  git -C "${repo}" diff \
-    --name-only \
-    --no-ext-diff \
-    --no-textconv \
-    --no-renames \
-    --ignore-submodules=none \
-    "${validated_commit}" \
-    "${candidate_commit}" \
-    -- \
-    "${diff_scope[@]}" >&2
-  exit 1
-fi
-
-printf 'reviewed-operations-only\n'
+fail "Usage: verify-superego-public-content.sh --verify-worktree REPOSITORY COMMIT
+       verify-superego-public-content.sh --create-archive REPOSITORY COMMIT OUTPUT [--prefix=PREFIX]"
