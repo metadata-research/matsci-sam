@@ -27,6 +27,35 @@ All source changes enter the protected `dev` branch through a pull request.
 Do not edit source, configuration, or database records directly on Superego.
 A pull request changes source control; it does not deploy a server.
 
+## What belongs in this repository
+
+This repository is public. It describes **the system**: what MatSci-SAM is, how
+it is built, and how it is deployed. The private `docs-internal` folder
+describes **our instance of it**: which hosts run it, their current state, who
+has access, and what work is still outstanding.
+
+Apply that split to everything you write.
+
+- Mechanism, procedure, and general engineering knowledge belong here, in code,
+  comments, and documentation alike.
+- Live security posture, network topology, unfinished work, and anything naming
+  a person outside the contributor list belong in `docs-internal`.
+
+Some instance detail is unavoidable here and is a deliberate exception rather
+than an oversight: host names and the pinned package versions in
+`deploy/runtime-versions.env` are load-bearing for provisioning and for
+`check-runtime-parity.sh`.
+
+**Commit messages, pull request descriptions, and issue text are as public as
+the files, and cannot be quietly corrected once pushed.** They are the easiest
+place to leak, because explaining why a change was needed usually means
+describing the weakness it closes — and that weakness is often still open
+somewhere else. Describe the change you made, not the condition it fixes.
+
+Never put credentials, tokens, database dumps, private environment files, TLS
+keys, or private user data in a branch, pull request, issue, workflow log, or
+build artifact.
+
 ## Prepare a local checkout
 
 The project uses Node.js `24.18.0` (recorded in `.nvmrc`) and pnpm `10.34.5`.
@@ -171,9 +200,8 @@ complete verification job in its controlled environment.
 4. Address review comments and wait for the required GitHub `verify` check to
    pass. Push follow-up commits to the same branch and pull request.
 
-Never put credentials, tokens, database dumps, private environment files, TLS
-keys, or private user data in a branch, pull request, issue, workflow log, or
-build artifact.
+The pull request description is published. Before opening it, re-read "What
+belongs in this repository" above.
 
 ## What happens after review
 
