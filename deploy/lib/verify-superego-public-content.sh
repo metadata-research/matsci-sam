@@ -45,16 +45,8 @@ operations_only_paths=(
   developing.md
   deploy/README.md
   deploy/configure-email-auth.sh
-  deploy/cutover-ego-public.sh
-  deploy/deploy-ego-from-workstation.sh
-  deploy/ego/AGENTS.md
-  deploy/lib/cutover-ego-public-remote.sh
   deploy/lib/configure-email-auth-remote.sh
-  deploy/lib/deploy-ego-precutover-remote.sh
-  deploy/lib/export-superego-for-ego-seed-remote.sh
-  deploy/lib/seed-ego-from-superego-remote.sh
   deploy/lib/verify-superego-public-content.sh
-  deploy/seed-ego-from-superego.sh
   deploy/workstations.tsv
   scripts/test-deployment-contract.ts
 )
