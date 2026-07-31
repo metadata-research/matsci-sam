@@ -38,57 +38,34 @@ command. Authentication changes require a real browser sign-in from
 login and provider redirect contract but cannot prove provider credentials or
 identity continuity. Repeat the real sign-in after the Ego release.
 
-Do not run the one-time Ego seed, first-release, or cutover wrappers again.
-`--check-only` remains available for diagnostics but is not a required extra
-step before either command.
-
 ## Files
 
 - `bootstrap-server.sh` provisions a replacement private development host.
 - `runtime-versions.env` pins the shared host runtime contract.
-- `app.env.example` is the Superego configuration profile without secrets.
-- `ego/app.env.example` is the independent Ego public profile.
+- `app.env.example`, `ego/app.env.example` are the per-host configuration
+  profiles without secrets.
 - `systemd/matsci-sam.service` is the canonical service unit.
 - `nginx/matsci-sam-superego.conf` is the private development HTTP bootstrap
-  configuration. It contains no Ego proxy path and is not the complete TLS
-  configuration installed on an existing host.
+  configuration, not the complete TLS configuration on an existing host.
 - `nginx/matsci-sam-public-maintenance.conf` is the known-good Ego maintenance
-  configuration.
-- `nginx/matsci-sam-public-local-ready.conf` is the disabled Ego candidate
+  configuration; `nginx/matsci-sam-public-local-ready.conf` is the Ego site
   that proxies to the local loopback application.
-- `provision-ego-runtime.sh` installs the runtime and empty local database
-  without changing public maintenance behavior.
-- `seed-ego-from-superego.sh` performs the sole privacy-filtered initialization
-  while Ego still records authority `uninitialized`.
-- `deploy-ego-from-workstation.sh` prepares only Ego's first seeded
-  application release on loopback; it does not perform public cutover or
-  support later in-place releases.
-- `cutover-ego-public.sh` performs the separately approved, fail-closed
-  transition from maintenance to the already-verified first Ego release.
 - `check-runtime-parity.sh` compares non-secret host versions, service
   configuration, listener boundaries, and authority markers.
-- `release.sh <superego|ego>` is the repeatable release path. It preserves
-  each environment's own database and requires an Ego commit to be running on
+- `release.sh <superego|ego>` is the repeatable release path. It preserves each
+  environment’s own database and requires an Ego commit to be running on
   Superego first.
-- `configure-email-auth.sh <superego|ego> <stage|enable|disable>` copies the
-  locally authorized Gmail send-only credentials into protected runtime
-  settings without printing them. It requires supervised remote sudo and does
-  not restart or deploy the application.
-- `deploy-superego-from-workstation.sh` publishes reviewed source while
-  preserving and migrating the Superego-authoritative database. It remains as
-  a compatible direct entry point; routine releases use `release.sh`.
-- `pull-superego-db-to-workstation.sh` refreshes the replaceable local
-  database from a verified Superego snapshot.
-- `workstations.tsv` is the reviewed registry of local orchestration hosts
-  and snapshot recipients. It does not grant release-control authority.
-- `reset-superego-from-pa90.sh` remains only for explicitly disposable,
-  PA90-authoritative data.
+- `configure-email-auth.sh <superego|ego> <stage|enable|disable>` installs the
+  Gmail send-only credentials without printing them.
+- `deploy-superego-from-workstation.sh` is a compatible direct entry point;
+  routine releases use `release.sh`.
+- `pull-superego-db-to-workstation.sh` refreshes the replaceable local database
+  from a verified Superego snapshot.
+- `host/install-security-updates.sh` and `host/harden-ssh.sh` configure host
+  patching and SSH. See `host/README.md`.
+- `workstations.tsv` is the reviewed registry of local orchestration hosts.
 - Files under `lib/` are staged implementation details. Do not invoke them
   directly.
-
-Do not run `bootstrap-server.sh` on Ego. That script replaces the enabled
-Nginx site on a new host. Ego already has public TLS and a protected
-maintenance contract.
 
 ## New-host bootstrap
 
@@ -106,113 +83,46 @@ standard directories. PostgreSQL accepts local Unix-socket connections only.
 The application service remains disabled until an administrator installs the
 protected environment, TLS configuration, and first release.
 
-## Historical Ego initialization and first publication
+## Automatic security updates
 
-The procedures in this section record how the empty Ego runtime was
-provisioned, seeded once, and first published. They are not routine release
-steps.
-
-Ego uses the same Node.js, pnpm, PostgreSQL, pgvector, service-unit, directory,
-and socket-only database contract as Superego. It has distinct configuration,
-OAuth credentials, session and token keys, database rows, releases, TLS, and
-Nginx configuration.
-
-Run the optional preflight and then the supervised provisioning command from
-the recorded control workstation on a clean `dev` checkout equal to
-`origin/dev`:
+Ubuntu enables `unattended-upgrades` by default, restricted to the release and
+security pockets. That default installs patches but never reboots, so a patched
+kernel, glibc, or dbus stays inert in every already-running process. To install
+the policy that completes it:
 
 ```bash
-./deploy/provision-ego-runtime.sh --check-only
-./deploy/provision-ego-runtime.sh
+sudo ./deploy/host/install-security-updates.sh
 ```
 
-The command requires the user to enter sudo on Ego. It leaves the known-good
-maintenance site active, keeps `matsci-sam.service` disabled, creates an empty
-local `matsci-sam` database with pgvector, and records the Ego data authority
-as `uninitialized`.
+The host then patches from the Ubuntu security pockets each morning and, only
+when the packaging system reports a reboot is required, reboots at 07:30 UTC.
+`matsci-sam.service` requires and follows `postgresql.service` and both are
+enabled, so the application returns without intervention.
 
-Verify runtime parity with:
+Check the current posture at any time:
 
 ```bash
-./deploy/check-runtime-parity.sh
+ssh superego sudo /usr/local/sbin/matsci-sam-security-status
 ```
 
-Provisioning does not seed data, install OAuth credentials, deploy an
-application release, or activate the public application configuration.
+Nginx comes from the Ubuntu archive and moves on its own, so
+`check-runtime-parity.sh` will report a mismatch against
+`NGINX_PACKAGE_VERSION`. That is an applied security patch, not a fault:
+confirm both hosts moved to the same version, then bump the pin through
+review. NodeSource and PGDG are not Ubuntu origins, so Node, PostgreSQL,
+and pgvector are never patched automatically.
 
-The later one-time seed requires a privacy review of the Superego snapshot.
-User identities, provider-bound OAuth tokens, private feedback, and
-conversation records must not become public by accident. A successful seed
-changes the Ego authority marker from `uninitialized` to `ego`. After that
-change, never replace or refresh the Ego database from Superego.
+## SSH credential surface
 
-Configure and validate the public OAuth client first. Then, after the
-application content promoted under the original workflow is verified on
-Superego, run the seed in a supervised foreground terminal. Reviewed
-public-operation changes may differ only through the exact fail-closed allowlist in
-`deploy/lib/verify-superego-public-content.sh`:
+These hosts authenticate against a directory service, so public keys are the
+only accepted SSH credential. Run `sudo ./deploy/host/harden-ssh.sh` from a
+session you keep open; it arms an automatic rollback before its first change.
+See `host/README.md`.
 
-```bash
-./deploy/seed-ego-from-superego.sh --check-only
-./deploy/seed-ego-from-superego.sh
-```
-
-Enter the existing Google contributor email at the private prompt; do not put
-it on a documented command line. The seed test-restores the raw snapshot,
-deletes provider-token rows, email tokens, private feedback, raw term chats,
-unaccepted AI work, and legacy edits, prunes non-contributors, and erases
-retained human email addresses. Google subjects remain so the first successful
-public login can repopulate the verified address without breaking attribution.
-Only public-profile fields explicitly opted into remain.
-
-The sanitized dump is restored and checked a second time. The source promoted
-under that workflow then receives a frozen dependency install, migration
-rehearsal, and public build against that scratch database before the empty live
-database changes. The authority marker is the final commit point. A root
-mode-`0400` backup remains on Ego and a checksum-verified mode-`0600` copy is
-stored under the control user's WSL state directory, outside Git and OneDrive.
-The raw snapshot is transient.
-
-Because the seed removes raw term chats, the application promoted under that
-workflow was required to retain the `EGO_SEED_CHAT_FALLBACK` contract. It
-reconstructs the term and current AI definition when later feedback starts a
-new chat thread. Both the wrapper and deployment contract test refuse a public
-tree without that fallback.
-
-After the reviewed seed records authority `ego`, prepare Ego's first release
-with:
-
-```bash
-./deploy/deploy-ego-from-workstation.sh --check-only
-./deploy/deploy-ego-from-workstation.sh
-```
-
-The wrapper requires clean `dev`, an identical `origin/main` tree, no prior
-Ego release, and an inactive, disabled application service. It verifies the
-seed privacy contract and exact migration ledger without changing the live
-database, creates and test-restores a backup, builds against the restored
-scratch database under Ego's protected environment, and starts Next.js only
-on loopback. Nginx remains on the known-good maintenance site. A successful
-run writes a root-owned pre-cutover marker for the separate public-edge
-operation. Do not reuse this first-release wrapper for a later deployment.
-
-Then run the separately approved cutover in the foreground:
-
-```bash
-./deploy/cutover-ego-public.sh --check-only
-./deploy/cutover-ego-public.sh
-```
-
-The mutating command atomically activates the reviewed local Nginx candidate,
-checks both the trusted local edge and the public hostname, and then pauses
-for up to 15 minutes. During that pause, sign in through Google with the
-existing contributor account and verify its expected profile and
-contributions. Type the exact confirmation shown by the command only after
-that browser check. Automated redirect and cookie checks do not prove the
-Google client secret, callback registration, or identity continuity. EOF,
-interruption, timeout, a wrong confirmation, or a later failed check restores
-the exact maintenance configuration and leaves the application service
-disabled for reboot.
+Ego is the authority for its own database. Never seed or reset it from
+Superego; the one-time initialization wrappers were removed and re-running any
+stage would destroy live public data. Recover them from history with
+`git log --diff-filter=D -- deploy/` if the record is ever needed.
 
 ## Deployment boundary
 
@@ -220,40 +130,12 @@ A merge to `dev` updates source control only. It does not deploy Superego.
 Consult `docs-internal/CURRENT-DEV-STATE.md` and
 `docs-internal/SUPEREGO-DEV-ACCESS.md` before an operation.
 
-The repeatable release path is:
-
-```bash
-./deploy/release.sh superego
-# Verify the private runtime, including any changed sign-in workflow.
-./deploy/release.sh ego
-```
-
-`origin/dev` is the single reviewed branch. The commit deployed to Ego must be
-the commit Superego already runs, so public content is content the private
-runtime ran first. That is one exact commit comparison: Superego records its
-deployed commit in its release directory name, and the Ego wrappers require
-equality with the reviewed commit.
-
 Ego builds the reviewed tree again with the public environment because
 `NEXT_PUBLIC_SITE_URL` is build-time configuration.
 
 There is no routine bypass for the Superego-first requirement. If an emergency
 cannot follow this order, stop and handle it as an explicit recovery rather
 than weakening the normal release command.
-
-There is no promotion branch. The previous design required every change to be
-promoted from `dev` to `main` on an identical tree and compared against a
-maintained allowlist of non-runtime paths. That produced two pull requests and
-two continuous-integration runs per change, made the file that validates
-deployment tooling a member of its own allowlist, and stranded a verified Ego
-release on 2026-07-26 when a promoted operations-only fix moved `origin/main`.
-
-The first routine release after retiring `main` includes the live Ego release
-commit `1779f8cb741cfbadf7ad133c75b6b0d39ef7d4d5` as a one-time history
-parent. Its tree is identical to reviewed `dev` commit
-`68d866ddf2bdc5a6932b63ff75af952b102cb6fb`, so the merge introduces no
-runtime content. It only bridges the retired promotion lineage into `dev`;
-afterward, the normal forward-ancestry rule applies without a special bypass.
 
 Each command validates the clean reviewed source and release artifact before
 it requests confirmation or sudo. Use `--check-only` for an optional
@@ -296,11 +178,6 @@ requires it active, so an unrelated maintenance stop can never be silently
 turned into a public reopen. A failed repair keeps ingress closed; success
 reopens only after the same full release and public verification contract.
 
-The workstation sends one hash-bound transport payload. A small launcher is
-streamed directly into the interactive sudo session, copies and verifies that
-payload in a root-only stage, and only then executes the reviewed helper.
-Remote user-writable staging is never executed as root.
-
 Refresh a registered workstation database with:
 
 ```bash
@@ -309,14 +186,6 @@ Refresh a registered workstation database with:
 
 This is a complete one-way Superego snapshot. It replaces only the local
 database. `--check-only` is also available as an optional diagnostic.
-
-The inactive `reset-superego-from-pa90.sh` path is available only when both
-authority records explicitly identify PA90 and Superego is disposable. Do
-not use it as a release shortcut.
-
-Privileged helpers start from `/` before invoking service accounts or cleanup
-utilities. This prevents an inherited private administrator home directory
-from breaking `runuser` or `find`. Preserve that invariant in new helpers.
 
 All privileged Superego operations share one lock. Public-edge changes require
 separate Nginx and TLS review.

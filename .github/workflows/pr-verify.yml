@@ -64,17 +64,11 @@ jobs:
             deploy/deploy-superego-from-workstation.sh \
             deploy/lib/deploy-superego-in-place-remote.sh \
             deploy/lib/launch-reviewed-release-remote.sh \
-            deploy/provision-ego-runtime.sh \
-            deploy/seed-ego-from-superego.sh \
-            deploy/deploy-ego-from-workstation.sh \
-            deploy/cutover-ego-public.sh \
-            deploy/lib/provision-ego-runtime-remote.sh \
-            deploy/lib/export-superego-for-ego-seed-remote.sh \
-            deploy/lib/seed-ego-from-superego-remote.sh \
-            deploy/lib/deploy-ego-precutover-remote.sh \
-            deploy/lib/cutover-ego-public-remote.sh \
             deploy/lib/verify-superego-public-content.sh \
-            deploy/ops/matsci-sam-ops
+            deploy/ops/matsci-sam-ops \
+            deploy/host/install-security-updates.sh \
+            deploy/host/matsci-sam-security-status \
+            deploy/host/harden-ssh.sh
 
       - name: Check Migrations
         run: |

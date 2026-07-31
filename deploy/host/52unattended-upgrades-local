@@ -1,0 +1,46 @@
+// Local unattended-upgrades policy for the Superego and Ego hosts.
+//
+// This file is layered over the stock /etc/apt/apt.conf.d/50unattended-upgrades,
+// which is left unmodified. The stock file already restricts Allowed-Origins to
+// the Ubuntu release and security pockets and leaves -updates, -proposed, and
+// -backports disabled, so security patching is already correctly scoped. The
+// NodeSource and PostgreSQL (PGDG) repositories are not Ubuntu origins and are
+// therefore out of scope automatically, which keeps deploy/runtime-versions.env
+// authoritative for Node, PostgreSQL, and pgvector.
+//
+// What the Ubuntu default leaves undone, and what this file adds, is finishing
+// the job: a patched glibc, kernel, or dbus is written to disk but stays inert
+// in every already-running process until the system restarts. needrestart
+// handles the ordinary daemons; only a reboot handles PID 1, dbus, and the
+// kernel.
+
+// Reboot when, and only when, the packaging system says a reboot is required
+// (that is, when /var/run/reboot-required exists).
+Unattended-Upgrade::Automatic-Reboot "true";
+
+// Reboot even if a login session is open. Set deliberately: with "false", one
+// forgotten SSH session defers every security reboot indefinitely and reports
+// nothing, which is the worse failure because it is silent.
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+
+// The host clock is Etc/UTC and apt-daily-upgrade.timer fires at 06:00 UTC with
+// up to 60 minutes of randomized delay. 07:30 UTC is after that window closes,
+// so the reboot is scheduled for the same morning rather than resolving to the
+// next day and leaving a ~21-hour pending shutdown broadcasting wall messages.
+// 07:30 UTC is 03:30 America/New_York during daylight saving time.
+Unattended-Upgrade::Automatic-Reboot-Time "07:30";
+
+// /boot is a 2 GB partition. Remove kernels that have been superseded by an
+// installed and booted replacement so unattended kernel updates cannot fill it.
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+
+// Record every run in the journal. Without this the only record is
+// /var/log/unattended-upgrades/, which is root:adm 0750; journalctl lets an
+// operator read the patch history through the ordinary status command.
+Unattended-Upgrade::SyslogEnable "true";
+Unattended-Upgrade::SyslogFacility "daemon";
+
+// The stock /etc/apt/apt.conf.d/10periodic disables autoclean entirely. Reclaim
+// superseded .deb files weekly so the apt cache does not grow without bound.
+APT::Periodic::AutocleanInterval "7";

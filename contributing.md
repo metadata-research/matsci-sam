@@ -27,6 +27,35 @@ All source changes enter the protected `dev` branch through a pull request.
 Do not edit source, configuration, or database records directly on Superego.
 A pull request changes source control; it does not deploy a server.
 
+## What belongs in this repository
+
+This repository is public. It describes **the system**: what MatSci-SAM is, how
+it is built, and how it is deployed. The private `docs-internal` folder
+describes **our instance of it**: which hosts run it, their current state, who
+has access, and what work is still outstanding.
+
+Apply that split to everything you write.
+
+- Mechanism, procedure, and general engineering knowledge belong here, in code,
+  comments, and documentation alike.
+- Live security posture, network topology, unfinished work, and anything naming
+  a person outside the contributor list belong in `docs-internal`.
+
+Some instance detail is unavoidable here and is a deliberate exception rather
+than an oversight: host names and the pinned package versions in
+`deploy/runtime-versions.env` are load-bearing for provisioning and for
+`check-runtime-parity.sh`.
+
+**Commit messages, pull request descriptions, and issue text are as public as
+the files, and cannot be quietly corrected once pushed.** They are the easiest
+place to leak, because explaining why a change was needed usually means
+describing the weakness it closes — and that weakness is often still open
+somewhere else. Describe the change you made, not the condition it fixes.
+
+Never put credentials, tokens, database dumps, private environment files, TLS
+keys, or private user data in a branch, pull request, issue, workflow log, or
+build artifact.
+
 ## Prepare a local checkout
 
 The project uses Node.js `24.18.0` (recorded in `.nvmrc`) and pnpm `10.34.5`.
@@ -68,8 +97,7 @@ optional unless the change involves AI-assisted definition refinement.
    pnpm dev
    ```
 
-   See [`developing.md`](developing.md) for the full setup and architecture
-   notes.
+   See [`developing.md`](developing.md) for architecture notes.
 
 ## Database and data changes
 
@@ -112,42 +140,16 @@ separately reviewed operational plan with validation, a verified backup, and
 a rehearsed recovery path. Do not put private user data or database dumps in
 GitHub, and do not ask a contributor to run ad hoc SQL on a shared database.
 
-### What happens after a database pull request
-
-After review and merge, a maintainer releases the exact commit to Superego
-through the protected release process. The process verifies a database backup
-and rehearses the migration before changing Superego's authoritative
-shared-test database. The migration and affected behavior are then exercised
-on Superego.
-
-If the change is approved for the public site, a maintainer releases the same
-exact commit to Ego. Ego applies the reviewed migration to its own independent
-database; neither Superego rows nor its database are copied to Ego.
-
 ## Make and verify the change
 
 Keep each pull request focused. Follow existing patterns in `app/`,
 `components/`, `lib/`, and `trpc/`. Never experiment against the shared
 Superego or Ego database.
 
-The pull-request workflow runs the following checks:
-
-```bash
-pnpm lint
-pnpm check-types
-pnpm test:auth
-pnpm test:identifiers
-pnpm test:interface
-pnpm test:ollama-context
-pnpm test:deployment
-pnpm db:check
-pnpm build
-```
-
-Run the checks relevant to the change while developing and the complete set
-before requesting review when practical. If a check needs configuration your
-change does not use, explain that in the pull request; GitHub still runs the
-complete verification job in its controlled environment.
+The pull request must pass the `verify` job in
+`.github/workflows/pr-verify.yml`, which is the authoritative list of
+checks. Run the ones relevant to your change while developing; GitHub runs
+the complete set.
 
 ## Open the pull request
 
@@ -170,10 +172,6 @@ complete verification job in its controlled environment.
 
 4. Address review comments and wait for the required GitHub `verify` check to
    pass. Push follow-up commits to the same branch and pull request.
-
-Never put credentials, tokens, database dumps, private environment files, TLS
-keys, or private user data in a branch, pull request, issue, workflow log, or
-build artifact.
 
 ## What happens after review
 

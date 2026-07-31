@@ -1,0 +1,1 @@
+cr625 ALL=(root) NOPASSWD: /usr/local/sbin/matsci-sam-security-status
