@@ -1,0 +1,275 @@
+#!/usr/bin/env bash
+
+# Report the security-update posture of a matsci-sam host.
+#
+# unattended-upgrades patches this host every morning but has no way to tell
+# anyone when it stops working, when a reboot is owed, or when a package it is
+# not allowed to touch has a newer version waiting. This reports all three.
+#
+# It reports facts only and never changes anything. The reviewed version
+# contract in deploy/runtime-versions.env is deliberately not duplicated onto
+# the host: this prints the installed and candidate versions, and
+# deploy/check-runtime-parity.sh on the workstation compares them against the
+# contract.
+#
+# Reads that can legitimately find nothing are wrapped individually below. An
+# apt log that has not rotated yet, a grep with no matches, and a package that
+# is not installed are facts this report should print, not errors it should die
+# on. Everything outside those wrappers keeps errexit.
+
+set -Eeuo pipefail
+
+export LC_ALL=C
+export DEBIAN_FRONTEND=noninteractive
+
+# Packages whose versions the reviewed runtime contract pins. Node, PostgreSQL,
+# and pgvector come from NodeSource and PGDG, which are not Ubuntu origins and
+# so are never patched automatically. Nginx comes from the Ubuntu archive and
+# does move on its own, which is what makes its candidate version worth
+# watching.
+contract_packages=(
+  nginx
+  nodejs
+  postgresql-17
+  postgresql-17-pgvector
+)
+
+attention_reasons=()
+
+fail() {
+  echo "$*" >&2
+  exit 1
+}
+
+[[ ${EUID} -eq 0 ]] ||
+  fail "Run through sudo: sudo /usr/local/sbin/matsci-sam-security-status"
+[[ $# -eq 0 ]] ||
+  fail "This operation takes no arguments."
+
+# Effective value of an apt configuration key after all of apt.conf.d is merged,
+# so this reports what unattended-upgrades will actually do rather than what any
+# single file requests.
+apt_value() {
+  local key=$1
+  local fallback=$2
+  local value
+  # Read with a here-string rather than a pipe. Piping into head, which exits
+  # after the first line, can leave the writer with SIGPIPE; pipefail would then
+  # promote that to a failed substitution and errexit would abort the report with
+  # no message.
+  value=$(apt-config dump --format '%v%n' "${key}" 2>/dev/null || true)
+  value=$(head -1 <<<"${value}")
+  printf '%s\n' "${value:-${fallback}}"
+}
+
+installed_version() {
+  dpkg-query -W -f='${Version}' "$1" 2>/dev/null || printf 'absent'
+}
+
+candidate_version() {
+  local candidate
+  candidate=$(
+    apt-cache policy "$1" 2>/dev/null |
+      awk -F': ' '$1 ~ /^ *Candidate$/ { print $2; exit }'
+  )
+  printf '%s' "${candidate:-unknown}"
+}
+
+unit_state() {
+  systemctl "$1" "$2" 2>/dev/null || printf 'unknown'
+}
+
+# End-Date of the most recent unattended-upgrades transaction. The apt log is
+# rotated, so the compressed history is read too; zcat -f passes uncompressed
+# input through unchanged, keeping this to one pass. pipefail is relaxed because
+# an absent rotated log and a history with no unattended runs are both normal.
+last_unattended_run() {
+  local value
+  value=$(
+    set +o pipefail
+    zcat -f /var/log/apt/history.log /var/log/apt/history.log.*.gz 2>/dev/null |
+      grep -A4 '^Commandline: /usr/bin/unattended-upgrade$' |
+      awk -F': ' '$1 == "End-Date" { print $2 }' |
+      sort |
+      tail -1
+  )
+  printf '%s' "${value:-never}"
+}
+
+printf '[host]\n'
+printf 'host=%s\n' "$(hostname)"
+printf 'ubuntu=%s\n' "$(. /etc/os-release && printf '%s' "${VERSION_ID}")"
+printf 'kernel_running=%s\n' "$(uname -r)"
+printf 'uptime=%s\n' "$(uptime --pretty)"
+
+printf '\n[policy]\n'
+update_lists=$(apt_value APT::Periodic::Update-Package-Lists 0)
+run_upgrade=$(apt_value APT::Periodic::Unattended-Upgrade 0)
+automatic_reboot=$(apt_value Unattended-Upgrade::Automatic-Reboot false)
+printf 'periodic_update_package_lists=%s\n' "${update_lists}"
+printf 'periodic_unattended_upgrade=%s\n' "${run_upgrade}"
+printf 'timer_enabled=%s\n' "$(unit_state is-enabled apt-daily-upgrade.timer)"
+printf 'next_run=%s\n' "$(
+  systemctl show -p NextElapseUSecRealtime --value apt-daily-upgrade.timer \
+    2>/dev/null || printf 'unknown'
+)"
+printf 'automatic_reboot=%s\n' "${automatic_reboot}"
+printf 'automatic_reboot_time=%s\n' \
+  "$(apt_value Unattended-Upgrade::Automatic-Reboot-Time unset)"
+printf 'automatic_reboot_with_users=%s\n' \
+  "$(apt_value Unattended-Upgrade::Automatic-Reboot-WithUsers true)"
+
+[[ ${update_lists} != 0 && ${run_upgrade} != 0 ]] ||
+  attention_reasons+=("automatic security upgrades are disabled")
+
+printf '\n[reboot]\n'
+scheduled_shutdown=none
+if [[ -f /run/systemd/shutdown/scheduled ]]; then
+  shutdown_usec=$(
+    awk -F= '$1 == "USEC" { print $2 }' /run/systemd/shutdown/scheduled
+  )
+  shutdown_mode=$(
+    awk -F= '$1 == "MODE" { print $2 }' /run/systemd/shutdown/scheduled
+  )
+  if [[ ${shutdown_usec} =~ ^[0-9]+$ ]]; then
+    scheduled_shutdown="${shutdown_mode:-unknown} at $(
+      date --utc --date "@$((shutdown_usec / 1000000))" '+%Y-%m-%d %H:%M:%S %Z'
+    )"
+  else
+    scheduled_shutdown=${shutdown_mode:-unknown}
+  fi
+fi
+if [[ -f /var/run/reboot-required ]]; then
+  printf 'reboot_required=yes\n'
+  printf 'reboot_required_packages=%s\n' "$(
+    if [[ -f /var/run/reboot-required.pkgs ]]; then
+      sort -u /var/run/reboot-required.pkgs | paste -sd' ' -
+    else
+      printf 'unknown'
+    fi
+  )"
+  # Patched code that is on disk but not running is the state this whole policy
+  # exists to end, so say so until a reboot is actually on the calendar.
+  if [[ ${automatic_reboot} != true && ${automatic_reboot} != 1 ]]; then
+    attention_reasons+=("a reboot is required and no policy will perform it")
+  elif [[ ${scheduled_shutdown} == none ]]; then
+    attention_reasons+=("a reboot is required and none is scheduled yet")
+  fi
+else
+  printf 'reboot_required=no\n'
+fi
+printf 'scheduled_shutdown=%s\n' "${scheduled_shutdown}"
+
+# needrestart reports differently by privilege: unprivileged it cannot map a PID
+# to a systemd unit and emits NEEDRESTART-PID, while as root it resolves the
+# unit and emits NEEDRESTART-SVC instead. Both are collected so this reports the
+# same facts however it is invoked.
+needrestart_report=$(needrestart -b -r l 2>/dev/null || true)
+
+printf '\n[kernel]\n'
+kernel_state=$(
+  awk -F': ' '$1 == "NEEDRESTART-KSTA" { print $2 }' <<<"${needrestart_report}"
+)
+kernel_expected=$(
+  awk -F': ' '$1 == "NEEDRESTART-KEXP" { print $2 }' <<<"${needrestart_report}"
+)
+printf 'kernel_expected=%s\n' "${kernel_expected:-unknown}"
+printf 'kernel_state=%s\n' "$(
+  case ${kernel_state} in
+    0) printf 'unknown' ;;
+    1) printf 'running the newest installed kernel' ;;
+    2) printf 'ABI-compatible upgrade installed, not booted' ;;
+    3) printf 'newer version installed, not booted' ;;
+    *) printf 'unreported' ;;
+  esac
+)"
+
+printf '\n[stale_processes]\n'
+stale=$(
+  awk -F': ' '
+    $1 == "NEEDRESTART-SVC" { print "service=" $2 }
+    $1 == "NEEDRESTART-PID" { print "process=" $2 }
+  ' <<<"${needrestart_report}"
+)
+printf '%s\n' "${stale:-none}"
+
+printf '\n[last_run]\n'
+printf 'last_unattended_upgrade=%s\n' "$(last_unattended_run)"
+error_count=$(
+  grep -c -h -E '(ERROR|Traceback)' \
+    /var/log/unattended-upgrades/unattended-upgrades.log 2>/dev/null || true
+)
+printf 'log_errors_total=%s\n' "${error_count:-0}"
+if [[ ${error_count:-0} =~ ^[1-9][0-9]*$ ]]; then
+  printf 'last_error=%s\n' "$(
+    set +o pipefail
+    grep -h -E '(ERROR|Traceback)' \
+      /var/log/unattended-upgrades/unattended-upgrades.log 2>/dev/null | tail -1
+  )"
+  attention_reasons+=("unattended-upgrades has logged errors")
+fi
+
+# unattended-upgrade --dry-run applies the real Allowed-Origins allowlist, so
+# this is what the host will actually install rather than a reimplementation of
+# its policy. It resolves only and changes nothing.
+printf '\n[pending_automatic]\n'
+automatic_list=$(
+  set +o pipefail
+  unattended-upgrade --dry-run --verbose 2>/dev/null |
+    sed -n 's/^Packages that will be upgraded: //p' |
+    tr ' ' '\n' |
+    sed '/^$/d' |
+    sort -u
+)
+if [[ -n ${automatic_list} ]]; then
+  while IFS= read -r package; do
+    printf 'package=%s\n' "${package}"
+  done <<<"${automatic_list}"
+else
+  printf 'none\n'
+fi
+
+# Upgradable packages the automatic run will not take. For the pinned runtime
+# these need a reviewed change to deploy/runtime-versions.env; anything else is
+# held back by the security-only origin policy and is informational.
+printf '\n[pending_manual]\n'
+manual_found=no
+while IFS=/ read -r package remainder; do
+  [[ -n ${package} && -n ${remainder} ]] || continue
+  if [[ -n ${automatic_list} ]] && grep -qxF "${package}" <<<"${automatic_list}"
+  then
+    continue
+  fi
+  printf 'package=%s installed=%s candidate=%s suite=%s\n' \
+    "${package}" \
+    "$(installed_version "${package}")" \
+    "$(awk '{print $2}' <<<"${remainder}")" \
+    "$(awk '{print $1}' <<<"${remainder}")"
+  manual_found=yes
+  # Anchor on the marker apt puts on every upgradable entry rather than on line
+  # position, so a warning printed above the listing cannot shift the parse.
+done < <(apt list --upgradable 2>/dev/null | grep -F '[upgradable from:' || true)
+if [[ ${manual_found} == yes ]]; then
+  attention_reasons+=("upgrades are available that automatic patching will not apply")
+else
+  printf 'none\n'
+fi
+
+# Versions the reviewed contract pins, for comparison by
+# deploy/check-runtime-parity.sh on the workstation. A candidate ahead of the
+# installed version is the advance warning that a pin is about to go stale.
+printf '\n[contract_packages]\n'
+for package in "${contract_packages[@]}"; do
+  printf 'package=%s installed=%s candidate=%s\n' \
+    "${package}" \
+    "$(installed_version "${package}")" \
+    "$(candidate_version "${package}")"
+done
+
+printf '\n[summary]\n'
+if ((${#attention_reasons[@]})); then
+  printf 'attention=yes\n'
+  printf 'reason=%s\n' "${attention_reasons[@]}"
+else
+  printf 'attention=no\n'
+fi

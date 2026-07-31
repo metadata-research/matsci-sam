@@ -79,6 +79,14 @@ step before either command.
   a compatible direct entry point; routine releases use `release.sh`.
 - `pull-superego-db-to-workstation.sh` refreshes the replaceable local
   database from a verified Superego snapshot.
+- `host/install-security-updates.sh` configures automatic Ubuntu security
+  patching on a host. It layers `host/52unattended-upgrades-local` over the
+  stock policy and installs `host/matsci-sam-security-status`. It touches only
+  host packaging policy and never the application, its database, or its
+  release.
+- `host/harden-ssh.sh` makes public keys the only accepted SSH credential and
+  enables the host firewall with rate-limited SSH. It refuses to run if that
+  would leave the invoking administrator without a usable key.
 - `workstations.tsv` is the reviewed registry of local orchestration hosts
   and snapshot recipients. It does not grant release-control authority.
 - `reset-superego-from-pa90.sh` remains only for explicitly disposable,
@@ -105,6 +113,68 @@ standard directories. PostgreSQL accepts local Unix-socket connections only.
 
 The application service remains disabled until an administrator installs the
 protected environment, TLS configuration, and first release.
+
+## Automatic security updates
+
+Ubuntu enables `unattended-upgrades` by default, restricted to the release and
+security pockets. That default installs patches but never reboots, so a patched
+kernel, glibc, or dbus stays inert in every already-running process. To install
+the policy that completes it:
+
+```bash
+sudo ./deploy/host/install-security-updates.sh
+```
+
+The host then patches from the Ubuntu security pockets each morning and, only
+when the packaging system reports a reboot is required, reboots at 07:30 UTC.
+`matsci-sam.service` requires and follows `postgresql.service` and both are
+enabled, so the application returns without intervention.
+
+Check the current posture at any time:
+
+```bash
+ssh superego sudo /usr/local/sbin/matsci-sam-security-status
+```
+
+NodeSource and PGDG are not Ubuntu origins, so Node.js, PostgreSQL, and
+pgvector are never patched automatically and remain governed by
+`runtime-versions.env`. The status report lists them under `pending_manual`
+when a newer version is available; applying one is a reviewed change to
+`runtime-versions.env` followed by a normal provisioning run.
+
+Nginx is the exception: it comes from the Ubuntu archive and therefore *does*
+move on its own. When it does, `check-runtime-parity.sh` reports
+
+```
+mismatch	superego Nginx package	actual=... expected=...
+```
+
+That is the expected signal of an applied security patch, not a fault. Confirm
+both hosts moved to the same version, then update `NGINX_PACKAGE_VERSION` in
+`runtime-versions.env` through source review. The status report's
+`contract_packages` section shows a newer nginx candidate before it installs,
+so the bump can be prepared in advance.
+
+## SSH credential surface
+
+These hosts authenticate against a directory service, so accepting passwords
+over SSH would put directory credentials behind a network-reachable prompt.
+Public keys avoid that, and OpenSSH does not choose them on its own: its
+compiled default accepts passwords unless a host says otherwise.
+
+```bash
+sudo ./deploy/host/harden-ssh.sh
+```
+
+The script installs an sshd drop-in that accepts public keys only, and enables
+`ufw` with rate-limited SSH and the Nginx ports open. It fails closed at every
+step: it refuses to start unless the invoking administrator already has a usable
+key, it parses the configuration and confirms the effective values before
+reloading, and it removes its own drop-in if either check fails. It reloads
+rather than restarts, so established sessions survive.
+
+Keep the session that ran it open and confirm access from a second terminal
+before closing it.
 
 ## Historical Ego initialization and first publication
 

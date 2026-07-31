@@ -74,7 +74,10 @@ jobs:
             deploy/lib/deploy-ego-precutover-remote.sh \
             deploy/lib/cutover-ego-public-remote.sh \
             deploy/lib/verify-superego-public-content.sh \
-            deploy/ops/matsci-sam-ops
+            deploy/ops/matsci-sam-ops \
+            deploy/host/install-security-updates.sh \
+            deploy/host/matsci-sam-security-status \
+            deploy/host/harden-ssh.sh
 
       - name: Check Migrations
         run: |
