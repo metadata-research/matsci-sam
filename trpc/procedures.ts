@@ -28,24 +28,14 @@ export const contributorProcedure = authenticatedProcedure.use(async (opts) => {
   return opts.next()
 })
 
-export const adminProcedure = baseProcedure.use(async (opts) => {
-  if (!opts.ctx.userId)
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "You must be logged in to perform this action"
-    })
-
+export const adminProcedure = authenticatedProcedure.use(async (opts) => {
   const user = await GetUser(opts.ctx.userId)
 
   if (user?.role !== "admin")
     throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "You must be logged in to perform this action"
+      code: "FORBIDDEN",
+      message: "You do not have permission to perform this action"
     })
 
-  return opts.next({
-    ctx: {
-      userId: opts.ctx.userId!
-    }
-  })
+  return opts.next()
 })

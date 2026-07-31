@@ -107,10 +107,10 @@ export const definitionsRouter = createTRPCRouter({
               termId: insertedTerm.id
             })
 
-            after(() => {
+            after(() =>
               // Automatically create AI definition on new term creation
               reviseDefinition(insertedTerm.id)
-            })
+            )
           }
 
           dbTerm = insertedTerm
