@@ -51,11 +51,19 @@ export const getOrcidConfiguration = () => {
 
   validateAuthTokenEncryptionKey()
 
-  configurationPromise ??= oidc.discovery(
-    getOrcidIssuer(),
-    requiredOrcidSetting("ORCID_CLIENT_ID"),
-    requiredOrcidSetting("ORCID_CLIENT_SECRET")
-  )
+  // Clear the memo if discovery rejects. A rejected promise is neither
+  // undefined nor null, so ??= would keep returning it and every later sign-in
+  // would fail until the process restarted.
+  configurationPromise ??= oidc
+    .discovery(
+      getOrcidIssuer(),
+      requiredOrcidSetting("ORCID_CLIENT_ID"),
+      requiredOrcidSetting("ORCID_CLIENT_SECRET")
+    )
+    .catch((error: unknown) => {
+      configurationPromise = undefined
+      throw error
+    })
 
   return configurationPromise
 }

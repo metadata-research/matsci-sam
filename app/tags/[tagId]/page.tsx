@@ -9,20 +9,24 @@ import {
 } from "@yamz/db"
 import { eq } from "drizzle-orm"
 import Link from "next/link"
+import { notFound } from "next/navigation"
 import { definitionPath } from "@/lib/public-identifiers"
+import { parsePositivePublicNumber } from "@/lib/public-definition-resolution"
 
 export default async function TagPage({
   params
 }: {
   params: Promise<{ tagId: string }>
 }) {
-  const tagId = Number((await params).tagId)
+  const tagId = parsePositivePublicNumber((await params).tagId)
+  if (!tagId) notFound()
 
   const [tag] = await db
     .select()
     .from(tagsTable)
     .where(eq(tagsTable.id, tagId))
     .limit(1)
+  if (!tag) notFound()
   const terms = await db
     .select()
     .from(tagsToDefinitions)
