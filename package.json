@@ -20,6 +20,7 @@
     "db:drop": "drizzle-kit drop",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
+    "db:invariants": "psql \"$DATABASE_URL\" --set ON_ERROR_STOP=1 --quiet --file drizzle/invariants.sql",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
