@@ -6,6 +6,65 @@ on:
       - dev
 
 jobs:
+  # Applies every migration to a throwaway database and asserts the database
+  # invariants against the resulting schema.
+  #
+  # This exists because `drizzle/invariants.sql` and `drizzle/migrations/` must
+  # move together, and nothing else proves they do. `db:check` in the verify job
+  # validates migration files against each other; it never opens a database.
+  # Migration 0028 renamed two columns the invariants asserted on, and nothing
+  # caught it until a release ran against a real host.
+  db-invariants:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Matches the pinned production runtime (PostgreSQL 17, pgvector 0.8.5).
+        # pgvector is unused by the current schema — only pg_trgm is required,
+        # from contrib — but the image matches production so a future embedding
+        # migration does not fail here for an unrelated reason.
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: matsci_sam_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Apply Migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm db:migrate
+
+      - name: Check Database Invariants
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm db:invariants
+
   verify:
     runs-on: ubuntu-latest
 
