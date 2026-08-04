@@ -27,7 +27,7 @@ export const AiPendingCard = ({ termId }: { termId: number }) => {
   const previousStatus = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (previousStatus.current === "generating" && data?.status === "ready") {
-      toast("The model's alternate definition just landed.", {
+      toast("The AI definition has been published.", {
         icon: <SparklesIcon className="size-4 text-ai" />
       })
       utils.definitions.list.refetch({ termId })
@@ -40,7 +40,7 @@ export const AiPendingCard = ({ termId }: { termId: number }) => {
       <div className="rounded-lg border border-ai/30 bg-ai/5 p-4">
         <span className="flex items-center gap-1.5 text-ai text-xs font-semibold uppercase tracking-[0.12em]">
           <SparklesIcon aria-hidden className="size-3.5 animate-pulse" />
-          The model is drafting an alternate definition
+          The model is generating an alternate definition
         </span>
         <div aria-hidden className="mt-3 space-y-2">
           <div className="h-3 w-4/5 animate-pulse rounded bg-ai/15" />

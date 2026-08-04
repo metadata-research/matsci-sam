@@ -83,7 +83,7 @@ export const useCreateComment = ({
       utils.comments.get.refetch(definitionId)
       if (created.aiRevisionScheduled) {
         toast(
-          "Comment posted — the model will revise this definition in response.",
+          "Comment posted. The model will revise this definition in response.",
           { icon: <SparklesIcon className="size-4 text-ai" /> }
         )
         if (created.commentedVersion != null) {
