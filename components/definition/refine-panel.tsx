@@ -147,7 +147,9 @@ export const RefinePanel = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   Suggested revision (round {round.round})
-                  <Badge variant="secondary">{round.model}</Badge>
+                  <Badge className="bg-ai/15 text-ai border-ai/30 font-mono">
+                    {round.model}
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -172,7 +174,8 @@ export const RefinePanel = ({
                     disabled={busy}
                     onClick={() => accept.mutate({ refinementId: round.id })}
                   >
-                    <CheckIcon className="size-4 mr-1" /> Accept suggestion
+                    <CheckIcon className="size-4 mr-1" />
+                    {accept.isPending ? "Publishing…" : "Accept and publish"}
                   </Button>
                   {round.suggestedExample?.trim() !==
                     current.example.trim() && (
@@ -195,7 +198,8 @@ export const RefinePanel = ({
                     disabled={busy}
                     onClick={() => keep.mutate({ refinementId: round.id })}
                   >
-                    <UndoIcon className="size-4 mr-1" /> Keep mine
+                    <UndoIcon className="size-4 mr-1" />
+                    {keep.isPending ? "Saving…" : "Keep mine"}
                   </Button>
                 </div>
                 <div className="flex gap-2">
@@ -269,7 +273,11 @@ export const RefinePanel = ({
           }
         >
           <SparklesIcon className="size-4 mr-1" />
-          {rounds.data.length ? "Refine again" : "Refine with AI"}
+          {request.isPending
+            ? "Asking the model…"
+            : rounds.data.length
+              ? "Refine again"
+              : "Refine with AI"}
         </Button>
       )}
     </section>

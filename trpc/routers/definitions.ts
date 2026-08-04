@@ -159,6 +159,23 @@ export const definitionsRouter = createTRPCRouter({
 
       return { term, definition, aiScheduled }
     }),
+  // The version of a definition's current revision. Cheap enough to poll:
+  // the comment hook watches it after a comment schedules a model revision,
+  // so the arrival can be announced instead of landing silently.
+  currentVersion: baseProcedure
+    .input(z.number())
+    .query(async ({ input: definitionId }) => {
+      const [row] = await db
+        .select({ version: definitionRevisionsTable.version })
+        .from(definitionsTable)
+        .innerJoin(
+          definitionRevisionsTable,
+          eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
+        )
+        .where(eq(definitionsTable.id, definitionId))
+        .limit(1)
+      return { version: row?.version ?? null }
+    }),
   edit: authenticatedProcedure
     .input(
       z.object({

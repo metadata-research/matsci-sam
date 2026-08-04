@@ -337,6 +337,18 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
         <div>
           <dt>Contributed by</dt>
           <dd>
+            {featured.authorIsAi && (
+              <SparklesIcon
+                aria-hidden
+                style={{
+                  display: "inline",
+                  width: "0.8em",
+                  height: "0.8em",
+                  marginRight: "0.3em",
+                  color: "var(--ai)"
+                }}
+              />
+            )}
             <PublicProfileName
               user={{
                 id: featured.authorId,
@@ -344,6 +356,9 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
                 isAi: featured.authorIsAi,
                 isProfilePublic: featured.authorProfilePublic
               }}
+              className={
+                featured.authorIsAi ? "text-ai font-mono" : undefined
+              }
               fallback="Community contributor"
             />
           </dd>
@@ -388,7 +403,9 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
                 {formatDate(suggestionDate)}
               </time>
               <span>
-                {featured.model ?? "Named model"} generated a suggestion
+                {featured.model
+                  ? `${featured.model} generated a suggestion`
+                  : "The model generated a suggestion"}
               </span>
             </li>
             <li>

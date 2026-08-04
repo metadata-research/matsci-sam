@@ -10,11 +10,13 @@ import { refinementsRouter } from "./refinements"
 import { discussionRouter } from "./discussion"
 import { z } from "zod"
 import {
+  commentsTable,
   db,
   definitionRevisionsTable,
   definitionsTable,
   termsTable,
-  usersTable
+  usersTable,
+  votesTable
 } from "@yamz/db"
 import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm"
 import { authenticatedProcedure } from "../procedures"
@@ -110,14 +112,16 @@ export const appRouter = createTRPCRouter({
           })
           .optional()
       )
-      .query(async ({ input }) => {
+      .query(async ({ ctx: { userId }, input }) => {
         const { query, limit, author } = input || {
           query: "",
           limit: 10,
           author: "all" as const
         }
 
-        const results = await db
+        // Comment count and viewer vote mirror definitions.list, so the same
+        // Definition card offers the same options here as on a term page.
+        const resultsQuery = db
           .select({
             ...getTableColumns(definitionsTable),
             revisionId: definitionRevisionsTable.id,
@@ -126,7 +130,14 @@ export const appRouter = createTRPCRouter({
             author: usersTable.name,
             authorProfilePublic: usersTable.isProfilePublic,
             term: termsTable.term,
-            termSlug: termsTable.slug
+            termSlug: termsTable.slug,
+            comments:
+              sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
+                .mapWith(Number)
+                .as("comments"),
+            vote: userId
+              ? sql<"up" | "down" | null>`${votesTable.kind}`.as("vote")
+              : sql<"up" | "down" | null>`null`.as("vote")
           })
           .from(termsTable)
           .innerJoin(
@@ -154,7 +165,16 @@ export const appRouter = createTRPCRouter({
               : [desc(definitionsTable.createdAt)])
           )
 
-        return results
+        if (userId)
+          resultsQuery.leftJoin(
+            votesTable,
+            and(
+              eq(votesTable.userId, userId),
+              eq(votesTable.revisionId, definitionRevisionsTable.id)
+            )
+          )
+
+        return await resultsQuery
       }),
     all: baseProcedure
       .input(

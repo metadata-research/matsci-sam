@@ -91,7 +91,7 @@ export function RestoreRevisionButton({
               })
             }
           >
-            {restore.isPending ? "Publishing..." : "Publish restoration"}
+            {restore.isPending ? "Publishing…" : "Publish restoration"}
           </Button>
         </DialogFooter>
       </DialogContent>

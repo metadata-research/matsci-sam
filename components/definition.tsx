@@ -157,8 +157,14 @@ export const Definition = ({
         </span>
         <StatusChip score={definition.score} />
         {typeof definition.comments === "number" && (
-          <span
-            className={`flex items-center gap-1 ${
+          <Link
+            href={
+              definitionPath(
+                definition.termSlug,
+                definition.definitionNumber
+              ) + "#discussion"
+            }
+            className={`flex items-center gap-1 hover:underline ${
               definition.comments > 0 ? "text-primary" : ""
             }`}
           >
@@ -166,7 +172,7 @@ export const Definition = ({
             {definition.comments > 0
               ? `${definition.comments} ${definition.comments === 1 ? "comment" : "comments"}`
               : "No comments"}
-          </span>
+          </Link>
         )}
         {/* The badge slot means one thing only: this definition is a
             refinement of another. AI authorship is stated by the identity

@@ -87,9 +87,11 @@ export const EditDefinitionDialog = ({
   })
 
   const onOpenChange = (open: boolean) => {
+    // Keep the dialog up while publishing: closing it mid-flight leaves the
+    // mutation running invisibly and surfaces any error with the dialog gone.
+    if (!open && mutation.isPending) return
     setIsOpen(open)
-    if (!open && !mutation.isPending)
-      form.reset({ ...defaultValues, changeNote: "" })
+    if (!open) form.reset({ ...defaultValues, changeNote: "" })
   }
 
   return (
@@ -179,12 +181,16 @@ export const EditDefinitionDialog = ({
             />
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={mutation.isPending}
+                >
                   Cancel
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Publishing..." : "Publish revision"}
+                {mutation.isPending ? "Publishing…" : "Publish revision"}
               </Button>
             </DialogFooter>
           </form>

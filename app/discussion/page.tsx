@@ -2,22 +2,16 @@ import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
 import { trpc } from "@/trpc/server"
 import { Card } from "@/components/ui/card"
-import { Eyebrow } from "@/components/definition"
+import { Badge } from "@/components/ui/badge"
+import { Eyebrow, StatusChip } from "@/components/definition"
 import { DiscussionCommentBox } from "./comment-box"
 import { formatDate } from "@/lib/date"
 import { ChevronRightIcon, SparklesIcon } from "lucide-react"
 import Link from "next/link"
 import { PublicProfileName } from "@/components/public-profile-name"
-import { revisionPath } from "@/lib/public-identifiers"
+import { definitionPath, revisionPath } from "@/lib/public-identifiers"
 
-const revisionSourceLabels = {
-  initial: "Initial revision",
-  author_edit: "Author revision",
-  ai_refinement: "AI-assisted revision",
-  ai_generation: "AI-generated revision",
-  rollback: "Restored revision",
-  legacy: "Imported revision"
-} as const
+import { revisionSourceLabels } from "@/lib/revision-sources"
 
 export const metadata: Metadata = {
   title: `Discussion | ${SITE_NAME}`,
@@ -47,6 +41,15 @@ export default async function DiscussionPage() {
         </div>
 
         <div className="space-y-4">
+          {items.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Nothing to discuss yet —{" "}
+              <Link href="/add" className="text-primary underline">
+                add the first definition
+              </Link>
+              .
+            </p>
+          )}
           {items.map((item) => (
             <Card key={item.id} className="p-4 gap-3">
               <div className="flex items-baseline justify-between gap-4">
@@ -57,7 +60,10 @@ export default async function DiscussionPage() {
                   {item.term}
                 </Link>
                 <Link
-                  href={`/vocabulary/${item.slug}`}
+                  href={
+                    definitionPath(item.slug, item.def.definitionNumber) +
+                    "#discussion"
+                  }
                   className="text-sm text-muted-foreground shrink-0 hover:text-primary"
                 >
                   {item.def.comments === 1
@@ -67,24 +73,32 @@ export default async function DiscussionPage() {
               </div>
 
               <div>
-                {item.def.isAi ? (
-                  <span className="flex items-center gap-1 text-ai text-xs font-semibold uppercase tracking-[0.12em]">
-                    <SparklesIcon className="size-3.5" />
-                    AI Definition
-                    {item.def.model && (
-                      <>
-                        <span aria-hidden className="text-ai/50">
-                          &middot;
-                        </span>
-                        <span className="font-mono normal-case tracking-normal">
-                          {item.def.model}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                ) : (
-                  <Eyebrow>Definition</Eyebrow>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {item.def.isAi ? (
+                    <span className="flex items-center gap-1 text-ai text-xs font-semibold uppercase tracking-[0.12em]">
+                      <SparklesIcon className="size-3.5" />
+                      AI Definition
+                      {item.def.model && (
+                        <>
+                          <span aria-hidden className="text-ai/50">
+                            &middot;
+                          </span>
+                          <span className="font-mono normal-case tracking-normal">
+                            {item.def.model}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  ) : (
+                    <Eyebrow>Definition</Eyebrow>
+                  )}
+                  <StatusChip score={item.def.score} />
+                  {item.def.refinedFromId && item.def.model && (
+                    <Badge className="bg-ai/15 text-ai border-ai/30 font-mono">
+                      Refined with {item.def.model}
+                    </Badge>
+                  )}
+                </div>
                 <p className="mt-1">{item.def.definition}</p>
               </div>
 
@@ -142,6 +156,9 @@ export default async function DiscussionPage() {
                                 isAi: event.isAi,
                                 isProfilePublic: event.isProfilePublic
                               }}
+                              className={
+                                event.isAi ? "text-ai font-mono" : undefined
+                              }
                               fallback="unknown"
                             />
                           </span>
@@ -180,6 +197,7 @@ export default async function DiscussionPage() {
                   definitionId={item.def.definitionId}
                   revisionId={item.def.revisionId}
                   termSlug={item.slug}
+                  feedsModelRevision={item.def.isAi}
                 />
               </div>
 

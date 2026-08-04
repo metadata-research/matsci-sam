@@ -68,7 +68,7 @@ export function TagModal() {
           </div>
           <DialogFooter>
             <Button type="submit" disabled={createTag.isPending}>
-              {createTag.isPending ? "Creating..." : "Create Tag"}
+              {createTag.isPending ? "Creating…" : "Create Tag"}
             </Button>
           </DialogFooter>
         </form>

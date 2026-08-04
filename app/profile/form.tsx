@@ -121,7 +121,7 @@ export const EditProfileForm = ({ defaults }: { defaults: User }) => {
               )}
             />
             <Button type="submit" disabled={isPending} className="w-full">
-              {isPending ? "Saving..." : "Save profile"}
+              {isPending ? "Saving…" : "Save profile"}
             </Button>
           </form>
         </Form>

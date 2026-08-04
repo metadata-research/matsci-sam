@@ -28,7 +28,7 @@ const KIND: Record<ProvEvent["kind"], { icon: LucideIcon; color: string }> = {
   },
   feedback: { icon: MessageCircleIcon, color: "text-amber-600" },
   "ai-generation": { icon: SparklesIcon, color: "text-ai" },
-  "ai-revision": { icon: BotIcon, color: "text-ai" },
+  "ai-revision": { icon: SparklesIcon, color: "text-ai" },
   "definition-created": { icon: FilePlusIcon, color: "text-purple-600" },
   "definition-edited": { icon: PencilIcon, color: "text-purple-600" },
   comment: { icon: MessageSquareIcon, color: "text-amber-600" },
@@ -75,7 +75,7 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
               </span>
             )}
             {event.model && (
-              <Badge variant="secondary" className="!py-0 font-mono">
+              <Badge className="!py-0 font-mono bg-ai/15 text-ai border-ai/30">
                 {event.model}
               </Badge>
             )}

@@ -8,6 +8,10 @@ import { TermVotes } from "@/components/term/votes"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { formatDate } from "@/lib/date"
 import {
+  aiRevisionSources,
+  revisionSourceLabels
+} from "@/lib/revision-sources"
+import {
   ArrowLeftIcon,
   HistoryIcon,
   SparklesIcon,
@@ -218,7 +222,9 @@ export async function DefinitionDetailPage({
                               aria-hidden
                             />
                           )}
-                          <span className={coauthor.isAi ? "text-ai" : ""}>
+                          <span
+                            className={coauthor.isAi ? "text-ai font-mono" : ""}
+                          >
                             {coauthor.name}
                           </span>
                         </span>
@@ -236,8 +242,10 @@ export async function DefinitionDetailPage({
                     Published {formatDate(definition.revisionCreatedAt)}
                   </span>
                   {definition.refinedFromId && (
-                    <Badge className="ml-auto bg-ai/15 text-ai border-ai/30">
-                      Refined
+                    <Badge className="ml-auto bg-ai/15 text-ai border-ai/30 font-mono">
+                      {definition.model
+                        ? `Refined with ${definition.model}`
+                        : "Refined"}
                     </Badge>
                   )}
                 </div>
@@ -339,6 +347,17 @@ export async function DefinitionDetailPage({
                           Revision {revision.version}
                         </Link>
                         {current && <Badge variant="secondary">Current</Badge>}
+                        {aiRevisionSources.has(revision.source) && (
+                          <Badge className="bg-ai/15 text-ai border-ai/30">
+                            <SparklesIcon className="size-3" aria-hidden />
+                            {revisionSourceLabels[revision.source]}
+                            {revision.model && (
+                              <span className="font-mono">
+                                {revision.model}
+                              </span>
+                            )}
+                          </Badge>
+                        )}
                         {revision.legacyIncomplete && (
                           <Badge variant="outline">Partial legacy record</Badge>
                         )}
@@ -351,9 +370,20 @@ export async function DefinitionDetailPage({
                           "No change note was recorded for this legacy revision."}
                       </p>
                       <p className="text-xs text-muted-foreground">
+                        {revision.editor?.isAi && (
+                          <SparklesIcon
+                            className="mr-1 inline size-3 text-ai"
+                            aria-hidden
+                          />
+                        )}
                         {revision.editor ? (
                           <PublicProfileName
                             user={revision.editor}
+                            className={
+                              revision.editor.isAi
+                                ? "text-ai font-mono"
+                                : undefined
+                            }
                             fallback="Editor not recorded"
                           />
                         ) : (
@@ -396,8 +426,12 @@ export async function DefinitionDetailPage({
                 Comments
               </h2>
               <p className="text-sm text-muted-foreground">
-                Discuss this definition and suggest changes for community
-                review.
+                Discuss this definition with the community. To have the model
+                draft a revision from your feedback, use the{" "}
+                <Link href="/discussion" className="text-primary underline">
+                  discussion page
+                </Link>
+                .
               </p>
             </header>
             <TermComments
@@ -407,6 +441,9 @@ export async function DefinitionDetailPage({
             <TermCommentBox
               id={definition.id}
               revisionId={definition.revisionId}
+              feedsModelRevision={
+                definition.author.isAi && definition.isCurrentRevision
+              }
             />
           </section>
         </div>
