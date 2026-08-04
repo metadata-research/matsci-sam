@@ -1,4 +1,3 @@
-import { diffToStringSimple } from "@/lib/utils"
 import { Diff, DiffOp } from "diff-match-patch-ts"
 import { ReactNode } from "react"
 
@@ -36,9 +35,7 @@ export const DiffText = ({ diffs }: DiffTextProps) => {
     i++;
   }
   return (
-    <div>
-      {chunks.map((chunk) => chunk)}
-    </div>
+    chunks.map((chunk) => chunk)
   );
 }
 
