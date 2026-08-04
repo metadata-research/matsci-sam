@@ -71,6 +71,9 @@ export const definitionsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
+      // Whether this submission scheduled an automatic AI alternate
+      // definition, so the client can tell the contributor it is coming.
+      let aiScheduled = false
       const { term, definition } = await db.transaction(async (tx) => {
         // normalize the term
         const term = input.term.trim().toLowerCase()
@@ -111,6 +114,7 @@ export const definitionsRouter = createTRPCRouter({
               // Automatically create AI definition on new term creation
               reviseDefinition(insertedTerm.id)
             )
+            aiScheduled = true
           }
 
           dbTerm = insertedTerm
@@ -153,7 +157,7 @@ export const definitionsRouter = createTRPCRouter({
         version: 1
       })
 
-      return { term, definition }
+      return { term, definition, aiScheduled }
     }),
   edit: authenticatedProcedure
     .input(

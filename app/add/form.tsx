@@ -12,6 +12,7 @@ import {
   SparklesIcon
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { AutoComplete } from "@/components/autocomplete"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -122,8 +123,17 @@ export const DefineTermForm = ({
   })
 
   const mutation = trpc.definitions.create.useMutation({
-    onSuccess: ({ definition, term }) =>
+    onSuccess: ({ definition, term, aiScheduled }) => {
+      if (aiScheduled) {
+        // The alternate definition is generated in the background after this
+        // response; say so, or it appears later with no explanation.
+        toast(
+          `The model is drafting an alternate definition of "${term.term}" — it will appear alongside yours shortly.`,
+          { icon: <SparklesIcon className="size-4 text-ai" /> }
+        )
+      }
       router.push(definitionPath(term.slug, definition.definitionNumber))
+    }
   })
 
   const { data: terms, isLoading: termsAreLoading } =

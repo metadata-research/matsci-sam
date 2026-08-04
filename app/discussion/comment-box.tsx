@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Eyebrow } from "@/components/definition"
+import { useCreateComment } from "@/components/comments/use-create-comment"
 import { trpc } from "@/trpc/client"
 import { SparklesIcon } from "lucide-react"
 import Link from "next/link"
@@ -37,7 +38,6 @@ export const DiscussionCommentBox = ({
   termSlug: string
 }) => {
   const router = useRouter()
-  const utils = trpc.useUtils()
 
   const [comment, setComment] = useState("")
   const [suggestion, setSuggestion] = useState<{
@@ -59,18 +59,13 @@ export const DiscussionCommentBox = ({
       position: "top-center"
     })
 
-  const plainComment = trpc.comments.create.useMutation({
-    onSuccess: () => {
+  const plainComment = useCreateComment({
+    definitionId,
+    onPosted: () => {
       setComment("")
       setSuggestion(null)
-      utils.comments.get.refetch(definitionId)
-      toast("Comment posted.")
       router.refresh()
-    },
-    onError: (error) =>
-      error.data?.code === "UNAUTHORIZED"
-        ? loginToast()
-        : toast.error(error.message)
+    }
   })
 
   const suggest = trpc.discussion.suggest.useMutation({

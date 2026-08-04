@@ -13,9 +13,7 @@ import {
   FormMessage
 } from "@/components/ui/form"
 import { Textarea } from "../ui/textarea"
-import { trpc } from "@/trpc/client"
-import Link from "next/link"
-import { toast } from "sonner"
+import { useCreateComment } from "@/components/comments/use-create-comment"
 import { MessageSquareIcon } from "lucide-react"
 import { Card } from "../ui/card"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
@@ -38,9 +36,6 @@ export function TermCommentBox({
   id: number
   revisionId: number
 }) {
-  const utils = trpc.useUtils()
-
-  // 1. Define your form.
   const form = useForm<z.infer<typeof commentSchema>>({
     resolver: zodResolver(commentSchema),
     defaultValues: {
@@ -48,28 +43,9 @@ export function TermCommentBox({
     }
   })
 
-  const { isPending, mutate } = trpc.comments.create.useMutation({
-    onSuccess: () => {
-      form.reset()
-      utils.comments.get.refetch(id)
-    },
-    onError: (error) => {
-      if (error.data?.code !== "UNAUTHORIZED") {
-        toast.error(error.message)
-        return
-      }
-
-      toast("You must be logged in to comment!", {
-        action: (
-          <Button asChild>
-            <Link href="/login" className="ml-auto">
-              Login
-            </Link>
-          </Button>
-        ),
-        position: "top-center"
-      })
-    }
+  const { isPending, mutate } = useCreateComment({
+    definitionId: id,
+    onPosted: () => form.reset()
   })
 
   return (

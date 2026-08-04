@@ -49,6 +49,9 @@ export const commentsRouter = createTRPCRouter({
     )
     .mutation(
       async ({ input: { id, revisionId, comment }, ctx: { userId } }) => {
+        // Whether this comment scheduled a model revision of the definition,
+        // so the client can say so instead of leaving the trigger invisible.
+        let aiRevisionScheduled = false
         const insertedComment = await db.transaction(async (tx) => {
           const revision = await tx.query.definitionRevisionsTable.findFirst({
             columns: { id: true },
@@ -100,12 +103,13 @@ export const commentsRouter = createTRPCRouter({
               // Revise our definition with the new comment
               reviseDefinition(definition.termId)
             )
+            aiRevisionScheduled = true
           }
 
           return insertedComment
         })
 
-        return insertedComment
+        return { ...insertedComment, aiRevisionScheduled }
       }
     )
 })
