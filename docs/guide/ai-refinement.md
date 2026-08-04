@@ -12,7 +12,7 @@ original definition can use this multi-round refinement panel.
    a page refresh does not discard it.
 2. The suggestion appears as a card, with changed wording highlighted
    against your current text. Depending on what the model changed, you can:
-   - **Accept suggestion** publishes the revision.
+   - **Accept and publish** publishes the revision.
    - **Accept definition, keep my example** publishes the suggested definition
      while preserving your example verbatim. This choice appears when the
      model changed the example.
@@ -31,7 +31,8 @@ plainly and offers a Retry button.
 The first accepted suggestion creates a **separate definition** credited
 to you and to the model by name. Your original definition remains
 unchanged. The two definitions link to each other, and the refined one
-shows a "Refined" label. Readers can vote on either definition.
+shows a **Refined with** label naming the model. Readers can vote on either
+definition.
 
 You can refine the original again after a round is decided. The request
 includes the suggestions and feedback from earlier rounds. Accepting a

@@ -26,7 +26,7 @@ altered browser data from being published with false model attribution.
 - **Accept and publish** creates another definition for the term. You are
   the author, the named model is a coauthor, and your feedback is stored
   as a comment on the source definition.
-- **Just comment instead** posts your feedback without publishing the
+- **Post comment instead** posts your feedback without publishing the
   suggested definition. It follows the ordinary behavior described in
   [Community review and revisions](/docs/community).
 - **Discard** closes the preview. The unaccepted suggestion remains an
@@ -43,11 +43,13 @@ request another suggestion.
 
 ## Post an ordinary comment
 
-Select **Comment** to post your text unchanged. The comment records the
+Select **Post comment** to post your text unchanged. The comment records the
 displayed revision. A comment on a human-authored definition remains a
 discussion comment. A comment on the current revision of an AI-authored
 definition is also added to the term-level model context, and the application
-requests an updated AI definition in the background.
+requests an updated AI definition in the background. A note beneath the
+comment box states this before you post, and the application announces the
+updated definition when it is published.
 
 ## Review history
 

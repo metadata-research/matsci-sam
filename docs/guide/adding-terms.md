@@ -20,8 +20,10 @@ either workflow.
 **Publish and compare.** Your definition is added as written. When a term is
 defined for the first time and the model service is available, the application
 requests an independent, separately attributed AI definition for comparison.
-Adding another definition to an existing term does not request a new
-independent AI definition.
+A notice at publication states that the model definition has been requested,
+the term page shows a placeholder card while generation is in progress, and
+an announcement appears when the AI definition is published. Adding another definition to an
+existing term does not request a new independent AI definition.
 
 **Publish, then refine.** Your definition is added as written without an
 independent AI definition. The definition page offers a **Refine with AI**

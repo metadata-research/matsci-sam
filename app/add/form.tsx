@@ -128,7 +128,7 @@ export const DefineTermForm = ({
         // The alternate definition is generated in the background after this
         // response; say so, or it appears later with no explanation.
         toast(
-          `The model is drafting an alternate definition of "${term.term}" — it will appear alongside yours shortly.`,
+          `The model is generating an alternate definition of "${term.term}". It will appear alongside yours shortly.`,
           { icon: <SparklesIcon className="size-4 text-ai" /> }
         )
       }

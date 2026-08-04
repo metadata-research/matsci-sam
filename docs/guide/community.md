@@ -152,6 +152,8 @@ visible when the contributor posted it. A comment on a human-authored
 definition is stored as discussion. A comment on the current revision of an
 AI-authored definition is also added to the term-level model context, and the
 application requests an updated AI definition in the background. The comment
+box states this beneath the buttons before you post, and the application
+announces the updated definition when it is published. The comment
 and resulting revision appear in the recorded
 [provenance](/docs/provenance).
 
