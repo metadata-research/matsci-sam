@@ -47,7 +47,7 @@ export const WolframCard = ({ configured }: { configured: boolean }) => {
               disabled={test.isPending}
               onClick={() => test.mutate()}
             >
-              {test.isPending ? "Testing..." : "Test connection"}
+              {test.isPending ? "Testing…" : "Test connection"}
             </Button>
             {test.data && (
               <p className="text-sm text-muted-foreground italic">

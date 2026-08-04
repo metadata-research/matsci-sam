@@ -3,9 +3,11 @@
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Eyebrow } from "@/components/definition"
+import { ModelRevisionDisclosure } from "@/components/comments/model-revision-disclosure"
+import { useCreateComment } from "@/components/comments/use-create-comment"
+import { loginToast } from "@/components/login-toast"
 import { trpc } from "@/trpc/client"
 import { SparklesIcon } from "lucide-react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -30,14 +32,18 @@ import { definitionPath } from "@/lib/public-identifiers"
 export const DiscussionCommentBox = ({
   definitionId,
   revisionId,
-  termSlug
+  termSlug,
+  feedsModelRevision = false
 }: {
   definitionId: number
   revisionId: number
   termSlug: string
+  // True when the definition is AI-authored, where a plain comment is also
+  // sent to the model for its next revision — disclosed up front, exactly as
+  // on the definition detail page.
+  feedsModelRevision?: boolean
 }) => {
   const router = useRouter()
-  const utils = trpc.useUtils()
 
   const [comment, setComment] = useState("")
   const [suggestion, setSuggestion] = useState<{
@@ -47,36 +53,21 @@ export const DiscussionCommentBox = ({
     model: string
   } | null>(null)
 
-  const loginToast = () =>
-    toast("You must be logged in to take part!", {
-      action: (
-        <Button asChild>
-          <Link href="/login" className="ml-auto">
-            Login
-          </Link>
-        </Button>
-      ),
-      position: "top-center"
-    })
-
-  const plainComment = trpc.comments.create.useMutation({
-    onSuccess: () => {
+  const plainComment = useCreateComment({
+    definitionId,
+    onPosted: () => {
       setComment("")
       setSuggestion(null)
-      utils.comments.get.refetch(definitionId)
-      toast("Comment posted.")
       router.refresh()
-    },
-    onError: (error) =>
-      error.data?.code === "UNAUTHORIZED"
-        ? loginToast()
-        : toast.error(error.message)
+    }
   })
 
   const suggest = trpc.discussion.suggest.useMutation({
     onSuccess: (data) => setSuggestion(data),
     onError: (e) =>
-      e.data?.code === "UNAUTHORIZED" ? loginToast() : toast.error(e.message)
+      e.data?.code === "UNAUTHORIZED"
+        ? loginToast("suggest a revision")
+        : toast.error(e.message)
   })
 
   const accept = trpc.discussion.acceptSuggestion.useMutation({
@@ -88,7 +79,7 @@ export const DiscussionCommentBox = ({
     },
     onError: (error) =>
       error.data?.code === "UNAUTHORIZED"
-        ? loginToast()
+        ? loginToast("suggest a revision")
         : toast.error(error.message)
   })
 
@@ -110,7 +101,7 @@ export const DiscussionCommentBox = ({
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="What would you change about this definition?"
-          aria-label="Your comment"
+          aria-label="Comment"
           disabled={busy}
           maxLength={COMMENT_MAX_LENGTH}
         />
@@ -118,7 +109,7 @@ export const DiscussionCommentBox = ({
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={busy || empty}>
             <SparklesIcon className="size-3.5" />
-            {suggest.isPending ? "Asking the model..." : "Suggest revision"}
+            {suggest.isPending ? "Asking the model…" : "Suggest revision"}
           </Button>
           <Button
             type="button"
@@ -128,9 +119,11 @@ export const DiscussionCommentBox = ({
               plainComment.mutate({ id: definitionId, revisionId, comment })
             }
           >
-            {plainComment.isPending ? "Posting..." : "Comment"}
+            {plainComment.isPending ? "Posting…" : "Post comment"}
           </Button>
         </div>
+
+        {feedsModelRevision && <ModelRevisionDisclosure />}
       </form>
 
       {suggestion && (
@@ -166,7 +159,7 @@ export const DiscussionCommentBox = ({
                 })
               }
             >
-              {accept.isPending ? "Publishing..." : "Accept and publish"}
+              {accept.isPending ? "Publishing…" : "Accept and publish"}
             </Button>
             <Button
               variant="outline"
@@ -175,7 +168,7 @@ export const DiscussionCommentBox = ({
                 plainComment.mutate({ id: definitionId, revisionId, comment })
               }
             >
-              Just comment instead
+              {plainComment.isPending ? "Posting…" : "Post comment instead"}
             </Button>
             <Button
               variant="ghost"

@@ -280,7 +280,15 @@ const TermSuggestions = ({ query }: { query: string }) => {
         <p className="text-sm text-muted-foreground">Finding terms…</p>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No terms or definitions match this search.
+          No matching terms.{" "}
+          {query.trim() && (
+            <Link
+              href={`/add?term=${encodeURIComponent(query.trim())}`}
+              className="text-primary underline"
+            >
+              Define &ldquo;{query.trim()}&rdquo;
+            </Link>
+          )}
         </p>
       )}
     </section>
@@ -335,7 +343,7 @@ const DefinitionsSearch = ({
   query: string
   author: SearchAuthor
 }) => {
-  const { data } = trpc.search.definitions.useQuery(
+  const { data, isLoading } = trpc.search.definitions.useQuery(
     { query, limit: 10, author },
     {
       enabled: query.trim().length > 0,
@@ -346,6 +354,9 @@ const DefinitionsSearch = ({
   return (
     <section className="space-y-2">
       <ResultHeading count={data?.length}>Definitions</ResultHeading>
+      {isLoading && (
+        <p className="text-sm text-muted-foreground">Searching…</p>
+      )}
       {data?.length === 0 && (
         <p className="text-sm text-muted-foreground">
           No matching definitions.

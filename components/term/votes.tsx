@@ -6,7 +6,7 @@ import { Card } from "../ui/card"
 import { cn } from "@/lib/utils"
 import { trpc } from "@/trpc/client"
 import { toast } from "sonner"
-import Link from "next/link"
+import { loginToast } from "@/components/login-toast"
 import { useEffect, useRef } from "react"
 
 interface Props {
@@ -51,17 +51,7 @@ export const TermVotes = ({
   const { isPending, mutate } = trpc.votes.vote.useMutation({
     onSuccess: () => refetch(),
     onError: (error) => {
-      if (error.data?.code === "UNAUTHORIZED")
-        toast("You must be logged in to vote on a definition!", {
-          action: (
-            <Button asChild>
-              <Link href="/login" className="ml-auto">
-                Login
-              </Link>
-            </Button>
-          ),
-          position: "top-center"
-        })
+      if (error.data?.code === "UNAUTHORIZED") loginToast("vote")
       else toast.error(error.message)
     }
   })

@@ -13,9 +13,8 @@ import {
   FormMessage
 } from "@/components/ui/form"
 import { Textarea } from "../ui/textarea"
-import { trpc } from "@/trpc/client"
-import Link from "next/link"
-import { toast } from "sonner"
+import { ModelRevisionDisclosure } from "@/components/comments/model-revision-disclosure"
+import { useCreateComment } from "@/components/comments/use-create-comment"
 import { MessageSquareIcon } from "lucide-react"
 import { Card } from "../ui/card"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
@@ -33,14 +32,16 @@ const commentSchema = z.object({
 
 export function TermCommentBox({
   id,
-  revisionId
+  revisionId,
+  feedsModelRevision = false
 }: {
   id: number
   revisionId: number
+  // True when the definition is AI-authored, where a comment on the current
+  // revision is also sent to the model for its next revision. Disclosed up
+  // front, matching the discussion page, rather than only after posting.
+  feedsModelRevision?: boolean
 }) {
-  const utils = trpc.useUtils()
-
-  // 1. Define your form.
   const form = useForm<z.infer<typeof commentSchema>>({
     resolver: zodResolver(commentSchema),
     defaultValues: {
@@ -48,28 +49,9 @@ export function TermCommentBox({
     }
   })
 
-  const { isPending, mutate } = trpc.comments.create.useMutation({
-    onSuccess: () => {
-      form.reset()
-      utils.comments.get.refetch(id)
-    },
-    onError: (error) => {
-      if (error.data?.code !== "UNAUTHORIZED") {
-        toast.error(error.message)
-        return
-      }
-
-      toast("You must be logged in to comment!", {
-        action: (
-          <Button asChild>
-            <Link href="/login" className="ml-auto">
-              Login
-            </Link>
-          </Button>
-        ),
-        position: "top-center"
-      })
-    }
+  const { isPending, mutate } = useCreateComment({
+    definitionId: id,
+    onPosted: () => form.reset()
   })
 
   return (
@@ -99,10 +81,11 @@ export function TermCommentBox({
               </FormItem>
             )}
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            {feedsModelRevision ? <ModelRevisionDisclosure /> : <span />}
             <Button type="submit" disabled={isPending}>
               <MessageSquareIcon aria-hidden />
-              {isPending ? "Posting..." : "Post comment"}
+              {isPending ? "Posting…" : "Post comment"}
             </Button>
           </div>
         </Card>

@@ -71,6 +71,9 @@ export const definitionsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
+      // Whether this submission scheduled an automatic AI alternate
+      // definition, so the client can tell the contributor it is coming.
+      let aiScheduled = false
       const { term, definition } = await db.transaction(async (tx) => {
         // normalize the term
         const term = input.term.trim().toLowerCase()
@@ -111,6 +114,7 @@ export const definitionsRouter = createTRPCRouter({
               // Automatically create AI definition on new term creation
               reviseDefinition(insertedTerm.id)
             )
+            aiScheduled = true
           }
 
           dbTerm = insertedTerm
@@ -153,7 +157,24 @@ export const definitionsRouter = createTRPCRouter({
         version: 1
       })
 
-      return { term, definition }
+      return { term, definition, aiScheduled }
+    }),
+  // The version of a definition's current revision. Cheap enough to poll:
+  // the comment hook watches it after a comment schedules a model revision,
+  // so the arrival can be announced instead of landing silently.
+  currentVersion: baseProcedure
+    .input(z.number())
+    .query(async ({ input: definitionId }) => {
+      const [row] = await db
+        .select({ version: definitionRevisionsTable.version })
+        .from(definitionsTable)
+        .innerJoin(
+          definitionRevisionsTable,
+          eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
+        )
+        .where(eq(definitionsTable.id, definitionId))
+        .limit(1)
+      return { version: row?.version ?? null }
     }),
   edit: authenticatedProcedure
     .input(

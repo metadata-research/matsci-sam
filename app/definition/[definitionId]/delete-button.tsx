@@ -83,7 +83,7 @@ export const DeleteDefinitionButton = ({
             onClick={() => mutate(id)}
           >
             <Trash2Icon aria-hidden />
-            {isPending ? "Deleting..." : "Delete permanently"}
+            {isPending ? "Deleting…" : "Delete permanently"}
           </Button>
         </DialogFooter>
       </DialogContent>

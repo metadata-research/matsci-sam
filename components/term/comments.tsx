@@ -39,7 +39,7 @@ export const TermComments = ({ id, definitionNumber }: Props) => {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-dashed bg-card/50 px-4 py-5 text-sm text-muted-foreground">
         <MessageSquareIcon className="size-4 shrink-0" aria-hidden />
-        No comments have been added to this definition.
+        No comments yet — be the first to comment below.
       </div>
     )
   }
