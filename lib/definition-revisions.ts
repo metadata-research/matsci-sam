@@ -66,7 +66,10 @@ interface CreateDefinitionWithInitialRevisionInput {
 }
 
 export function createTextDiff(previous: string, next: string) {
-  return new DiffMatchPatch().diff_main(previous, next)
+  const dmp = new DiffMatchPatch();
+  const diffs = dmp.diff_main(previous, next);
+  dmp.diff_cleanupSemantic(diffs)
+  return diffs;
 }
 
 export function revisionDiffMetrics(diffs: Diff[][]) {

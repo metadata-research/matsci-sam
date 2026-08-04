@@ -14,7 +14,7 @@ import "@xyflow/react/dist/style.css"
 import dagre from "@dagrejs/dagre"
 import type { ProvEdge, ProvNode } from "@/lib/provenance"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ProvDetail } from "./detail"
+import { DiffText, ProvDetail } from "./detail"
 import { PublicProfileName } from "@/components/public-profile-name"
 
 // Visual language borrowed from OntExtract's PROV-O graph. Fills come from
@@ -179,7 +179,7 @@ export const ProvenanceGraph = ({
             {selected.meta &&
               Object.entries(selected.meta).map(([k, v]) => (
                 <p key={k} className="text-muted-foreground">
-                  {k}: {String(v)}
+                  {k}: {v && typeof v === "object" ? <DiffText diffs={v} /> : String(v)}
                 </p>
               ))}
           </CardContent>
