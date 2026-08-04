@@ -26,7 +26,7 @@ import {
   buildRevisionMessages,
   needsReconstructedDefinitionContext
 } from "./ollama-revision-context"
-import { diffToStringSimple } from "../definition-revisions"
+import { diffToStringSimple } from "../utils"
 
 export type DefinitionOutput = z.infer<typeof DefinitionOutput>
 export const DefinitionOutput = z.object({

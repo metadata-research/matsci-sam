@@ -37,11 +37,13 @@ import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
 import {
   createDefinitionWithInitialRevision,
-  diffToStringSimple,
   publishDefinitionRevision,
   RevisionConflictError,
   RevisionNoChangeError
 } from "@/lib/definition-revisions"
+import {
+  diffToStringSimple
+} from "@/lib/utils"
 import {
   CHANGE_NOTE_MAX_LENGTH,
   DEFINITION_MAX_LENGTH,

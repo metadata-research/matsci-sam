@@ -6,6 +6,7 @@ import {
   applicationMetadataUri,
   termUri
 } from "./public-identifiers"
+import { diffToStringSimple } from "./utils"
 
 // Serialize the derived provenance graph as W3C PROV-O Turtle. The JSON graph
 // the UI renders and this document come from the same builder, so revision
@@ -32,9 +33,8 @@ export const provenanceTurtle = (prov: Provenance) => {
   const base = `${termUri(prov.term.slug)}/provenance#`
   const nodeById = new Map(prov.graph.nodes.map((node) => [node.id, node]))
   const node = (id: string) =>
-    `<${
-      nodeById.get(id)?.publicResource?.uri ??
-      `${base}${encodeURIComponent(id)}`
+    `<${nodeById.get(id)?.publicResource?.uri ??
+    `${base}${encodeURIComponent(id)}`
     }>`
   const metaProperty = (key: string) => `<${applicationMetadataUri(key)}>`
   // Database identifiers support the private graph builder but are not part
@@ -51,12 +51,18 @@ export const provenanceTurtle = (prov: Provenance) => {
 
   for (const n of prov.graph.nodes) {
     const statements = [
-      `a ${TYPE_MAP[n.type]}${
-        n.publicResource?.specializationOf ? ", matsci:DefinitionRevision" : ""
+      `a ${TYPE_MAP[n.type]}${n.publicResource?.specializationOf ? ", matsci:DefinitionRevision" : ""
       }`,
       `rdfs:label ${lit(n.label)}`
     ]
-    if (n.detail) statements.push(`prov:value ${lit(n.detail)}`)
+    if (n.detail) {
+      if (typeof n.detail === "string") {
+        statements.push(`prov:value ${lit(n.detail)}`)
+      } else {
+        statements.push(`prov:value ${lit(diffToStringSimple(n.detail))}`)
+      }
+
+    }
     if (n.meta)
       for (const [key, value] of Object.entries(n.meta))
         if (value !== null && isPublicMetadataProperty(key))

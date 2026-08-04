@@ -6,9 +6,11 @@ const main = async () => {
   process.env.DATABASE_URL ??= "postgresql:///definition-revision-test"
   const {
     createTextDiff,
-    diffToStringSimple,
     revisionDiffMetrics
   } = await import("../lib/definition-revisions")
+  const {
+    diffToStringSimple,
+  } = await import("../lib/utils")
 
   const initialDefinition: Diff[] = [
     [DiffOp.Insert, "A crystalline phase."]

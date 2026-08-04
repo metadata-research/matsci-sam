@@ -20,7 +20,7 @@ import {
   schemeUri,
   termUri
 } from "./public-identifiers"
-import { diffToStringSimple } from "./definition-revisions"
+import { diffToStringSimple } from "./utils"
 
 export { schemeUri, termUri } from "./public-identifiers"
 

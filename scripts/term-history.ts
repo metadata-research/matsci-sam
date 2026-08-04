@@ -5,7 +5,7 @@ import {
   definitionsTable,
   termsTable
 } from "@/drizzle"
-import { diffToStringSimple } from "@/lib/definition-revisions"
+import { diffToStringSimple } from "@/lib/utils"
 import { asc, desc } from "drizzle-orm"
 
 const main = async () => {

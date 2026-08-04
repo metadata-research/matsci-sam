@@ -18,8 +18,10 @@ import { OllamaModel, RefineSystemPrompt, runLLM } from "@/lib/apis/ollama"
 import { GetModelUser } from "@/lib/crud"
 import {
   createDefinitionWithInitialRevision,
-  diffToStringSimple
 } from "@/lib/definition-revisions"
+import {
+  diffToStringSimple
+} from "@/lib/utils"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 

@@ -14,7 +14,8 @@ import {
 } from "@yamz/db"
 import { and, asc, eq, getTableColumns, inArray, isNotNull } from "drizzle-orm"
 import { definitionUri, revisionUri, termUri } from "./public-identifiers"
-import { diffToStringSimple } from "./definition-revisions"
+import { diffToStringSimple } from "./utils"
+import { Diff } from "diff-match-patch-ts"
 
 // Read-only PROV-O mapping over the domain tables. Definition revisions are
 // the canonical version record; the mutable definitions row is used only for
@@ -45,8 +46,8 @@ export type ProvNode = {
   }
   profileUserId?: number
   // shown in the node details panel
-  detail?: string
-  meta?: Record<string, string | number | null>
+  detail?: string | Diff[]
+  meta?: Record<string, string | number | null | Diff[]>
 }
 
 export type ProvEdge = {
@@ -455,7 +456,7 @@ export const buildTermProvenance = async (
         revision.previousRevisionId === null
           ? undefined
           : revisionById.get(revision.previousRevisionId)
-      const meta: Record<string, string | number | null> = {
+      const meta: Record<string, string | number | null | Diff[]> = {
         definitionId: definition.id,
         definitionNumber: definition.definitionNumber,
         revisionId: revision.id,
@@ -471,7 +472,7 @@ export const buildTermProvenance = async (
         meta.previousRevisionId = revision.previousRevisionId
       if (revision.derivedFromRevisionId !== null)
         meta.derivedFromRevisionId = revision.derivedFromRevisionId
-      if (revision.exampleDiff !== null) meta.example = diffToStringSimple(revision.exampleDiff)
+      if (revision.exampleDiff !== null) meta.example = revision.exampleDiff
       if (revision.editorId !== null) meta.editorId = revision.editorId
       if (revision.editor?.name) meta.editor = revision.editor.name
       if (revision.changeNote !== null) meta.changeNote = revision.changeNote
@@ -501,7 +502,7 @@ export const buildTermProvenance = async (
             }
             : {})
         },
-        detail: diffToStringSimple(revision.definitionDiff),
+        detail: revision.definitionDiff,
         meta
       })
 
@@ -933,9 +934,9 @@ export const buildTermProvenance = async (
         revision.derivedFromRevisionId === suggestion.revisionId &&
         revision.exampleDiff !== null &&
         diffToStringSimple(revision.definitionDiff) ===
-          suggestion.suggestedDefinition &&
+        suggestion.suggestedDefinition &&
         diffToStringSimple(revision.exampleDiff) ===
-          suggestion.suggestedExample &&
+        suggestion.suggestedExample &&
         revision.model === suggestion.model &&
         revision.prompt === suggestion.prompt
     )

@@ -65,14 +65,6 @@ interface CreateDefinitionWithInitialRevisionInput {
   createdVia?: (typeof definitionsTable.$inferInsert)["createdVia"]
 }
 
-export function diffToStringSimple(diff: Diff[]) {
-  let value = ""
-  for (const [operation, text] of diff) {
-    if (operation === DiffOp.Insert || operation === DiffOp.Equal) value += text
-  }
-  return value
-}
-
 export function createTextDiff(previous: string, next: string) {
   return new DiffMatchPatch().diff_main(previous, next)
 }
