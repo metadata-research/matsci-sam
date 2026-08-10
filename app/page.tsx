@@ -61,44 +61,10 @@ export default async function Home() {
     contributionTermsPromise
   ])
 
-  const featuredProvenanceHref = featured
-    ? `/terms/${featured.termId}/provenance`
-    : "/docs/metadata-access"
-
   return (
     <HydrateClient>
       <main className={styles.main}>
         <div className={styles.shell}>
-          <section
-            className={styles.conferenceGuide}
-            aria-labelledby="conference-guide-heading"
-          >
-            <h2 id="conference-guide-heading">
-              Here for the HDR Ecosystem Conference? Explore {SITE_NAME} in 90
-              seconds
-            </h2>
-            <ol>
-              <li>
-                <Link href="/search">
-                  <span>1</span>
-                  Search a materials term
-                </Link>
-              </li>
-              <li>
-                <Link href={featuredProvenanceHref}>
-                  <span>2</span>
-                  Inspect a definition and its provenance
-                </Link>
-              </li>
-              <li>
-                <Link href="/discussion">
-                  <span>3</span>
-                  Discuss an alternative
-                </Link>
-              </li>
-            </ol>
-          </section>
-
           <section className={styles.hero} aria-labelledby="home-title">
             <div className={styles.heroIntroduction}>
               <h1 id="home-title" className={styles.heroTitle}>
@@ -631,8 +597,8 @@ async function getFeaturedDefinition() {
   if (!candidateTerms.length) return null
 
   // A UTC-day index gives everyone the same featured term for the day while
-  // rotating only through records reviewed for the conference-facing
-  // showcase. Score is a community signal, not an editorial quality gate.
+  // rotating only through reviewed showcase records. Score is a community
+  // signal, not an editorial quality gate.
   const rotationIndex =
     Math.floor(Date.now() / MILLISECONDS_PER_DAY) % candidateTerms.length
   const candidate = candidateTerms[rotationIndex]
