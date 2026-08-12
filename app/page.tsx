@@ -66,29 +66,30 @@ export default async function Home() {
       <main className={styles.main}>
         <div className={styles.shell}>
           <section className={styles.hero} aria-labelledby="home-title">
-            <div className={styles.heroIntroduction}>
-              <h1 id="home-title" className={styles.heroTitle}>
-                <span>Shared terminology for</span>
-                <span>materials science data</span>
-              </h1>
-              <p className={styles.heroLead}>
-                Inconsistent terminology makes materials data harder to discover
-                and reuse. {SITE_NAME} is a community metadata dictionary for
-                comparing definitions, contributing examples of use, and
-                recording how terminology changes.
-              </p>
-              <p className={styles.projectLine}>
-                {SITE_NAME} (Semantic Alignment Metadata) is a project of the{" "}
-                <a
-                  href="https://mrc.cci.drexel.edu/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Metadata Research Center at Drexel University
-                </a>
-                .
-              </p>
+            <h1 id="home-title" className={styles.heroTitle}>
+              Shared terminology for materials science data
+            </h1>
+            <p className={styles.heroLead}>
+              Inconsistent terminology makes materials data harder to discover
+              and reuse. {SITE_NAME} is a community metadata dictionary for
+              comparing definitions, contributing examples of use, and recording
+              how terminology changes.
+            </p>
+            <p className={styles.projectLine}>
+              {SITE_NAME} (Semantic Alignment Metadata) is a project of the{" "}
+              <a
+                href="https://mrc.cci.drexel.edu/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Metadata Research Center at Drexel University
+              </a>
+              .
+            </p>
+          </section>
 
+          <div className={styles.heroPanels}>
+            <div className={styles.startColumn}>
               <section
                 id="contribute"
                 className={styles.contributionPanel}
@@ -107,31 +108,12 @@ export default async function Home() {
                   <ArrowRightIcon aria-hidden />
                 </Link>
               </section>
-            </div>
 
-            <FeaturedRecord featured={featured} />
-          </section>
-
-          {sesh.id && <PersonalWorkSection personalWork={personalWork} />}
-
-          <section
-            className={styles.communitySection}
-            aria-labelledby="community-heading"
-          >
-            <div className={styles.sectionHeading}>
-              <div>
-                <h2 id="community-heading">What the community is working on</h2>
-                <p>Recent additions and discussion from the live vocabulary.</p>
-              </div>
-              <Link href="/discussion" className={styles.textLink}>
-                Open discussions
-                <ArrowRightIcon aria-hidden />
-              </Link>
-            </div>
-
-            <div className={styles.activityColumns}>
-              <div>
-                <h3>Recently added</h3>
+              <section
+                className={styles.recentTerms}
+                aria-labelledby="recent-terms-heading"
+              >
+                <h2 id="recent-terms-heading">Recently added</h2>
                 <ul className={styles.activityList}>
                   {latestTerms.map(({ id, term, slug, count, createdAt }) => (
                     <li key={id}>
@@ -156,52 +138,67 @@ export default async function Home() {
                   View all terms
                   <ArrowRightIcon aria-hidden />
                 </Link>
-              </div>
-
-              <div className={styles.discussionColumn}>
-                <h3>Recent discussion</h3>
-                {recentDiscussion.length ? (
-                  <ul className={styles.discussionList}>
-                    {recentDiscussion.map((comment) => (
-                      <li key={comment.id}>
-                        <Link
-                          href={`${definitionPath(
-                            comment.termSlug,
-                            comment.definitionNumber
-                          )}#discussion`}
-                          className={styles.discussionActivity}
-                        >
-                          <span className={styles.termName}>
-                            {comment.term}
-                          </span>
-                          <span className={styles.commentExcerpt}>
-                            {comment.message}
-                          </span>
-                        </Link>
-                        <span className={styles.activityByline}>
-                          <PublicProfileName
-                            user={{
-                              id: comment.authorId,
-                              name: comment.author,
-                              isAi: comment.authorIsAi,
-                              isProfilePublic: comment.authorProfilePublic
-                            }}
-                            fallback="Community member"
-                          />
-                          <time dateTime={comment.createdAt}>
-                            {formatDate(comment.createdAt)}
-                          </time>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={styles.emptyActivity}>
-                    No comments have been recorded yet.
-                  </p>
-                )}
-              </div>
+              </section>
             </div>
+
+            <FeaturedRecord featured={featured} />
+          </div>
+
+          {sesh.id && <PersonalWorkSection personalWork={personalWork} />}
+
+          <section
+            className={styles.communitySection}
+            aria-labelledby="community-heading"
+          >
+            <div className={styles.sectionHeading}>
+              <div>
+                <h2 id="community-heading">Recent discussion</h2>
+                <p>Comments from the live vocabulary.</p>
+              </div>
+              <Link href="/discussion" className={styles.textLink}>
+                Open discussions
+                <ArrowRightIcon aria-hidden />
+              </Link>
+            </div>
+
+            {recentDiscussion.length ? (
+              <ul className={styles.discussionList}>
+                {recentDiscussion.map((comment) => (
+                  <li key={comment.id}>
+                    <Link
+                      href={`${definitionPath(
+                        comment.termSlug,
+                        comment.definitionNumber
+                      )}#discussion`}
+                      className={styles.discussionActivity}
+                    >
+                      <span className={styles.termName}>{comment.term}</span>
+                      <span className={styles.commentExcerpt}>
+                        {comment.message}
+                      </span>
+                    </Link>
+                    <span className={styles.activityByline}>
+                      <PublicProfileName
+                        user={{
+                          id: comment.authorId,
+                          name: comment.author,
+                          isAi: comment.authorIsAi,
+                          isProfilePublic: comment.authorProfilePublic
+                        }}
+                        fallback="Community member"
+                      />
+                      <time dateTime={comment.createdAt}>
+                        {formatDate(comment.createdAt)}
+                      </time>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.emptyActivity}>
+                No comments have been recorded yet.
+              </p>
+            )}
           </section>
 
           <footer className={styles.footer}>
@@ -531,7 +528,7 @@ async function getRecentDiscussion() {
       seenTerms.add(comment.termId)
       return true
     })
-    .slice(0, 3)
+    .slice(0, 4)
 }
 
 async function getPersonalWork(userId: number) {
