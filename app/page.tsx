@@ -144,8 +144,6 @@ export default async function Home() {
             <FeaturedRecord featured={featured} />
           </div>
 
-          {sesh.id && <PersonalWorkSection personalWork={personalWork} />}
-
           <section
             className={styles.communitySection}
             aria-labelledby="community-heading"
@@ -200,6 +198,8 @@ export default async function Home() {
               </p>
             )}
           </section>
+
+          {sesh.id && <PersonalWorkSection personalWork={personalWork} />}
 
           <footer className={styles.footer}>
             <a
