@@ -34,7 +34,7 @@ import {
   EXAMPLE_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
-import { definitionPath } from "@/lib/public-identifiers"
+import { definitionPath, termPath } from "@/lib/public-identifiers"
 
 const AI_WORKFLOWS = [
   {
@@ -131,6 +131,13 @@ export const DefineTermForm = ({
           `The model is generating an alternate definition of "${term.term}". It will appear alongside yours shortly.`,
           { icon: <SparklesIcon className="size-4 text-ai" /> }
         )
+        // Land on the term rather than this one definition. The model
+        // definition is published as a sibling, and the term page is the only
+        // place that shows both, carries the placeholder card, and announces
+        // the arrival. Sending the author to their own definition instead
+        // leaves them watching a page where nothing will ever change.
+        router.push(termPath(term.slug))
+        return
       }
       router.push(definitionPath(term.slug, definition.definitionNumber))
     }

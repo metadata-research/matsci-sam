@@ -8,40 +8,45 @@
   margin-inline: auto;
 }
 
+/* The introduction spans the shell and closes on a hairline, so the page
+   opens with the same fine-rule language the records and lists use rather
+   than stacking another bordered card. */
 .hero {
+  padding: 1.25rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* One fluid scale for every viewport; when the line no longer fits,
+   text-wrap keeps the break even, so no per-breakpoint caps are needed. */
+.heroTitle {
+  font-family: var(--font-plex-serif);
+  font-size: clamp(2.25rem, 2vw + 1.9rem, 3.5rem);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+/* A deck, not body copy: it shares the headline's full width and the fluid
+   size is tuned so its two balanced lines nearly fill the shell, keeping the
+   block flush with the page's left axis without a ragged right end. */
+.heroLead {
+  margin-top: 1.35rem;
+  color: var(--muted-foreground);
+  font-size: clamp(1.05rem, 1.7vw, 1.5rem);
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.heroPanels {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   gap: 1.5rem;
   align-items: start;
-  padding: 0.85rem 0 2rem;
-}
-
-.heroIntroduction {
-  min-width: 0;
-}
-
-.heroTitle {
-  font-family: var(--font-plex-serif);
-  font-size: clamp(2.4rem, 3.25vw, 3rem);
-  font-weight: 700;
-  line-height: 1.04;
-  letter-spacing: -0.035em;
-}
-
-.heroTitle span {
-  display: block;
-}
-
-.heroLead {
-  max-width: 38rem;
-  margin-top: 1.25rem;
-  color: var(--muted-foreground);
-  font-size: 1rem;
-  line-height: 1.6;
+  margin-top: 2rem;
 }
 
 .projectLine {
-  max-width: 38rem;
   margin-top: 1rem;
   color: var(--muted-foreground);
   font-size: 0.875rem;
@@ -65,17 +70,24 @@
   text-decoration-color: currentColor;
 }
 
-.contributionPanel {
-  scroll-margin-top: 1rem;
-  margin-top: 1rem;
-  padding: 1.1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--card);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 0.035);
+/* Open blocks divided by hairlines, not another bordered card. The featured
+   record stays the only card on the page so it reads as the specimen. */
+.startColumn {
+  min-width: 0;
 }
 
-.contributionPanel h2 {
+.contributionPanel {
+  scroll-margin-top: 1rem;
+}
+
+.recentTerms {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+.contributionPanel h2,
+.recentTerms h2 {
   margin-bottom: 0.7rem;
   font-family: var(--font-plex-serif);
   font-size: 1.15rem;
@@ -90,6 +102,8 @@
 
 .definitionStarter {
   margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
 }
 
 .definitionStarter label {
@@ -118,6 +132,8 @@
   flex-wrap: wrap;
   gap: 0.65rem;
   margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
 }
 
 .contributionPanel > .textLink {
@@ -377,6 +393,7 @@
 }
 
 .personalSection {
+  margin-top: 2rem;
   padding: 1.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
@@ -392,8 +409,7 @@
   margin-bottom: 1.25rem;
 }
 
-.sectionHeading h2,
-.conferenceGuide h2 {
+.sectionHeading h2 {
   font-family: var(--font-plex-serif);
   font-size: clamp(1.65rem, 3vw, 2rem);
   font-weight: 650;
@@ -497,46 +513,28 @@
 }
 
 .communitySection {
+  margin-top: 2rem;
+  padding-top: 2rem;
   border-top: 1px solid var(--border);
 }
 
-.communitySection {
-  margin-top: 2rem;
-  padding-top: 2rem;
-}
-
-.activityColumns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.activityColumns > div {
-  min-width: 0;
-}
-
-.activityColumns h3 {
-  margin-bottom: 0.55rem;
-  font-family: var(--font-plex-serif);
-  font-size: 1.15rem;
-  font-weight: 650;
-}
-
-.discussionColumn {
-  padding-left: 2rem;
-  border-left: 1px solid var(--border);
-}
-
-.activityColumns > div:first-child {
-  padding-right: 2rem;
-}
-
-.activityList,
-.discussionList {
+.activityList {
   margin-bottom: 0.8rem;
 }
 
-.activityList li + li,
-.discussionList li + li {
+.activityList li + li {
+  border-top: 1px solid var(--border);
+}
+
+/* Two columns keep the entries dense now that the discussion owns the full
+   shell width. Every row carries its own rule, so both columns start level. */
+.discussionList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 3rem;
+}
+
+.discussionList > li {
   border-top: 1px solid var(--border);
 }
 
@@ -607,56 +605,6 @@
   font-size: 0.875rem;
 }
 
-.conferenceGuide {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2rem;
-  align-items: center;
-  padding: 1.1rem 1.25rem;
-  border: 1px solid color-mix(in oklab, var(--primary) 55%, var(--border));
-  border-radius: var(--radius-lg);
-}
-
-.conferenceGuide h2 {
-  font-size: 1.2rem;
-}
-
-.conferenceGuide ol {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.conferenceGuide li + li {
-  border-left: 1px solid var(--border);
-}
-
-.conferenceGuide a {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.35rem 0.9rem;
-  color: var(--primary);
-  font-size: 0.74rem;
-  line-height: 1.35;
-}
-
-.conferenceGuide a:hover {
-  text-decoration: underline;
-  text-underline-offset: 0.22em;
-}
-
-.conferenceGuide a span {
-  display: grid;
-  width: 1.45rem;
-  height: 1.45rem;
-  flex: none;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-plex-mono);
-  font-size: 0.68rem;
-}
-
 .footer {
   display: grid;
   grid-template-columns: 1.35fr 0.8fr 1fr;
@@ -720,20 +668,9 @@
   gap: 0.5rem 1rem;
 }
 
-@media (max-width: 1180px) {
-  .conferenceGuide {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-}
-
 @media (max-width: 1020px) {
-  .hero {
+  .heroPanels {
     grid-template-columns: 1fr;
-  }
-
-  .heroTitle {
-    max-width: 22ch;
   }
 
   .featuredRecord {
@@ -756,17 +693,15 @@
   }
 
   .hero {
-    gap: 1.5rem;
     padding-top: 1rem;
-  }
-
-  .heroTitle {
-    max-width: 18ch;
-    font-size: clamp(2.15rem, 10vw, 3rem);
   }
 
   .heroLead {
     font-size: 1rem;
+  }
+
+  .heroPanels {
+    margin-top: 1.5rem;
   }
 
   .featuredHeader {
@@ -821,33 +756,9 @@
     grid-row: 1 / span 2;
   }
 
-  .activityColumns {
+  .discussionList {
     grid-template-columns: 1fr;
-    gap: 2rem;
-  }
-
-  .activityColumns > div:first-child {
-    padding-right: 0;
-  }
-
-  .discussionColumn {
-    padding-top: 2rem;
-    padding-left: 0;
-    border-top: 1px solid var(--border);
-    border-left: 0;
-  }
-
-  .conferenceGuide ol {
-    grid-template-columns: 1fr;
-  }
-
-  .conferenceGuide li + li {
-    border-top: 1px solid var(--border);
-    border-left: 0;
-  }
-
-  .conferenceGuide a {
-    padding: 0.65rem 0;
+    gap: 0;
   }
 
   .footer {
@@ -860,7 +771,6 @@
 }
 
 @media (max-width: 440px) {
-  .contributionPanel,
   .featuredHeader,
   .featuredDefinition,
   .provenanceTrace,
