@@ -1,0 +1,71 @@
+# Tags
+
+Tags group the vocabulary by subject. A tag is a concept in a tag scheme,
+and the scheme says what kind of tag it is. The pilot has two schemes.
+Topics are community tags that authors attach to their own definitions.
+Facets are curated tags that administrators attach to a term. Both kinds
+have their own pages, and both are published as `skos:Concept` resources in
+the metadata exports.
+
+## Topics
+
+A topic is a subject heading such as "Heat treatment" or "Electronic
+structure". Signed-in contributors create topics from the **Tags** page with
+**Add Tag**. Names are matched without regard to case or surrounding spaces,
+so a second "heat treatment" returns the existing topic. A topic that has been
+merged into another returns the topic that replaced it.
+
+The author of a definition attaches topics on the definition page. The pencil
+next to the tag badges opens a picker that lists every topic. Selecting a
+topic attaches it, and selecting it again removes it. Only the author can
+change the topics of a definition. A removed topic is recorded as withdrawn.
+The record of who attached it and when is kept.
+
+Topics stay attached to the stable definition through later revisions. A
+topic page at `/tags/topics/{topic}` lists the definitions filed under it.
+Topics attached to any definition of a term also appear on the term itself in
+the metadata exports, so a data consumer who reads only term records still
+finds them.
+
+## Facets
+
+Facets classify the term concept, not one definition of it. The pilot has
+one facet scheme, PSPP, named for its four members.
+
+| Facet       | Meaning                                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Processing  | How a material is made, shaped or treated, including synthesis, forming, heat treatment and joining                            |
+| Structure   | The arrangement of the constituents of a material at any scale, from atomic and crystal structure to macroscopic form          |
+| Properties  | Measurable characteristics of a material, mechanical, thermal, electrical, optical or chemical, that follow from its structure |
+| Performance | How a material behaves in service under real conditions and over time, including durability, reliability and failure           |
+
+Administrators assign facets. A term may have several, and a facet does not
+claim that the classification is complete. A facet page at
+`/tags/pspp/{facet}` lists the terms it is assigned to. Authors cannot attach a
+facet to a definition, and administrators cannot attach a topic to a term.
+The two kinds keep to their own level.
+
+## Collections
+
+A collection is a curated named set of terms, published at
+`/collections/{collection}` as a `skos:Collection`. Administrators create
+collections. The pilot has no published collections.
+
+## Tag pages and identifiers
+
+The **Tags** page lists the topics alphabetically. Each scheme has a page at
+`/tags/{scheme}` and each tag a page at `/tags/{scheme}/{tag}`. These paths
+are the tag identifiers used in the metadata exports. A tag keeps its path
+when it is merged or retired. A merged tag redirects to its replacement, and a
+retired tag without a replacement shows that it is retired. Older links of the
+form `/tags/{number}` redirect to the readable path.
+[Identifiers and citation](/docs/identifiers) describes the identifier grammar.
+
+## Metadata
+
+Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
+and each collection a `skos:Collection`. A term or a definition names its
+tags with `dcterms:subject`. Every scheme, tag and collection is available in
+one Turtle document at `/tags.ttl`, and each term record includes the tags
+it refers to.
+[Metadata access](/docs/metadata-access) lists the endpoints.

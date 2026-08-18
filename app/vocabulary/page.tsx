@@ -3,7 +3,11 @@ import { SITE_NAME } from "@/lib/site"
 import { db, definitionsTable, termsTable } from "@yamz/db"
 import { asc, eq, sql } from "drizzle-orm"
 import Link from "next/link"
-import { conceptSchemeJsonLd, schemeUri } from "@/lib/skos"
+import {
+  conceptSchemeJsonLd,
+  schemeUri,
+  termIdsWithActiveBroader
+} from "@/lib/skos"
 
 export const metadata: Metadata = {
   title: `Vocabulary | ${SITE_NAME}`,
@@ -33,10 +37,12 @@ export default async function VocabularyPage() {
     .groupBy(termsTable.id)
     .orderBy(asc(termsTable.term))
 
-  const jsonLd = JSON.stringify(conceptSchemeJsonLd(terms)).replace(
-    /</g,
-    "\\u003c"
-  )
+  // A term stored under another term (skos:broader) is not a top concept of
+  // the scheme; the page still lists every term.
+  const notTop = await termIdsWithActiveBroader()
+  const jsonLd = JSON.stringify(
+    conceptSchemeJsonLd(terms.filter((t) => !notTop.has(t.id)))
+  ).replace(/</g, "\\u003c")
 
   return (
     <>

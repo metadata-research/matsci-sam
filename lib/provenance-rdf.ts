@@ -6,6 +6,7 @@ import {
   applicationMetadataUri,
   termUri
 } from "./public-identifiers"
+import { lit } from "./rdf-literal"
 
 // Serialize the derived provenance graph as W3C PROV-O Turtle. The JSON graph
 // the UI renders and this document come from the same builder, so revision
@@ -20,13 +21,6 @@ const TYPE_MAP = {
   person: "prov:Person",
   software: "prov:SoftwareAgent"
 } as const
-
-const lit = (value: string) =>
-  `"${value
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\r/g, "")
-    .replace(/\n/g, "\\n")}"`
 
 export const provenanceTurtle = (prov: Provenance) => {
   const base = `${termUri(prov.term.slug)}/provenance#`

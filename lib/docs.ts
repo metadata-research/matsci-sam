@@ -20,6 +20,7 @@ const PAGE_ORDER = [
   "ai-refinement",
   "discussion",
   "search",
+  "tags",
   "provenance",
   "metadata-access",
   "identifiers"
