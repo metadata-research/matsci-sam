@@ -16,7 +16,9 @@ import {
   check,
   type AnyPgColumn,
   jsonb,
-  numeric
+  numeric,
+  unique,
+  uuid
 } from "drizzle-orm/pg-core"
 
 export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
@@ -805,7 +807,268 @@ export const commentsTableRelations = relations(commentsTable, ({ one }) => ({
   })
 }))
 
+// --- KNOWLEDGE ORGANIZATION ---
+// Tags, facets, named sets, term relations and external mappings are all rows
+// in one typed statement ledger. A row is one asserted (subject, predicate,
+// object) with who/when/retracted; while active it is one RDF triple, and the
+// row is the reifier that carries the assertion's provenance. Predicates are a
+// closed set of SKOS and Dublin Core terms; lib/kos.ts is the registry that
+// gives each its IRI, allowed subject/object kinds and inverse or symmetry.
+
+export const statementPredicateEnum = pgEnum("statement_predicate", [
+  "dcterms:subject", // term | definition -> concept
+  "skos:broader", // term -> term | concept -> concept (same scheme)
+  "skos:related", // term -> term | concept -> concept; symmetric, stored once
+  "skos:member", // collection -> term
+  "skos:exactMatch", // term | concept -> external IRI
+  "skos:closeMatch",
+  "skos:broadMatch",
+  "skos:narrowMatch",
+  "skos:relatedMatch"
+])
+
+export const conceptStatusEnum = pgEnum("concept_status", [
+  "approved",
+  "retired",
+  "proposed" // reserved for community proposals; unused in this work
+])
+
+export type ConceptScheme = typeof conceptSchemesTable.$inferSelect
+export const conceptSchemesTable = pgTable(
+  "conceptSchemes",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // Public identifier: /tags/<slug>. Immutable once published.
+    slug: text().notNull().unique(),
+    title: text().notNull(), // dcterms:title
+    description: text(), // dcterms:description
+    // curated: concepts are created and attached by curators only, and attach
+    // at TERM level only (facets), never to a definition. topics is open and
+    // attaches at DEFINITION level only.
+    curated: boolean().notNull().default(false),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    // Not all digits, so /tags/<digits> stays the legacy numeric redirect.
+    check(
+      "concept_schemes_slug_shape",
+      sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$' AND ${t.slug} !~ '^[0-9]+$'`
+    ),
+    check("concept_schemes_title_nonblank", sql`btrim(${t.title}) <> ''`)
+  ]
+)
+
+export type Concept = typeof conceptsTable.$inferSelect
+export const conceptsTable = pgTable(
+  "concepts",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    schemeId: integer()
+      .references(() => conceptSchemesTable.id)
+      .notNull(),
+    // Public identifier: /tags/<scheme>/<slug>. lib/slug.ts uniqueSlug of the
+    // label at creation; unique per scheme; immutable. A merged concept keeps
+    // its row, is retired, and points at its replacement so the IRI resolves.
+    slug: text().notNull(),
+    prefLabel: text().notNull(), // skos:prefLabel
+    altLabels: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`), // skos:altLabel
+    definition: text(), // skos:definition
+    status: conceptStatusEnum().notNull().default("approved"),
+    replacedById: integer().references((): AnyPgColumn => conceptsTable.id),
+    // tags.id at migration time so /tags/<id> keeps redirecting. No FK: the
+    // tags table is dropped in 0030.
+    legacyTagId: integer(),
+    // null only for seeded (PSPP) and migrated rows
+    createdById: integer().references(() => usersTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    unique("concepts_scheme_slug_unique").on(t.schemeId, t.slug),
+    // Normalized label uniqueness per scheme among live concepts: "Steel" and
+    // "steel " are one tag. Partial, so a merged (retired) duplicate can keep
+    // its row and its /tags/<id> redirect.
+    uniqueIndex("concepts_scheme_label_unique")
+      .on(t.schemeId, sql`lower(btrim(${t.prefLabel}))`)
+      .where(sql`${t.status} <> 'retired'`),
+    uniqueIndex("concepts_legacy_tag_unique")
+      .on(t.legacyTagId)
+      .where(sql`${t.legacyTagId} IS NOT NULL`),
+    check("concepts_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
+    check("concepts_label_nonblank", sql`btrim(${t.prefLabel}) <> ''`),
+    check(
+      "concepts_replaced_only_when_retired",
+      sql`${t.replacedById} IS NULL OR ${t.status} = 'retired'`
+    ),
+    check(
+      "concepts_not_self_replaced",
+      sql`${t.replacedById} IS NULL OR ${t.replacedById} <> ${t.id}`
+    )
+  ]
+)
+
+export type Collection = typeof collectionsTable.$inferSelect
+export const collectionsTable = pgTable(
+  "collections",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // Public identifier: /collections/<slug>. Immutable.
+    slug: text().notNull().unique(),
+    title: text().notNull(), // skos:prefLabel / dcterms:title
+    description: text(),
+    createdById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    check("collections_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
+    check("collections_title_nonblank", sql`btrim(${t.title}) <> ''`)
+  ]
+)
+
+export type Statement = typeof statementsTable.$inferSelect
+export const statementsTable = pgTable(
+  "statements",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // Opaque public token for the reifier IRI (<subjectIri>#statement-<key>).
+    // Never expose id.
+    key: uuid().notNull().defaultRandom().unique(),
+    predicate: statementPredicateEnum().notNull(),
+    // subject: exactly one
+    subjectTermId: integer().references(() => termsTable.id),
+    subjectDefinitionId: integer().references(() => definitionsTable.id),
+    subjectConceptId: integer().references(() => conceptsTable.id),
+    subjectCollectionId: integer().references(() => collectionsTable.id),
+    // object: exactly one
+    objectTermId: integer().references(() => termsTable.id),
+    objectConceptId: integer().references(() => conceptsTable.id),
+    objectIri: text(),
+    // provenance of the assertion
+    assertedById: integer().references(() => usersTable.id), // null only when migratedLegacy
+    migratedLegacy: boolean().notNull().default(false), // carried over from tagsToTerms/tags
+    note: text(), // curator note, e.g. mapping justification
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    retractedAt: timestamp({ mode: "string", withTimezone: true }),
+    retractedById: integer().references(() => usersTable.id)
+  },
+  (t) => [
+    check(
+      "statements_one_subject",
+      sql`num_nonnulls(${t.subjectTermId}, ${t.subjectDefinitionId}, ${t.subjectConceptId}, ${t.subjectCollectionId}) = 1`
+    ),
+    check(
+      "statements_one_object",
+      sql`num_nonnulls(${t.objectTermId}, ${t.objectConceptId}, ${t.objectIri}) = 1`
+    ),
+    // Domain and range per predicate. Mirrored in lib/kos.ts; test-kos-db.ts
+    // proves the two agree.
+    check(
+      "statements_predicate_shape",
+      sql`CASE ${t.predicate}
+      WHEN 'dcterms:subject' THEN (${t.subjectTermId} IS NOT NULL OR ${t.subjectDefinitionId} IS NOT NULL) AND ${t.objectConceptId} IS NOT NULL
+      WHEN 'skos:member'     THEN ${t.subjectCollectionId} IS NOT NULL AND ${t.objectTermId} IS NOT NULL
+      WHEN 'skos:broader'    THEN (${t.subjectTermId} IS NOT NULL AND ${t.objectTermId} IS NOT NULL) OR (${t.subjectConceptId} IS NOT NULL AND ${t.objectConceptId} IS NOT NULL)
+      WHEN 'skos:related'    THEN (${t.subjectTermId} IS NOT NULL AND ${t.objectTermId} IS NOT NULL) OR (${t.subjectConceptId} IS NOT NULL AND ${t.objectConceptId} IS NOT NULL)
+      ELSE (${t.subjectTermId} IS NOT NULL OR ${t.subjectConceptId} IS NOT NULL) AND ${t.objectIri} IS NOT NULL
+    END`
+    ),
+    // Turtle interpolates IRIs raw: only absolute http(s) IRIs with no
+    // whitespace, no C0/DEL control character, and none of the IRIREF
+    // delimiters < > " { } | ^ ` \ get in. Verified 2026-08-18 on PG 17.11:
+    // this template reaches SQL as '^https?://[^[:space:][:cntrl:]<>"{}|^`\\]+$'
+    // and rejects backslash, chr(1), chr(127), ^, `, space; accepts EMMO,
+    // PMDco, QUDT and non-ASCII IRIs. (An earlier draft's `\\^` was an
+    // escaped caret in ARE syntax and let a backslash through.)
+    check(
+      "statements_object_iri_absolute",
+      sql`${t.objectIri} IS NULL OR ${t.objectIri} ~ '^https?://[^[:space:][:cntrl:]<>"{}|^\`\\\\]+$'`
+    ),
+    check(
+      "statements_no_self_relation",
+      sql`(${t.subjectTermId} IS NULL OR ${t.objectTermId} IS NULL OR ${t.subjectTermId} <> ${t.objectTermId})
+       AND (${t.subjectConceptId} IS NULL OR ${t.objectConceptId} IS NULL OR ${t.subjectConceptId} <> ${t.objectConceptId})`
+    ),
+    // Symmetric predicate stored once, smaller id first, so the active-unique
+    // index also catches the mirror image.
+    check(
+      "statements_symmetric_canonical",
+      sql`${t.predicate} <> 'skos:related' OR coalesce(${t.subjectTermId}, ${t.subjectConceptId}) < coalesce(${t.objectTermId}, ${t.objectConceptId})`
+    ),
+    check(
+      "statements_asserter_or_legacy",
+      sql`${t.assertedById} IS NOT NULL OR ${t.migratedLegacy}`
+    ),
+    check(
+      "statements_retraction_pair",
+      sql`(${t.retractedAt} IS NULL) = (${t.retractedById} IS NULL)`
+    ),
+    // One active row per triple. Active-only uniqueness must be a partial
+    // index (WHERE retractedAt IS NULL) and partial indexes cannot use NULLS
+    // NOT DISTINCT, hence coalesce().
+    uniqueIndex("statements_active_unique")
+      .on(
+        t.predicate,
+        sql`coalesce(${t.subjectTermId}, 0)`,
+        sql`coalesce(${t.subjectDefinitionId}, 0)`,
+        sql`coalesce(${t.subjectConceptId}, 0)`,
+        sql`coalesce(${t.subjectCollectionId}, 0)`,
+        sql`coalesce(${t.objectTermId}, 0)`,
+        sql`coalesce(${t.objectConceptId}, 0)`,
+        sql`coalesce(${t.objectIri}, '')`
+      )
+      .where(sql`${t.retractedAt} IS NULL`),
+    index("statements_subject_term_idx").on(t.subjectTermId),
+    index("statements_subject_definition_idx").on(t.subjectDefinitionId),
+    index("statements_subject_concept_idx").on(t.subjectConceptId),
+    index("statements_subject_collection_idx").on(t.subjectCollectionId),
+    index("statements_object_term_idx").on(t.objectTermId),
+    index("statements_object_concept_idx").on(t.objectConceptId)
+  ]
+)
+
+export const conceptSchemesTableRelations = relations(
+  conceptSchemesTable,
+  ({ many }) => ({
+    concepts: many(conceptsTable)
+  })
+)
+
+export const conceptsTableRelations = relations(conceptsTable, ({ one }) => ({
+  scheme: one(conceptSchemesTable, {
+    fields: [conceptsTable.schemeId],
+    references: [conceptSchemesTable.id]
+  }),
+  replacedBy: one(conceptsTable, {
+    fields: [conceptsTable.replacedById],
+    references: [conceptsTable.id]
+  })
+}))
+
+export const collectionsTableRelations = relations(
+  collectionsTable,
+  ({ one }) => ({
+    createdBy: one(usersTable, {
+      fields: [collectionsTable.createdById],
+      references: [usersTable.id]
+    })
+  })
+)
+
 // --- TAGS ---
+// legacy: dropped in 0030. Declared so drizzle-kit does not emit the drops
+// early; app code reads and writes the knowledge-organization tables above.
 // SKOS mapping relations a tag may assert toward an external ontology class
 export const skosMatchEnum = pgEnum("skos_match", [
   "exactMatch",

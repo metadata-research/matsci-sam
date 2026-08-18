@@ -65,6 +65,15 @@ jobs:
         run: |
           pnpm db:invariants
 
+      # Exercises the knowledge-organization ledger's CHECKs, indexes and the
+      # definition purge inside one rolled-back transaction. It needs the
+      # migrated database, which is why it lives here and not in verify.
+      - name: Test KOS ledger
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:kos-db
+
   verify:
     runs-on: ubuntu-latest
 
@@ -112,6 +121,10 @@ jobs:
       - name: Test Ollama Revision Context
         run: |
           pnpm test:ollama-context
+
+      - name: Test KOS Registry and Exports
+        run: |
+          pnpm test:kos
 
       - name: Check Migrations
         run: |

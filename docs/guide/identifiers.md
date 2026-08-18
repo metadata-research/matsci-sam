@@ -6,7 +6,7 @@ They do not expose database primary keys.
 
 ## Identifier paths
 
-The three canonical path forms are:
+The three canonical path forms for vocabulary content are:
 
 ```text
 /vocabulary/{term-slug}
@@ -64,6 +64,33 @@ Numeric legacy routes such as `/definition/{legacy-id}` remain compatibility
 aliases. They redirect permanently to the canonical term-scoped path. New
 links and metadata use the canonical path.
 
+## Tags, facets and collections
+
+Tags are also identified by readable paths. A tag belongs to a scheme, and
+the scheme is part of the path, so two schemes can each have a tag with the
+same slug.
+
+```text
+/tags/{scheme}
+/tags/{scheme}/{tag}
+/collections/{collection}
+```
+
+For example, `/tags/pspp/processing` is the Processing facet in the PSPP
+scheme (Processing, Structure, Properties, Performance), and
+`/tags/topics/steel` is a community topic. A collection is a curated named set
+of terms. Which kind of tag you are looking at is recorded on the tag itself:
+its scheme is what a metadata consumer reads as `skos:inScheme`.
+
+Scheme, tag and collection slugs are assigned once and never change. A tag
+that is merged into another keeps its path and redirects permanently to the
+tag that replaced it. A tag that is retired without a replacement keeps its
+path and shows that it is retired.
+
+Older links of the form `/tags/{number}` still work and redirect permanently
+to the tag's readable path. Metadata exports used to name tags by that numeric
+path and now use the readable path.
+
 ## Live rank lookup
 
 A term also has a dynamic rank lookup:
@@ -97,6 +124,10 @@ records identify current definition revisions as related resources. Those
 resources associate the text with its example, creators, date, status, and
 revision number. PROV-O records use the same definition and revision IRIs for
 the revision chain and derivation history.
+
+Tags are `skos:Concept` resources in their own schemes at `/tags/{scheme}`,
+and a term or definition points at them with `dcterms:subject`. Collections
+are `skos:Collection` resources at `/collections/{collection}`.
 
 The [Metadata access](/docs/metadata-access) guide lists the Turtle and JSON-LD
 endpoints.

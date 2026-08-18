@@ -32,7 +32,8 @@ button. The model request begins only when you select that button. See
 
 After selecting **Publish definition**, you arrive at revision 1 of your
 numbered definition. The definition keeps the same identifier and URL when you
-publish later revisions. You can tag your contribution, review votes and
-comments, and start refinement when **Publish, then refine** was selected.
+publish later revisions. You can [tag your contribution](/docs/tags), review
+votes and comments, and start refinement when **Publish, then refine** was
+selected.
 [Community review and revisions](/docs/community) explains how revisions
 affect voting, comments, and provenance.

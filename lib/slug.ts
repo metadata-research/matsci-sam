@@ -36,10 +36,17 @@ export const slugify = (term: string): string =>
  * a numeric suffix on the entry (`band_gap_2`) rather than a path segment,
  * which would imply the second is contained by the first.
  *
- * `taken` is the set of slugs already in use.
+ * `taken` is the set of slugs already in use. `fallback` is the slug used when
+ * the label has no [a-z0-9] characters at all: "term" for terms (0015 used
+ * term_<id>), "topic" for concepts in the topics scheme (0029 used
+ * topic_<id>).
  */
-export const uniqueSlug = (term: string, taken: Set<string>): string => {
-  const base = slugify(term) || "term"
+export const uniqueSlug = (
+  term: string,
+  taken: Set<string>,
+  fallback = "term"
+): string => {
+  const base = slugify(term) || fallback
   if (!taken.has(base)) return base
 
   let n = 2

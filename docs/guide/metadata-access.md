@@ -9,12 +9,13 @@ preliminary Minimal and DFT elements from `arXiv:2502.07106v1` and includes a
 clearly synthetic example. It is not an official or current MatCore release,
 a stored dataset record, or a validation schema.
 
-| Resource         | URL                          | Format                      |
-| ---------------- | ---------------------------- | --------------------------- |
-| Whole vocabulary | `/vocabulary.ttl`            | SKOS concept scheme, Turtle |
-| One term         | `/terms/{id}/skos.ttl`       | SKOS concept, Turtle        |
-| One term         | `/terms/{id}/skos.jsonld`    | SKOS concept, JSON-LD       |
-| Term history     | `/terms/{id}/provenance.ttl` | PROV-O, Turtle              |
+| Resource             | URL                          | Format                                       |
+| -------------------- | ---------------------------- | -------------------------------------------- |
+| Whole vocabulary     | `/vocabulary.ttl`            | SKOS concept scheme, Turtle                  |
+| One term             | `/terms/{id}/skos.ttl`       | SKOS concept, Turtle                         |
+| One term             | `/terms/{id}/skos.jsonld`    | SKOS concept, JSON-LD                        |
+| Term history         | `/terms/{id}/provenance.ttl` | PROV-O, Turtle                               |
+| Tags and collections | `/tags.ttl`                  | SKOS concept schemes and collections, Turtle |
 
 Each term is published as a `skos:Concept`. The term is the
 `skos:prefLabel`. Each `skos:definition` value is an identified current
@@ -40,6 +41,21 @@ The concept scheme uses the corresponding
 `skos:inScheme` statement and resolves to a human-readable vocabulary page
 with embedded JSON-LD.
 
+Tags, facets and collections have readable IRIs of their own:
+
+```text
+https://<public-host>/tags/{scheme}
+https://<public-host>/tags/{scheme}/{tag}
+https://<public-host>/collections/{collection}
+```
+
+Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
+and each collection a `skos:Collection` of terms. A term or a definition
+points at a tag with `dcterms:subject`. Facets (such as the PSPP scheme) and
+community topics are told apart by the tag's `skos:inScheme`. `dcterms:subject`
+objects used to be numeric `/tags/{id}` paths. They are now these readable
+IRIs, and the numeric form redirects permanently to them.
+
 Changing `NEXT_PUBLIC_SITE_URL` changes every resource and scheme IRI.
 Deployments should set the final public host before external citation or
 harvesting. Numeric term and definition routes on the same host remain
@@ -49,10 +65,11 @@ addresses.
 The [Identifiers and citation](/docs/identifiers) guide explains the path
 grammar, how slug collisions are numbered, and what stability to expect.
 
-Term pages embed schema.org `DefinedTerm` markup for crawlers. Tags with a
-declared ontology mapping contribute `skos:exactMatch` or related mapping
-statements to the exports. These mappings connect the vocabulary to external
-ontologies such as EMMO or PMDco.
+Term pages embed schema.org `DefinedTerm` markup for crawlers. Tags and terms
+with a curated ontology mapping contribute `skos:exactMatch` or related
+mapping statements to the exports. These mappings connect the vocabulary to
+external ontologies such as EMMO or PMDco. Term-to-term relations appear as
+`skos:broader`, `skos:narrower` and `skos:related` between term IRIs.
 
 The term page links to its SKOS Turtle and JSON-LD serializations. The PROV-O
 Turtle download is linked from the provenance page. Revision entities use

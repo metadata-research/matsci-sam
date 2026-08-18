@@ -5,15 +5,11 @@ import {
   termsTable,
   votesTable,
   definitionsTable,
-  editsTable,
   chatsTable,
   usersTable,
   commentsTable,
-  tagsToDefinitions,
-  refinementsTable,
   coauthorsTable,
-  definitionRevisionsTable,
-  discussionSuggestionsTable
+  definitionRevisionsTable
 } from "@yamz/db"
 import {
   and,
@@ -22,10 +18,10 @@ import {
   getTableColumns,
   isNull,
   like,
-  or,
   sql
 } from "drizzle-orm"
 import { slugify, uniqueSlug } from "@/lib/slug"
+import { deleteDefinitionRows } from "@/lib/definition-purge"
 import {
   adminProcedure,
   authenticatedProcedure,
@@ -556,54 +552,6 @@ export const definitionsRouter = createTRPCRouter({
     .mutation(async ({ input: definitionId }) => {
       // start a tx so if something fails, everything will get restored
       const deleted = await db.transaction(async (tx) => {
-        // everything that references a single definition row
-        const deleteDefinitionRows = async (id: number) => {
-          await tx
-            .delete(discussionSuggestionsTable)
-            .where(
-              or(
-                eq(discussionSuggestionsTable.definitionId, id),
-                eq(discussionSuggestionsTable.outputDefinitionId, id)
-              )
-            )
-
-          await tx
-            .delete(commentsTable)
-            .where(eq(commentsTable.definitionId, id))
-
-          await tx.delete(votesTable).where(eq(votesTable.definitionId, id))
-
-          await tx.delete(editsTable).where(eq(editsTable.definitionId, id))
-
-          await tx
-            .delete(tagsToDefinitions)
-            .where(eq(tagsToDefinitions.definitionId, id))
-
-          await tx
-            .delete(refinementsTable)
-            .where(eq(refinementsTable.definitionId, id))
-
-          await tx
-            .delete(coauthorsTable)
-            .where(eq(coauthorsTable.definitionId, id))
-
-          await tx
-            .update(definitionsTable)
-            .set({ currentRevisionId: null })
-            .where(eq(definitionsTable.id, id))
-
-          await tx
-            .delete(definitionRevisionsTable)
-            .where(eq(definitionRevisionsTable.definitionId, id))
-
-          const [deleted] = await tx
-            .delete(definitionsTable)
-            .where(eq(definitionsTable.id, id))
-            .returning()
-
-          return deleted
-        }
-
         // Refined alternatives can themselves be sources for Discussion
         // suggestions. Delete the complete descendant graph bottom-up so no
         // refinedFromId or exact-revision derivation is left dangling.
@@ -619,7 +567,7 @@ export const definitionsRouter = createTRPCRouter({
           for (const child of refinedChildren)
             await deleteDefinitionGraph(child.id)
 
-          return deleteDefinitionRows(id)
+          return deleteDefinitionRows(tx, id)
         }
 
         const deletedDef = await deleteDefinitionGraph(definitionId)
