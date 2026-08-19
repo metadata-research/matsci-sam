@@ -115,7 +115,7 @@ export const EditDefinitionDialog = ({
             className="space-y-5"
           >
             <DialogHeader>
-              <DialogTitle className="font-serif text-2xl">
+              <DialogTitle className="text-2xl">
                 Publish a revision
               </DialogTitle>
               <DialogDescription>

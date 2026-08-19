@@ -68,7 +68,7 @@ export const DocsShell = ({
       </nav>
       <article
         className="prose dark:prose-invert max-w-none flex-1 min-w-0
-          prose-headings:font-serif prose-a:text-primary
+          prose-a:text-primary
           prose-code:before:content-none prose-code:after:content-none
         prose-table:block prose-table:overflow-x-auto"
         dangerouslySetInnerHTML={{ __html: html }}

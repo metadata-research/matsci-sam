@@ -115,7 +115,7 @@ export const BrowseList = ({ terms }: { terms: BrowseTerm[] }) => {
         {sorted.map(([letter, items]) => (
           <section key={letter} id={`letter-${letter}`} className="scroll-mt-16">
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-2xl font-serif font-semibold text-primary">
+              <h2 className="text-2xl font-semibold text-primary">
                 {letter}
               </h2>
               <div className="h-px flex-1 bg-border" />

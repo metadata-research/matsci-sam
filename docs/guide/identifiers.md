@@ -77,10 +77,10 @@ same slug.
 ```
 
 For example, `/tags/pspp/processing` is the Processing facet in the PSPP
-scheme (Processing, Structure, Properties, Performance), and
-`/tags/topics/steel` is a community topic. A collection is a curated named set
-of terms. Which kind of tag you are looking at is recorded on the tag itself:
-its scheme is what a metadata consumer reads as `skos:inScheme`.
+scheme (Processing, Structure, Properties, Performance). A community topic
+takes the same form under `/tags/topics`. A collection is a curated named set
+of terms. The scheme of a tag states which kind of tag it is, and the metadata
+exports publish that scheme as `skos:inScheme`.
 
 Scheme, tag and collection slugs are assigned once and never change. A tag
 that is merged into another keeps its path and redirects permanently to the
@@ -88,8 +88,8 @@ tag that replaced it. A tag that is retired without a replacement keeps its
 path and shows that it is retired.
 
 Older links of the form `/tags/{number}` still work and redirect permanently
-to the tag's readable path. Metadata exports used to name tags by that numeric
-path and now use the readable path.
+to the readable path of the tag. Metadata exports name tags by the readable
+path.
 
 ## Live rank lookup
 

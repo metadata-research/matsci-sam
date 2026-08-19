@@ -18,7 +18,7 @@
 }
 
 .introduction h1 {
-  font-family: var(--font-plex-serif);
+  font-family: var(--font-plex-sans);
   font-size: clamp(2.5rem, 5vw, 3.75rem);
   font-weight: 700;
   line-height: 1.04;
@@ -28,7 +28,7 @@
 .lead {
   max-width: 47rem;
   margin-top: 0.8rem;
-  font-family: var(--font-plex-serif);
+  font-family: var(--font-plex-sans);
   font-size: clamp(1.12rem, 2.2vw, 1.4rem);
   line-height: 1.45;
 }
@@ -124,7 +124,7 @@
 }
 
 .profileHeader h2 {
-  font-family: var(--font-plex-serif);
+  font-family: var(--font-plex-sans);
   font-size: 1.22rem;
   font-weight: 650;
   line-height: 1.25;
@@ -275,7 +275,7 @@
 }
 
 .exampleTitle {
-  font-family: var(--font-plex-serif);
+  font-family: var(--font-plex-sans);
   font-size: 1.05rem;
   font-weight: 650;
   line-height: 1.3;

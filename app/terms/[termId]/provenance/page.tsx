@@ -27,7 +27,7 @@ export default async function PublicTermProvenancePage(props: {
           <ArrowLeftIcon className="mr-2 size-4" /> Definitions for{" "}
           {provenance.term.term}
         </Link>
-        <h1 className="text-3xl font-bold font-serif">
+        <h1 className="text-3xl font-bold">
           Provenance: {provenance.term.term}
         </h1>
         <p className="text-sm text-muted-foreground">

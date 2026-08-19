@@ -313,7 +313,7 @@ export async function DefinitionDetailPage({
                 <HistoryIcon className="size-5 text-primary" aria-hidden />
                 <h2
                   id="revision-history-heading"
-                  className="font-serif text-2xl font-semibold"
+                  className="text-2xl font-semibold"
                 >
                   Revision history
                 </h2>
@@ -421,7 +421,7 @@ export async function DefinitionDetailPage({
             <header className="space-y-1">
               <h2
                 id="comments-heading"
-                className="font-serif text-2xl font-semibold"
+                className="text-2xl font-semibold"
               >
                 Comments
               </h2>

@@ -119,9 +119,11 @@ the new revision before trying again. Restoring an earlier revision copies its
 definition and example into another new revision. The restore action does not
 remove any intervening history.
 
-[Tags](/docs/tags) remain attached to the stable definition. Votes are
-specific to one revision. Comments remain in the stable discussion thread, with a revision label
-that preserves the context in which each comment was posted.
+[Topics](/docs/tags) remain attached to the stable definition. Facets
+classify the term concept, so a new revision does not change them. Votes are
+specific to one revision. Comments remain in the stable discussion thread,
+with a revision label that preserves the context in which each comment was
+posted.
 
 An accepted suggestion from the author-only
 [AI refinement](/docs/ai-refinement) workflow follows a different path. The

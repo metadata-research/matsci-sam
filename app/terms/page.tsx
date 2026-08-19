@@ -31,7 +31,7 @@ export default async function TermsPage({
   return (
     <main className="px-4 py-8">
       <section className="max-w-4xl w-full mx-auto">
-        <h1 className="text-4xl font-bold font-serif mb-2">Browse Terms</h1>
+        <h1 className="text-4xl font-bold mb-2">Browse Terms</h1>
         <p className="text-muted-foreground mb-6">
           Every defined term, grouped alphabetically. The number in
           parentheses is the count of definitions for that term.

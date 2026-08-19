@@ -35,6 +35,10 @@ The **Browse** page lists every defined term alphabetically with its
 definition count in parentheses. A letter index stays pinned to the top
 of the page while you scroll.
 
+The **Tags** page is the other way to browse. It groups terms by facet and
+definitions by topic, and lists the curated collections. See
+[Tags](/docs/tags).
+
 The **Filter these terms** field performs a direct substring filter on
 the terms already displayed. Press Escape or use the clear control to
 remove that filter.

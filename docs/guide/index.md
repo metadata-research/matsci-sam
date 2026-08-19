@@ -24,7 +24,7 @@ pilot workflows.
 - [Search and browse](/docs/search) covers search filters and the
   alphabetical term list.
 - [Tags](/docs/tags) covers community topics on definitions, curated facets
-  on terms, and the tag pages and identifiers.
+  on terms, collections of terms, and the tag pages and identifiers.
 - [Provenance](/docs/provenance) covers the recorded history associated
   with each term.
 - [Metadata access](/docs/metadata-access) covers the SKOS and PROV-O

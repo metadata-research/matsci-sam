@@ -8,6 +8,11 @@ import Link from "next/link"
 import { NetworkIcon } from "lucide-react"
 import { definedTermJsonLd, termUri } from "@/lib/skos"
 import type { Metadata } from "next"
+import { Suspense } from "react"
+import { getCurrentUser } from "@/lib/current-user"
+import { facetOptions } from "@/lib/kos-queries"
+import { FacetEditor } from "@/components/tags/facet-editor"
+import { TermFacets, TermFacetsFallback } from "@/components/tags/term-facets"
 
 /*
  * Canonical term page. /vocabulary/<slug> is the concept IRI published in the
@@ -40,6 +45,13 @@ export default async function VocabularyTermPage(props: {
   if (!term) notFound()
 
   trpc.definitions.list.prefetch({ termId: term.id })
+  trpc.tags.facets.prefetch({ termId: term.id })
+
+  // Facets are curated, so only an administrator gets the editing control and
+  // only then is the option list worth loading.
+  const user = await getCurrentUser()
+  const isCurator = user?.role === "admin"
+  const options = isCurator ? await facetOptions() : []
 
   // Top-scored definition stands in as the machine-readable description. Same
   // ordering as definitions.list (score, then newest) so the definition
@@ -96,13 +108,23 @@ export default async function VocabularyTermPage(props: {
               in full is what makes it legible as an identifier rather than as
               a link the site happens to use. Same string the SKOS output
               publishes as @id. */}
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-6">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-2">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               IRI
             </span>
             <code className="text-sm font-mono text-muted-foreground break-all select-all">
               {termUri(term.slug)}
             </code>
+          </div>
+
+          <div className="mb-6">
+            <Suspense fallback={<TermFacetsFallback />}>
+              <TermFacets termId={term.id}>
+                {isCurator && (
+                  <FacetEditor termId={term.id} options={options} />
+                )}
+              </TermFacets>
+            </Suspense>
           </div>
 
           <div className="space-y-2">

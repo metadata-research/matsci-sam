@@ -70,7 +70,7 @@ export function VerifyEmailLink() {
     <main className="px-4 py-12">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle className="font-serif text-2xl">
+          <CardTitle className="text-2xl">
             Verifying your email
           </CardTitle>
           <CardDescription>

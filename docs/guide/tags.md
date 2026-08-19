@@ -10,14 +10,14 @@ the metadata exports.
 ## Topics
 
 A topic is a subject heading such as "Heat treatment" or "Electronic
-structure". Signed-in contributors create topics from the **Tags** page with
-**Add Tag**. Names are matched without regard to case or surrounding spaces,
-so a second "heat treatment" returns the existing topic. A topic that has been
-merged into another returns the topic that replaced it.
+structure". Signed-in contributors create topics from **Tags** in the
+navigation bar, with **Add Tag**. Names are matched without regard to case or
+surrounding spaces, so a second "heat treatment" returns the existing topic.
+A topic that has been merged into another returns the topic that replaced it.
 
 The author of a definition attaches topics on the definition page. The pencil
-next to the tag badges opens a picker that lists every topic. Selecting a
-topic attaches it, and selecting it again removes it. Only the author can
+next to the tag badges opens a picker that lists every topic. A first
+selection attaches a topic, and a second removes it. Only the author can
 change the topics of a definition. A removed topic is recorded as withdrawn.
 The record of who attached it and when is kept.
 
@@ -39,23 +39,34 @@ one facet scheme, PSPP, named for its four members.
 | Properties  | Measurable characteristics of a material, mechanical, thermal, electrical, optical or chemical, that follow from its structure |
 | Performance | How a material behaves in service under real conditions and over time, including durability, reliability and failure           |
 
-Administrators assign facets. A term may have several, and a facet does not
-claim that the classification is complete. A facet page at
-`/tags/pspp/{facet}` lists the terms it is assigned to. Authors cannot attach a
-facet to a definition, and administrators cannot attach a topic to a term.
-The two kinds keep to their own level.
+Administrators assign facets from the term page. A faceted term shows its
+facets under the identifier line, and each chip opens the facet page. An
+administrator sees a pencil beside the chips that opens the list of facets,
+where a first selection attaches a facet and a second removes it. A term may
+have several facets, and a facet does not claim that the classification is
+complete.
+
+A facet page at `/tags/pspp/{facet}` lists the terms it is assigned to.
+Authors cannot attach a facet to a definition, and administrators cannot
+attach a topic to a term.
 
 ## Collections
 
 A collection is a curated named set of terms, published at
-`/collections/{collection}` as a `skos:Collection`. Administrators create
-collections. The pilot has no published collections.
+`/collections/{collection}` as a `skos:Collection`. Administrators assemble
+collections outside the interface. The [Collections](/collections) page lists
+them, and each collection page lists the terms it gathers. Anyone can browse
+them.
 
 ## Tag pages and identifiers
 
-The **Tags** page lists the topics alphabetically. Each scheme has a page at
-`/tags/{scheme}` and each tag a page at `/tags/{scheme}/{tag}`. These paths
-are the tag identifiers used in the metadata exports. A tag keeps its path
+The **Tags** page has three parts: the facet schemes and their facets, then
+the topics A to Z with a letter index, then the collections. Each scheme has
+a page at `/tags/{scheme}` and each tag a page at `/tags/{scheme}/{tag}`.
+A scheme page lists the tags it holds with the number of terms filed under
+each. A facet page lists those terms, and a topic page lists the definitions
+filed under it. These paths are the tag identifiers used in the metadata
+exports. A tag keeps its path
 when it is merged or retired. A merged tag redirects to its replacement, and a
 retired tag without a replacement shows that it is retired. Older links of the
 form `/tags/{number}` redirect to the readable path.
@@ -65,7 +76,7 @@ form `/tags/{number}` redirect to the readable path.
 
 Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
 and each collection a `skos:Collection`. A term or a definition names its
-tags with `dcterms:subject`. Every scheme, tag and collection is available in
-one Turtle document at `/tags.ttl`, and each term record includes the tags
-it refers to.
+tags with `dcterms:subject`. Every scheme, tag and collection is available
+in one Turtle document at `/tags.ttl`, and each term record includes the
+tags it refers to.
 [Metadata access](/docs/metadata-access) lists the endpoints.
