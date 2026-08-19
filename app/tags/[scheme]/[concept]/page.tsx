@@ -272,27 +272,35 @@ export default async function ConceptPage({
         </section>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">
-          Definitions tagged with {concept.label}
-        </h2>
-        {taggedDefinitions.length === 0 && facetTerms.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Nothing is filed under this tag yet.
-          </p>
-        )}
-        {taggedDefinitions.map(({ definition, term }) => (
-          <Link
-            key={definition.id}
-            href={definitionPath(term.slug, definition.definitionNumber)}
-          >
-            <Card className="!p-2">
-              <h3 className="font-serif text-lg font-semibold">{term.term}</h3>
-              <TermDefinition definition={definition} />
-            </Card>
-          </Link>
-        ))}
-      </section>
+      {/* A facet reaches terms and a topic reaches definitions, so one of
+          these two sections is always empty. Render only the one with
+          something in it. */}
+      {taggedDefinitions.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold">
+            Definitions tagged with {concept.label}
+          </h2>
+          {taggedDefinitions.map(({ definition, term }) => (
+            <Link
+              key={definition.id}
+              href={definitionPath(term.slug, definition.definitionNumber)}
+            >
+              <Card className="!p-2">
+                <h3 className="font-serif text-lg font-semibold">
+                  {term.term}
+                </h3>
+                <TermDefinition definition={definition} />
+              </Card>
+            </Link>
+          ))}
+        </section>
+      )}
+
+      {taggedDefinitions.length === 0 && facetTerms.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Nothing is filed under this tag yet.
+        </p>
+      )}
     </main>
   )
 }

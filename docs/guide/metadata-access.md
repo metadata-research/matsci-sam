@@ -37,9 +37,10 @@ https://<public-host>/vocabulary/martensite/definitions/2/revisions/1
 ```
 
 The concept scheme uses the corresponding
-`https://<public-host>/vocabulary` IRI. It is the object of each
-`skos:inScheme` statement and resolves to a human-readable vocabulary page
-with embedded JSON-LD.
+`https://<public-host>/vocabulary` IRI, which resolves to a human-readable
+vocabulary page with embedded JSON-LD. Every term concept points at that IRI
+with `skos:inScheme`. A tag concept in the same export points instead at the
+tag scheme it belongs to.
 
 Tags, facets and collections have readable IRIs of their own:
 
@@ -51,10 +52,10 @@ https://<public-host>/collections/{collection}
 
 Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
 and each collection a `skos:Collection` of terms. A term or a definition
-points at a tag with `dcterms:subject`. Facets (such as the PSPP scheme) and
-community topics are told apart by the tag's `skos:inScheme`. `dcterms:subject`
-objects used to be numeric `/tags/{id}` paths. They are now these readable
-IRIs, and the numeric form redirects permanently to them.
+points at a tag with `dcterms:subject`. The `skos:inScheme` statement on a tag
+identifies it as a facet in a curated scheme such as PSPP, or as a community
+topic. Each `dcterms:subject` object is a tag IRI in the `/tags/{scheme}/{tag}`
+form, and the numeric `/tags/{id}` address redirects permanently to it.
 
 Changing `NEXT_PUBLIC_SITE_URL` changes every resource and scheme IRI.
 Deployments should set the final public host before external citation or
