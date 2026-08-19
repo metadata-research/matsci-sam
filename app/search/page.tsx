@@ -102,7 +102,7 @@ const SearchPage = () => {
   return (
     <main className="px-4 py-8">
       <div className="mx-auto w-full max-w-4xl space-y-5">
-        <h1 className="text-4xl font-bold font-serif">Search</h1>
+        <h1 className="text-4xl font-bold">Search</h1>
 
         <div className="relative">
           <SearchIcon className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -193,7 +193,7 @@ const SearchPage = () => {
           </>
         ) : (
           <div className="py-6 text-center">
-            <p className="font-serif text-xl font-semibold">
+            <p className="text-xl font-semibold">
               Find a materials term
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -329,7 +329,7 @@ const ResultHeading = ({
   count?: number
 }) => (
   <div className="flex items-baseline gap-2">
-    <h2 className="text-2xl font-semibold font-serif">{children}</h2>
+    <h2 className="text-2xl font-semibold">{children}</h2>
     {typeof count === "number" && (
       <span className="text-sm text-muted-foreground">({count})</span>
     )}

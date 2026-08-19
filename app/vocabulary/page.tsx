@@ -56,7 +56,7 @@ export default async function VocabularyPage() {
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Concept Scheme
             </span>
-            <h1 className="text-4xl font-bold font-serif">
+            <h1 className="text-4xl font-bold">
               {SITE_NAME} Vocabulary
             </h1>
             <p className="text-muted-foreground">
@@ -89,7 +89,7 @@ export default async function VocabularyPage() {
 
           <div>
             <div className="flex items-baseline justify-between mb-1">
-              <h2 className="text-2xl font-semibold font-serif">
+              <h2 className="text-2xl font-semibold">
                 Terms
                 <span className="ml-2 text-sm font-sans font-normal text-muted-foreground">
                   ({terms.length})

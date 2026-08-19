@@ -32,7 +32,7 @@ export default async function DiscussionPage() {
     <main className="px-4 py-8">
       <div className="max-w-4xl w-full mx-auto space-y-6">
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold font-serif">Discussion</h1>
+          <h1 className="text-4xl font-bold">Discussion</h1>
           <p className="text-muted-foreground">
             Suggest revision sends your comment to the model for a proposed
             rewrite you can review. Comment posts it as-is to this

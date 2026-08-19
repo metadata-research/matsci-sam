@@ -105,7 +105,7 @@ export default async function PublicProfilePage({
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
             Contributor profile
           </p>
-          <h1 className="font-serif text-4xl font-bold">{displayName}</h1>
+          <h1 className="text-4xl font-bold">{displayName}</h1>
           <p className="text-muted-foreground">
             Public contribution history in the {SITE_NAME} vocabulary.
           </p>

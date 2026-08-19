@@ -25,7 +25,7 @@ export default function CheckEmailPage() {
           <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <MailCheckIcon className="size-5" aria-hidden />
           </div>
-          <CardTitle className="font-serif text-2xl">
+          <CardTitle className="text-2xl">
             Check your email
           </CardTitle>
           <CardDescription className="leading-6">

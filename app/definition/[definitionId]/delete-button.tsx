@@ -53,7 +53,7 @@ export const DeleteDefinitionButton = ({
           <div className="flex size-9 items-center justify-center rounded-full bg-destructive/10 text-destructive">
             <TriangleAlertIcon className="size-5" aria-hidden />
           </div>
-          <DialogTitle className="font-serif text-2xl">
+          <DialogTitle className="text-2xl">
             Delete this definition permanently?
           </DialogTitle>
           <DialogDescription className="space-y-2">

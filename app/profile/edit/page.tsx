@@ -32,7 +32,7 @@ export default async function EditProfilePage() {
           </Link>
         </Button>
         <section className="space-y-2">
-          <h1 className="font-serif text-3xl font-bold">Edit profile</h1>
+          <h1 className="text-3xl font-bold">Edit profile</h1>
           <p className="text-muted-foreground">
             Update the name and affiliation shown with your contributions. You
             can also choose whether those details and your authored terms appear
@@ -44,7 +44,7 @@ export default async function EditProfilePage() {
         {isOrcidAuthEnabled() ? (
           <Card>
             <CardHeader>
-              <CardTitle className="font-serif text-xl">ORCID iD</CardTitle>
+              <CardTitle className="text-xl">ORCID iD</CardTitle>
               <CardDescription>
                 Connect a verified researcher identifier to this account.
                 Profile visibility controls whether it appears publicly.

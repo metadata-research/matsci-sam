@@ -55,7 +55,7 @@ export function RestoreRevisionButton({
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-serif text-2xl">
+          <DialogTitle className="text-2xl">
             Restore revision {version}
           </DialogTitle>
           <DialogDescription>

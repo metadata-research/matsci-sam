@@ -32,7 +32,7 @@ export default function LoginPage() {
     <main className="px-4 py-12">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle className="font-serif text-2xl">
+          <CardTitle className="text-2xl">
             Sign in to {SITE_NAME}
           </CardTitle>
           <CardDescription>

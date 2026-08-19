@@ -45,7 +45,7 @@ export default async function DevLoginPage({ searchParams }: Props) {
     <main className="px-4 py-12">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle className="font-serif text-2xl">Development login</CardTitle>
+          <CardTitle className="text-2xl">Development login</CardTitle>
           <CardDescription>
             Choose your identity and enter the shared development password.
             Your contributions will be attributed to the selected account.
