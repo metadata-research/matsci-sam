@@ -39,23 +39,33 @@ one facet scheme, PSPP, named for its four members.
 | Properties  | Measurable characteristics of a material, mechanical, thermal, electrical, optical or chemical, that follow from its structure |
 | Performance | How a material behaves in service under real conditions and over time, including durability, reliability and failure           |
 
-Administrators assign facets. A term may have several, and a facet does not
-claim that the classification is complete. A facet page at
-`/tags/pspp/{facet}` lists the terms it is assigned to. Authors cannot attach a
-facet to a definition, and administrators cannot attach a topic to a term.
-The two kinds keep to their own level.
+Administrators assign facets from the term page. A faceted term shows its
+facets under the identifier line, and each chip opens the facet page. An
+administrator sees a pencil beside the chips that opens the list of facets,
+where selecting one attaches it and selecting it again removes it. A term may
+have several facets, and a facet does not claim that the classification is
+complete.
+
+A facet page at `/tags/pspp/{facet}` lists the terms it is assigned to.
+Authors cannot attach a facet to a definition, and administrators cannot
+attach a topic to a term. The two kinds keep to their own level.
 
 ## Collections
 
 A collection is a curated named set of terms, published at
-`/collections/{collection}` as a `skos:Collection`. Administrators create
-collections. The pilot has no published collections.
+`/collections/{collection}` as a `skos:Collection`. Administrators assemble
+collections. The [Collections](/collections) page lists them, and each
+collection page lists the terms it gathers. Browsing is open to everyone.
+Assembling a collection is not yet possible through the interface.
 
 ## Tag pages and identifiers
 
-The **Tags** page lists the topics alphabetically. Each scheme has a page at
-`/tags/{scheme}` and each tag a page at `/tags/{scheme}/{tag}`. These paths
-are the tag identifiers used in the metadata exports. A tag keeps its path
+The **Tags** page has three parts: the facet schemes and their facets, then
+the topics A to Z with a letter index, then the collections. Each scheme has
+a page at `/tags/{scheme}` and each tag a page at `/tags/{scheme}/{tag}`.
+A scheme page lists the tags it holds with the number of terms filed under
+each, and a tag page lists those terms and definitions. These paths are the
+tag identifiers used in the metadata exports. A tag keeps its path
 when it is merged or retired. A merged tag redirects to its replacement, and a
 retired tag without a replacement shows that it is retired. Older links of the
 form `/tags/{number}` redirect to the readable path.
@@ -65,7 +75,7 @@ form `/tags/{number}` redirect to the readable path.
 
 Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
 and each collection a `skos:Collection`. A term or a definition names its
-tags with `dcterms:subject`. Every scheme, tag and collection is available in
-one Turtle document at `/tags.ttl`, and each term record includes the tags
-it refers to.
+tags with `dcterms:subject`. Every scheme, tag and collection is available
+in one Turtle document at `/tags.ttl`, and each term record includes the
+tags it refers to.
 [Metadata access](/docs/metadata-access) lists the endpoints.

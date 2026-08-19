@@ -18,7 +18,7 @@ import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
 import { TAG_MAX_LENGTH } from "@/lib/input-limits"
 import { uniqueSlug } from "@/lib/slug"
-import { authorMayAssert } from "@/lib/kos"
+import { TOPICS_SCHEME_SLUG, authorMayAssert } from "@/lib/kos"
 import {
   conceptPath,
   conceptSchemePath,
@@ -34,9 +34,6 @@ import {
  * dcterms:subject statement; removal retracts the row rather than deleting
  * it. Curator = admin for now.
  */
-
-// The one open scheme authors may tag definitions with.
-export const TOPICS_SCHEME_SLUG = "topics"
 
 // The one row shape every read on this router returns for a concept.
 // components/tags/selector.tsx copies a getAll item into the get cache, so

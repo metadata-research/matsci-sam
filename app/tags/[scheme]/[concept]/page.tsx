@@ -21,6 +21,7 @@ import {
   termPath
 } from "@/lib/public-identifiers"
 import { MAPPING_PREDICATES, type MappingPredicate } from "@/lib/kos"
+import { conceptRelations } from "@/lib/kos-queries"
 
 /*
  * /tags/<scheme>/<concept>: the skos:Concept IRI a tag or facet is published
@@ -36,6 +37,7 @@ const loadConcept = async (schemeSlug: string, conceptSlug: string) => {
       id: conceptsTable.id,
       slug: conceptsTable.slug,
       label: conceptsTable.prefLabel,
+      altLabels: conceptsTable.altLabels,
       definition: conceptsTable.definition,
       status: conceptsTable.status,
       replacedById: conceptsTable.replacedById,
@@ -116,53 +118,55 @@ export default async function ConceptPage({
     )
   }
 
-  const [mappings, facetTerms, taggedDefinitions] = await Promise.all([
-    db
-      .select({
-        predicate: statementsTable.predicate,
-        iri: statementsTable.objectIri
-      })
-      .from(statementsTable)
-      .where(
-        and(
-          eq(statementsTable.subjectConceptId, concept.id),
-          isNull(statementsTable.retractedAt)
+  const [relations, mappings, facetTerms, taggedDefinitions] =
+    await Promise.all([
+      conceptRelations(concept.id),
+      db
+        .select({
+          predicate: statementsTable.predicate,
+          iri: statementsTable.objectIri
+        })
+        .from(statementsTable)
+        .where(
+          and(
+            eq(statementsTable.subjectConceptId, concept.id),
+            isNull(statementsTable.retractedAt)
+          )
         )
-      )
-      .orderBy(asc(statementsTable.id)),
-    db
-      .select({
-        id: termsTable.id,
-        term: termsTable.term,
-        slug: termsTable.slug
-      })
-      .from(statementsTable)
-      .innerJoin(termsTable, eq(termsTable.id, statementsTable.subjectTermId))
-      .where(
-        and(
-          eq(statementsTable.predicate, "dcterms:subject"),
-          eq(statementsTable.objectConceptId, concept.id),
-          isNull(statementsTable.retractedAt)
+        .orderBy(asc(statementsTable.id)),
+      db
+        .select({
+          id: termsTable.id,
+          term: termsTable.term,
+          slug: termsTable.slug
+        })
+        .from(statementsTable)
+        .innerJoin(termsTable, eq(termsTable.id, statementsTable.subjectTermId))
+        .where(
+          and(
+            eq(statementsTable.predicate, "dcterms:subject"),
+            eq(statementsTable.objectConceptId, concept.id),
+            isNull(statementsTable.retractedAt)
+          )
         )
-      )
-      .orderBy(asc(termsTable.term)),
-    db
-      .select({ definition: definitionsTable, term: termsTable })
-      .from(statementsTable)
-      .innerJoin(
-        definitionsTable,
-        eq(definitionsTable.id, statementsTable.subjectDefinitionId)
-      )
-      .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-      .where(
-        and(
-          eq(statementsTable.predicate, "dcterms:subject"),
-          eq(statementsTable.objectConceptId, concept.id),
-          isNull(statementsTable.retractedAt)
+        .orderBy(asc(termsTable.term)),
+      db
+        .select({ definition: definitionsTable, term: termsTable })
+        .from(statementsTable)
+        .innerJoin(
+          definitionsTable,
+          eq(definitionsTable.id, statementsTable.subjectDefinitionId)
         )
-      )
-      .orderBy(asc(termsTable.term), asc(definitionsTable.definitionNumber))
-  ])
+        .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
+        .where(
+          and(
+            eq(statementsTable.predicate, "dcterms:subject"),
+            eq(statementsTable.objectConceptId, concept.id),
+            isNull(statementsTable.retractedAt)
+          )
+        )
+        .orderBy(asc(termsTable.term), asc(definitionsTable.definitionNumber))
+    ])
 
   const mappingRows = mappings.filter(
     (m): m is { predicate: MappingPredicate; iri: string } =>
@@ -180,6 +184,11 @@ export default async function ConceptPage({
       <h1 className="text-2xl font-bold">{concept.label}</h1>
       {concept.definition && (
         <p className="text-muted-foreground">{concept.definition}</p>
+      )}
+      {concept.altLabels.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Also known as {concept.altLabels.join(", ")}
+        </p>
       )}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -207,6 +216,44 @@ export default async function ConceptPage({
         </p>
       ))}
 
+      {(relations.broader.length > 0 || relations.narrower.length > 0) && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold">Broader and narrower</h2>
+          {relations.broader.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Broader:{" "}
+              {relations.broader.map((related, index) => (
+                <span key={related.id}>
+                  {index > 0 && ", "}
+                  <Link
+                    href={conceptPath(concept.schemeSlug, related.slug)}
+                    className="text-primary"
+                  >
+                    {related.label}
+                  </Link>
+                </span>
+              ))}
+            </p>
+          )}
+          {relations.narrower.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Narrower:{" "}
+              {relations.narrower.map((related, index) => (
+                <span key={related.id}>
+                  {index > 0 && ", "}
+                  <Link
+                    href={conceptPath(concept.schemeSlug, related.slug)}
+                    className="text-primary"
+                  >
+                    {related.label}
+                  </Link>
+                </span>
+              ))}
+            </p>
+          )}
+        </section>
+      )}
+
       {facetTerms.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-lg font-semibold">Terms</h2>
@@ -215,7 +262,7 @@ export default async function ConceptPage({
               <li key={t.id}>
                 <Link
                   href={termPath(t.slug)}
-                  className="inline-block rounded-md border px-3 py-1 text-sm hover:text-primary"
+                  className="inline-block rounded-md border px-3 py-1 font-serif text-sm hover:text-primary"
                 >
                   {t.term}
                 </Link>
@@ -240,7 +287,7 @@ export default async function ConceptPage({
             href={definitionPath(term.slug, definition.definitionNumber)}
           >
             <Card className="!p-2">
-              <h3 className="text-lg font-semibold">{term.term}</h3>
+              <h3 className="font-serif text-lg font-semibold">{term.term}</h3>
               <TermDefinition definition={definition} />
             </Card>
           </Link>

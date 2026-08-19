@@ -16,6 +16,22 @@ import { identifierBaseUrl } from "./public-identifiers"
 export const SKOS = "http://www.w3.org/2004/02/skos/core#"
 export const DCTERMS = "http://purl.org/dc/terms/"
 
+// The one open scheme: authors attach its concepts to their own definitions.
+// Curated schemes (conceptSchemes.curated) attach at term level instead.
+export const TOPICS_SCHEME_SLUG = "topics"
+
+/*
+ * The row shape every concept read returns, on the router and on the pages
+ * alike. components/tags/selector.tsx copies a row from one query into
+ * another's cache, so the shape is a contract, not a convenience.
+ */
+export type ConceptRow = {
+  id: number
+  name: string
+  slug: string
+  schemeSlug: string
+}
+
 export type SubjectKind = "term" | "definition" | "concept" | "collection"
 export type ObjectKind = "term" | "concept" | "iri"
 

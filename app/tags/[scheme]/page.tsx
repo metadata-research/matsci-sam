@@ -1,10 +1,15 @@
 import { conceptSchemesTable, conceptsTable, db } from "@yamz/db"
-import { and, asc, eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
-import { conceptPath, conceptSchemeUri } from "@/lib/public-identifiers"
+import {
+  conceptPath,
+  conceptSchemeUri,
+  tagsIndexPath
+} from "@/lib/public-identifiers"
+import { conceptsOfScheme } from "@/lib/kos-queries"
 
 /*
  * /tags/<scheme>: a skos:ConceptScheme (topics, pspp, ...). The segment is
@@ -85,29 +90,24 @@ export default async function ConceptSchemePage({
   })
   if (!scheme) notFound()
 
-  const concepts = await db
-    .select({
-      id: conceptsTable.id,
-      slug: conceptsTable.slug,
-      label: conceptsTable.prefLabel
-    })
-    .from(conceptsTable)
-    .where(
-      and(
-        eq(conceptsTable.schemeId, scheme.id),
-        eq(conceptsTable.status, "approved")
-      )
-    )
-    .orderBy(asc(sql`lower(${conceptsTable.prefLabel})`))
+  // A curated scheme keeps the order its curator established; an open one is
+  // browsed alphabetically.
+  const concepts = await conceptsOfScheme(
+    scheme.slug,
+    scheme.curated ? "seeded" : "label"
+  )
 
   return (
     <main className="px-4 py-8">
       <section className="max-w-4xl w-full mx-auto space-y-6">
         <div className="space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Concept Scheme
-          </span>
-          <h1 className="text-4xl font-bold font-serif">{scheme.title}</h1>
+          <Link
+            href={tagsIndexPath}
+            className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:text-primary"
+          >
+            Tags
+          </Link>
+          <h1 className="text-4xl font-bold">{scheme.title}</h1>
           {scheme.description && (
             <p className="text-muted-foreground">{scheme.description}</p>
           )}
@@ -124,14 +124,28 @@ export default async function ConceptSchemePage({
         {concepts.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tags yet.</p>
         ) : (
-          <ul className="flex flex-wrap gap-2">
-            {concepts.map((c) => (
-              <li key={c.id}>
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {concepts.map((concept) => (
+              <li key={concept.id}>
                 <Link
-                  href={conceptPath(scheme.slug, c.slug)}
-                  className="inline-block rounded-md border px-3 py-1 text-sm hover:text-primary"
+                  href={conceptPath(scheme.slug, concept.slug)}
+                  className="block h-full rounded-lg border bg-card p-4 space-y-1 hover:border-primary"
                 >
-                  {c.label}
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-lg font-semibold">
+                      {concept.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {concept.terms === 1
+                        ? "1 term"
+                        : `${concept.terms} terms`}
+                    </span>
+                  </div>
+                  {concept.definition && (
+                    <p className="text-sm text-muted-foreground">
+                      {concept.definition}
+                    </p>
+                  )}
                 </Link>
               </li>
             ))}
