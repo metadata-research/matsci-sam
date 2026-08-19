@@ -211,6 +211,13 @@
       "when": 1787084120262,
       "tag": "0029_kos_statement_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1787145823603,
+      "tag": "0030_kos_bridge_scope_note_suggestions",
+      "breakpoints": true
     }
   ]
 }

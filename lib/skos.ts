@@ -340,11 +340,14 @@ const positiveInteger = (value: number) =>
   `${lit(String(value))}^^xsd:positiveInteger`
 
 // Every concept a term document mentions, so its blocks can be emitted once.
-const referencedConceptIds = (skos: TermSkos) => [
+const referencedConceptIds = (skos: TermSkos, view: KosView) => [
   ...new Set([
     ...skos.facets.map((c) => c.id),
     ...skos.topics.map((c) => c.id),
-    ...skos.definitions.flatMap((d) => d.subjects.map((c) => c.id))
+    ...skos.definitions.flatMap((d) => d.subjects.map((c) => c.id)),
+    // A concept bridged to this term is named by the derived mapping above,
+    // so the document carries its block too.
+    ...view.termBridgedConceptIds(skos.id)
   ])
 ]
 
@@ -411,7 +414,7 @@ const conceptTurtle = (skos: TermSkos) => {
 // revisions, then the concepts it references and their schemes, once.
 export const termTurtle = (skos: TermSkos, kos: KosData) => {
   const view = new KosView(kos)
-  const kosBlocks = kosBlocksTurtle(view, referencedConceptIds(skos))
+  const kosBlocks = kosBlocksTurtle(view, referencedConceptIds(skos, view))
   return (
     TTL_PREFIXES + conceptTurtle(skos) + (kosBlocks ? "\n" + kosBlocks : "")
   )
@@ -458,7 +461,7 @@ const idRef = (uri: string) => ({ "@id": uri })
 
 export const termJsonLd = (skos: TermSkos, kos: KosData) => {
   const view = new KosView(kos)
-  const referenced = referencedConceptIds(skos)
+  const referenced = referencedConceptIds(skos, view)
   const schemeIds = new Set(referenced.map((id) => view.concept(id).schemeId))
   // Concept and scheme bodies once, as JSON-LD 1.1 @included nodes -- the
   // same blocks the Turtle document carries -- while every mention in the
