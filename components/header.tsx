@@ -49,6 +49,9 @@ export const Header = async () => {
           <Link href="/terms" className={styles.navButton}>
             Browse
           </Link>
+          <Link href="/tags" className={styles.navButton}>
+            Tags
+          </Link>
           <Link href="/discussion" className={styles.navButton}>
             Discussion
           </Link>
@@ -69,6 +72,7 @@ export const Header = async () => {
             <nav aria-label="Mobile">
               <Link href="/search">Search</Link>
               <Link href="/terms">Browse</Link>
+              <Link href="/tags">Tags</Link>
               <Link href="/discussion">Discussion</Link>
               <Link href="/add">Contribute</Link>
               <Link href="/docs">Documentation</Link>
