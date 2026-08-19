@@ -26,6 +26,7 @@ const main = async () => {
     PREDICATE_VALUES,
     authorMayAssert,
     canonicalizeSymmetric,
+    conceptMayBridge,
     isAbsoluteHttpIri,
     isExternalIri,
     isMappingPredicate,
@@ -214,16 +215,19 @@ const main = async () => {
   const admin = { id: 1, role: "admin" }
   const author = { id: 2, role: "user" }
   const other = { id: 3, role: "user" }
-  const ownTopic = { createdById: 2, schemeCurated: false }
+  const ownTopic = { createdById: 2 }
   assert.ok(mayLinkConcept(admin, ownTopic))
   assert.ok(mayLinkConcept(author, ownTopic))
   assert.ok(!mayLinkConcept(other, ownTopic))
   assert.ok(!mayLinkConcept(null, ownTopic))
-  // A facet is curated, so its bridge is a curator's call even for a creator.
-  assert.ok(!mayLinkConcept(author, { createdById: 2, schemeCurated: true }))
-  assert.ok(mayLinkConcept(admin, { createdById: null, schemeCurated: true }))
   // A seeded or migrated concept has no creator to claim it.
-  assert.ok(!mayLinkConcept(author, { createdById: null, schemeCurated: false }))
+  assert.ok(!mayLinkConcept(author, { createdById: null }))
+
+  // Whether a tag may be bridged at all is a rule about the tag, and it
+  // binds a curator too: the database invariant refuses a bridged facet
+  // whoever asserts it.
+  assert.ok(conceptMayBridge({ schemeCurated: false }))
+  assert.ok(!conceptMayBridge({ schemeCurated: true }))
 
   // --- Row resolvers ---
 

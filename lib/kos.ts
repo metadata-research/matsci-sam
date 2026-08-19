@@ -245,14 +245,22 @@ export const authorMayAssert = (
  */
 export const mayLinkConcept = (
   user: { id: number; role: string } | null,
-  concept: { createdById: number | null; schemeCurated: boolean }
+  concept: { createdById: number | null }
 ) => {
   if (!user) return false
   if (user.role === "admin") return true
-  // A facet is curated by definition; its bridge is a curator's call.
-  if (concept.schemeCurated) return false
   return concept.createdById !== null && concept.createdById === user.id
 }
+
+/*
+ * A facet classifies the term concept rather than being one, so it is never
+ * the same concept as a term. This binds a curator too: it is a rule about
+ * what a facet is, not about who is asking. drizzle/invariants.sql rejects
+ * the row independently, so allowing it here would only defer the failure to
+ * a release.
+ */
+export const conceptMayBridge = (concept: { schemeCurated: boolean }) =>
+  !concept.schemeCurated
 
 // Which subject level a scheme's concepts attach at: curated schemes are
 // term-level facets, non-curated schemes are definition-level topics.
