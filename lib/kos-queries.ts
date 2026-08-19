@@ -2,6 +2,7 @@ import "server-only"
 
 import {
   collectionsTable,
+  definitionRevisionsTable,
   conceptSchemesTable,
   conceptsTable,
   db,
@@ -218,4 +219,86 @@ export const conceptRelations = async (conceptId: number) => {
   ])
 
   return { broader, narrower }
+}
+
+/*
+ * Tags whose meaning may have moved.
+ *
+ * A tag bridged to a term takes its meaning from that term's definitions, and
+ * those definitions keep changing. A statement filed under the tag in one year
+ * may therefore not mean what the same tag means in the next, with nothing in
+ * the tag itself recording that. Revisions are immutable and dated and carry
+ * the size of their own diff, so the question is answerable: has a revision
+ * landed, since statements were filed under this tag, that changed the text
+ * substantially?
+ *
+ * This reports rather than decides. A curator reads it and either leaves the
+ * tag alone, edits its scope note, or retires it and mints a replacement.
+ */
+export type TagDrift = {
+  conceptId: number
+  conceptSlug: string
+  conceptLabel: string
+  schemeSlug: string
+  termSlug: string
+  termLabel: string
+  linkedAt: string
+  filedCount: number
+  largestChange: string
+  changedAt: string
+}
+
+// A revision that rewrote at least this much of the text is worth a look.
+export const DRIFT_THRESHOLD = "0.25"
+
+export const tagsWithDrift = async (): Promise<TagDrift[]> => {
+  const rows = await db.execute(sql`
+    WITH bridge AS (
+      SELECT
+        s."subjectConceptId" AS concept_id,
+        s."objectTermId"     AS term_id,
+        min(s."createdAt")   AS linked_at
+      FROM ${statementsTable} s
+      WHERE s."retractedAt" IS NULL
+        AND s.predicate = 'skos:exactMatch'
+        AND s."objectTermId" IS NOT NULL
+      GROUP BY s."subjectConceptId", s."objectTermId"
+    ),
+    filed AS (
+      SELECT
+        s."objectConceptId" AS concept_id,
+        count(*)            AS filed_count,
+        min(s."createdAt")  AS first_filed
+      FROM ${statementsTable} s
+      WHERE s."retractedAt" IS NULL
+        AND s.predicate = 'dcterms:subject'
+      GROUP BY s."objectConceptId"
+    )
+    SELECT
+      c.id                    AS "conceptId",
+      c.slug                  AS "conceptSlug",
+      c."prefLabel"           AS "conceptLabel",
+      cs.slug                 AS "schemeSlug",
+      t.slug                  AS "termSlug",
+      t.term                  AS "termLabel",
+      bridge.linked_at        AS "linkedAt",
+      filed.filed_count       AS "filedCount",
+      max(r."changeDelta")    AS "largestChange",
+      max(r."createdAt")      AS "changedAt"
+    FROM bridge
+    JOIN filed ON filed.concept_id = bridge.concept_id
+    JOIN ${conceptsTable} c ON c.id = bridge.concept_id
+    JOIN ${conceptSchemesTable} cs ON cs.id = c."schemeId"
+    JOIN ${termsTable} t ON t.id = bridge.term_id
+    JOIN ${definitionsTable} d ON d."termId" = bridge.term_id
+    JOIN ${definitionRevisionsTable} r ON r."definitionId" = d.id
+    WHERE r."changeDelta" >= ${DRIFT_THRESHOLD}::numeric
+      AND r."createdAt" > filed.first_filed
+    GROUP BY
+      c.id, c.slug, c."prefLabel", cs.slug, t.slug, t.term,
+      bridge.linked_at, filed.filed_count
+    ORDER BY max(r."changeDelta") DESC
+  `)
+
+  return rows.rows as TagDrift[]
 }

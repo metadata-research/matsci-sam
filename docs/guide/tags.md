@@ -7,6 +7,8 @@ Facets are curated tags that administrators attach to a term. Both kinds
 have their own pages, and both are published as `skos:Concept` resources in
 the metadata exports.
 
+![The Tags page: facet cards, topics by letter, and collections](/images/docs/tags-index.png)
+
 ## Topics
 
 A topic is a subject heading such as "Heat treatment" or "Electronic
@@ -14,6 +16,8 @@ structure". Signed-in contributors create topics from **Tags** in the
 navigation bar, with **Add Tag**. Names are matched without regard to case or
 surrounding spaces, so a second "heat treatment" returns the existing topic.
 A topic that has been merged into another returns the topic that replaced it.
+
+![A definition with its topic badges and the author's pencil](/images/docs/definition-tags.png)
 
 The author of a definition attaches topics on the definition page. The pencil
 next to the tag badges opens a picker that lists every topic. A first
@@ -39,6 +43,8 @@ one facet scheme, PSPP, named for its four members.
 | Properties  | Measurable characteristics of a material, mechanical, thermal, electrical, optical or chemical, that follow from its structure |
 | Performance | How a material behaves in service under real conditions and over time, including durability, reliability and failure           |
 
+![A term page with its facet chip under the identifier line](/images/docs/term-facets.png)
+
 Administrators assign facets from the term page. A faceted term shows its
 facets under the identifier line, and each chip opens the facet page. An
 administrator sees a pencil beside the chips that opens the list of facets,
@@ -46,9 +52,43 @@ where a first selection attaches a facet and a second removes it. A term may
 have several facets, and a facet does not claim that the classification is
 complete.
 
+![A facet page listing the terms assigned to it](/images/docs/facet-page.png)
+
 A facet page at `/tags/pspp/{facet}` lists the terms it is assigned to.
 Authors cannot attach a facet to a definition, and administrators cannot
 attach a topic to a term.
+
+## Tags that are also terms
+
+A tag and a term can be the same concept. "Corrosion" is a subject you file
+definitions under, and it is also a thing the dictionary defines. When they
+are the same, an administrator, or the contributor who created the tag, can
+say so from the tag page.
+
+![A tag page showing the term it is linked to](/images/docs/tag-bridge.png)
+
+A linked tag keeps its own page and identifier and gains the definitions of
+the term. The metadata exports state the link in both directions with
+`skos:exactMatch`, so a reader who arrives at either one finds the other.
+Linking is optional and uncommon. Most tags are subject headings that no one
+would write a definition of, and they stay as they are.
+
+A facet is never linked, because a facet classifies a term rather than being
+one. A tag is also never linked to a term whose own definitions are filed
+under it, since the statement would say that a definition is about itself.
+
+## Scope notes
+
+A tag can carry a scope note: a sentence saying what belongs under it, which
+is a different question from what it means. "Degradation in service, not
+surface finish" tells a contributor how to use the tag whatever the linked
+term goes on to say.
+
+The note matters most as the vocabulary ages. A tag is a stable identifier
+for a meaning that moves, so the rule is that a label or a scope note is
+edited only to correct it. A tag whose meaning has genuinely changed is
+retired and replaced, which keeps every statement already filed under the old
+tag meaning what it meant.
 
 ## Collections
 
@@ -73,6 +113,10 @@ form `/tags/{number}` redirect to the readable path.
 [Identifiers and citation](/docs/identifiers) describes the identifier grammar.
 
 ## Metadata
+
+The [knowledge organization](/docs/reference) pages describe the model behind
+tags, the SKOS it is published in, and how curation works, for readers who
+work with the metadata rather than the pages.
 
 Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
 and each collection a `skos:Collection`. A term or a definition names its

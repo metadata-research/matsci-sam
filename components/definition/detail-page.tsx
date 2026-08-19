@@ -7,10 +7,7 @@ import { TermComments } from "@/components/term/comments"
 import { TermVotes } from "@/components/term/votes"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { formatDate } from "@/lib/date"
-import {
-  aiRevisionSources,
-  revisionSourceLabels
-} from "@/lib/revision-sources"
+import { aiRevisionSources, revisionSourceLabels } from "@/lib/revision-sources"
 import {
   ArrowLeftIcon,
   HistoryIcon,
@@ -62,10 +59,10 @@ export async function DefinitionDetailPage({
     version === undefined
       ? definitionUri(definition.termSlug, definition.definitionNumber)
       : revisionUri(
-        definition.termSlug,
-        definition.definitionNumber,
-        definition.version
-      )
+          definition.termSlug,
+          definition.definitionNumber,
+          definition.version
+        )
 
   trpc.votes.get.prefetch({
     definitionId: definition.id,
@@ -192,9 +189,15 @@ export async function DefinitionDetailPage({
               <footer className="border-t pt-4">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                   {definition.author.isAi ? (
+                    // A model appears by name, as an author. "MatBot" says it
+                    // is a machine and the tag beside it says which one, so
+                    // there is no separate "AI generated" label.
                     <span className="flex items-center gap-1 text-ai">
                       <SparklesIcon className="size-3.5" aria-hidden />
-                      AI
+                      <PublicProfileName
+                        user={definition.author}
+                        fallback="AI"
+                      />
                       {definition.model && (
                         <>
                           <span aria-hidden className="text-ai/50">
@@ -252,39 +255,39 @@ export async function DefinitionDetailPage({
 
                 {(definition.refinedFromDefinitionNumber ||
                   definition.refinedVersionDefinitionNumber) && (
-                    <nav
-                      aria-label="Definition lineage"
-                      className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-4 text-sm"
-                    >
-                      {definition.refinedFromDefinitionNumber && (
-                        <Link
-                          className="flex items-center gap-1.5 text-primary hover:underline"
-                          href={definitionPath(
-                            definition.termSlug,
-                            definition.refinedFromDefinitionNumber
-                          )}
-                        >
-                          <ArrowLeftIcon className="size-3.5" aria-hidden />
-                          See the original definition
-                        </Link>
-                      )}
-                      {definition.refinedVersionDefinitionNumber && (
-                        <Link
-                          className="flex items-center gap-1.5 text-primary hover:underline"
-                          href={definitionPath(
-                            definition.termSlug,
-                            definition.refinedVersionDefinitionNumber
-                          )}
-                        >
-                          <SparklesIcon
-                            className="size-3.5 text-ai"
-                            aria-hidden
-                          />
-                          See the AI-refined definition
-                        </Link>
-                      )}
-                    </nav>
-                  )}
+                  <nav
+                    aria-label="Definition lineage"
+                    className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-4 text-sm"
+                  >
+                    {definition.refinedFromDefinitionNumber && (
+                      <Link
+                        className="flex items-center gap-1.5 text-primary hover:underline"
+                        href={definitionPath(
+                          definition.termSlug,
+                          definition.refinedFromDefinitionNumber
+                        )}
+                      >
+                        <ArrowLeftIcon className="size-3.5" aria-hidden />
+                        See the original definition
+                      </Link>
+                    )}
+                    {definition.refinedVersionDefinitionNumber && (
+                      <Link
+                        className="flex items-center gap-1.5 text-primary hover:underline"
+                        href={definitionPath(
+                          definition.termSlug,
+                          definition.refinedVersionDefinitionNumber
+                        )}
+                      >
+                        <SparklesIcon
+                          className="size-3.5 text-ai"
+                          aria-hidden
+                        />
+                        See the AI-refined definition
+                      </Link>
+                    )}
+                  </nav>
+                )}
               </footer>
             </article>
           </Card>
@@ -331,8 +334,9 @@ export async function DefinitionDetailPage({
                 return (
                   <li
                     key={revision.id}
-                    className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between ${selected ? "bg-primary/5" : ""
-                      } [&+li]:border-t`}
+                    className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between ${
+                      selected ? "bg-primary/5" : ""
+                    } [&+li]:border-t`}
                   >
                     <div className="min-w-0 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
@@ -419,10 +423,7 @@ export async function DefinitionDetailPage({
             className="space-y-4 border-t pt-8"
           >
             <header className="space-y-1">
-              <h2
-                id="comments-heading"
-                className="text-2xl font-semibold"
-              >
+              <h2 id="comments-heading" className="text-2xl font-semibold">
                 Comments
               </h2>
               <p className="text-sm text-muted-foreground">

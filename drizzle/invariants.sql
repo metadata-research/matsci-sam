@@ -317,6 +317,44 @@ BEGIN
       RAISE EXCEPTION 'skos:exactMatch together with broadMatch or relatedMatch to one IRI (S46)';
     END IF;
 
+    -- A concept bridged to a term is that term, so a definition of the term
+    -- cannot also be filed under the concept: the statement would say the
+    -- definition is about itself. None of the CHECK constraints can catch
+    -- this, because a bridge row leaves subjectTermId and objectConceptId
+    -- null and statements_no_self_relation compares only those pairs. The
+    -- LEFT JOIN and coalesce cover the definition-level topic and the
+    -- term-level facet in one clause.
+    IF EXISTS (
+      SELECT 1
+      FROM "statements" s
+      LEFT JOIN "definitions" d ON d.id = s."subjectDefinitionId"
+      JOIN "statements" link
+        ON link."subjectConceptId" = s."objectConceptId"
+       AND link."objectTermId" = coalesce(d."termId", s."subjectTermId")
+      WHERE s."retractedAt" IS NULL
+        AND s.predicate = 'dcterms:subject'
+        AND link."retractedAt" IS NULL
+        AND link.predicate = 'skos:exactMatch'
+    ) THEN
+      RAISE EXCEPTION 'definition classified under the tag that is its own term';
+    END IF;
+
+    -- The bridge asserts that a tag and a term are the same concept. A facet
+    -- classifies a term rather than being one, so only a concept in an open
+    -- scheme may carry it.
+    IF EXISTS (
+      SELECT 1
+      FROM "statements" s
+      JOIN "concepts" c ON c.id = s."subjectConceptId"
+      JOIN "conceptSchemes" cs ON cs.id = c."schemeId"
+      WHERE s."retractedAt" IS NULL
+        AND s.predicate = 'skos:exactMatch'
+        AND s."objectTermId" IS NOT NULL
+        AND cs.curated
+    ) THEN
+      RAISE EXCEPTION 'facet bridged to a term';
+    END IF;
+
     -- While the legacy tables still exist (dropped in 0030): every
     -- tagsToTerms row whose tag has a non-blank name has a dcterms:subject
     -- statement, active or retracted, from the same definition to the concept

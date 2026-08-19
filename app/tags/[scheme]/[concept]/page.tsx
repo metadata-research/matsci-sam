@@ -20,7 +20,7 @@ import {
   definitionPath,
   termPath
 } from "@/lib/public-identifiers"
-import { MAPPING_PREDICATES, type MappingPredicate } from "@/lib/kos"
+import { MAPPING_PREDICATES } from "@/lib/kos"
 import { conceptRelations } from "@/lib/kos-queries"
 
 /*
@@ -39,11 +39,14 @@ const loadConcept = async (schemeSlug: string, conceptSlug: string) => {
       label: conceptsTable.prefLabel,
       altLabels: conceptsTable.altLabels,
       definition: conceptsTable.definition,
+      scopeNote: conceptsTable.scopeNote,
+      createdById: conceptsTable.createdById,
       status: conceptsTable.status,
       replacedById: conceptsTable.replacedById,
       schemeId: conceptSchemesTable.id,
       schemeSlug: conceptSchemesTable.slug,
-      schemeTitle: conceptSchemesTable.title
+      schemeTitle: conceptSchemesTable.title,
+      schemeCurated: conceptSchemesTable.curated
     })
     .from(conceptsTable)
     .innerJoin(
@@ -124,9 +127,12 @@ export default async function ConceptPage({
       db
         .select({
           predicate: statementsTable.predicate,
-          iri: statementsTable.objectIri
+          iri: statementsTable.objectIri,
+          termSlug: termsTable.slug,
+          termLabel: termsTable.term
         })
         .from(statementsTable)
+        .leftJoin(termsTable, eq(termsTable.id, statementsTable.objectTermId))
         .where(
           and(
             eq(statementsTable.subjectConceptId, concept.id),
@@ -169,9 +175,13 @@ export default async function ConceptPage({
     ])
 
   const mappingRows = mappings.filter(
-    (m): m is { predicate: MappingPredicate; iri: string } =>
+    (m): m is (typeof mappings)[number] & { iri: string } =>
       m.iri !== null &&
       (MAPPING_PREDICATES as readonly string[]).includes(m.predicate)
+  )
+  // The bridge: this tag and that term are the same concept. One at most.
+  const bridge = mappings.find(
+    (m) => m.predicate === "skos:exactMatch" && m.termSlug !== null
   )
 
   return (
@@ -184,6 +194,14 @@ export default async function ConceptPage({
       <h1 className="text-2xl font-bold">{concept.label}</h1>
       {concept.definition && (
         <p className="text-muted-foreground">{concept.definition}</p>
+      )}
+      {concept.scopeNote && (
+        <p className="text-sm text-muted-foreground">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em]">
+            Scope
+          </span>{" "}
+          {concept.scopeNote}
+        </p>
       )}
       {concept.altLabels.length > 0 && (
         <p className="text-sm text-muted-foreground">
@@ -198,6 +216,20 @@ export default async function ConceptPage({
           {iri}
         </code>
       </div>
+      {/* The bridge, if this tag is also a term of the vocabulary. Rendered
+          before the external mappings because it is the same concept rather
+          than a correspondence to another vocabulary. */}
+      {bridge && bridge.termSlug && (
+        <p className="text-sm text-muted-foreground">
+          Also a term in this vocabulary:{" "}
+          <Link
+            href={termPath(bridge.termSlug)}
+            className="font-serif text-base text-primary"
+          >
+            {bridge.termLabel}
+          </Link>
+        </p>
+      )}
       {/* Curated knowledge-organization layer: a concept may assert SKOS
           mappings to classes in external ontologies (see lib/kos.ts) */}
       {mappingRows.map((m) => (

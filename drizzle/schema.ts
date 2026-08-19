@@ -64,6 +64,55 @@ export const usersTable = pgTable(
   ]
 )
 
+// --- AI MODELS ---
+// A model that contributes is a user, so every author, co-author, vote and
+// provenance path already works for it. What a model additionally has —
+// vendor, family, the exact tag it runs under — has no place on a person, so
+// it extends the user row rather than widening it. One row per model version:
+// two versions of one family produce different text and are different agents.
+export type AiModel = typeof aiModelsTable.$inferSelect
+export const aiModelsTable = pgTable(
+  "aiModels",
+  {
+    // The user this describes. Also the primary key: a user is at most one
+    // model, and a model is exactly one user.
+    userId: integer()
+      .references(() => usersTable.id)
+      .primaryKey(),
+    // Public identifier: /models/<slug>. Immutable once published.
+    slug: text().notNull().unique(),
+    // The exact string the runtime was asked for, e.g. "gemma4:26b" or
+    // "claude-opus-5". This is what makes a generation reproducible and what
+    // the revision rows record, so it is the identity, not the display name.
+    tag: text().notNull().unique(),
+    vendor: text().notNull(),
+    family: text(),
+    parameterSize: text(),
+    // Null while the model is in use; set when it is retired from service, so
+    // its past contributions keep resolving.
+    retiredAt: timestamp({ mode: "string", withTimezone: true }),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    check("ai_models_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
+    check(
+      "ai_models_nonblank",
+      sql`btrim(${t.tag}) <> '' AND btrim(${t.vendor}) <> ''
+          AND (${t.family} IS NULL OR btrim(${t.family}) <> '')
+          AND (${t.parameterSize} IS NULL OR btrim(${t.parameterSize}) <> '')`
+    )
+  ]
+)
+
+export const aiModelsTableRelations = relations(aiModelsTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [aiModelsTable.userId],
+    references: [usersTable.id]
+  })
+}))
+
 // --- EXTERNAL AUTHENTICATION ---
 export const oauthAccountsTable = pgTable(
   "oauthAccounts",
@@ -511,7 +560,7 @@ export const definitionRevisionsTable = pgTable(
     // Metadata related to revision diffs
     charsAdded: integer().notNull().default(0),
     charsRemoved: integer().notNull().default(0),
-    changeDelta: numeric({ precision: 4, scale: 3 }).notNull(),
+    changeDelta: numeric({ precision: 4, scale: 3 }).notNull()
   },
   (table) => [
     uniqueIndex("definition_revisions_definition_version_unique").on(
@@ -878,6 +927,11 @@ export const conceptsTable = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`), // skos:altLabel
     definition: text(), // skos:definition
+    // skos:scopeNote: what gets filed under this concept, which is not the
+    // same question as what the concept means. A concept bridged to a term
+    // takes its meaning from that term's definitions and still says here how
+    // it is meant to be used in classification.
+    scopeNote: text(),
     status: conceptStatusEnum().notNull().default("approved"),
     replacedById: integer().references((): AnyPgColumn => conceptsTable.id),
     // tags.id at migration time so /tags/<id> keeps redirecting. No FK: the
@@ -981,6 +1035,7 @@ export const statementsTable = pgTable(
       WHEN 'skos:member'     THEN ${t.subjectCollectionId} IS NOT NULL AND ${t.objectTermId} IS NOT NULL
       WHEN 'skos:broader'    THEN (${t.subjectTermId} IS NOT NULL AND ${t.objectTermId} IS NOT NULL) OR (${t.subjectConceptId} IS NOT NULL AND ${t.objectConceptId} IS NOT NULL)
       WHEN 'skos:related'    THEN (${t.subjectTermId} IS NOT NULL AND ${t.objectTermId} IS NOT NULL) OR (${t.subjectConceptId} IS NOT NULL AND ${t.objectConceptId} IS NOT NULL)
+      WHEN 'skos:exactMatch' THEN ((${t.subjectTermId} IS NOT NULL OR ${t.subjectConceptId} IS NOT NULL) AND ${t.objectIri} IS NOT NULL) OR (${t.subjectConceptId} IS NOT NULL AND ${t.objectTermId} IS NOT NULL)
       ELSE (${t.subjectTermId} IS NOT NULL OR ${t.subjectConceptId} IS NOT NULL) AND ${t.objectIri} IS NOT NULL
     END`
     ),
@@ -1029,6 +1084,18 @@ export const statementsTable = pgTable(
         sql`coalesce(${t.objectIri}, '')`
       )
       .where(sql`${t.retractedAt} IS NULL`),
+    // skos:exactMatch is symmetric and transitive, so two concepts naming one
+    // term would name each other and belong merged. One link each way.
+    uniqueIndex("statements_concept_link_unique")
+      .on(t.subjectConceptId)
+      .where(
+        sql`${t.retractedAt} IS NULL AND ${t.predicate} = 'skos:exactMatch' AND ${t.objectTermId} IS NOT NULL`
+      ),
+    uniqueIndex("statements_term_link_unique")
+      .on(t.objectTermId)
+      .where(
+        sql`${t.retractedAt} IS NULL AND ${t.predicate} = 'skos:exactMatch' AND ${t.objectTermId} IS NOT NULL`
+      ),
     index("statements_subject_term_idx").on(t.subjectTermId),
     index("statements_subject_definition_idx").on(t.subjectDefinitionId),
     index("statements_subject_concept_idx").on(t.subjectConceptId),
@@ -1062,6 +1129,169 @@ export const collectionsTableRelations = relations(
     createdBy: one(usersTable, {
       fields: [collectionsTable.createdById],
       references: [usersTable.id]
+    })
+  })
+)
+
+// --- TAG PROPOSALS ---
+// A proposed tag, stored before anyone acts on it. A person writes the
+// proposal; the model reviews it and records a verdict with its reasons and
+// the exact prompt that produced them; a curator decides. The three are
+// separate columns rather than one status, because a curator may decide
+// without a review and a review may sit undecided, and because the agreement
+// between the model verdict and the curator decision is the measurement the
+// delegation setting is turned on by.
+//
+// Same shape as discussionSuggestions: the model's output is persisted before
+// the decision, so a browser cannot fabricate an attribution.
+
+export const tagReviewVerdictEnum = pgEnum("tag_review_verdict", [
+  "approve",
+  "merge",
+  "decline"
+])
+
+export const tagDecisionEnum = pgEnum("tag_decision", [
+  "approved",
+  "merged",
+  "declined"
+])
+
+export type TagSuggestion = typeof tagSuggestionsTable.$inferSelect
+export const tagSuggestionsTable = pgTable(
+  "tagSuggestions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // The proposal, complete at insert.
+    proposedById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    schemeId: integer()
+      .references(() => conceptSchemesTable.id)
+      .notNull(),
+    label: text().notNull(),
+    scopeNote: text(),
+    // What the proposer wants filed under it. Mirrors the statements subject
+    // columns, so an approved proposal becomes a dcterms:subject row without
+    // reinterpretation.
+    targetTermId: integer().references(() => termsTable.id),
+    targetDefinitionId: integer().references(() => definitionsTable.id),
+    // The model's review. All null until it runs; a failure records
+    // reviewError and no verdict.
+    reviewVerdict: tagReviewVerdictEnum(),
+    reviewReasons: text(),
+    reviewMergeConceptId: integer().references(() => conceptsTable.id),
+    promptKey: text(),
+    promptHash: text(),
+    promptText: text(),
+    model: text(),
+    reviewedAt: timestamp({ mode: "string", withTimezone: true }),
+    reviewError: text(),
+    // The decision. decidedById is the curator, or the AI identity when the
+    // approval was delegated.
+    decision: tagDecisionEnum(),
+    decisionNote: text(),
+    decidedById: integer().references(() => usersTable.id),
+    decidedAt: timestamp({ mode: "string", withTimezone: true }),
+    outcomeConceptId: integer().references(() => conceptsTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    index("tag_suggestions_proposer_idx").on(t.proposedById, t.createdAt),
+    // The curator queue.
+    index("tag_suggestions_pending_idx")
+      .on(t.createdAt)
+      .where(sql`${t.decidedAt} IS NULL`),
+    index("tag_suggestions_target_term_idx").on(t.targetTermId),
+    index("tag_suggestions_target_definition_idx").on(t.targetDefinitionId),
+    // A newly minted concept is the outcome of one proposal. A merge outcome
+    // is shared, so the uniqueness is partial.
+    uniqueIndex("tag_suggestions_outcome_unique")
+      .on(t.outcomeConceptId)
+      .where(sql`${t.decision} = 'approved'`),
+    check(
+      "tag_suggestions_one_target",
+      sql`num_nonnulls(${t.targetTermId}, ${t.targetDefinitionId}) = 1`
+    ),
+    check(
+      "tag_suggestions_nonblank_content",
+      sql`btrim(${t.label}) <> ''
+          AND (${t.scopeNote} IS NULL OR btrim(${t.scopeNote}) <> '')`
+    ),
+    check(
+      "tag_suggestions_nonblank_optional_text",
+      sql`(${t.reviewReasons} IS NULL OR btrim(${t.reviewReasons}) <> '')
+          AND (${t.decisionNote} IS NULL OR btrim(${t.decisionNote}) <> '')
+          AND (${t.reviewError} IS NULL OR btrim(${t.reviewError}) <> '')`
+    ),
+    // A verdict and the stamp that produced it arrive together, or not at all.
+    check(
+      "tag_suggestions_review_pair",
+      sql`(${t.reviewedAt} IS NULL
+           AND ${t.reviewVerdict} IS NULL
+           AND ${t.model} IS NULL
+           AND ${t.promptHash} IS NULL
+           AND ${t.promptText} IS NULL)
+          OR (${t.reviewedAt} IS NOT NULL
+              AND ${t.model} IS NOT NULL AND btrim(${t.model}) <> ''
+              AND ${t.promptHash} IS NOT NULL
+              AND ${t.promptText} IS NOT NULL
+              AND (${t.reviewVerdict} IS NOT NULL) <> (${t.reviewError} IS NOT NULL))`
+    ),
+    check(
+      "tag_suggestions_merge_target",
+      sql`${t.reviewMergeConceptId} IS NULL OR ${t.reviewVerdict} = 'merge'`
+    ),
+    check(
+      "tag_suggestions_decision_pair",
+      sql`num_nonnulls(${t.decision}, ${t.decidedById}, ${t.decidedAt}) IN (0, 3)`
+    ),
+    check(
+      "tag_suggestions_outcome_pair",
+      sql`(${t.decision} IS NULL AND ${t.outcomeConceptId} IS NULL)
+          OR (${t.decision} = 'declined' AND ${t.outcomeConceptId} IS NULL)
+          OR (${t.decision} IN ('approved', 'merged')
+              AND ${t.outcomeConceptId} IS NOT NULL)`
+    )
+  ]
+)
+
+export const tagSuggestionsTableRelations = relations(
+  tagSuggestionsTable,
+  ({ one }) => ({
+    proposer: one(usersTable, {
+      fields: [tagSuggestionsTable.proposedById],
+      references: [usersTable.id],
+      relationName: "tagSuggestionProposer"
+    }),
+    scheme: one(conceptSchemesTable, {
+      fields: [tagSuggestionsTable.schemeId],
+      references: [conceptSchemesTable.id]
+    }),
+    targetTerm: one(termsTable, {
+      fields: [tagSuggestionsTable.targetTermId],
+      references: [termsTable.id]
+    }),
+    targetDefinition: one(definitionsTable, {
+      fields: [tagSuggestionsTable.targetDefinitionId],
+      references: [definitionsTable.id]
+    }),
+    reviewMergeConcept: one(conceptsTable, {
+      fields: [tagSuggestionsTable.reviewMergeConceptId],
+      references: [conceptsTable.id],
+      relationName: "tagSuggestionMergeTarget"
+    }),
+    decidedBy: one(usersTable, {
+      fields: [tagSuggestionsTable.decidedById],
+      references: [usersTable.id],
+      relationName: "tagSuggestionDecider"
+    }),
+    outcomeConcept: one(conceptsTable, {
+      fields: [tagSuggestionsTable.outcomeConceptId],
+      references: [conceptsTable.id],
+      relationName: "tagSuggestionOutcome"
     })
   })
 )

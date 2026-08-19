@@ -9,7 +9,8 @@
 //   pnpm exec tsx scripts/test-prompt.ts "creep" "The turbine blade failed by creep."
 //   pnpm exec tsx scripts/test-prompt.ts "creep" "..." "Too vague, mention temperature."
 
-import { DefinitionOutput, ollama, OllamaModel } from "@/lib/apis/ollama"
+import { DefinitionOutput, ollama } from "@/lib/llm/client"
+import { OllamaModel } from "@/lib/llm/model"
 import prompts from "@/lib/prompts.json"
 import { Message } from "ollama"
 import zodToJsonSchema from "zod-to-json-schema"

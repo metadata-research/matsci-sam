@@ -4,7 +4,7 @@ import { isDevAuthEnabled, getDevAuthUsers } from "@/lib/dev-auth"
 import { isEmailAuthEnabled } from "@/lib/email-auth"
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
 import { Ollama } from "ollama"
-import { OllamaModel } from "@/lib/apis/ollama"
+import { OllamaModel } from "@/lib/llm/model"
 
 export type ServiceStatus =
   | "ready"

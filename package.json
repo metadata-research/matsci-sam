@@ -16,6 +16,7 @@
     "test:ollama-context": "tsx scripts/test-ollama-revision-context.ts",
     "test:kos": "tsx --conditions=react-server scripts/test-kos.ts",
     "test:kos-db": "tsx scripts/test-kos-db.ts",
+    "facets:export": "tsx scripts/export-facet-fixture.ts",
     "auth:gmail": "tsx scripts/authorize-gmail-sender.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

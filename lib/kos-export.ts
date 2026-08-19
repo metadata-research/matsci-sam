@@ -45,6 +45,7 @@ export type KosConcept = {
   prefLabel: string
   altLabels: string[]
   definition: string | null
+  scopeNote: string | null
   status: "approved" | "retired" | "proposed"
   replacedById: number | null
 }
@@ -215,6 +216,9 @@ export class KosView {
       )
   }
 
+  // Mappings asserted by a concept. The object is an external IRI, except
+  // for the bridge, where a concept names a term of this vocabulary through
+  // objectTermId. Both render as the same triple.
   conceptMappings(conceptId: number): Mapping[] {
     return this.statements
       .filter(
@@ -223,8 +227,21 @@ export class KosView {
       )
       .map((s) => ({
         predicate: s.predicate as MappingPredicate,
-        iri: s.objectIri!
+        iri: s.objectIri ?? this.termRef(s.objectTermId!)?.uri ?? null
       }))
+      .filter((m): m is Mapping => m.iri !== null)
+  }
+
+  // The term a concept is bridged to, if any. One at most: the partial
+  // unique indexes on statements allow a single active link each way.
+  conceptBridge(conceptId: number): TermRef | null {
+    const link = this.statements.find(
+      (s) =>
+        s.predicate === "skos:exactMatch" &&
+        s.subjectConceptId === conceptId &&
+        s.objectTermId !== null
+    )
+    return link ? this.termRef(link.objectTermId!) : null
   }
 
   // Term-level dcterms:subject (facets in curated schemes), by label.
@@ -283,7 +300,7 @@ export class KosView {
   }
 
   termMappings(termId: number): Mapping[] {
-    return this.statements
+    const asserted = this.statements
       .filter(
         (s) => isMappingPredicate(s.predicate) && s.subjectTermId === termId
       )
@@ -291,6 +308,30 @@ export class KosView {
         predicate: s.predicate as MappingPredicate,
         iri: s.objectIri!
       }))
+
+    // Derived: skos:exactMatch is symmetric, so a concept bridged to this
+    // term is also a mapping of the term. No stored row, so no reifier.
+    const bridged = this.statements
+      .filter(
+        (s) => s.predicate === "skos:exactMatch" && s.objectTermId === termId
+      )
+      .map((s) => this.conceptOrNull(s.subjectConceptId!))
+      .filter((c): c is KosConcept => c !== null)
+      .map((c) => ({
+        predicate: "skos:exactMatch" as MappingPredicate,
+        iri: this.conceptIri(c)
+      }))
+
+    return [...asserted, ...bridged]
+  }
+
+  // Concepts bridged to a term, for a document that must carry their blocks.
+  termBridgedConceptIds(termId: number): number[] {
+    return this.statements
+      .filter(
+        (s) => s.predicate === "skos:exactMatch" && s.objectTermId === termId
+      )
+      .map((s) => s.subjectConceptId!)
   }
 
   // Term ids that have an active skos:broader term statement, i.e. are not
@@ -386,6 +427,7 @@ export const conceptBlockTurtle = (view: KosView, concept: KosConcept) => {
   for (const alt of concept.altLabels) pairs.push(`skos:altLabel ${en(alt)}`)
   if (concept.definition)
     pairs.push(`skos:definition ${en(concept.definition)}`)
+  if (concept.scopeNote) pairs.push(`skos:scopeNote ${en(concept.scopeNote)}`)
   for (const b of broader) pairs.push(`skos:broader <${view.conceptIri(b)}>`)
   for (const n of view.conceptNarrower(concept.id))
     pairs.push(`skos:narrower <${view.conceptIri(n)}>`)
@@ -507,6 +549,14 @@ export const conceptJsonLd = (view: KosView, concept: KosConcept) => {
       ? {
           "skos:definition": {
             "@value": concept.definition,
+            "@language": "en"
+          }
+        }
+      : {}),
+    ...(concept.scopeNote
+      ? {
+          "skos:scopeNote": {
+            "@value": concept.scopeNote,
             "@language": "en"
           }
         }

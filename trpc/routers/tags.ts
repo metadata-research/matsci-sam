@@ -13,12 +13,19 @@ import {
   statementsTable,
   termsTable
 } from "@yamz/db"
-import { and, asc, eq, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
 import { TAG_MAX_LENGTH } from "@/lib/input-limits"
 import { uniqueSlug } from "@/lib/slug"
-import { TOPICS_SCHEME_SLUG, authorMayAssert } from "@/lib/kos"
+import { GetUser } from "@/lib/crud"
+import {
+  TOPICS_SCHEME_SLUG,
+  authorMayAssert,
+  canonicalizeSymmetric,
+  conceptMayBridge,
+  mayLinkConcept
+} from "@/lib/kos"
 import {
   conceptPath,
   conceptSchemePath,
@@ -54,6 +61,8 @@ const loadConceptWithScheme = async (conceptId: number) => {
       slug: conceptsTable.slug,
       status: conceptsTable.status,
       replacedById: conceptsTable.replacedById,
+      createdById: conceptsTable.createdById,
+      schemeId: conceptsTable.schemeId,
       schemeSlug: conceptSchemesTable.slug,
       schemeCurated: conceptSchemesTable.curated
     })
@@ -73,6 +82,41 @@ const isUniqueViolation = (error: unknown) => {
   const direct = (error as { code?: unknown })?.code
   const cause = (error as { cause?: { code?: unknown } })?.cause?.code
   return direct === "23505" || cause === "23505"
+}
+
+// An active bridge between a concept and a term, if there is one. The two
+// partial unique indexes on statements make it one row at most.
+// Does this concept already name a term?
+const hasBridge = async (conceptId: number) => {
+  const [row] = await db
+    .select({ id: statementsTable.id })
+    .from(statementsTable)
+    .where(
+      and(
+        eq(statementsTable.predicate, "skos:exactMatch"),
+        eq(statementsTable.subjectConceptId, conceptId),
+        isNotNull(statementsTable.objectTermId),
+        isNull(statementsTable.retractedAt)
+      )
+    )
+    .limit(1)
+  return row !== undefined
+}
+
+const bridgedToTerm = async (conceptId: number, termId: number) => {
+  const [row] = await db
+    .select({ id: statementsTable.id })
+    .from(statementsTable)
+    .where(
+      and(
+        eq(statementsTable.predicate, "skos:exactMatch"),
+        eq(statementsTable.subjectConceptId, conceptId),
+        eq(statementsTable.objectTermId, termId),
+        isNull(statementsTable.retractedAt)
+      )
+    )
+    .limit(1)
+  return row !== undefined
 }
 
 const revalidateConcept = (schemeSlug: string, conceptSlug: string) => {
@@ -146,13 +190,32 @@ export const tagsRouter = createTRPCRouter({
         return null
       }
 
+      // A term with the same normalized label is very likely the same
+      // concept, so the caller can offer to bridge the two. Reported, never
+      // asserted: only a person decides that they are the same.
+      const matchedTerm = async (conceptId: number) => {
+        if (await hasBridge(conceptId)) return null
+        const [term] = await db
+          .select({
+            id: termsTable.id,
+            term: termsTable.term,
+            slug: termsTable.slug
+          })
+          .from(termsTable)
+          .where(sql`lower(btrim(${termsTable.term})) = ${normalized}`)
+          .limit(1)
+        return term ?? null
+      }
+
       const existing = await findExisting()
       if (existing)
         return {
           id: existing.id,
           name: existing.name,
           slug: existing.slug,
-          schemeSlug: scheme.slug
+          schemeSlug: scheme.slug,
+          created: false,
+          matchedTerm: await matchedTerm(existing.id)
         }
 
       const taken = new Set(
@@ -194,7 +257,359 @@ export const tagsRouter = createTRPCRouter({
       revalidatePath(tagsIndexPath)
       revalidatePath(conceptSchemePath(scheme.slug))
 
-      return { ...created, schemeSlug: scheme.slug }
+      return {
+        ...created,
+        schemeSlug: scheme.slug,
+        created: true,
+        matchedTerm: await matchedTerm(created.id)
+      }
+    }),
+
+  /*
+   * The bridge: assert that this tag and this term are the same concept.
+   * A curator may link any open tag; the contributor who created a topic may
+   * link that topic. A term is not owned, so nobody else has standing.
+   */
+  setLink: authenticatedProcedure
+    .input(
+      z.object({
+        conceptId: z.number().int(),
+        termId: z.number().int(),
+        on: z.boolean()
+      })
+    )
+    .mutation(async ({ ctx: { userId }, input: { conceptId, termId, on } }) => {
+      const concept = await loadConceptWithScheme(conceptId)
+      if (!concept)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This tag doesn't exist"
+        })
+
+      if (!conceptMayBridge(concept))
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A facet classifies a term rather than being one"
+        })
+
+      const user = await GetUser(userId)
+      if (!user || !mayLinkConcept(user, concept))
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only a curator or the author of this tag can link it to a term"
+        })
+      if (concept.status === "retired")
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This tag has been retired"
+        })
+
+      const [term] = await db
+        .select({ id: termsTable.id, slug: termsTable.slug })
+        .from(termsTable)
+        .where(eq(termsTable.id, termId))
+        .limit(1)
+      if (!term)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This term doesn't exist"
+        })
+
+      if (on) {
+        // The tag would be the term, so a definition of the term cannot also
+        // be filed under it.
+        const [circular] = await db
+          .select({ id: statementsTable.id })
+          .from(statementsTable)
+          .leftJoin(
+            definitionsTable,
+            eq(definitionsTable.id, statementsTable.subjectDefinitionId)
+          )
+          .where(
+            and(
+              eq(statementsTable.predicate, "dcterms:subject"),
+              eq(statementsTable.objectConceptId, conceptId),
+              isNull(statementsTable.retractedAt),
+              sql`coalesce(${definitionsTable.termId}, ${statementsTable.subjectTermId}) = ${termId}`
+            )
+          )
+          .limit(1)
+        if (circular)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "A definition of this term is filed under this tag. Remove that first."
+          })
+      }
+
+      await db.transaction(async (tx) => {
+        const active = await tx
+          .select({
+            id: statementsTable.id,
+            objectTermId: statementsTable.objectTermId
+          })
+          .from(statementsTable)
+          .where(
+            and(
+              eq(statementsTable.predicate, "skos:exactMatch"),
+              eq(statementsTable.subjectConceptId, conceptId),
+              isNotNull(statementsTable.objectTermId),
+              isNull(statementsTable.retractedAt)
+            )
+          )
+
+        // A concept links to one term, so re-linking retracts the old row
+        // first; the partial unique index would refuse it otherwise.
+        for (const row of active)
+          if (!on || row.objectTermId !== termId)
+            await tx
+              .update(statementsTable)
+              .set({ retractedAt: sql`now()`, retractedById: userId })
+              .where(eq(statementsTable.id, row.id))
+
+        if (on && !active.some((row) => row.objectTermId === termId))
+          await tx
+            .insert(statementsTable)
+            .values({
+              predicate: "skos:exactMatch",
+              subjectConceptId: conceptId,
+              objectTermId: termId,
+              assertedById: userId
+            })
+            .onConflictDoNothing()
+      })
+
+      revalidateConcept(concept.schemeSlug, concept.slug)
+      revalidatePath(termPath(term.slug))
+
+      return { ok: true, on }
+    }),
+
+  // Curator edits to a concept's own text. The preferred label is an
+  // identifier-adjacent value and is not editable here: a changed meaning
+  // retires the concept and mints a replacement.
+  updateConcept: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int(),
+        definition: z.string().trim().max(2000).nullish(),
+        scopeNote: z.string().trim().max(2000).nullish(),
+        altLabels: z
+          .array(z.string().trim().min(1).max(TAG_MAX_LENGTH))
+          .optional()
+      })
+    )
+    .mutation(async ({ input: { id, definition, scopeNote, altLabels } }) => {
+      const concept = await loadConceptWithScheme(id)
+      if (!concept)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This tag doesn't exist"
+        })
+
+      // An alternative label that repeats the preferred one says nothing and
+      // would make the find-or-create match ambiguous.
+      const cleanedAltLabels =
+        altLabels === undefined
+          ? undefined
+          : [
+              ...new Map(
+                altLabels
+                  .filter(
+                    (label) =>
+                      label.toLowerCase() !== concept.name.trim().toLowerCase()
+                  )
+                  .map((label) => [label.toLowerCase(), label] as const)
+              ).values()
+            ]
+
+      const [updated] = await db
+        .update(conceptsTable)
+        .set({
+          ...(definition === undefined
+            ? {}
+            : { definition: definition || null }),
+          ...(scopeNote === undefined ? {} : { scopeNote: scopeNote || null }),
+          ...(cleanedAltLabels === undefined
+            ? {}
+            : { altLabels: cleanedAltLabels })
+        })
+        .where(eq(conceptsTable.id, id))
+        .returning({
+          id: conceptsTable.id,
+          definition: conceptsTable.definition,
+          scopeNote: conceptsTable.scopeNote,
+          altLabels: conceptsTable.altLabels
+        })
+
+      revalidateConcept(concept.schemeSlug, concept.slug)
+
+      return updated
+    }),
+
+  /*
+   * Merge one tag into another: the loser is retired, points at the winner,
+   * and hands over its labels and its statements. Nothing is deleted, so the
+   * loser's identifier keeps resolving and every past assertion stays
+   * readable.
+   *
+   * The two must share a scheme. Relations between concepts are required to
+   * stay inside one scheme, so re-homing them across schemes would break an
+   * invariant at deploy time rather than here.
+   */
+  mergeConcept: adminProcedure
+    .input(z.object({ fromId: z.number().int(), intoId: z.number().int() }))
+    .mutation(async ({ ctx: { userId }, input: { fromId, intoId } }) => {
+      if (fromId === intoId)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A tag cannot be merged into itself"
+        })
+
+      const [from, into] = await Promise.all([
+        loadConceptWithScheme(fromId),
+        loadConceptWithScheme(intoId)
+      ])
+      if (!from || !into)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This tag doesn't exist"
+        })
+      if (from.schemeId !== into.schemeId)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Both tags must be in the same scheme"
+        })
+      if (into.status === "retired")
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The tag being merged into has itself been retired"
+        })
+      if (from.status === "retired")
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This tag has already been retired"
+        })
+
+      await db.transaction(async (tx) => {
+        const [target] = await tx
+          .select({
+            prefLabel: conceptsTable.prefLabel,
+            altLabels: conceptsTable.altLabels
+          })
+          .from(conceptsTable)
+          .where(eq(conceptsTable.id, intoId))
+          .limit(1)
+        const [loser] = await tx
+          .select({
+            prefLabel: conceptsTable.prefLabel,
+            altLabels: conceptsTable.altLabels
+          })
+          .from(conceptsTable)
+          .where(eq(conceptsTable.id, fromId))
+          .limit(1)
+
+        // The loser's labels become ways to find the winner, so a later
+        // find-or-create on the old name resolves here.
+        const carried = [
+          ...new Map(
+            [...target.altLabels, loser.prefLabel, ...loser.altLabels]
+              .map((label) => label.trim())
+              .filter(
+                (label) =>
+                  label !== "" &&
+                  label.toLowerCase() !== target.prefLabel.trim().toLowerCase()
+              )
+              .map((label) => [label.toLowerCase(), label] as const)
+          ).values()
+        ]
+
+        const active = await tx
+          .select()
+          .from(statementsTable)
+          .where(
+            and(
+              isNull(statementsTable.retractedAt),
+              or(
+                eq(statementsTable.subjectConceptId, fromId),
+                eq(statementsTable.objectConceptId, fromId)
+              )
+            )
+          )
+
+        // Every active row touching the loser is retracted: an invariant
+        // forbids any live statement on a retired concept, at either end.
+        for (const row of active) {
+          await tx
+            .update(statementsTable)
+            .set({ retractedAt: sql`now()`, retractedById: userId })
+            .where(eq(statementsTable.id, row.id))
+
+          const subjectConceptId =
+            row.subjectConceptId === fromId ? intoId : row.subjectConceptId
+          const objectConceptId =
+            row.objectConceptId === fromId ? intoId : row.objectConceptId
+
+          // A statement that would now point a concept at itself says
+          // nothing, and the schema refuses it.
+          if (
+            subjectConceptId !== null &&
+            objectConceptId !== null &&
+            subjectConceptId === objectConceptId
+          )
+            continue
+
+          let subject = subjectConceptId
+          let object = objectConceptId
+          // skos:related is stored once, smaller id first; re-homing can put
+          // the pair the wrong way round.
+          if (
+            row.predicate === "skos:related" &&
+            subject !== null &&
+            object !== null
+          )
+            [subject, object] = canonicalizeSymmetric(subject, object)
+
+          await tx
+            .insert(statementsTable)
+            .values({
+              predicate: row.predicate,
+              subjectTermId: row.subjectTermId,
+              subjectDefinitionId: row.subjectDefinitionId,
+              subjectConceptId: subject,
+              subjectCollectionId: row.subjectCollectionId,
+              objectTermId: row.objectTermId,
+              objectConceptId: object,
+              objectIri: row.objectIri,
+              assertedById: userId,
+              note: row.note
+            })
+            .onConflictDoNothing()
+        }
+
+        // A concept already pointing at the loser must follow it, or the
+        // replacement chain grows a second hop.
+        await tx
+          .update(conceptsTable)
+          .set({ replacedById: intoId })
+          .where(eq(conceptsTable.replacedById, fromId))
+
+        await tx
+          .update(conceptsTable)
+          .set({ altLabels: carried })
+          .where(eq(conceptsTable.id, intoId))
+
+        await tx
+          .update(conceptsTable)
+          .set({ status: "retired", replacedById: intoId })
+          .where(eq(conceptsTable.id, fromId))
+      })
+
+      revalidateConcept(from.schemeSlug, from.slug)
+      revalidateConcept(into.schemeSlug, into.slug)
+
+      return { ok: true, intoId }
     }),
 
   // Topics on one definition: active definition-level dcterms:subject rows.
@@ -233,7 +648,10 @@ export const tagsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx: { userId }, input: { definitionId, tagId } }) => {
       const [definition] = await db
-        .select({ authorId: definitionsTable.authorId })
+        .select({
+          authorId: definitionsTable.authorId,
+          termId: definitionsTable.termId
+        })
         .from(definitionsTable)
         .where(eq(definitionsTable.id, definitionId))
         .limit(1)
@@ -265,6 +683,12 @@ export const tagsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "This tag has been retired"
+        })
+      if (await bridgedToTerm(tagId, definition.termId))
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "This tag is the term itself, so it cannot also be filed under it"
         })
 
       const on = await db.transaction(async (tx) => {

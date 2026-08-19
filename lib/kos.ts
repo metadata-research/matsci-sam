@@ -48,6 +48,12 @@ export type PredicateSpec = {
   sameKind?: true
   // Two concepts must be in one scheme (checked in tRPC and invariants).
   sameScheme?: true
+  // Shapes this predicate accepts beyond the subject x object product above.
+  // skos:exactMatch takes an external IRI from a term or a concept, and
+  // additionally a concept may name a term through the typed foreign key
+  // (the bridge). Term-to-term is not a shape, so the product cannot express
+  // it and the database CHECK spells the same exception out.
+  extraShapes?: readonly { subject: SubjectKind; object: ObjectKind }[]
 }
 
 export const PREDICATES = {
@@ -80,7 +86,9 @@ export const PREDICATES = {
   "skos:exactMatch": {
     iri: `${SKOS}exactMatch`,
     subject: ["term", "concept"],
-    object: ["iri"]
+    object: ["iri"],
+    // The bridge: this concept and that term are the same concept.
+    extraShapes: [{ subject: "concept", object: "term" }]
   },
   "skos:closeMatch": {
     iri: `${SKOS}closeMatch`,
@@ -203,6 +211,12 @@ export const predicateAccepts = (
   object: ObjectKind
 ) => {
   const spec: PredicateSpec = PREDICATES[predicate]
+  if (
+    spec.extraShapes?.some(
+      (shape) => shape.subject === subject && shape.object === object
+    )
+  )
+    return true
   if (!spec.subject.includes(subject) || !spec.object.includes(object))
     return false
   if (spec.sameKind && subject !== object) return false
@@ -221,6 +235,32 @@ export const authorMayAssert = (
   predicate === "dcterms:subject" &&
   subjectKind === "definition" &&
   !objectSchemeCurated
+
+/*
+ * The bridge is asserted by a curator, or by the contributor who created the
+ * topic. A term is not owned, so nobody else has standing to say that a tag
+ * and a term are the same concept. Seeded and migrated concepts have no
+ * creator, so only topics created through the application can be linked by
+ * their author.
+ */
+export const mayLinkConcept = (
+  user: { id: number; role: string } | null,
+  concept: { createdById: number | null }
+) => {
+  if (!user) return false
+  if (user.role === "admin") return true
+  return concept.createdById !== null && concept.createdById === user.id
+}
+
+/*
+ * A facet classifies the term concept rather than being one, so it is never
+ * the same concept as a term. This binds a curator too: it is a rule about
+ * what a facet is, not about who is asking. drizzle/invariants.sql rejects
+ * the row independently, so allowing it here would only defer the failure to
+ * a release.
+ */
+export const conceptMayBridge = (concept: { schemeCurated: boolean }) =>
+  !concept.schemeCurated
 
 // Which subject level a scheme's concepts attach at: curated schemes are
 // term-level facets, non-curated schemes are definition-level topics.

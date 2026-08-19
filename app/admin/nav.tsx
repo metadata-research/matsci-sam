@@ -10,6 +10,7 @@ import {
   MessageSquareTextIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  TagsIcon,
   UsersIcon
 } from "lucide-react"
 import styles from "./admin.module.css"
@@ -38,6 +39,12 @@ const SECTIONS = [
     label: "Vocabulary",
     icon: BookOpenIcon,
     matches: ["/admin/terms"]
+  },
+  {
+    href: "/admin/tags",
+    label: "Tags",
+    icon: TagsIcon,
+    matches: ["/admin/tags"]
   },
   {
     href: "/admin/users",

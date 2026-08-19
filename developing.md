@@ -3,6 +3,10 @@
 This guide covers local setup, application changes, database migrations,
 authentication, and release boundaries.
 
+Deeper notes on specific subsystems are in `docs/technical/`. The served
+documentation is `docs/guide/`, the user guide, and `docs/reference/`, the
+knowledge organization layer. Keep those three apart.
+
 ## Technology Stack
 
 - **Frontend**: Next.js 16 (App Router), React 19, TypeScript
@@ -30,7 +34,11 @@ include:
 - `definitions` for the stable definition identity and current revision head
 - `definitionRevisions` for immutable content versions and provenance
 - `votes` and `comments`, each scoped to a definition revision
-- `tags`, coauthors, refinement records, and discussion suggestions
+- `conceptSchemes`, `concepts`, `collections` and `statements`, the knowledge
+  organization ledger behind tags, facets, collections and mappings, and
+  `tagSuggestions` for proposals; see `docs/technical/`
+- `aiModels`, the traits of a model that contributes as a user
+- coauthors, refinement records, and discussion suggestions
 
 ### Quick Database Commands
 

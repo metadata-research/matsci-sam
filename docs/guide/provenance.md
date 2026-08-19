@@ -21,6 +21,17 @@ included in the public graph.
 The graph uses the W3C PROV-O vocabulary. Entities (definitions,
 suggestions, feedback), activities (writing, refining, accepting), and
 agents (people and models) are drawn as nodes you can click for detail.
+
+![The profile of a model, with its exact version and the definitions it authored](/images/docs/model-profile.png)
+
+A model that contributes appears as an author in its own right, under a name
+such as MatBot Gemma 4, and that name opens the profile of the model. The
+profile gives the exact version the model runs under, who publishes it, what
+it has contributed, and the prompts it worked from. One profile covers one
+version, because two versions of one family produce different text and a
+definition can only be traced to the version that wrote it.
+[The provenance model](/docs/reference/provenance-model) describes what the
+record contains and how it is published.
 The timeline below it tells the same story in order.
 
 Provenance is derived on demand from the ordinary application records.

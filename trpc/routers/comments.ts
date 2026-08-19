@@ -9,7 +9,7 @@ import {
   definitionRevisionsTable
 } from "@yamz/db"
 import { and, asc, eq, getTableColumns } from "drizzle-orm"
-import { reviseDefinition } from "@/lib/apis/ollama"
+import { reviseDefinition } from "@/lib/llm/definitions"
 import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"

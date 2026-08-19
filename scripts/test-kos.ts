@@ -26,9 +26,11 @@ const main = async () => {
     PREDICATE_VALUES,
     authorMayAssert,
     canonicalizeSymmetric,
+    conceptMayBridge,
     isAbsoluteHttpIri,
     isExternalIri,
     isMappingPredicate,
+    mayLinkConcept,
     objectOf,
     predicateAccepts,
     subjectOf
@@ -136,6 +138,13 @@ const main = async () => {
   assert.ok(predicateAccepts("skos:exactMatch", "concept", "iri"))
   assert.ok(!predicateAccepts("skos:exactMatch", "term", "concept"))
   assert.ok(!predicateAccepts("skos:exactMatch", "definition", "iri"))
+  // The bridge is one extra shape, not a widening: a concept may name a term,
+  // and nothing else may. The database CHECK spells out the same exception.
+  assert.ok(predicateAccepts("skos:exactMatch", "concept", "term"))
+  assert.ok(!predicateAccepts("skos:exactMatch", "term", "term"))
+  assert.ok(!predicateAccepts("skos:exactMatch", "concept", "concept"))
+  assert.ok(!predicateAccepts("skos:closeMatch", "concept", "term"))
+  assert.ok(!predicateAccepts("skos:relatedMatch", "concept", "term"))
 
   // --- IRI guards ---
 
@@ -201,6 +210,25 @@ const main = async () => {
   assert.ok(!authorMayAssert("skos:exactMatch", "term", false))
   assert.ok(!authorMayAssert("skos:member", "collection", false))
 
+  // Who may bridge a tag to a term: a curator always, the creator of an open
+  // topic for their own topic, nobody else.
+  const admin = { id: 1, role: "admin" }
+  const author = { id: 2, role: "user" }
+  const other = { id: 3, role: "user" }
+  const ownTopic = { createdById: 2 }
+  assert.ok(mayLinkConcept(admin, ownTopic))
+  assert.ok(mayLinkConcept(author, ownTopic))
+  assert.ok(!mayLinkConcept(other, ownTopic))
+  assert.ok(!mayLinkConcept(null, ownTopic))
+  // A seeded or migrated concept has no creator to claim it.
+  assert.ok(!mayLinkConcept(author, { createdById: null }))
+
+  // Whether a tag may be bridged at all is a rule about the tag, and it
+  // binds a curator too: the database invariant refuses a bridged facet
+  // whoever asserts it.
+  assert.ok(conceptMayBridge({ schemeCurated: false }))
+  assert.ok(!conceptMayBridge({ schemeCurated: true }))
+
   // --- Row resolvers ---
 
   const ends = {
@@ -248,6 +276,7 @@ const main = async () => {
     prefLabel,
     altLabels: [],
     definition: null,
+    scopeNote: null,
     status: "approved",
     replacedById: null,
     ...extra
@@ -303,7 +332,9 @@ const main = async () => {
         status: "retired",
         replacedById: 5
       }),
-      concept(8, 1, "corrosion", "Corrosion"),
+      concept(8, 1, "corrosion", "Corrosion", {
+        scopeNote: "Use for degradation in service, not for surface finish."
+      }),
       concept(9, 1, "odd", 'Odd "label" \\ back\nslash', {
         definition: 'Has a\ttab and a "quote".'
       }),
@@ -342,6 +373,8 @@ const main = async () => {
       statement(9, "skos:related", { subjectTermId: 1, objectTermId: 3 }),
       statement(10, "skos:closeMatch", { subjectTermId: 1, objectIri: PMD }),
       // collection membership
+      // the bridge: the topic "Steel" is the same concept as a term
+      statement(13, "skos:exactMatch", { subjectConceptId: 8, objectTermId: 1 }),
       statement(11, "skos:member", { subjectCollectionId: 1, objectTermId: 1 }),
       statement(12, "skos:member", { subjectCollectionId: 1, objectTermId: 2 })
     ],
@@ -426,7 +459,11 @@ const main = async () => {
     skos.related.map((t) => t.uri),
     [termUri("band_gap")]
   )
-  assert.deepEqual(skos.mappings, [{ predicate: "skos:closeMatch", iri: PMD }])
+  // Its own mapping, plus the derived reverse of the bridge.
+  assert.deepEqual(skos.mappings, [
+    { predicate: "skos:closeMatch", iri: PMD },
+    { predicate: "skos:exactMatch", iri: conceptUri("topics", "corrosion") }
+  ])
   assert.equal(skos.definitions[1].currentRevision.example, "Legacy example.")
   assert.deepEqual(skos.definitions[1].currentRevision.contributors, [
     "gpt-oss:20b"
@@ -489,14 +526,15 @@ const main = async () => {
     "definition resource carries its own topics"
   )
   const termConceptSubjects = typeSubjects(termQuads, `${SKOS}Concept`)
-  for (const id of [1, 5, 6])
+  // Facets, lifted topics, and the bridged concept, each once.
+  for (const id of [1, 5, 6, 8])
     assert.equal(
       termConceptSubjects.filter((s) => s === iri(id)).length,
       1,
       `concept ${id} once in term document`
     )
   assert.ok(
-    !termConceptSubjects.includes(iri(8)),
+    !termConceptSubjects.includes(iri(2)),
     "unreferenced concept not in term document"
   )
   assert.deepEqual(
@@ -581,6 +619,30 @@ const main = async () => {
     'Has a\ttab and a "quote".'
   ])
 
+  // The bridge: stored on the concept, derived onto the term, and both ends
+  // carry the concept's block.
+  assert.deepEqual(
+    objectsOf(schemeQuads, iri(8), `${SKOS}exactMatch`),
+    [termIri],
+    "concept names the bridged term"
+  )
+  assert.deepEqual(
+    objectsOf(schemeQuads, termIri, `${SKOS}exactMatch`),
+    [iri(8)],
+    "the term names the concept back, derived"
+  )
+  // A term document carries the bridge and the bridged concept's block.
+  assert.deepEqual(objectsOf(termQuads, termIri, `${SKOS}exactMatch`), [iri(8)])
+  assert.equal(
+    typeSubjects(termQuads, `${SKOS}Concept`).filter((x) => x === iri(8)).length,
+    1,
+    "the bridged concept's block travels with the term document"
+  )
+  assert.deepEqual(
+    objectsOf(schemeQuads, iri(8), `${SKOS}scopeNote`),
+    ["Use for degradation in service, not for surface finish."]
+  )
+
   // KOS-only document
   const kosQuads = parse(kosTurtle(kos), "kosTurtle")
   assert.equal(
@@ -623,6 +685,7 @@ const main = async () => {
       iri(1),
       iri(5),
       iri(6),
+      iri(8),
       conceptSchemeUri("topics"),
       conceptSchemeUri("pspp")
     ])

@@ -211,6 +211,62 @@ const main = async () => {
         .delete(statementsTable)
         .where(eq(statementsTable.assertedById, user.id))
 
+      // The bridge specifically: a concept may name a term, no other mapping
+      // predicate may, and the link is one-to-one in both directions.
+      expectAccepted(
+        await attempt(tx, (sp) =>
+          sp.insert(statementsTable).values({
+            predicate: "skos:exactMatch",
+            subjectConceptId: topicX.id,
+            objectTermId: termB.id,
+            assertedById: user.id
+          })
+        ),
+        "concept bridged to a term"
+      )
+      expectRejected(
+        await attempt(tx, (sp) =>
+          sp.insert(statementsTable).values({
+            predicate: "skos:closeMatch",
+            subjectConceptId: topicY.id,
+            objectTermId: termC.id,
+            assertedById: user.id
+          })
+        ),
+        "23514",
+        "statements_predicate_shape",
+        "closeMatch may not name a term"
+      )
+      expectRejected(
+        await attempt(tx, (sp) =>
+          sp.insert(statementsTable).values({
+            predicate: "skos:exactMatch",
+            subjectConceptId: topicX.id,
+            objectTermId: termC.id,
+            assertedById: user.id
+          })
+        ),
+        "23505",
+        "statements_concept_link_unique",
+        "a concept links to one term"
+      )
+      expectRejected(
+        await attempt(tx, (sp) =>
+          sp.insert(statementsTable).values({
+            predicate: "skos:exactMatch",
+            subjectConceptId: topicY.id,
+            objectTermId: termB.id,
+            assertedById: user.id
+          })
+        ),
+        "23505",
+        "statements_term_link_unique",
+        "a term is linked from one concept"
+      )
+      await tx
+        .delete(statementsTable)
+        .where(eq(statementsTable.predicate, "skos:exactMatch"))
+
       // --- Exactly one subject, exactly one object ---
 
       expectRejected(
@@ -546,6 +602,21 @@ const main = async () => {
           })
         ),
         "fallback-style slug with a non-ASCII label"
+      )
+
+      // --- Scope note ---
+
+      expectAccepted(
+        await attempt(tx, (sp) =>
+          sp.insert(conceptsTable).values({
+            schemeId: topics.id,
+            slug: `kos_scope_${stamp}`,
+            prefLabel: `KOS scope ${stamp}`,
+            scopeNote: "Use for the thing, not the other thing.",
+            createdById: user.id
+          })
+        ),
+        "concept with a scope note"
       )
 
       // --- Scheme and collection slugs ---
