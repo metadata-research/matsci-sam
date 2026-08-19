@@ -50,6 +50,11 @@ https://<public-host>/tags/{scheme}/{tag}
 https://<public-host>/collections/{collection}
 ```
 
+A tag that names the same concept as a term states it with
+`skos:exactMatch`, and the term states the same in return, so the tag graph
+and the vocabulary graph are one graph. A tag may also carry a
+`skos:scopeNote` describing what is filed under it.
+
 Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
 and each collection a `skos:Collection` of terms. A term or a definition
 points at a tag with `dcterms:subject`. The `skos:inScheme` statement on a tag

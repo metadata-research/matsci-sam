@@ -50,6 +50,36 @@ A facet page at `/tags/pspp/{facet}` lists the terms it is assigned to.
 Authors cannot attach a facet to a definition, and administrators cannot
 attach a topic to a term.
 
+## Tags that are also terms
+
+A tag and a term can be the same concept. "Corrosion" is a subject you file
+definitions under, and it is also a thing the dictionary defines. When they
+are the same, an administrator, or the contributor who created the tag, can
+say so from the tag page.
+
+A linked tag keeps its own page and identifier and gains the definitions of
+the term. The metadata exports state the link in both directions with
+`skos:exactMatch`, so a reader who arrives at either one finds the other.
+Linking is optional and uncommon. Most tags are subject headings that no one
+would write a definition of, and they stay as they are.
+
+A facet is never linked, because a facet classifies a term rather than being
+one. A tag is also never linked to a term whose own definitions are filed
+under it, since the statement would say that a definition is about itself.
+
+## Scope notes
+
+A tag can carry a scope note: a sentence saying what belongs under it, which
+is a different question from what it means. "Degradation in service, not
+surface finish" tells a contributor how to use the tag whatever the linked
+term goes on to say.
+
+The note matters most as the vocabulary ages. A tag is a stable identifier
+for a meaning that moves, so the rule is that a label or a scope note is
+edited only to correct it. A tag whose meaning has genuinely changed is
+retired and replaced, which keeps every statement already filed under the old
+tag meaning what it meant.
+
 ## Collections
 
 A collection is a curated named set of terms, published at
