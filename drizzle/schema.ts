@@ -64,6 +64,55 @@ export const usersTable = pgTable(
   ]
 )
 
+// --- AI MODELS ---
+// A model that contributes is a user, so every author, co-author, vote and
+// provenance path already works for it. What a model additionally has —
+// vendor, family, the exact tag it runs under — has no place on a person, so
+// it extends the user row rather than widening it. One row per model version:
+// two versions of one family produce different text and are different agents.
+export type AiModel = typeof aiModelsTable.$inferSelect
+export const aiModelsTable = pgTable(
+  "aiModels",
+  {
+    // The user this describes. Also the primary key: a user is at most one
+    // model, and a model is exactly one user.
+    userId: integer()
+      .references(() => usersTable.id)
+      .primaryKey(),
+    // Public identifier: /models/<slug>. Immutable once published.
+    slug: text().notNull().unique(),
+    // The exact string the runtime was asked for, e.g. "gemma4:26b" or
+    // "claude-opus-5". This is what makes a generation reproducible and what
+    // the revision rows record, so it is the identity, not the display name.
+    tag: text().notNull().unique(),
+    vendor: text().notNull(),
+    family: text(),
+    parameterSize: text(),
+    // Null while the model is in use; set when it is retired from service, so
+    // its past contributions keep resolving.
+    retiredAt: timestamp({ mode: "string", withTimezone: true }),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    check("ai_models_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
+    check(
+      "ai_models_nonblank",
+      sql`btrim(${t.tag}) <> '' AND btrim(${t.vendor}) <> ''
+          AND (${t.family} IS NULL OR btrim(${t.family}) <> '')
+          AND (${t.parameterSize} IS NULL OR btrim(${t.parameterSize}) <> '')`
+    )
+  ]
+)
+
+export const aiModelsTableRelations = relations(aiModelsTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [aiModelsTable.userId],
+    references: [usersTable.id]
+  })
+}))
+
 // --- EXTERNAL AUTHENTICATION ---
 export const oauthAccountsTable = pgTable(
   "oauthAccounts",

@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
+  aiModelsTable,
   db,
   termsTable,
   votesTable,
@@ -11,15 +12,7 @@ import {
   coauthorsTable,
   definitionRevisionsTable
 } from "@yamz/db"
-import {
-  and,
-  desc,
-  eq,
-  getTableColumns,
-  isNull,
-  like,
-  sql
-} from "drizzle-orm"
+import { and, desc, eq, getTableColumns, isNull, like, sql } from "drizzle-orm"
 import { slugify, uniqueSlug } from "@/lib/slug"
 import { deleteDefinitionRows } from "@/lib/definition-purge"
 import {
@@ -343,7 +336,8 @@ export const definitionsRouter = createTRPCRouter({
             id: usersTable.id,
             name: usersTable.name,
             isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
+            isProfilePublic: usersTable.isProfilePublic,
+            modelSlug: aiModelsTable.slug
           },
           term: termsTable.term,
           termSlug: termsTable.slug
@@ -352,6 +346,8 @@ export const definitionsRouter = createTRPCRouter({
         .where(eq(definitionsTable.id, definitionId))
         .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
         .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+        // A model author carries its own identity row.
+        .leftJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
 
       if (!def) return def
 
@@ -405,32 +401,32 @@ export const definitionsRouter = createTRPCRouter({
 
       const vote = userId
         ? await db.query.votesTable.findFirst({
-          columns: { kind: true },
-          where: and(
-            eq(votesTable.userId, userId),
-            eq(votesTable.revisionId, selectedRevision.id)
-          )
-        })
+            columns: { kind: true },
+            where: and(
+              eq(votesTable.userId, userId),
+              eq(votesTable.revisionId, selectedRevision.id)
+            )
+          })
         : null
 
       // Additional authors (the model, for accepted AI refinements)
       const coauthors = selectedRevision.model
         ? await db
-          .select({
-            id: usersTable.id,
-            name: usersTable.name,
-            isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
-          })
-          .from(coauthorsTable)
-          .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
-          .where(
-            and(
-              eq(coauthorsTable.definitionId, def.id),
-              eq(usersTable.isAi, true),
-              eq(usersTable.name, selectedRevision.model)
+            .select({
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            })
+            .from(coauthorsTable)
+            .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
+            .where(
+              and(
+                eq(coauthorsTable.definitionId, def.id),
+                eq(usersTable.isAi, true),
+                eq(usersTable.name, selectedRevision.model)
+              )
             )
-          )
         : []
 
       // Public identities for both sides of the accepted-refinement lineage.
@@ -440,24 +436,24 @@ export const definitionsRouter = createTRPCRouter({
         def.refinedFromId === null
           ? null
           : db.query.definitionsTable.findFirst({
-            columns: { definitionNumber: true },
-            where: eq(definitionsTable.id, def.refinedFromId)
-          }),
+              columns: { definitionNumber: true },
+              where: eq(definitionsTable.id, def.refinedFromId)
+            }),
         def.authorId === null
           ? null
           : db.query.definitionsTable.findFirst({
-            columns: { id: true, definitionNumber: true },
-            where: and(
-              eq(definitionsTable.refinedFromId, def.id),
-              eq(definitionsTable.authorId, def.authorId),
-              sql`exists (
+              columns: { id: true, definitionNumber: true },
+              where: and(
+                eq(definitionsTable.refinedFromId, def.id),
+                eq(definitionsTable.authorId, def.authorId),
+                sql`exists (
                   select 1
                   from ${definitionRevisionsTable} artifact_revision
                   where artifact_revision."definitionId" = ${definitionsTable.id}
                     and artifact_revision."sourceRefinementId" is not null
                 )`
-            )
-          })
+              )
+            })
       ])
 
       const currentVersion =
@@ -510,6 +506,7 @@ export const definitionsRouter = createTRPCRouter({
           isAi: usersTable.isAi,
           author: usersTable.name,
           authorProfilePublic: usersTable.isProfilePublic,
+          authorModelSlug: aiModelsTable.slug,
           comments:
             sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
               .mapWith(Number)
@@ -525,6 +522,8 @@ export const definitionsRouter = createTRPCRouter({
           eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
         )
         .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
+        // A model author carries its own identity row.
+        .leftJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
         // Highest voted first, newest breaking ties, then the permanent
         // definition number for identical timestamps. The tiebreak matters:
         // score alone left equal-scored definitions in whatever order the

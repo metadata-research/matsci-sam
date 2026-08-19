@@ -10,6 +10,7 @@ import { refinementsRouter } from "./refinements"
 import { discussionRouter } from "./discussion"
 import { z } from "zod"
 import {
+  aiModelsTable,
   commentsTable,
   db,
   definitionRevisionsTable,
@@ -129,6 +130,7 @@ export const appRouter = createTRPCRouter({
             isAi: usersTable.isAi,
             author: usersTable.name,
             authorProfilePublic: usersTable.isProfilePublic,
+            authorModelSlug: aiModelsTable.slug,
             term: termsTable.term,
             termSlug: termsTable.slug,
             comments:
@@ -149,6 +151,8 @@ export const appRouter = createTRPCRouter({
             eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
           )
           .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
+          // A model author carries its own identity row.
+          .leftJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
           // Empty query keeps the newest-first browse the homepage prefetches.
           .where(
             and(

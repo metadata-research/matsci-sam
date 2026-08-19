@@ -1,4 +1,4 @@
-import { db, definitionsTable, usersTable } from "@yamz/db"
+import { aiModelsTable, db, definitionsTable, usersTable } from "@yamz/db"
 import { and, asc, eq, isNull } from "drizzle-orm"
 import { cache } from "react"
 import {
@@ -7,6 +7,7 @@ import {
   RevisionNoChangeError
 } from "@/lib/definition-revisions"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
+import { modelIdentity } from "./llm/model-identity"
 
 export const GetUser = cache((userId: number) =>
   db.query.usersTable.findFirst({
@@ -36,22 +37,43 @@ export const GetAiUser = async () => {
   return aiUser
 }
 
-// AI user for a specific model, used for co-authorship of accepted refinement
-// suggestions. Distinct from GetAiUser (the legacy generic AI user that owns
-// the term-level auto definitions): co-authors display by name, and that name
-// must be the model that actually generated the text, e.g. "gemma4:26b".
+/*
+ * The user a model contributes as. Distinct from GetAiUser, the legacy
+ * unnamed identity that owns the term-level auto definitions.
+ *
+ * A model is looked up by its tag, not by its display name: the tag is what
+ * the runtime was asked for and what every revision records, so it is the
+ * identity. One user per tag, because two versions of one family are
+ * different agents that produce different text.
+ */
 export const GetModelUser = async (model: string) => {
-  const existing = await db.query.usersTable.findFirst({
-    where: and(eq(usersTable.isAi, true), eq(usersTable.name, model))
+  const identity = modelIdentity(model)
+
+  const [existing] = await db
+    .select({ user: usersTable })
+    .from(aiModelsTable)
+    .innerJoin(usersTable, eq(usersTable.id, aiModelsTable.userId))
+    .where(eq(aiModelsTable.tag, identity.tag))
+    .limit(1)
+  if (existing) return existing.user
+
+  return await db.transaction(async (tx) => {
+    const [insertedUser] = await tx
+      .insert(usersTable)
+      .values({ isAi: true, name: identity.displayName })
+      .returning()
+
+    await tx.insert(aiModelsTable).values({
+      userId: insertedUser.id,
+      slug: identity.slug,
+      tag: identity.tag,
+      vendor: identity.vendor,
+      family: identity.family,
+      parameterSize: identity.parameterSize
+    })
+
+    return insertedUser
   })
-  if (existing) return existing
-
-  const [insertedUser] = await db
-    .insert(usersTable)
-    .values({ isAi: true, name: model })
-    .returning()
-
-  return insertedUser
 }
 
 export const UpsertAIDefinition = async (

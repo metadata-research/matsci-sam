@@ -67,6 +67,7 @@ export const Definition = ({
   definition: DefinitionType & {
     vote?: "up" | "down" | null
     isAi: boolean
+    authorModelSlug?: string | null
     // author display name; pages that don't fetch it omit the attribution
     author?: string | null
     authorProfilePublic?: boolean
@@ -121,11 +122,20 @@ export const Definition = ({
       </Link>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-sm text-muted-foreground">
         {definition.isAi ? (
-          // Carries the plain-language "AI" label alongside the model, so no
-          // separate "AI Generated" badge is needed to state the same thing.
+          // A model is an author, so it appears by name where a person would.
+          // "MatBot" marks it as a machine and the exact tag beside it says
+          // which one, so no separate "AI generated" badge is needed.
           <span className="flex items-center gap-1 text-ai">
             <SparklesIcon className="size-3.5" />
-            AI
+            <PublicProfileName
+              user={{
+                id: definition.authorId,
+                name: definition.author,
+                isAi: true,
+                modelSlug: definition.authorModelSlug
+              }}
+              fallback="AI"
+            />
             {definition.model && (
               <>
                 <span aria-hidden className="text-ai/50">
@@ -159,10 +169,8 @@ export const Definition = ({
         {typeof definition.comments === "number" && (
           <Link
             href={
-              definitionPath(
-                definition.termSlug,
-                definition.definitionNumber
-              ) + "#discussion"
+              definitionPath(definition.termSlug, definition.definitionNumber) +
+              "#discussion"
             }
             className={`flex items-center gap-1 hover:underline ${
               definition.comments > 0 ? "text-primary" : ""

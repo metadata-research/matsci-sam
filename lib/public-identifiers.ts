@@ -80,6 +80,18 @@ export const conceptUri = (schemeSlug: string, conceptSlug: string) =>
 export const collectionUri = (slug: string) =>
   absoluteIdentifier(collectionPath(slug))
 
+/*
+ * A model that contributes is an agent with a resolvable identity, so it gets
+ * a readable path of its own rather than the /people/<id> route, which
+ * exposes a database key and carries fields a model has no use for.
+ */
+export const modelsIndexPath = "/models"
+
+export const modelPath = (slug: string) =>
+  `${modelsIndexPath}/${slugSegment(slug, "Model slug")}`
+
+export const modelUri = (slug: string) => absoluteIdentifier(modelPath(slug))
+
 // The reifier IRI for one stored statement. The subject IRI is already
 // absolute; the key is the statement's opaque uuid.
 export const statementUri = (subjectIri: string, key: string) => {
