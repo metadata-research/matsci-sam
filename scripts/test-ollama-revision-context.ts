@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import {
   buildRevisionMessages,
   needsReconstructedDefinitionContext
-} from "../lib/apis/ollama-revision-context"
+} from "../lib/llm/revision-context"
 
 const newTermThread = [
   {

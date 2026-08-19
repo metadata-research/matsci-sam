@@ -14,7 +14,9 @@ import {
 import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
-import { OllamaModel, RefineSystemPrompt, runLLM } from "@/lib/apis/ollama"
+import { runLLM } from "@/lib/llm/client"
+import { OllamaModel } from "@/lib/llm/model"
+import { RefineSystemPrompt } from "@/lib/llm/prompts"
 import { GetModelUser } from "@/lib/crud"
 import {
   createDefinitionWithInitialRevision,

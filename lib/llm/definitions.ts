@@ -1,3 +1,5 @@
+import "server-only"
+
 import {
   chatsTable,
   db,
@@ -7,120 +9,18 @@ import {
   termsTable,
   usersTable
 } from "@yamz/db"
-import {
-  and,
-  asc,
-  eq,
-  getTableColumns,
-  isNull,
-  lt,
-  sql
-} from "drizzle-orm"
-import { createHash } from "node:crypto"
-import { Message, Ollama } from "ollama"
-import { z } from "zod"
-import zodToJsonSchema from "zod-to-json-schema"
+import { and, asc, eq, getTableColumns, isNull, lt, sql } from "drizzle-orm"
+import { Message } from "ollama"
 import { UpsertAIDefinition } from "../crud"
-import prompts from "@/lib/prompts.json"
+import { diffToStringSimple } from "../definition-revisions"
+import { runLLM } from "./client"
+import { OllamaModel } from "./model"
+import { LLMSystemPrompt, RefineSystemPrompt } from "./prompts"
+import { generationStamp, refineGenerationStamp } from "./stamp"
 import {
   buildRevisionMessages,
   needsReconstructedDefinitionContext
-} from "./ollama-revision-context"
-import { diffToStringSimple } from "../definition-revisions"
-
-export type DefinitionOutput = z.infer<typeof DefinitionOutput>
-export const DefinitionOutput = z.object({
-  definition: z.string(),
-  example: z.string()
-})
-
-const resolvePromptKey = (key: string) => {
-  const entry = (prompts as Record<string, { prompt: string }>)[key]
-  if (!entry)
-    throw new Error(
-      `Unknown prompt key "${key}" — available prompts: ${Object.keys(prompts).join(", ")}`
-    )
-
-  return entry.prompt
-}
-
-// System prompt selection: SYSTEM_PROMPT_KEY picks a named prompt from
-// lib/prompts.json; SYSTEM_PROMPT (raw text) still works and takes precedence
-// so existing deployments are unaffected.
-const resolveSystemPrompt = () => {
-  if (process.env.SYSTEM_PROMPT) return process.env.SYSTEM_PROMPT
-
-  const key = process.env.SYSTEM_PROMPT_KEY
-  if (!key)
-    throw new Error("Set SYSTEM_PROMPT or SYSTEM_PROMPT_KEY in the environment")
-
-  return resolvePromptKey(key)
-}
-
-export const LLMSystemPrompt = resolveSystemPrompt()
-
-// Prompt for the interactive refine flow; REFINE_PROMPT_KEY overrides the
-// default "refine" entry in lib/prompts.json.
-export const RefinePromptKey = process.env.REFINE_PROMPT_KEY ?? "refine"
-export const RefineSystemPrompt = resolvePromptKey(RefinePromptKey)
-
-export const OllamaModel = "gemma4:26b"
-
-// Provenance stamp written on every AI-generated row (chats, refinement
-// rounds) so each generation stays attributable to the exact prompt and model
-// that produced it. promptHash covers edits to prompts.json under an
-// unchanged key and raw SYSTEM_PROMPT text (where promptKey is null).
-export const makeGenerationStamp = (
-  promptKey: string | null,
-  promptText: string
-) => ({
-  promptKey,
-  promptHash: createHash("sha256")
-    .update(promptText)
-    .digest("hex")
-    .slice(0, 16),
-  promptText,
-  model: OllamaModel
-})
-
-export const generationStamp = makeGenerationStamp(
-  process.env.SYSTEM_PROMPT ? null : (process.env.SYSTEM_PROMPT_KEY ?? null),
-  LLMSystemPrompt
-)
-
-export const refineGenerationStamp = makeGenerationStamp(
-  RefinePromptKey,
-  RefineSystemPrompt
-)
-
-export const ollama = new Ollama({
-  host: process.env.OLLAMA_HOST
-})
-
-export const runLLM = async (
-  messages: Message[],
-  systemPrompt: string = LLMSystemPrompt
-) => {
-  const res = await ollama.chat({
-    model: OllamaModel,
-    messages: [{ role: "system", content: systemPrompt }, ...messages],
-    format: zodToJsonSchema(DefinitionOutput),
-    // Keep the model loaded between requests — reloading gemma4:26b (~18 GB)
-    // costs ~22s, which users see as the AI definition hanging
-    keep_alive: "10m",
-    think: false
-  })
-
-  try {
-    const raw = JSON.parse(res.message.content)
-    const data = DefinitionOutput.parse(raw)
-
-    return data
-  } catch (err) {
-    console.log(JSON.stringify(res, null, 2))
-    console.error("Model returned an invalid response", err)
-  }
-}
+} from "./revision-context"
 
 export const reviseDefinition = async (termId: number) => {
   const chats = await db.query.chatsTable.findMany({
@@ -145,10 +45,7 @@ export const reviseDefinition = async (termId: number) => {
         example: definitionsTable.example
       })
       .from(termsTable)
-      .innerJoin(
-        definitionsTable,
-        eq(definitionsTable.termId, termsTable.id)
-      )
+      .innerJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
       .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
       .where(
         and(
@@ -228,8 +125,8 @@ export const runRefinementRound = async (refinementId: number) => {
       orderBy: asc(refinementsTable.round)
     })
 
-    const sourceDefinition = diffToStringSimple(round.sourceDefinition ?? []);
-    const sourceExample = diffToStringSimple(round.sourceExample ?? []);
+    const sourceDefinition = diffToStringSimple(round.sourceDefinition ?? [])
+    const sourceExample = diffToStringSimple(round.sourceExample ?? [])
     const messages: Message[] = [
       {
         role: "user",

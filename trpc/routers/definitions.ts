@@ -28,7 +28,7 @@ import {
   contributorProcedure
 } from "../procedures"
 import { revalidatePath } from "next/cache"
-import { reviseDefinition } from "@/lib/apis/ollama"
+import { reviseDefinition } from "@/lib/llm/definitions"
 import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
 import {

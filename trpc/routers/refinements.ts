@@ -9,7 +9,7 @@ import {
   coauthorsTable
 } from "@yamz/db"
 import { and, asc, eq, sql } from "drizzle-orm"
-import { runRefinementRound } from "@/lib/apis/ollama"
+import { runRefinementRound } from "@/lib/llm/definitions"
 import { GetModelUser } from "@/lib/crud"
 import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
