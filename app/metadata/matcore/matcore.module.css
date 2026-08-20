@@ -470,3 +470,61 @@
     transition: none;
   }
 }
+
+/* Element notes: the Dublin Core relation, and where an element takes its
+   values from the vocabulary. Sits under the description inside the third
+   column so the row grid is unchanged. */
+.fieldBody {
+  min-width: 0;
+}
+
+.fieldNotes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  margin-top: 0.3rem;
+}
+
+.fieldNote {
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+}
+
+.fieldNote code {
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
+  background: var(--secondary);
+  font-size: 0.7rem;
+}
+
+.fieldNote a {
+  color: var(--primary);
+  text-underline-offset: 2px;
+}
+
+.fieldNote a:hover {
+  text-decoration: underline;
+}
+
+.machineNote {
+  margin-top: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.machineNote code {
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
+  background: var(--secondary);
+  font-size: 0.72rem;
+}
+
+.machineNote a {
+  color: var(--primary);
+  text-underline-offset: 2px;
+}
+
+.machineNote a:hover {
+  text-decoration: underline;
+}

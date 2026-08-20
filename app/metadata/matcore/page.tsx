@@ -8,6 +8,7 @@ import {
   syntheticSiliconDftRecord,
   type MatCoreElement
 } from "@/lib/matcore"
+import { matCoreElementUri } from "@/lib/public-identifiers"
 import { SITE_NAME } from "@/lib/site"
 import styles from "./matcore.module.css"
 
@@ -58,6 +59,17 @@ export default function MatCoreMetadataPage() {
               <span>
                 Preliminary snapshot—not an official or current MatCore release.
               </span>
+            </p>
+            <p className={styles.machineNote}>
+              Every element below has an identifier of its own, formed from this
+              address and the element key, so <code>#creator</code> names the
+              Creator element. The same identifiers appear in{" "}
+              <Link href="/dataset.ttl">the published RDF</Link>, where the
+              elements that correspond to a Dublin Core property say so.{" "}
+              <Link href="/docs/reference/matcore-and-the-vocabulary">
+                How MatCore relates to the vocabulary
+              </Link>
+              .
             </p>
           </header>
 
@@ -183,8 +195,16 @@ function FieldProfile({
       </div>
       <ul className={styles.fieldList}>
         {elements.map((element) => (
-          <li key={element.key} className={styles.fieldRow}>
-            <code className={styles.fieldKey}>{element.sourceKey}</code>
+          // The row id is the element key, so the published IRI
+          // /metadata/matcore#<key> resolves to the row that describes it.
+          <li key={element.key} id={element.key} className={styles.fieldRow}>
+            <a
+              href={`#${element.key}`}
+              className={styles.fieldKey}
+              title={matCoreElementUri(element.key)}
+            >
+              <code>{element.sourceKey}</code>
+            </a>
             <span
               className={`${styles.requirement} ${
                 element.required ? styles.requirementRequired : ""
@@ -192,7 +212,27 @@ function FieldProfile({
             >
               {element.required ? "Required" : "Optional"}
             </span>
-            <p className={styles.fieldDescription}>{element.description}</p>
+            <div className={styles.fieldBody}>
+              <p className={styles.fieldDescription}>{element.description}</p>
+              {(element.crosswalk || element.rangeIsVocabulary) && (
+                <p className={styles.fieldNotes}>
+                  {element.crosswalk && (
+                    <span className={styles.fieldNote}>
+                      {element.crosswalk.relation === "exact"
+                        ? "Same as "
+                        : "Narrows "}
+                      <code>{element.crosswalk.property}</code>
+                    </span>
+                  )}
+                  {element.rangeIsVocabulary && (
+                    <span className={styles.fieldNote}>
+                      Values come from the{" "}
+                      <Link href="/vocabulary">MatSci-SAM vocabulary</Link>
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
           </li>
         ))}
       </ul>

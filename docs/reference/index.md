@@ -12,6 +12,10 @@ reading the provenance record.
 - [SKOS and metadata](/docs/reference/skos-and-metadata) maps those structures
   onto the published vocabularies, SKOS, Dublin Core, OWL, and the application
   namespace.
+- [MatCore and the vocabulary](/docs/reference/matcore-and-the-vocabulary)
+  separates terms, classifying concepts, and MatCore metadata elements, and
+  gives the Dublin Core crosswalk and the single point where the metadata
+  standard draws its values from the dictionary.
 - [Identifier policy](/docs/reference/identifier-policy) states which
   resources have persistent identifiers, how they are formed, and what stays
   stable when content changes.

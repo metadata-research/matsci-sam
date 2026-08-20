@@ -18,12 +18,35 @@ export type MatCoreProfileSource = Readonly<{
   pdfPage: 8 | 10
 }>
 
+/*
+ * How a MatCore element relates to the Dublin Core property of the same name.
+ * The 2025 paper places MatCore in the Dublin Core lineage and observes that
+ * core standards map their properties to it, but it publishes no crosswalk, so
+ * these relations are read off the element descriptions and stated here rather
+ * than claimed as the paper's own.
+ *
+ * "exact" means the element is that property. "subproperty" means the element
+ * narrows it, which is the honest relation where MatCore constrains what the
+ * value may be.
+ */
+export type MatCoreCrosswalk = Readonly<{
+  property: string
+  relation: "exact" | "subproperty"
+}>
+
 export type MatCoreElement<Key extends string = string> = Readonly<{
   sourceKey: string
   key: Key
   label: string
   required: boolean
   description: string
+  // Absent where no Dublin Core property carries the same meaning, which is
+  // the case for every method-specific element.
+  crosswalk?: MatCoreCrosswalk
+  // Set where the value should be drawn from the MatSci-SAM vocabulary rather
+  // than written free-text. This is the join between the metadata standard and
+  // the dictionary.
+  rangeIsVocabulary?: boolean
 }>
 
 export type MatCoreProfile = Readonly<{
@@ -56,28 +79,32 @@ export const minimalMatCoreElements = [
     label: "Creator",
     required: true,
     description:
-      "Authors who generated the data and their institutional affiliations."
+      "Authors who generated the data and their institutional affiliations.",
+    crosswalk: { property: "dcterms:creator", relation: "exact" }
   },
   {
     sourceKey: "title",
     key: "title",
     label: "Title",
     required: true,
-    description: "Title of the dataset."
+    description: "Title of the dataset.",
+    crosswalk: { property: "dcterms:title", relation: "exact" }
   },
   {
     sourceKey: "date",
     key: "date",
     label: "Date",
     required: true,
-    description: "Date or dates when the dataset was created."
+    description: "Date or dates when the dataset was created.",
+    crosswalk: { property: "dcterms:date", relation: "exact" }
   },
   {
     sourceKey: "description",
     key: "description",
     label: "Description",
     required: true,
-    description: "Brief description of the dataset."
+    description: "Brief description of the dataset.",
+    crosswalk: { property: "dcterms:description", relation: "exact" }
   },
   {
     sourceKey: "disclaimer",
@@ -93,7 +120,8 @@ export const minimalMatCoreElements = [
     label: "Material",
     required: true,
     description:
-      "Material represented by the data, including composition or chemistry range, structure, and microstructure."
+      "Material represented by the data, including composition or chemistry range, structure, and microstructure.",
+    rangeIsVocabulary: true
   },
   {
     sourceKey: "calculation-type",
@@ -139,7 +167,8 @@ export const minimalMatCoreElements = [
     key: "source-citation",
     label: "Source citation",
     required: false,
-    description: "Citation or DOI for sources that describe the data."
+    description: "Citation or DOI for sources that describe the data.",
+    crosswalk: { property: "dcterms:bibliographicCitation", relation: "exact" }
   },
   {
     sourceKey: "doi",
@@ -147,7 +176,8 @@ export const minimalMatCoreElements = [
     label: "DOI",
     required: false,
     description:
-      "Dataset DOI and repository location when available and distinct from the associated publication."
+      "Dataset DOI and repository location when available and distinct from the associated publication.",
+    crosswalk: { property: "dcterms:identifier", relation: "subproperty" }
   },
   {
     sourceKey: "funding",
@@ -184,7 +214,8 @@ export const minimalMatCoreElements = [
     key: "license",
     label: "License",
     required: true,
-    description: "Dataset license expressed using an SPDX license identifier."
+    description: "Dataset license expressed using an SPDX license identifier.",
+    crosswalk: { property: "dcterms:license", relation: "subproperty" }
   }
 ] as const satisfies readonly MatCoreElement[]
 

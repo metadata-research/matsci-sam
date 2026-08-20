@@ -11,11 +11,22 @@ a stored dataset record, or a validation schema.
 
 | Resource             | URL                          | Format                                       |
 | -------------------- | ---------------------------- | -------------------------------------------- |
+| Everything           | `/dataset.ttl`               | The whole published graph, Turtle            |
 | Whole vocabulary     | `/vocabulary.ttl`            | SKOS concept scheme, Turtle                  |
 | One term             | `/terms/{id}/skos.ttl`       | SKOS concept, Turtle                         |
 | One term             | `/terms/{id}/skos.jsonld`    | SKOS concept, JSON-LD                        |
 | Term history         | `/terms/{id}/provenance.ttl` | PROV-O, Turtle                               |
 | Tags and collections | `/tags.ttl`                  | SKOS concept schemes and collections, Turtle |
+
+`/dataset.ttl` is the one document to fetch to see every kind of entity at
+once. It holds the vocabulary scheme, each term with its definitions and
+revisions, the concept schemes with their concepts and collections, and the
+MatCore element set. The term history is the one thing it leaves out, because
+that record is far larger than the rest and describes activities rather than
+published entities. Fetch it per term instead.
+
+The narrower documents remain, so a consumer who wants one layer does not have
+to filter the whole graph.
 
 Each term is published as a `skos:Concept`. The term is the
 `skos:prefLabel`. Each `skos:definition` value is an identified current

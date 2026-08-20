@@ -111,3 +111,21 @@ export const applicationMetadataUri = (name: string) => {
   if (!name) throw new RangeError("Metadata term must not be empty")
   return `${applicationMetadataNamespaceUri}${encodeURIComponent(name)}`
 }
+
+/*
+ * MatCore elements are a transcription of a published standard, so they get a
+ * namespace of their own rather than sharing the application namespace above.
+ * The distinction matters to a consumer: matsci: terms are ours to change,
+ * these describe somebody else's specification.
+ */
+export const matCoreNamespaceUri = `${identifierBaseUrl}/metadata/matcore#`
+
+export const matCoreElementUri = (key: string) => {
+  if (!key) throw new RangeError("MatCore element key must not be empty")
+  return `${matCoreNamespaceUri}${encodeURIComponent(key)}`
+}
+
+export const matCoreProfileUri = (key: string) => {
+  if (!key) throw new RangeError("MatCore profile key must not be empty")
+  return `${matCoreNamespaceUri}${encodeURIComponent(key)}`
+}
