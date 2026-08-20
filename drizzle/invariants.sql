@@ -160,19 +160,40 @@ BEGIN
       RAISE EXCEPTION 'concept relation crosses concept schemes';
     END IF;
 
-    -- A concept in a curated scheme (a facet) attaches at term level only; a
-    -- concept in a non-curated scheme (a topic) at definition level only.
+    -- A concept attaches at the level its scheme states, and at no other.
+    -- 0034 replaced the `curated` boolean with explicit policy columns, so the
+    -- same rule is expressed against whichever shape the database has. As
+    -- above, PL/pgSQL resolves column references only when a statement first
+    -- executes, so the branch not taken is never resolved.
     IF EXISTS (
-      SELECT 1
-      FROM "statements" s
-      JOIN "concepts" c ON c.id = s."objectConceptId"
-      JOIN "conceptSchemes" cs ON cs.id = c."schemeId"
-      WHERE s."retractedAt" IS NULL
-        AND s.predicate = 'dcterms:subject'
-        AND ((s."subjectDefinitionId" IS NOT NULL AND cs.curated)
-          OR (s."subjectTermId" IS NOT NULL AND NOT cs.curated))
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'conceptSchemes' AND column_name = 'attachesAt'
     ) THEN
-      RAISE EXCEPTION 'dcterms:subject attaches at the wrong level for its concept scheme';
+      IF EXISTS (
+        SELECT 1
+        FROM "statements" s
+        JOIN "concepts" c ON c.id = s."objectConceptId"
+        JOIN "conceptSchemes" cs ON cs.id = c."schemeId"
+        WHERE s."retractedAt" IS NULL
+          AND s.predicate = 'dcterms:subject'
+          AND ((s."subjectDefinitionId" IS NOT NULL AND cs."attachesAt" <> 'definition')
+            OR (s."subjectTermId" IS NOT NULL AND cs."attachesAt" <> 'term'))
+      ) THEN
+        RAISE EXCEPTION 'dcterms:subject attaches at the wrong level for its concept scheme';
+      END IF;
+    ELSE
+      IF EXISTS (
+        SELECT 1
+        FROM "statements" s
+        JOIN "concepts" c ON c.id = s."objectConceptId"
+        JOIN "conceptSchemes" cs ON cs.id = c."schemeId"
+        WHERE s."retractedAt" IS NULL
+          AND s.predicate = 'dcterms:subject'
+          AND ((s."subjectDefinitionId" IS NOT NULL AND cs.curated)
+            OR (s."subjectTermId" IS NOT NULL AND NOT cs.curated))
+      ) THEN
+        RAISE EXCEPTION 'dcterms:subject attaches at the wrong level for its concept scheme';
+      END IF;
     END IF;
 
     -- A retired concept receives no active statement, as subject or object.
@@ -342,17 +363,37 @@ BEGIN
     -- The bridge asserts that a tag and a term are the same concept. A facet
     -- classifies a term rather than being one, so only a concept in an open
     -- scheme may carry it.
+    -- Same rule against either shape: before 0034 a curated scheme could not
+    -- bridge, and after it the scheme says so directly.
     IF EXISTS (
-      SELECT 1
-      FROM "statements" s
-      JOIN "concepts" c ON c.id = s."subjectConceptId"
-      JOIN "conceptSchemes" cs ON cs.id = c."schemeId"
-      WHERE s."retractedAt" IS NULL
-        AND s.predicate = 'skos:exactMatch'
-        AND s."objectTermId" IS NOT NULL
-        AND cs.curated
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'conceptSchemes' AND column_name = 'bridgeable'
     ) THEN
-      RAISE EXCEPTION 'facet bridged to a term';
+      IF EXISTS (
+        SELECT 1
+        FROM "statements" s
+        JOIN "concepts" c ON c.id = s."subjectConceptId"
+        JOIN "conceptSchemes" cs ON cs.id = c."schemeId"
+        WHERE s."retractedAt" IS NULL
+          AND s.predicate = 'skos:exactMatch'
+          AND s."objectTermId" IS NOT NULL
+          AND NOT cs."bridgeable"
+      ) THEN
+        RAISE EXCEPTION 'concept from a non-bridgeable scheme bridged to a term';
+      END IF;
+    ELSE
+      IF EXISTS (
+        SELECT 1
+        FROM "statements" s
+        JOIN "concepts" c ON c.id = s."subjectConceptId"
+        JOIN "conceptSchemes" cs ON cs.id = c."schemeId"
+        WHERE s."retractedAt" IS NULL
+          AND s.predicate = 'skos:exactMatch'
+          AND s."objectTermId" IS NOT NULL
+          AND cs.curated
+      ) THEN
+        RAISE EXCEPTION 'facet bridged to a term';
+      END IF;
     END IF;
 
     -- While the legacy tables still exist (dropped in 0030): every

@@ -90,12 +90,9 @@ export default async function ConceptSchemePage({
   })
   if (!scheme) notFound()
 
-  // A curated scheme keeps the order its curator established; an open one is
-  // browsed alphabetically.
-  const concepts = await conceptsOfScheme(
-    scheme.slug,
-    scheme.curated ? "seeded" : "label"
-  )
+  // Each scheme states the order its concepts are listed in: the sequence a
+  // curator established, or alphabetical.
+  const concepts = await conceptsOfScheme(scheme.slug, scheme.conceptOrder)
 
   return (
     <main className="px-4 py-8">

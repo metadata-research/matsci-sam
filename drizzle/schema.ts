@@ -876,6 +876,23 @@ export const statementPredicateEnum = pgEnum("statement_predicate", [
   "skos:relatedMatch"
 ])
 
+/*
+ * Scheme and collection policy. Each grouping states its own rules instead of
+ * deriving five behaviours from one boolean, so a new scheme is a row rather
+ * than a code change.
+ */
+export const attachesAtEnum = pgEnum("scheme_attaches_at", [
+  "term",
+  "definition"
+])
+
+export const assertableByEnum = pgEnum("assertable_by", [
+  "curator",
+  "contributor"
+])
+
+export const conceptOrderEnum = pgEnum("concept_order", ["seeded", "label"])
+
 export const conceptStatusEnum = pgEnum("concept_status", [
   "approved",
   "retired",
@@ -891,10 +908,16 @@ export const conceptSchemesTable = pgTable(
     slug: text().notNull().unique(),
     title: text().notNull(), // dcterms:title
     description: text(), // dcterms:description
-    // curated: concepts are created and attached by curators only, and attach
-    // at TERM level only (facets), never to a definition. topics is open and
-    // attaches at DEFINITION level only.
-    curated: boolean().notNull().default(false),
+    // What a concept in this scheme classifies. A facet scheme attaches to the
+    // term concept; an open scheme attaches to one definition of it.
+    attachesAt: attachesAtEnum().notNull().default("definition"),
+    // Who may assert a concept from this scheme. Checked in tRPC.
+    assertableBy: assertableByEnum().notNull().default("contributor"),
+    // Whether a concept here may be declared the same concept as a term.
+    // A classifier is not the thing it classifies, so facet schemes say false.
+    bridgeable: boolean().notNull().default(true),
+    // How concepts are listed: the order a curator seeded, or alphabetical.
+    conceptOrder: conceptOrderEnum().notNull().default("label"),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull()
@@ -976,6 +999,10 @@ export const collectionsTable = pgTable(
     slug: text().notNull().unique(),
     title: text().notNull(), // skos:prefLabel / dcterms:title
     description: text(),
+    // Who may change membership. Declared here so the rule is settled before a
+    // write path exists; no procedure reads it yet, because collections have
+    // no mutations. The invariant keeps the column consistent meanwhile.
+    assertableBy: assertableByEnum().notNull().default("curator"),
     createdById: integer()
       .references(() => usersTable.id)
       .notNull(),

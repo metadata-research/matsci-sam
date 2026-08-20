@@ -46,7 +46,7 @@ const loadConcept = async (schemeSlug: string, conceptSlug: string) => {
       schemeId: conceptSchemesTable.id,
       schemeSlug: conceptSchemesTable.slug,
       schemeTitle: conceptSchemesTable.title,
-      schemeCurated: conceptSchemesTable.curated
+      schemeBridgeable: conceptSchemesTable.bridgeable
     })
     .from(conceptsTable)
     .innerJoin(
