@@ -9,6 +9,7 @@ import {
   discussionSuggestionsTable,
   refinementsTable,
   termsTable,
+  termUserImpactView,
   usersTable,
   votesTable
 } from "@yamz/db"
@@ -122,6 +123,9 @@ export const buildTermProvenance = async (
     where: eq(termsTable.id, termId)
   })
   if (!term) return null
+
+  // Refesh user impact view
+  await db.refreshMaterializedView(termUserImpactView);
 
   const definitions = await db
     .select({

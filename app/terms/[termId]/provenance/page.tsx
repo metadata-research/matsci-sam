@@ -16,7 +16,6 @@ export default async function PublicTermProvenancePage(props: {
     .provenance(Number(termId))
     .catch(() => null)
   if (!provenance) notFound()
-
   return (
     <main className="px-4 p-8">
       <section className="max-w-4xl w-full mx-auto space-y-4">

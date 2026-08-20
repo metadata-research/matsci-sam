@@ -1,0 +1,21 @@
+.MuiChartsLabel-root {
+	color: var(--foreground) !important;
+	font-family: var(--font-plex-sans);
+}
+
+.MuiChartsAxis-line {
+	stroke: var(--foreground) !important;
+}
+
+
+.MuiChartsAxis-tick {
+	fill: var(--foreground) !important;
+}
+
+.MuiChartsAxis-tickLabel {
+	fill: var(--foreground) !important;
+}
+
+.MuiChartsAxis-label {
+	fill: var(--foreground) !important;
+}

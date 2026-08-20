@@ -204,6 +204,13 @@
       "when": 1785437778911,
       "tag": "0028_shiny_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1785849456197,
+      "tag": "0029_supreme_jubilee",
+      "breakpoints": true
     }
   ]
 }

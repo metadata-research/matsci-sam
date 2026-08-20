@@ -16,7 +16,8 @@ import {
   check,
   type AnyPgColumn,
   jsonb,
-  numeric
+  numeric,
+  pgMaterializedView
 } from "drizzle-orm/pg-core"
 
 export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
@@ -613,6 +614,34 @@ export const definitionRevisionsTableRelations = relations(
     votes: many(votesTable)
   })
 )
+
+export type TermUserImpact = typeof termUserImpactView.$inferSelect
+export const termUserImpactView = pgMaterializedView("termUserImpactView", {
+  term: integer().references(() => termsTable.id),
+  editor: integer().references(() => usersTable.id),
+  impact: numeric({ precision: 4, scale: 3 }),
+}).as(sql`
+SELECT
+  totals.term,
+  revs."editorId" as editor,
+  SUM(revs."changeDelta"/totals.total) AS impact
+FROM "definitionRevisions" AS revs
+JOIN definitions AS defs
+ON revs."definitionId" = defs.id
+JOIN  (
+  SELECT
+    "termId" AS term,
+    SUM("changeDelta") AS total
+  FROM "definitionRevisions"
+  JOIN definitions
+  ON "definitionId" = definitions.id
+  GROUP BY "termId"
+) totals
+ON totals.term = defs."termId"
+GROUP BY
+  totals.term,
+  revs."editorId"
+`);
 
 // --- DISCUSSION SUGGESTIONS ---
 // A Discussion suggestion is generated before the user decides whether to
