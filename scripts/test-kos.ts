@@ -203,12 +203,14 @@ const main = async () => {
 
   // --- Who may assert ---
 
-  assert.ok(authorMayAssert("dcterms:subject", "definition", false))
-  assert.ok(!authorMayAssert("dcterms:subject", "definition", true))
-  assert.ok(!authorMayAssert("dcterms:subject", "term", false))
-  assert.ok(!authorMayAssert("skos:broader", "term", false))
-  assert.ok(!authorMayAssert("skos:exactMatch", "term", false))
-  assert.ok(!authorMayAssert("skos:member", "collection", false))
+  const open = { assertableBy: "contributor" } as const
+  const curated = { assertableBy: "curator" } as const
+  assert.ok(authorMayAssert("dcterms:subject", "definition", open))
+  assert.ok(!authorMayAssert("dcterms:subject", "definition", curated))
+  assert.ok(!authorMayAssert("dcterms:subject", "term", open))
+  assert.ok(!authorMayAssert("skos:broader", "term", open))
+  assert.ok(!authorMayAssert("skos:exactMatch", "term", open))
+  assert.ok(!authorMayAssert("skos:member", "collection", open))
 
   // Who may bridge a tag to a term: a curator always, the creator of an open
   // topic for their own topic, nobody else.
@@ -226,8 +228,8 @@ const main = async () => {
   // Whether a tag may be bridged at all is a rule about the tag, and it
   // binds a curator too: the database invariant refuses a bridged facet
   // whoever asserts it.
-  assert.ok(conceptMayBridge({ schemeCurated: false }))
-  assert.ok(!conceptMayBridge({ schemeCurated: true }))
+  assert.ok(conceptMayBridge({ bridgeable: true }))
+  assert.ok(!conceptMayBridge({ bridgeable: false }))
 
   // --- Row resolvers ---
 
@@ -311,14 +313,14 @@ const main = async () => {
         slug: "topics",
         title: "Topics",
         description: "Community tags applied to definitions.",
-        curated: false
+        assertableBy: "contributor"
       },
       {
         id: 2,
         slug: "pspp",
         title: "PSPP facets",
         description: null,
-        curated: true
+        assertableBy: "curator"
       }
     ],
     concepts: [
@@ -708,6 +710,73 @@ const main = async () => {
 
   const scheme = conceptSchemeJsonLd([{ term: "austenite", slug: "austenite" }])
   assert.equal(scheme["skos:hasTopConcept"].length, 1)
+
+  // --- MatCore element set ---
+
+  const { matCoreBlocksTurtle } = await import("../lib/matcore-export")
+  const { matCoreProfiles } = await import("../lib/matcore")
+  const {
+    matCoreElementUri: elementUri,
+    matCoreNamespaceUri: matCoreNs,
+    schemeUri: vocabularyUri
+  } = await import("../lib/public-identifiers")
+
+  const { TTL_PREFIXES: prefixes } = await import("../lib/kos-export")
+  const matCoreTtl = prefixes + matCoreBlocksTurtle()
+  const matCoreQuads = new Parser().parse(matCoreTtl)
+  assert.ok(matCoreQuads.length > 0)
+
+  const elements = matCoreProfiles.flatMap((p) => [...p.elements])
+  assert.equal(elements.length, 27)
+
+  // Every element appears exactly once as a subject, under its own namespace.
+  for (const element of elements) {
+    const uri = elementUri(element.key)
+    assert.ok(uri.startsWith(matCoreNs), `${element.key} outside matcore ns`)
+    const typed = matCoreQuads.filter(
+      (q: Quad) => q.subject.value === uri && q.predicate.value === RDF_TYPE
+    )
+    assert.equal(typed.length, 1, `${element.key} typed ${typed.length} times`)
+  }
+
+  // A crosswalk states the relation to Dublin Core and never redeclares the
+  // Dublin Core property itself.
+  // `in` rather than a property read: the element literals are `as const`, so
+  // the ones with no crosswalk do not carry the key at all.
+  const crosswalked = elements.filter((e) => "crosswalk" in e)
+  assert.equal(crosswalked.length, 7)
+  assert.ok(
+    !matCoreQuads.some((q: Quad) =>
+      q.subject.value.startsWith("http://purl.org/dc/terms/")
+    ),
+    "must not assert statements about Dublin Core properties"
+  )
+
+  // MatCore elements are properties, not concepts. skos:member would entail
+  // otherwise, because its range is skos:Concept union skos:Collection, so the
+  // element set must not use it and must not type anything as a skos:Concept.
+  const SKOS_MEMBER = "http://www.w3.org/2004/02/skos/core#member"
+  const SKOS_CONCEPT = "http://www.w3.org/2004/02/skos/core#Concept"
+  assert.ok(
+    !matCoreQuads.some((q: Quad) => q.predicate.value === SKOS_MEMBER),
+    "MatCore must not use skos:member"
+  )
+  assert.ok(
+    !matCoreQuads.some(
+      (q: Quad) =>
+        q.predicate.value === RDF_TYPE && q.object.value === SKOS_CONCEPT
+    ),
+    "no MatCore resource may be typed skos:Concept"
+  )
+
+  // `material` is the join to the vocabulary.
+  const range = matCoreQuads.filter(
+    (q: Quad) =>
+      q.predicate.value === "http://www.w3.org/2000/01/rdf-schema#range"
+  )
+  assert.equal(range.length, 1)
+  assert.equal(range[0].subject.value, elementUri("material"))
+  assert.equal(range[0].object.value, vocabularyUri)
 
   console.log("KOS ledger tests passed")
 }

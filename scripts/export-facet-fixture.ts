@@ -56,7 +56,7 @@ const main = async () => {
       and(
         eq(statementsTable.predicate, "dcterms:subject"),
         isNull(statementsTable.retractedAt),
-        eq(conceptSchemesTable.curated, true),
+        eq(conceptSchemesTable.attachesAt, "term"),
         eq(usersTable.isAi, false)
       )
     )

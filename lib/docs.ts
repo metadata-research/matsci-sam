@@ -65,6 +65,7 @@ const SECTIONS: Record<DocSection, SectionConfig> = {
     order: [
       "knowledge-organization",
       "skos-and-metadata",
+      "matcore-and-the-vocabulary",
       "identifier-policy",
       "curation-and-ai",
       "provenance-model"

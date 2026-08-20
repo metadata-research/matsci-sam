@@ -35,7 +35,7 @@ export type KosScheme = {
   slug: string
   title: string
   description: string | null
-  curated: boolean
+  assertableBy: "curator" | "contributor"
 }
 
 export type KosConcept = {
@@ -244,7 +244,7 @@ export class KosView {
     return link ? this.termRef(link.objectTermId!) : null
   }
 
-  // Term-level dcterms:subject (facets in curated schemes), by label.
+  // Term-level dcterms:subject (facets in curator schemes), by label.
   termFacets(termId: number): ConceptRef[] {
     return this.statements
       .filter(
@@ -365,6 +365,7 @@ export const TTL_PREFIXES = `@prefix skos: <http://www.w3.org/2004/02/skos/core#
 @prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix matsci: <${applicationMetadataNamespaceUri}> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -397,6 +398,14 @@ export const schemeBlockTurtle = (
   const pairs = ["a skos:ConceptScheme", `dcterms:title ${en(scheme.title)}`]
   if (scheme.description)
     pairs.push(`dcterms:description ${en(scheme.description)}`)
+  // A term points at a facet and at a topic with the same dcterms:subject, so
+  // without this a consumer cannot tell a curated classification from an open
+  // one. The concept already carries skos:inScheme, which makes the scheme
+  // reachable in one step from any tagged term. Derived from the policy rather
+  // than stored, so the published shape did not change when the boolean did.
+  pairs.push(
+    `matsci:curated ${scheme.assertableBy === "curator" ? "true" : "false"}`
+  )
   if (withTopConcepts)
     for (const c of view.topConcepts(scheme))
       pairs.push(`skos:hasTopConcept <${view.conceptIri(c)}>`)

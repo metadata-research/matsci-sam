@@ -22,7 +22,7 @@ import { TOPICS_SCHEME_SLUG, type ConceptRow } from "./kos"
  * the join inner and drop every concept that nothing is filed under.
  */
 
-// A concept is reached at term level in a curated scheme (a facet) and at
+// A concept is reached at term level in a facet scheme and at
 // definition level in an open one (a topic). Counting the subject column that
 // is non-null for the level in question yields zero for an unused concept and
 // ignores a row asserted at the wrong level.
@@ -48,7 +48,7 @@ export type ConceptSummary = {
 
 /*
  * Live concepts of one scheme with the number of terms and definitions filed
- * under each. `order` is "seeded" for a curated scheme, where the sequence the
+ * under each. `order` is "seeded" for a facet scheme, where the sequence the
  * curator established carries meaning (Processing, Structure, Properties,
  * Performance), and "label" for an open scheme browsed alphabetically.
  *
@@ -98,11 +98,12 @@ export type SchemeSummary = {
   slug: string
   title: string
   description: string | null
-  curated: boolean
+  conceptOrder: "seeded" | "label"
 }
 
-// Curated schemes hold facets. Reading the flag rather than naming `pspp`
-// keeps a second facet scheme visible without another edit here.
+// Facet schemes are the ones that attach at term level. Reading the policy
+// rather than naming `pspp` keeps a second facet scheme visible without
+// another edit here.
 export const facetSchemes = async (): Promise<SchemeSummary[]> =>
   await db
     .select({
@@ -110,10 +111,10 @@ export const facetSchemes = async (): Promise<SchemeSummary[]> =>
       slug: conceptSchemesTable.slug,
       title: conceptSchemesTable.title,
       description: conceptSchemesTable.description,
-      curated: conceptSchemesTable.curated
+      conceptOrder: conceptSchemesTable.conceptOrder
     })
     .from(conceptSchemesTable)
-    .where(eq(conceptSchemesTable.curated, true))
+    .where(eq(conceptSchemesTable.attachesAt, "term"))
     .orderBy(asc(conceptSchemesTable.id))
 
 // Every facet concept, for the term-page editor. Same row shape the tags
@@ -133,7 +134,7 @@ export const facetOptions = async (): Promise<ConceptRow[]> =>
     )
     .where(
       and(
-        eq(conceptSchemesTable.curated, true),
+        eq(conceptSchemesTable.attachesAt, "term"),
         eq(conceptsTable.status, "approved")
       )
     )

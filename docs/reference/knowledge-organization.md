@@ -28,6 +28,10 @@ The **PSPP** scheme is curated. Its four concepts, Processing, Structure,
 Properties and Performance, classify the term concept itself, and only a
 curator assigns them. Facets attach at term level only. A term may have
 several, and a facet does not claim that the classification is complete.
+The four facets follow Greenberg, J., et al. (2023), "Materials Science
+Ontology Design with an Analytico-Synthetic Facet Analysis Framework". A facet
+classifies terms and is never the same concept as a term, so a facet is never
+bridged to one.
 
 The two levels are enforced. A topic cannot attach to a term and a facet
 cannot attach to a definition. Whether a scheme is curated or open settles

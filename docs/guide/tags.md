@@ -34,14 +34,22 @@ finds them.
 ## Facets
 
 Facets classify the term concept, not one definition of it. The pilot has
-one facet scheme, PSPP, named for its four members.
+one facet scheme, PSPP, named for its four members. The scheme follows the
+facet analysis of Greenberg et al. (2023) and the materials paradigm it draws
+on, where processing establishes structure, structure gives rise to properties,
+and properties determine performance in service.
 
-| Facet       | Meaning                                                                                                                        |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Processing  | How a material is made, shaped or treated, including synthesis, forming, heat treatment and joining                            |
-| Structure   | The arrangement of the constituents of a material at any scale, from atomic and crystal structure to macroscopic form          |
-| Properties  | Measurable characteristics of a material, mechanical, thermal, electrical, optical or chemical, that follow from its structure |
-| Performance | How a material behaves in service under real conditions and over time, including durability, reliability and failure           |
+| Facet | What it groups |
+| ----------- | -------------- |
+| Processing | Terms for how a material is made, shaped, or treated, including synthesis, forming, heat treatment, and joining |
+| Structure | Terms for the arrangement of the constituents of a material at any scale, from atomic and crystal structure through microstructure to macroscopic form |
+| Properties | Terms for the measurable characteristics that follow from structure, including mechanical, thermal, electrical, optical, and chemical behavior |
+| Performance | Terms for how a material behaves in service, under the conditions and over the time that an application imposes |
+
+Each facet page also states a scope note, which says what to file under the
+facet. Performance is the hardest to apply, because it describes a dynamic
+aspect of a material rather than a fixed one, so a term may take Properties as
+well.
 
 ![A term page with its facet chip under the identifier line](/images/docs/term-facets.png)
 

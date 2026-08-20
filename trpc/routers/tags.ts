@@ -36,7 +36,7 @@ import {
 /*
  * Tags, facets and the statement ledger behind them (lib/kos.ts). "Tag" is
  * the visitor's word for a concept in any scheme: topics (the open scheme,
- * attached by authors to their own definitions) and facets (curated schemes
+ * attached by authors to their own definitions) and facets (curator schemes
  * such as PSPP, attached by curators at term level). Every attachment is a
  * dcterms:subject statement; removal retracts the row rather than deleting
  * it. Curator = admin for now.
@@ -64,7 +64,9 @@ const loadConceptWithScheme = async (conceptId: number) => {
       createdById: conceptsTable.createdById,
       schemeId: conceptsTable.schemeId,
       schemeSlug: conceptSchemesTable.slug,
-      schemeCurated: conceptSchemesTable.curated
+      schemeAttachesAt: conceptSchemesTable.attachesAt,
+      schemeAssertableBy: conceptSchemesTable.assertableBy,
+      schemeBridgeable: conceptSchemesTable.bridgeable
     })
     .from(conceptsTable)
     .innerJoin(
@@ -286,7 +288,7 @@ export const tagsRouter = createTRPCRouter({
           message: "This tag doesn't exist"
         })
 
-      if (!conceptMayBridge(concept))
+      if (!conceptMayBridge({ bridgeable: concept.schemeBridgeable }))
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "A facet classifies a term rather than being one"
@@ -673,7 +675,9 @@ export const tagsRouter = createTRPCRouter({
           message: "This tag doesn't exist"
         })
       if (
-        !authorMayAssert("dcterms:subject", "definition", concept.schemeCurated)
+        !authorMayAssert("dcterms:subject", "definition", {
+          assertableBy: concept.schemeAssertableBy
+        })
       )
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -750,7 +754,7 @@ export const tagsRouter = createTRPCRouter({
   }),
 
   // Facets on one term: active term-level dcterms:subject rows whose concept
-  // is in a curated scheme.
+  // is in a scheme that attaches at term level.
   facets: baseProcedure
     .input(z.object({ termId: z.number().int() }))
     .query(async ({ input: { termId } }) => {
@@ -770,7 +774,7 @@ export const tagsRouter = createTRPCRouter({
             eq(statementsTable.predicate, "dcterms:subject"),
             eq(statementsTable.subjectTermId, termId),
             isNull(statementsTable.retractedAt),
-            eq(conceptSchemesTable.curated, true)
+            eq(conceptSchemesTable.attachesAt, "term")
           )
         )
         .orderBy(byLabel)
@@ -803,7 +807,7 @@ export const tagsRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "This tag doesn't exist"
         })
-      if (!concept.schemeCurated)
+      if (concept.schemeAttachesAt !== "term")
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Only facet schemes attach at term level"

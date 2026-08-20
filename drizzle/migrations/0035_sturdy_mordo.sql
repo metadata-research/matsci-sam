@@ -1,0 +1,1 @@
+ALTER TABLE "conceptSchemes" DROP COLUMN "curated";

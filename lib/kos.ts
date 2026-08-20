@@ -224,17 +224,17 @@ export const predicateAccepts = (
 }
 
 // Who may assert what. An author (definition owner) may only put a concept
-// from a non-curated scheme onto their own definition; every other statement
+// from a contributor scheme onto their own definition. Every other statement
 // -- term-level facets, term relations, mappings, collection membership -- is
 // a curator action. The caller loads the concept with its scheme first.
 export const authorMayAssert = (
   predicate: Predicate,
   subjectKind: SubjectKind,
-  objectSchemeCurated: boolean
+  scheme: Pick<SchemePolicy, "assertableBy">
 ) =>
   predicate === "dcterms:subject" &&
   subjectKind === "definition" &&
-  !objectSchemeCurated
+  scheme.assertableBy === "contributor"
 
 /*
  * The bridge is asserted by a curator, or by the contributor who created the
@@ -253,17 +253,38 @@ export const mayLinkConcept = (
 }
 
 /*
- * A facet classifies the term concept rather than being one, so it is never
- * the same concept as a term. This binds a curator too: it is a rule about
- * what a facet is, not about who is asking. drizzle/invariants.sql rejects
- * the row independently, so allowing it here would only defer the failure to
- * a release.
+ * Scheme policy. Each of these reads one column that the scheme states for
+ * itself, rather than deriving several behaviours from a single flag. A scheme
+ * can now hold a combination the old boolean could not express.
  */
-export const conceptMayBridge = (concept: { schemeCurated: boolean }) =>
-  !concept.schemeCurated
+export type SchemePolicy = {
+  attachesAt: "term" | "definition"
+  assertableBy: "curator" | "contributor"
+  bridgeable: boolean
+  conceptOrder: "seeded" | "label"
+}
 
-// Which subject level a scheme's concepts attach at: curated schemes are
-// term-level facets, non-curated schemes are definition-level topics.
-// Enforced in tRPC and by drizzle/invariants.sql.
-export const schemeAttachesAt = (curated: boolean): "term" | "definition" =>
-  curated ? "term" : "definition"
+/*
+ * Whether a concept in this scheme may be declared the same concept as a term.
+ * A classifier is not the thing it classifies, so a facet scheme says no, and
+ * that binds a curator too: it is a rule about what the concept is, not about
+ * who is asking. drizzle/invariants.sql rejects the row independently, so
+ * allowing it here would only defer the failure to a release.
+ */
+export const conceptMayBridge = (scheme: Pick<SchemePolicy, "bridgeable">) =>
+  scheme.bridgeable
+
+// Which subject level a scheme's concepts attach at. Enforced in tRPC and by
+// drizzle/invariants.sql.
+export const schemeAttachesAt = (scheme: Pick<SchemePolicy, "attachesAt">) =>
+  scheme.attachesAt
+
+// Whether this caller may assert a concept from this scheme. A contributor
+// scheme accepts anybody signed in; a curator scheme accepts an administrator.
+export const mayAssertInScheme = (
+  scheme: Pick<SchemePolicy, "assertableBy">,
+  user: { role: string } | null
+) => {
+  if (!user) return false
+  return scheme.assertableBy === "contributor" || user.role === "admin"
+}

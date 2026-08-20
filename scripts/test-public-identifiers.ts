@@ -12,6 +12,9 @@ import {
   definitionPath,
   definitionUri,
   identifierBaseUrl,
+  matCoreElementUri,
+  matCoreNamespaceUri,
+  matCoreProfileUri,
   rankPath,
   rankUri,
   revisionPath,
@@ -56,6 +59,19 @@ assert.equal(
   applicationMetadataUri("definitionNumber"),
   `${base}/metadata#definitionNumber`
 )
+
+// MatCore elements sit in their own namespace, so a consumer can tell a
+// transcribed standard from terms this application defines for itself.
+assert.equal(matCoreNamespaceUri, `${base}/metadata/matcore#`)
+assert.equal(matCoreElementUri("creator"), `${base}/metadata/matcore#creator`)
+assert.equal(
+  matCoreElementUri("xc-functional"),
+  `${base}/metadata/matcore#xc-functional`
+)
+assert.equal(matCoreProfileUri("minimal"), `${base}/metadata/matcore#minimal`)
+assert.notEqual(matCoreNamespaceUri, applicationMetadataNamespaceUri)
+assert.throws(() => matCoreElementUri(""), RangeError)
+assert.throws(() => matCoreProfileUri(""), RangeError)
 
 // Knowledge-organization identifiers: schemes, concepts, collections and the
 // hash IRI of one stored statement.
