@@ -11,12 +11,13 @@ import {
 import {
   commentsTable,
   db,
+  definitionRevisionsTable,
   definitionsTable,
   refinementsTable,
   termsTable,
   usersTable
 } from "@yamz/db"
-import { asc, desc, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, exists, inArray, or, sql } from "drizzle-orm"
 import { DefinitionStarter } from "./definition-starter"
 import { SITE_NAME } from "@/lib/site"
 import { getSession } from "@/lib/session"
@@ -418,7 +419,7 @@ function PersonalWorkSection({
       <div className={styles.sectionHeading}>
         <div>
           <h2 id="personal-heading">Continue your work</h2>
-          <p>Your recently authored definitions.</p>
+          <p>The latest definition on each term you have worked on.</p>
         </div>
         <div className={styles.personalLinks}>
           <Link href="/profile#authored-terms" className={styles.textLink}>
@@ -450,7 +451,7 @@ function PersonalWorkSection({
                   <span aria-hidden>·</span>
                   score {item.score}
                   <span aria-hidden>·</span>
-                  {formatDate(item.updatedAt ?? item.createdAt)}
+                  {formatDate(item.lastEditedAt ?? item.createdAt)}
                 </span>
                 {item.suggestionReady ? (
                   <span className={styles.suggestionReady}>
@@ -531,8 +532,21 @@ async function getRecentDiscussion() {
     .slice(0, 4)
 }
 
+// One card per term, and enough candidate rows scanned to find the newest
+// definition for each of them. A contributor who defines a term and later
+// accepts an AI refinement owns two definitions on that term, so scanning only
+// three rows could return the same term three times.
+const PERSONAL_WORK_TERMS = 3
+const PERSONAL_WORK_SCAN = 60
+
 async function getPersonalWork(userId: number) {
-  return db
+  // Keyed by term, not by definition: two definitions on one term are two
+  // halves of the same task, and listing both asks the contributor to choose
+  // between them instead of carrying on. Working anywhere in a term's editing
+  // chain counts -- authoring a definition, or editing any revision of one --
+  // so a term still surfaces when somebody else started it and this person
+  // revised it.
+  const rows = await db
     .select({
       id: definitionsTable.id,
       definitionNumber: definitionsTable.definitionNumber,
@@ -541,6 +555,15 @@ async function getPersonalWork(userId: number) {
       score: definitionsTable.score,
       createdAt: definitionsTable.createdAt,
       updatedAt: definitionsTable.updatedAt,
+      // When this definition was last *edited*. definitions.updatedAt cannot
+      // answer that: it is maintained by $onUpdateFn, so a vote touches the row
+      // and moves it. A downvote on sintering pushed an untouched definition
+      // above the refinement derived from it hours earlier.
+      lastEditedAt: sql<string>`(
+        select max(${definitionRevisionsTable.createdAt})
+        from ${definitionRevisionsTable}
+        where ${definitionRevisionsTable.definitionId} = ${definitionsTable.id}
+      )`,
       refinedFromId: definitionsTable.refinedFromId,
       comments: sql<number>`cast(count(${commentsTable.id}) as int)`.mapWith(
         Number
@@ -558,14 +581,50 @@ async function getPersonalWork(userId: number) {
       commentsTable,
       eq(commentsTable.definitionId, definitionsTable.id)
     )
-    .where(eq(definitionsTable.authorId, userId))
-    .groupBy(definitionsTable.id, termsTable.id)
-    .orderBy(
-      desc(
-        sql`coalesce(${definitionsTable.updatedAt}, ${definitionsTable.createdAt})`
+    .where(
+      or(
+        eq(definitionsTable.authorId, userId),
+        // Stated as EXISTS rather than a join: joining the revisions would
+        // multiply a definition by its revision count and inflate the comment
+        // tally counted above.
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(definitionRevisionsTable)
+            .where(
+              and(
+                eq(definitionRevisionsTable.definitionId, definitionsTable.id),
+                eq(definitionRevisionsTable.editorId, userId)
+              )
+            )
+        )
       )
     )
-    .limit(3)
+    .groupBy(definitionsTable.id, termsTable.id)
+    // Last edit first, and on a tie the later definition in the chain, so the
+    // card opens where the work actually left off.
+    .orderBy(
+      desc(
+        sql`coalesce((
+          select max(${definitionRevisionsTable.createdAt})
+          from ${definitionRevisionsTable}
+          where ${definitionRevisionsTable.definitionId} = ${definitionsTable.id}
+        ), ${definitionsTable.createdAt})`
+      ),
+      desc(definitionsTable.id)
+    )
+    .limit(PERSONAL_WORK_SCAN)
+
+  const latest: typeof rows = []
+  const seen = new Set<string>()
+  for (const row of rows) {
+    if (seen.has(row.termSlug)) continue
+    seen.add(row.termSlug)
+    latest.push(row)
+    if (latest.length === PERSONAL_WORK_TERMS) break
+  }
+
+  return latest
 }
 
 async function getContributionTerms() {
