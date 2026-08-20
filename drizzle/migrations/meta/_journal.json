@@ -225,6 +225,13 @@
       "when": 1787147842544,
       "tag": "0031_ai_model_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1787230722568,
+      "tag": "0032_ai_revision_editors",
+      "breakpoints": true
     }
   ]
 }

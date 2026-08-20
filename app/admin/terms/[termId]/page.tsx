@@ -1,10 +1,9 @@
-import { db, definitionsTable, termsTable } from "@yamz/db"
-import { eq } from "drizzle-orm"
+import { db, definitionsTable, termsTable, usersTable } from "@yamz/db"
+import { eq, inArray } from "drizzle-orm"
 import { RunButton } from "./run"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { Chats } from "./chats"
 import { notFound, redirect } from "next/navigation"
-import { GetAiUser } from "@/lib/crud"
 import Link from "next/link"
 import { ArrowLeftIcon, ExternalLinkIcon, NetworkIcon } from "lucide-react"
 import { auth } from "@/lib/auth"
@@ -21,14 +20,21 @@ export default async function JobPage(props: {
   const params = await props.params
   const termId = Number(params.termId)
 
-  const aiUser = await GetAiUser()
-
   const [term, chats] = await Promise.all([
     db.query.termsTable.findFirst({
       where: eq(termsTable.id, termId),
       with: {
         definitions: {
-          where: eq(definitionsTable.authorId, aiUser.id)
+          // Every machine author, not one anonymous account: AI definitions
+          // are owned by per-model identities, so matching a single user id
+          // matched nothing.
+          where: inArray(
+            definitionsTable.authorId,
+            db
+              .select({ id: usersTable.id })
+              .from(usersTable)
+              .where(eq(usersTable.isAi, true))
+          )
         }
       }
     }),

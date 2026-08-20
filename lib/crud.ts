@@ -1,5 +1,5 @@
 import { aiModelsTable, db, definitionsTable, usersTable } from "@yamz/db"
-import { and, asc, eq, isNull } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { cache } from "react"
 import {
   createDefinitionWithInitialRevision,
@@ -14,28 +14,6 @@ export const GetUser = cache((userId: number) =>
     where: eq(usersTable.id, userId)
   })
 )
-
-export const GetAiUser = async () => {
-  let aiUser = await db.query.usersTable.findFirst({
-    where: and(eq(usersTable.isAi, true), isNull(usersTable.name)),
-    orderBy: asc(usersTable.id)
-  })
-
-  if (!aiUser) {
-    console.log("No AI user found! Creating one now...")
-
-    const [insertedUser] = await db
-      .insert(usersTable)
-      .values({
-        isAi: true
-      })
-      .returning()
-
-    aiUser = insertedUser
-  } else console.log(`Using AI user with id ${aiUser.id}`)
-
-  return aiUser
-}
 
 /*
  * The user a model contributes as. Distinct from GetAiUser, the legacy
@@ -81,7 +59,13 @@ export const UpsertAIDefinition = async (
   data: { definition: string; example: string },
   generation: { model: string; prompt: string }
 ) => {
-  const aiUser = await GetAiUser()
+  // The model that produced this text is the author, not a single anonymous
+  // "AI user": one identity per tag, so a Gemma 3 contribution and a Gemma 4
+  // contribution are distinguishable in provenance. This is also what makes
+  // the lookup below find the existing definition — 0031 moved AI-authored
+  // definitions onto these identities, so matching on the legacy user found
+  // nothing and every regeneration forked a second definition.
+  const aiUser = await GetModelUser(generation.model)
 
   const result = await db.transaction(async (tx) => {
     const existingDef = await tx.query.definitionsTable.findFirst({
