@@ -347,7 +347,15 @@ const main = async () => {
         id: 1,
         slug: "demo-terms",
         title: "Demo terms",
-        description: "Reviewed for the demo."
+        description: "Reviewed for the demo.",
+        retiredAt: null
+      },
+      {
+        id: 2,
+        slug: "retired-set",
+        title: "Retired set",
+        description: null,
+        retiredAt: "2026-08-21T00:00:00.000Z"
       }
     ],
     statements: [
@@ -376,7 +384,10 @@ const main = async () => {
       statement(10, "skos:closeMatch", { subjectTermId: 1, objectIri: PMD }),
       // collection membership
       // the bridge: the topic "Steel" is the same concept as a term
-      statement(13, "skos:exactMatch", { subjectConceptId: 8, objectTermId: 1 }),
+      statement(13, "skos:exactMatch", {
+        subjectConceptId: 8,
+        objectTermId: 1
+      }),
       statement(11, "skos:member", { subjectCollectionId: 1, objectTermId: 1 }),
       statement(12, "skos:member", { subjectCollectionId: 1, objectTermId: 2 })
     ],
@@ -610,9 +621,12 @@ const main = async () => {
     ),
     new Set([termUri("martensite"), termUri("austenite")])
   )
-  assert.deepEqual(typeSubjects(schemeQuads, `${SKOS}Collection`), [
-    collectionUri("demo-terms")
-  ])
+  // Both collections are published. Retiring marks a collection deprecated
+  // rather than withdrawing it, so its IRI keeps resolving.
+  assert.deepEqual(
+    new Set(typeSubjects(schemeQuads, `${SKOS}Collection`)),
+    new Set([collectionUri("demo-terms"), collectionUri("retired-set")])
+  )
   // The odd label round-trips through the escaper
   assert.deepEqual(objectsOf(schemeQuads, iri(9), `${SKOS}prefLabel`), [
     'Odd "label" \\ back\nslash'
@@ -636,14 +650,14 @@ const main = async () => {
   // A term document carries the bridge and the bridged concept's block.
   assert.deepEqual(objectsOf(termQuads, termIri, `${SKOS}exactMatch`), [iri(8)])
   assert.equal(
-    typeSubjects(termQuads, `${SKOS}Concept`).filter((x) => x === iri(8)).length,
+    typeSubjects(termQuads, `${SKOS}Concept`).filter((x) => x === iri(8))
+      .length,
     1,
     "the bridged concept's block travels with the term document"
   )
-  assert.deepEqual(
-    objectsOf(schemeQuads, iri(8), `${SKOS}scopeNote`),
-    ["Use for degradation in service, not for surface finish."]
-  )
+  assert.deepEqual(objectsOf(schemeQuads, iri(8), `${SKOS}scopeNote`), [
+    "Use for degradation in service, not for surface finish."
+  ])
 
   // KOS-only document
   const kosQuads = parse(kosTurtle(kos), "kosTurtle")
@@ -652,7 +666,8 @@ const main = async () => {
     7
   )
   assert.equal(typeSubjects(kosQuads, `${SKOS}ConceptScheme`).length, 2)
-  assert.equal(typeSubjects(kosQuads, `${SKOS}Collection`).length, 1)
+  // Two: the active collection and the retired one, which stays published.
+  assert.equal(typeSubjects(kosQuads, `${SKOS}Collection`).length, 2)
   assert.equal(
     kosQuads.filter((q) => q.subject.value === termIri).length,
     0,
@@ -710,6 +725,58 @@ const main = async () => {
 
   const scheme = conceptSchemeJsonLd([{ term: "austenite", slug: "austenite" }])
   assert.equal(scheme["skos:hasTopConcept"].length, 1)
+
+  // A retired collection keeps its IRI, is marked deprecated, and lists no
+  // members, because retiring retracts them.
+  const retiredCollectionTtl = kosTurtle(kos)
+  const retiredBlock = retiredCollectionTtl
+    .split("\n\n")
+    .find((block) => block.includes(collectionUri("retired-set")))
+  assert.ok(retiredBlock, "retired collection is still published")
+  assert.ok(retiredBlock.includes("owl:deprecated true"))
+  assert.ok(!retiredBlock.includes("skos:member"))
+
+  // --- Collection and scheme policy ---
+
+  const { mayAssertIn, mayCreateCollection, collectionCreationIsOpen } =
+    await import("../lib/kos")
+
+  const curatorGrouping = { assertableBy: "curator" } as const
+  const openGrouping = { assertableBy: "contributor" } as const
+  const curator = { role: "admin" }
+  const contributor = { role: "user" }
+
+  // Both directions. A rule only checked where it refuses can pass while
+  // permitting nothing at all.
+  assert.ok(mayAssertIn(openGrouping, contributor))
+  assert.ok(mayAssertIn(openGrouping, curator))
+  assert.ok(mayAssertIn(curatorGrouping, curator))
+  assert.ok(!mayAssertIn(curatorGrouping, contributor))
+  assert.ok(!mayAssertIn(openGrouping, null))
+  assert.ok(!mayAssertIn(curatorGrouping, null))
+
+  // Creating a collection consults the deployment, not a collection, because
+  // there is no collection yet to ask.
+  const previousFlag = process.env.COLLECTION_CREATION_OPEN
+  delete process.env.COLLECTION_CREATION_OPEN
+  assert.equal(collectionCreationIsOpen(), false)
+  assert.ok(mayCreateCollection(curator), "a curator may always create")
+  assert.ok(!mayCreateCollection(contributor), "closed by default")
+  assert.ok(!mayCreateCollection(null))
+
+  process.env.COLLECTION_CREATION_OPEN = "true"
+  assert.equal(collectionCreationIsOpen(), true)
+  assert.ok(
+    mayCreateCollection(contributor),
+    "open when the deployment says so"
+  )
+  assert.ok(!mayCreateCollection(null), "still never anonymous")
+
+  // Anything other than the exact string leaves it closed.
+  process.env.COLLECTION_CREATION_OPEN = "yes"
+  assert.ok(!mayCreateCollection(contributor))
+  if (previousFlag === undefined) delete process.env.COLLECTION_CREATION_OPEN
+  else process.env.COLLECTION_CREATION_OPEN = previousFlag
 
   // --- MatCore element set ---
 

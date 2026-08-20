@@ -279,12 +279,30 @@ export const conceptMayBridge = (scheme: Pick<SchemePolicy, "bridgeable">) =>
 export const schemeAttachesAt = (scheme: Pick<SchemePolicy, "attachesAt">) =>
   scheme.attachesAt
 
-// Whether this caller may assert a concept from this scheme. A contributor
-// scheme accepts anybody signed in; a curator scheme accepts an administrator.
-export const mayAssertInScheme = (
-  scheme: Pick<SchemePolicy, "assertableBy">,
+/*
+ * Whether this caller may assert into a grouping that states an `assertableBy`
+ * policy. A contributor grouping accepts anybody signed in; a curator grouping
+ * accepts an administrator. Both concept schemes and collections carry the
+ * column, so this is not scheme-specific.
+ */
+export const mayAssertIn = (
+  grouping: Pick<SchemePolicy, "assertableBy">,
   user: { role: string } | null
 ) => {
   if (!user) return false
-  return scheme.assertableBy === "contributor" || user.role === "admin"
+  return grouping.assertableBy === "contributor" || user.role === "admin"
+}
+
+/*
+ * Creating a collection has no collection to consult, so it needs a rule of
+ * its own. Curators may always. Everyone signed in may when the deployment
+ * opens it, which follows how EMAIL_AUTH_ACCOUNT_CREATION_ENABLED opens the
+ * other creation path here.
+ */
+export const collectionCreationIsOpen = () =>
+  process.env.COLLECTION_CREATION_OPEN === "true"
+
+export const mayCreateCollection = (user: { role: string } | null) => {
+  if (!user) return false
+  return user.role === "admin" || collectionCreationIsOpen()
 }

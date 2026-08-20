@@ -55,6 +55,7 @@ export type KosCollection = {
   slug: string
   title: string
   description: string | null
+  retiredAt: string | null
 }
 
 // One active statement row (retracted rows are not loaded).
@@ -454,6 +455,10 @@ export const collectionBlockTurtle = (
   const pairs = ["a skos:Collection", `skos:prefLabel ${en(collection.title)}`]
   if (collection.description)
     pairs.push(`dcterms:description ${en(collection.description)}`)
+  // A retired collection keeps its IRI and says it is deprecated, the same way
+  // a retired concept does. Its members were retracted when it retired, so the
+  // loop below finds none.
+  if (collection.retiredAt) pairs.push("owl:deprecated true")
   for (const m of view.collectionMembers(collection.id))
     pairs.push(`skos:member <${m.uri}>`)
   return turtleBlock(collectionUri(collection.slug), pairs)

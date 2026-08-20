@@ -1,0 +1,1 @@
+ALTER TABLE "collections" ADD COLUMN "retiredAt" timestamp with time zone;
