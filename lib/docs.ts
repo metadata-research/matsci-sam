@@ -5,19 +5,25 @@ import path from "node:path"
 import { marked } from "marked"
 
 /*
- * The /docs section renders the markdown under docs/ in two layers, each its
+ * The /docs section renders the markdown under docs/ in three layers, each its
  * own directory and its own group in the sidebar:
  *
+ *   docs/quickstart/ one page at /docs, the landing page: the ordinary path
+ *                    from a new term to its recorded history
  *   docs/guide/      the user guide, at /docs/<slug>: how to use the site
  *   docs/reference/  knowledge organization, at /docs/reference/<slug>: what
  *                    the vocabulary, the tags and the metadata mean, for a
  *                    curator or a metadata consumer
  *
- * docs/technical/ is the third layer and is deliberately not served: it
+ * Guide pages stay at /docs/<slug> with no prefix. Moving them under
+ * /docs/guide/ would read more evenly but would break every published guide
+ * address, so only the guide *index* moved, from /docs to /docs/guide.
+ *
+ * docs/technical/ is the fourth layer and is deliberately not served: it
  * documents the code for someone changing it and is read in the repository.
  */
 
-export type DocSection = "guide" | "reference"
+export type DocSection = "quickstart" | "guide" | "reference"
 
 type SectionConfig = {
   dir: string
@@ -29,6 +35,14 @@ type SectionConfig = {
 }
 
 const SECTIONS: Record<DocSection, SectionConfig> = {
+  quickstart: {
+    dir: path.join(process.cwd(), "docs", "quickstart"),
+    title: "Quick start",
+    // A single page. Its sidebar entries are the headings within it, not
+    // sibling files, which is what keeps the landing page one uninterrupted
+    // read.
+    order: []
+  },
   guide: {
     dir: path.join(process.cwd(), "docs", "guide"),
     title: "User guide",
@@ -66,7 +80,54 @@ const titleOf = (content: string, slug: string) =>
 export const docPath = (section: DocSection, slug: string) =>
   section === "guide" ? `/docs/${slug}` : `/docs/${section}/${slug}`
 
+// Where a group heading points. Quick start is the landing page, so it owns
+// /docs itself.
+export const sectionIndexPath = (section: DocSection) =>
+  section === "quickstart" ? "/docs" : `/docs/${section}`
+
 export const sectionTitle = (section: DocSection) => SECTIONS[section].title
+
+// One line under each sidebar heading, so a reader can tell the three groups
+// apart before opening any of them.
+export const sectionBlurb: Record<DocSection, string> = {
+  quickstart: "The whole workflow, start to finish",
+  guide: "Every feature in detail",
+  reference: "The model, SKOS, and identifiers"
+}
+
+const slugifyHeading = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/<[^>]+>/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+
+// Headings carry ids so the quick start can be linked section by section and
+// the sidebar can list its steps.
+const withHeadingIds = (html: string) =>
+  html.replace(
+    /<h([2-3])>(.*?)<\/h\1>/g,
+    (_m, level: string, inner: string) =>
+      `<h${level} id="${slugifyHeading(inner)}">${inner}</h${level}>`
+  )
+
+export type DocHeading = { id: string; text: string }
+
+// The h2 headings of one page, for the sidebar entries of a single-page group.
+export const docHeadings = async (
+  section: DocSection,
+  slug: string
+): Promise<DocHeading[]> => {
+  const content = await fs.readFile(
+    path.join(SECTIONS[section].dir, `${slug}.md`),
+    "utf8"
+  )
+
+  return [...content.matchAll(/^##\s+(.+)$/gm)].map((m) => ({
+    id: slugifyHeading(m[1]),
+    text: m[1].trim()
+  }))
+}
 
 export const listDocs = async (section: DocSection): Promise<DocEntry[]> => {
   const { dir, order } = SECTIONS[section]
@@ -92,8 +153,10 @@ export const listDocs = async (section: DocSection): Promise<DocEntry[]> => {
   )
 }
 
-// Both groups, for the sidebar.
+// Every group, for the sidebar. Quick start is one page, so its entries are
+// the steps inside it.
 export const listAllDocs = async () => ({
+  quickstart: await docHeadings("quickstart", "index"),
   guide: await listDocs("guide"),
   reference: await listDocs("reference")
 })
@@ -113,6 +176,6 @@ export const renderDoc = async (section: DocSection, slug: string) => {
 
   return {
     title: titleOf(content, slug),
-    html: marked.parse(content, { async: false }) as string
+    html: withHeadingIds(marked.parse(content, { async: false }) as string)
   }
 }

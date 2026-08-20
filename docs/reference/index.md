@@ -1,7 +1,7 @@
 # Knowledge organization
 
 These pages describe what the vocabulary and its metadata mean. The
-[user guide](/docs) explains how to use the site. This layer is for a reader
+[user guide](/docs/guide) explains how to use the site. This layer is for a reader
 who works with the published metadata, such as a curator deciding how to
 classify a term, a data steward harvesting the SKOS export, or a researcher
 reading the provenance record.

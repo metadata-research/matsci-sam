@@ -1,4 +1,4 @@
-# Documentation
+# User guide
 
 MatSci-SAM is a collaborative dictionary for materials science
 terminology, built by the Metadata Research Center at Drexel University.
@@ -8,8 +8,9 @@ suggested revisions from a locally hosted language model and decide whether to
 publish them. The site also publishes standards-based metadata for data
 consumers and semantic web tools.
 
-These guides cover what the site can do today, including the limits of the
-pilot workflows.
+The [quick start](/docs) follows the ordinary path from a new term to its
+recorded history. These guides cover each feature in full, including the
+limits of the pilot workflows.
 
 - [Account access](/docs/account-access) explains Google and verified-email
   sign-in, email account creation, and linked ORCID iDs.
