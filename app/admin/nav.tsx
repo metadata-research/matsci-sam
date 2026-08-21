@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   BookOpenIcon,
   ClipboardCheckIcon,
+  FlaskConicalIcon,
   HomeIcon,
   MessageSquareTextIcon,
   ShieldCheckIcon,
@@ -51,6 +52,12 @@ const SECTIONS = [
     label: "People",
     icon: UsersIcon,
     matches: ["/admin/users"]
+  },
+  {
+    href: "/admin/studies",
+    label: "Studies",
+    icon: FlaskConicalIcon,
+    matches: ["/admin/studies"]
   },
   {
     href: "/admin/integrations",
