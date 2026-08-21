@@ -24,7 +24,8 @@
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:invariants": "psql \"$DATABASE_URL\" --set ON_ERROR_STOP=1 --quiet --file drizzle/invariants.sql",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:migration-journal": "tsx scripts/test-migration-journal.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

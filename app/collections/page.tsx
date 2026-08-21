@@ -3,6 +3,9 @@ import Link from "next/link"
 import { SITE_NAME } from "@/lib/site"
 import { collectionsWithCounts } from "@/lib/kos-queries"
 import { collectionPath, tagsIndexPath } from "@/lib/public-identifiers"
+import { getCurrentUser } from "@/lib/current-user"
+import { mayCreateCollection } from "@/lib/kos"
+import { CreateCollection } from "@/components/collections/controls"
 
 export const metadata: Metadata = {
   title: `Collections | ${SITE_NAME}`,
@@ -11,11 +14,13 @@ export const metadata: Metadata = {
 
 /*
  * The collections index. A collection is a curated named set of terms,
- * published as a skos:Collection. Collections are assembled by curators;
- * this page and the collection page are read-only.
+ * published as a skos:Collection. Retired collections are not listed; their
+ * addresses still resolve.
  */
 export default async function CollectionsPage() {
   const collections = await collectionsWithCounts()
+  const user = await getCurrentUser()
+  const canCreate = mayCreateCollection(user ?? null)
 
   return (
     <main className="px-4 py-8">
@@ -30,6 +35,7 @@ export default async function CollectionsPage() {
             </Link>{" "}
             for the tags that classify terms and definitions by subject.
           </p>
+          {canCreate && <CreateCollection />}
         </div>
 
         {collections.length === 0 ? (

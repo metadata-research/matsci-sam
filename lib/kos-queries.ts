@@ -140,13 +140,16 @@ export const facetOptions = async (): Promise<ConceptRow[]> =>
     )
     .orderBy(asc(conceptSchemesTable.id), asc(conceptsTable.id))
 
-export const collectionsWithCounts = async () =>
+// Retired collections are hidden by default. A curator asks for them when
+// deciding whether to restore one.
+export const collectionsWithCounts = async ({ includeRetired = false } = {}) =>
   await db
     .select({
       id: collectionsTable.id,
       slug: collectionsTable.slug,
       title: collectionsTable.title,
       description: collectionsTable.description,
+      retiredAt: collectionsTable.retiredAt,
       members: sql<number>`cast(count(${statementsTable.objectTermId}) as int)`
     })
     .from(collectionsTable)
@@ -158,6 +161,7 @@ export const collectionsWithCounts = async () =>
         isNull(statementsTable.retractedAt)
       )
     )
+    .where(includeRetired ? undefined : isNull(collectionsTable.retiredAt))
     .groupBy(collectionsTable.id)
     .orderBy(asc(sql`lower(btrim(${collectionsTable.title}))`))
 

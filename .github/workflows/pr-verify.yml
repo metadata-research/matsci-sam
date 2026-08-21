@@ -126,6 +126,10 @@ jobs:
         run: |
           pnpm test:kos
 
+      - name: Check Migration Journal
+        run: |
+          pnpm test:migration-journal
+
       - name: Check Migrations
         run: |
           pnpm db:check

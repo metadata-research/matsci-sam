@@ -999,10 +999,15 @@ export const collectionsTable = pgTable(
     slug: text().notNull().unique(),
     title: text().notNull(), // skos:prefLabel / dcterms:title
     description: text(),
-    // Who may change membership. Declared here so the rule is settled before a
-    // write path exists; no procedure reads it yet, because collections have
-    // no mutations. The invariant keeps the column consistent meanwhile.
+    // Who may change membership. Creation is governed separately, by
+    // COLLECTION_CREATION_OPEN, because creating a collection has no
+    // collection to consult.
     assertableBy: assertableByEnum().notNull().default("curator"),
+    // Retired, not deleted: the slug keeps resolving, because the identifier
+    // policy assigns a collection slug once. Membership statements are
+    // retracted when a collection retires, and stay as a record of what it
+    // held.
+    retiredAt: timestamp({ mode: "string", withTimezone: true }),
     createdById: integer()
       .references(() => usersTable.id)
       .notNull(),
