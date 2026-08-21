@@ -108,7 +108,12 @@ export const GET = async (req: NextRequest) => {
       .update(usersTable)
       .set({
         googleId: userId,
-        name: name || user.name,
+        // A name the person set here wins over the one Google returns, which
+        // is how firstName and lastName below already behave and how
+        // lib/orcid-account.ts treats a linked ORCID name. Otherwise every
+        // sign-in silently reverts a chosen display name, and a study
+        // participant using a pseudonym would lose it mid-study.
+        name: user.name || name,
         email: normalizedEmail,
         emailVerifiedAt: user.emailVerifiedAt || new Date().toISOString(),
         firstName: user.firstName || givenName || null,
