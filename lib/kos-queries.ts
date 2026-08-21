@@ -2,6 +2,7 @@ import "server-only"
 
 import {
   collectionsTable,
+  communityCollectionsTable,
   definitionRevisionsTable,
   conceptSchemesTable,
   conceptsTable,
@@ -10,7 +11,7 @@ import {
   statementsTable,
   termsTable
 } from "@yamz/db"
-import { and, asc, eq, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, exists, isNull, sql } from "drizzle-orm"
 import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import { TOPICS_SCHEME_SLUG, type ConceptRow } from "./kos"
 
@@ -142,7 +143,17 @@ export const facetOptions = async (): Promise<ConceptRow[]> =>
 
 // Retired collections are hidden by default. A curator asks for them when
 // deciding whether to restore one.
-export const collectionsWithCounts = async ({ includeRetired = false } = {}) =>
+/*
+ * The collections index. Passing a communityId narrows it to that community's
+ * worklist. The narrowing goes in WHERE, not in the count join's ON clause:
+ * the ON conditions decide what is counted and must stay there so a collection
+ * with no members survives, whereas the scope decides which collections exist
+ * for this viewer at all. With no communityId the emitted SQL is unchanged.
+ */
+export const collectionsWithCounts = async ({
+  includeRetired = false,
+  communityId
+}: { includeRetired?: boolean; communityId?: number } = {}) =>
   await db
     .select({
       id: collectionsTable.id,
@@ -161,7 +172,28 @@ export const collectionsWithCounts = async ({ includeRetired = false } = {}) =>
         isNull(statementsTable.retractedAt)
       )
     )
-    .where(includeRetired ? undefined : isNull(collectionsTable.retiredAt))
+    .where(
+      and(
+        includeRetired ? undefined : isNull(collectionsTable.retiredAt),
+        communityId === undefined
+          ? undefined
+          : exists(
+              db
+                .select({ one: sql`1` })
+                .from(communityCollectionsTable)
+                .where(
+                  and(
+                    eq(
+                      communityCollectionsTable.collectionId,
+                      collectionsTable.id
+                    ),
+                    eq(communityCollectionsTable.communityId, communityId),
+                    isNull(communityCollectionsTable.removedAt)
+                  )
+                )
+            )
+      )
+    )
     .groupBy(collectionsTable.id)
     .orderBy(asc(sql`lower(btrim(${collectionsTable.title}))`))
 

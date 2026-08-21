@@ -72,6 +72,20 @@ export const conceptPath = (schemeSlug: string, conceptSlug: string) =>
 export const collectionPath = (slug: string) =>
   `${collectionsIndexPath}/${slugSegment(slug, "Collection slug")}`
 
+/*
+ * Communities are application routes, not published identifiers. There is
+ * deliberately no communityUri or invitationUri to go with these: a Uri
+ * builder in this file means the thing dereferences as RDF, and nothing about
+ * a group of people is published. Do not complete the triple.
+ */
+export const communitiesIndexPath = "/communities"
+
+export const communityPath = (slug: string) =>
+  `${communitiesIndexPath}/${slugSegment(slug, "Community slug")}`
+
+export const invitePath = (token: string) =>
+  `/invite/${slugSegment(token, "Invitation token")}`
+
 export const tagsIndexUri = absoluteIdentifier(tagsIndexPath)
 export const conceptSchemeUri = (schemeSlug: string) =>
   absoluteIdentifier(conceptSchemePath(schemeSlug))

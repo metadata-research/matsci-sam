@@ -1,0 +1,141 @@
+import Link from "next/link"
+import type { Metadata } from "next"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { AcceptInvitation } from "@/components/communities/accept-invitation"
+import { getCurrentUser } from "@/lib/current-user"
+import { invitationForToken, isMemberOf } from "@/lib/community-queries"
+import { communityPath } from "@/lib/public-identifiers"
+import { SITE_NAME } from "@/lib/site"
+import { INVITATION_LIFETIME_DAYS } from "@/lib/communities"
+
+export const metadata: Metadata = {
+  title: `Invitation | ${SITE_NAME}`,
+  // An invitation link is not something to index or follow.
+  robots: { index: false, follow: false }
+}
+
+// The page varies by who is holding the link and by whether the invitation has
+// since been spent, so it must never be cached.
+export const dynamic = "force-dynamic"
+
+const DEAD: Record<string, string> = {
+  revoked: "This invitation was withdrawn.",
+  redeemed: "This invitation has already been used.",
+  expired: `This invitation has expired. Invitations last ${INVITATION_LIFETIME_DAYS} days, and whoever sent it can issue a new one.`
+}
+
+export default async function InvitePage({
+  params
+}: {
+  params: Promise<{ token: string }>
+}) {
+  const { token } = await params
+  const invitation = await invitationForToken(token)
+
+  // A replaced, rotated or withdrawn link resolves to nothing. There is no
+  // root not-found page, so notFound() here would drop an invitee who did
+  // nothing wrong into an unstyled error shell.
+  if (!invitation)
+    return (
+      <main className="px-4 py-12">
+        <Card className="mx-auto max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">This link no longer works</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              The link may have been replaced by a newer one, turned off, or
+              copied incompletely. Ask whoever sent it for a fresh link.
+            </p>
+            <Button asChild variant="outline">
+              <Link href="/">Go to the home page</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    )
+
+  const { community, outcome, email, kind } = invitation
+  const user = await getCurrentUser()
+  const alreadyIn = user ? await isMemberOf(community.id, user.id) : false
+
+  const dead = DEAD[outcome]
+
+  return (
+    <main className="px-4 py-12">
+      <Card className="mx-auto max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl">{community.title}</CardTitle>
+          <CardDescription>
+            {kind === "open"
+              ? `You have been given a link to join ${community.title} on ${SITE_NAME}.`
+              : `You have been invited to join ${community.title} on ${SITE_NAME}.`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {community.description && (
+            <p className="text-sm text-muted-foreground">
+              {community.description}
+            </p>
+          )}
+
+          {/* What accepting does, before anyone is asked to sign in for it. */}
+          {!community.retiredAt && !alreadyIn && !DEAD[outcome] && (
+            <p className="text-sm text-muted-foreground">
+              Membership scopes what you see to what this community is working
+              through. It does not change what anyone else sees, it publishes
+              nothing about you, and you can leave at any time.
+            </p>
+          )}
+
+          {community.retiredAt ? (
+            <p className="text-sm text-muted-foreground">
+              This community has been retired, so there is nothing to join.
+            </p>
+          ) : alreadyIn ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                You are already in this community. This invitation has been
+                used, and there is nothing more to do here.
+              </p>
+              <Button asChild variant="outline">
+                <Link href={communityPath(community.slug)}>
+                  Open {community.title}
+                </Link>
+              </Button>
+            </>
+          ) : dead ? (
+            <p className="text-sm text-muted-foreground">{dead}</p>
+          ) : user ? (
+            <>
+              <AcceptInvitation token={token} />
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Sign in to accept{email ? `, or create an account first` : ""}.
+                Come back to this link afterwards and the invitation will still
+                be here.
+              </p>
+              <div className="flex gap-2">
+                <Button asChild>
+                  <Link href="/login">Sign in</Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/register">Create an account</Link>
+                </Button>
+              </div>
+            </>
+          )}
+
+          {email && !alreadyIn && !community.retiredAt && (
+            <p className="text-xs text-muted-foreground">
+              Sent to {email}. Signing in with a different address still works.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </main>
+  )
+}

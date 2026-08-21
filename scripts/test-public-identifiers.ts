@@ -5,11 +5,14 @@ import {
   collectionPath,
   collectionUri,
   collectionsIndexPath,
+  communitiesIndexPath,
+  communityPath,
   conceptPath,
   conceptSchemePath,
   conceptSchemeUri,
   conceptUri,
   definitionPath,
+  invitePath,
   definitionUri,
   identifierBaseUrl,
   matCoreElementUri,
@@ -104,5 +107,11 @@ assert.throws(() => revisionPath("martensite", 1, 0), RangeError)
 assert.throws(() => rankPath("martensite", 0), RangeError)
 assert.throws(() => termPath(""), RangeError)
 assert.throws(() => applicationMetadataUri(""), RangeError)
+
+assert.equal(communitiesIndexPath, "/communities")
+assert.equal(communityPath("zhang_lab"), "/communities/zhang_lab")
+assert.equal(invitePath("abc-123_XYZ"), "/invite/abc-123_XYZ")
+assert.throws(() => communityPath(""), RangeError)
+assert.throws(() => invitePath(""), RangeError)
 
 console.log("Public identifier tests passed")

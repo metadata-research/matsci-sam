@@ -4,6 +4,7 @@ import nodemailer, { type Transporter } from "nodemailer"
 import { google, type gmail_v1 } from "googleapis"
 import { getAuthSiteUrl } from "@/lib/email-auth"
 import { SITE_NAME } from "@/lib/site"
+import { invitePath } from "@/lib/public-identifiers"
 
 type EmailMessage = {
   from: string
@@ -139,6 +140,53 @@ export const sendEmailSignInLink = async ({
       `<p><a href="${url.href}">Continue to ${SITE_NAME}</a></p>`,
       "<p>The link expires shortly and can be used only once.</p>",
       "<p>If you did not request it, you can ignore this message.</p>"
+    ].join("")
+  })
+}
+
+/*
+ * An invitation to join a community. Sent only when the person issuing it asks
+ * for it to be sent: the alternative is copying the link and delivering it by
+ * hand, which is how both published studies actually ran and which sends no
+ * mail to someone who has no account here.
+ *
+ * The token is in the path rather than the fragment, unlike the sign-in link
+ * above, because the invitation page has to name the community before anyone
+ * accepts. It is a lower-value secret: it admits the holder to a group, which
+ * scopes what they see and nothing else. Nothing of higher value may be
+ * carried this way.
+ */
+export const sendCommunityInvitation = async ({
+  email,
+  token,
+  communityTitle
+}: {
+  email: string
+  token: string
+  communityTitle: string
+}) => {
+  const url = new URL(invitePath(token), getAuthSiteUrl())
+
+  await sendEmail({
+    from: requiredEmailSetting("EMAIL_AUTH_FROM"),
+    to: email,
+    subject: `You have been invited to join ${communityTitle}`,
+    text: [
+      `You have been invited to join ${communityTitle} on ${SITE_NAME}.`,
+      "",
+      url.href,
+      "",
+      "Open the link and sign in, then choose whether to accept.",
+      "If you do not have an account yet, you can create one first and then",
+      "return to this link.",
+      "",
+      "If you were not expecting this, you can ignore this message."
+    ].join("\n"),
+    html: [
+      `<p>You have been invited to join ${communityTitle} on ${SITE_NAME}.</p>`,
+      `<p><a href="${url.href}">Open the invitation</a></p>`,
+      "<p>Open the link and sign in, then choose whether to accept. If you do not have an account yet, you can create one first and then return to this link.</p>",
+      "<p>If you were not expecting this, you can ignore this message.</p>"
     ].join("")
   })
 }

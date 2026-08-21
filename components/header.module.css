@@ -263,3 +263,21 @@
     display: none;
   }
 }
+
+/* The active community, shown beside the account name so the standing choice
+   is visible without a seventh link in the pill. Bounded at twelve characters
+   so a long community name cannot push the nav past its breakpoint. */
+.navScope {
+  display: none;
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+
+@media (min-width: 640px) {
+  .navScope {
+    display: inline;
+  }
+}
