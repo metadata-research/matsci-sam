@@ -100,11 +100,36 @@ tag meaning what it meant.
 
 ## Collections
 
-A collection is a curated named set of terms, published at
-`/collections/{collection}` as a `skos:Collection`. Administrators assemble
-collections outside the interface. The [Collections](/collections) page lists
-them, and each collection page lists the terms it gathers. Anyone can browse
-them.
+A collection is a named set of terms gathered for a purpose, published at
+`/collections/{collection}` as a `skos:Collection`. Each collection states who
+may change its membership. A collection an administrator creates stays curated,
+and only administrators change it. A deployment can open collection creation to
+contributors, and a collection created that way accepts membership changes from
+anyone signed in. Retiring and restoring are always administrator actions.
+
+A curator creates a collection from the Collections page with **New
+collection**, which takes a title and an optional description. On the
+collection page, **Edit details** changes the title or the description, **Add a
+term** searches the vocabulary and adds one, and the control beside a member
+removes it. The address is derived from the title once and does not change when
+the title is edited. Membership is edited from the collection and not from the
+term. A term page shows the facets of that term and the topics of its
+definitions, and says nothing about which collections gather it.
+
+An administrator retires a collection that has served its purpose. A retired
+collection leaves the Collections page, and its address keeps resolving so
+anything that cited it still works. The Turtle export marks it
+`owl:deprecated`. Retiring retracts the membership statements, which stay on
+record as what the collection held. Restoring returns the collection but not
+its members, so a restored collection starts empty.
+
+The [Collections](/collections) page lists them, and each collection page lists
+the terms it gathers. Anyone can browse them. When you have chosen a community
+to work in, the Collections page shows only the collections on the worklist of
+that community, with a **Show everything** link that drops the narrowing for
+one request. The Collections section of this page is never narrowed, so it can
+list more than the Collections page does. See
+[Communities and scope](/docs/communities).
 
 ## Tag pages and identifiers
 

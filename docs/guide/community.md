@@ -1,5 +1,10 @@
 # Community review and revisions
 
+"Community" here means everyone using the site, which is the sense the
+definition status chip uses. A **community** in the other sense is a named
+group of people such as a lab or a review panel, covered in
+[Communities and scope](/docs/communities).
+
 A term can have several definitions from different contributors. Each
 definition has a stable page and an immutable revision history. The current
 revision has its own score and status. Comments remain in one discussion

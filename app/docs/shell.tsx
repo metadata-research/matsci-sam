@@ -199,7 +199,13 @@ export const DocsShell = ({
             prose-code:before:content-none prose-code:after:content-none
             prose-img:rounded-lg prose-img:border prose-img:border-border
             prose-h2:scroll-mt-20
-          prose-table:block prose-table:overflow-x-auto"
+          prose-table:block prose-table:overflow-x-auto
+          [&_details]:my-6 [&_details]:rounded-md [&_details]:border
+          [&_details]:border-border [&_details]:px-4 [&_details]:py-3
+          [&_details[open]]:bg-secondary/20
+          [&_summary]:cursor-pointer [&_summary]:font-medium
+          [&_summary]:text-foreground [&_summary]:marker:text-muted-foreground
+          [&_details>*:last-child]:mb-0"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>

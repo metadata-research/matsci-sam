@@ -48,6 +48,7 @@ const SECTIONS: Record<DocSection, SectionConfig> = {
     title: "User guide",
     order: [
       "account-access",
+      "communities",
       "adding-terms",
       "community",
       "ai-refinement",

@@ -1,8 +1,10 @@
 # Account access
 
-MatSci-SAM keeps one contributor account for each person. The sign-in choices
-shown on the site depend on the configuration of the deployed environment.
-Google sign-in uses the verified identity returned by Google.
+MatSci-SAM keeps one contributor account for each person. Google sign-in is
+always offered and uses the verified identity Google returns. Email sign-in,
+email account creation, and ORCID each appear only where a maintainer has
+enabled them, so the sign-in page shows a different set of choices in different
+deployments.
 
 ## Verified email sign-in
 
@@ -34,9 +36,11 @@ period.
 
 ## Google
 
-Google sign-in confirms the email address through Google. Access restrictions
-may limit Google sign-in to invited accounts during a development or pilot
-period. The visible sign-in page states which options are available.
+Google sign-in confirms the email address through Google. A deployment either
+accepts any Google account or accepts only addresses a maintainer has listed.
+An address that already has an account here always signs in. An address that is
+neither listed nor known is refused after the round trip to Google, with the
+message that the account is not authorized.
 
 ## ORCID
 

@@ -32,9 +32,10 @@ case. The element says as much in RDF.
 ```
 
 `rdfs:range` names the vocabulary as the source of values. It does not assert
-that any particular term has been used in any particular dataset. A record
-linking one deposited dataset to one term is a separate statement, and the
-project holds those as explicit records rather than inferring them.
+that any particular term has been used in any particular dataset. This site
+holds no dataset records at all, and the ledger has no subject kind for one. If
+deposited datasets are ever recorded here, the link from a dataset to a term
+will be an explicit statement rather than something read off the range.
 
 ## The Dublin Core crosswalk
 

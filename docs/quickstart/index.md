@@ -68,11 +68,14 @@ returns a preview on the same card.
 
 ![The Discussion page, with a feedback box and the Suggest revision and Post comment controls](/images/docs/quickstart-revise.png)
 
-Accepting the preview publishes another definition for the term, credited to
-you with the named model as a coauthor. **Post comment instead** records your
-feedback without publishing a definition. Any signed-in contributor can use
-this one-step workflow. The author of a definition also has a longer
-multi-round panel, described in [AI refinement](/docs/ai-refinement).
+Accept the preview and it publishes another definition for the term, credited
+to you with the named model as a coauthor. **Post comment instead** records
+your feedback without publishing a definition. Any signed-in contributor can
+use this one-step workflow. An author who chose **Publish, then refine** also
+has a longer multi-round panel on the current revision of that definition.
+
+[Discussion](/docs/discussion) covers this feed and the revision workflow, and
+[AI refinement](/docs/ai-refinement) covers the multi-round panel.
 
 ## Follow the record
 
@@ -90,8 +93,8 @@ resolve to the exact text it referred to.
 
 ## Where to go next
 
-The [User guide](/docs/guide) documents every feature, including search,
-tagging, contributor profiles, and metadata downloads. The
+The [User guide](/docs/guide) covers search, tagging, communities,
+contributor profiles, and metadata downloads in full. The
 [Knowledge organization](/docs/reference) pages describe the model behind
 terms, tags, and collections, together with the SKOS and PROV-O vocabularies
 used to publish it.

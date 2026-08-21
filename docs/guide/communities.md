@@ -1,0 +1,93 @@
+# Communities and scope
+
+A community is a named group of people, such as a lab, a specialty, or a review
+panel. It narrows what its members see to the collections it is working
+through. A term belongs to the vocabulary and never to a community, so joining
+one changes nothing for anyone else and hides nothing from them. No community
+is published as linked data, and no community has an identifier of its own.
+
+## Working in a community
+
+Your account menu carries a **Working in** choice listing every community you
+belong to, plus **Everything**. The choice is yours alone, it stays put between
+sessions, and the name of the active community appears beside your own in the
+navigation bar.
+
+Two pages narrow to that choice. [Browse](/terms) lists the terms the community
+is working through, and [Collections](/collections) lists the collections on its
+worklist. Nothing else changes. [Search](/docs/search) still reaches the whole
+vocabulary, which is deliberate: a narrowed search is how a person concludes a
+term is missing and enters a duplicate. Discussion, [Tags](/docs/tags) and
+Contribute are unnarrowed for the same reason.
+
+**Show everything** on either page widens it for that visit only and leaves
+your standing choice alone. The address `?scope=all` does the same thing.
+
+You see none of this until you belong to a community. If you leave one, if a
+steward removes you, or if the community is retired, your choice returns to
+Everything.
+
+## Joining
+
+You join through an invitation link, either one addressed to you or an open
+link shared with a group. Open the link, sign in or create an account first and
+come back to it, then press **Accept and join**. Opening a link never joins you
+on its own.
+
+An invitation addressed to one address still works when you sign in with
+another, because the link itself is the credential. Your institutional address
+and the account you sign in with are often not the same one. A per-person
+invitation lasts fourteen days and can be reissued after it lapses. A link that
+has been used, withdrawn, or replaced says so when you open it.
+
+See [Account access](/docs/account-access) for the sign-in methods available
+here. You can leave a community from its page whenever you like, and leaving is
+never refused.
+
+## Who is in a community
+
+Members and administrators see the roster. Everyone else sees how many people
+are in it and no names. A group you belong to is not work you did, so lab
+membership is not published the way authorship is, and a private profile stays
+private through this route as well. [Community review and
+revisions](/docs/community) covers the profile visibility setting itself.
+
+<details>
+<summary>Running a community</summary>
+
+A steward runs one community. Administrators can do the same on any of them.
+
+**People.** Add someone by searching for their name. Only people who already
+have an account can be added, so an invitation is the route for anyone else.
+The search returns names, never email addresses, and shows an affiliation only
+where its owner made their profile public. A steward can remove a member but
+cannot remove another steward, because only an administrator names one.
+
+**The worklist.** Add a collection to say what the community is working
+through. The worklist is what narrows Browse and Collections for every member.
+It holds collections and never terms of its own, so nothing you add here
+changes what a term means or who may edit it.
+
+**Per-person invitations.** Give an address and take the link, or have it
+emailed. The link appears once and cannot be read back, because only a digest
+of it is stored. Reissue mints a new link and stops the old one working, which
+is the way to recover a link somebody mislaid. Revoke works until the moment
+someone accepts, and not after.
+
+**The open join link.** One link admits anyone signed in who opens it. It can
+be re-read from the community page whenever you need it again, unlike a
+per-person invitation. Replacing it is the only way to revoke a link already in
+circulation, and doing so breaks every copy already sent.
+
+</details>
+
+## Who creates a community
+
+An administrator creates a community, renames it, retires it, restores it, and
+names its stewards. A steward runs the roster, the worklist and the invitations
+of that one community and nothing else. No steward can appoint another steward.
+
+Renaming a community leaves its address alone. A retired community keeps its
+address and its record of who was in it and what it worked through, and an
+administrator can restore it. In this pilot a curator is an administrator, as
+[Curation and AI](/docs/reference/curation-and-ai) describes.
