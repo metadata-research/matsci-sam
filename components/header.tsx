@@ -3,6 +3,9 @@ import Image from "next/image"
 import { SITE_NAME } from "@/lib/site"
 import { ThemeToggle } from "./theme-provider"
 import { getCurrentUser } from "@/lib/current-user"
+import { getActiveCommunity, myCommunities } from "@/lib/community-queries"
+import { CommunitySwitcher } from "@/components/communities/switcher"
+import { communitiesIndexPath } from "@/lib/public-identifiers"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +21,9 @@ import styles from "./header.module.css"
 
 export const Header = async () => {
   const user = await getCurrentUser()
+  const [active, memberships] = user
+    ? await Promise.all([getActiveCommunity(), myCommunities(user.id)])
+    : [null, []]
 
   return (
     <div className={styles.wrapper}>
@@ -62,7 +68,7 @@ export const Header = async () => {
             Documentation
           </Link>
           <ThemeToggle />
-          <AuthSection user={user} />
+          <AuthSection user={user} active={active} memberships={memberships} />
         </nav>
         <details className={styles.mobileMenu}>
           <summary aria-label="Open navigation menu">
@@ -82,7 +88,7 @@ export const Header = async () => {
               <ThemeToggle alwaysVisible />
             </div>
             <div className={styles.mobileAccount}>
-              <AuthSection user={user} />
+              <AuthSection user={user} active={active} memberships={memberships} />
             </div>
           </div>
         </details>
@@ -92,9 +98,13 @@ export const Header = async () => {
 }
 
 const AuthSection = ({
-  user
+  user,
+  active,
+  memberships
 }: {
   user: Awaited<ReturnType<typeof getCurrentUser>>
+  active: { id: number; title: string } | null
+  memberships: { id: number; title: string }[]
 }) => {
   if (user)
     return (
@@ -102,8 +112,21 @@ const AuthSection = ({
         <DropdownMenuTrigger className={buttonVariants({ variant: "outline" })}>
           <UserCircleIcon className="size-4" />
           <span className="hidden sm:block">{user.name}</span>
+          {active && (
+            <span className={styles.navScope}>· {active.title}</span>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent>
+          {memberships.length > 0 && (
+            <>
+              <CommunitySwitcher active={active} memberships={memberships} />
+              <DropdownMenuSeparator />
+            </>
+          )}
+          <DropdownMenuItem asChild>
+            <Link href={communitiesIndexPath}>Communities</Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {user.role === "admin" && (
             <>
               <DropdownMenuItem asChild>

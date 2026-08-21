@@ -424,5 +424,57 @@ BEGIN
       END IF;
     END IF;
   END IF;
+
+  -- Communities (migration 0037). Shape-detected like the blocks above,
+  -- because a release runs this file against the pre-migration restore too.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_name = 'communityMembers'
+  ) THEN
+    -- A person's active community is one they are still in, and one that is
+    -- still live. Removing a member and retiring a community each clear the
+    -- pointer in the same transaction, so a surviving pointer means one of
+    -- those paths wrote without clearing.
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'activeCommunityId'
+    ) THEN
+      IF EXISTS (
+        SELECT 1
+        FROM "users" u
+        WHERE u."activeCommunityId" IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM "communityMembers" m
+            JOIN "communities" c ON c.id = m."communityId"
+            WHERE m."communityId" = u."activeCommunityId"
+              AND m."userId" = u.id
+              AND m."removedAt" IS NULL
+              AND c."retiredAt" IS NULL
+          )
+      ) THEN
+        RAISE EXCEPTION 'active community without a live membership';
+      END IF;
+    END IF;
+
+    -- Membership episodes for one person in one community do not overlap.
+    -- The partial unique index only stops two open episodes; two closed ones
+    -- could still overlap, and then "were they a member when they voted" has
+    -- more than one answer.
+    IF EXISTS (
+      SELECT 1
+      FROM "communityMembers" a
+      JOIN "communityMembers" b
+        ON b."communityId" = a."communityId"
+       AND b."userId" = a."userId"
+       AND b.id > a.id
+      WHERE tstzrange(a."addedAt", coalesce(a."removedAt", 'infinity'), '[)')
+         && tstzrange(b."addedAt", coalesce(b."removedAt", 'infinity'), '[)')
+    ) THEN
+      RAISE EXCEPTION 'overlapping community membership episodes';
+    END IF;
+  END IF;
 END
 $validation$;

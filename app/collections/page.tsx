@@ -4,6 +4,8 @@ import { SITE_NAME } from "@/lib/site"
 import { collectionsWithCounts } from "@/lib/kos-queries"
 import { collectionPath, tagsIndexPath } from "@/lib/public-identifiers"
 import { getCurrentUser } from "@/lib/current-user"
+import { getActiveCommunity } from "@/lib/community-queries"
+import { communityPath } from "@/lib/public-identifiers"
 import { mayCreateCollection } from "@/lib/kos"
 import { CreateCollection } from "@/components/collections/controls"
 
@@ -17,8 +19,21 @@ export const metadata: Metadata = {
  * published as a skos:Collection. Retired collections are not listed; their
  * addresses still resolve.
  */
-export default async function CollectionsPage() {
-  const collections = await collectionsWithCounts()
+// Per-viewer, because the list narrows to the community the reader is working
+// in. Matches app/people/[userId]/page.tsx rather than relying on a
+// layout-level cookies() call.
+export const dynamic = "force-dynamic"
+
+export default async function CollectionsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ scope?: string }>
+}) {
+  const { scope } = await searchParams
+  // A per-request override that persists nothing, so it never disagrees with
+  // the standing choice in the account menu.
+  const active = scope === "all" ? null : await getActiveCommunity()
+  const collections = await collectionsWithCounts({ communityId: active?.id })
   const user = await getCurrentUser()
   const canCreate = mayCreateCollection(user ?? null)
 
@@ -38,9 +53,29 @@ export default async function CollectionsPage() {
           {canCreate && <CreateCollection />}
         </div>
 
+        {active && (
+          <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-2">
+            <span>
+              Showing what{" "}
+              <Link
+                href={communityPath(active.slug)}
+                className="font-medium text-foreground"
+              >
+                {active.title}
+              </Link>{" "}
+              is working through
+            </span>
+            <Link href="/collections?scope=all" className="text-primary">
+              Show everything
+            </Link>
+          </p>
+        )}
+
         {collections.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No collections have been published.
+            {active
+              ? `${active.title} has no collections on its worklist.`
+              : "No collections have been published."}
           </p>
         ) : (
           <ul className="space-y-3">

@@ -9,8 +9,10 @@ The feed selects an AI-authored definition when a term has one. Otherwise,
 it selects the highest-scored definition. The term name and comment count
 link to the full term page.
 
-You can read the feed without signing in. You must sign in to comment,
-request a suggestion, or publish a suggested revision.
+You can read the feed without signing in. To comment, request a suggestion, or
+publish a suggested revision you must be signed in with a name on your profile.
+Until you set one the application answers with "Complete your profile before
+contributing."
 
 ## Suggest a revision
 
@@ -53,7 +55,10 @@ updated definition when it is published.
 
 ## Review history
 
-The expandable **History** area lists the definitions and comments
-associated with the term in date order. It does not include edits, votes,
-or every refinement event. Use the [provenance](/docs/provenance) page
-for the term to review the broader recorded history.
+The expandable **History** area lists every revision of every definition of the
+term, and the comments on them, in date order. Each revision line says what
+produced it, from an initial revision to an author revision, an AI-generated or
+AI-assisted revision, or a restored one. It does not include votes or every
+refinement round, and it appears only when a term has more than one recorded
+event. Use the [provenance](/docs/provenance) page for the term to review the
+broader recorded history.

@@ -44,7 +44,10 @@ underscore and hyphen is dropped, so "density functional theory (DFT)"
 becomes `density_functional_theory_dft`. Two terms that normalize to one slug
 are told apart by a numeric suffix on the second. Tag and collection slugs
 are formed the same way from the label. A model slug is formed from the model
-tag rather than from the display name. A scheme slug is never all digits, so
+tag rather than from the display name, and by a rule of its own: every run of
+characters outside letters and digits becomes a single underscore, hyphens
+included, so `claude-opus-5` is `/models/claude_opus_5` and `gemma4:26b` is
+`/models/gemma4_26b`. A scheme slug is never all digits, so
 the older numeric tag address stays unambiguous.
 
 A slug is assigned when the resource is first published and is identifier

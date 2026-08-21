@@ -1,4 +1,9 @@
-import { definitionsTable, termsTable } from "@yamz/db"
+import {
+  communityCollectionsTable,
+  definitionsTable,
+  statementsTable,
+  termsTable
+} from "@yamz/db"
 import { desc, sql } from "drizzle-orm"
 
 /*
@@ -99,3 +104,22 @@ export const searchOrderGrouped = (query: string) => [
   desc(sql`max(${textRank(query)})`),
   desc(sql`similarity(${termsTable.term}, ${query})`)
 ]
+
+/*
+ * Terms that a community is working through, by way of the collections on its
+ * worklist. A separate exported predicate that has to be called explicitly, so
+ * no existing call site is narrowed by accident: /search and the search
+ * procedures stay unscoped on purpose, because narrowing a search is how a
+ * person concludes a term is missing and enters a duplicate.
+ */
+export const communityTermScope = (communityId: number) =>
+  sql`${termsTable.id} in (
+    select ${statementsTable.objectTermId}
+    from ${statementsTable}
+    join ${communityCollectionsTable}
+      on ${communityCollectionsTable.collectionId} = ${statementsTable.subjectCollectionId}
+    where ${statementsTable.predicate} = 'skos:member'
+      and ${statementsTable.retractedAt} is null
+      and ${communityCollectionsTable.communityId} = ${communityId}
+      and ${communityCollectionsTable.removedAt} is null
+  )`

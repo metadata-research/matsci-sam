@@ -24,10 +24,13 @@ agents (people and models) are drawn as nodes you can click for detail.
 
 ![The profile of a model, with its exact version and the definitions it authored](/images/docs/model-profile.png)
 
-A model that contributes appears as an author in its own right, under a name
-such as MatBot Gemma 4, and that name opens the profile of the model. The
-profile gives the exact version the model runs under, who publishes it, what
-it has contributed, and the prompts it worked from. One profile covers one
+A model that contributes is an author in its own right. On a term page its
+name opens the profile of the model. In the graph and the timeline a model is
+identified by the exact tag it ran under, such as gemma4:26b, and is not a
+link. The profile gives that tag, who publishes it, what the model has authored
+on its own, and the prompts it worked from. A definition the model only
+coauthored, where a person accepted its suggestion, is credited on that
+definition rather than listed on the profile. One profile covers one
 version, because two versions of one family produce different text and a
 definition can only be traced to the version that wrote it.
 [The provenance model](/docs/reference/provenance-model) describes what the

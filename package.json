@@ -14,6 +14,7 @@
     "test:auth": "tsx scripts/test-auth-plumbing.ts",
     "test:interface": "tsx scripts/test-interface-state.ts",
     "test:ollama-context": "tsx scripts/test-ollama-revision-context.ts",
+    "test:communities": "tsx scripts/test-communities.ts",
     "test:kos": "tsx --conditions=react-server scripts/test-kos.ts",
     "test:kos-db": "tsx scripts/test-kos-db.ts",
     "facets:export": "tsx scripts/export-facet-fixture.ts",

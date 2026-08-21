@@ -1,5 +1,6 @@
 import { baseProcedure, createTRPCRouter } from "../init"
 import { collectionsRouter } from "./collections"
+import { communitiesRouter } from "./communities"
 import { tagsRouter } from "./tags"
 import { userRouter } from "./user"
 import { definitionsRouter } from "./definitions"
@@ -43,6 +44,7 @@ const searchLimitSchema = z
 export const appRouter = createTRPCRouter({
   tags: tagsRouter,
   collections: collectionsRouter,
+  communities: communitiesRouter,
   user: userRouter,
   definitions: definitionsRouter,
   refinements: refinementsRouter,

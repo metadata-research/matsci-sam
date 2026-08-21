@@ -1,6 +1,8 @@
 # Adding a term
 
-Sign in, then open **Contribute** in the navigation bar.
+Sign in and give your name in the profile editor, then open **Contribute** in
+the navigation bar. A contribution is refused until the account has a name,
+because the name is the attribution.
 
 The form asks for three things.
 
@@ -30,8 +32,10 @@ independent AI definition. The definition page offers a **Refine with AI**
 button. The model request begins only when you select that button. See
 [AI refinement](/docs/ai-refinement) for the review loop.
 
-After selecting **Publish definition**, you arrive at revision 1 of your
-numbered definition. The definition keeps the same identifier and URL when you
+After selecting **Publish definition** you arrive at revision 1 of your
+numbered definition. The one exception is a new term in Publish and compare:
+there you land on the term page, where the model definition appears alongside
+yours. The definition keeps the same identifier and URL when you
 publish later revisions. You can [tag your contribution](/docs/tags), review
 votes and comments, and start refinement when **Publish, then refine** was
 selected.

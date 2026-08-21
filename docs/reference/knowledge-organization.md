@@ -30,12 +30,24 @@ curator assigns them. Facets attach at term level only. A term may have
 several, and a facet does not claim that the classification is complete.
 The four facets follow Greenberg, J., et al. (2023), "Materials Science
 Ontology Design with an Analytico-Synthetic Facet Analysis Framework". A facet
-classifies terms and is never the same concept as a term, so a facet is never
-bridged to one.
+classifies terms and is never the same concept as a term, so the PSPP scheme
+declares itself unbridgeable and no facet can be linked to a term. That is a
+fact about what a facet is, so it binds a curator as much as a contributor, and
+the database refuses the row either way.
 
 The two levels are enforced. A topic cannot attach to a term and a facet
-cannot attach to a definition. Whether a scheme is curated or open settles
-both who may attach its concepts and at which level.
+cannot attach to a definition. Each scheme states four rules for itself rather
+than deriving them from one flag: the level its concepts attach at, who may
+assert them, whether a concept here may be declared the same concept as a term,
+and the order concepts are listed in. Topics and PSPP sit at opposite ends of
+all four, and a scheme is free to hold a combination neither of them does.
+
+| Rule | Topics | PSPP |
+| --- | --- | --- |
+| Attaches at | definition | term |
+| Assertable by | contributor | curator |
+| Bridgeable | yes | no |
+| Concept order | label | seeded |
 
 A tag has a preferred label, alternative labels, an optional definition, and
 an optional scope note. The definition says what the concept means. The scope
@@ -46,10 +58,14 @@ own scheme, and related tags.
 
 ## Collections
 
-A collection is a `skos:Collection`: a curated named set of terms gathered
-for a purpose, such as the terms reviewed for an event. Membership is a
-statement, so a term joins or leaves a collection without its own record
-changing. Collections hold terms only and are unordered.
+A collection is a `skos:Collection`, a named set of terms gathered for a
+purpose, such as the terms reviewed for an event. Membership is a statement, so
+a term joins or leaves a collection without its own record changing.
+Collections hold terms only and are unordered. Each collection says who may
+change its membership, the same way a concept scheme does. A collection an
+administrator creates is curator-only, and one a contributor creates accepts
+changes from anyone signed in. Whether a contributor may create a collection at
+all is a deployment setting.
 
 ## The statement ledger
 

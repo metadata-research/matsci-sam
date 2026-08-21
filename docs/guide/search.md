@@ -31,9 +31,14 @@ defined term alphabetically.
 
 ## Browse
 
-The **Browse** page lists every defined term alphabetically with its
-definition count in parentheses. A letter index stays pinned to the top
-of the page while you scroll.
+The **Browse** page lists defined terms alphabetically with the definition
+count in parentheses. A letter index stays pinned to the top of the page while
+you scroll. Signed out, or with no community chosen, it lists every defined
+term. When you have chosen a community from the account menu, Browse narrows to
+the terms that community is working through, which are the terms in the
+collections on its worklist, and a **Show everything** link drops the narrowing
+for one request without changing your standing choice. See
+[Communities and scope](/docs/communities).
 
 The **Tags** page is the other way to browse. It groups terms by facet and
 definitions by topic, and lists the curated collections. See

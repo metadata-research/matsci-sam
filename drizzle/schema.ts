@@ -52,6 +52,15 @@ export const usersTable = pgTable(
     role: userRoleEnum().notNull().default("user"),
     // Reputation multiplier, stored per user; not yet applied to vote tallies
     weight: real().notNull().default(1),
+    // The community this person is currently working in. Null means the
+    // unscoped view, which is the default and not a fallback: a signed-out
+    // reader, a person in no community, and a person who has not chosen all
+    // see the whole vocabulary. Never defaulted and never set at sign-in.
+    // Read it through activeCommunityFor, which re-checks membership and
+    // liveness, rather than trusting this column alone.
+    activeCommunityId: integer().references(
+      (): AnyPgColumn => communitiesTable.id
+    ),
     createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
     notifications: boolean().default(false)
   },
@@ -1163,6 +1172,211 @@ export const collectionsTableRelations = relations(
       references: [usersTable.id]
     })
   })
+)
+
+// --- COMMUNITIES ---
+// A community is people. A collection is terms. A study joins one of each, so
+// keeping them apart lets one community work through several collections and
+// one collection be worked on by several communities.
+//
+// A community scopes views, never ownership. A term belongs to the vocabulary,
+// not to a community. What a community has is collections of terms it is
+// working on. Partitioning the vocabulary by community would fragment the
+// dictionary, which is the opposite of the consensus the studies set out to
+// build.
+//
+// Membership is deliberately not a statement. The ledger admits four subject
+// kinds and none of them is a person, and lib/skos.ts publishes every
+// non-retracted row it holds with no predicate filter. Lab affiliation is not
+// a disclosure this project has made, so it stays in tables of its own.
+//
+// Nothing here is published as RDF and no slug here is a public identifier.
+
+export const communityRoleEnum = pgEnum("community_role", [
+  "member",
+  // Runs the roster and the worklist of one community. Named by an
+  // administrator, who alone creates, renames and retires the community.
+  "steward"
+])
+
+export type Community = typeof communitiesTable.$inferSelect
+export const communitiesTable = pgTable(
+  "communities",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // Route: /communities/<slug>. Minted once from the title, never
+    // re-derived, so renaming a community does not move it.
+    slug: text().notNull().unique(),
+    title: text().notNull(),
+    description: text(),
+    // Retired, not deleted, as collections are. The roster and the worklist
+    // stay active on retirement: retracting them would record that everyone
+    // left, and nobody did.
+    retiredAt: timestamp({ mode: "string", withTimezone: true }),
+    // The shareable join link, stored readable rather than hashed, because
+    // its purpose is to be re-read and pasted into a lab channel. It is a
+    // lower-value secret than a per-person invitation: it admits whoever holds
+    // it, so it is turned off by setting this to null and replaced by minting
+    // a new one. Null means the community has no open join link, which is the
+    // default. Nothing of higher value may ever be carried this way.
+    joinToken: text().unique(undefined, { nulls: "distinct" }),
+    createdById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    check("communities_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
+    check("communities_title_nonblank", sql`btrim(${t.title}) <> ''`)
+  ]
+)
+
+// Membership is an episode, never a delete. Leaving closes a row and rejoining
+// opens a new one, so Phase 3 can answer "was this person a member of this
+// community when they cast that vote" from the timestamps alone.
+export type CommunityMember = typeof communityMembersTable.$inferSelect
+export const communityMembersTable = pgTable(
+  "communityMembers",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    communityId: integer()
+      .references(() => communitiesTable.id)
+      .notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    role: communityRoleEnum().notNull().default("member"),
+    addedById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    addedAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    removedAt: timestamp({ mode: "string", withTimezone: true }),
+    removedById: integer().references(() => usersTable.id)
+  },
+  (t) => [
+    check(
+      "community_members_removal_pair",
+      sql`(${t.removedAt} IS NULL) = (${t.removedById} IS NULL)`
+    ),
+    check(
+      "community_members_removed_after_added",
+      sql`${t.removedAt} IS NULL OR ${t.removedAt} >= ${t.addedAt}`
+    ),
+    // One live membership per person per community. Both columns are NOT NULL,
+    // so unlike statements_active_unique this needs no coalesce.
+    uniqueIndex("community_members_active_unique")
+      .on(t.communityId, t.userId)
+      .where(sql`${t.removedAt} IS NULL`),
+    index("community_members_user_idx").on(t.userId)
+  ]
+)
+
+// What a community is working through. The worklist, and not a study: it
+// carries no protocol, window, status or close date, so Phase 4 stays free to
+// choose what a study is.
+export type CommunityCollection = typeof communityCollectionsTable.$inferSelect
+export const communityCollectionsTable = pgTable(
+  "communityCollections",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    communityId: integer()
+      .references(() => communitiesTable.id)
+      .notNull(),
+    collectionId: integer()
+      .references(() => collectionsTable.id)
+      .notNull(),
+    addedById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    addedAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    removedAt: timestamp({ mode: "string", withTimezone: true }),
+    removedById: integer().references(() => usersTable.id)
+  },
+  (t) => [
+    check(
+      "community_collections_removal_pair",
+      sql`(${t.removedAt} IS NULL) = (${t.removedById} IS NULL)`
+    ),
+    check(
+      "community_collections_removed_after_added",
+      sql`${t.removedAt} IS NULL OR ${t.removedAt} >= ${t.addedAt}`
+    ),
+    uniqueIndex("community_collections_active_unique")
+      .on(t.communityId, t.collectionId)
+      .where(sql`${t.removedAt} IS NULL`),
+    index("community_collections_collection_idx").on(t.collectionId)
+  ]
+)
+
+// An invitation for one named person. Only the SHA-256 digest is stored, the
+// same rule emailAuthTokens follows, so the raw token exists only in the link
+// handed to the invitee and cannot be recovered afterwards. Losing it means
+// reissuing, which mints a new token and kills the old one.
+//
+// The token is a bearer credential: whoever opens the link and is signed in
+// joins, once. It is deliberately not bound to the address it was sent to,
+// because an invitee whose institutional and Google addresses differ would
+// otherwise be stranded with no way to fix it. What the address gives is the
+// record of who was invited and whether they came.
+//
+// Redeeming is a button press rather than a GET, so a mail scanner or a link
+// prefetcher cannot spend an invitation on the invitee's behalf.
+export type CommunityInvitation =
+  typeof communityInvitationsTable.$inferSelect
+export const communityInvitationsTable = pgTable(
+  "communityInvitations",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    communityId: integer()
+      .references(() => communitiesTable.id)
+      .notNull(),
+    // Who it was meant for. Kept even after redemption, so a cohort can be
+    // reconciled against the people who actually arrived.
+    email: varchar({ length: 254 }).notNull(),
+    tokenHash: varchar({ length: 64 }).notNull().unique(),
+    invitedById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    // Set when the application sent the message itself. Null means the link
+    // was copied and delivered by hand, which is how both published studies
+    // actually ran.
+    sentAt: timestamp({ mode: "string", withTimezone: true }),
+    expiresAt: timestamp({ mode: "string", withTimezone: true }).notNull(),
+    revokedAt: timestamp({ mode: "string", withTimezone: true }),
+    revokedById: integer().references(() => usersTable.id),
+    redeemedAt: timestamp({ mode: "string", withTimezone: true }),
+    redeemedById: integer().references(() => usersTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    check(
+      "community_invitations_revocation_pair",
+      sql`(${t.revokedAt} IS NULL) = (${t.revokedById} IS NULL)`
+    ),
+    check(
+      "community_invitations_redemption_pair",
+      sql`(${t.redeemedAt} IS NULL) = (${t.redeemedById} IS NULL)`
+    ),
+    // An invitation ends once, one way. Revoked and redeemed together would
+    // leave no answer to whether the person was admitted.
+    check(
+      "community_invitations_one_outcome",
+      sql`${t.revokedAt} IS NULL OR ${t.redeemedAt} IS NULL`
+    ),
+    check(
+      "community_invitations_expires_after_created",
+      sql`${t.expiresAt} > ${t.createdAt}`
+    ),
+    index("community_invitations_community_idx").on(t.communityId)
+  ]
 )
 
 // --- TAG PROPOSALS ---

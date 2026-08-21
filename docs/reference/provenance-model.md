@@ -34,8 +34,10 @@ also reflects current votes rather than the history of changed or removed
 ones.
 
 People and models are agents. A person is a `prov:Person` and a model is a
-`prov:SoftwareAgent`. Voter identities are replaced with "A community member"
-in the public record. Authors, editors and commenters are named.
+`prov:SoftwareAgent`. A vote is public as an event, and the voter is not. In
+the Turtle document a vote activity names the revision it used and no agent at
+all, so there is nothing to re-identify. On the timeline the same vote reads "A
+community member". Authors, editors and commenters are named in both.
 
 ## What is not yet in the record
 

@@ -11,10 +11,17 @@ A contributor writes definitions and examples of use. A contributor creates
 topics and attaches them to definitions they wrote. A contributor who created
 a topic may also declare that topic the same concept as a term.
 
-A curator assigns facets to terms, declares any open tag the same concept as
-a term, edits the definition, scope note and alternative labels of a tag,
-merges one tag into another, and assembles collections. In this
-implementation a curator is an administrator.
+A curator assigns facets to terms, declares a tag the same concept as a term
+where the scheme allows it, edits the definition, scope note and alternative
+labels of a tag, and merges one tag into another. A scheme says for itself
+whether its concepts may be bridged, which is a claim about what the concepts
+are, so it binds a curator as much as a contributor. In this implementation a
+curator is an administrator.
+
+Collections are governed separately. A collection states who may change its
+membership, so a curator-owned collection accepts curator changes only and a
+contributor-owned one accepts anybody signed in. Whether a contributor may
+create a collection at all is a deployment setting, off by default.
 
 A term is not owned. Nobody has standing to classify a term with an open
 topic, which is why topics attach to definitions and facets are the only

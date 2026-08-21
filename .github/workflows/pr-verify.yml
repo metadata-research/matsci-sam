@@ -126,6 +126,10 @@ jobs:
         run: |
           pnpm test:kos
 
+      - name: Test Community Rules
+        run: |
+          pnpm test:communities
+
       - name: Check Migration Journal
         run: |
           pnpm test:migration-journal
