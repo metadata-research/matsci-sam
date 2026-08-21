@@ -124,3 +124,44 @@ export const invitationOutcome = (
   if (new Date(invitation.expiresAt) <= now) return "expired"
   return "live"
 }
+
+/*
+ * A study joins one community to one collection and says what its participants
+ * are being asked to do. Creating and editing one is running the community, so
+ * it takes the same rule as the worklist and the invitations rather than a new
+ * one: a steward decides what their own community is working on, and a study
+ * is that decision with instructions attached.
+ */
+export const mayRunStudy = mayRunCommunity
+
+export type StudyState = "draft" | "open" | "closed" | "retired"
+
+/*
+ * Where a study stands. Both dates are optional, so a study with neither is
+ * open from the moment it exists, which is the ordinary case for a cohort that
+ * is told when to start by email.
+ */
+export const studyState = (
+  study: {
+    opensAt: string | null
+    closesAt: string | null
+    retiredAt: string | null
+  },
+  now: Date = new Date()
+): StudyState => {
+  if (study.retiredAt) return "retired"
+  if (study.opensAt && new Date(study.opensAt) > now) return "draft"
+  if (study.closesAt && new Date(study.closesAt) <= now) return "closed"
+  return "open"
+}
+
+// An invitation to a study stops being acceptable once the study is over. The
+// community invitation is unaffected, because belonging to a lab outlives any
+// one piece of work it did.
+export const studyAcceptsParticipants = (
+  study: Parameters<typeof studyState>[0],
+  now: Date = new Date()
+) => {
+  const state = studyState(study, now)
+  return state === "draft" || state === "open"
+}

@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "../ui/dropdown-menu"
-import { communityPath } from "@/lib/public-identifiers"
+import { communityPath, studyPath } from "@/lib/public-identifiers"
 
 /*
  * Affordances for communities, not the enforcement. The router checks the same
@@ -477,11 +477,21 @@ export const RemoveCollection = ({
   )
 }
 
-export const InvitePerson = ({ communityId }: { communityId: number }) => {
+export const InvitePerson = ({
+  communityId,
+  studies = []
+}: {
+  communityId: number
+  studies?: { id: number; title: string }[]
+}) => {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [link, setLink] = useState<string | null>(null)
+  // Null means an invitation to the community itself rather than to a study.
+  const [studyId, setStudyId] = useState<number | null>(
+    studies.length === 1 ? studies[0].id : null
+  )
 
   const { mutate: invite, isPending } = trpc.communities.invite.useMutation({
     onSuccess: (created) => {
@@ -515,16 +525,45 @@ export const InvitePerson = ({ communityId }: { communityId: number }) => {
           onSubmit={(event) => {
             event.preventDefault()
             if (email.trim())
-              invite({ communityId, email, send: false })
+              invite({
+                communityId,
+                email,
+                send: false,
+                studyId: studyId ?? undefined
+              })
           }}
         >
           <Input
             autoFocus
             type="email"
+            aria-label="Email address"
             placeholder="their@address"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
+          {studies.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  {studies.find((study) => study.id === studyId)?.title ??
+                    "Invite to the community"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onSelect={() => setStudyId(null)}>
+                  Invite to the community
+                </DropdownMenuItem>
+                {studies.map((study) => (
+                  <DropdownMenuItem
+                    key={study.id}
+                    onSelect={() => setStudyId(study.id)}
+                  >
+                    {study.title}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <div className="flex flex-wrap gap-2">
             <Button type="submit" size="sm" disabled={isPending || !email.trim()}>
               Create a link
@@ -534,7 +573,14 @@ export const InvitePerson = ({ communityId }: { communityId: number }) => {
               size="sm"
               variant="outline"
               disabled={isPending || !email.trim()}
-              onClick={() => invite({ communityId, email, send: true })}
+              onClick={() =>
+                invite({
+                  communityId,
+                  email,
+                  send: true,
+                  studyId: studyId ?? undefined
+                })
+              }
             >
               Create and email it
             </Button>
@@ -676,5 +722,214 @@ export const JoinLink = ({
         </Button>
       )}
     </div>
+  )
+}
+
+/*
+ * Start a study: a set of terms, what to do with them, and who is doing it.
+ *
+ * The collection is either one that already exists or a fresh one made here.
+ * That choice is the point of the control. Sending a curator to /collections
+ * first, then back here to attach it, then back again to invite, is three
+ * pages for one intention, and the middle step is the one that gets forgotten.
+ */
+export const CreateStudy = ({
+  communityId,
+  collections
+}: {
+  communityId: number
+  collections: { id: number; title: string }[]
+}) => {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState("")
+  const [welcome, setWelcome] = useState("")
+  const [newCollection, setNewCollection] = useState(true)
+  const [collectionTitle, setCollectionTitle] = useState("")
+  const [collectionId, setCollectionId] = useState<number | null>(null)
+
+  const { mutate: create, isPending } =
+    trpc.communities.createStudy.useMutation({
+      onSuccess: (created) => {
+        setOpen(false)
+        router.push(studyPath(created.slug))
+      },
+      onError: (error) => toast.error(error.message)
+    })
+
+  const chosen = collections.find((c) => c.id === collectionId)
+  const ready =
+    title.trim() &&
+    (newCollection ? collectionTitle.trim() : collectionId !== null)
+
+  if (!open)
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <PlusIcon className="size-4 mr-1" />
+        Start a study
+      </Button>
+    )
+
+  return (
+    <form
+      className="w-full space-y-3 rounded-md border border-border p-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (!ready) return
+        create({
+          communityId,
+          title,
+          welcome: welcome || undefined,
+          ...(newCollection
+            ? { newCollectionTitle: collectionTitle }
+            : { collectionId: collectionId! })
+        })
+      }}
+    >
+      <Input
+        autoFocus
+        aria-label="Study name"
+        placeholder="Study name, for example Second ID4 round"
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+      />
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Terms
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={newCollection ? "default" : "outline"}
+            onClick={() => setNewCollection(true)}
+          >
+            Start a new collection
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={newCollection ? "outline" : "default"}
+            disabled={collections.length === 0}
+            onClick={() => setNewCollection(false)}
+          >
+            Use an existing one
+          </Button>
+        </div>
+
+        {newCollection ? (
+          <Input
+            aria-label="New collection name"
+            placeholder="Collection name, for example ID4 round two terms"
+            value={collectionTitle}
+            onChange={(event) => setCollectionTitle(event.target.value)}
+          />
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                {chosen ? chosen.title : "Choose a collection"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {collections.map((collection) => (
+                <DropdownMenuItem
+                  key={collection.id}
+                  onSelect={() => setCollectionId(collection.id)}
+                >
+                  {collection.title}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      <Textarea
+        aria-label="What participants are asked to do"
+        placeholder="What are you asking people to do? This is what they read when they open their invitation, and what they come back to later."
+        rows={5}
+        value={welcome}
+        onChange={(event) => setWelcome(event.target.value)}
+      />
+
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={isPending || !ready}>
+          Start it
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => setOpen(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/*
+ * Make a collection and put it on the worklist in one act. The alternative is
+ * to leave, make it on the Collections page, come back, and attach it, and the
+ * middle step is the one that gets forgotten.
+ */
+export const CreateWorklistCollection = ({
+  communityId
+}: {
+  communityId: number
+}) => {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState("")
+  const handlers = useRefreshingMutation()
+  const { mutate: create, isPending } =
+    trpc.communities.createWorklistCollection.useMutation({
+      ...handlers,
+      onSuccess: () => {
+        setOpen(false)
+        setTitle("")
+        toast.success("Collection created and added")
+        handlers.onSuccess()
+      }
+    })
+
+  if (!open)
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <PlusIcon className="size-4 mr-1" />
+        New collection
+      </Button>
+    )
+
+  return (
+    <form
+      className="flex flex-wrap gap-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (title.trim()) create({ communityId, title })
+      }}
+    >
+      <Input
+        autoFocus
+        aria-label="New collection name"
+        placeholder="Collection name"
+        className="w-56"
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+      />
+      <Button type="submit" size="sm" disabled={isPending || !title.trim()}>
+        Create
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => setOpen(false)}
+      >
+        Cancel
+      </Button>
+    </form>
   )
 }

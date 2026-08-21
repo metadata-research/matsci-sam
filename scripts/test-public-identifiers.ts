@@ -13,6 +13,8 @@ import {
   conceptUri,
   definitionPath,
   invitePath,
+  studiesIndexPath,
+  studyPath,
   definitionUri,
   identifierBaseUrl,
   matCoreElementUri,
@@ -113,5 +115,8 @@ assert.equal(communityPath("zhang_lab"), "/communities/zhang_lab")
 assert.equal(invitePath("abc-123_XYZ"), "/invite/abc-123_XYZ")
 assert.throws(() => communityPath(""), RangeError)
 assert.throws(() => invitePath(""), RangeError)
+assert.equal(studiesIndexPath, "/studies")
+assert.equal(studyPath("id4_round_two"), "/studies/id4_round_two")
+assert.throws(() => studyPath(""), RangeError)
 
 console.log("Public identifier tests passed")

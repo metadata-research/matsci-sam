@@ -15,7 +15,7 @@ limits of the pilot workflows.
 - [Account access](/docs/account-access) explains Google and verified-email
   sign-in, email account creation, and linked ORCID iDs.
 - [Communities and scope](/docs/communities) explains named groups of people,
-  narrowing Browse and Collections to what one is working through, and
+  narrowing Browse and Collections to what one is working through, studies, and
   invitations.
 - [Adding a term](/docs/adding-terms) covers the Contribute page and the two
   modes.

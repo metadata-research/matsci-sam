@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { AcceptInvitation } from "@/components/communities/accept-invitation"
 import { getCurrentUser } from "@/lib/current-user"
 import { invitationForToken, isMemberOf } from "@/lib/community-queries"
-import { communityPath } from "@/lib/public-identifiers"
+import { communityPath, studyPath } from "@/lib/public-identifiers"
 import { SITE_NAME } from "@/lib/site"
 import { INVITATION_LIFETIME_DAYS } from "@/lib/communities"
 
@@ -56,7 +56,7 @@ export default async function InvitePage({
       </main>
     )
 
-  const { community, outcome, email, kind } = invitation
+  const { community, outcome, email, kind, study } = invitation
   const user = await getCurrentUser()
   const alreadyIn = user ? await isMemberOf(community.id, user.id) : false
 
@@ -66,11 +66,15 @@ export default async function InvitePage({
     <main className="px-4 py-12">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">{community.title}</CardTitle>
+          <CardTitle className="text-2xl">
+            {study ? study.title : community.title}
+          </CardTitle>
           <CardDescription>
-            {kind === "open"
-              ? `You have been given a link to join ${community.title} on ${SITE_NAME}.`
-              : `You have been invited to join ${community.title} on ${SITE_NAME}.`}
+            {study
+              ? `${community.title} has asked you to take part on ${SITE_NAME}.`
+              : kind === "open"
+                ? `You have been given a link to join ${community.title} on ${SITE_NAME}.`
+                : `You have been invited to join ${community.title} on ${SITE_NAME}.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -80,12 +84,37 @@ export default async function InvitePage({
             </p>
           )}
 
-          {/* What accepting does, before anyone is asked to sign in for it. */}
+          {/* What you are being asked to do comes before anything about
+              mechanics, and before anyone is asked to sign in for it. */}
+          {study?.welcome && (
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                What to do
+              </p>
+              {study.welcome.split(/\n\s*\n/).map((paragraph, index) => (
+                <p key={index} className="whitespace-pre-line text-sm">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {study && (
+            <p className="text-sm text-muted-foreground">
+              The terms are in {study.collectionTitle}. You can read this again
+              at any time on the{" "}
+              <Link href={studyPath(study.slug)} className="text-primary">
+                study page
+              </Link>
+              .
+            </p>
+          )}
+
           {!community.retiredAt && !alreadyIn && !DEAD[outcome] && (
             <p className="text-sm text-muted-foreground">
-              Membership scopes what you see to what this community is working
-              through. It does not change what anyone else sees, it publishes
-              nothing about you, and you can leave at any time.
+              Accepting puts you in {community.title} and shows you the terms it
+              is working through. It does not change what anyone else sees, it
+              publishes nothing about you, and you can leave at any time.
             </p>
           )}
 
@@ -100,8 +129,12 @@ export default async function InvitePage({
                 used, and there is nothing more to do here.
               </p>
               <Button asChild variant="outline">
-                <Link href={communityPath(community.slug)}>
-                  Open {community.title}
+                <Link
+                  href={
+                    study ? studyPath(study.slug) : communityPath(community.slug)
+                  }
+                >
+                  {study ? "Open the study" : `Open ${community.title}`}
                 </Link>
               </Button>
             </>

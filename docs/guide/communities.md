@@ -2,7 +2,7 @@
 
 A community is a named group of people, such as a lab, a specialty, or a review
 panel. It narrows what its members see to the collections it is working
-through. A term belongs to the vocabulary and never to a community, so joining
+through. A term belongs to the vocabulary and not to a community, so joining
 one changes nothing for anyone else and hides nothing from them. No community
 is published as linked data, and no community has an identifier of its own.
 
@@ -26,6 +26,21 @@ your standing choice alone. The address `?scope=all` does the same thing.
 You see none of this until you belong to a community. If you leave one, if a
 steward removes you, or if the community is retired, your choice returns to
 Everything.
+
+## Studies
+
+A study asks the people in a community to work through a set of terms. It names
+the terms, says what to do with them, and says when. Each one has a page at
+`/studies/<slug>` that anyone can read, which is where you go back to when you
+have forgotten what you were asked to do.
+
+An invitation to a study opens on those instructions rather than on a bare
+notice that you have been invited. Accepting puts you in the community running
+it, so the terms appear on your Browse and Collections straight away.
+
+A study that has closed still resolves and still reads. What its participants
+contributed stays in the vocabulary, because a term belongs to the vocabulary
+and not to the study that prompted it.
 
 ## Joining
 
@@ -63,10 +78,20 @@ The search returns names, never email addresses, and shows an affiliation only
 where its owner made their profile public. A steward can remove a member but
 cannot remove another steward, because only an administrator names one.
 
-**The worklist.** Add a collection to say what the community is working
-through. The worklist is what narrows Browse and Collections for every member.
-It holds collections and never terms of its own, so nothing you add here
-changes what a term means or who may edit it.
+**Terms in view.** Add a collection, or make a new one here, to put it in front
+of everyone in the community. This is what narrows Browse and Collections for
+every member. It holds collections and not terms of its own, so nothing you add
+here changes what a term means or who may edit it. A collection a study is
+running against is listed with that study instead, so nothing appears twice.
+
+**Studies.** Start a study to give a piece of work a name, a set of terms and
+instructions. You can point it at a collection that already exists or name a
+new one and have it made for you, and either way it joins the worklist, because
+a participant who cannot see the terms cannot take part. Write the instructions
+in the same form: that text is what an invitee reads when the link opens and
+what everyone comes back to later. The two dates are optional and say when the
+work is expected. Nothing locks when they pass, other than that an invitation
+to a closed study stops being accepted.
 
 **Per-person invitations.** Give an address and take the link, or have it
 emailed. The link appears once and cannot be read back, because only a digest

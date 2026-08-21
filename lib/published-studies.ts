@@ -1,6 +1,10 @@
 // The two published studies this platform answers to, reconstructed from the
 // papers, and the second ID4 study they are the template for.
 //
+// These are reference material and not rows. A study actually run here is a
+// row in the studies table, read through lib/study-queries.ts. This file is
+// what that work was scoped against.
+//
 // A study is a record here, not a row. Phase 4 of the implementation program
 // owns the data model for a study run on this platform, and it is not started.
 // Nothing below is stored, none of it is published as RDF, and no identifier
