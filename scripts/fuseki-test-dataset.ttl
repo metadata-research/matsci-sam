@@ -3,7 +3,9 @@
 # all under /matsci-sam. The paper queries in scripts/graph-queries/ name no
 # graph and need the union, which a dataset started with --mem does not
 # provide. The production assembler is operations material and is kept
-# elsewhere; this one holds nothing on disk.
+# elsewhere; this one holds nothing on disk. It sets the same query policy
+# as the hosts, so test:graph-db runs under it: a query cannot make the
+# server fetch a URL (SERVICE is off), and a query is cut off after 30 s.
 #
 #   fuseki-server --config=scripts/fuseki-test-dataset.ttl --port 3030 \
 #     --localhost --ping --passwd=<file> --auth=basic
@@ -11,9 +13,12 @@
 PREFIX :       <#>
 PREFIX fuseki: <http://jena.apache.org/fuseki#>
 PREFIX rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX ja:     <http://jena.hpl.hp.com/2005/11/Assembler#>
 PREFIX tdb2:   <http://jena.apache.org/2016/tdb#>
 
 [] rdf:type fuseki:Server ;
+    ja:context [ ja:cxtName "arq:httpServiceAllowed" ; ja:cxtValue "false" ] ;
+    ja:context [ ja:cxtName "arq:queryTimeout" ; ja:cxtValue "30000" ] ;
     fuseki:services ( :matsci_sam ) .
 
 :matsci_sam rdf:type fuseki:Service ;

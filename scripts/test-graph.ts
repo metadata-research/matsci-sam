@@ -180,8 +180,7 @@ const main = async () => {
   assert.equal(names.graphPath("kos"), "/graphs/kos")
   assert.equal(names.graphIri("kos"), `${identifierBaseUrl}/graphs/kos`)
   assert.equal(names.datasetIri, `${identifierBaseUrl}/dataset`)
-  // The endpoint is at the application origin, not the identifier
-  // authority: a POST does not follow a redirect.
+  // The endpoint is at the application origin; names.ts says why.
   assert.equal(names.sparqlEndpointUrl, `${SITE_URL}/sparql`)
   assert.equal(studyUri("id4-pilot"), `${identifierBaseUrl}/studies/id4-pilot`)
 
@@ -229,7 +228,10 @@ const main = async () => {
     terms: [
       { id: 1, slug: "martensite" },
       { id: 2, slug: "austenite" },
-      { id: 3, slug: "band_gap" }
+      { id: 3, slug: "band_gap" },
+      // With band_gap, a pair a locale collation and code-point order sort
+      // differently ("_" against "/"), so the agent order is pinned.
+      { id: 4, slug: "band" }
     ],
     definitions: [
       { id: 10, termId: 1, definitionNumber: 1 },
@@ -303,6 +305,23 @@ const main = async () => {
       assertion(9, "skos:exactMatch", {
         subjectConceptId: 5,
         objectIri: EMMO
+      }),
+      // retracted, so the kos fixture need not know the terms: one on band
+      // and one on band_gap, whose agent nodes are the pair that a locale
+      // collation and code-point order sort differently
+      assertion(10, "dcterms:subject", {
+        subjectTermId: 4,
+        objectConceptId: 1,
+        createdAt: "2026-03-10 10:00:00+00",
+        retractedAt: "2026-04-03 12:00:00+00",
+        retractedById: 1
+      }),
+      assertion(11, "dcterms:subject", {
+        subjectTermId: 3,
+        objectConceptId: 1,
+        createdAt: "2026-03-11 10:00:00+00",
+        retractedAt: "2026-04-03 12:00:00+00",
+        retractedById: 1
       })
     ],
     voteEvents: [
@@ -684,7 +703,13 @@ const main = async () => {
   assert.deepEqual(
     agents.map((a) => a.iri),
     [...agents.map((a) => a.iri)].sort(),
-    "agent blocks are in IRI order"
+    "agent blocks are in code-point IRI order"
+  )
+  // The pair the two orders disagree on, in the order a store sorts IRIs:
+  // "/" before "_" by code point, the other way round under ICU.
+  assert.deepEqual(
+    agents.map((a) => a.iri).filter((iri) => iri.includes("/band")),
+    [personUnder("band", 1), personUnder("band_gap", 1)]
   )
   const agentByIri = new Map(agents.map((a) => [a.iri, a]))
   assert.deepEqual(agentByIri.get(personUnder("martensite", 1)), {
@@ -796,7 +821,23 @@ const main = async () => {
         },
         { id: "user_1", label: "Ada", type: "person" },
         { id: "user_4", label: "Persona 1", type: "software" },
-        { id: "model_gemma4:26b", label: "gemma4:26b", type: "software" },
+        // A model with a profile, as the dataset graph names it.
+        {
+          id: "model_gemma4:26b",
+          label: "gemma4:26b",
+          type: "software",
+          publicResource: { uri: modelUri("gemma4-26b") }
+        },
+        {
+          id: "comment_7",
+          label: "Comment on definition 1 · revision 2",
+          type: "activity",
+          meta: {
+            at: "2026-05-01 08:00:00+00",
+            actorKind: "simulated",
+            legacyAssociationInferred: "no"
+          }
+        },
         {
           id: "anonymous_vote_1",
           label: "Upvote on definition 1 · revision 2",
@@ -840,6 +881,18 @@ const main = async () => {
           source: "anonymous_vote_1",
           target: "def_10_v2",
           rel: "used"
+        },
+        {
+          id: "e7",
+          source: "def_10_v1",
+          target: "model_gemma4:26b",
+          rel: "wasAttributedTo"
+        },
+        {
+          id: "e8",
+          source: "comment_7",
+          target: "user_4",
+          rel: "wasAssociatedWith"
         }
       ]
     }
@@ -860,10 +913,27 @@ const main = async () => {
   assert.deepEqual(types(inGraph, personUnder("martensite", 4)), [
     `${PROV}SoftwareAgent`
   ])
+  // A model with a profile is its own IRI in both renderings, and the
+  // revision it generated is attributed to that IRI.
+  assertTypes(inGraph, modelUri("gemma4-26b"), [`${PROV}SoftwareAgent`])
+  assert.deepEqual(values(inGraph, rev1, `${PROV}wasAttributedTo`), [
+    modelUri("gemma4-26b")
+  ])
+  assert.equal(view.assertionAgent(data.assertions[1], 3).iri, modelUri("gemma4-26b"))
+  // A comment states its actor kind as a literal, the spelling the vote
+  // events use, and the persona it is associated with is a software agent.
+  const comment = `${martensite}/provenance#comment_7`
+  assert.deepEqual(values(inGraph, comment, matsci("actorKind")), ["simulated"])
+  assert.deepEqual(values(inGraph, comment, matsci("legacyAssociationInferred")), ["no"])
+  assert.deepEqual(values(inGraph, comment, `${PROV}wasAssociatedWith`), [
+    personUnder("martensite", 4)
+  ])
 
   // Alone, the body repeats what the vocabulary says so it reads on its
-  // own. In the graph it leaves those three triples to the vocabulary
-  // graph and keeps the revision chain.
+  // own. In the graph it leaves the typing of the definition and of the
+  // current revision, and that revision's specializationOf, to the
+  // vocabulary graph, keeps them for the non-current revision, which no
+  // other graph describes, and keeps the revision chain.
   assertTypes(alone, rev2, [
     `${PROV}Entity`,
     matsci("DefinitionRevision")
@@ -873,17 +943,19 @@ const main = async () => {
   assertTypes(inGraph, rev2, [`${PROV}Entity`])
   assertTypes(inGraph, def1, [`${PROV}Entity`])
   assert.equal(values(inGraph, rev2, `${PROV}specializationOf`).length, 0)
+  assertTypes(inGraph, rev1, [`${PROV}Entity`, matsci("DefinitionRevision")])
+  assert.deepEqual(values(inGraph, rev1, `${PROV}specializationOf`), [def1])
   assert.deepEqual(values(inGraph, rev2, `${PROV}wasRevisionOf`), [rev1])
   assert.deepEqual(values(alone, rev2, `${PROV}wasRevisionOf`), [rev1])
   assert.deepEqual(values(inGraph, rev2, `${PROV}wasAttributedTo`), [
     personUnder("martensite", 1)
   ])
-  // Three kinds of triple, over two revisions and one definition: the two
-  // revision typings, the definition typing, and two specializationOf.
+  // Three triples, all about the current revision and its definition: the
+  // revision typing, the definition typing, and the specializationOf.
   const omitted = [...tripleKeys(alone)].filter(
     (k) => !tripleKeys(inGraph).has(k)
   )
-  assert.equal(omitted.length, 5, `omitted: ${omitted}`)
+  assert.equal(omitted.length, 3, `omitted: ${omitted}`)
   assert.ok(
     omitted.every(
       (k) =>
@@ -1086,10 +1158,8 @@ const main = async () => {
   ) as Record<(typeof names.CONTENT_GRAPH_NAMES)[number], number>
   for (const name of names.CONTENT_GRAPH_NAMES)
     assert.ok(counts[name] > 0, `${name} graph is not empty`)
-  // The count is of distinct triples, as a store holds them: the agent
-  // block of Ada on martensite repeats the per-term body's person node.
+  // The count is of distinct triples, as a store holds them.
   assert.equal(counts.provenance, tripleKeys(parsed.provenance).size)
-  assert.ok(counts.provenance < parsed.provenance.length)
   assert.equal(
     countTriples(TTL_PREFIXES + "<http://x/s> <http://x/p> <http://x/o> , <http://x/o> .\n"),
     1
@@ -1107,6 +1177,25 @@ const main = async () => {
     }
   assert.ok(subjects(parsed.vocabulary).has(rev2))
   assert.ok(subjects(parsed.provenance).has(rev2))
+  // In the union every revision, current or not, is typed and linked to
+  // its definition exactly once: rev2 by the vocabulary graph, rev1 (not
+  // current) by the provenance graph.
+  const union = [...parsed.vocabulary, ...parsed.provenance]
+  const revisionSubjects = [...subjects(union)].filter((s) =>
+    /\/definitions\/\d+\/revisions\/\d+$/.test(s)
+  )
+  assert.ok(revisionSubjects.includes(rev1) && revisionSubjects.includes(rev2))
+  for (const revision of revisionSubjects) {
+    assert.ok(
+      types(union, revision).includes(matsci("DefinitionRevision")),
+      `${revision} is a DefinitionRevision in the union`
+    )
+    assert.equal(
+      values(union, revision, `${PROV}specializationOf`).length,
+      1,
+      `${revision} has one specializationOf in the union`
+    )
+  }
   // The negative control: with the vocabulary triples left in, the two
   // graphs would overlap, which is what the option exists to prevent.
   const overlapping = parse(
@@ -1155,9 +1244,11 @@ const main = async () => {
   assert.deepEqual(values(meta, names.datasetIri, `${VOID}sparqlEndpoint`), [
     names.sparqlEndpointUrl
   ])
-  assert.deepEqual(values(meta, names.datasetIri, `${VOID}dataDump`), [
-    `${identifierBaseUrl}/dataset.ttl`
-  ])
+  // The dumps are the content graphs, which together are the dataset.
+  assert.deepEqual(
+    values(meta, names.datasetIri, `${VOID}dataDump`).sort(),
+    names.CONTENT_GRAPH_NAMES.map(names.graphIri).sort()
+  )
   assert.deepEqual(
     values(meta, names.datasetIri, `${VOID}subset`).sort(),
     names.CONTENT_GRAPH_NAMES.map(names.graphIri).sort()
@@ -1176,6 +1267,7 @@ const main = async () => {
     assert.deepEqual(values(meta, iri, `${SD}name`), [iri])
     assert.deepEqual(values(meta, iri, `${RDFS}label`), [name])
     assert.deepEqual(values(meta, iri, `${VOID}triples`), [String(counts[name])])
+    assert.deepEqual(values(meta, iri, `${VOID}dataDump`), [iri])
     assert.deepEqual(values(meta, iri, `${VOID}inDataset`), [names.datasetIri])
     assert.equal(values(meta, iri, `${DCT}description`).length, 1)
   }
@@ -1184,14 +1276,18 @@ const main = async () => {
   // The same input renders the same bytes.
   assert.equal(metaGraphTurtle({ projectedAt, counts }), metaTtl)
 
-  // --- People exclusion: no IRI anywhere contains /people/ ---
+  // --- People exclusion: no IRI anywhere is under /people/, /communities/
+  // or /invite/, the three paths the privacy shape refuses ---
 
+  const EXCLUDED_PATHS = ["/people/", "/communities/", "/invite/"]
   const documents = { ...content, meta: metaTtl }
   for (const [name, text] of Object.entries(documents)) {
     const quads = parse(text, `${name} graph`)
     for (const iri of irisIn(quads))
-      assert.ok(!iri.includes("/people/"), `${name} names a person: ${iri}`)
-    assert.ok(!text.includes("/people/"), `${name} mentions /people/`)
+      for (const path of EXCLUDED_PATHS)
+        assert.ok(!iri.includes(path), `${name} names a person: ${iri}`)
+    for (const path of EXCLUDED_PATHS)
+      assert.ok(!text.includes(path), `${name} mentions ${path}`)
   }
 
   // --- Export for the CI SHACL step ---
@@ -1201,7 +1297,8 @@ const main = async () => {
     for (const name of names.GRAPH_NAMES)
       writeFileSync(join(exportDir, `${name}.ttl`), documents[name])
     // What the privacy shape must refuse: a person with an IRI, named as
-    // the agent of a vote.
+    // the agent of a vote, and a community named by a study. Each is one
+    // focus node, so the report must hold both.
     const negative =
       TTL_PREFIXES +
       `<${identifierBaseUrl}/people/1> a prov:Person ;\n  rdfs:label "Someone" .\n\n` +
@@ -1209,7 +1306,11 @@ const main = async () => {
       `  prov:used <${rev100}> ;\n` +
       `  matsci:voteKind "up" ;\n  matsci:actorKind "human" ;\n` +
       `  prov:atTime "2026-05-01T09:00:00.000Z"^^xsd:dateTime ;\n` +
-      `  prov:wasAssociatedWith <${identifierBaseUrl}/people/1> .\n`
+      `  prov:wasAssociatedWith <${identifierBaseUrl}/people/1> .\n\n` +
+      `<${s1}> a matsci:Study, prov:Activity ;\n` +
+      `  dcterms:title "ID4 pilot"@en ;\n` +
+      `  matsci:worklist <${demo}> ;\n` +
+      `  dcterms:isPartOf <${identifierBaseUrl}/communities/zhang-lab> .\n`
     parse(negative, "negative-people")
     writeFileSync(join(exportDir, "negative-people.ttl"), negative)
 

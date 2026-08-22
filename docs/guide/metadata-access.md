@@ -49,10 +49,14 @@ The four content graphs are pairwise disjoint. No triple is stated in two of
 them, so a count over the union counts each fact once, and a consumer who
 wants one layer fetches one graph. `/dataset` describes the whole as a
 `void:Dataset` and the endpoint as an `sd:Service`, with the triple count of
-each graph and the time the store was last projected. `/sparql` answers
-SPARQL 1.1 queries, by GET or POST, over the union of the graphs, so a query
-that names no graph reads all five. The endpoint is read-only. The store is a
-projection of the database, and the database remains the system of record.
+each graph and the time of the projection it describes. On a deployment
+without a store the counts are computed at request time and the time is that
+of the build. `/sparql` answers SPARQL 1.1 queries, by GET or POST, over the
+union of the graphs, so a query that names no graph reads all five. The
+endpoint is read-only. It is served at the public host, which forwards the
+path to the query endpoint of the store, and the application serves no such
+route itself. The store is a projection of the database, and the database
+remains the system of record.
 
 Each term is published as a `skos:Concept`. The term is the
 `skos:prefLabel`. Each `skos:definition` value is an identified current
@@ -154,6 +158,7 @@ The provenance graph adds terms for the record of acts:
 | `actorKind`   | The kind of actor that performed an act: `human`, `model` or `simulated`      |
 | `Study`       | A study run over a collection of terms, published as an activity              |
 | `worklist`    | The collection a study works through                                          |
+| `legacyAssociationInferred` | `yes` on a vote whose binding to the revision was inferred when the record was migrated. The per-term document also states `no` |
 
 PROV output also uses application properties for descriptive event details,
 such as a model name, score, prompt key, or change note. That set is

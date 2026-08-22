@@ -7,7 +7,9 @@
  * Graph IRIs are minted under the identifier authority, like every other
  * published IRI. The SPARQL endpoint is the one exception: a query client
  * POSTs to it, and a POST does not survive the redirect from a persistent
- * namespace, so the endpoint is addressed at the application origin.
+ * namespace, so the endpoint is addressed at the application origin. The
+ * application serves no route at that path; the host forwards it to the
+ * query endpoint of the store.
  */
 
 import { identifierBaseUrl } from "../public-identifiers"

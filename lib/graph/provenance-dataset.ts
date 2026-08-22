@@ -51,9 +51,11 @@ import { lit } from "../rdf-literal"
  * read the same shapes with Drizzle in a fixed number of queries, whatever
  * the row count.
  *
- * No person has a published IRI. A person is a hash node on the document of
+ * No person has a resolvable IRI. A person is a hash node on the document of
  * the term they acted under, the same node the per-term body already uses, so
- * an assertion and the revision history it concerns name one agent. A model
+ * an assertion and the revision history it concerns name one agent. The
+ * fragment is the account number, the same on every document, so the acts of
+ * one account join across the graph; the number resolves to nothing. A model
  * is a resolvable agent and gets its own IRI.
  */
 
@@ -344,7 +346,12 @@ export class ProvenanceDatasetView {
    * A current-state votes row whose (revision, user) pair has a voteEvents
    * row is already covered by that record and is not repeated. The legacy
    * acts on one revision are numbered by (createdAt, userId): the row has
-   * no id of its own, and that order is stable for a given database.
+   * no id of its own, and that order is stable for a given database. It is
+   * not stable across databases: when one of those voters acts again, the
+   * pair gains an event, the legacy act leaves the set, and every later
+   * sibling on the revision moves down one position. A legacy vote IRI is
+   * therefore not a permanent name; a backfill of one voteEvents row per
+   * legacy vote would give each act one, and retire this branch.
    */
   voteActs(): VoteAct[] {
     const covered = new Set(
@@ -407,7 +414,11 @@ export class ProvenanceDatasetView {
     }
     for (const act of this.voteActs())
       if (this.voteAgentIsPublic(act)) add(this.voteAgent(act))
-    return [...agents.values()].sort((a, b) => a.iri.localeCompare(b.iri))
+    // Code-point order, which every host sorts the same way; a locale
+    // collation would order "_" and "/" by the locale of the process.
+    return [...agents.values()].sort((a, b) =>
+      a.iri < b.iri ? -1 : a.iri > b.iri ? 1 : 0
+    )
   }
 }
 

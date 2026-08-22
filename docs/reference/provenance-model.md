@@ -29,15 +29,18 @@ Two kinds of imported record are marked as inferred rather than observed. A
 comment carried over from before revisions were recorded is associated with
 the revision that was visible at its recorded time. An imported vote is
 associated with the revision current when the data was migrated, because its
-recorded time cannot establish which version the voter read. The vote record
-also reflects current votes rather than the history of changed or removed
-ones.
+recorded time cannot establish which version the voter read. A vote cast
+before the event record began is published once, as the single act it has
+always appeared as. A vote cast since is published as each act, a change of
+direction and a withdrawal included.
 
 People and models are agents. A person is a `prov:Person` and a model is a
-`prov:SoftwareAgent`. A vote is public as an event, and the voter is not. In
-the Turtle document a vote activity names the revision it used and no agent at
-all, so there is nothing to re-identify. On the timeline the same vote reads "A
-community member". Authors, editors and commenters are named in both.
+`prov:SoftwareAgent`. In the per-term document a vote is public as an event
+and the voter is not. A vote activity there names the revision it used and no
+agent, and on the timeline the same vote reads "A community member". The
+dataset graph names a voter only where the profile is public or the account
+is a model. Authors, editors, commenters, asserters and retractors are named
+in both, whatever the profile setting.
 
 ## Assertions, vote events and studies
 
@@ -50,10 +53,11 @@ each stored statement as an assertion named by its identifier,
 RDF 1.2 triple term, is attributed to its asserter, and states its generation
 time. A retracted assertion stays in the graph with its invalidation time and
 the retracting agent under `matsci:retractedBy`, and the triple it reifies is
-no longer in the SKOS documents. Derived triples in the SKOS export, the
-reverse of a symmetric relation, a narrower read from a broader, and a topic
-lifted onto a term, have no stored row and therefore no assertion of their
-own.
+no longer in the SKOS documents. An assertion and a retraction name their
+agent whatever the profile setting, as authorship does. Derived triples in
+the SKOS export, the reverse of a symmetric relation, a narrower read from a
+broader, and a topic lifted onto a term, have no stored row and therefore no
+assertion of their own.
 
 A voting act is a `matsci:VoteEvent` and a `prov:Activity`. It names the
 revision it used, what it did under `matsci:voteKind`, up, down or withdrawn,
@@ -61,21 +65,28 @@ the kind of actor under `matsci:actorKind`, and the time. Votes cast before
 the event record began are published once each from the current vote table,
 as the single act they have always appeared as, and say with
 `matsci:legacyAssociationInferred` where the binding to the revision was
-inferred at migration. The agent of a vote event is named only where the
-voter is a model or has made their profile public. Otherwise the act is in
-the graph and the agent is not.
+inferred at migration. Such an act is named by its position among the acts
+of its kind on the revision, and that name is not permanent. When one of
+those voters votes again the act leaves that record, and the later acts on
+the revision are renumbered. The agent of a vote event is named only where
+the voter is a model or has made their profile public. Otherwise the act is
+in the graph and the agent is not.
 
 A study is a `matsci:Study` and a `prov:Activity` with its title, the window
 it ran over, and the collection it worked through under `matsci:worklist`.
 Nothing about the community that ran it, its roster or its invitations is
-published, and no person has an IRI anywhere in the graph. A person is a node
-on the provenance document of the term they acted under, so an assertion and
-the revision history it concerns name one agent.
+published, and no person has a resolvable IRI anywhere in the graph. A person
+is a hash node on the provenance document of the term they acted under, so an
+assertion and the revision history it concerns name one agent. The fragment
+of that node is an opaque account number, the same on every document the
+person acted on, so the acts of one account can be joined across the graph.
+The number resolves to nothing.
 
 The profile of a model is the resolvable identity behind its
-`prov:SoftwareAgent` in the dataset graph. An assertion a model made and a
-vote a model cast are attributed to its `/models/{slug}` IRI. The per-term
-document identifies a model by the name it ran under.
+`prov:SoftwareAgent` in the dataset graph. An assertion a model made, a vote
+a model cast and a revision a model generated are attributed to its
+`/models/{slug}` IRI there. The per-term document identifies a model by the
+name it ran under.
 
 The named graphs that hold these terms are described in
 [Metadata access](/docs/metadata-access#named-graphs), and the shapes under

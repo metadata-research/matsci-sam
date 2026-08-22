@@ -23,13 +23,15 @@ import {
  * pairwise disjoint: the vocabulary graph holds the dictionary, the kos
  * graph the knowledge-organization layer, the matcore graph the element set,
  * and the provenance graph the PROV-O record. The per-term provenance body
- * leaves the three triples the vocabulary graph also states to that graph
- * (vocabularyTriples: false); scripts/test-graph.ts proves the disjointness
- * on fixtures.
+ * leaves the typing of the definition and of its current revision, and the
+ * specializationOf link of that revision, to the vocabulary graph, which
+ * states them (vocabularyTriples: false); every other revision keeps them,
+ * because nothing else states them. scripts/test-graph.ts proves the
+ * disjointness on fixtures.
  *
  * The pure renderers take what the loaders return; the loaders are the same
- * queries the Turtle routes run. buildContentGraphs is what the projector and
- * the route call.
+ * queries the Turtle routes run. buildContentGraphs is what the projector
+ * calls, and buildContentGraph what a route without a projection calls.
  */
 
 export const vocabularyGraphTurtle = (document: SchemeDocument) =>
@@ -61,9 +63,10 @@ export const countTriples = (turtle: string) => {
   return store.size
 }
 
-// A few terms at a time: buildTermProvenance runs its own batch of queries
-// per term, and the pool is shared with the request path.
-const TERM_BATCH = 4
+// One term at a time: buildTermProvenance runs six queries at once for a
+// term, the pool has ten connections by default, and the request path shares
+// it. Two terms at once would leave nothing for a write during a rebuild.
+const TERM_BATCH = 1
 
 export const loadProvenanceGraph = async () => {
   const termIds = (
@@ -78,8 +81,14 @@ export const loadProvenanceGraph = async () => {
     const batch = await Promise.all(
       termIds.slice(i, i + TERM_BATCH).map((id) =>
         // Votes are left out of the body and stated once each as vote
-        // events; voter nodes are never in the public record.
-        buildTermProvenance(id, { anonymizeVoters: true, includeVotes: false })
+        // events, which name a voter only where the profile is public. A
+        // model with a profile is named by its own IRI, as those events
+        // name it.
+        buildTermProvenance(id, {
+          anonymizeVoters: true,
+          includeVotes: false,
+          modelIdentities: true
+        })
       )
     )
     for (const prov of batch)
@@ -100,5 +109,20 @@ export const buildContentGraphs = async (): Promise<
     kos: kosGraphTurtle(document),
     provenance: await loadProvenanceGraph(),
     matcore: matCoreGraphTurtle()
+  }
+}
+
+// One content graph, loading only what it needs. The route serves this when
+// no projection is available to serve from.
+export const buildContentGraph = async (name: ContentGraphName) => {
+  switch (name) {
+    case "vocabulary":
+      return vocabularyGraphTurtle(await loadSchemeDocument())
+    case "kos":
+      return kosGraphTurtle(await loadSchemeDocument())
+    case "provenance":
+      return loadProvenanceGraph()
+    case "matcore":
+      return matCoreGraphTurtle()
   }
 }

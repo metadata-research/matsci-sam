@@ -51,6 +51,9 @@ const main = async () => {
     personaUserIds: Record<number, number>
     completed: string[]
     finishedAt?: string
+    // Whether the projection at the close reached the store. "failed" means
+    // the run is in the database and not yet in the store.
+    graphProjection?: "projected" | "failed" | "disabled"
   }
   const manifest: Manifest = existsSync(manifestPath)
     ? JSON.parse(readFileSync(manifestPath, "utf8"))
@@ -222,9 +225,23 @@ const main = async () => {
   if (wants("close") && !args.dryRun) {
     // The driver writes through lib/, not tRPC, so nothing marked the
     // graphs along the way. One projection at the close covers the run.
+    // Every write has committed by now, and a store outage does not undo
+    // that: the run finishes, and the manifest says the store is behind.
     const { isGraphProjectionEnabled, projectGraphs } =
       await import("../../lib/graph/projector")
-    if (isGraphProjectionEnabled()) await projectGraphs()
+    if (isGraphProjectionEnabled())
+      try {
+        await projectGraphs()
+        manifest.graphProjection = "projected"
+      } catch (error) {
+        manifest.graphProjection = "failed"
+        console.error(
+          `Graph projection failed; the run is in the database and not in the store. Run pnpm graphs:project to project it. ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      }
+    else manifest.graphProjection = "disabled"
     manifest.finishedAt = new Date().toISOString()
     checkpoint()
     console.log(`finished ${names.study}`)

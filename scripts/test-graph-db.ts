@@ -7,13 +7,18 @@
  *   tsx --conditions=react-server scripts/test-graph-db.ts
  *
  * so the "server-only" imports resolve. Projects the graphs, then proves
- * three things: the store holds as many triples per graph as the projector
- * counted; the entity counts the store answers agree with the database; and
- * every paper query in scripts/graph-queries/ executes. The paper queries
- * are written against the union default graph, which the dataset must
- * provide (scripts/fuseki-test-dataset.ttl does), and under the persistent
+ * four things: the store holds as many triples per graph as the projector
+ * counted; the entity counts the store answers agree with the database;
+ * every revision in the union is typed and linked to its definition once;
+ * and every paper query in scripts/graph-queries/ executes, and answers
+ * whenever the database holds what it asks about. The paper queries are
+ * written against the union default graph, which the dataset must provide
+ * (scripts/fuseki-test-dataset.ttl does), and under the persistent
  * identifier base; a store projected under another base is queried with
- * that base in their place.
+ * that base in their place. On a database with no terms, votes or studies
+ * (the CI database holds only what migrations seed) the comparisons are of
+ * zero with zero and the queries answer nothing; the round trip is what
+ * the run proves there.
  */
 
 // First, so lib/site.ts reads the identifier base and the site URL from
@@ -151,6 +156,24 @@ const main = async () => {
     console.log(`${key}\t${stored[key]}`)
   }
 
+  // --- Every revision, current or not, is typed and linked once in the
+  // union: the vocabulary graph states it for the current revision and the
+  // provenance graph for the others ---
+
+  const revisionPattern = `${identifierBaseUrl}/vocabulary/[^/]+/definitions/[0-9]+/revisions/[0-9]+$`
+  const revisions = await countOf(
+    `SELECT (COUNT(DISTINCT ?r) AS ?n) WHERE { ?r ?p ?o . FILTER (REGEX(STR(?r), ${JSON.stringify(revisionPattern)})) }`
+  )
+  const typedAndLinked = await countOf(
+    `SELECT (COUNT(DISTINCT ?r) AS ?n) WHERE {
+      ?r a ${matsci}DefinitionRevision> .
+      FILTER (REGEX(STR(?r), ${JSON.stringify(revisionPattern)}))
+      { SELECT ?r WHERE { ?r <http://www.w3.org/ns/prov#specializationOf> ?d } GROUP BY ?r HAVING (COUNT(?d) = 1) }
+    }`
+  )
+  assert.equal(typedAndLinked, revisions, "every revision is typed and linked once")
+  console.log(`revisions\t${revisions}`)
+
   // --- The paper queries, against the union default graph ---
 
   // The queries name the persistent identifier base, as the paper prints
@@ -162,6 +185,17 @@ const main = async () => {
     .filter((f) => f.endsWith(".rq"))
     .sort()
   assert.equal(files.length, 5, "five paper queries")
+  // What each query must answer when the database holds its subject: acts
+  // exist when there is a vote event, assertions when there is a statement,
+  // the vote history when there is a vote event, a study when there is one.
+  // Query 05 depends on which accounts are models, which no count here
+  // states, so it is only required to execute.
+  const expectRows: Record<string, boolean> = {
+    "01-acts-by-actor-kind": expected.voteEvents > 0,
+    "02-assertions-with-retractions": expected.assertions > 0,
+    "03-vote-history-of-a-revision": expected.voteEvents > 0,
+    "04-study-with-its-worklist": expected.studies > 0
+  }
   for (const file of files) {
     const query = readFileSync(join(QUERY_DIR, file), "utf8")
     const name = basename(file, ".rq")
@@ -172,6 +206,8 @@ const main = async () => {
     const bindings = await select(
       rebase ? query.replaceAll(base, identifierBaseUrl) : query
     )
+    if (expectRows[name])
+      assert.ok(bindings.length > 0, `${name} answers on this database`)
     console.log(`${name}\t${bindings.length} rows`)
   }
 

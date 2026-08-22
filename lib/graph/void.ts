@@ -1,5 +1,4 @@
 import { TTL_PREFIXES, en, turtleBlock } from "../kos-export"
-import { identifierBaseUrl } from "../public-identifiers"
 import { lit } from "../rdf-literal"
 import { SITE_NAME } from "../site"
 import {
@@ -57,14 +56,16 @@ export const metaGraphTurtle = ({ projectedAt, counts }: MetaGraphInput) => {
     `dcterms:publisher ${lit("Metadata Research Center, Drexel University")}`,
     `dcterms:modified ${dateTime(projectedAt)}`,
     `void:sparqlEndpoint <${sparqlEndpointUrl}>`,
-    `void:dataDump <${identifierBaseUrl}/dataset.ttl>`,
+    // The dumps are the content graphs themselves, each served as Turtle at
+    // its IRI and together the whole dataset. /dataset.ttl is the older
+    // convenience document and leaves the provenance out, so it is not one.
+    `void:dataDump ${contentIris.join(", ")}`,
     `void:triples ${total}`,
     `void:subset ${contentIris.join(", ")}`,
     `sd:namedGraph ${[...contentIris, `<${graphIri("meta")}>`].join(", ")}`
   ])
 
-  // The endpoint is addressed at the application origin, because a POST
-  // does not follow the redirect of a persistent identifier namespace.
+  // The endpoint is at the application origin; lib/graph/names.ts says why.
   const service = turtleBlock(sparqlEndpointUrl, [
     "a sd:Service",
     `sd:endpoint <${sparqlEndpointUrl}>`,
@@ -80,6 +81,7 @@ export const metaGraphTurtle = ({ projectedAt, counts }: MetaGraphInput) => {
       `sd:name <${graphIri(name)}>`,
       `rdfs:label ${en(name)}`,
       `dcterms:description ${en(GRAPH_DESCRIPTIONS[name])}`,
+      `void:dataDump <${graphIri(name)}>`,
       `void:triples ${counts[name]}`,
       `void:inDataset <${datasetIri}>`
     ])

@@ -26,11 +26,13 @@ export const PROVENANCE_PREFIXES = `@prefix prov: <http://www.w3.org/ns/prov#> .
 `
 
 export type ProvenanceBodyOptions = {
-  // The typing of a definition as matsci:Definition, of a revision as
-  // matsci:DefinitionRevision, and the prov:specializationOf link between
-  // them are also stated by the SKOS serializer. A per-term document repeats
-  // them so it reads alone; the dataset-wide provenance graph leaves them to
-  // the vocabulary graph so the two graphs stay disjoint.
+  // The typing of a definition as matsci:Definition, of its current revision
+  // as matsci:DefinitionRevision, and the prov:specializationOf link from
+  // that revision are also stated by the SKOS serializer, which describes
+  // the current revision only. A per-term document repeats them so it reads
+  // alone; the dataset-wide provenance graph leaves them to the vocabulary
+  // graph so the two graphs stay disjoint, and keeps them for every other
+  // revision, which no other graph types or links to its definition.
   vocabularyTriples?: boolean
 }
 
@@ -59,12 +61,18 @@ export const provenanceBodyTurtle = (
   // term-scoped definition and revision IRIs instead.
   const isPublicMetadataProperty = (key: string) => !key.endsWith("Id")
 
+  // Whether a revision node states the triples the vocabulary graph also
+  // states: alone, every revision does; in the graph, only a revision the
+  // vocabulary graph does not describe, which is every non-current one.
+  const statesVocabularyTriples = (n: Provenance["graph"]["nodes"][number]) =>
+    vocabularyTriples || n.meta?.current !== "yes"
+
   const lines: string[] = []
 
   for (const n of prov.graph.nodes) {
     const statements = [
       `a ${TYPE_MAP[n.type]}${
-        vocabularyTriples && n.publicResource?.specializationOf
+        n.publicResource?.specializationOf && statesVocabularyTriples(n)
           ? ", matsci:DefinitionRevision"
           : ""
       }`,
@@ -97,7 +105,7 @@ export const provenanceBodyTurtle = (
     const resource = n.publicResource
     if (!resource?.specializationOf) continue
 
-    if (vocabularyTriples)
+    if (statesVocabularyTriples(n))
       lines.push(
         `${node(n.id)} prov:specializationOf <${resource.specializationOf}> .`
       )

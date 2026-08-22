@@ -25,8 +25,10 @@ export const SITE_URL =
  *
  * Read only on the server. Client bundles do not receive this variable and
  * fall back to SITE_URL, so an identifier must be built in a server component
- * or a route, which is where every builder in lib/public-identifiers.ts is
- * called today. A trailing slash is removed; anything that is not an absolute
+ * or a route. A page that uses no request data is prerendered at build time
+ * with the value then in the environment, so a change of the variable takes
+ * effect with a release, and a restart alone leaves such a page on the old
+ * base. A trailing slash is removed; anything that is not an absolute
  * http(s) URL fails at startup rather than minting malformed identifiers.
  */
 export const resolveIdentifierBase = (
