@@ -97,6 +97,11 @@ export const studiesIndexPath = "/studies"
 export const studyPath = (slug: string) =>
   `${studiesIndexPath}/${slugSegment(slug, "Study slug")}`
 
+// The walkthrough of a study. An application route under the study, with no
+// identifier of its own: what a participant does there is recorded against
+// the terms and the study.
+export const studyRunPath = (slug: string) => `${studyPath(slug)}/run`
+
 export const invitePath = (token: string) =>
   `/invite/${slugSegment(token, "Invitation token")}`
 

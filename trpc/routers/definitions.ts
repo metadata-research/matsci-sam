@@ -93,13 +93,11 @@ export const definitionsRouter = createTRPCRouter({
       // Whether this submission scheduled an automatic AI alternate
       // definition, so the client can tell the contributor it is coming.
       let aiScheduled = false
-      // The completion a define step records with its definition, and where
-      // the walkthrough resumes, so the shell can advance on the response.
-      let walkthrough: {
-        completedStepId: number
-        nextPosition: number | null
-      } | null = null
-      const { term: dbTermOut, definition } = await db.transaction(async (tx) => {
+      const {
+        term: dbTermOut,
+        definition,
+        walkthrough
+      } = await db.transaction(async (tx) => {
         let dbTerm = await tx.query.termsTable.findFirst({
           where: eq(termsTable.term, term)
         })
@@ -169,6 +167,14 @@ export const definitionsRouter = createTRPCRouter({
             surveyStepId: input.surveyStepId ?? null
           })
 
+        // The completion a define step records with its definition, and
+        // where the walkthrough resumes, so the shell can advance on the
+        // response. Built and returned inside the transaction: assigned to
+        // an outer variable, its type would read as the null it started as.
+        let walkthrough: {
+          completedStepId: number
+          nextPosition: number | null
+        } | null = null
         if (walkthroughStep) {
           // The define step completes with the definition it asked for, in
           // the transaction that writes it.
@@ -215,7 +221,7 @@ export const definitionsRouter = createTRPCRouter({
           }
         }
 
-        return { term: dbTerm, definition: insertedDefinition }
+        return { term: dbTerm, definition: insertedDefinition, walkthrough }
       })
       revalidatePath("/terms")
       revalidatePath(`/terms/${dbTermOut.id}`)

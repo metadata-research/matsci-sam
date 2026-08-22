@@ -23,9 +23,14 @@ const WATCH_TIMEOUT_MS = 5 * 60 * 1000
  */
 export const useCreateComment = ({
   definitionId,
+  surveyStepId,
   onPosted
 }: {
   definitionId: number
+  // The review step of a walkthrough the comment is posted inside. Sent with
+  // every comment posted through this hook, so the surfaces keep calling
+  // mutate with the comment alone.
+  surveyStepId?: number
   // Surface-specific cleanup: reset the form, refresh the route, etc.
   onPosted?: () => void
 }) => {
@@ -104,5 +109,10 @@ export const useCreateComment = ({
     }
   })
 
-  return mutation
+  return {
+    ...mutation,
+    mutate: (
+      input: Omit<Parameters<typeof mutation.mutate>[0], "surveyStepId">
+    ) => mutation.mutate({ ...input, surveyStepId })
+  }
 }

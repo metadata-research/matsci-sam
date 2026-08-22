@@ -20,6 +20,9 @@ interface Props {
   // Fired whenever this definition's score changes, so a parent list can
   // re-sort. Optional; most callers do not reorder.
   onScoreChange?: (score: number) => void
+  // The review step of a walkthrough the vote is cast inside, passed through
+  // to votes.vote, which checks it against the act.
+  surveyStepId?: number
 }
 
 export const TermVotes = ({
@@ -27,7 +30,8 @@ export const TermVotes = ({
   revisionId,
   initial,
   readOnly = false,
-  onScoreChange
+  onScoreChange,
+  surveyStepId
 }: Props) => {
   const { data, refetch } = trpc.votes.get.useQuery(
     { definitionId, revisionId },
@@ -75,7 +79,7 @@ export const TermVotes = ({
         disabled={isPending || readOnly}
         onClick={(e) => {
           e.preventDefault()
-          mutate({ vote: "up", definitionId, revisionId })
+          mutate({ vote: "up", definitionId, revisionId, surveyStepId })
         }}
         title={readOnly ? "Earlier revisions are read-only" : undefined}
         variant="ghost"
@@ -92,7 +96,7 @@ export const TermVotes = ({
         disabled={isPending || readOnly}
         onClick={(e) => {
           e.preventDefault()
-          mutate({ vote: "down", definitionId, revisionId })
+          mutate({ vote: "down", definitionId, revisionId, surveyStepId })
         }}
         title={readOnly ? "Earlier revisions are read-only" : undefined}
         variant="ghost"

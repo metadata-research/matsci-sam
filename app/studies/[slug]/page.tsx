@@ -5,9 +5,16 @@ import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
 import { studyBySlug } from "@/lib/study-queries"
 import { studyState } from "@/lib/communities"
-import { collectionPath, communityPath } from "@/lib/public-identifiers"
+import { getCurrentUser } from "@/lib/current-user"
+import {
+  collectionPath,
+  communityPath,
+  studyRunPath
+} from "@/lib/public-identifiers"
 import { formatDate } from "@/lib/date"
+import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 // Shared by generateMetadata and the body, so the page runs one query.
 const loadStudy = cache(async (slug: string) => studyBySlug(slug))
@@ -50,6 +57,16 @@ export default async function StudyPage({
 
   const state = studyState(study)
 
+  // The walkthrough as this viewer sees it, for the resume card. A
+  // signed-out viewer has no progress to resume, so nothing is read.
+  const user = await getCurrentUser()
+  const walkthrough = user ? await trpc.surveys.get({ studySlug: slug }) : null
+  const walks =
+    walkthrough !== null &&
+    walkthrough.membership !== null &&
+    state === "open" &&
+    walkthrough.steps.length > 0
+
   return (
     <main className="px-4 py-8">
       <section className="max-w-3xl w-full mx-auto space-y-6">
@@ -71,6 +88,43 @@ export default async function StudyPage({
             </span>
           </div>
         </div>
+
+        {walks && (
+          <section className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Walkthrough
+            </div>
+            {walkthrough.completedStepIds.length === 0 ? (
+              <>
+                <p className="text-sm">
+                  {walkthrough.steps.length} steps, and your place is kept
+                  between visits.
+                </p>
+                <Button asChild>
+                  <Link href={studyRunPath(study.slug)}>
+                    Start the walkthrough
+                  </Link>
+                </Button>
+              </>
+            ) : walkthrough.resumePosition !== null ? (
+              <Button asChild>
+                <Link href={studyRunPath(study.slug)}>
+                  Continue (step {walkthrough.resumePosition} of{" "}
+                  {walkthrough.steps.length})
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <p className="text-sm">You have finished the walkthrough.</p>
+                <Button asChild variant="outline">
+                  <Link href={studyRunPath(study.slug)}>
+                    Open the walkthrough
+                  </Link>
+                </Button>
+              </>
+            )}
+          </section>
+        )}
 
         {state === "retired" && (
           <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">

@@ -28,6 +28,7 @@ import {
   studyPath
 } from "@/lib/public-identifiers"
 import { formatDate } from "@/lib/date"
+import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { PublicProfileName } from "@/components/public-profile-name"
 import {
@@ -37,6 +38,7 @@ import {
   InvitationActions,
   CreateStudy,
   CreateWorklistCollection,
+  GenerateWalkthrough,
   InvitePerson,
   JoinLink,
   LeaveCommunity,
@@ -90,6 +92,16 @@ export default async function CommunityPage({
   ])
 
   const runs = mayRunCommunity(user ?? null, membership) && !community.retiredAt
+  // The walkthrough of each study, for a runner: whether it has steps,
+  // whether anyone has started, and who has finished. Read through the
+  // router, which applies the same rule as the control next to it.
+  const walkthroughs = runs
+    ? await Promise.all(
+        studies.map((study) =>
+          trpc.surveys.progressOfStudy({ studyId: study.id })
+        )
+      )
+    : []
   const isAdmin = mayManageCommunity(user ?? null)
   const seesRoster = mayViewRoster(user ?? null, membership)
   const onWorklist = new Set(worklist.map((row) => row.id))
@@ -170,35 +182,61 @@ export default async function CommunityPage({
             </p>
           ) : (
             <ul className="space-y-2">
-              {studies.map((study) => (
-                <li
-                  key={study.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border p-3"
-                >
-                  <span className="space-y-1">
-                    <Link
-                      href={studyPath(study.slug)}
-                      className="block text-primary"
-                    >
-                      {study.title}
-                    </Link>
-                    <span className="block text-xs text-muted-foreground">
-                      Terms:{" "}
-                      <Link
-                        href={collectionPath(study.collectionSlug)}
-                        className="underline"
-                      >
-                        {study.collectionTitle}
-                      </Link>{" "}
-                      ({study.terms}{" "}
-                      {study.terms === 1 ? "term" : "terms"})
-                    </span>
-                  </span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {studyState(study)}
-                  </span>
-                </li>
-              ))}
+              {studies.map((study, index) => {
+                const walkthrough = walkthroughs[index]
+                const participants = walkthrough?.participants.length ?? 0
+                return (
+                  <li
+                    key={study.id}
+                    className="space-y-2 rounded-md border border-border p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="space-y-1">
+                        <Link
+                          href={studyPath(study.slug)}
+                          className="block text-primary"
+                        >
+                          {study.title}
+                        </Link>
+                        <span className="block text-xs text-muted-foreground">
+                          Terms:{" "}
+                          <Link
+                            href={collectionPath(study.collectionSlug)}
+                            className="underline"
+                          >
+                            {study.collectionTitle}
+                          </Link>{" "}
+                          ({study.terms}{" "}
+                          {study.terms === 1 ? "term" : "terms"})
+                        </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {studyState(study)}
+                      </span>
+                    </div>
+                    {walkthrough && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
+                        <GenerateWalkthrough
+                          studyId={study.id}
+                          steps={walkthrough.total}
+                          inUse={walkthrough.steps.some(
+                            (step) => step.completions > 0
+                          )}
+                        />
+                        {walkthrough.total > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {walkthrough.finished} of {participants}{" "}
+                            {participants === 1
+                              ? "participant has"
+                              : "participants have"}{" "}
+                            finished
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>
