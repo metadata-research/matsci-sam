@@ -443,7 +443,8 @@ export async function DefinitionDetailPage({
               id={definition.id}
               revisionId={definition.revisionId}
               feedsModelRevision={
-                definition.author.isAi && definition.isCurrentRevision
+                definition.author.modelSlug !== null &&
+                definition.isCurrentRevision
               }
             />
           </section>

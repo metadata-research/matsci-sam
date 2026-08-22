@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
+  aiModelsTable,
   db,
   commentsTable,
   usersTable,
@@ -87,21 +88,30 @@ export const commentsRouter = createTRPCRouter({
             throw error
           }
 
-          // fetch some info about this term
+          // The definition and whether a model identity wrote it: a comment on
+          // the model's own current text is feedback the model revises from.
+          // A simulated participant is an AI-flag account without a model
+          // identity, and its text is a person's text here, so a comment on
+          // it schedules nothing.
           const [definition] = await tx
             .select({
-              isAi: usersTable.isAi,
+              modelUserId: aiModelsTable.userId,
               termId: definitionsTable.termId,
               id: definitionsTable.id,
               currentRevisionId: definitionsTable.currentRevisionId
             })
             .from(definitionsTable)
             .where(eq(definitionsTable.id, id))
-            .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+            .leftJoin(
+              aiModelsTable,
+              eq(aiModelsTable.userId, definitionsTable.authorId)
+            )
             .limit(1)
 
-          // if ai made, create feedback chat
-          if (definition.isAi && definition.currentRevisionId === revisionId) {
+          if (
+            definition.modelUserId !== null &&
+            definition.currentRevisionId === revisionId
+          ) {
             await tx.insert(chatsTable).values({
               role: "user",
               userId,

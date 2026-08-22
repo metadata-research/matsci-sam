@@ -462,7 +462,7 @@ const ReviewList = ({
               <TermCommentBox
                 id={definition.id}
                 revisionId={definition.revisionId}
-                feedsModelRevision={definition.isAi}
+                feedsModelRevision={definition.authorModelSlug !== null}
                 surveyStepId={step.id}
               />
             )}
