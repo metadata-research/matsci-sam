@@ -220,6 +220,11 @@ const main = async () => {
     }
 
   if (wants("close") && !args.dryRun) {
+    // The driver writes through lib/, not tRPC, so nothing marked the
+    // graphs along the way. One projection at the close covers the run.
+    const { isGraphProjectionEnabled, projectGraphs } =
+      await import("../../lib/graph/projector")
+    if (isGraphProjectionEnabled()) await projectGraphs()
     manifest.finishedAt = new Date().toISOString()
     checkpoint()
     console.log(`finished ${names.study}`)

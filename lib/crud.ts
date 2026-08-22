@@ -7,6 +7,7 @@ import {
   RevisionNoChangeError
 } from "@/lib/definition-revisions"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
+import { markGraphsDirty } from "./graph/projector"
 import { modelIdentity } from "./llm/model-identity"
 
 export const GetUser = cache((userId: number) =>
@@ -115,6 +116,9 @@ export const upsertAIDefinitionRecord = async (
       prompt: generation.prompt
     })
   })
+  // The generation path runs outside tRPC, so the mutation hook there does
+  // not see this write.
+  markGraphsDirty()
 
   return result
 }
