@@ -17,6 +17,9 @@ a stored dataset record, or a validation schema.
 | One term             | `/terms/{id}/skos.jsonld`    | SKOS concept, JSON-LD                        |
 | Term history         | `/terms/{id}/provenance.ttl` | PROV-O, Turtle                               |
 | Tags and collections | `/tags.ttl`                  | SKOS concept schemes and collections, Turtle |
+| Dataset description  | `/dataset`                   | VoID and SPARQL service description, Turtle  |
+| One named graph      | `/graphs/{name}`             | One of the five named graphs, Turtle         |
+| SPARQL endpoint      | `/sparql`                    | SPARQL 1.1 query over the union of the graphs |
 
 `/dataset.ttl` is the one document to fetch to see every kind of entity at
 once. It holds the vocabulary scheme, each term with its definitions and
@@ -27,6 +30,29 @@ published entities. Fetch it per term instead.
 
 The narrower documents remain, so a consumer who wants one layer does not have
 to filter the whole graph.
+
+## Named graphs
+
+The same record is also held in a SPARQL store as five named graphs,
+projected from the application database after each change. A graph is at
+`{identifier-base}/graphs/{name}` and is served as Turtle at that address.
+
+| Graph        | Content                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| `vocabulary` | The dictionary scheme, each term, and its definitions and their revisions                  |
+| `kos`        | The tag schemes, tags, hierarchy, mappings and collections                                 |
+| `provenance` | The history of every term, the assertions of the statement ledger, voting acts and studies |
+| `matcore`    | The MatCore element set and its Dublin Core crosswalk                                      |
+| `meta`       | The dataset description: the graphs, their triple counts and the time of projection        |
+
+The four content graphs are pairwise disjoint. No triple is stated in two of
+them, so a count over the union counts each fact once, and a consumer who
+wants one layer fetches one graph. `/dataset` describes the whole as a
+`void:Dataset` and the endpoint as an `sd:Service`, with the triple count of
+each graph and the time the store was last projected. `/sparql` answers
+SPARQL 1.1 queries, by GET or POST, over the union of the graphs, so a query
+that names no graph reads all five. The endpoint is read-only. The store is a
+projection of the database, and the database remains the system of record.
 
 Each term is published as a `skos:Concept`. The term is the
 `skos:prefLabel`. Each `skos:definition` value is an identified current
@@ -116,6 +142,18 @@ identity terms are:
 | `currentRevision`    | The active revision of a stable definition            |
 | `version`            | The positive revision number stored in the RDF record |
 | `status`             | The score-derived community status of a revision      |
+
+The provenance graph adds terms for the record of acts:
+
+| Term          | Meaning                                                                       |
+| ------------- | ----------------------------------------------------------------------------- |
+| `Assertion`   | One stored statement of the ledger, active or retracted, reifying its triple  |
+| `retractedBy` | The agent that retracted an assertion                                         |
+| `VoteEvent`   | One voting act on a revision                                                  |
+| `voteKind`    | What the act did: `up`, `down` or `withdrawn`                                 |
+| `actorKind`   | The kind of actor that performed an act: `human`, `model` or `simulated`      |
+| `Study`       | A study run over a collection of terms, published as an activity              |
+| `worklist`    | The collection a study works through                                          |
 
 PROV output also uses application properties for descriptive event details,
 such as a model name, score, prompt key, or change note. That set is

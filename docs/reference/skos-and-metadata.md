@@ -15,6 +15,15 @@ the few things none of those vocabularies provide.
 | `/tags.ttl`        | The tag schemes, tags, hierarchy, mappings and collections   |
 | `/terms/{id}/skos.ttl` and `.jsonld` | One term, with the tags it refers to and their schemes |
 | `/terms/{id}/provenance.ttl` | The PROV-O record of one term                     |
+| `/graphs/vocabulary` | The dictionary scheme, every term, its definitions and their revisions, as a named graph |
+| `/graphs/kos`      | The tag schemes, tags, hierarchy, mappings and collections, as a named graph |
+| `/graphs/provenance` | The PROV-O record of every term, with the assertions of the ledger, voting acts and studies |
+| `/graphs/matcore`  | The MatCore element set and its crosswalk, as a named graph |
+| `/dataset`         | The description of the dataset and its named graphs, also served as `/graphs/meta` |
+
+The named graphs hold what the documents hold, split so that no triple is
+in two graphs. [Metadata access](/docs/metadata-access#named-graphs)
+describes them and the SPARQL endpoint over their union.
 
 Every document describes each concept once. A term document includes the
 blocks of the tags it refers to and the blocks of their schemes. Those scheme
