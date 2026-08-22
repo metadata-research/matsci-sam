@@ -531,6 +531,64 @@ BEGIN
     END IF;
   END IF;
 
+  -- The legacy vote backfill (migration 0043). From it forward every
+  -- current vote has an event for its (revision, user) pair: the 0043 row
+  -- for a vote cast before the record began, a castVote row for any other.
+  -- Shape-detected on the column the migration added, because a release
+  -- runs this file against the pre-migration restore too.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'voteEvents' AND column_name = 'backfilled'
+  ) THEN
+    IF EXISTS (
+      SELECT 1
+      FROM "votes" v
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM "voteEvents" e
+        WHERE e."revisionId" = v."revisionId" AND e."userId" = v."userId"
+      )
+    ) THEN
+      RAISE EXCEPTION 'current vote without a vote event';
+    END IF;
+
+    -- The backfill wrote one row per vote, and no write path sets the flag.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents"
+      WHERE "backfilled"
+      GROUP BY "revisionId", "userId"
+      HAVING count(*) > 1
+    ) THEN
+      RAISE EXCEPTION 'more than one backfilled vote event for one vote';
+    END IF;
+
+    -- A backfilled event is the vote at the time of the vote. castVote
+    -- keeps the time of a votes row it changes, and a withdrawal deletes
+    -- the row, so while the backfilled event is the only event of its pair
+    -- the two times agree. Once the voter acts again the current row may
+    -- be a later cast with a time of its own, and the comparison no longer
+    -- means anything.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents" e
+      JOIN "votes" v
+        ON v."revisionId" = e."revisionId" AND v."userId" = e."userId"
+      WHERE e."backfilled"
+        AND e."createdAt" <> v."createdAt"
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "voteEvents" later
+          WHERE later."revisionId" = e."revisionId"
+            AND later."userId" = e."userId"
+            AND later.id <> e.id
+        )
+    ) THEN
+      RAISE EXCEPTION 'backfilled vote event time disagrees with its vote';
+    END IF;
+  END IF;
+
   -- Survey walkthrough (migration 0041). Shape-detected like the blocks
   -- above, because a release runs this file against the pre-migration
   -- restore too. A step is context on an act, and the context must fit the

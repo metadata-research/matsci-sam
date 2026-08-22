@@ -905,6 +905,135 @@ const main = async () => {
         .where(eq(votesTable.revisionId, revB.id))
       assert.equal(standing.length, 0, "withdrawal removes the standing vote")
 
+      // --- The legacy vote backfill (migration 0043) ---
+
+      // The release-time rules the backfill established, each shown to
+      // raise on a planted row. A current vote with no event for its pair
+      // is what the backfill left none of.
+      const legacyTime = "2025-07-01 12:00:00+00"
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(votesTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: aiUser.id,
+            kind: "up",
+            createdAt: legacyTime,
+            migratedLegacy: true
+          })
+          await runInvariants(sp)
+        }),
+        "current vote without a vote event",
+        "vote with no event"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(votesTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: aiUser.id,
+            kind: "up",
+            createdAt: legacyTime,
+            migratedLegacy: true
+          })
+          await sp.insert(voteEventsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: aiUser.id,
+            kind: "up",
+            actorKind: "model",
+            createdAt: "2025-07-02 12:00:00+00",
+            backfilled: true,
+            migratedLegacy: true
+          })
+          await runInvariants(sp)
+        }),
+        "backfilled vote event time disagrees with its vote",
+        "backfilled event at another time than its vote"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values([
+            {
+              definitionId: defB.id,
+              revisionId: revB.id,
+              userId: aiUser.id,
+              kind: "up",
+              actorKind: "model",
+              createdAt: legacyTime,
+              backfilled: true,
+              migratedLegacy: true
+            },
+            {
+              definitionId: defB.id,
+              revisionId: revB.id,
+              userId: aiUser.id,
+              kind: "down",
+              actorKind: "model",
+              createdAt: legacyTime,
+              backfilled: true,
+              migratedLegacy: true
+            }
+          ])
+          await runInvariants(sp)
+        }),
+        "more than one backfilled vote event for one vote",
+        "two backfilled events for one vote"
+      )
+      // What the backfill leaves passes, and so does the voter acting again
+      // afterwards: a withdrawal and a fresh cast through castVote leave a
+      // current row with a time of its own, which the time rule lets be
+      // once a later event exists. Unwound with its savepoint, so the
+      // fixture keeps no backfilled row.
+      class Unwind extends Error {}
+      const unwound = await attempt(tx, async (sp) => {
+        await sp.insert(votesTable).values({
+          definitionId: defB.id,
+          revisionId: revB.id,
+          userId: aiUser.id,
+          kind: "up",
+          createdAt: legacyTime,
+          migratedLegacy: true
+        })
+        await sp.insert(voteEventsTable).values({
+          definitionId: defB.id,
+          revisionId: revB.id,
+          userId: aiUser.id,
+          kind: "up",
+          actorKind: "model",
+          createdAt: legacyTime,
+          backfilled: true,
+          migratedLegacy: true
+        })
+        await runInvariants(sp)
+        const again = {
+          definitionId: defB.id,
+          revisionId: revB.id,
+          userId: aiUser.id,
+          vote: "up" as const,
+          actorKind: "model" as const,
+          communityId: null
+        }
+        await castVote(sp, again)
+        await castVote(sp, again)
+        const [recast] = await sp
+          .select({ createdAt: votesTable.createdAt })
+          .from(votesTable)
+          .where(
+            and(
+              eq(votesTable.revisionId, revB.id),
+              eq(votesTable.userId, aiUser.id)
+            )
+          )
+        assert.notEqual(recast.createdAt, legacyTime, "the recast has its own time")
+        await runInvariants(sp)
+        throw new Unwind("backfill probe unwound")
+      })
+      assert.ok(
+        !unwound.ok && unwound.message.includes("backfill probe unwound"),
+        `backfilled vote, withdrawn and recast: ${unwound.ok ? "" : unwound.message}`
+      )
+
       // --- Survey walkthrough (migration 0041) ---
 
       // The context a walkthrough needs: a community the fixture account is

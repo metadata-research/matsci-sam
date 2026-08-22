@@ -837,10 +837,12 @@ export const votesTableRelations = relations(votesTable, ({ one }) => ({
 // Append-only record of every voting act: cast, change, withdrawal. Rows
 // are never updated and never deleted. votes stays the current-state row
 // the tallies read; these rows are what consensus formation is
-// reconstructed from. The two agree only forward from migration 0040:
-// earlier acts were never recorded, inventing them would be false
-// provenance, so there is no backfill and deliberately no cross-check
-// between the tables.
+// reconstructed from. The two records agree from migration 0040 forward
+// for new acts, and for earlier votes through the one row per vote the
+// 0043 backfill wrote: the single act each vote had always been published
+// as, with its own time, flagged backfilled. A change or withdrawal made
+// before 0040 was never recorded and is not invented, so the record does
+// not cross-check the tally beyond one event per current vote.
 export type VoteEvent = typeof voteEventsTable.$inferSelect
 export const voteEventsTable = pgTable(
   "voteEvents",
@@ -862,6 +864,16 @@ export const voteEventsTable = pgTable(
     // The review step the act was taken inside, when it was taken from a
     // walkthrough. See surveySteps.
     surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
+    // True only on a row migration 0043 wrote for a vote cast before the
+    // event record began. The act is the one the vote had always been
+    // published as, at the time of the vote; its toggle history was never
+    // recorded. No write path sets this.
+    backfilled: boolean().notNull().default(false),
+    // Copied from the votes row at the backfill: the binding of the vote to
+    // its revision was inferred when the record was first migrated, because
+    // the recorded time could not establish which version the voter read.
+    // The graph states matsci:legacyAssociationInferred from it.
+    migratedLegacy: boolean().notNull().default(false),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull()
