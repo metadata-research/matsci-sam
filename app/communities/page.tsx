@@ -44,7 +44,7 @@ export default async function CommunitiesPage() {
             <Link href={collectionsIndexPath} className="text-primary">
               collections
             </Link>{" "}
-            it is working through. A term belongs to the vocabulary, never to a
+            it is working through. A term belongs to the vocabulary, not to a
             community.
           </p>
           {mayManageCommunity(user ?? null) && <CreateCommunity />}

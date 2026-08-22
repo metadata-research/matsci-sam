@@ -1179,7 +1179,7 @@ export const collectionsTableRelations = relations(
 // keeping them apart lets one community work through several collections and
 // one collection be worked on by several communities.
 //
-// A community scopes views, never ownership. A term belongs to the vocabulary,
+// A community scopes views, not ownership. A term belongs to the vocabulary,
 // not to a community. What a community has is collections of terms it is
 // working on. Partitioning the vocabulary by community would fragment the
 // dictionary, which is the opposite of the consensus the studies set out to
@@ -1233,7 +1233,7 @@ export const communitiesTable = pgTable(
   ]
 )
 
-// Membership is an episode, never a delete. Leaving closes a row and rejoining
+// Membership is an episode, not a delete. Leaving closes a row and rejoining
 // opens a new one, so Phase 3 can answer "was this person a member of this
 // community when they cast that vote" from the timestamps alone.
 export type CommunityMember = typeof communityMembersTable.$inferSelect
@@ -1339,6 +1339,10 @@ export const communityInvitationsTable = pgTable(
     // Who it was meant for. Kept even after redemption, so a cohort can be
     // reconciled against the people who actually arrived.
     email: varchar({ length: 254 }).notNull(),
+    // Set when the invitation is to a study rather than to the community at
+    // large. Accepting still joins the community, because a participant who
+    // cannot see the terms cannot take part.
+    studyId: integer().references(() => studiesTable.id),
     tokenHash: varchar({ length: 64 }).notNull().unique(),
     invitedById: integer()
       .references(() => usersTable.id)
@@ -1376,6 +1380,61 @@ export const communityInvitationsTable = pgTable(
       sql`${t.expiresAt} > ${t.createdAt}`
     ),
     index("community_invitations_community_idx").on(t.communityId)
+  ]
+)
+
+// A study joins one community to one collection and says what its participants
+// are being asked to do. That is the whole of it: no ordered phases, no
+// per-participant progress, and no record of who completed what. Both
+// published protocols ran most of that by email, and the smallest thing that
+// makes a second study measurable is a stable place to read the instructions.
+//
+// The welcome text is what an invitee sees when they open their link and what
+// a participant comes back to a week later, which is why a study has a page of
+// its own rather than living on the invitation.
+//
+// Public as a page and not as data. /studies/<slug> resolves and keeps
+// resolving, and nothing here reaches the published graph: a study names a
+// cohort, and the vocabulary has never published anything about people.
+export type Study = typeof studiesTable.$inferSelect
+export const studiesTable = pgTable(
+  "studies",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // Route: /studies/<slug>. Minted once from the title and never re-derived.
+    slug: text().notNull().unique(),
+    communityId: integer()
+      .references(() => communitiesTable.id)
+      .notNull(),
+    // The terms the cohort is working through. One collection, because a study
+    // that needs two is two studies or a wider collection.
+    collectionId: integer()
+      .references(() => collectionsTable.id)
+      .notNull(),
+    title: text().notNull(),
+    // What participants are asked to do, in their own words. Stored and
+    // rendered as plain text, so nothing a curator types becomes markup.
+    welcome: text(),
+    // Both dates are optional and informational. Nothing is enforced against
+    // them except that an invitation to a closed study stops being acceptable.
+    opensAt: timestamp({ mode: "string", withTimezone: true }),
+    closesAt: timestamp({ mode: "string", withTimezone: true }),
+    retiredAt: timestamp({ mode: "string", withTimezone: true }),
+    createdById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    check("studies_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
+    check("studies_title_nonblank", sql`btrim(${t.title}) <> ''`),
+    check(
+      "studies_window_ordered",
+      sql`${t.opensAt} IS NULL OR ${t.closesAt} IS NULL OR ${t.closesAt} > ${t.opensAt}`
+    ),
+    index("studies_community_idx").on(t.communityId)
   ]
 )
 

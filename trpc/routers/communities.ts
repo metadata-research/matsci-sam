@@ -7,6 +7,7 @@ import {
   communityInvitationsTable,
   communityMembersTable,
   collectionsTable,
+  studiesTable,
   db,
   usersTable
 } from "@yamz/db"
@@ -23,6 +24,7 @@ import {
   mayManageCommunity,
   mayRunCommunity,
   maySearchPeople,
+  studyAcceptsParticipants,
   maySetCommunityMember,
   maySetCommunityRole,
   type CommunityRole
@@ -32,7 +34,9 @@ import {
   collectionsIndexPath,
   communitiesIndexPath,
   communityPath,
-  invitePath
+  invitePath,
+  studiesIndexPath,
+  studyPath
 } from "@/lib/public-identifiers"
 
 /*
@@ -115,6 +119,24 @@ const requireRunner = async (communityId: number, userId: number) => {
     })
 
   return community
+}
+
+const requireStudy = async (studyId: number) => {
+  const [row] = await db
+    .select({
+      id: studiesTable.id,
+      slug: studiesTable.slug,
+      communityId: studiesTable.communityId
+    })
+    .from(studiesTable)
+    .where(eq(studiesTable.id, studyId))
+    .limit(1)
+  if (!row)
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "This study doesn't exist"
+    })
+  return row
 }
 
 const requireAdmin = async (userId: number, message: string) => {
@@ -330,6 +352,67 @@ export const communitiesRouter = createTRPCRouter({
       }
     ),
 
+  /*
+   * Make a collection and put it straight on the worklist. A steward already
+   * decides what their community works through, and requiring them to make the
+   * collection somewhere else first is the step that gets forgotten.
+   *
+   * It is stamped by the standing of whoever made it, so a steward can go on
+   * to add terms to what they just made.
+   */
+  createWorklistCollection: authenticatedProcedure
+    .input(
+      z.object({
+        communityId: z.number().int(),
+        title: z.string().trim().min(1).max(TITLE_MAX),
+        description: z.string().trim().max(DESCRIPTION_MAX).optional()
+      })
+    )
+    .mutation(
+      async ({ ctx: { userId }, input: { communityId, title, description } }) => {
+        const community = await requireRunner(communityId, userId)
+        const runner = await GetUser(userId)
+
+        const taken = await db
+          .select({ slug: collectionsTable.slug })
+          .from(collectionsTable)
+
+        const created = await db.transaction(async (tx) => {
+          const [collection] = await tx
+            .insert(collectionsTable)
+            .values({
+              slug: uniqueSlug(
+                title,
+                new Set(taken.map((row) => row.slug)),
+                "collection"
+              ),
+              title,
+              description: description || null,
+              assertableBy: runner?.role === "admin" ? "curator" : "contributor",
+              createdById: userId
+            })
+            .returning({
+              id: collectionsTable.id,
+              slug: collectionsTable.slug
+            })
+
+          await tx.insert(communityCollectionsTable).values({
+            communityId,
+            collectionId: collection.id,
+            addedById: userId
+          })
+
+          return collection
+        })
+
+        revalidatePath(communityPath(community.slug))
+        revalidatePath(collectionsIndexPath)
+        revalidatePath("/terms")
+
+        return created
+      }
+    ),
+
   setCollection: authenticatedProcedure
     .input(
       z.object({
@@ -466,12 +549,27 @@ export const communitiesRouter = createTRPCRouter({
       z.object({
         communityId: z.number().int(),
         email: EmailAddressSchema,
-        send: z.boolean().default(false)
+        send: z.boolean().default(false),
+        // When set, the invitee lands on the instructions for this study
+        // rather than on a bare "you have been invited" page.
+        studyId: z.number().int().optional()
       })
     )
     .mutation(
-      async ({ ctx: { userId }, input: { communityId, email, send } }) => {
+      async ({
+        ctx: { userId },
+        input: { communityId, email, send, studyId }
+      }) => {
         const community = await requireRunner(communityId, userId)
+
+        if (studyId !== undefined) {
+          const study = await requireStudy(studyId)
+          if (study.communityId !== communityId)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "That study belongs to another community"
+            })
+        }
 
         const token = createOneTimeToken()
         const [created] = await db
@@ -481,6 +579,7 @@ export const communitiesRouter = createTRPCRouter({
             email,
             tokenHash: hashOneTimeToken(token),
             invitedById: userId,
+            studyId: studyId ?? null,
             expiresAt: invitationExpiry().toISOString()
           })
           .returning({ id: communityInvitationsTable.id })
@@ -686,6 +785,7 @@ export const communitiesRouter = createTRPCRouter({
         .select({
           id: communityInvitationsTable.id,
           communityId: communityInvitationsTable.communityId,
+          studyId: communityInvitationsTable.studyId,
           expiresAt: communityInvitationsTable.expiresAt,
           revokedAt: communityInvitationsTable.revokedAt,
           redeemedAt: communityInvitationsTable.redeemedAt
@@ -732,6 +832,23 @@ export const communitiesRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message: "This invitation has expired"
           })
+
+        if (invitation.studyId !== null) {
+          const [study] = await db
+            .select({
+              opensAt: studiesTable.opensAt,
+              closesAt: studiesTable.closesAt,
+              retiredAt: studiesTable.retiredAt
+            })
+            .from(studiesTable)
+            .where(eq(studiesTable.id, invitation.studyId))
+            .limit(1)
+          if (study && !studyAcceptsParticipants(study))
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This study has closed"
+            })
+        }
       }
 
       const existing = await membershipOf(communityId, userId)
@@ -879,6 +996,183 @@ export const communitiesRouter = createTRPCRouter({
    * its owner made public. trpc.admin.users cannot serve this, because it
    * returns addresses and is adminProcedure.
    */
+  /*
+   * Create a study for a community. The collection is either one that already
+   * exists or a new one made here, because the ordinary case is a fresh set of
+   * terms for a fresh piece of work and sending someone to another page to
+   * make it first is the step that gets forgotten.
+   *
+   * Whichever it is, the collection joins the worklist in the same
+   * transaction. A participant who cannot see the terms cannot take part.
+   */
+  createStudy: authenticatedProcedure
+    .input(
+      z.object({
+        communityId: z.number().int(),
+        title: z.string().trim().min(1).max(TITLE_MAX),
+        welcome: z.string().trim().max(DESCRIPTION_MAX).optional(),
+        opensAt: z.string().datetime().nullish(),
+        closesAt: z.string().datetime().nullish(),
+        // Exactly one of these. An existing collection, or a title to make one.
+        collectionId: z.number().int().optional(),
+        newCollectionTitle: z.string().trim().min(1).max(TITLE_MAX).optional()
+      })
+    )
+    .mutation(async ({ ctx: { userId }, input }) => {
+      const community = await requireRunner(input.communityId, userId)
+      const runner = await GetUser(userId)
+
+      if (Boolean(input.collectionId) === Boolean(input.newCollectionTitle))
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose a collection or name a new one, not both"
+        })
+
+      const [studySlugs, collectionSlugs] = await Promise.all([
+        db.select({ slug: studiesTable.slug }).from(studiesTable),
+        db.select({ slug: collectionsTable.slug }).from(collectionsTable)
+      ])
+
+      const created = await db.transaction(async (tx) => {
+        let collectionId = input.collectionId
+
+        if (input.newCollectionTitle) {
+          const [collection] = await tx
+            .insert(collectionsTable)
+            .values({
+              slug: uniqueSlug(
+                input.newCollectionTitle,
+                new Set(collectionSlugs.map((row) => row.slug)),
+                "collection"
+              ),
+              title: input.newCollectionTitle,
+              // Stamped by the standing of whoever made it, the same rule
+              // collections.create follows. Hardcoding "curator" here would
+              // lock a steward who is not an administrator out of the
+              // collection they had just made for their own study.
+              assertableBy: runner?.role === "admin" ? "curator" : "contributor",
+              createdById: userId
+            })
+            .returning({ id: collectionsTable.id })
+          collectionId = collection.id
+        } else {
+          const [existing] = await tx
+            .select({
+              id: collectionsTable.id,
+              retiredAt: collectionsTable.retiredAt
+            })
+            .from(collectionsTable)
+            .where(eq(collectionsTable.id, collectionId!))
+            .limit(1)
+          if (!existing)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "This collection doesn't exist"
+            })
+          if (existing.retiredAt)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This collection has been retired"
+            })
+        }
+
+        const [study] = await tx
+          .insert(studiesTable)
+          .values({
+            slug: uniqueSlug(
+              input.title,
+              new Set(studySlugs.map((row) => row.slug)),
+              "study"
+            ),
+            communityId: input.communityId,
+            collectionId: collectionId!,
+            title: input.title,
+            welcome: input.welcome || null,
+            opensAt: input.opensAt ?? null,
+            closesAt: input.closesAt ?? null,
+            createdById: userId
+          })
+          .returning({ id: studiesTable.id, slug: studiesTable.slug })
+
+        // The worklist is what narrows Browse and Collections for a member, so
+        // the study collection goes on it here rather than as a second act.
+        await tx
+          .insert(communityCollectionsTable)
+          .values({
+            communityId: input.communityId,
+            collectionId: collectionId!,
+            addedById: userId
+          })
+          .onConflictDoNothing()
+
+        return study
+      })
+
+      revalidatePath(studiesIndexPath)
+      revalidatePath(communityPath(community.slug))
+      revalidatePath(collectionsIndexPath)
+      revalidatePath("/terms")
+
+      return created
+    }),
+
+  updateStudy: authenticatedProcedure
+    .input(
+      z.object({
+        studyId: z.number().int(),
+        title: z.string().trim().min(1).max(TITLE_MAX).optional(),
+        welcome: z.string().trim().max(DESCRIPTION_MAX).nullish(),
+        opensAt: z.string().datetime().nullish(),
+        closesAt: z.string().datetime().nullish()
+      })
+    )
+    .mutation(async ({ ctx: { userId }, input: { studyId, ...fields } }) => {
+      const study = await requireStudy(studyId)
+      await requireRunner(study.communityId, userId)
+
+      // The slug is not derived again. The address stays put when the title
+      // it came from changes.
+      await db
+        .update(studiesTable)
+        .set({
+          ...(fields.title === undefined ? {} : { title: fields.title }),
+          ...(fields.welcome === undefined
+            ? {}
+            : { welcome: fields.welcome || null }),
+          ...(fields.opensAt === undefined
+            ? {}
+            : { opensAt: fields.opensAt ?? null }),
+          ...(fields.closesAt === undefined
+            ? {}
+            : { closesAt: fields.closesAt ?? null })
+        })
+        .where(eq(studiesTable.id, studyId))
+
+      revalidatePath(studiesIndexPath)
+      revalidatePath(studyPath(study.slug))
+
+      return { ok: true }
+    }),
+
+  retireStudy: authenticatedProcedure
+    .input(z.object({ studyId: z.number().int(), on: z.boolean() }))
+    .mutation(async ({ ctx: { userId }, input: { studyId, on } }) => {
+      const study = await requireStudy(studyId)
+      await requireRunner(study.communityId, userId)
+
+      // Retiring the study leaves the collection on the worklist and every
+      // membership alone. What the cohort did stays where it is.
+      await db
+        .update(studiesTable)
+        .set({ retiredAt: on ? sql`now()` : null })
+        .where(eq(studiesTable.id, studyId))
+
+      revalidatePath(studiesIndexPath)
+      revalidatePath(studyPath(study.slug))
+
+      return { ok: true }
+    }),
+
   searchPeople: authenticatedProcedure
     .input(
       z.object({

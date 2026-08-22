@@ -8,6 +8,8 @@ import {
   maySetCommunityMember,
   maySetCommunityRole,
   mayViewRoster,
+  studyAcceptsParticipants,
+  studyState,
   type Membership,
   type Viewer
 } from "../lib/communities"
@@ -191,6 +193,64 @@ assert.equal(
     new Date("2026-09-03T00:00:00Z")
   ),
   "live"
+)
+
+// --- A study is open unless a date or a retirement says otherwise ---
+
+const window = (opensAt: string | null, closesAt: string | null) => ({
+  opensAt,
+  closesAt,
+  retiredAt: null
+})
+const during = new Date("2026-09-10T00:00:00Z")
+
+assert.equal(
+  studyState(window(null, null), during),
+  "open",
+  "a study with no dates is open, which is the ordinary case for a cohort told when to start by email"
+)
+assert.equal(studyState(window("2026-09-01T00:00:00Z", null), during), "open")
+assert.equal(studyState(window("2026-10-01T00:00:00Z", null), during), "draft")
+assert.equal(studyState(window(null, "2026-09-20T00:00:00Z"), during), "open")
+assert.equal(studyState(window(null, "2026-09-01T00:00:00Z"), during), "closed")
+assert.equal(
+  studyState(
+    { opensAt: null, closesAt: null, retiredAt: "2026-09-05T00:00:00Z" },
+    during
+  ),
+  "retired",
+  "retirement outranks any window"
+)
+assert.equal(
+  studyState(
+    {
+      opensAt: "2026-10-01T00:00:00Z",
+      closesAt: null,
+      retiredAt: "2026-09-05T00:00:00Z"
+    },
+    during
+  ),
+  "retired"
+)
+
+// Both directions, because a rule checked only where it refuses can pass while
+// admitting nobody.
+assert.equal(studyAcceptsParticipants(window(null, null), during), true)
+assert.equal(
+  studyAcceptsParticipants(window("2026-10-01T00:00:00Z", null), during),
+  true,
+  "an invitation may go out before the study opens"
+)
+assert.equal(
+  studyAcceptsParticipants(window(null, "2026-09-01T00:00:00Z"), during),
+  false
+)
+assert.equal(
+  studyAcceptsParticipants(
+    { opensAt: null, closesAt: null, retiredAt: "2026-09-05T00:00:00Z" },
+    during
+  ),
+  false
 )
 
 console.log("Community rule tests passed")

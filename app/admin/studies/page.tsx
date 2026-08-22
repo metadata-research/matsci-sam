@@ -2,7 +2,7 @@ import Link from "next/link"
 import { ArrowRightIcon, FlaskConicalIcon } from "lucide-react"
 import { AdminPageHeader } from "../page-header"
 import styles from "../admin.module.css"
-import { STUDIES } from "@/lib/studies"
+import { STUDIES } from "@/lib/published-studies"
 
 export const metadata = {
   title: "Studies"

@@ -47,9 +47,6 @@ export default async function TermsPage({
       <section className="max-w-4xl w-full mx-auto">
         <h1 className="text-4xl font-bold mb-2">Browse Terms</h1>
         <p className="text-muted-foreground mb-6">
-          {active
-            ? `The terms ${active.title} is working through, grouped alphabetically.`
-            : "Every defined term, grouped alphabetically."}{" "}
           The number in parentheses is the count of definitions for that term.
         </p>
 

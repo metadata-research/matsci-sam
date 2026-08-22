@@ -11,10 +11,12 @@ import {
   membershipIn
 } from "@/lib/community-queries"
 import { collectionsWithCounts } from "@/lib/kos-queries"
+import { studiesOfCommunity } from "@/lib/study-queries"
 import { getCurrentUser } from "@/lib/current-user"
 import {
   invitationOutcome,
   mayManageCommunity,
+  studyState,
   mayRunCommunity,
   maySetCommunityMember,
   maySetCommunityRole,
@@ -22,7 +24,8 @@ import {
 } from "@/lib/communities"
 import {
   collectionPath,
-  communitiesIndexPath
+  communitiesIndexPath,
+  studyPath
 } from "@/lib/public-identifiers"
 import { formatDate } from "@/lib/date"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +35,8 @@ import {
   AddPerson,
   EditCommunity,
   InvitationActions,
+  CreateStudy,
+  CreateWorklistCollection,
   InvitePerson,
   JoinLink,
   LeaveCommunity,
@@ -71,9 +76,11 @@ export default async function CommunityPage({
   const user = await getCurrentUser()
   const membership = user ? await membershipIn(community.id, user.id) : null
 
-  const [roster, worklist, invitations, allCollections] = await Promise.all([
+  const [roster, worklist, studies, invitations, allCollections] =
+    await Promise.all([
     communityRoster(community.id),
     communityWorklist(community.id),
+    studiesOfCommunity(community.id),
     mayRunCommunity(user ?? null, membership)
       ? communityInvitations(community.id)
       : Promise.resolve([]),
@@ -86,6 +93,9 @@ export default async function CommunityPage({
   const isAdmin = mayManageCommunity(user ?? null)
   const seesRoster = mayViewRoster(user ?? null, membership)
   const onWorklist = new Set(worklist.map((row) => row.id))
+  // A collection a live study is running against is shown under that study, so
+  // it is not repeated here under a second heading.
+  const loose = worklist.filter((row) => row.studySlug === null)
 
   return (
     <main className="px-4 py-8">
@@ -98,6 +108,11 @@ export default async function CommunityPage({
           {community.description && (
             <p className="text-muted-foreground">{community.description}</p>
           )}
+          <p className="text-sm text-muted-foreground">
+            A community is people. A collection is terms. A study asks these
+            people to work through one of those collections and says what to do
+            with it.
+          </p>
           {community.retiredAt && (
             <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
               This community has been retired. Its address still resolves, and
@@ -114,15 +129,6 @@ export default async function CommunityPage({
                 communityId={community.id}
                 title={community.title}
                 description={community.description}
-              />
-            )}
-            {runs && <AddPerson communityId={community.id} />}
-            {runs && (
-              <AddCollection
-                communityId={community.id}
-                collections={allCollections.filter(
-                  (collection) => !onWorklist.has(collection.id)
-                )}
               />
             )}
             {isAdmin && (
@@ -145,18 +151,88 @@ export default async function CommunityPage({
         )}
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold">
-            Collections this community is working through
-          </h2>
-          {worklist.length === 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-semibold">Studies</h2>
+            {runs && (
+              <CreateStudy
+                communityId={community.id}
+                collections={allCollections.filter(
+                  (collection) => !collection.retiredAt
+                )}
+              />
+            )}
+          </div>
+          {studies.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {runs
-                ? "Nothing on the worklist yet. Add a collection to say what this community is working through."
-                : "Nothing on the worklist yet."}
+                ? "No study is running. A study names a set of terms, says what to do with them, and gives your invitations something to point at."
+                : "No study is running."}
             </p>
           ) : (
             <ul className="space-y-2">
-              {worklist.map((collection) => (
+              {studies.map((study) => (
+                <li
+                  key={study.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border p-3"
+                >
+                  <span className="space-y-1">
+                    <Link
+                      href={studyPath(study.slug)}
+                      className="block text-primary"
+                    >
+                      {study.title}
+                    </Link>
+                    <span className="block text-xs text-muted-foreground">
+                      Terms:{" "}
+                      <Link
+                        href={collectionPath(study.collectionSlug)}
+                        className="underline"
+                      >
+                        {study.collectionTitle}
+                      </Link>{" "}
+                      ({study.terms}{" "}
+                      {study.terms === 1 ? "term" : "terms"})
+                    </span>
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {studyState(study)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-semibold">Other terms in view</h2>
+            {runs && (
+              <span className="flex flex-wrap gap-2">
+                <AddCollection
+                  communityId={community.id}
+                  collections={allCollections.filter(
+                    (collection) => !onWorklist.has(collection.id)
+                  )}
+                />
+                <CreateWorklistCollection communityId={community.id} />
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Collections these people see on Browse that no study is running
+            against.
+          </p>
+          {loose.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {studies.length > 0
+                ? "Nothing else. Members see the study terms above."
+                : runs
+                  ? "Nothing yet. Add a collection, or start a study, to give these people something to work through."
+                  : "Nothing yet."}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {loose.map((collection) => (
                 <li
                   key={collection.id}
                   className="flex items-center justify-between gap-2 rounded-md border border-border p-3"
@@ -189,7 +265,10 @@ export default async function CommunityPage({
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold">People</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-semibold">People</h2>
+            {runs && <AddPerson communityId={community.id} />}
+          </div>
           {seesRoster ? (
             roster.length === 0 ? (
               <p className="text-sm text-muted-foreground">
@@ -258,9 +337,14 @@ export default async function CommunityPage({
             <p className="text-sm text-muted-foreground">
               An invitation admits whoever opens the link and signs in, once. It
               is not tied to the address it was sent to, so someone whose
-              institutional and personal addresses differ is never stranded.
+              institutional and personal addresses differ is not stranded.
             </p>
-            <InvitePerson communityId={community.id} />
+            <InvitePerson
+              communityId={community.id}
+              studies={studies
+                .filter((study) => studyState(study) !== "closed")
+                .map((study) => ({ id: study.id, title: study.title }))}
+            />
 
             {invitations.length > 0 && (
               <ul className="space-y-2">

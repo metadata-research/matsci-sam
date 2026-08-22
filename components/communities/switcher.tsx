@@ -15,7 +15,7 @@ import {
  *
  * It renders nothing at all for a person who belongs to no community, so a
  * signed-out reader and someone who has joined nothing see no new chrome. The
- * value is the active community or "all", never a boolean, because "I have no
+ * value is the active community or "all", not a boolean, because "I have no
  * communities", "I have not chosen" and "I chose everything" all have to look
  * the same on screen and all mean the unscoped view.
  *

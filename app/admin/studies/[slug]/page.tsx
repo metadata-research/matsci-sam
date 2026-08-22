@@ -15,7 +15,7 @@ import {
   SUPPORT_LABEL,
   studyBySlug,
   type StepSupport
-} from "@/lib/studies"
+} from "@/lib/published-studies"
 
 export const generateStaticParams = () =>
   STUDIES.map((study) => ({ slug: study.slug }))

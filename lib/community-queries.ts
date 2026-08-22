@@ -8,6 +8,8 @@ import {
   communityInvitationsTable,
   communityMembersTable,
   db,
+  statementsTable,
+  studiesTable,
   usersTable
 } from "@yamz/db"
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
@@ -16,9 +18,22 @@ import { getCurrentUser } from "@/lib/current-user"
 import { invitationOutcome, type InvitationOutcome } from "@/lib/communities"
 
 export type InvitationView = {
-  // A link addressed to one person, or the community's open join link.
+  // A link addressed to one person, or the open join link of a community.
   kind: "invitation" | "open"
   outcome: InvitationOutcome
+  // Set when the invitation is to a study. What the person is being asked to
+  // do belongs here rather than on the community, because it changes with the
+  // work and not with the group.
+  study: {
+    slug: string
+    title: string
+    welcome: string | null
+    opensAt: string | null
+    closesAt: string | null
+    retiredAt: string | null
+    collectionSlug: string
+    collectionTitle: string
+  } | null
   community: {
     id: number
     slug: string
@@ -45,7 +60,7 @@ const communityColumns = {
  * itself, because it is stored readable so it can be pasted repeatedly.
  *
  * The two are tried in that order and share one route, so a person following a
- * link never has to know which kind they were given.
+ * link does not have to know which kind they were given.
  */
 export const invitationForToken = async (
   token: string
@@ -56,23 +71,65 @@ export const invitationForToken = async (
       expiresAt: communityInvitationsTable.expiresAt,
       revokedAt: communityInvitationsTable.revokedAt,
       redeemedAt: communityInvitationsTable.redeemedAt,
-      community: communityColumns
+      community: communityColumns,
+      study: {
+        slug: studiesTable.slug,
+        title: studiesTable.title,
+        welcome: studiesTable.welcome,
+        opensAt: studiesTable.opensAt,
+        closesAt: studiesTable.closesAt,
+        retiredAt: studiesTable.retiredAt,
+        collectionSlug: collectionsTable.slug,
+        collectionTitle: collectionsTable.title
+      }
     })
     .from(communityInvitationsTable)
     .innerJoin(
       communitiesTable,
       eq(communitiesTable.id, communityInvitationsTable.communityId)
     )
+    .leftJoin(
+      studiesTable,
+      eq(studiesTable.id, communityInvitationsTable.studyId)
+    )
+    .leftJoin(
+      collectionsTable,
+      eq(collectionsTable.id, studiesTable.collectionId)
+    )
     .where(eq(communityInvitationsTable.tokenHash, hashOneTimeToken(token)))
     .limit(1)
 
-  if (invitation)
+  if (invitation) {
+    // The join is left, so every study column is nullable at the type level.
+    // One field decides whether there is a study at all, and the rest are
+    // rebuilt under that guard rather than asserted.
+    const joined = invitation.study
+    const study =
+      joined &&
+      joined.slug !== null &&
+      joined.title !== null &&
+      joined.collectionSlug !== null &&
+      joined.collectionTitle !== null
+        ? {
+            slug: joined.slug,
+            title: joined.title,
+            welcome: joined.welcome,
+            opensAt: joined.opensAt,
+            closesAt: joined.closesAt,
+            retiredAt: joined.retiredAt,
+            collectionSlug: joined.collectionSlug,
+            collectionTitle: joined.collectionTitle
+          }
+        : null
+
     return {
       kind: "invitation",
       outcome: invitationOutcome(invitation),
       community: invitation.community,
+      study,
       email: invitation.email
     }
+  }
 
   const [open] = await db
     .select(communityColumns)
@@ -83,7 +140,13 @@ export const invitationForToken = async (
   if (open)
     // An open link does not expire and is not spent. It is revoked by being
     // rotated or turned off, and then it simply stops resolving.
-    return { kind: "open", outcome: "live", community: open, email: null }
+    return {
+      kind: "open",
+      outcome: "live",
+      community: open,
+      study: null,
+      email: null
+    }
 
   return null
 }
@@ -112,7 +175,7 @@ type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
  * unscoped, which are deliberately not collapsed into one boolean: signed out,
  * a member of nothing, a member who has not chosen, and a choice that no
  * longer holds because the person left or the community retired. Callers
- * branch on null, never on "has a community", because giving a scoped view to
+ * branch on null, not on "has a community", because giving a scoped view to
  * someone who never asked for one is the failure that matters here.
  *
  * It takes an executor so Phase 3 can resolve inside the transaction that
@@ -280,7 +343,24 @@ export const communityWorklist = async (communityId: number) =>
       id: collectionsTable.id,
       slug: collectionsTable.slug,
       title: collectionsTable.title,
-      retiredAt: collectionsTable.retiredAt
+      retiredAt: collectionsTable.retiredAt,
+      // The slug of a live study working through this collection, when there
+      // is one. The community page shows those under the study instead, so
+      // nothing appears in two places saying two different things.
+      studySlug: sql<string | null>`(
+        select st.slug from ${studiesTable} st
+        where st."collectionId" = ${collectionsTable.id}
+          and st."communityId" = ${communityId}
+          and st."retiredAt" is null
+        limit 1
+      )`,
+      terms: sql<number>`(
+        select cast(count(*) as int)
+        from ${statementsTable} s
+        where s."subjectCollectionId" = ${collectionsTable.id}
+          and s.predicate = 'skos:member'
+          and s."retractedAt" is null
+      )`
     })
     .from(communityCollectionsTable)
     .innerJoin(

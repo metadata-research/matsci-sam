@@ -83,6 +83,11 @@ export const communitiesIndexPath = "/communities"
 export const communityPath = (slug: string) =>
   `${communitiesIndexPath}/${slugSegment(slug, "Community slug")}`
 
+export const studiesIndexPath = "/studies"
+
+export const studyPath = (slug: string) =>
+  `${studiesIndexPath}/${slugSegment(slug, "Study slug")}`
+
 export const invitePath = (token: string) =>
   `/invite/${slugSegment(token, "Invitation token")}`
 
