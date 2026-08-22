@@ -49,7 +49,8 @@ const main = async () => {
     assertionBlockTurtle,
     provenanceDatasetBlocksTurtle,
     studyBlockTurtle,
-    voteEventBlockTurtle
+    voteEventBlockTurtle,
+    walkthroughCommentBlockTurtle
   } = await import("../lib/graph/provenance-dataset")
   type ProvenanceDatasetData =
     import("../lib/graph/provenance-dataset").ProvenanceDatasetData
@@ -185,7 +186,8 @@ const main = async () => {
   assert.equal(studyUri("id4-pilot"), `${identifierBaseUrl}/studies/id4-pilot`)
 
   // --- Fixtures: four accounts of four kinds, three terms, a bridge, a
-  // retraction, a legacy row, votes from both records, two studies ---
+  // retraction, a legacy row, votes from both records, two studies, and
+  // a vote and a comment from each walkthrough ---
 
   const PMD = "https://w3id.org/pmd/co/PMD_0000934"
   const EMMO = "https://w3id.org/emmo#EMMO_03441eb3_d1fd_4906_b953_b83312d7589e"
@@ -332,7 +334,8 @@ const main = async () => {
         userId: 1,
         kind: "up",
         actorKind: "human",
-        createdAt: "2026-05-01 09:00:00+00"
+        createdAt: "2026-05-01 09:00:00+00",
+        studyId: null
       },
       {
         id: 2,
@@ -341,7 +344,8 @@ const main = async () => {
         userId: 2,
         kind: "down",
         actorKind: "human",
-        createdAt: "2026-05-01 09:05:00+00"
+        createdAt: "2026-05-01 09:05:00+00",
+        studyId: null
       },
       {
         id: 3,
@@ -350,7 +354,8 @@ const main = async () => {
         userId: 2,
         kind: null,
         actorKind: "human",
-        createdAt: "2026-05-01 09:06:00+00"
+        createdAt: "2026-05-01 09:06:00+00",
+        studyId: null
       },
       {
         id: 4,
@@ -359,8 +364,11 @@ const main = async () => {
         userId: 3,
         kind: "up",
         actorKind: "model",
-        createdAt: "2026-05-02 09:00:00+00"
+        createdAt: "2026-05-02 09:00:00+00",
+        studyId: null
       },
+      // Cast from the walkthrough of the pilot study, by a persona whose
+      // agent is named.
       {
         id: 5,
         definitionId: 11,
@@ -368,8 +376,11 @@ const main = async () => {
         userId: 4,
         kind: "up",
         actorKind: "simulated",
-        createdAt: "2026-05-02 09:01:00+00"
+        createdAt: "2026-05-02 09:01:00+00",
+        studyId: 1
       },
+      // Cast from the same walkthrough by a person with a private profile:
+      // the study is stated and the agent is not.
       {
         id: 6,
         definitionId: 10,
@@ -377,7 +388,8 @@ const main = async () => {
         userId: 6,
         kind: "up",
         actorKind: "human",
-        createdAt: "2026-05-03 09:00:00+00"
+        createdAt: "2026-05-03 09:00:00+00",
+        studyId: 1
       }
     ],
     votes: [
@@ -415,6 +427,13 @@ const main = async () => {
         createdAt: "2026-02-02 00:00:00+00",
         migratedLegacy: true
       }
+    ],
+    // The comments posted from a walkthrough: comment 7 of the per-term
+    // body below, in the pilot study, and one under austenite in the
+    // retired study. Comment 8 of the body was posted outside any.
+    walkthroughComments: [
+      { id: 7, definitionId: 10, studyId: 1 },
+      { id: 9, definitionId: 12, studyId: 2 }
     ],
     studies: [
       {
@@ -697,6 +716,36 @@ const main = async () => {
     )
   )
 
+  // --- The study of an act: on a vote event from a walkthrough, whether
+  // or not its agent is named, and on a comment node of the per-term body;
+  // nowhere on an act taken outside one ---
+
+  assert.deepEqual(values(dataset, e5, matsci("study")), [s1])
+  const e6 = `${rev100}#vote-event-6`
+  assert.deepEqual(values(dataset, e6, matsci("study")), [s1])
+  assert.equal(values(dataset, e6, `${PROV}wasAssociatedWith`).length, 0)
+  for (const act of [e1, e2, e3, e4, l1, l2, l3])
+    assert.equal(values(dataset, act, matsci("study")).length, 0, act)
+  const comment7 = `${martensite}/provenance#comment_7`
+  const comment9 = `${austenite}/provenance#comment_9`
+  assert.deepEqual(values(dataset, comment7, matsci("study")), [s1])
+  assert.deepEqual(values(dataset, comment9, matsci("study")), [s2])
+  // The one triple the body cannot state, and nothing the body states.
+  assert.equal(
+    dataset.filter((q) => q.subject.value === comment7).length,
+    1
+  )
+  assert.ok(!subjects(dataset).has(`${martensite}/provenance#comment_8`))
+  // A study the view does not know fails as an unknown revision does.
+  assert.throws(
+    () =>
+      voteEventBlockTurtle(
+        new ProvenanceDatasetView({ ...data, studies: [] }),
+        acts[4]
+      ),
+    RangeError
+  )
+
   // --- Agents: one block per referenced IRI, typed by account kind ---
 
   const agents = view.referencedAgents()
@@ -752,6 +801,11 @@ const main = async () => {
   // The single-block emitters agree with the document.
   assert.ok(datasetBlocks.includes(assertionBlockTurtle(view, data.assertions[4])))
   assert.ok(datasetBlocks.includes(voteEventBlockTurtle(view, acts[8])))
+  assert.ok(
+    datasetBlocks.includes(
+      walkthroughCommentBlockTurtle(view, data.walkthroughComments[1])
+    )
+  )
   assert.ok(datasetBlocks.includes(studyBlockTurtle(view, data.studies[1])))
 
   // Determinism: the same rows in another order render the same bytes.
@@ -760,6 +814,7 @@ const main = async () => {
     assertions: [...data.assertions].reverse(),
     voteEvents: [...data.voteEvents].reverse(),
     votes: [...data.votes].reverse(),
+    walkthroughComments: [...data.walkthroughComments].reverse(),
     studies: [...data.studies].reverse(),
     users: [...data.users].reverse()
   })
@@ -835,6 +890,17 @@ const main = async () => {
           meta: {
             at: "2026-05-01 08:00:00+00",
             actorKind: "simulated",
+            legacyAssociationInferred: "no"
+          }
+        },
+        // Posted outside any walkthrough: the dataset blocks add nothing.
+        {
+          id: "comment_8",
+          label: "Comment on definition 1 · revision 2",
+          type: "activity",
+          meta: {
+            at: "2026-05-01 08:30:00+00",
+            actorKind: "human",
             legacyAssociationInferred: "no"
           }
         },
@@ -922,12 +988,13 @@ const main = async () => {
   assert.equal(view.assertionAgent(data.assertions[1], 3).iri, modelUri("gemma4-26b"))
   // A comment states its actor kind as a literal, the spelling the vote
   // events use, and the persona it is associated with is a software agent.
-  const comment = `${martensite}/provenance#comment_7`
-  assert.deepEqual(values(inGraph, comment, matsci("actorKind")), ["simulated"])
-  assert.deepEqual(values(inGraph, comment, matsci("legacyAssociationInferred")), ["no"])
-  assert.deepEqual(values(inGraph, comment, `${PROV}wasAssociatedWith`), [
+  // The body states no study; that triple is the dataset blocks' to add.
+  assert.deepEqual(values(inGraph, comment7, matsci("actorKind")), ["simulated"])
+  assert.deepEqual(values(inGraph, comment7, matsci("legacyAssociationInferred")), ["no"])
+  assert.deepEqual(values(inGraph, comment7, `${PROV}wasAssociatedWith`), [
     personUnder("martensite", 4)
   ])
+  assert.equal(values(inGraph, comment7, matsci("study")).length, 0)
 
   // Alone, the body repeats what the vocabulary says so it reads on its
   // own. In the graph it leaves the typing of the definition and of the
@@ -1177,6 +1244,17 @@ const main = async () => {
     }
   assert.ok(subjects(parsed.vocabulary).has(rev2))
   assert.ok(subjects(parsed.provenance).has(rev2))
+  // In the provenance graph a walkthrough comment is one node: what the
+  // body says of it and the study the dataset blocks add, under one IRI.
+  assert.deepEqual(values(parsed.provenance, comment7, matsci("actorKind")), [
+    "simulated"
+  ])
+  assert.deepEqual(values(parsed.provenance, comment7, matsci("study")), [s1])
+  const comment8 = `${martensite}/provenance#comment_8`
+  assert.deepEqual(values(parsed.provenance, comment8, matsci("actorKind")), [
+    "human"
+  ])
+  assert.equal(values(parsed.provenance, comment8, matsci("study")).length, 0)
   // In the union every revision, current or not, is typed and linked to
   // its definition exactly once: rev2 by the vocabulary graph, rev1 (not
   // current) by the provenance graph.
@@ -1332,7 +1410,8 @@ const main = async () => {
 
     // What the provenance shape must refuse: a retraction time with no
     // retractor, a reifier whose object is an IRI and not a triple term,
-    // and an actor kind outside the three.
+    // an actor kind outside the three, a vote event in two studies, and a
+    // comment whose study is a revision.
     const negativeProvenance =
       TTL_PREFIXES +
       `<${a5}> a matsci:Assertion, prov:Entity ;\n` +
@@ -1345,7 +1424,19 @@ const main = async () => {
       `<${e1}> a matsci:VoteEvent, prov:Activity ;\n` +
       `  prov:used <${rev100}> ;\n` +
       `  matsci:voteKind "up" ;\n  matsci:actorKind "robot" ;\n` +
-      `  prov:atTime "2026-05-01T09:00:00.000Z"^^xsd:dateTime .\n`
+      `  prov:atTime "2026-05-01T09:00:00.000Z"^^xsd:dateTime ;\n` +
+      `  matsci:study <${s1}> , <${s2}> .\n\n` +
+      // Both studies and their worklists are well formed, so the study
+      // rules stay quiet and only the planted rules fire.
+      `<${s1}> a matsci:Study, prov:Activity ;\n` +
+      `  dcterms:title "ID4 pilot"@en ;\n  matsci:worklist <${demo}> .\n\n` +
+      `<${s2}> a matsci:Study, prov:Activity ;\n` +
+      `  dcterms:title "An old study"@en ;\n` +
+      `  matsci:worklist <${collectionUri("retired-set")}> .\n\n` +
+      `<${demo}> a skos:Collection .\n` +
+      `<${collectionUri("retired-set")}> a skos:Collection .\n\n` +
+      `<${comment7}> matsci:actorKind "simulated" ;\n` +
+      `  matsci:study <${rev100}> .\n`
     parse(negativeProvenance, "negative-provenance")
     writeFileSync(join(exportDir, "negative-provenance.ttl"), negativeProvenance)
     console.log(`Fixture documents written to ${exportDir}`)

@@ -5,7 +5,9 @@
 # row, so at most one). The vote-event and actor-kind shapes mirror
 # actorKindEnum and voteTypeEnum, with "withdrawn" standing for the null
 # kind that records a withdrawal. The study shape mirrors the studies table:
-# a title, a collection, and an optional window.
+# a title, a collection, and an optional window. The study-context shape
+# mirrors the surveyStepId column of voteEvents and comments: an act names
+# the study of at most one walkthrough step, and that study is published.
 #
 # An assertion reifies its triple with an RDF 1.2 triple term, and Jena
 # 6.2.0 checks that with sh:nodeKind sh:TripleTerm (SHACL 1.2). The
@@ -118,6 +120,12 @@
     sh:datatype xsd:dateTime
   ] ;
   sh:property [
+    sh:path matsci:study ;
+    sh:maxCount 1 ;
+    sh:class matsci:Study ;
+    sh:message "At most one matsci:study, and it is a study"
+  ] ;
+  sh:property [
     sh:path prov:wasAssociatedWith ;
     sh:maxCount 1 ;
     sh:nodeKind sh:IRI
@@ -138,6 +146,17 @@
     sh:maxCount 1 ;
     sh:in ( "human" "model" "simulated" ) ;
     sh:message "matsci:actorKind is human, model or simulated, exactly once"
+  ] .
+
+# Whatever states a study, a vote event or a comment, was taken in one
+# study, and that study is in the graph.
+:StudyContextShape a sh:NodeShape ;
+  sh:targetSubjectsOf matsci:study ;
+  sh:property [
+    sh:path matsci:study ;
+    sh:maxCount 1 ;
+    sh:class matsci:Study ;
+    sh:message "At most one matsci:study, and it is a study"
   ] .
 
 # One studies row: the activity, its window and its worklist, nothing about

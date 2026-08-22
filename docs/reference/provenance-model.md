@@ -61,7 +61,9 @@ assertion of their own.
 
 A voting act is a `matsci:VoteEvent` and a `prov:Activity`. It names the
 revision it used, what it did under `matsci:voteKind`, up, down or withdrawn,
-the kind of actor under `matsci:actorKind`, and the time. Votes cast before
+the kind of actor under `matsci:actorKind`, and the time. A vote cast from
+the walkthrough of a study, and a comment posted from one, name that study
+under `matsci:study`, whether or not the agent is named. Votes cast before
 the event record began are published once each from the current vote table,
 as the single act they have always appeared as, and say with
 `matsci:legacyAssociationInferred` where the binding to the revision was

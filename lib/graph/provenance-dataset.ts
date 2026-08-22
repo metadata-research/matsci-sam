@@ -3,6 +3,7 @@ import "server-only"
 import {
   aiModelsTable,
   collectionsTable,
+  commentsTable,
   conceptSchemesTable,
   conceptsTable,
   db,
@@ -10,6 +11,7 @@ import {
   definitionsTable,
   statementsTable,
   studiesTable,
+  surveyStepsTable,
   termsTable,
   usersTable,
   voteEventsTable,
@@ -43,6 +45,8 @@ import { lit } from "../rdf-literal"
  * - a vote event per voting act, from the append-only voteEvents record and,
  *   for the pre-0040 votes that record does not cover, from the current-state
  *   row synthesized as the single act it has always appeared as;
+ * - the study an act was taken in, on a vote event and on a comment that
+ *   names a walkthrough step, which only the step knows;
  * - a study per studies row, as an activity with its window and worklist;
  * - one block per agent those reference, so the graph joins up.
  *
@@ -94,7 +98,9 @@ export type AssertionRow = StatementEnds & {
 
 export type ActorKind = "human" | "model" | "simulated"
 
-// One voteEvents row: an act from migration 0040 forward.
+// One voteEvents row: an act from migration 0040 forward. studyId is the
+// study of the walkthrough step the act names, resolved by the loader; null
+// when the vote was cast outside a walkthrough.
 export type VoteEventRow = {
   id: number
   definitionId: number
@@ -103,6 +109,16 @@ export type VoteEventRow = {
   kind: "up" | "down" | null
   actorKind: ActorKind
   createdAt: string
+  studyId: number | null
+}
+
+// One comments row that names a walkthrough step, with the study of that
+// step. Only those are loaded: the per-term body says everything else about
+// a comment, and a comment posted outside a walkthrough has no study.
+export type WalkthroughCommentRow = {
+  id: number
+  definitionId: number
+  studyId: number
 }
 
 // One current-state votes row. Only those with no voteEvents row for their
@@ -137,6 +153,7 @@ export type ProvenanceDatasetData = {
   assertions: AssertionRow[]
   voteEvents: VoteEventRow[]
   votes: VoteRow[]
+  walkthroughComments: WalkthroughCommentRow[]
   studies: StudyRow[]
 }
 
@@ -151,7 +168,8 @@ export type AgentRef = {
 
 // One voting act, whichever record it comes from. `legacy` says the act was
 // synthesized from a current-state row; `position` is its 1-based place
-// among the legacy acts on its revision and is what names it.
+// among the legacy acts on its revision and is what names it. A legacy act
+// predates walkthroughs and has no study.
 export type VoteAct = {
   iri: string
   revisionId: number
@@ -159,6 +177,7 @@ export type VoteAct = {
   kind: "up" | "down" | null
   actorKind: ActorKind
   createdAt: string
+  studyId: number | null
   legacy: boolean
   migratedLegacy: boolean
 }
@@ -172,6 +191,7 @@ export class ProvenanceDatasetView {
   readonly assertions: AssertionRow[]
   readonly voteEvents: VoteEventRow[]
   readonly votes: VoteRow[]
+  readonly walkthroughComments: WalkthroughCommentRow[]
   readonly studies: StudyRow[]
   private userById = new Map<number, GraphUser>()
   private modelByUserId = new Map<number, GraphModel>()
@@ -180,6 +200,7 @@ export class ProvenanceDatasetView {
   private revisionById = new Map<number, GraphRevision>()
   private conceptById = new Map<number, GraphConcept>()
   private collectionById = new Map<number, GraphCollection>()
+  private studyById = new Map<number, StudyRow>()
 
   constructor(data: ProvenanceDatasetData) {
     // Row id order throughout, so two projections of one database are
@@ -187,6 +208,9 @@ export class ProvenanceDatasetView {
     this.assertions = [...data.assertions].sort((a, b) => a.id - b.id)
     this.voteEvents = [...data.voteEvents].sort((a, b) => a.id - b.id)
     this.votes = [...data.votes]
+    this.walkthroughComments = [...data.walkthroughComments].sort(
+      (a, b) => a.id - b.id
+    )
     this.studies = [...data.studies].sort((a, b) => a.id - b.id)
     for (const u of data.users) this.userById.set(u.id, u)
     for (const m of data.models) this.modelByUserId.set(m.userId, m)
@@ -195,6 +219,7 @@ export class ProvenanceDatasetView {
     for (const r of data.revisions) this.revisionById.set(r.id, r)
     for (const c of data.concepts) this.conceptById.set(c.id, c)
     for (const c of data.collections) this.collectionById.set(c.id, c)
+    for (const s of this.studies) this.studyById.set(s.id, s)
   }
 
   private term(id: number) {
@@ -227,8 +252,24 @@ export class ProvenanceDatasetView {
     return c
   }
 
+  private study(id: number) {
+    const s = this.studyById.get(id)
+    if (!s) throw new RangeError(`unknown study ${id}`)
+    return s
+  }
+
   termSlugOfDefinition(definitionId: number) {
     return this.term(this.definition(definitionId).termId).slug
+  }
+
+  studyIri(id: number) {
+    return studyUri(this.study(id).slug)
+  }
+
+  // The node of a comment in the per-term body of its term, which is where
+  // the dataset blocks add to what that body says about it.
+  commentIri(row: WalkthroughCommentRow) {
+    return `${termUri(this.termSlugOfDefinition(row.definitionId))}/provenance#comment_${row.id}`
   }
 
   definitionIri(id: number) {
@@ -364,6 +405,7 @@ export class ProvenanceDatasetView {
       kind: e.kind,
       actorKind: e.actorKind,
       createdAt: e.createdAt,
+      studyId: e.studyId,
       legacy: false,
       migratedLegacy: false
     }))
@@ -390,6 +432,7 @@ export class ProvenanceDatasetView {
         // decides, exactly as the 0040 backfill of comments did.
         actorKind: user?.isAi ? "model" : "human",
         createdAt: v.createdAt,
+        studyId: null,
         legacy: true,
         migratedLegacy: v.migratedLegacy
       }
@@ -461,9 +504,11 @@ export const assertionBlockTurtle = (
 
 /*
  * One voting act as a matsci:VoteEvent. The agent is named only when the
- * profile is public or the account is an AI identity. A legacy act says its
- * binding to the revision was inferred when the row was migrated, the same
- * disclosure the per-term body makes.
+ * profile is public or the account is an AI identity. A vote cast from a
+ * walkthrough names its study, whether or not its agent is named: the study
+ * is an activity with an IRI, and the cohort stays unpublished. A legacy act
+ * says its binding to the revision was inferred when the row was migrated,
+ * the same disclosure the per-term body makes.
  */
 export const voteEventBlockTurtle = (
   view: ProvenanceDatasetView,
@@ -476,14 +521,28 @@ export const voteEventBlockTurtle = (
     `matsci:actorKind ${lit(act.actorKind)}`,
     `prov:atTime ${dateTime(act.createdAt)}`
   ]
-  // matsci:study, the study a vote was cast in, goes here once migration
-  // 0041 adds voteEvents.surveyStepId. Nothing is emitted for it yet.
+  if (act.studyId !== null)
+    pairs.push(`matsci:study <${view.studyIri(act.studyId)}>`)
   if (act.legacy && act.migratedLegacy)
     pairs.push(`matsci:legacyAssociationInferred ${lit("yes")}`)
   if (view.voteAgentIsPublic(act))
     pairs.push(`prov:wasAssociatedWith <${view.voteAgent(act).iri}>`)
   return turtleBlock(act.iri, pairs)
 }
+
+/*
+ * The study a comment was posted in, on the comment node the per-term body
+ * already describes. That body is rendered per term from the same rows the
+ * provenance route reads and its output is fixed, so the one triple only
+ * the step knows is stated here, after the bodies, under the same IRI.
+ */
+export const walkthroughCommentBlockTurtle = (
+  view: ProvenanceDatasetView,
+  row: WalkthroughCommentRow
+) =>
+  turtleBlock(view.commentIri(row), [
+    `matsci:study <${view.studyIri(row.studyId)}>`
+  ])
 
 /*
  * One study as an activity: its title, its window and the collection it
@@ -514,12 +573,16 @@ export const studyBlockTurtle = (
 export const agentBlockTurtle = (agent: AgentRef) =>
   turtleBlock(agent.iri, [`a ${agent.type}`, `rdfs:label ${lit(agent.label)}`])
 
-// The dataset-wide blocks, each group once: assertions, vote events,
-// studies, agents. No prefixes; the graph document supplies them.
+// The dataset-wide blocks, each group once: assertions, vote events, the
+// study of each walkthrough comment, studies, agents. No prefixes; the graph
+// document supplies them.
 export const provenanceDatasetBlocksTurtle = (view: ProvenanceDatasetView) =>
   [
     ...view.assertions.map((row) => assertionBlockTurtle(view, row)),
     ...view.voteActs().map((act) => voteEventBlockTurtle(view, act)),
+    ...view.walkthroughComments.map((row) =>
+      walkthroughCommentBlockTurtle(view, row)
+    ),
     ...view.studies.map((study) => studyBlockTurtle(view, study)),
     ...view.referencedAgents().map(agentBlockTurtle)
   ].join("\n")
@@ -528,7 +591,9 @@ export const provenanceDatasetBlocksTurtle = (view: ProvenanceDatasetView) =>
 
 // The whole dataset-wide record in a fixed number of queries. Every
 // statement row is read, retracted ones included; only the accounts those
-// rows and the votes name are read, and nothing else about them.
+// rows and the votes name are read, and nothing else about them. A vote
+// event and a comment that name a walkthrough step are joined to the step
+// here, for its study; the step itself reaches no graph.
 export const loadProvenanceDatasetData =
   async (): Promise<ProvenanceDatasetData> => {
     const [
@@ -541,6 +606,7 @@ export const loadProvenanceDatasetData =
       assertions,
       voteEvents,
       votes,
+      walkthroughComments,
       studies
     ] = await Promise.all([
       db
@@ -608,9 +674,14 @@ export const loadProvenanceDatasetData =
           userId: voteEventsTable.userId,
           kind: voteEventsTable.kind,
           actorKind: voteEventsTable.actorKind,
-          createdAt: voteEventsTable.createdAt
+          createdAt: voteEventsTable.createdAt,
+          studyId: surveyStepsTable.studyId
         })
         .from(voteEventsTable)
+        .leftJoin(
+          surveyStepsTable,
+          eq(surveyStepsTable.id, voteEventsTable.surveyStepId)
+        )
         .orderBy(asc(voteEventsTable.id)),
       db
         .select({
@@ -622,6 +693,18 @@ export const loadProvenanceDatasetData =
           migratedLegacy: votesTable.migratedLegacy
         })
         .from(votesTable),
+      db
+        .select({
+          id: commentsTable.id,
+          definitionId: commentsTable.definitionId,
+          studyId: surveyStepsTable.studyId
+        })
+        .from(commentsTable)
+        .innerJoin(
+          surveyStepsTable,
+          eq(surveyStepsTable.id, commentsTable.surveyStepId)
+        )
+        .orderBy(asc(commentsTable.id)),
       db
         .select({
           id: studiesTable.id,
@@ -669,6 +752,7 @@ export const loadProvenanceDatasetData =
       })),
       voteEvents,
       votes,
+      walkthroughComments,
       studies
     }
   }

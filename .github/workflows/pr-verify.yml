@@ -267,7 +267,8 @@ jobs:
           negative provenance negative-provenance \
             "A retraction has a time and a retractor together or not at all" \
             "An assertion reifies exactly one triple term" \
-            "matsci:actorKind is human, model or simulated, exactly once"
+            "matsci:actorKind is human, model or simulated, exactly once" \
+            "At most one matsci:study, and it is a study"
           negative people-exclusion negative-people \
             "No IRI under /people/, /communities/ or /invite/ is published"
           grep -c 'sh:focusNode' report.ttl | grep -qx 2
