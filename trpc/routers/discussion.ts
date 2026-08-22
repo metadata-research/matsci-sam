@@ -438,11 +438,15 @@ export const discussionRouter = createTRPCRouter({
               "The source definition changed. Request a new suggestion from the current revision."
           })
 
+        // The message is the person's own typed feedback, so the act is
+        // human even though it published alongside a model's suggestion;
+        // the model's part is credited through coauthorship below.
         await tx.insert(commentsTable).values({
           definitionId: suggestion.definitionId,
           revisionId: suggestion.revisionId,
           userId,
-          message: suggestion.comment
+          message: suggestion.comment,
+          authorKind: "human"
         })
 
         const { definition: inserted } =

@@ -65,6 +65,9 @@ export const TermComments = ({ id, definitionNumber }: Props) => {
               </time>
               <span className="rounded-full border px-2 py-0.5 text-[0.68rem] text-muted-foreground">
                 Definition {definitionNumber} · revision {comment.version}
+                {comment.authorKind !== "human"
+                  ? ` · ${comment.authorKind}`
+                  : ""}
                 {comment.migratedLegacy ? " · imported" : ""}
               </span>
             </header>

@@ -10,7 +10,7 @@
  */
 
 import assert from "node:assert/strict"
-import { and, eq, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, isNull, sql } from "drizzle-orm"
 
 const main = async () => {
   if (!process.env.DATABASE_URL) {
@@ -20,14 +20,18 @@ const main = async () => {
 
   const {
     collectionsTable,
+    commentsTable,
     conceptSchemesTable,
     conceptsTable,
     db,
     definitionsTable,
     statementsTable,
     termsTable,
-    usersTable
+    usersTable,
+    voteEventsTable,
+    votesTable
   } = await import("../drizzle")
+  const { castVote } = await import("../lib/participation")
   const { createDefinitionWithInitialRevision } = await import(
     "../lib/definition-revisions"
   )
@@ -716,6 +720,135 @@ const main = async () => {
         .from(definitionsTable)
         .where(eq(definitionsTable.id, definition.id))
       assert.equal(gone.length, 0)
+
+      // --- Vote and comment provenance (migration 0040) ---
+
+      const { definition: defB, revision: revB } =
+        await createDefinitionWithInitialRevision(tx, {
+          termId: termB.id,
+          authorId: user.id,
+          definition: "A second fixture definition, for the vote record.",
+          example: "Rolled back at the end.",
+          changeNote: "fixture",
+          source: "initial"
+        })
+
+      expectRejected(
+        await attempt(tx, (sp) =>
+          sp.insert(commentsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: user.id,
+            message: "a human comment must not carry a stamp",
+            authorKind: "human",
+            model: "gemma4:26b"
+          })
+        ),
+        "23514",
+        "comments_human_carries_no_stamp",
+        "human comment with a stamp"
+      )
+      expectRejected(
+        await attempt(tx, (sp) =>
+          sp.insert(commentsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: user.id,
+            message: "a stamp arrives whole or not at all",
+            authorKind: "model",
+            model: "gemma4:26b",
+            promptHash: "abc123"
+          })
+        ),
+        "23514",
+        "comments_stamp_pair",
+        "stamp hash without text"
+      )
+      expectAccepted(
+        await attempt(tx, (sp) =>
+          sp.insert(commentsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: user.id,
+            message: "a whole stamp on a model comment",
+            authorKind: "model",
+            model: "gemma4:26b",
+            promptKey: "pilot-persona-comment",
+            promptHash: "abc123",
+            promptText: "the registered prompt text"
+          })
+        ),
+        "stamped model comment"
+      )
+      const { definition: defC } = await createDefinitionWithInitialRevision(
+        tx,
+        {
+          termId: termC.id,
+          authorId: user.id,
+          definition: "A third fixture definition, the wrong FK target.",
+          example: "Rolled back at the end.",
+          changeNote: "fixture",
+          source: "initial"
+        }
+      )
+      expectRejected(
+        await attempt(tx, (sp) =>
+          sp.insert(voteEventsTable).values({
+            definitionId: defC.id,
+            revisionId: revB.id,
+            userId: user.id,
+            kind: "up",
+            actorKind: "human"
+          })
+        ),
+        "23503",
+        "vote_events_revision_same_definition_fk",
+        "vote event whose revision belongs to another definition"
+      )
+
+      // The full act sequence through the one write path: cast, change,
+      // withdraw. Three events, in order, and the current-state row is gone
+      // while the record of how it got there stays.
+      await castVote(tx, {
+        definitionId: defB.id,
+        revisionId: revB.id,
+        userId: user.id,
+        vote: "up",
+        actorKind: "human",
+        communityId: null
+      })
+      await castVote(tx, {
+        definitionId: defB.id,
+        revisionId: revB.id,
+        userId: user.id,
+        vote: "down",
+        actorKind: "human",
+        communityId: null
+      })
+      const [afterWithdrawal] = await castVote(tx, {
+        definitionId: defB.id,
+        revisionId: revB.id,
+        userId: user.id,
+        vote: "down",
+        actorKind: "human",
+        communityId: null
+      })
+      assert.equal(afterWithdrawal.score, 0, "score returns to zero")
+      const actRecord = await tx
+        .select({ kind: voteEventsTable.kind })
+        .from(voteEventsTable)
+        .where(eq(voteEventsTable.revisionId, revB.id))
+        .orderBy(asc(voteEventsTable.id))
+      assert.deepEqual(
+        actRecord.map((event) => event.kind),
+        ["up", "down", null],
+        "cast, change, withdrawal recorded in order"
+      )
+      const standing = await tx
+        .select({ kind: votesTable.kind })
+        .from(votesTable)
+        .where(eq(votesTable.revisionId, revB.id))
+      assert.equal(standing.length, 0, "withdrawal removes the standing vote")
 
       throw new Rollback()
     })
