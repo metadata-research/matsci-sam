@@ -1,15 +1,16 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm"
 import {
   communitiesTable,
   communityMembersTable,
   db,
-  definitionsTable,
+  definitionRevisionsTable,
   studiesTable,
   surveyResponsesTable,
   surveyStepCompletionsTable,
   surveyStepsTable,
   termsTable,
-  usersTable
+  usersTable,
+  voteEventsTable
 } from "@yamz/db"
 import type { ActorKind, GenerationStampInput } from "@/lib/participation"
 import {
@@ -144,21 +145,106 @@ export const completionCountOfStudy = async (
   return row?.count ?? 0
 }
 
-// Whether a person has an original definition of a term, the fact the define
-// gate takes. An accepted refinement is not an original.
-export const hasOriginalDefinition = async (
+/*
+ * The position a person holds on a define step: the candidate they accepted
+ * with a vote that names the step, or the definition they published with
+ * an initial revision that names it. The earliest act is the position.
+ * Null when they have taken none, which is what the define gate refuses
+ * on.
+ */
+export type Position = {
+  kind: "accepted" | "proposed"
+  definitionId: number
+}
+
+export const positionsOf = async (
   executor: Executor,
-  termId: number,
+  stepIds: number[],
+  userId: number
+): Promise<Map<number, Position>> => {
+  if (stepIds.length === 0) return new Map()
+  const [accepted, proposed] = await Promise.all([
+    executor
+      .select({
+        stepId: voteEventsTable.surveyStepId,
+        definitionId: voteEventsTable.definitionId,
+        createdAt: voteEventsTable.createdAt
+      })
+      .from(voteEventsTable)
+      .where(
+        and(
+          inArray(voteEventsTable.surveyStepId, stepIds),
+          eq(voteEventsTable.userId, userId)
+        )
+      )
+      .orderBy(asc(voteEventsTable.id)),
+    executor
+      .select({
+        stepId: definitionRevisionsTable.surveyStepId,
+        definitionId: definitionRevisionsTable.definitionId,
+        createdAt: definitionRevisionsTable.createdAt
+      })
+      .from(definitionRevisionsTable)
+      .where(
+        and(
+          inArray(definitionRevisionsTable.surveyStepId, stepIds),
+          eq(definitionRevisionsTable.editorId, userId),
+          eq(definitionRevisionsTable.version, 1)
+        )
+      )
+      .orderBy(asc(definitionRevisionsTable.id))
+  ])
+
+  const positions = new Map<number, Position & { createdAt: string }>()
+  const consider = (
+    kind: Position["kind"],
+    row: { stepId: number | null; definitionId: number; createdAt: string }
+  ) => {
+    if (row.stepId === null) return
+    const held = positions.get(row.stepId)
+    if (held && held.createdAt <= row.createdAt) return
+    positions.set(row.stepId, {
+      kind,
+      definitionId: row.definitionId,
+      createdAt: row.createdAt
+    })
+  }
+  for (const row of accepted) consider("accepted", row)
+  for (const row of proposed) consider("proposed", row)
+  return new Map(
+    [...positions].map(([stepId, { kind, definitionId }]) => [
+      stepId,
+      { kind, definitionId }
+    ])
+  )
+}
+
+// Whether a person holds a position on a define step, the fact the define
+// gate takes: a vote event or an initial revision of theirs naming the step.
+export const hasPosition = async (
+  executor: Executor,
+  stepId: number,
   userId: number
 ): Promise<boolean> => {
   const [row] = await executor
-    .select({ id: definitionsTable.id })
-    .from(definitionsTable)
+    .select({ found: sql<number>`1` })
+    .from(surveyStepsTable)
     .where(
       and(
-        eq(definitionsTable.termId, termId),
-        eq(definitionsTable.authorId, userId),
-        isNull(definitionsTable.refinedFromId)
+        eq(surveyStepsTable.id, stepId),
+        or(
+          sql`exists (
+            select 1 from ${voteEventsTable} e
+            where e."surveyStepId" = ${surveyStepsTable.id}
+              and e."userId" = ${userId}
+          )`,
+          sql`exists (
+            select 1 from ${definitionRevisionsTable} r
+            where r."surveyStepId" = ${surveyStepsTable.id}
+              and r."editorId" = ${userId}
+              and r.version = 1
+          )`
+        )
       )
     )
     .limit(1)
@@ -195,9 +281,11 @@ export const responseOf = async (
 export type WalkthroughStep = StepWithTerm & {
   // Whether the viewer completed it. False for a signed-out viewer.
   completed: boolean
-  // For a define step, whether the viewer has an original definition of the
-  // term; false elsewhere and for a signed-out viewer.
-  hasOriginalDefinition: boolean
+  // For a define step, whether the viewer holds a position on the term, and
+  // which; false and null elsewhere and for a signed-out viewer. Named held
+  // because position is the place of the step in the list.
+  hasPosition: boolean
+  held: Position | null
   // For a question step, the viewer's answer if any.
   response: {
     valueText: string | null
@@ -223,7 +311,8 @@ export const walkthroughOf = async (
       steps: steps.map((step) => ({
         ...step,
         completed: false,
-        hasOriginalDefinition: false,
+        hasPosition: false,
+        held: null,
         response: null
       })) as WalkthroughStep[],
       completedStepIds: [] as number[],
@@ -232,25 +321,11 @@ export const walkthroughOf = async (
 
   const completed = await completedStepIdsOf(executor, studyId, userId)
 
-  const definedTermIds = steps
-    .filter((step) => step.kind === "define" && step.termId !== null)
-    .map((step) => step.termId!)
-  const defined = definedTermIds.length
-    ? new Set(
-        (
-          await executor
-            .select({ termId: definitionsTable.termId })
-            .from(definitionsTable)
-            .where(
-              and(
-                inArray(definitionsTable.termId, definedTermIds),
-                eq(definitionsTable.authorId, userId),
-                isNull(definitionsTable.refinedFromId)
-              )
-            )
-        ).map((row) => row.termId)
-      )
-    : new Set<number>()
+  const positions = await positionsOf(
+    executor,
+    steps.filter((step) => step.kind === "define").map((step) => step.id),
+    userId
+  )
 
   const questionStepIds = steps
     .filter((step) => step.kind === "question")
@@ -275,10 +350,8 @@ export const walkthroughOf = async (
     steps: steps.map((step) => ({
       ...step,
       completed: completed.has(step.id),
-      hasOriginalDefinition:
-        step.kind === "define" &&
-        step.termId !== null &&
-        defined.has(step.termId),
+      hasPosition: positions.has(step.id),
+      held: positions.get(step.id) ?? null,
       response:
         step.kind === "question"
           ? (() => {

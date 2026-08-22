@@ -82,12 +82,24 @@ const main = async () => {
     "a plan with no terms is instructions and the questions"
   )
 
+  // The closing questions are about the list the group settled, and the
+  // instructions say what the protocol is for.
   assert.equal(DEFAULT_QUESTIONS.length, 2)
   assert.deepEqual(
     DEFAULT_QUESTIONS.map((question) => question.responseKind),
     ["scale", "text"]
   )
+  assert.match(DEFAULT_QUESTIONS[0].prompt, /use this list as it stands/)
+  assert.match(DEFAULT_QUESTIONS[1].prompt, /missing from the list, or wrong/)
   assert.ok(DEFAULT_INSTRUCTIONS.trim().length > 0)
+  assert.match(DEFAULT_INSTRUCTIONS, /second round/)
+  assert.match(DEFAULT_INSTRUCTIONS, /position/)
+  assert.match(DEFAULT_INSTRUCTIONS, /reference/)
+  assert.match(
+    plan[1].prompt ?? "",
+    /accept|amend/i,
+    "a define step asks for a position"
+  )
 
   // --- Resumption is the lowest position without a completion ---
 
@@ -123,20 +135,20 @@ const main = async () => {
   // --- Gates ---
 
   const byKind = (kind: Step["kind"]) => steps.find((step) => step.kind === kind)!
-  const neither = { hasOriginalDefinition: false, hasResponse: false }
-  const both = { hasOriginalDefinition: true, hasResponse: true }
+  const neither = { hasPosition: false, hasResponse: false }
+  const both = { hasPosition: true, hasResponse: true }
 
   assert.deepEqual(stepGate(byKind("instructions"), neither), { ok: true })
   assert.deepEqual(stepGate(byKind("review"), neither), { ok: true })
   assert.deepEqual(stepGate(byKind("define"), both), { ok: true })
   assert.deepEqual(stepGate(byKind("define"), neither), {
     ok: false,
-    reason: "Publish your definition of this term first"
+    reason: "Take a position on this term first"
   })
   assert.deepEqual(
-    stepGate(byKind("define"), { hasOriginalDefinition: false, hasResponse: true }),
-    { ok: false, reason: "Publish your definition of this term first" },
-    "a response is not a definition"
+    stepGate(byKind("define"), { hasPosition: false, hasResponse: true }),
+    { ok: false, reason: "Take a position on this term first" },
+    "a response is not a position"
   )
   assert.deepEqual(stepGate(byKind("question"), both), { ok: true })
   assert.deepEqual(stepGate(byKind("question"), neither), {
@@ -144,12 +156,9 @@ const main = async () => {
     reason: "Answer the question first"
   })
   assert.deepEqual(
-    stepGate(byKind("question"), {
-      hasOriginalDefinition: true,
-      hasResponse: false
-    }),
+    stepGate(byKind("question"), { hasPosition: true, hasResponse: false }),
     { ok: false, reason: "Answer the question first" },
-    "a definition is not an answer"
+    "a position is not an answer"
   )
 
   // --- Steps are replaced only while nobody has started ---
@@ -163,6 +172,9 @@ const main = async () => {
   const define11 = steps.find(
     (step) => step.kind === "define" && step.termId === 11
   )!
+  const define12 = steps.find(
+    (step) => step.kind === "define" && step.termId === 12
+  )!
   const review11 = steps.find(
     (step) => step.kind === "review" && step.termId === 11
   )!
@@ -172,6 +184,11 @@ const main = async () => {
 
   assert.equal(actMatchesStep({ kind: "comment", termId: 11 }, review11), true)
   assert.equal(actMatchesStep({ kind: "vote", termId: 11 }, review11), true)
+  assert.equal(
+    actMatchesStep({ kind: "vote", termId: 11 }, define11),
+    true,
+    "an upvote accepts a candidate in the define step of its term"
+  )
   assert.equal(actMatchesStep({ kind: "define", termId: 11 }, define11), true)
   assert.equal(
     actMatchesStep({ kind: "comment", termId: 11 }, review12),
@@ -179,9 +196,14 @@ const main = async () => {
     "a review step of another term"
   )
   assert.equal(
-    actMatchesStep({ kind: "vote", termId: 11 }, define11),
+    actMatchesStep({ kind: "vote", termId: 11 }, define12),
     false,
-    "a vote is not a define act"
+    "a define step of another term is not where a vote accepts"
+  )
+  assert.equal(
+    actMatchesStep({ kind: "comment", termId: 11 }, define11),
+    false,
+    "a comment is not a position"
   )
   assert.equal(
     actMatchesStep({ kind: "define", termId: 11 }, review11),

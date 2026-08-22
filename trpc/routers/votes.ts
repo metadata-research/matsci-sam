@@ -60,7 +60,8 @@ export const votesRouter = createTRPCRouter({
     .input(
       voteTargetSchema.extend({
         vote: z.enum(["up", "down"]),
-        // The review step of a walkthrough the vote is cast inside.
+        // The step of a walkthrough the vote is cast inside: the define step
+        // of the term, where an upvote accepts a candidate, or its review step.
         surveyStepId: z.number().int().optional()
       })
     )

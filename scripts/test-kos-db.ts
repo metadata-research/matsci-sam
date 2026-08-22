@@ -47,7 +47,7 @@ const main = async () => {
   const {
     appendQuestionStep,
     completionCountOfStudy,
-    hasOriginalDefinition,
+    hasPosition,
     nextPositionFor,
     recordResponse,
     replaceSteps,
@@ -1043,6 +1043,7 @@ const main = async () => {
         steps.find((step) => step.position === position)!
       const instructions = stepAt(1)
       const defineA = stepAt(2)
+      const defineB = stepAt(3)
       const reviewA = stepAt(4)
       const reviewB = stepAt(5)
       const scaleQuestion = stepAt(6)
@@ -1067,9 +1068,15 @@ const main = async () => {
         "a completion recorded twice stands once"
       )
 
-      // The define step: the initial revision names the step. The fixture
+      // The define step of termA, taken by replacing the candidates: the
+      // initial revision names the step, and is the position. The fixture
       // definition of termA was purged above, so the account has no original
       // there and may write one.
+      assert.equal(
+        await hasPosition(tx, defineA.id, user.id),
+        false,
+        "no position before any act names the step"
+      )
       const { definition: defA, revision: revA } =
         await createDefinitionWithInitialRevision(tx, {
           termId: termA.id,
@@ -1082,15 +1089,39 @@ const main = async () => {
         })
       assert.equal(revA.surveyStepId, defineA.id, "revision names its step")
       assert.equal(revA.version, 1)
-      assert.equal(await hasOriginalDefinition(tx, termA.id, user.id), true)
+      assert.equal(await hasPosition(tx, defineA.id, user.id), true)
       assert.equal(
-        await hasOriginalDefinition(tx, termA.id, aiUser.id),
+        await hasPosition(tx, defineA.id, aiUser.id),
         false,
-        "another account's definition is not the caller's"
+        "another account's definition is not the caller's position"
       )
       await recordCompletion(tx, { stepId: defineA.id, userId: user.id })
 
-      // The review step of termB: a comment and a vote, each naming it.
+      // The define step of termB, taken by accepting a candidate: an upvote
+      // naming the step. The position is held without the completion, which
+      // the press records; the step stays where the walkthrough resumes.
+      await castVote(tx, {
+        definitionId: defB.id,
+        revisionId: revB.id,
+        userId: user.id,
+        vote: "up",
+        actorKind: "human",
+        communityId: community.id,
+        surveyStepId: defineB.id
+      })
+      assert.equal(
+        await hasPosition(tx, defineB.id, user.id),
+        true,
+        "an upvote naming the define step is a position"
+      )
+      expectAccepted(
+        await attempt(tx, runInvariants),
+        "a vote event inside the define step of its term"
+      )
+
+      // The review step of termB: a comment and a vote, each naming it. The
+      // vote changes the one cast in the define step, so the event records
+      // the new standing.
       const { comment } = await insertComment(tx, {
         definitionId: defB.id,
         revisionId: revB.id,
@@ -1104,7 +1135,7 @@ const main = async () => {
         definitionId: defB.id,
         revisionId: revB.id,
         userId: user.id,
-        vote: "up",
+        vote: "down",
         actorKind: "human",
         communityId: community.id,
         surveyStepId: reviewB.id
@@ -1115,7 +1146,7 @@ const main = async () => {
         .where(eq(voteEventsTable.surveyStepId, reviewB.id))
       assert.deepEqual(
         stepEvents.map((event) => event.kind),
-        ["up"],
+        ["down"],
         "the vote event names its step"
       )
       await recordCompletion(tx, { stepId: reviewB.id, userId: user.id })
@@ -1157,8 +1188,24 @@ const main = async () => {
         mine.steps.map((step) => step.completed),
         [true, true, false, false, true, true, false]
       )
-      assert.equal(mine.steps[1].hasOriginalDefinition, true, "define A done")
-      assert.equal(mine.steps[2].hasOriginalDefinition, true, "define B: the fixture original counts")
+      assert.equal(mine.steps[1].hasPosition, true, "define A: a definition")
+      assert.deepEqual(
+        mine.steps[1].held,
+        { kind: "proposed", definitionId: defA.id },
+        "the definition written inside the step is the position"
+      )
+      assert.equal(mine.steps[2].hasPosition, true, "define B: an upvote")
+      assert.deepEqual(
+        mine.steps[2].held,
+        { kind: "accepted", definitionId: defB.id },
+        "the candidate upvoted inside the step is the position"
+      )
+      assert.ok(
+        mine.steps
+          .filter((step) => step.kind !== "define")
+          .every((step) => !step.hasPosition && step.held === null),
+        "only a define step holds a position"
+      )
       assert.equal(mine.steps[1].term, `kos test a ${stamp}`)
       assert.equal(mine.steps[0].term, null)
       assert.deepEqual(mine.steps[5].response, { valueText: null, valueScale: 4 })
@@ -1170,7 +1217,7 @@ const main = async () => {
       assert.equal(anyone.steps.length, 7)
       assert.equal(anyone.resumePosition, 1)
       assert.deepEqual(anyone.completedStepIds, [])
-      assert.ok(anyone.steps.every((step) => !step.completed && !step.hasOriginalDefinition && step.response === null))
+      assert.ok(anyone.steps.every((step) => !step.completed && !step.hasPosition && step.held === null && step.response === null))
 
       const progress = await studyProgress(tx, study.id)
       assert.ok(progress)
@@ -1314,12 +1361,29 @@ const main = async () => {
             userId: user.id,
             kind: "down",
             actorKind: "human",
+            communityId: community.id,
             surveyStepId: defineA.id
           })
           await runInvariants(sp)
         }),
-        "vote event step is not a review step",
-        "vote event inside a define step"
+        "vote event step is not a define or review step",
+        "vote event inside the define step of another term"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: user.id,
+            kind: "down",
+            actorKind: "human",
+            communityId: community.id,
+            surveyStepId: instructions.id
+          })
+          await runInvariants(sp)
+        }),
+        "vote event step is not a define or review step",
+        "vote event inside the instructions step"
       )
       expectInvariant(
         await attempt(tx, async (sp) => {

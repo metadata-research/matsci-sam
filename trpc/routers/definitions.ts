@@ -61,7 +61,12 @@ export const definitionsRouter = createTRPCRouter({
         // author refines their own definition on the definition page instead
         interactive: z.boolean().default(false),
         // The define step of a walkthrough the definition is written inside.
-        surveyStepId: z.number().int().optional()
+        surveyStepId: z.number().int().optional(),
+        // The current revision of a definition of the same term this one
+        // amends, recorded on the initial revision so the record states the
+        // derivation. The position step of a walkthrough sets it when a
+        // participant amends a candidate.
+        derivedFromRevisionId: z.number().int().optional()
       })
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
@@ -153,22 +158,56 @@ export const definitionsRouter = createTRPCRouter({
                 "You already contributed a definition for this term. Open your existing definition to publish a revision."
             })
 
+          // An amendment derives from what a reader can see now: the current
+          // revision of a definition of this term. An older revision, or a
+          // revision of another term, is refused rather than recorded as the
+          // source of a definition it was not.
+          if (input.derivedFromRevisionId !== undefined) {
+            const [source] = await tx
+              .select({ id: definitionRevisionsTable.id })
+              .from(definitionRevisionsTable)
+              .innerJoin(
+                definitionsTable,
+                eq(
+                  definitionsTable.currentRevisionId,
+                  definitionRevisionsTable.id
+                )
+              )
+              .where(
+                and(
+                  eq(definitionRevisionsTable.id, input.derivedFromRevisionId),
+                  eq(definitionsTable.termId, dbTerm.id)
+                )
+              )
+              .limit(1)
+            if (!source)
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "The definition you are amending has changed. Reload the page."
+              })
+          }
+
           const { definition: insertedDefinition } =
             await createDefinitionWithInitialRevision(tx, {
               termId: dbTerm.id,
               authorId,
               definition: input.definition,
               example: input.examples,
-              changeNote: "Initial contribution",
+              changeNote: input.derivedFromRevisionId
+                ? "Amendment of a candidate"
+                : "Initial contribution",
               source: "initial",
               createdVia: input.interactive ? "interactive" : "classic",
+              derivedFromRevisionId: input.derivedFromRevisionId ?? null,
               surveyStepId: input.surveyStepId ?? null
             })
 
-          // The completion a define step records with its definition, and
-          // where the walkthrough resumes, so the shell can advance on the
-          // response. Built and returned inside the transaction: assigned to
-          // an outer variable, its type would read as the null it started as.
+          // The completion a define step records with its definition, which
+          // is the position the step asked for, and where the walkthrough
+          // resumes, so the shell can advance on the response. Built and
+          // returned inside the transaction: assigned to an outer variable,
+          // its type would read as the null it started as.
           let walkthrough: {
             completedStepId: number
             nextPosition: number | null
@@ -191,8 +230,8 @@ export const definitionsRouter = createTRPCRouter({
 
             // A study term seeded without a model definition gets one here,
             // as a new term does: the generation otherwise fires only on term
-            // creation, and the review step of a walkthrough needs a
-            // definition to compare against. A model definition is one under
+            // creation, and the draft of a term in a walkthrough is its model
+            // definition. A model definition is one under
             // a model identity, an aiModels row, which is what reviseDefinition
             // writes under; a simulated participant is an AI-flag account
             // without one and does not count.

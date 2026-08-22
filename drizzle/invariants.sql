@@ -553,15 +553,18 @@ BEGIN
       RAISE EXCEPTION 'comment step is not a review step on the term of its definition';
     END IF;
 
-    -- A voting act inside a step: the same rule.
+    -- A voting act inside a step was taken inside the define step of the
+    -- term, where an upvote accepts a candidate as the voter's position, or
+    -- inside its review step.
     IF EXISTS (
       SELECT 1
       FROM "voteEvents" e
       JOIN "surveySteps" s ON s.id = e."surveyStepId"
       JOIN "definitions" d ON d.id = e."definitionId"
-      WHERE s.kind <> 'review' OR s."termId" IS DISTINCT FROM d."termId"
+      WHERE s.kind NOT IN ('define', 'review')
+         OR s."termId" IS DISTINCT FROM d."termId"
     ) THEN
-      RAISE EXCEPTION 'vote event step is not a review step on the term of its definition';
+      RAISE EXCEPTION 'vote event step is not a define or review step on the term of its definition';
     END IF;
 
     -- A voting act inside a step happened in the community running the

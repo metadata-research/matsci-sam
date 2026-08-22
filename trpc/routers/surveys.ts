@@ -22,7 +22,7 @@ import {
 import {
   appendQuestionStep,
   completionCountOfStudy,
-  hasOriginalDefinition,
+  hasPosition,
   lockStudy,
   nextPositionFor,
   recordResponse,
@@ -114,8 +114,9 @@ const requireParticipation = async (stepId: number, userId: number) => {
 
 /*
  * For votes.vote, comments.create and definitions.create: the step an act
- * names must be one the caller may act in, and must be the step for that
- * act on that term. Checked before the write; drizzle/invariants.sql proves
+ * names must be one the caller may act in, and must be a step for that act
+ * on that term: a vote accepts a candidate in a define step or compares in
+ * a review step. Checked before the write; drizzle/invariants.sql proves
  * afterwards that it held.
  */
 export const requireStepForAct = async (
@@ -307,8 +308,8 @@ export const surveysRouter = createTRPCRouter({
 
   /*
    * Press through a step. Instructions and review complete on the press; a
-   * define step requires the caller's own definition of the term, and a
-   * question its answer, which answerQuestion records with the completion.
+   * define step requires the caller's position on the term, and a question
+   * its answer, which answerQuestion records with the completion.
    * Completing twice is not an error. Returns where the caller resumes.
    *
    * A completion reaches no graph, so the press does not mark the graphs
@@ -321,10 +322,8 @@ export const surveysRouter = createTRPCRouter({
       const { step, study } = await requireParticipation(stepId, userId)
 
       const gate = stepGate(step, {
-        hasOriginalDefinition:
-          step.kind === "define" &&
-          step.termId !== null &&
-          (await hasOriginalDefinition(db, step.termId, userId)),
+        hasPosition:
+          step.kind === "define" && (await hasPosition(db, step.id, userId)),
         hasResponse:
           step.kind === "question" &&
           (await responseOf(db, step.id, userId)) !== null
