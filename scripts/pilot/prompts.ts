@@ -24,6 +24,7 @@ const entry = (key: string) => {
 export const definePrompt = entry("pilot-persona-define")
 export const commentPrompt = entry("pilot-persona-comment")
 export const rebuttalPrompt = entry("pilot-persona-rebuttal")
+export const surveyPrompt = entry("pilot-persona-survey")
 
 export const defineStamp = makeGenerationStamp(
   "pilot-persona-define",
@@ -36,6 +37,12 @@ export const commentStamp = makeGenerationStamp(
 export const rebuttalStamp = makeGenerationStamp(
   "pilot-persona-rebuttal",
   rebuttalPrompt
+)
+// A response row has no stamp columns, so this stamp goes into the run
+// manifest rather than onto the row; the row says the answer is simulated.
+export const surveyStamp = makeGenerationStamp(
+  "pilot-persona-survey",
+  surveyPrompt
 )
 
 export const defineMessage = (persona: Voiced, term: PilotTerm) =>
@@ -58,3 +65,6 @@ export const rebuttalMessage = (
   `${persona.voice} You defined "${term}" as: "${definition}". Colleagues commented: ${comments
     .map((comment, index) => `(${index + 1}) "${comment}"`)
     .join(" ")} Write your reply.`
+
+export const surveyMessage = (persona: Voiced, question: string) =>
+  `${persona.voice} The closing question of the study is: "${question}" Write your answer.`

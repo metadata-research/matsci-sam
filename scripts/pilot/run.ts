@@ -14,8 +14,18 @@
  * The public run takes no --suffix and runs once: the driver refuses clean
  * slugs whose containers already hold a completed manifest, and nothing here
  * deletes anything.
+ *
+ * The study must have its walkthrough before the driver starts: each act
+ * names the step it was taken for and completes it, and the walkthrough
+ * step at the end presses through the instructions and answers the closing
+ * questions for each persona.
  */
 
+// First, so lib/site.ts reads the identifier base and the site URL from
+// .env when it loads, as the server does; drizzle/connection.ts loads .env
+// too, but later than that module. dotenv never overrides a variable already
+// set, so a host that exports them is unaffected.
+import "dotenv/config"
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -38,7 +48,8 @@ const main = async () => {
     ensureMemberships,
     ensurePersonas,
     resolveContainers,
-    resolveOperator
+    resolveOperator,
+    resolveWalkthrough
   } = await import("./db")
   const steps = await import("./steps")
 
@@ -54,6 +65,9 @@ const main = async () => {
     // Whether the projection at the close reached the store. "failed" means
     // the run is in the database and not yet in the store.
     graphProjection?: "projected" | "failed" | "disabled"
+    // What generated the text answers to the closing questions. A response
+    // row has no stamp columns, so the run records the stamp here.
+    surveyStamp?: { promptKey: string | null; promptHash: string; model: string }
   }
   const manifest: Manifest = existsSync(manifestPath)
     ? JSON.parse(readFileSync(manifestPath, "utf8"))
@@ -83,6 +97,7 @@ const main = async () => {
   // Setup: resolve what the operator built, mint what the driver owns.
   const operator = await resolveOperator(operatorEmail!)
   const containers = await resolveContainers(names)
+  const walkthrough = await resolveWalkthrough(containers.study.id)
   const termByLabel = new Map(
     containers.terms.map((term) => [term.term.toLowerCase(), term])
   )
@@ -117,16 +132,20 @@ const main = async () => {
     return { wanted, term }
   }
 
+  // The step of each act is resolved before its unit, so a dry run reports
+  // a term the walkthrough does not cover.
   if (wants("define"))
     for (const persona of personas)
       for (const index of persona.assignedTerms) {
         const { wanted, term } = resolveTerm(index)
+        const step = walkthrough.defineStepOf(term.id, term.term)
         await unit(`define:${persona.n}:${term.slug}`, () =>
           steps.defineStep(
             persona,
             manifest.personaUserIds[persona.n],
             term.id,
-            wanted
+            wanted,
+            step
           )
         )
       }
@@ -143,7 +162,9 @@ const main = async () => {
   /*
    * The review structure is drawn from the seeded generator up front and
    * unconditionally, so a resumed run derives the same picks it derived
-   * before it stopped. Only the text of an act is nondeterministic.
+   * before it stopped. Only the text of an act is nondeterministic. The
+   * scale answers come last from the same generator, after the picks the
+   * earlier rehearsals were drawn with.
    */
   const rand = mulberry32(PILOT_SEED)
   const pickDistinct = (pool: number[], count: number) => {
@@ -154,6 +175,9 @@ const main = async () => {
     return picked
   }
   const allIndexes = pilotTerms.map((_, index) => index)
+  const scaleQuestions = walkthrough.questions.filter(
+    (step) => step.responseKind === "scale"
+  )
   const structure = personas.map((persona) => ({
     persona,
     reviewTerms: pickDistinct(
@@ -163,23 +187,27 @@ const main = async () => {
     voteTerms: pickDistinct(allIndexes, 4).map((index) => ({
       index,
       kind: (rand() < 0.8 ? "up" : "down") as "up" | "down"
-    }))
+    })),
+    scaleAnswers: new Map(
+      scaleQuestions.map((step) => [step.id, 1 + Math.floor(rand() * 5)])
+    )
   }))
 
   // Review round: each persona comments on the model's alternate definition
   // of their own terms, then on another author's definition of two terms
-  // the seed assigned them to read.
+  // the seed assigned them to read, each from the review step of the term.
   if (wants("comment"))
     for (const { persona, reviewTerms } of structure) {
       const userId = manifest.personaUserIds[persona.n]
       for (const index of [...persona.assignedTerms, ...reviewTerms]) {
         const { term } = resolveTerm(index)
+        const step = walkthrough.reviewStepOf(term.id, term.term)
         await unit(`comment:${persona.n}:${term.slug}`, async () => {
           const targets = await steps.reviewTargets(term.id)
           const target = targets.find((t) => t.authorId !== userId)
           if (!target)
             throw new Error(`No definition by another author on ${term.term}`)
-          await steps.commentAct(persona, userId, term.term, target)
+          await steps.commentAct(persona, userId, term.term, target, step)
         })
       }
     }
@@ -189,12 +217,19 @@ const main = async () => {
       const userId = manifest.personaUserIds[persona.n]
       for (const { index, kind } of voteTerms) {
         const { term } = resolveTerm(index)
+        const step = walkthrough.reviewStepOf(term.id, term.term)
         await unit(`vote:${persona.n}:${term.slug}`, async () => {
           const targets = await steps.reviewTargets(term.id)
           const target = targets.find((t) => t.authorId !== userId)
           if (!target)
             throw new Error(`No definition by another author on ${term.term}`)
-          await steps.voteAct(userId, target, kind, containers.community.id)
+          await steps.voteAct(
+            userId,
+            target,
+            kind,
+            containers.community.id,
+            step
+          )
         })
       }
     }
@@ -220,6 +255,27 @@ const main = async () => {
           )
         })
       }
+    }
+
+  // The walkthrough itself: each persona presses through the instructions
+  // and answers the closing questions. The define and review steps were
+  // completed above, each by the act it asked for.
+  if (wants("walkthrough"))
+    for (const { persona, scaleAnswers } of structure) {
+      const userId = manifest.personaUserIds[persona.n]
+      await unit(`walkthrough:${persona.n}`, async () => {
+        const { stamp } = await steps.walkthroughProgressStep(
+          persona,
+          userId,
+          walkthrough,
+          scaleAnswers
+        )
+        manifest.surveyStamp ??= {
+          promptKey: stamp.promptKey,
+          promptHash: stamp.promptHash,
+          model: stamp.model
+        }
+      })
     }
 
   if (wants("close") && !args.dryRun) {
