@@ -158,7 +158,7 @@ The provenance graph adds terms for the record of acts:
 | `actorKind`   | The kind of actor that performed an act: `human`, `model` or `simulated`      |
 | `Study`       | A study run over a collection of terms, published as an activity              |
 | `worklist`    | The collection a study works through                                          |
-| `study`       | The study an act was taken in, on a vote event or a comment from the walkthrough of a study |
+| `study`       | The study in which a vote event or a comment was made from its walkthrough, the ordered steps a study asks its members to complete |
 | `legacyAssociationInferred` | `yes` on a vote whose binding to the revision was inferred when the record was migrated. The per-term document also states `no` |
 
 PROV output also uses application properties for descriptive event details,

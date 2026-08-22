@@ -46,7 +46,7 @@ import { lit } from "../rdf-literal"
  *   for the pre-0040 votes that record does not cover, from the current-state
  *   row synthesized as the single act it has always appeared as;
  * - the study an act was taken in, on a vote event and on a comment that
- *   names a walkthrough step, which only the step knows;
+ *   names a walkthrough step, which only the step records;
  * - a study per studies row, as an activity with its window and worklist;
  * - one block per agent those reference, so the graph joins up.
  *
@@ -81,7 +81,11 @@ export type GraphDefinition = {
   termId: number
   definitionNumber: number
 }
-export type GraphRevision = { id: number; definitionId: number; version: number }
+export type GraphRevision = {
+  id: number
+  definitionId: number
+  version: number
+}
 export type GraphConcept = { id: number; schemeSlug: string; slug: string }
 export type GraphCollection = { id: number; slug: string }
 
@@ -354,7 +358,9 @@ export class ProvenanceDatasetView {
         : `${scope.subjectIri}#`
     return {
       iri: `${base}user_${userId}`,
-      type: user?.isAi ? ("prov:SoftwareAgent" as const) : ("prov:Person" as const),
+      type: user?.isAi
+        ? ("prov:SoftwareAgent" as const)
+        : ("prov:Person" as const),
       label: user?.name ?? `User ${userId}`
     }
   }
@@ -533,8 +539,8 @@ export const voteEventBlockTurtle = (
 /*
  * The study a comment was posted in, on the comment node the per-term body
  * already describes. That body is rendered per term from the same rows the
- * provenance route reads and its output is fixed, so the one triple only
- * the step knows is stated here, after the bodies, under the same IRI.
+ * provenance route reads and its output is fixed, so the one triple the
+ * step alone records is stated here, after the bodies, under the same IRI.
  */
 export const walkthroughCommentBlockTurtle = (
   view: ProvenanceDatasetView,
@@ -609,9 +615,7 @@ export const loadProvenanceDatasetData =
       walkthroughComments,
       studies
     ] = await Promise.all([
-      db
-        .select({ id: termsTable.id, slug: termsTable.slug })
-        .from(termsTable),
+      db.select({ id: termsTable.id, slug: termsTable.slug }).from(termsTable),
       db
         .select({
           id: definitionsTable.id,

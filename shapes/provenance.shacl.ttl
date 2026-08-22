@@ -120,12 +120,6 @@
     sh:datatype xsd:dateTime
   ] ;
   sh:property [
-    sh:path matsci:study ;
-    sh:maxCount 1 ;
-    sh:class matsci:Study ;
-    sh:message "At most one matsci:study, and it is a study"
-  ] ;
-  sh:property [
     sh:path prov:wasAssociatedWith ;
     sh:maxCount 1 ;
     sh:nodeKind sh:IRI
@@ -149,7 +143,7 @@
   ] .
 
 # Whatever states a study, a vote event or a comment, was taken in one
-# study, and that study is in the graph.
+# study, and that study is in the graph. Stated once, here, for both.
 :StudyContextShape a sh:NodeShape ;
   sh:targetSubjectsOf matsci:study ;
   sh:property [
