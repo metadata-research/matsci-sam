@@ -4,8 +4,10 @@
  * call. Simulated acts are marked simulated and stamped; the AI alternate
  * definition stays a model act under the registered identity, as in the
  * 2025 study. An act taken for a step of the walkthrough names that step
- * and completes it in the transaction of the act, as the routers do, so the
- * record of the cohort reads as the walkthrough pages would have written it.
+ * and completes it in the transaction of the act. definitions.create does
+ * the same for a define step; a review step, which the pages complete on a
+ * separate press, is completed here by its first act. The record of the
+ * cohort then reads as the walkthrough pages would have written it.
  */
 
 import { and, asc, eq, isNull, ne } from "drizzle-orm"
@@ -37,6 +39,39 @@ import { z } from "zod"
 
 const CommentOutput = z.object({ comment: z.string() })
 const AnswerOutput = z.object({ answer: z.string() })
+
+/*
+ * One generation against ws10, with a bounded retry on a transport failure.
+ * runLLM propagates a dropped connection and resolves to undefined on a
+ * malformed response; only the first is retried, because the second is the
+ * model's answer and a second ask is a second act. The delays double from
+ * two seconds, and the last failure propagates with what was tried.
+ */
+const GENERATION_ATTEMPTS = 4
+const RETRY_DELAY_MS = 2000
+const generate = async <T extends z.ZodTypeAny>(
+  messages: Parameters<typeof runLLM>[0],
+  systemPrompt: string,
+  schema: T
+) => {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await runLLM(messages, systemPrompt, schema)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (attempt >= GENERATION_ATTEMPTS)
+        throw new Error(
+          `Generation failed after ${attempt} attempts: ${message}`,
+          { cause: error }
+        )
+      const delay = RETRY_DELAY_MS * 2 ** (attempt - 1)
+      console.log(
+        `retry ${attempt} of ${GENERATION_ATTEMPTS - 1} in ${delay / 1000}s: ${message}`
+      )
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
+}
 
 // The step an act is taken for: the define step of the term for a
 // definition, the review step of the term for a comment or a vote.
@@ -75,9 +110,10 @@ export const defineStep = async (
     return { skipped: true as const }
   }
 
-  const result = await runLLM(
+  const result = await generate(
     [{ role: "user", content: defineMessage(persona, term) }],
-    definePrompt
+    definePrompt,
+    DefinitionOutput
   )
   if (!result) throw new Error(`Define generation failed for ${term.term}`)
 
@@ -105,10 +141,7 @@ export const defineStep = async (
  * the registered model identity. Mirrors the term-creation flow, which never
  * fires for pre-seeded study terms.
  */
-export const aiDefinitionStep = async (
-  termId: number,
-  termLabel: string
-) => {
+export const aiDefinitionStep = async (termId: number, termLabel: string) => {
   const [participant] = await db
     .select({
       definition: definitionsTable.definition,
@@ -125,9 +158,11 @@ export const aiDefinitionStep = async (
     )
     .limit(1)
   if (!participant)
-    throw new Error(`No participant definition to generate from for ${termLabel}`)
+    throw new Error(
+      `No participant definition to generate from for ${termLabel}`
+    )
 
-  const result = await runLLM(
+  const result = await generate(
     [
       {
         role: "user",
@@ -161,7 +196,10 @@ export const reviewTargets = (termId: number) =>
     .from(definitionsTable)
     .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
     .where(
-      and(eq(definitionsTable.termId, termId), isNull(definitionsTable.refinedFromId))
+      and(
+        eq(definitionsTable.termId, termId),
+        isNull(definitionsTable.refinedFromId)
+      )
     )
     .orderBy(asc(definitionsTable.id))
 
@@ -196,7 +234,7 @@ export const commentAct = async (
 ) => {
   if (!target.currentRevisionId)
     throw new Error(`No current revision to comment on for ${termLabel}`)
-  const result = await runLLM(
+  const result = await generate(
     [
       {
         role: "user",
@@ -242,7 +280,9 @@ export const voteAct = async (
   step: StepRef
 ) => {
   if (!target.currentRevisionId)
-    throw new Error(`No current revision to vote on for definition ${target.id}`)
+    throw new Error(
+      `No current revision to vote on for definition ${target.id}`
+    )
   return await db.transaction(async (tx) => {
     const tallied = await castVote(tx, {
       definitionId: target.id,
@@ -274,7 +314,7 @@ export const rebuttalAct = async (
     throw new Error(`No current revision for the rebuttal on ${termLabel}`)
   if (commentsByOthers.length === 0) return { skipped: true as const }
 
-  const result = await runLLM(
+  const result = await generate(
     [
       {
         role: "user",
@@ -307,12 +347,13 @@ export const rebuttalAct = async (
 /*
  * One persona walks the steps no act of the protocol completes: the
  * instructions, pressed through, and each closing question, answered as a
- * simulated act. A scale answer arrives from the seeded structure; a text
- * answer is generated in the persona's voice under the survey prompt. The
- * answer and the completion are one transaction, the pairing the invariants
- * require of a response. The define steps of the terms the persona was not
- * assigned stay open: their gate is the persona's own definition, which the
- * protocol does not ask for.
+ * simulated act. A scale answer arrives from the seeded structure and is a
+ * drawn number, so it has no stamp; a text answer is generated in the
+ * persona's voice under the survey prompt and is stamped on the row, as a
+ * simulated comment is. The answer and the completion are one transaction,
+ * the pairing the invariants require of a response. The define steps of the
+ * terms the persona was not assigned stay open: their gate is the persona's
+ * own definition, which the protocol does not ask for.
  *
  * Idempotent per question, because a question is answered once: a persona
  * resumed after a transport failure skips what it already answered.
@@ -336,14 +377,16 @@ export const walkthroughProgressStep = async (
     if (!step.prompt)
       throw new Error(`Question step ${step.position} has no prompt`)
 
-    let value: { valueScale: number } | { valueText: string }
+    let value:
+      | { valueScale: number }
+      | { valueText: string; stamp: typeof surveyStamp }
     if (step.responseKind === "scale") {
       const drawn = scaleAnswers.get(step.id)
       if (drawn === undefined)
         throw new Error(`No seeded answer for question step ${step.position}`)
       value = { valueScale: drawn }
     } else {
-      const result = await runLLM(
+      const result = await generate(
         [{ role: "user", content: surveyMessage(persona, step.prompt) }],
         surveyPrompt,
         AnswerOutput
@@ -352,7 +395,7 @@ export const walkthroughProgressStep = async (
         throw new Error(
           `Answer generation failed for question step ${step.position}`
         )
-      value = { valueText: result.answer.trim() }
+      value = { valueText: result.answer.trim(), stamp: surveyStamp }
     }
 
     await db.transaction((tx) =>
@@ -365,5 +408,5 @@ export const walkthroughProgressStep = async (
     )
     answered++
   }
-  return { answered, skipped, stamp: surveyStamp }
+  return { answered, skipped }
 }

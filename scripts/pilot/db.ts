@@ -21,6 +21,7 @@ import {
   termsTable,
   usersTable
 } from "../../drizzle"
+import { studyState } from "../../lib/communities"
 import { stepsOfStudy, type StepWithTerm } from "../../lib/survey-queries"
 import { personaName, personas } from "./personas"
 
@@ -73,9 +74,21 @@ export const resolveContainers = async (slugs: {
       `Create these through the interface first: ${missing.join(", ")}`
     )
 
-  if (study.communityId !== community.id || study.collectionId !== collection.id)
+  if (
+    study.communityId !== community.id ||
+    study.collectionId !== collection.id
+  )
     throw new Error(
       `Study ${slugs.study} does not join community ${slugs.community} to collection ${slugs.collection}`
+    )
+
+  // The routers and the run page refuse an act outside an open study, and
+  // the driver writes under the same rule, so the record reads as the pages
+  // would have written it.
+  const state = studyState(study)
+  if (state !== "open")
+    throw new Error(
+      `Study ${slugs.study} is ${state}, not open. Open it through the interface before running the driver.`
     )
 
   // The active skos:member statements of the collection are the term set.

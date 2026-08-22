@@ -21,10 +21,9 @@
  * questions for each persona.
  */
 
-// First, so lib/site.ts reads the identifier base and the site URL from
-// .env when it loads, as the server does; drizzle/connection.ts loads .env
-// too, but later than that module. dotenv never overrides a variable already
-// set, so a host that exports them is unaffected.
+// First, so .env is loaded before any project module, whichever is imported
+// first. dotenv never overrides a variable already set, so a host that
+// exports them is unaffected.
 import "dotenv/config"
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
@@ -65,9 +64,6 @@ const main = async () => {
     // Whether the projection at the close reached the store. "failed" means
     // the run is in the database and not yet in the store.
     graphProjection?: "projected" | "failed" | "disabled"
-    // What generated the text answers to the closing questions. A response
-    // row has no stamp columns, so the run records the stamp here.
-    surveyStamp?: { promptKey: string | null; promptHash: string; model: string }
   }
   const manifest: Manifest = existsSync(manifestPath)
     ? JSON.parse(readFileSync(manifestPath, "utf8"))
@@ -87,7 +83,15 @@ const main = async () => {
   const unit = async (key: string, work: () => Promise<unknown>) => {
     if (done.has(key)) return console.log(`skip ${key}`)
     if (args.dryRun) return console.log(`would ${key}`)
-    await work()
+    try {
+      await work()
+    } catch (error) {
+      // The failure names its unit, which is what --resume continues from.
+      throw new Error(
+        `${key}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      )
+    }
     manifest.completed.push(key)
     done.add(key)
     checkpoint()
@@ -163,8 +167,10 @@ const main = async () => {
    * The review structure is drawn from the seeded generator up front and
    * unconditionally, so a resumed run derives the same picks it derived
    * before it stopped. Only the text of an act is nondeterministic. The
-   * scale answers come last from the same generator, after the picks the
-   * earlier rehearsals were drawn with.
+   * picks of every persona are drawn first, in the order the rehearsals
+   * before the walkthrough drew them, and the scale answers in a second pass
+   * after all of them, in question order, so the number of questions a
+   * steward adds moves no persona's review or vote.
    */
   const rand = mulberry32(PILOT_SEED)
   const pickDistinct = (pool: number[], count: number) => {
@@ -175,10 +181,7 @@ const main = async () => {
     return picked
   }
   const allIndexes = pilotTerms.map((_, index) => index)
-  const scaleQuestions = walkthrough.questions.filter(
-    (step) => step.responseKind === "scale"
-  )
-  const structure = personas.map((persona) => ({
+  const picks = personas.map((persona) => ({
     persona,
     reviewTerms: pickDistinct(
       allIndexes.filter((index) => !persona.assignedTerms.includes(index)),
@@ -187,7 +190,13 @@ const main = async () => {
     voteTerms: pickDistinct(allIndexes, 4).map((index) => ({
       index,
       kind: (rand() < 0.8 ? "up" : "down") as "up" | "down"
-    })),
+    }))
+  }))
+  const scaleQuestions = walkthrough.questions.filter(
+    (step) => step.responseKind === "scale"
+  )
+  const structure = picks.map((pick) => ({
+    ...pick,
     scaleAnswers: new Map(
       scaleQuestions.map((step) => [step.id, 1 + Math.floor(rand() * 5)])
     )
@@ -263,19 +272,14 @@ const main = async () => {
   if (wants("walkthrough"))
     for (const { persona, scaleAnswers } of structure) {
       const userId = manifest.personaUserIds[persona.n]
-      await unit(`walkthrough:${persona.n}`, async () => {
-        const { stamp } = await steps.walkthroughProgressStep(
+      await unit(`walkthrough:${persona.n}`, () =>
+        steps.walkthroughProgressStep(
           persona,
           userId,
           walkthrough,
           scaleAnswers
         )
-        manifest.surveyStamp ??= {
-          promptKey: stamp.promptKey,
-          promptHash: stamp.promptHash,
-          model: stamp.model
-        }
-      })
+      )
     }
 
   if (wants("close") && !args.dryRun) {
@@ -283,8 +287,9 @@ const main = async () => {
     // graphs along the way. One projection at the close covers the run.
     // Every write has committed by now, and a store outage does not undo
     // that: the run finishes, and the manifest says the store is behind.
-    const { isGraphProjectionEnabled, projectGraphs } =
-      await import("../../lib/graph/projector")
+    const { isGraphProjectionEnabled, projectGraphs } = await import(
+      "../../lib/graph/projector"
+    )
     if (isGraphProjectionEnabled())
       try {
         await projectGraphs()

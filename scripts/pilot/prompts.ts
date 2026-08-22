@@ -38,8 +38,6 @@ export const rebuttalStamp = makeGenerationStamp(
   "pilot-persona-rebuttal",
   rebuttalPrompt
 )
-// A response row has no stamp columns, so this stamp goes into the run
-// manifest rather than onto the row; the row says the answer is simulated.
 export const surveyStamp = makeGenerationStamp(
   "pilot-persona-survey",
   surveyPrompt

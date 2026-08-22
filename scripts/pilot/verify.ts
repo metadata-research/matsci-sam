@@ -12,10 +12,6 @@
  * and documents the paper cites resolve, the walkthrough page among them.
  */
 
-// First, so lib/site.ts reads the identifier base and the site URL from
-// .env when it loads, as the server does; drizzle/connection.ts loads .env
-// too, but later than that module. dotenv never overrides a variable already
-// set, so a host that exports them is unaffected.
 import "dotenv/config"
 import { and, eq, inArray, isNull } from "drizzle-orm"
 
@@ -163,6 +159,9 @@ const main = async () => {
             stepId: surveyResponsesTable.stepId,
             userId: surveyResponsesTable.userId,
             authorKind: surveyResponsesTable.authorKind,
+            valueText: surveyResponsesTable.valueText,
+            model: surveyResponsesTable.model,
+            promptHash: surveyResponsesTable.promptHash,
             isAi: usersTable.isAi
           })
           .from(surveyResponsesTable)
@@ -234,14 +233,29 @@ const main = async () => {
     }
     console.log(`     personas who finished every step: ${finished}/${personas.length}`)
 
+    // The answers of the cohort: the human pass that follows it answers the
+    // same questions under human accounts, and those rows are left to the
+    // invariants.
+    const personaIds = new Set(personaRows.map((row) => row.id))
+    const cohortResponses = responses.filter((row) =>
+      personaIds.has(row.userId)
+    )
     const questions = walkthrough.filter((step) => step.kind === "question")
     check(
-      responses.length === questions.length * personas.length,
-      `${responses.length} responses, one per persona per question`
+      cohortResponses.length === questions.length * personas.length,
+      `${cohortResponses.length} persona responses, one per persona per question`
     )
     check(
-      responses.every((row) => row.authorKind === "simulated" && row.isAi),
-      "every response is simulated and under an AI identity"
+      cohortResponses.every(
+        (row) => row.authorKind === "simulated" && row.isAi
+      ),
+      "every persona response is simulated and under an AI identity"
+    )
+    check(
+      cohortResponses
+        .filter((row) => row.valueText !== null)
+        .every((row) => row.model && row.promptHash),
+      "every simulated text answer records model and prompt hash"
     )
   }
 
