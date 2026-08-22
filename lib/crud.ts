@@ -54,7 +54,13 @@ export const GetModelUser = async (model: string) => {
   })
 }
 
-export const UpsertAIDefinition = async (
+/*
+ * The record half of UpsertAIDefinition: everything except cache
+ * revalidation, which needs a request context. The pilot driver calls this
+ * directly, because a script has no request to revalidate from; the
+ * application entry point below wraps it.
+ */
+export const upsertAIDefinitionRecord = async (
   termId: number,
   data: { definition: string; example: string },
   generation: { model: string; prompt: string }
@@ -109,6 +115,16 @@ export const UpsertAIDefinition = async (
       prompt: generation.prompt
     })
   })
+
+  return result
+}
+
+export const UpsertAIDefinition = async (
+  termId: number,
+  data: { definition: string; example: string },
+  generation: { model: string; prompt: string }
+) => {
+  const result = await upsertAIDefinitionRecord(termId, data, generation)
 
   if (result.revision)
     await revalidatePublicDefinition({
