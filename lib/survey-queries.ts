@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
 import {
+  communitiesTable,
   communityMembersTable,
   db,
   definitionsTable,
@@ -10,7 +11,7 @@ import {
   termsTable,
   usersTable
 } from "@yamz/db"
-import type { ActorKind } from "@/lib/participation"
+import type { ActorKind, GenerationStampInput } from "@/lib/participation"
 import {
   recordCompletion,
   resumePosition,
@@ -45,7 +46,10 @@ const stepColumns = {
 
 // A step with the name of the term it is about, for the define and review
 // steps. The shell shows the name; the rules take the id.
-export type StepWithTerm = Step & { term: string | null; termSlug: string | null }
+export type StepWithTerm = Step & {
+  term: string | null
+  termSlug: string | null
+}
 
 // The steps of a study in position order.
 export const stepsOfStudy = async (
@@ -64,7 +68,8 @@ export const stepsOfStudy = async (
     .orderBy(asc(surveyStepsTable.position))
 
 // One step with the study it belongs to, which is what every participation
-// check needs: the community for the membership, the window for the state.
+// check needs: the community for the membership and whether it is retired,
+// the window for the state.
 export const stepWithStudy = async (executor: Executor, stepId: number) => {
   const [row] = await executor
     .select({
@@ -76,14 +81,29 @@ export const stepWithStudy = async (executor: Executor, stepId: number) => {
         opensAt: studiesTable.opensAt,
         closesAt: studiesTable.closesAt,
         retiredAt: studiesTable.retiredAt
+      },
+      community: {
+        retiredAt: communitiesTable.retiredAt
       }
     })
     .from(surveyStepsTable)
     .innerJoin(studiesTable, eq(studiesTable.id, surveyStepsTable.studyId))
+    .innerJoin(
+      communitiesTable,
+      eq(communitiesTable.id, studiesTable.communityId)
+    )
     .where(eq(surveyStepsTable.id, stepId))
     .limit(1)
   return row ?? null
 }
+
+// Hold the study row for the rest of the transaction, so two stewards
+// replacing and appending steps at once serialize instead of leaving a gap
+// in the positions.
+export const lockStudy = (tx: DatabaseTransaction, studyId: number) =>
+  tx.execute(
+    sql`SELECT id FROM ${studiesTable} WHERE id = ${studyId} FOR UPDATE`
+  )
 
 // The ids of the steps of a study one person has completed.
 export const completedStepIdsOf = async (
@@ -342,7 +362,9 @@ export const appendQuestionStep = async (
  * pairing drizzle/invariants.sql requires of a response. A second answer by
  * the same person refuses on the unique pair; the router turns that into
  * CONFLICT. The value columns are written as given, so the CHECKs on the
- * table, and not this function, decide what a well-formed answer is.
+ * table, and not this function, decide what a well-formed answer is. A
+ * simulated text answer arrives with its generation stamp, as a simulated
+ * comment does through insertComment; a human answer has none.
  */
 export const recordResponse = async (
   tx: DatabaseTransaction,
@@ -352,6 +374,7 @@ export const recordResponse = async (
     authorKind: ActorKind
     valueText?: string | null
     valueScale?: number | null
+    stamp?: GenerationStampInput
   }
 ) => {
   const [response] = await tx
@@ -361,7 +384,8 @@ export const recordResponse = async (
       userId: input.userId,
       authorKind: input.authorKind,
       valueText: input.valueText ?? null,
-      valueScale: input.valueScale ?? null
+      valueScale: input.valueScale ?? null,
+      ...(input.stamp ?? {})
     })
     .returning(responseColumns)
   await recordCompletion(tx, { stepId: input.stepId, userId: input.userId })

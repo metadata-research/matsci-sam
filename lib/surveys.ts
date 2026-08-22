@@ -35,7 +35,7 @@ export const DEFAULT_INSTRUCTIONS =
 
 // The two closing questions: a confidence scale on the definitions the
 // participant wrote, and an open question on the process. Added after the
-// review steps, and the first thing cut when a study runs short of time.
+// review steps, and left out when the steward unchecks them.
 export const DEFAULT_QUESTIONS: Question[] = [
   {
     prompt:
@@ -104,8 +104,8 @@ export const resumePosition = (
 
 /*
  * Whether a step may be pressed through, given the facts the caller loaded.
- * Instructions and review complete on the press. A define step wants the
- * participant's own definition of the term to exist, and a question wants
+ * Instructions and review complete on the press. A define step requires the
+ * participant's own definition of the term to exist, and a question requires
  * its answer, which answerQuestion writes together with the completion.
  */
 export const stepGate = (

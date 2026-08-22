@@ -564,6 +564,18 @@ BEGIN
       RAISE EXCEPTION 'vote event step is not a review step on the term of its definition';
     END IF;
 
+    -- A voting act inside a step happened in the community running the
+    -- study of that step, whatever community the voter's header pointed at.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents" e
+      JOIN "surveySteps" s ON s.id = e."surveyStepId"
+      JOIN "studies" st ON st.id = s."studyId"
+      WHERE e."communityId" IS DISTINCT FROM st."communityId"
+    ) THEN
+      RAISE EXCEPTION 'vote event community is not the community of the study of its step';
+    END IF;
+
     -- A revision written inside a step is the initial revision of a
     -- definition of the term of a define step. Later revisions are edits,
     -- and an edit is not what the step asked for.
@@ -609,6 +621,20 @@ BEGIN
       RAISE EXCEPTION 'survey response authorKind disagrees with the account AI flag';
     END IF;
 
+    -- A text answer from an AI-flag account is generated text and records
+    -- the prompt and model that produced it. The row CHECK keeps a stamp off
+    -- a human answer; a scale answer is a drawn number and has none.
+    IF EXISTS (
+      SELECT 1
+      FROM "surveyResponses" a
+      JOIN "users" u ON u.id = a."userId"
+      WHERE u."isAi"
+        AND a."valueText" IS NOT NULL
+        AND (a."promptHash" IS NULL OR a."model" IS NULL)
+    ) THEN
+      RAISE EXCEPTION 'simulated or model text answer without its generation stamp';
+    END IF;
+
     -- A completion is by a person who was a member of the community of the
     -- study when it was recorded. Episodes close and reopen, so the test is
     -- against the episode covering the moment, not the live row.
@@ -627,6 +653,24 @@ BEGIN
       )
     ) THEN
       RAISE EXCEPTION 'completion by a person without a membership episode covering it';
+    END IF;
+
+    -- The pairing in the other direction: a question step is complete for
+    -- a person only with their answer, which answerQuestion writes in the
+    -- same transaction. Define steps have no such rule, because the
+    -- administrative purge of a definition leaves its completion standing.
+    IF EXISTS (
+      SELECT 1
+      FROM "surveyStepCompletions" c
+      JOIN "surveySteps" s ON s.id = c."stepId"
+      WHERE s.kind = 'question'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "surveyResponses" a
+          WHERE a."stepId" = c."stepId" AND a."userId" = c."userId"
+        )
+    ) THEN
+      RAISE EXCEPTION 'question step completion without its response';
     END IF;
 
     -- The positions of a study run from 1 with no gaps. Positions are

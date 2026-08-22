@@ -1067,7 +1067,7 @@ const main = async () => {
         "a completion recorded twice stands once"
       )
 
-      // The define step: the initial revision carries the step. The fixture
+      // The define step: the initial revision names the step. The fixture
       // definition of termA was purged above, so the account has no original
       // there and may write one.
       const { definition: defA, revision: revA } =
@@ -1080,7 +1080,7 @@ const main = async () => {
           source: "initial",
           surveyStepId: defineA.id
         })
-      assert.equal(revA.surveyStepId, defineA.id, "revision carries its step")
+      assert.equal(revA.surveyStepId, defineA.id, "revision names its step")
       assert.equal(revA.version, 1)
       assert.equal(await hasOriginalDefinition(tx, termA.id, user.id), true)
       assert.equal(
@@ -1090,7 +1090,7 @@ const main = async () => {
       )
       await recordCompletion(tx, { stepId: defineA.id, userId: user.id })
 
-      // The review step of termB: a comment and a vote, each carrying it.
+      // The review step of termB: a comment and a vote, each naming it.
       const { comment } = await insertComment(tx, {
         definitionId: defB.id,
         revisionId: revB.id,
@@ -1099,7 +1099,7 @@ const main = async () => {
         actorKind: "human",
         surveyStepId: reviewB.id
       })
-      assert.equal(comment.surveyStepId, reviewB.id, "comment carries its step")
+      assert.equal(comment.surveyStepId, reviewB.id, "comment names its step")
       await castVote(tx, {
         definitionId: defB.id,
         revisionId: revB.id,
@@ -1116,7 +1116,7 @@ const main = async () => {
       assert.deepEqual(
         stepEvents.map((event) => event.kind),
         ["up"],
-        "the vote event carries its step"
+        "the vote event names its step"
       )
       await recordCompletion(tx, { stepId: reviewB.id, userId: user.id })
 
@@ -1240,6 +1240,27 @@ const main = async () => {
         "blank text"
       )
       expectRejected(
+        await probeResponse({
+          valueText: "a human answer with a stamp",
+          model: "gemma4:26b"
+        }),
+        "23514",
+        "survey_responses_human_carries_no_stamp",
+        "stamp on a human answer"
+      )
+      expectRejected(
+        await probeResponse({
+          userId: aiUser.id,
+          authorKind: "simulated",
+          valueText: "a simulated answer with half a stamp",
+          promptHash: "0123456789abcdef",
+          model: "gemma4:26b"
+        }),
+        "23514",
+        "survey_responses_stamp_pair",
+        "prompt hash without its text"
+      )
+      expectRejected(
         await probeResponse({ stepId: scaleQuestion.id, valueScale: 2 }),
         "23505",
         "survey_responses_step_user_unique",
@@ -1299,6 +1320,22 @@ const main = async () => {
         }),
         "vote event step is not a review step",
         "vote event inside a define step"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: user.id,
+            kind: "down",
+            actorKind: "human",
+            communityId: null,
+            surveyStepId: reviewB.id
+          })
+          await runInvariants(sp)
+        }),
+        "vote event community is not the community of the study",
+        "vote event inside a step, recorded outside the community of the study"
       )
       // Revisions are immutable, so both plants are inserts: a definition
       // of another term written inside the step, and an edit that names it.
@@ -1379,6 +1416,32 @@ const main = async () => {
       )
       expectInvariant(
         await attempt(tx, async (sp) => {
+          await sp.insert(surveyResponsesTable).values({
+            stepId: textQuestion.id,
+            userId: aiUser.id,
+            valueText: "generated text with no stamp",
+            authorKind: "simulated"
+          })
+          await sp
+            .insert(surveyStepCompletionsTable)
+            .values({ stepId: textQuestion.id, userId: aiUser.id })
+          await runInvariants(sp)
+        }),
+        "text answer without its generation stamp",
+        "simulated text answer without a stamp"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp
+            .insert(surveyStepCompletionsTable)
+            .values({ stepId: textQuestion.id, userId: user.id })
+          await runInvariants(sp)
+        }),
+        "question step completion without its response",
+        "question completed without an answer"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
           await sp
             .insert(surveyStepCompletionsTable)
             .values({ stepId: instructions.id, userId: aiUser.id })
@@ -1405,7 +1468,6 @@ const main = async () => {
         await attempt(tx, runInvariants),
         "release invariants on the fixture"
       )
-      assert.ok(defA.id, "the define-step definition exists")
 
       throw new Rollback()
     })

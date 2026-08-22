@@ -563,11 +563,8 @@ export const definitionRevisionsTable = pgTable(
     sourceRefinementId: integer().references(
       (): AnyPgColumn => refinementsTable.id
     ),
-    // The define step this revision was written inside, set only on the
-    // initial revision of a definition published from a walkthrough. The
-    // study is reachable through the step and is not stored twice.
-    // drizzle/invariants.sql proves the step is a define step on the term of
-    // the definition and that this is version 1.
+    // The define step this revision was written inside, when it was written
+    // from a walkthrough; set on the initial revision only. See surveySteps.
     surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
@@ -863,9 +860,7 @@ export const voteEventsTable = pgTable(
     // the vote transaction. Null reads as unscoped, never as unknown.
     communityId: integer().references((): AnyPgColumn => communitiesTable.id),
     // The review step the act was taken inside, when it was taken from a
-    // walkthrough. The study is reachable through the step and is not stored
-    // twice. drizzle/invariants.sql proves the step is a review step on the
-    // term of the definition.
+    // walkthrough. See surveySteps.
     surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
@@ -925,9 +920,7 @@ export const commentsTable = pgTable(
     promptText: text(),
     model: text(),
     // The review step the comment was posted inside, when it was posted from
-    // a walkthrough. The study is reachable through the step and is not
-    // stored twice. drizzle/invariants.sql proves the step is a review step
-    // on the term of the definition.
+    // a walkthrough. See surveySteps.
     surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
@@ -1443,8 +1436,7 @@ export const communityCollectionsTable = pgTable(
 //
 // Redeeming is a button press rather than a GET, so a mail scanner or a link
 // prefetcher cannot spend an invitation on the invitee's behalf.
-export type CommunityInvitation =
-  typeof communityInvitationsTable.$inferSelect
+export type CommunityInvitation = typeof communityInvitationsTable.$inferSelect
 export const communityInvitationsTable = pgTable(
   "communityInvitations",
   {
@@ -1559,16 +1551,15 @@ export const studiesTable = pgTable(
 // --- SURVEY WALKTHROUGH ---
 // The survey is a walkthrough: an ordered set of steps that takes a
 // participant through the term set of a study, define first, then comment
-// and vote, with per-participant completion. An act taken inside a step is
-// the ordinary application write with the step as its context, so nothing
-// about attribution changes at the door. The studies table is untouched, and
-// a study without steps behaves exactly as released.
+// and vote, with per-participant completion. Steps snapshot the collection
+// when a steward generates them, so a term added to the collection later
+// does not lengthen a walkthrough someone has started, and completions are
+// the whole progress record. The rules are in lib/surveys.ts.
 //
-// Steps snapshot the collection when a steward generates them, deliberately:
-// a term added to the collection mid-study must not lengthen a walkthrough
-// someone has started. They are replaced wholesale until the first
-// completion exists and appended to after it, a router rule
-// (lib/surveys.ts mayRegenerateSteps).
+// An act taken inside a step is the ordinary application write with the
+// step as its context: definitionRevisions, voteEvents and comments name it
+// in surveyStepId. The study is reachable through the step and is not
+// stored twice, and drizzle/invariants.sql proves the step fits the act.
 //
 // Nothing here reaches a graph. Who completed what is the participation of
 // the cohort, and the cohort stays unpublished.
@@ -1679,12 +1670,31 @@ export const surveyResponsesTable = pgTable(
     valueText: text(),
     valueScale: integer(),
     authorKind: actorKindEnum().notNull(),
+    // Generation provenance for a simulated text answer, the stamp a
+    // simulated comment records (lib/llm/stamp.ts), so the answer is
+    // reproducible to its prompt and model from the row. A human answer has
+    // none, and the CHECK below holds it to that. A scale answer is a drawn
+    // number, not generated text, and has none either.
+    promptKey: text(),
+    promptHash: text(),
+    promptText: text(),
+    model: text(),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull()
   },
   (t) => [
     unique("survey_responses_step_user_unique").on(t.stepId, t.userId),
+    check(
+      "survey_responses_human_carries_no_stamp",
+      sql`${t.authorKind} <> 'human'
+          OR (${t.promptKey} IS NULL AND ${t.promptHash} IS NULL
+              AND ${t.promptText} IS NULL AND ${t.model} IS NULL)`
+    ),
+    check(
+      "survey_responses_stamp_pair",
+      sql`(${t.promptHash} IS NULL) = (${t.promptText} IS NULL)`
+    ),
     check(
       "survey_responses_one_value",
       sql`num_nonnulls(${t.valueText}, ${t.valueScale}) = 1`
