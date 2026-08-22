@@ -99,8 +99,9 @@ const requireCommunity = async (communityId: number) => {
 }
 
 // Running the community: the worklist, invitations and the join link. A
-// retired community accepts none of it until it is restored.
-const requireRunner = async (communityId: number, userId: number) => {
+// retired community accepts none of it until it is restored. Exported for
+// the surveys router, whose steward acts take the same rule.
+export const requireRunner = async (communityId: number, userId: number) => {
   const community = await requireCommunity(communityId)
   if (community.retiredAt)
     throw new TRPCError({

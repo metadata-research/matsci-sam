@@ -18,6 +18,7 @@ import {
   CommentRevisionMissingError,
   insertComment
 } from "@/lib/participation"
+import { requireStepForAct } from "./surveys"
 
 export const commentsRouter = createTRPCRouter({
   get: baseProcedure.input(z.number()).query(async ({ input: id }) => {
@@ -48,11 +49,35 @@ export const commentsRouter = createTRPCRouter({
       z.object({
         id: z.number(),
         revisionId: z.number(),
-        comment: z.string().trim().min(1).max(COMMENT_MAX_LENGTH)
+        comment: z.string().trim().min(1).max(COMMENT_MAX_LENGTH),
+        // The review step of a walkthrough the comment is posted inside.
+        surveyStepId: z.number().int().optional()
       })
     )
     .mutation(
-      async ({ input: { id, revisionId, comment }, ctx: { userId } }) => {
+      async ({
+        input: { id, revisionId, comment, surveyStepId },
+        ctx: { userId }
+      }) => {
+        // A step is checked against the act before anything is written: the
+        // caller may take part, and the step is the review step of this
+        // term.
+        if (surveyStepId !== undefined) {
+          const target = await db.query.definitionsTable.findFirst({
+            columns: { termId: true },
+            where: eq(definitionsTable.id, id)
+          })
+          if (!target)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Definition doesn't exist"
+            })
+          await requireStepForAct(surveyStepId, userId, {
+            kind: "comment",
+            termId: target.termId
+          })
+        }
+
         // Whether this comment scheduled a model revision of the definition,
         // so the client can say so instead of leaving the trigger invisible —
         // and the version it was scheduled against, so the client can watch
@@ -69,7 +94,8 @@ export const commentsRouter = createTRPCRouter({
               revisionId,
               userId,
               message: comment,
-              actorKind: "human"
+              actorKind: "human",
+              surveyStepId: surveyStepId ?? null
             })
           } catch (error) {
             if (error instanceof CommentRevisionMissingError)

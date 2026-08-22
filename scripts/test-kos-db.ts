@@ -42,6 +42,20 @@ const main = async () => {
     votesTable
   } = await import("../drizzle")
   const { castVote, insertComment } = await import("../lib/participation")
+  const { mayRegenerateSteps, planSteps, recordCompletion, DEFAULT_QUESTIONS } =
+    await import("../lib/surveys")
+  const {
+    appendQuestionStep,
+    completionCountOfStudy,
+    hasOriginalDefinition,
+    nextPositionFor,
+    recordResponse,
+    replaceSteps,
+    responseOf,
+    stepWithStudy,
+    studyProgress,
+    walkthroughOf
+  } = await import("../lib/survey-queries")
   const { createDefinitionWithInitialRevision } = await import(
     "../lib/definition-revisions"
   )
@@ -155,7 +169,7 @@ const main = async () => {
         .values({ name: `KOS ledger test ${stamp}` })
         .returning({ id: usersTable.id })
       // An AI-flag account for the model and simulated acts below. The
-      // release-time invariants hold an act's kind to the flag of its
+      // release-time invariants hold the kind of an act to the flag of its
       // account, and the fixture is checked against them at the end.
       const [aiUser] = await tx
         .insert(usersTable)
@@ -996,37 +1010,35 @@ const main = async () => {
       )
       await tx.delete(surveyStepsTable).where(eq(surveyStepsTable.studyId, study.id))
 
-      // --- The walkthrough as the application writes it ---
+      // --- The walkthrough as the application writes it, through the same
+      // lib/ helpers the router and the pilot driver call ---
 
       // Instructions, a define and a review step per term, then the two
       // questions: the plan for a two-term collection, positions from 1.
-      const steps = await tx
-        .insert(surveyStepsTable)
-        .values([
-          stepRow({ position: 1 }),
-          stepRow({ position: 2, kind: "define", termId: termA.id, prompt: null }),
-          stepRow({ position: 3, kind: "define", termId: termB.id, prompt: null }),
-          stepRow({ position: 4, kind: "review", termId: termA.id, prompt: null }),
-          stepRow({ position: 5, kind: "review", termId: termB.id, prompt: null }),
-          stepRow({
-            position: 6,
-            kind: "question",
-            prompt: "How confident are you in the definitions you wrote?",
-            responseKind: "scale"
-          }),
-          stepRow({
-            position: 7,
-            kind: "question",
-            prompt: "What would you change about the process?",
-            responseKind: "text"
-          })
-        ])
-        .returning({
-          id: surveyStepsTable.id,
-          position: surveyStepsTable.position,
-          kind: surveyStepsTable.kind,
-          termId: surveyStepsTable.termId
+      const steps = await replaceSteps(
+        tx,
+        study.id,
+        planSteps({
+          welcome: null,
+          terms: [
+            { id: termA.id, term: `kos test a ${stamp}` },
+            { id: termB.id, term: `kos test b ${stamp}` }
+          ],
+          questions: DEFAULT_QUESTIONS
         })
+      )
+      assert.deepEqual(
+        steps.map((step) => [step.position, step.kind, step.termId]),
+        [
+          [1, "instructions", null],
+          [2, "define", termA.id],
+          [3, "define", termB.id],
+          [4, "review", termA.id],
+          [5, "review", termB.id],
+          [6, "question", null],
+          [7, "question", null]
+        ]
+      )
       const stepAt = (position: number) =>
         steps.find((step) => step.position === position)!
       const instructions = stepAt(1)
@@ -1035,11 +1047,25 @@ const main = async () => {
       const reviewB = stepAt(5)
       const scaleQuestion = stepAt(6)
       const textQuestion = stepAt(7)
+      assert.equal(scaleQuestion.responseKind, "scale")
+      assert.equal(textQuestion.responseKind, "text")
 
-      // Instructions complete on the press.
-      await tx
-        .insert(surveyStepCompletionsTable)
-        .values({ stepId: instructions.id, userId: user.id })
+      // Nothing has started: the steps may be replaced, and replacing them
+      // again keeps the count and renumbers from 1.
+      assert.equal(mayRegenerateSteps(await completionCountOfStudy(tx, study.id)), true)
+      const located = await stepWithStudy(tx, defineA.id)
+      assert.equal(located?.study.id, study.id)
+      assert.equal(located?.study.communityId, community.id)
+      assert.equal(located?.step.kind, "define")
+
+      // Instructions complete on the press. A second press is not an error
+      // and records nothing new.
+      assert.ok(await recordCompletion(tx, { stepId: instructions.id, userId: user.id }))
+      assert.equal(
+        await recordCompletion(tx, { stepId: instructions.id, userId: user.id }),
+        null,
+        "a completion recorded twice stands once"
+      )
 
       // The define step: the initial revision carries the step. The fixture
       // definition of termA was purged above, so the account has no original
@@ -1056,9 +1082,13 @@ const main = async () => {
         })
       assert.equal(revA.surveyStepId, defineA.id, "revision carries its step")
       assert.equal(revA.version, 1)
-      await tx
-        .insert(surveyStepCompletionsTable)
-        .values({ stepId: defineA.id, userId: user.id })
+      assert.equal(await hasOriginalDefinition(tx, termA.id, user.id), true)
+      assert.equal(
+        await hasOriginalDefinition(tx, termA.id, aiUser.id),
+        false,
+        "another account's definition is not the caller's"
+      )
+      await recordCompletion(tx, { stepId: defineA.id, userId: user.id })
 
       // The review step of termB: a comment and a vote, each carrying it.
       const { comment } = await insertComment(tx, {
@@ -1088,20 +1118,83 @@ const main = async () => {
         ["up"],
         "the vote event carries its step"
       )
-      await tx
-        .insert(surveyStepCompletionsTable)
-        .values({ stepId: reviewB.id, userId: user.id })
+      await recordCompletion(tx, { stepId: reviewB.id, userId: user.id })
 
       // A question: its answer and its completion, together.
-      await tx.insert(surveyResponsesTable).values({
+      assert.equal(await responseOf(tx, scaleQuestion.id, user.id), null)
+      const answer = await recordResponse(tx, {
         stepId: scaleQuestion.id,
         userId: user.id,
-        valueScale: 4,
-        authorKind: "human"
+        authorKind: "human",
+        valueScale: 4
       })
-      await tx
-        .insert(surveyStepCompletionsTable)
-        .values({ stepId: scaleQuestion.id, userId: user.id })
+      assert.equal(answer.valueScale, 4)
+      assert.equal(
+        (await responseOf(tx, scaleQuestion.id, user.id))?.id,
+        answer.id
+      )
+
+      // --- What the router and the pages read back ---
+
+      // Done: 1, 2, 5, 6. The lowest position without a completion is 3.
+      assert.equal(await nextPositionFor(tx, study.id, user.id), 3)
+      assert.equal(await completionCountOfStudy(tx, study.id), 4)
+      assert.equal(
+        mayRegenerateSteps(await completionCountOfStudy(tx, study.id)),
+        false,
+        "steps are append-only once anyone has started"
+      )
+
+      const mine = await walkthroughOf(tx, study.id, user.id)
+      assert.equal(mine.resumePosition, 3)
+      assert.deepEqual(
+        [...mine.completedStepIds].sort((a, b) => a - b),
+        [instructions.id, defineA.id, reviewB.id, scaleQuestion.id].sort(
+          (a, b) => a - b
+        )
+      )
+      assert.deepEqual(
+        mine.steps.map((step) => step.completed),
+        [true, true, false, false, true, true, false]
+      )
+      assert.equal(mine.steps[1].hasOriginalDefinition, true, "define A done")
+      assert.equal(mine.steps[2].hasOriginalDefinition, true, "define B: the fixture original counts")
+      assert.equal(mine.steps[1].term, `kos test a ${stamp}`)
+      assert.equal(mine.steps[0].term, null)
+      assert.deepEqual(mine.steps[5].response, { valueText: null, valueScale: 4 })
+      assert.equal(mine.steps[6].response, null)
+
+      // Public study, private progress: a signed-out viewer sees the steps
+      // and nothing of anyone's progress.
+      const anyone = await walkthroughOf(tx, study.id, null)
+      assert.equal(anyone.steps.length, 7)
+      assert.equal(anyone.resumePosition, 1)
+      assert.deepEqual(anyone.completedStepIds, [])
+      assert.ok(anyone.steps.every((step) => !step.completed && !step.hasOriginalDefinition && step.response === null))
+
+      const progress = await studyProgress(tx, study.id)
+      assert.ok(progress)
+      assert.equal(progress.total, 7)
+      assert.equal(progress.finished, 0)
+      assert.deepEqual(
+        progress.participants.map((p) => [p.userId, p.completed, p.total]),
+        [[user.id, 4, 7]],
+        "the one live member, four of seven"
+      )
+      assert.deepEqual(
+        progress.steps.map((step) => step.completions),
+        [1, 1, 0, 0, 1, 1, 0]
+      )
+
+      // A question appended after a start lengthens the list, not anyone's
+      // position, and the positions stay contiguous.
+      const appended = await appendQuestionStep(tx, study.id, {
+        prompt: "Anything else?",
+        responseKind: "text"
+      })
+      assert.equal(appended.position, 8)
+      assert.equal(await nextPositionFor(tx, study.id, user.id), 3)
+      assert.equal((await studyProgress(tx, study.id))?.total, 8)
 
       // --- Each CHECK on a response, and the pairs answered once ---
 
@@ -1298,8 +1391,8 @@ const main = async () => {
         await attempt(tx, async (sp) => {
           await sp
             .update(surveyStepsTable)
-            .set({ position: 9 })
-            .where(eq(surveyStepsTable.id, textQuestion.id))
+            .set({ position: 10 })
+            .where(eq(surveyStepsTable.id, appended.id))
           await runInvariants(sp)
         }),
         "do not run from 1 without gaps",

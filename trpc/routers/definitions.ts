@@ -38,6 +38,9 @@ import {
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
+import { recordCompletion } from "@/lib/surveys"
+import { nextPositionFor } from "@/lib/survey-queries"
+import { requireStepForAct } from "./surveys"
 
 export const definitionsRouter = createTRPCRouter({
   create: contributorProcedure
@@ -56,17 +59,47 @@ export const definitionsRouter = createTRPCRouter({
           .max(EXAMPLE_MAX_LENGTH),
         // The interactive add flow: no term-level auto-AI definition; the
         // author refines their own definition on the definition page instead
-        interactive: z.boolean().default(false)
+        interactive: z.boolean().default(false),
+        // The define step of a walkthrough the definition is written inside.
+        surveyStepId: z.number().int().optional()
       })
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
+      // normalize the term
+      const term = input.term.trim().toLowerCase()
+
+      // A step is checked against the act before anything is written: the
+      // caller may take part, and the step is the define step of this term.
+      // A define step names a term that exists, so a term not yet in the
+      // vocabulary cannot be the one the step is for.
+      let walkthroughStep = null
+      if (input.surveyStepId !== undefined) {
+        const existingTerm = await db.query.termsTable.findFirst({
+          columns: { id: true },
+          where: eq(termsTable.term, term)
+        })
+        if (!existingTerm)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That step is not for this act"
+          })
+        walkthroughStep = await requireStepForAct(
+          input.surveyStepId,
+          authorId,
+          { kind: "define", termId: existingTerm.id }
+        )
+      }
+
       // Whether this submission scheduled an automatic AI alternate
       // definition, so the client can tell the contributor it is coming.
       let aiScheduled = false
-      const { term, definition } = await db.transaction(async (tx) => {
-        // normalize the term
-        const term = input.term.trim().toLowerCase()
-
+      // The completion a define step records with its definition, and where
+      // the walkthrough resumes, so the shell can advance on the response.
+      let walkthrough: {
+        completedStepId: number
+        nextPosition: number | null
+      } | null = null
+      const { term: dbTermOut, definition } = await db.transaction(async (tx) => {
         let dbTerm = await tx.query.termsTable.findFirst({
           where: eq(termsTable.term, term)
         })
@@ -132,21 +165,68 @@ export const definitionsRouter = createTRPCRouter({
             example: input.examples,
             changeNote: "Initial contribution",
             source: "initial",
-            createdVia: input.interactive ? "interactive" : "classic"
+            createdVia: input.interactive ? "interactive" : "classic",
+            surveyStepId: input.surveyStepId ?? null
           })
+
+        if (walkthroughStep) {
+          // The define step completes with the definition it asked for, in
+          // the transaction that writes it.
+          await recordCompletion(tx, {
+            stepId: walkthroughStep.step.id,
+            userId: authorId
+          })
+          walkthrough = {
+            completedStepId: walkthroughStep.step.id,
+            nextPosition: await nextPositionFor(
+              tx,
+              walkthroughStep.study.id,
+              authorId
+            )
+          }
+
+          // A study term seeded without a model definition gets one here,
+          // as a new term does: the generation otherwise fires only on term
+          // creation, and the review step of a walkthrough wants something
+          // to compare against.
+          if (!input.interactive) {
+            const [modelDefinition] = await tx
+              .select({ id: definitionsTable.id })
+              .from(definitionsTable)
+              .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+              .where(
+                and(
+                  eq(definitionsTable.termId, dbTerm.id),
+                  eq(usersTable.isAi, true)
+                )
+              )
+              .limit(1)
+            if (!modelDefinition) {
+              await tx.insert(chatsTable).values({
+                role: "user",
+                userId: authorId,
+                message: `<term>\n${term}\n<example>\n${input.examples}`,
+                termId: dbTerm.id
+              })
+              const termId = dbTerm.id
+              after(() => reviseDefinition(termId))
+              aiScheduled = true
+            }
+          }
+        }
 
         return { term: dbTerm, definition: insertedDefinition }
       })
       revalidatePath("/terms")
-      revalidatePath(`/terms/${term.id}`)
+      revalidatePath(`/terms/${dbTermOut.id}`)
       await revalidatePublicDefinition({
         definitionId: definition.id,
         definitionNumber: definition.definitionNumber,
-        termId: term.id,
+        termId: dbTermOut.id,
         version: 1
       })
 
-      return { term, definition, aiScheduled }
+      return { term: dbTermOut, definition, aiScheduled, walkthrough }
     }),
   // The version of a definition's current revision. Cheap enough to poll:
   // the comment hook watches it after a comment schedules a model revision,

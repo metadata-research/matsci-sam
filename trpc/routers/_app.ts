@@ -10,6 +10,7 @@ import { adminRouter } from "./admin"
 import { termsRouter } from "./terms"
 import { refinementsRouter } from "./refinements"
 import { discussionRouter } from "./discussion"
+import { surveysRouter } from "./surveys"
 import { z } from "zod"
 import {
   aiModelsTable,
@@ -54,6 +55,7 @@ export const appRouter = createTRPCRouter({
   feedback: feedbackRouter,
   admin: adminRouter,
   discussion: discussionRouter,
+  surveys: surveysRouter,
   me: authenticatedProcedure.query(async ({ ctx }) => {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.id, ctx.userId)
