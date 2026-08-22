@@ -186,8 +186,9 @@ const main = async () => {
   assert.equal(studyUri("id4-pilot"), `${identifierBaseUrl}/studies/id4-pilot`)
 
   // --- Fixtures: four accounts of four kinds, three terms, a bridge, a
-  // retraction, a legacy row, votes from both records, two studies, and
-  // a vote and a comment from each walkthrough ---
+  // retraction, a legacy row, votes with a withdrawal and three the
+  // backfill wrote, two studies, and a vote and a comment from each
+  // walkthrough ---
 
   const PMD = "https://w3id.org/pmd/co/PMD_0000934"
   const EMMO = "https://w3id.org/emmo#EMMO_03441eb3_d1fd_4906_b953_b83312d7589e"
@@ -335,6 +336,8 @@ const main = async () => {
         kind: "up",
         actorKind: "human",
         createdAt: "2026-05-01 09:00:00+00",
+        backfilled: false,
+        migratedLegacy: false,
         studyId: null
       },
       {
@@ -345,6 +348,8 @@ const main = async () => {
         kind: "down",
         actorKind: "human",
         createdAt: "2026-05-01 09:05:00+00",
+        backfilled: false,
+        migratedLegacy: false,
         studyId: null
       },
       {
@@ -355,6 +360,8 @@ const main = async () => {
         kind: null,
         actorKind: "human",
         createdAt: "2026-05-01 09:06:00+00",
+        backfilled: false,
+        migratedLegacy: false,
         studyId: null
       },
       {
@@ -365,6 +372,8 @@ const main = async () => {
         kind: "up",
         actorKind: "model",
         createdAt: "2026-05-02 09:00:00+00",
+        backfilled: false,
+        migratedLegacy: false,
         studyId: null
       },
       // Cast from the walkthrough of the pilot study, by a persona whose
@@ -377,6 +386,8 @@ const main = async () => {
         kind: "up",
         actorKind: "simulated",
         createdAt: "2026-05-02 09:01:00+00",
+        backfilled: false,
+        migratedLegacy: false,
         studyId: 1
       },
       // Cast from the same walkthrough by a person with a private profile:
@@ -389,43 +400,49 @@ const main = async () => {
         kind: "up",
         actorKind: "human",
         createdAt: "2026-05-03 09:00:00+00",
+        backfilled: false,
+        migratedLegacy: false,
         studyId: 1
-      }
-    ],
-    votes: [
-      // covered by event 1, so not a legacy act
+      },
+      // Three votes cast before the record began, on one revision, as the
+      // 0043 backfill wrote them: ids after every act the record held, in
+      // order of time then voter, at the time of each vote, the actor kind
+      // from the account, and the migrated flag copied from the vote.
       {
-        revisionId: 100,
-        definitionId: 10,
+        id: 7,
+        definitionId: 12,
+        revisionId: 103,
         userId: 1,
         kind: "up",
-        createdAt: "2026-05-01 09:00:00+00",
-        migratedLegacy: false
+        actorKind: "human",
+        createdAt: "2026-02-01 00:00:00+00",
+        backfilled: true,
+        migratedLegacy: false,
+        studyId: null
       },
-      // three pre-0040 votes on one revision: ordered by time, then user
       {
-        revisionId: 103,
+        id: 8,
         definitionId: 12,
+        revisionId: 103,
         userId: 2,
         kind: "down",
+        actorKind: "human",
         createdAt: "2026-02-02 00:00:00+00",
-        migratedLegacy: true
+        backfilled: true,
+        migratedLegacy: true,
+        studyId: null
       },
       {
-        revisionId: 103,
+        id: 9,
         definitionId: 12,
-        userId: 1,
-        kind: "up",
-        createdAt: "2026-02-01 00:00:00+00",
-        migratedLegacy: false
-      },
-      {
         revisionId: 103,
-        definitionId: 12,
         userId: 3,
         kind: "up",
+        actorKind: "model",
         createdAt: "2026-02-02 00:00:00+00",
-        migratedLegacy: true
+        backfilled: true,
+        migratedLegacy: true,
+        studyId: null
       }
     ],
     // The comments posted from a walkthrough: comment 7 of the per-term
@@ -595,12 +612,15 @@ const main = async () => {
     "the kos triple is reified, not asserted, in the provenance graph"
   )
 
-  // --- Vote events: both records, withdrawal, the three agent cases ---
+  // --- Vote events: written by votes and by the backfill, withdrawal, the
+  // three agent cases ---
 
   const rev100 = revisionUri("martensite", 1, 1)
   const rev102 = revisionUri("martensite", 2, 1)
   const rev103 = revisionUri("austenite", 1, 1)
   const acts = view.voteActs()
+  // Every act is named by its row id, in id order, the backfilled ones
+  // after the rest whatever their time.
   assert.deepEqual(
     acts.map((a) => a.iri),
     [
@@ -610,10 +630,9 @@ const main = async () => {
       `${rev102}#vote-event-4`,
       `${rev102}#vote-event-5`,
       `${rev100}#vote-event-6`,
-      // legacy: by (createdAt, userId) on the revision, 1-based
-      `${rev103}#vote-1`,
-      `${rev103}#vote-2`,
-      `${rev103}#vote-3`
+      `${rev103}#vote-event-7`,
+      `${rev103}#vote-event-8`,
+      `${rev103}#vote-event-9`
     ]
   )
 
@@ -633,6 +652,7 @@ const main = async () => {
     values(dataset, e1, matsci("legacyAssociationInferred")).length,
     0
   )
+  assert.equal(values(dataset, e1, matsci("backfilled")).length, 0)
 
   // Private profile: the act is published, the agent is not.
   const e2 = `${rev100}#vote-event-2`
@@ -655,13 +675,18 @@ const main = async () => {
     personUnder("martensite", 4)
   ])
 
-  // Legacy acts: numbered by time then user; the migrated ones say their
-  // binding was inferred; the model's act is a model act.
-  const l1 = `${rev103}#vote-1`
+  // Backfilled acts: each says so, at the time of its vote; the migrated
+  // ones say their binding was inferred; the model's act is a model act;
+  // the agent rule is the same as for any other act.
+  const l1 = `${rev103}#vote-event-7`
   assertTypes(dataset, l1, [`${PROV}Activity`, matsci("VoteEvent")])
   assert.deepEqual(values(dataset, l1, `${PROV}used`), [rev103])
   assert.deepEqual(values(dataset, l1, matsci("voteKind")), ["up"])
   assert.deepEqual(values(dataset, l1, matsci("actorKind")), ["human"])
+  assert.deepEqual(values(dataset, l1, `${PROV}atTime`), [
+    "2026-02-01T00:00:00.000Z"
+  ])
+  assert.deepEqual(values(dataset, l1, matsci("backfilled")), ["yes"])
   assert.equal(
     values(dataset, l1, matsci("legacyAssociationInferred")).length,
     0
@@ -669,19 +694,28 @@ const main = async () => {
   assert.deepEqual(values(dataset, l1, `${PROV}wasAssociatedWith`), [
     personUnder("austenite", 1)
   ])
-  const l2 = `${rev103}#vote-2`
+  const l2 = `${rev103}#vote-event-8`
   assert.deepEqual(values(dataset, l2, matsci("voteKind")), ["down"])
+  assert.deepEqual(values(dataset, l2, matsci("backfilled")), ["yes"])
   assert.deepEqual(values(dataset, l2, matsci("legacyAssociationInferred")), [
     "yes"
   ])
   assert.equal(values(dataset, l2, `${PROV}wasAssociatedWith`).length, 0)
-  const l3 = `${rev103}#vote-3`
+  const l3 = `${rev103}#vote-event-9`
   assert.deepEqual(values(dataset, l3, matsci("actorKind")), ["model"])
+  assert.deepEqual(values(dataset, l3, matsci("backfilled")), ["yes"])
   assert.deepEqual(values(dataset, l3, `${PROV}wasAssociatedWith`), [
     modelUri("gemma4-26b")
   ])
-  // The vote covered by an event is not synthesized again.
-  assert.equal(values(dataset, `${rev100}#vote-1`, `${PROV}used`).length, 0)
+  // No act is named by its position, and nothing but an event names one.
+  assert.equal(
+    [...subjects(dataset)].filter((s) => /#vote-(?!event-)/.test(s)).length,
+    0
+  )
+  assert.equal(
+    [...subjects(dataset)].filter((s) => s.includes("#vote-event-")).length,
+    data.voteEvents.length
+  )
 
   // --- Studies ---
 
@@ -813,7 +847,6 @@ const main = async () => {
     ...data,
     assertions: [...data.assertions].reverse(),
     voteEvents: [...data.voteEvents].reverse(),
-    votes: [...data.votes].reverse(),
     walkthroughComments: [...data.walkthroughComments].reverse(),
     studies: [...data.studies].reverse(),
     users: [...data.users].reverse()
@@ -1410,7 +1443,8 @@ const main = async () => {
 
     // What the provenance shape must refuse: a retraction time with no
     // retractor, a reifier whose object is an IRI and not a triple term,
-    // an actor kind outside the three, a vote event in two studies, and a
+    // an actor kind outside the three, a vote event in two studies that
+    // denies being backfilled, a vote event named by position, and a
     // comment whose study is a revision.
     const negativeProvenance =
       TTL_PREFIXES +
@@ -1425,7 +1459,13 @@ const main = async () => {
       `  prov:used <${rev100}> ;\n` +
       `  matsci:voteKind "up" ;\n  matsci:actorKind "robot" ;\n` +
       `  prov:atTime "2026-05-01T09:00:00.000Z"^^xsd:dateTime ;\n` +
+      `  matsci:backfilled "no" ;\n` +
       `  matsci:study <${s1}> , <${s2}> .\n\n` +
+      // Well formed in every other way, so only the name rule fires on it.
+      `<${rev100}#vote-1> a matsci:VoteEvent, prov:Activity ;\n` +
+      `  prov:used <${rev100}> ;\n` +
+      `  matsci:voteKind "up" ;\n  matsci:actorKind "human" ;\n` +
+      `  prov:atTime "2026-02-01T00:00:00.000Z"^^xsd:dateTime .\n\n` +
       // Both studies and their worklists are well formed, so the study
       // rules stay quiet and only the planted rules fire.
       `<${s1}> a matsci:Study, prov:Activity ;\n` +

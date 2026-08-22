@@ -160,6 +160,7 @@ The provenance graph adds terms for the record of acts:
 | `worklist`    | The collection a study works through                                          |
 | `study`       | The study in which a vote event or a comment was made from its walkthrough, the ordered steps a study asks its members to complete |
 | `legacyAssociationInferred` | `yes` on a vote whose binding to the revision was inferred when the record was migrated. The per-term document also states `no` |
+| `backfilled`  | `yes` on a vote event written at the backfill for a vote cast before the event record began, at the time of the vote |
 
 PROV output also uses application properties for descriptive event details,
 such as a model name, score, prompt key, or change note. That set is

@@ -4,7 +4,9 @@
 # statements_asserter_or_legacy (an asserter is absent only on a migrated
 # row, so at most one). The vote-event and actor-kind shapes mirror
 # actorKindEnum and voteTypeEnum, with "withdrawn" standing for the null
-# kind that records a withdrawal. The study shape mirrors the studies table:
+# kind that records a withdrawal, and the name rule mirrors the identity
+# column of voteEvents, which every act has since the 0043 backfill (the
+# invariant "current vote without a vote event"). The study shape mirrors the studies table:
 # a title, a collection, and an optional window. The study-context shape
 # mirrors the surveyStepId column of voteEvents and comments: an act names
 # the study of at most one walkthrough step, and that study is published.
@@ -83,11 +85,13 @@
     """
   ] .
 
-# One voting act, from the event record or synthesized from a legacy row.
+# One voting act, a voteEvents row, the rows the 0043 backfill wrote
+# included, named by the id of the row.
 :VoteEventShape a sh:NodeShape ;
   sh:targetClass matsci:VoteEvent ;
   sh:nodeKind sh:IRI ;
-  sh:pattern "#vote(-event)?-[0-9]+$" ;
+  sh:pattern "#vote-event-[0-9]+$" ;
+  sh:message "A vote event is an IRI named #vote-event-N on its revision" ;
   sh:property [
     sh:path rdf:type ;
     sh:hasValue prov:Activity ;
@@ -128,6 +132,12 @@
     sh:path matsci:legacyAssociationInferred ;
     sh:maxCount 1 ;
     sh:in ( "yes" )
+  ] ;
+  sh:property [
+    sh:path matsci:backfilled ;
+    sh:maxCount 1 ;
+    sh:in ( "yes" ) ;
+    sh:message "matsci:backfilled is stated at most once, as yes"
   ] .
 
 # Whatever states an actor kind, a vote event or a comment, states one of

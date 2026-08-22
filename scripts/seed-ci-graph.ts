@@ -14,8 +14,9 @@
  * by simulated accounts and by the model identity, one with a superseded
  * revision; a statement of every subject kind and every object kind, one
  * retracted and one legacy row with no asserter; a collection, a community
- * and a study with a window; votes from both records, with a withdrawal and
- * a pre-0040 current-state row; and stamped simulated comments. The writes
+ * and a study with a window; votes with a withdrawal, and a pre-0040
+ * current-state row with the event the 0043 backfill wrote for it; and
+ * stamped simulated comments. The writes
  * go through the lib/ functions the routers and the pilot driver call where
  * those exist, and straight through Drizzle where they do not.
  *
@@ -70,6 +71,7 @@ const main = async () => {
     studiesTable,
     termsTable,
     usersTable,
+    voteEventsTable,
     votesTable
   } = await import("../drizzle")
   const { activeCommunityFor } = await import("../lib/community-queries")
@@ -394,17 +396,24 @@ const main = async () => {
       ])
       .returning({ id: statementsTable.id })
 
-    // A pre-0040 vote: a current-state row with no event for its (revision,
-    // user) pair, which the graph synthesizes as the one act it has always
-    // appeared as. The tally it stands in is kept in step by hand, because
-    // no write path makes such a row any more.
-    await tx.insert(votesTable).values({
+    // A pre-0040 vote as a migrated host holds it: the current-state row,
+    // and the one event migration 0043 wrote for it, at the time of the
+    // vote, flagged backfilled, with the actor kind from the account flag
+    // and the migrated flag copied across. The tally it stands in is kept
+    // in step by hand, because no write path makes such rows any more.
+    const legacyVote = {
       revisionId: austeniteWritten.revision.id,
       definitionId: austeniteWritten.definition.id,
       userId: first.id,
-      kind: "up",
+      kind: "up" as const,
       createdAt: minutesAgo(25),
       migratedLegacy: true
+    }
+    await tx.insert(votesTable).values(legacyVote)
+    await tx.insert(voteEventsTable).values({
+      ...legacyVote,
+      actorKind: "model",
+      backfilled: true
     })
     await tx
       .update(definitionsTable)
@@ -421,7 +430,7 @@ const main = async () => {
     "statements",
     `${fixture.statements.length} (1 retracted, 1 legacy with no asserter)`
   ])
-  seeded.push(["legacy votes", 1])
+  seeded.push(["legacy votes", "1, with its backfilled event"])
 
   // --- Acts ---
 
@@ -452,7 +461,7 @@ const main = async () => {
   await vote(second.id, byModel, "down", "simulated")
   await vote(second.id, byModel, "down", "simulated")
   await vote(model.id, revised, "up", "model")
-  seeded.push(["vote events", "5 (1 withdrawn)"])
+  seeded.push(["vote events", "6 (1 withdrawn, 1 backfilled)"])
 
   // Comments by the simulated accounts with the pilot stamps: a review of
   // each definition, and the author's answer to the review of their own.

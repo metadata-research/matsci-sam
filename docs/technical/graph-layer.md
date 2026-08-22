@@ -133,10 +133,10 @@ job, after the ledger test, seeds the migrated database with
 `pnpm seed:ci-graph`, a fixture written through the same `lib/` write paths
 the routers and the pilot driver use: definitions by simulated accounts and
 by the model identity, a statement of every subject and object kind with a
-retraction and a legacy row, a collection, a community, a study, votes from
-both records with a withdrawal, and stamped simulated comments. The seed
-refuses a database that holds a term, and the invariants are checked again
-on the result. The job then starts Fuseki from the assembler with a
+retraction and a legacy row, a collection, a community, a study, votes with
+a withdrawal and one the backfill wrote, and stamped simulated comments. The
+seed refuses a database that holds a term, and the invariants are checked
+again on the result. The job then starts Fuseki from the assembler with a
 throwaway password, exports the graphs, validates them the same way, and
 runs `pnpm test:graph-db --seeded`, which requires every entity count to be
 above zero and every paper query to answer at least one row. Both jobs pin

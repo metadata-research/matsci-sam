@@ -30,9 +30,10 @@ comment carried over from before revisions were recorded is associated with
 the revision that was visible at its recorded time. An imported vote is
 associated with the revision current when the data was migrated, because its
 recorded time cannot establish which version the voter read. A vote cast
-before the event record began is published once, as the single act it has
-always appeared as. A vote cast since is published as each act, a change of
-direction and a withdrawal included.
+before the event record began was written into that record once, at the
+backfill, as the single act it had always been published as, with its own
+time, and is marked as backfilled. A vote cast since is published as each
+act, a change of direction and a withdrawal included.
 
 People and models are agents. A person is a `prov:Person` and a model is a
 `prov:SoftwareAgent`. In the per-term document a vote is public as an event
@@ -64,16 +65,15 @@ revision it used, what it did under `matsci:voteKind`, up, down or withdrawn,
 the kind of actor under `matsci:actorKind`, and the time. A vote cast from
 the walkthrough of a study, the ordered steps the study asks its members to
 complete, and a comment posted from one, name that study under
-`matsci:study`, whether or not the agent is named. Votes cast before
-the event record began are published once each from the current vote table,
-as the single act they have always appeared as, and say with
-`matsci:legacyAssociationInferred` where the binding to the revision was
-inferred at migration. Such an act is named by its position among the acts
-of its kind on the revision, and that name is not permanent. When one of
-those voters votes again the act leaves that record, and the later acts on
-the revision are renumbered. The agent of a vote event is named only where
-the voter is a model or has made their profile public. Otherwise the act is
-in the graph and the agent is not.
+`matsci:study`, whether or not the agent is named. Every act is named
+`{revision}#vote-event-{id}` from the identity of its row, which is assigned
+once and never reused, so the name is permanent. A vote cast before the
+event record began has its row from the backfill, which wrote one act per
+such vote at the time of the vote. That act says `matsci:backfilled` and,
+where the binding to the revision was inferred at migration,
+`matsci:legacyAssociationInferred`. The agent of a vote event is named only
+where the voter is a model or has made their profile public. Otherwise the
+act is in the graph and the agent is not.
 
 A study is a `matsci:Study` and a `prov:Activity` with its title, the window
 it ran over, and the collection it worked through under `matsci:worklist`.

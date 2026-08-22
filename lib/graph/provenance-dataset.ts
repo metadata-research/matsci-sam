@@ -14,8 +14,7 @@ import {
   surveyStepsTable,
   termsTable,
   usersTable,
-  voteEventsTable,
-  votesTable
+  voteEventsTable
 } from "@yamz/db"
 import { asc, eq, inArray } from "drizzle-orm"
 import { PREDICATES, objectOf, subjectOf } from "../kos"
@@ -42,9 +41,9 @@ import { lit } from "../rdf-literal"
  * - an assertion per statement row, active or retracted, reifying the stored
  *   triple with rdf:reifies and an RDF 1.2 triple term, so a consumer can ask
  *   who asserted a skos:broader and when it was withdrawn;
- * - a vote event per voting act, from the append-only voteEvents record and,
- *   for the pre-0040 votes that record does not cover, from the current-state
- *   row synthesized as the single act it has always appeared as;
+ * - a vote event per voting act, from the append-only voteEvents record,
+ *   which holds every act since migration 0040 and one row per earlier vote
+ *   as the 0043 backfill wrote it;
  * - the study an act was taken in, on a vote event and on a comment that
  *   names a walkthrough step, which only the step records;
  * - a study per studies row, as an activity with its window and worklist;
@@ -102,9 +101,12 @@ export type AssertionRow = StatementEnds & {
 
 export type ActorKind = "human" | "model" | "simulated"
 
-// One voteEvents row: an act from migration 0040 forward. studyId is the
-// study of the walkthrough step the act names, resolved by the loader; null
-// when the vote was cast outside a walkthrough.
+// One voteEvents row: an act from migration 0040 forward, or the one act
+// the 0043 backfill wrote for a vote cast before then (`backfilled`), whose
+// binding to its revision may have been inferred when the record was first
+// migrated (`migratedLegacy`). studyId is the study of the walkthrough step
+// the act names, resolved by the loader; null when the vote was cast
+// outside a walkthrough.
 export type VoteEventRow = {
   id: number
   definitionId: number
@@ -113,6 +115,8 @@ export type VoteEventRow = {
   kind: "up" | "down" | null
   actorKind: ActorKind
   createdAt: string
+  backfilled: boolean
+  migratedLegacy: boolean
   studyId: number | null
 }
 
@@ -123,17 +127,6 @@ export type WalkthroughCommentRow = {
   id: number
   definitionId: number
   studyId: number
-}
-
-// One current-state votes row. Only those with no voteEvents row for their
-// (revision, user) pair are published, as legacy acts.
-export type VoteRow = {
-  revisionId: number
-  definitionId: number
-  userId: number
-  kind: "up" | "down"
-  createdAt: string
-  migratedLegacy: boolean
 }
 
 export type StudyRow = {
@@ -156,7 +149,6 @@ export type ProvenanceDatasetData = {
   collections: GraphCollection[]
   assertions: AssertionRow[]
   voteEvents: VoteEventRow[]
-  votes: VoteRow[]
   walkthroughComments: WalkthroughCommentRow[]
   studies: StudyRow[]
 }
@@ -170,10 +162,8 @@ export type AgentRef = {
   label: string
 }
 
-// One voting act, whichever record it comes from. `legacy` says the act was
-// synthesized from a current-state row; `position` is its 1-based place
-// among the legacy acts on its revision and is what names it. A legacy act
-// predates walkthroughs and has no study.
+// One voting act, named by its event id. A backfilled act predates
+// walkthroughs and has no study.
 export type VoteAct = {
   iri: string
   revisionId: number
@@ -182,7 +172,7 @@ export type VoteAct = {
   actorKind: ActorKind
   createdAt: string
   studyId: number | null
-  legacy: boolean
+  backfilled: boolean
   migratedLegacy: boolean
 }
 
@@ -194,7 +184,6 @@ const dateTime = (value: string) =>
 export class ProvenanceDatasetView {
   readonly assertions: AssertionRow[]
   readonly voteEvents: VoteEventRow[]
-  readonly votes: VoteRow[]
   readonly walkthroughComments: WalkthroughCommentRow[]
   readonly studies: StudyRow[]
   private userById = new Map<number, GraphUser>()
@@ -211,7 +200,6 @@ export class ProvenanceDatasetView {
     // byte-identical whatever order the rows arrived in.
     this.assertions = [...data.assertions].sort((a, b) => a.id - b.id)
     this.voteEvents = [...data.voteEvents].sort((a, b) => a.id - b.id)
-    this.votes = [...data.votes]
     this.walkthroughComments = [...data.walkthroughComments].sort(
       (a, b) => a.id - b.id
     )
@@ -388,23 +376,11 @@ export class ProvenanceDatasetView {
     return user !== undefined && (user.isAi || user.isProfilePublic)
   }
 
-  /*
-   * Every voting act, event-backed first in id order, then the legacy acts.
-   * A current-state votes row whose (revision, user) pair has a voteEvents
-   * row is already covered by that record and is not repeated. The legacy
-   * acts on one revision are numbered by (createdAt, userId): the row has
-   * no id of its own, and that order is stable for a given database. It is
-   * not stable across databases: when one of those voters acts again, the
-   * pair gains an event, the legacy act leaves the set, and every later
-   * sibling on the revision moves down one position. A legacy vote IRI is
-   * therefore not a permanent name; a backfill of one voteEvents row per
-   * legacy vote would give each act one, and retire this branch.
-   */
+  // Every voting act in id order, each named by the id of its row. The id
+  // is assigned once and never reused, so the name is permanent; a vote
+  // cast before the record began has its row from the 0043 backfill.
   voteActs(): VoteAct[] {
-    const covered = new Set(
-      this.voteEvents.map((e) => `${e.revisionId}:${e.userId}`)
-    )
-    const events: VoteAct[] = this.voteEvents.map((e) => ({
+    return this.voteEvents.map((e) => ({
       iri: `${this.revisionIri(e.revisionId)}#vote-event-${e.id}`,
       revisionId: e.revisionId,
       userId: e.userId,
@@ -412,39 +388,9 @@ export class ProvenanceDatasetView {
       actorKind: e.actorKind,
       createdAt: e.createdAt,
       studyId: e.studyId,
-      legacy: false,
-      migratedLegacy: false
+      backfilled: e.backfilled,
+      migratedLegacy: e.migratedLegacy
     }))
-
-    const legacy = this.votes
-      .filter((v) => !covered.has(`${v.revisionId}:${v.userId}`))
-      .sort(
-        (a, b) =>
-          a.revisionId - b.revisionId ||
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
-          a.userId - b.userId
-      )
-    const positions = new Map<number, number>()
-    const synthesized: VoteAct[] = legacy.map((v) => {
-      const position = (positions.get(v.revisionId) ?? 0) + 1
-      positions.set(v.revisionId, position)
-      const user = this.userById.get(v.userId)
-      return {
-        iri: `${this.revisionIri(v.revisionId)}#vote-${position}`,
-        revisionId: v.revisionId,
-        userId: v.userId,
-        kind: v.kind,
-        // The pre-event record never held a simulated act, so the account
-        // decides, exactly as the 0040 backfill of comments did.
-        actorKind: user?.isAi ? "model" : "human",
-        createdAt: v.createdAt,
-        studyId: null,
-        legacy: true,
-        migratedLegacy: v.migratedLegacy
-      }
-    })
-
-    return [...events, ...synthesized]
   }
 
   /*
@@ -512,9 +458,10 @@ export const assertionBlockTurtle = (
  * One voting act as a matsci:VoteEvent. The agent is named only when the
  * profile is public or the account is an AI identity. A vote cast from a
  * walkthrough names its study, whether or not its agent is named: the study
- * is an activity with an IRI, and the cohort stays unpublished. A legacy act
- * says its binding to the revision was inferred when the row was migrated,
- * the same disclosure the per-term body makes.
+ * is an activity with an IRI, and the cohort stays unpublished. An act whose
+ * binding to the revision was inferred when the row was migrated says so,
+ * the same disclosure the per-term body makes, and an act the backfill
+ * wrote says that; each flag is stated only when it holds.
  */
 export const voteEventBlockTurtle = (
   view: ProvenanceDatasetView,
@@ -529,8 +476,9 @@ export const voteEventBlockTurtle = (
   ]
   if (act.studyId !== null)
     pairs.push(`matsci:study <${view.studyIri(act.studyId)}>`)
-  if (act.legacy && act.migratedLegacy)
+  if (act.migratedLegacy)
     pairs.push(`matsci:legacyAssociationInferred ${lit("yes")}`)
+  if (act.backfilled) pairs.push(`matsci:backfilled ${lit("yes")}`)
   if (view.voteAgentIsPublic(act))
     pairs.push(`prov:wasAssociatedWith <${view.voteAgent(act).iri}>`)
   return turtleBlock(act.iri, pairs)
@@ -597,9 +545,9 @@ export const provenanceDatasetBlocksTurtle = (view: ProvenanceDatasetView) =>
 
 // The whole dataset-wide record in a fixed number of queries. Every
 // statement row is read, retracted ones included; only the accounts those
-// rows and the votes name are read, and nothing else about them. A vote
-// event and a comment that name a walkthrough step are joined to the step
-// here, for its study; the step itself reaches no graph.
+// rows and the vote events name are read, and nothing else about them. A
+// vote event and a comment that name a walkthrough step are joined to the
+// step here, for its study; the step itself reaches no graph.
 export const loadProvenanceDatasetData =
   async (): Promise<ProvenanceDatasetData> => {
     const [
@@ -611,7 +559,6 @@ export const loadProvenanceDatasetData =
       models,
       assertions,
       voteEvents,
-      votes,
       walkthroughComments,
       studies
     ] = await Promise.all([
@@ -679,6 +626,8 @@ export const loadProvenanceDatasetData =
           kind: voteEventsTable.kind,
           actorKind: voteEventsTable.actorKind,
           createdAt: voteEventsTable.createdAt,
+          backfilled: voteEventsTable.backfilled,
+          migratedLegacy: voteEventsTable.migratedLegacy,
           studyId: surveyStepsTable.studyId
         })
         .from(voteEventsTable)
@@ -687,16 +636,6 @@ export const loadProvenanceDatasetData =
           eq(surveyStepsTable.id, voteEventsTable.surveyStepId)
         )
         .orderBy(asc(voteEventsTable.id)),
-      db
-        .select({
-          revisionId: votesTable.revisionId,
-          definitionId: votesTable.definitionId,
-          userId: votesTable.userId,
-          kind: votesTable.kind,
-          createdAt: votesTable.createdAt,
-          migratedLegacy: votesTable.migratedLegacy
-        })
-        .from(votesTable),
       db
         .select({
           id: commentsTable.id,
@@ -726,8 +665,7 @@ export const loadProvenanceDatasetData =
     const userIds = [
       ...new Set([
         ...assertions.flatMap((s) => [s.assertedById, s.retractedById]),
-        ...voteEvents.map((e) => e.userId),
-        ...votes.map((v) => v.userId)
+        ...voteEvents.map((e) => e.userId)
       ])
     ].filter((id): id is number => id !== null)
     const users = userIds.length
@@ -755,7 +693,6 @@ export const loadProvenanceDatasetData =
         predicate: s.predicate as Predicate
       })),
       voteEvents,
-      votes,
       walkthroughComments,
       studies
     }

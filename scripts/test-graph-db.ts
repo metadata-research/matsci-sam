@@ -62,8 +62,7 @@ const main = async () => {
     statementsTable,
     studiesTable,
     termsTable,
-    voteEventsTable,
-    votesTable
+    voteEventsTable
   } = await import("../drizzle")
   const { CONTENT_GRAPH_NAMES, graphIri } = await import("../lib/graph/names")
   const { projectGraphs } = await import("../lib/graph/projector")
@@ -124,19 +123,8 @@ const main = async () => {
     terms: await rows(db.select({ n: count() }).from(termsTable)),
     definitions: await rows(db.select({ n: count() }).from(definitionsTable)),
     assertions: await rows(db.select({ n: count() }).from(statementsTable)),
-    // Every event-backed act, plus every current-state vote whose
-    // (revision, user) pair has no event: the legacy acts the graph
-    // synthesizes, exactly as lib/graph/provenance-dataset.ts selects them.
-    voteEvents:
-      (await rows(db.select({ n: count() }).from(voteEventsTable))) +
-      (await rows(
-        db
-          .select({ n: count() })
-          .from(votesTable)
-          .where(
-            sql`NOT EXISTS (SELECT 1 FROM ${voteEventsTable} e WHERE e."revisionId" = ${votesTable.revisionId} AND e."userId" = ${votesTable.userId})`
-          )
-      )),
+    // One act per row, the rows the 0043 backfill wrote included.
+    voteEvents: await rows(db.select({ n: count() }).from(voteEventsTable)),
     studies: await rows(db.select({ n: count() }).from(studiesTable))
   }
   if (seeded)
@@ -144,9 +132,9 @@ const main = async () => {
       assert.ok(expected[key] > 0, `${key}: the seeded database holds none`)
   // What the paper queries ask about beyond those counts: a comment states
   // an actor kind as a vote event does, and a model with an IRI of its own
-  // has a contribution once it asserted a statement or voted, in either
-  // record, which is what lib/graph/provenance-dataset.ts attributes or
-  // associates to that IRI.
+  // has a contribution once it asserted a statement or voted, which is
+  // what lib/graph/provenance-dataset.ts attributes or associates to that
+  // IRI.
   const present = {
     comments: await rows(db.select({ n: count() }).from(commentsTable)),
     modelContributions: await rows(
@@ -155,8 +143,7 @@ const main = async () => {
         .from(aiModelsTable)
         .where(
           sql`EXISTS (SELECT 1 FROM ${statementsTable} s WHERE s."assertedById" = ${aiModelsTable.userId})
-            OR EXISTS (SELECT 1 FROM ${voteEventsTable} e WHERE e."userId" = ${aiModelsTable.userId})
-            OR EXISTS (SELECT 1 FROM ${votesTable} v WHERE v."userId" = ${aiModelsTable.userId})`
+            OR EXISTS (SELECT 1 FROM ${voteEventsTable} e WHERE e."userId" = ${aiModelsTable.userId})`
         )
     )
   }

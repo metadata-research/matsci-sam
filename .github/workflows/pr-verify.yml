@@ -268,7 +268,9 @@ jobs:
             "A retraction has a time and a retractor together or not at all" \
             "An assertion reifies exactly one triple term" \
             "matsci:actorKind is human, model or simulated, exactly once" \
-            "At most one matsci:study, and it is a study"
+            "At most one matsci:study, and it is a study" \
+            "matsci:backfilled is stated at most once, as yes" \
+            "A vote event is an IRI named #vote-event-N on its revision"
           negative people-exclusion negative-people \
             "No IRI under /people/, /communities/ or /invite/ is published"
           grep -c 'sh:focusNode' report.ttl | grep -qx 2
