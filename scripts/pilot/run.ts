@@ -5,6 +5,12 @@
  *   pnpm pilot:run -- --dry-run
  *   pnpm pilot:run -- --resume --suffix rehearsal-1
  *
+ * The protocol is "settle the list": each persona takes a position on the
+ * draft of every term, most accepting it with an upvote and one or two per
+ * term amending it, then reviews the terms with more than one candidate,
+ * then answers the closing questions. The units run in that order, as the
+ * walkthrough pages order them.
+ *
  * Sequential by design: the protocol is ordered, ws10 serves one generation
  * at a time, and a resumable sequence beats a fast one that cannot say where
  * it stopped. Every completed unit is checkpointed to the manifest before
@@ -136,41 +142,15 @@ const main = async () => {
     return { wanted, term }
   }
 
-  // The step of each act is resolved before its unit, so a dry run reports
-  // a term the walkthrough does not cover.
-  if (wants("define"))
-    for (const persona of personas)
-      for (const index of persona.assignedTerms) {
-        const { wanted, term } = resolveTerm(index)
-        const step = walkthrough.defineStepOf(term.id, term.term)
-        await unit(`define:${persona.n}:${term.slug}`, () =>
-          steps.defineStep(
-            persona,
-            manifest.personaUserIds[persona.n],
-            term.id,
-            wanted,
-            step
-          )
-        )
-      }
-
-  if (wants("aidef"))
-    for (const persona of personas)
-      for (const index of persona.assignedTerms) {
-        const { term } = resolveTerm(index)
-        await unit(`aidef:${term.slug}`, () =>
-          steps.aiDefinitionStep(term.id, term.term)
-        )
-      }
-
   /*
-   * The review structure is drawn from the seeded generator up front and
-   * unconditionally, so a resumed run derives the same picks it derived
-   * before it stopped. Only the text of an act is nondeterministic. The
-   * picks of every persona are drawn first, in the order the rehearsals
-   * before the walkthrough drew them, and the scale answers in a second pass
-   * after all of them, in question order, so the number of questions a
-   * steward adds moves no persona's review or vote.
+   * The structure of the run is drawn from the seeded generator up front
+   * and unconditionally, so a resumed run derives the same picks it derived
+   * before it stopped. Only the text of an act is nondeterministic. Per
+   * term, the one or two personas who amend the draft; everyone else
+   * accepts it. Per persona, the two terms whose candidate they comment on
+   * in review, and per term the candidate they vote on and how. The scale
+   * answers come last, in question order, so the number of questions a
+   * steward adds moves no persona's position or review.
    */
   const rand = mulberry32(PILOT_SEED)
   const pickDistinct = (pool: number[], count: number) => {
@@ -180,107 +160,117 @@ const main = async () => {
       picked.push(rest.splice(Math.floor(rand() * rest.length), 1)[0])
     return picked
   }
-  const allIndexes = pilotTerms.map((_, index) => index)
-  const picks = personas.map((persona) => ({
+  const termIndexes = pilotTerms.map((_, index) => index)
+  const personaIndexes = personas.map((_, index) => index)
+  const amendersByTerm = pilotTerms.map(
+    () => new Set(pickDistinct(personaIndexes, rand() < 0.5 ? 1 : 2))
+  )
+  const structure = personas.map((persona) => ({
     persona,
-    reviewTerms: pickDistinct(
-      allIndexes.filter((index) => !persona.assignedTerms.includes(index)),
-      2
-    ),
-    voteTerms: pickDistinct(allIndexes, 4).map((index) => ({
-      index,
+    userId: () => manifest.personaUserIds[persona.n],
+    commentTerms: new Set(pickDistinct(termIndexes, 2)),
+    review: pilotTerms.map(() => ({
+      target: rand(),
       kind: (rand() < 0.8 ? "up" : "down") as "up" | "down"
-    }))
+    })),
+    scaleAnswers: new Map<number, number>()
   }))
   const scaleQuestions = walkthrough.questions.filter(
     (step) => step.responseKind === "scale"
   )
-  const structure = picks.map((pick) => ({
-    ...pick,
-    scaleAnswers: new Map(
-      scaleQuestions.map((step) => [step.id, 1 + Math.floor(rand() * 5)])
-    )
-  }))
+  for (const entry of structure)
+    for (const step of scaleQuestions)
+      entry.scaleAnswers.set(step.id, 1 + Math.floor(rand() * 5))
 
-  // Review round: each persona comments on the model's alternate definition
-  // of their own terms, then on another author's definition of two terms
-  // the seed assigned them to read, each from the review step of the term.
-  if (wants("comment"))
-    for (const { persona, reviewTerms } of structure) {
-      const userId = manifest.personaUserIds[persona.n]
-      for (const index of [...persona.assignedTerms, ...reviewTerms]) {
+  // The step of each act is resolved before its unit, so a dry run reports
+  // a term the walkthrough does not cover.
+
+  // Positions: every persona on every term, from the define step of the
+  // term. The draft is the model definition already in the database.
+  if (wants("position"))
+    for (const [p, { persona, userId }] of structure.entries())
+      for (const index of termIndexes) {
+        const { wanted, term } = resolveTerm(index)
+        const step = walkthrough.defineStepOf(term.id, term.term)
+        const amends = amendersByTerm[index].has(p)
+        await unit(`position:${persona.n}:${term.slug}`, async () => {
+          const draft = await steps.draftOf(term.id)
+          if (!draft)
+            throw new Error(
+              `No draft for ${term.term}: the term has no model definition. Publish one through the interface first.`
+            )
+          if (amends)
+            await steps.amendAct(persona, userId(), wanted, draft, step)
+          else
+            await steps.acceptAct(
+              userId(),
+              draft,
+              containers.community.id,
+              step
+            )
+        })
+      }
+
+  /*
+   * Review: every persona on every term, from the review step of the term.
+   * Where the term has one candidate the step is pressed through, as the
+   * page does. Otherwise the persona votes on a seeded candidate by another
+   * author that it has no standing vote on, and on two seeded terms
+   * comments on the same candidate. A resumed unit finds the vote it cast
+   * and comments on that candidate rather than drawing another.
+   */
+  if (wants("review"))
+    for (const { persona, userId, commentTerms, review } of structure)
+      for (const index of termIndexes) {
         const { term } = resolveTerm(index)
         const step = walkthrough.reviewStepOf(term.id, term.term)
-        await unit(`comment:${persona.n}:${term.slug}`, async () => {
-          const targets = await steps.reviewTargets(term.id)
-          const target = targets.find((t) => t.authorId !== userId)
-          if (!target)
-            throw new Error(`No definition by another author on ${term.term}`)
-          await steps.commentAct(persona, userId, term.term, target, step)
+        await unit(`review:${persona.n}:${term.slug}`, async () => {
+          const candidates = await steps.candidatesOf(term.id, userId())
+          if (candidates.length <= 1) {
+            await steps.pressStep(userId(), step)
+            return
+          }
+          const prior = await steps.stepVoteOf(userId(), step)
+          let target = prior
+            ? candidates.find((candidate) => candidate.id === prior.definitionId)
+            : undefined
+          if (!target) {
+            const eligible = candidates.filter(
+              (candidate) =>
+                candidate.authorId !== userId() && !candidate.votedByViewer
+            )
+            if (eligible.length === 0) {
+              await steps.pressStep(userId(), step)
+              return
+            }
+            target =
+              eligible[Math.floor(review[index].target * eligible.length)]
+            await steps.voteAct(
+              userId(),
+              target,
+              review[index].kind,
+              containers.community.id,
+              step
+            )
+          }
+          if (commentTerms.has(index))
+            await steps.commentAct(persona, userId(), term.term, target, step)
         })
       }
-    }
-
-  if (wants("vote"))
-    for (const { persona, voteTerms } of structure) {
-      const userId = manifest.personaUserIds[persona.n]
-      for (const { index, kind } of voteTerms) {
-        const { term } = resolveTerm(index)
-        const step = walkthrough.reviewStepOf(term.id, term.term)
-        await unit(`vote:${persona.n}:${term.slug}`, async () => {
-          const targets = await steps.reviewTargets(term.id)
-          const target = targets.find((t) => t.authorId !== userId)
-          if (!target)
-            throw new Error(`No definition by another author on ${term.term}`)
-          await steps.voteAct(
-            userId,
-            target,
-            kind,
-            containers.community.id,
-            step
-          )
-        })
-      }
-    }
-
-  // Rebuttal day: each persona answers the comments others left on their
-  // own definitions.
-  if (wants("rebuttal"))
-    for (const { persona } of structure) {
-      const userId = manifest.personaUserIds[persona.n]
-      for (const index of persona.assignedTerms) {
-        const { term } = resolveTerm(index)
-        await unit(`rebuttal:${persona.n}:${term.slug}`, async () => {
-          const targets = await steps.reviewTargets(term.id)
-          const own = targets.find((t) => t.authorId === userId)
-          if (!own) throw new Error(`No own definition on ${term.term}`)
-          const received = await steps.commentsByOthers(own.id, userId)
-          await steps.rebuttalAct(
-            persona,
-            userId,
-            term.term,
-            own,
-            received.map((row) => row.message)
-          )
-        })
-      }
-    }
 
   // The walkthrough itself: each persona presses through the instructions
-  // and answers the closing questions. The define and review steps were
+  // and answers the closing questions. The position and review steps were
   // completed above, each by the act it asked for.
   if (wants("walkthrough"))
-    for (const { persona, scaleAnswers } of structure) {
-      const userId = manifest.personaUserIds[persona.n]
+    for (const { persona, userId, scaleAnswers } of structure)
       await unit(`walkthrough:${persona.n}`, () =>
         steps.walkthroughProgressStep(
           persona,
-          userId,
+          userId(),
           walkthrough,
           scaleAnswers
         )
       )
-    }
 
   if (wants("close") && !args.dryRun) {
     // The driver writes through lib/, not tRPC, so nothing marked the

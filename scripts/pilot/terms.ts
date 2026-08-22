@@ -1,35 +1,34 @@
 /*
- * The pilot term set.
+ * The pilot term set: eight terms of the 2025 list. Their drafts are the
+ * 2025 MatBot Gemma 3 definitions already in the database, with the
+ * comments the first round left on them, so the walkthrough is a second
+ * round on that list.
  *
- * PLACEHOLDER. The 2025 ID4 study entered twenty terms; this list is to be
- * replaced with that set once recovered from the paper and the
- * matsci.yamz.net record [Chris has access]. Until then these twelve stand
- * in so rehearsals exercise the full protocol shape: two assigned terms per
- * persona, chosen to sit inside each persona's line of work.
- *
- * The driver never creates a term that already exists: terms are matched by
- * slug against the collection the operator built, and a hint here only
- * seeds the persona's define message.
+ * The driver never creates a term: terms are matched by label against the
+ * collection the operator built, and a term that is missing stops the run.
+ * The hint seeds only the persona's amend message.
  */
 
 export type PilotTerm = {
   term: string
-  // A nudge for the define step: what corner of the field the term is used
+  // A nudge for the amend step: what corner of the field the term is used
   // in, spoken to the persona.
   hint: string
 }
 
 export const pilotTerms: PilotTerm[] = [
-  { term: "yield strength", hint: "mechanical testing of metals" },
-  { term: "work hardening", hint: "plastic deformation behavior" },
-  { term: "band gap", hint: "electronic structure calculations" },
-  { term: "formation energy", hint: "defect thermodynamics" },
-  { term: "grain boundary", hint: "microstructural characterization" },
-  { term: "texture", hint: "crystallographic orientation distributions" },
-  { term: "glass transition temperature", hint: "polymer processing" },
-  { term: "cure kinetics", hint: "thermoset composite manufacture" },
-  { term: "metadata schema", hint: "research data curation" },
-  { term: "controlled vocabulary", hint: "data interoperability" },
-  { term: "fatigue limit", hint: "cyclic loading of structural steel" },
-  { term: "fracture toughness", hint: "crack growth resistance" }
+  { term: "phase diagram", hint: "alloy design and solidification" },
+  { term: "band gap", hint: "electronic structure of semiconductors" },
+  {
+    term: "density functional theory (dft)",
+    hint: "first-principles calculation"
+  },
+  { term: "activation energy", hint: "diffusion and reaction kinetics" },
+  { term: "high-entropy alloy", hint: "multi-principal-element alloy design" },
+  { term: "space group", hint: "crystallography and structure refinement" },
+  {
+    term: "coordination environment",
+    hint: "local structure of crystalline and amorphous materials"
+  },
+  { term: "elastic properties", hint: "mechanical testing and modulus measurement" }
 ]
