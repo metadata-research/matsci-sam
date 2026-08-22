@@ -17,6 +17,17 @@ jobs:
   db-invariants:
     runs-on: ubuntu-latest
 
+    env:
+      JENA_VERSION: 6.2.0
+      JENA_SHA512: 2b467d2ff940c207aea935e012ecbb0f0ab3e6bf59b3fc4b3fbc6cf9cea11f1428e97882ec078a5ffc57e114e0f5c88ea98c4575e687cc1dd232f99324b7b2a2
+      FUSEKI_SHA512: ba65f5867d2d4741b2ed9e2af5a0d4fbb447909894ab2a0c6bc4dac8997f4fe339c87b13c48d45d054977769f0f8bf763ea346b1f7792d5cdc458041bd43a132
+      # The graphs and the shapes name the application namespace under the
+      # persistent identifier base, so the export is minted under it.
+      IDENTIFIER_BASE_URL: https://w3id.org/matsci-sam
+      # A throwaway password for the in-memory store of this job.
+      FUSEKI_USER: projector
+      FUSEKI_PASSWORD: ci-projector
+
     services:
       postgres:
         # Matches the pinned production runtime (PostgreSQL 17, pgvector 0.8.5).
@@ -74,6 +85,155 @@ jobs:
         run: |
           pnpm test:kos-db
 
+      # The graph layer against the migrated database and a live store: the
+      # export is validated with the Jena CLI and the shapes, then the
+      # projector writes it into an in-memory Fuseki and test:graph-db
+      # compares the store with the database and runs the paper queries.
+      # The store is the assembler in scripts/, with the union default graph
+      # the paper queries need, behind a throwaway password.
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Apache Jena and Fuseki
+        id: jena-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/jena
+          key: jena-fuseki-${{ env.JENA_VERSION }}
+
+      - name: Download Apache Jena and Fuseki
+        if: steps.jena-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.cache/jena
+          curl -fsSL -o ~/.cache/jena/apache-jena-$JENA_VERSION.tar.gz \
+            https://dlcdn.apache.org/jena/binaries/apache-jena-$JENA_VERSION.tar.gz
+          curl -fsSL -o ~/.cache/jena/apache-jena-fuseki-$JENA_VERSION.tar.gz \
+            https://dlcdn.apache.org/jena/binaries/apache-jena-fuseki-$JENA_VERSION.tar.gz
+
+      - name: Unpack Apache Jena and Fuseki
+        run: |
+          echo "$JENA_SHA512  $HOME/.cache/jena/apache-jena-$JENA_VERSION.tar.gz" | sha512sum --check
+          echo "$FUSEKI_SHA512  $HOME/.cache/jena/apache-jena-fuseki-$JENA_VERSION.tar.gz" | sha512sum --check
+          tar -xzf ~/.cache/jena/apache-jena-$JENA_VERSION.tar.gz -C "$RUNNER_TEMP"
+          tar -xzf ~/.cache/jena/apache-jena-fuseki-$JENA_VERSION.tar.gz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/apache-jena-$JENA_VERSION/bin" >> "$GITHUB_PATH"
+
+      - name: Start Fuseki
+        run: |
+          mkdir -p "$RUNNER_TEMP/fuseki"
+          printf '%s: %s, admin\n' "$FUSEKI_USER" "$FUSEKI_PASSWORD" > "$RUNNER_TEMP/fuseki/passwd"
+          FUSEKI_BASE="$RUNNER_TEMP/fuseki/run" nohup \
+            "$RUNNER_TEMP/apache-jena-fuseki-$JENA_VERSION/fuseki-server" \
+            --config=scripts/fuseki-test-dataset.ttl --port 3030 --localhost --ping \
+            --passwd="$RUNNER_TEMP/fuseki/passwd" --auth=basic \
+            > "$RUNNER_TEMP/fuseki/server.log" 2>&1 &
+          curl -fsS --retry 30 --retry-delay 1 --retry-all-errors \
+            -u "$FUSEKI_USER:$FUSEKI_PASSWORD" 'http://localhost:3030/$/ping'
+
+      - name: Export and Validate Graphs
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm graphs:export graphs-export
+          grep -q "^@prefix matsci: <$IDENTIFIER_BASE_URL/metadata#>" graphs-export/provenance.ttl
+          for document in graphs-export/*.ttl; do riot --validate "$document"; done
+          riot --output=ttl graphs-export/vocabulary.ttl graphs-export/kos.ttl \
+            graphs-export/provenance.ttl graphs-export/matcore.ttl graphs-export/meta.ttl \
+            > graphs-export/merged.ttl
+          for shape in kos provenance people-exclusion; do
+            shacl validate --shapes "shapes/$shape.shacl.ttl" --data graphs-export/merged.ttl | tee report.ttl
+            grep -q 'sh:conforms *true' report.ttl
+          done
+
+      - name: Test Graph Store
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+          GRAPH_PROJECTION_ENABLED: "true"
+          FUSEKI_DATASET_URL: http://localhost:3030/matsci-sam
+        run: |
+          pnpm test:graph-db
+
+  # Validates the fixture graphs test:graph writes against the SHACL shapes
+  # with the pinned Apache Jena CLI, the validator a consumer of the
+  # published graphs would run. Each shape must conform on the merged
+  # fixture graphs and refuse the document written to break it.
+  graph:
+    runs-on: ubuntu-latest
+
+    env:
+      JENA_VERSION: 6.2.0
+      JENA_SHA512: 2b467d2ff940c207aea935e012ecbb0f0ab3e6bf59b3fc4b3fbc6cf9cea11f1428e97882ec078a5ffc57e114e0f5c88ea98c4575e687cc1dd232f99324b7b2a2
+      IDENTIFIER_BASE_URL: https://w3id.org/matsci-sam
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Apache Jena
+        id: jena-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/jena
+          key: jena-${{ env.JENA_VERSION }}
+
+      - name: Download Apache Jena
+        if: steps.jena-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.cache/jena
+          curl -fsSL -o ~/.cache/jena/apache-jena-$JENA_VERSION.tar.gz \
+            https://dlcdn.apache.org/jena/binaries/apache-jena-$JENA_VERSION.tar.gz
+
+      - name: Unpack Apache Jena
+        run: |
+          echo "$JENA_SHA512  $HOME/.cache/jena/apache-jena-$JENA_VERSION.tar.gz" | sha512sum --check
+          tar -xzf ~/.cache/jena/apache-jena-$JENA_VERSION.tar.gz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/apache-jena-$JENA_VERSION/bin" >> "$GITHUB_PATH"
+
+      - name: Export Fixture Graphs
+        run: |
+          pnpm test:graph --export graph-fixtures
+          grep -q "^@prefix matsci: <$IDENTIFIER_BASE_URL/metadata#>" graph-fixtures/provenance.ttl
+
+      - name: Validate Syntax
+        run: |
+          for document in graph-fixtures/*.ttl shapes/*.ttl; do riot --validate "$document"; done
+
+      - name: Validate Shapes
+        run: |
+          riot --output=ttl graph-fixtures/vocabulary.ttl graph-fixtures/kos.ttl \
+            graph-fixtures/provenance.ttl graph-fixtures/matcore.ttl graph-fixtures/meta.ttl \
+            > graph-fixtures/merged.ttl
+          for shape in kos provenance people-exclusion; do
+            shacl validate --shapes "shapes/$shape.shacl.ttl" --data graph-fixtures/merged.ttl | tee report.ttl
+            grep -q 'sh:conforms *true' report.ttl
+          done
+          for pair in kos:negative-kos provenance:negative-provenance people-exclusion:negative-people; do
+            shacl validate --shapes "shapes/${pair%%:*}.shacl.ttl" --data "graph-fixtures/${pair##*:}.ttl" | tee report.ttl
+            grep -q 'sh:conforms *false' report.ttl
+          done
+
   verify:
     runs-on: ubuntu-latest
 
@@ -125,6 +285,10 @@ jobs:
       - name: Test KOS Registry and Exports
         run: |
           pnpm test:kos
+
+      - name: Test Graph Layer
+        run: |
+          pnpm test:graph
 
       - name: Test Community Rules
         run: |
