@@ -563,6 +563,12 @@ export const definitionRevisionsTable = pgTable(
     sourceRefinementId: integer().references(
       (): AnyPgColumn => refinementsTable.id
     ),
+    // The define step this revision was written inside, set only on the
+    // initial revision of a definition published from a walkthrough. The
+    // study is reachable through the step and is not stored twice.
+    // drizzle/invariants.sql proves the step is a define step on the term of
+    // the definition and that this is version 1.
+    surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull(),
@@ -592,6 +598,7 @@ export const definitionRevisionsTable = pgTable(
     index("definition_revisions_derived_from_idx").on(
       table.derivedFromRevisionId
     ),
+    index("definition_revisions_survey_step_idx").on(table.surveyStepId),
     check("definition_revisions_version_positive", sql`${table.version} > 0`),
     check(
       "definition_revisions_predecessor_shape",
@@ -855,6 +862,11 @@ export const voteEventsTable = pgTable(
     // The community the voter was working in, resolved at write time inside
     // the vote transaction. Null reads as unscoped, never as unknown.
     communityId: integer().references((): AnyPgColumn => communitiesTable.id),
+    // The review step the act was taken inside, when it was taken from a
+    // walkthrough. The study is reachable through the step and is not stored
+    // twice. drizzle/invariants.sql proves the step is a review step on the
+    // term of the definition.
+    surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull()
@@ -865,6 +877,7 @@ export const voteEventsTable = pgTable(
       table.revisionId
     ),
     index("vote_events_user_idx").on(table.userId, table.createdAt),
+    index("vote_events_survey_step_idx").on(table.surveyStepId),
     foreignKey({
       columns: [table.revisionId, table.definitionId],
       foreignColumns: [
@@ -911,6 +924,11 @@ export const commentsTable = pgTable(
     promptHash: text(),
     promptText: text(),
     model: text(),
+    // The review step the comment was posted inside, when it was posted from
+    // a walkthrough. The study is reachable through the step and is not
+    // stored twice. drizzle/invariants.sql proves the step is a review step
+    // on the term of the definition.
+    surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull(),
@@ -936,6 +954,7 @@ export const commentsTable = pgTable(
     ),
     index("comments_revision_idx").on(table.revisionId),
     index("comments_user_idx").on(table.userId),
+    index("comments_survey_step_idx").on(table.surveyStepId),
     foreignKey({
       columns: [table.revisionId, table.definitionId],
       foreignColumns: [
@@ -1534,6 +1553,150 @@ export const studiesTable = pgTable(
       sql`${t.opensAt} IS NULL OR ${t.closesAt} IS NULL OR ${t.closesAt} > ${t.opensAt}`
     ),
     index("studies_community_idx").on(t.communityId)
+  ]
+)
+
+// --- SURVEY WALKTHROUGH ---
+// The survey is a walkthrough: an ordered set of steps that takes a
+// participant through the term set of a study, define first, then comment
+// and vote, with per-participant completion. An act taken inside a step is
+// the ordinary application write with the step as its context, so nothing
+// about attribution changes at the door. The studies table is untouched, and
+// a study without steps behaves exactly as released.
+//
+// Steps snapshot the collection when a steward generates them, deliberately:
+// a term added to the collection mid-study must not lengthen a walkthrough
+// someone has started. They are replaced wholesale until the first
+// completion exists and appended to after it, a router rule
+// (lib/surveys.ts mayRegenerateSteps).
+//
+// Nothing here reaches a graph. Who completed what is the participation of
+// the cohort, and the cohort stays unpublished.
+
+export const surveyStepKindEnum = pgEnum("survey_step_kind", [
+  "instructions",
+  "define",
+  "review",
+  "question"
+])
+
+export const surveyResponseKindEnum = pgEnum("survey_response_kind", [
+  "text",
+  "scale"
+])
+
+export type SurveyStep = typeof surveyStepsTable.$inferSelect
+export const surveyStepsTable = pgTable(
+  "surveySteps",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    studyId: integer()
+      .references(() => studiesTable.id)
+      .notNull(),
+    // One-based order within the study, contiguous from 1, which
+    // drizzle/invariants.sql proves. Resumption is the lowest position the
+    // participant has not completed, so there is no status column.
+    position: integer().notNull(),
+    kind: surveyStepKindEnum().notNull(),
+    // The term a define or review step is about. Required for those two
+    // kinds and absent for the other two, by CHECK.
+    termId: integer().references(() => termsTable.id),
+    // The instructions text, a nudge for a define or review step, or the
+    // question text. Plain text, as the study welcome is. Required where the
+    // step is nothing without it: instructions and question.
+    prompt: text(),
+    // Present exactly when the step is a question: how it is answered.
+    responseKind: surveyResponseKindEnum(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    unique("survey_steps_study_position_unique").on(t.studyId, t.position),
+    check("survey_steps_position_positive", sql`${t.position} > 0`),
+    check(
+      "survey_steps_term_by_kind",
+      sql`(${t.kind} IN ('define', 'review')) = (${t.termId} IS NOT NULL)`
+    ),
+    check(
+      "survey_steps_response_by_kind",
+      sql`(${t.kind} = 'question') = (${t.responseKind} IS NOT NULL)`
+    ),
+    check(
+      "survey_steps_prompt_by_kind",
+      sql`${t.kind} NOT IN ('instructions', 'question')
+          OR (${t.prompt} IS NOT NULL AND btrim(${t.prompt}) <> '')`
+    ),
+    index("survey_steps_term_idx").on(t.termId)
+  ]
+)
+
+// One participant's completion of one step. The row is the whole of the
+// progress record: no status enum and no counter. Whether a step may be
+// pressed through is a rule over the acts it asked for (lib/surveys.ts
+// stepGate), and this row says only that it was.
+export type SurveyStepCompletion =
+  typeof surveyStepCompletionsTable.$inferSelect
+export const surveyStepCompletionsTable = pgTable(
+  "surveyStepCompletions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    stepId: integer()
+      .references(() => surveyStepsTable.id)
+      .notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    // drizzle/invariants.sql proves the person had a live membership episode
+    // in the community of the study at this moment.
+    completedAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    unique("survey_step_completions_step_user_unique").on(t.stepId, t.userId),
+    index("survey_step_completions_user_idx").on(t.userId)
+  ]
+)
+
+// The answer to a question step: exactly one of the two value columns, by
+// CHECK, with the scale bounded 1 to 5. Rows rather than jsonb, so the
+// savepoint harness can probe each rule. A question is answered once, by
+// the unique pair. authorKind marks a simulated answer from the pilot driver
+// as the authorKind of a comment does, and its agreement with the account AI
+// flag is proven at release, as for comments.
+export type SurveyResponse = typeof surveyResponsesTable.$inferSelect
+export const surveyResponsesTable = pgTable(
+  "surveyResponses",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    stepId: integer()
+      .references(() => surveyStepsTable.id)
+      .notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    valueText: text(),
+    valueScale: integer(),
+    authorKind: actorKindEnum().notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    unique("survey_responses_step_user_unique").on(t.stepId, t.userId),
+    check(
+      "survey_responses_one_value",
+      sql`num_nonnulls(${t.valueText}, ${t.valueScale}) = 1`
+    ),
+    check(
+      "survey_responses_scale_range",
+      sql`${t.valueScale} IS NULL OR ${t.valueScale} BETWEEN 1 AND 5`
+    ),
+    check(
+      "survey_responses_text_nonblank",
+      sql`${t.valueText} IS NULL OR btrim(${t.valueText}) <> ''`
+    )
   ]
 )
 
