@@ -15,6 +15,7 @@ import {
   invitePath,
   studiesIndexPath,
   studyPath,
+  studyUri,
   definitionUri,
   identifierBaseUrl,
   matCoreElementUri,
@@ -143,6 +144,9 @@ assert.throws(() => communityPath(""), RangeError)
 assert.throws(() => invitePath(""), RangeError)
 assert.equal(studiesIndexPath, "/studies")
 assert.equal(studyPath("id4_round_two"), "/studies/id4_round_two")
+// A study is an activity with a published IRI; the people in it have none.
+assert.equal(studyUri("id4_round_two"), `${base}/studies/id4_round_two`)
 assert.throws(() => studyPath(""), RangeError)
+assert.throws(() => studyUri(""), RangeError)
 
 console.log("Public identifier tests passed")

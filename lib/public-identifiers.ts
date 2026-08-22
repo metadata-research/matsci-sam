@@ -85,6 +85,13 @@ export const communitiesIndexPath = "/communities"
 export const communityPath = (slug: string) =>
   `${communitiesIndexPath}/${slugSegment(slug, "Community slug")}`
 
+/*
+ * A study is published as a prov:Activity since the 2026-08-22 policy
+ * amendment: its title, its window and the collection it works through are
+ * in the dataset graph. Its people are not. The community that runs it, the
+ * roster and the invitations stay application routes with no identifier, and
+ * the study IRI says nothing about who took part.
+ */
 export const studiesIndexPath = "/studies"
 
 export const studyPath = (slug: string) =>
@@ -100,6 +107,7 @@ export const conceptUri = (schemeSlug: string, conceptSlug: string) =>
   absoluteIdentifier(conceptPath(schemeSlug, conceptSlug))
 export const collectionUri = (slug: string) =>
   absoluteIdentifier(collectionPath(slug))
+export const studyUri = (slug: string) => absoluteIdentifier(studyPath(slug))
 
 /*
  * A model that contributes is an agent with a resolvable identity, so it gets
