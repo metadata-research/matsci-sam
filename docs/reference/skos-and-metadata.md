@@ -35,7 +35,7 @@ secondary nodes under `@included`.
 | A definition                | `matsci:Definition`   | `dcterms:isPartOf`, `dcterms:subject`, `matsci:definitionNumber`, `matsci:currentRevision`, `dcterms:hasVersion`, `dcterms:created` |
 | A definition revision       | `matsci:DefinitionRevision` | `rdf:value`, `skos:example`, `dcterms:isVersionOf`, `prov:specializationOf`, `dcterms:creator`, `matsci:version`, `matsci:status`, `dcterms:created` |
 
-The application namespace is `https://<public-host>/metadata#`, and its terms
+The application namespace is `{identifier-base}/metadata#`, and its terms
 are listed in [Metadata access](/docs/metadata-access).
 
 ## Conventions

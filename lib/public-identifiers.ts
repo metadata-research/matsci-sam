@@ -1,6 +1,8 @@
-import { SITE_URL } from "./site"
+import { IDENTIFIER_BASE_URL } from "./site"
 
-export const identifierBaseUrl = SITE_URL.replace(/\/+$/, "")
+// The authority every IRI below is built under. Already normalized (no
+// trailing slash) and validated in lib/site.ts.
+export const identifierBaseUrl = IDENTIFIER_BASE_URL
 
 const positiveIntegerSegment = (value: number, label: string) => {
   if (!Number.isSafeInteger(value) || value < 1)

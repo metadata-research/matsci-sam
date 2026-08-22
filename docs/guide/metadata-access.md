@@ -38,17 +38,17 @@ definition of which it is a version.
 ## Resource identifiers
 
 The `@id` of every concept, definition, and revision is a human-readable IRI,
-not a database key. The application constructs the authority from
-`NEXT_PUBLIC_SITE_URL` and adds the canonical path:
+not a database key. The authority is the identifier base of the deployment,
+and the canonical path follows it:
 
 ```text
-https://<public-host>/vocabulary/martensite
-https://<public-host>/vocabulary/martensite/definitions/2
-https://<public-host>/vocabulary/martensite/definitions/2/revisions/1
+{identifier-base}/vocabulary/martensite
+{identifier-base}/vocabulary/martensite/definitions/2
+{identifier-base}/vocabulary/martensite/definitions/2/revisions/1
 ```
 
 The concept scheme uses the corresponding
-`https://<public-host>/vocabulary` IRI, which resolves to a human-readable
+`{identifier-base}/vocabulary` IRI, which resolves to a human-readable
 vocabulary page with embedded JSON-LD. Every term concept points at that IRI
 with `skos:inScheme`. A tag concept in the same export points instead at the
 tag scheme it belongs to.
@@ -56,9 +56,9 @@ tag scheme it belongs to.
 Tags, facets and collections have readable IRIs of their own:
 
 ```text
-https://<public-host>/tags/{scheme}
-https://<public-host>/tags/{scheme}/{tag}
-https://<public-host>/collections/{collection}
+{identifier-base}/tags/{scheme}
+{identifier-base}/tags/{scheme}/{tag}
+{identifier-base}/collections/{collection}
 ```
 
 A tag that names the same concept as a term states it with
@@ -73,11 +73,14 @@ identifies it as a facet in a curated scheme such as PSPP, or as a community
 topic. Each `dcterms:subject` object is a tag IRI in the `/tags/{scheme}/{tag}`
 form, and the numeric `/tags/{id}` address redirects permanently to it.
 
-Changing `NEXT_PUBLIC_SITE_URL` changes every resource and scheme IRI.
-Deployments should set the final public host before external citation or
-harvesting. Numeric term and definition routes on the same host remain
-compatibility aliases and redirect permanently to readable canonical
-addresses.
+The identifier base is `IDENTIFIER_BASE_URL` where a deployment sets one,
+and the application origin otherwise. Changing it changes every resource and
+scheme IRI, so a deployment sets it once, before external citation or
+harvesting. The public site mints under the persistent namespace
+`https://w3id.org/matsci-sam`, which redirects every path to the application
+host, so the host can move afterwards without touching an identifier. Numeric
+term and definition routes on the application host remain compatibility
+aliases and redirect permanently to readable canonical addresses.
 
 The [Identifiers and citation](/docs/identifiers) guide explains the path
 grammar, how slug collisions are numbered, and what stability to expect.
@@ -99,7 +102,7 @@ MatSci-SAM uses a small application vocabulary for details that SKOS, Dublin
 Core, and PROV-O do not name directly. Its namespace is:
 
 ```text
-https://<public-host>/metadata#
+{identifier-base}/metadata#
 ```
 
 The base `/metadata` address redirects to this guide. Its core resource
