@@ -85,15 +85,35 @@ jobs:
         run: |
           pnpm test:kos-db
 
-      # The graph layer against the migrated database and a live store: the
-      # export is validated with the Jena CLI and the shapes, then the
-      # projector writes it into an in-memory Fuseki and test:graph-db
-      # compares the store with the database and runs the paper queries.
-      # The store is the assembler in scripts/, with the union default graph
-      # the paper queries need, behind a throwaway password. This database
-      # holds only what migrations seed, no term, statement, vote or study,
-      # so the step proves the round trip and that the queries run, not
-      # the content; the fixture graphs in the graph job cover the content.
+      # A migrated database holds no term, statement, vote or study, so the
+      # graph steps below had nothing to check: the shapes saw no assertion,
+      # vote event or study, and the paper queries answered no rows. The
+      # seed writes a fixture with every shape the emitters have, through
+      # the same lib/ functions the routers and the pilot driver call, and
+      # refuses a database that holds a term. The invariants are checked
+      # again on the result, because the seed is the one write in this job
+      # that is meant to persist.
+      - name: Seed Graph Fixture
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm seed:ci-graph
+
+      - name: Check Database Invariants on the Fixture
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm db:invariants
+
+      # The graph layer against the seeded database and a live store: the
+      # export is validated with the Jena CLI and the shapes, which now have
+      # an assertion, a retraction, a vote event of each record, a study and
+      # every actor kind to check, then the projector writes it into an
+      # in-memory Fuseki and test:graph-db compares the store with the
+      # database, requires every entity count to be above zero, and requires
+      # every paper query to answer at least one row. The store is the
+      # assembler in scripts/, with the union default graph the paper queries
+      # need, behind a throwaway password.
       - name: Install Java
         uses: actions/setup-java@v4
         with:
@@ -157,7 +177,7 @@ jobs:
           GRAPH_PROJECTION_ENABLED: "true"
           FUSEKI_DATASET_URL: http://localhost:3030/matsci-sam
         run: |
-          pnpm test:graph-db
+          pnpm test:graph-db --seeded
 
   # Validates the fixture graphs test:graph writes against the SHACL shapes
   # with the pinned Apache Jena CLI, the validator a consumer of the

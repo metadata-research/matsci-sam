@@ -32,7 +32,8 @@
     "graphs:project": "tsx --conditions=react-server scripts/project-graphs.ts project",
     "graphs:export": "tsx --conditions=react-server scripts/project-graphs.ts export",
     "test:graph": "tsx --conditions=react-server scripts/test-graph.ts",
-    "test:graph-db": "tsx --conditions=react-server scripts/test-graph-db.ts"
+    "test:graph-db": "tsx --conditions=react-server scripts/test-graph-db.ts",
+    "seed:ci-graph": "tsx --conditions=react-server scripts/seed-ci-graph.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

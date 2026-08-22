@@ -129,14 +129,20 @@ fixture graphs, checks every document and shape with `riot --validate`, and
 runs `shacl validate` for each shape against the merged fixture graphs,
 which must conform, and against the document written to break it, which
 must report every planted violation by its message. The `db-invariants`
-job, after the ledger test, starts Fuseki from the assembler with a
-throwaway password, exports the graphs from the migrated database,
-validates them the same way, and runs `pnpm test:graph-db`. That database
-holds only what migrations seed, no term, statement, vote or study, so the
-job proves the round trip and that the queries run, and the fixture graphs
-are what proves the content. Both jobs pin Jena 6.2.0 by SHA-512, cache the
-tarballs by version, set `IDENTIFIER_BASE_URL` to the persistent base, and
-check that the export declares the namespace the shapes name.
+job, after the ledger test, seeds the migrated database with
+`pnpm seed:ci-graph`, a fixture written through the same `lib/` write paths
+the routers and the pilot driver use: definitions by simulated accounts and
+by the model identity, a statement of every subject and object kind with a
+retraction and a legacy row, a collection, a community, a study, votes from
+both records with a withdrawal, and stamped simulated comments. The seed
+refuses a database that holds a term, and the invariants are checked again
+on the result. The job then starts Fuseki from the assembler with a
+throwaway password, exports the graphs, validates them the same way, and
+runs `pnpm test:graph-db --seeded`, which requires every entity count to be
+above zero and every paper query to answer at least one row. Both jobs pin
+Jena 6.2.0 by SHA-512, cache the tarballs by version, set
+`IDENTIFIER_BASE_URL` to the persistent base, and check that the export
+declares the namespace the shapes name.
 
 ## The paper queries
 

@@ -4,21 +4,20 @@
  * FUSEKI_PASSWORD, and GRAPH_PROJECTION_ENABLED=true; the CI db-invariants
  * job starts an in-memory Fuseki for it. Run as
  *
- *   tsx --conditions=react-server scripts/test-graph-db.ts
+ *   tsx --conditions=react-server scripts/test-graph-db.ts [--seeded]
  *
  * so the "server-only" imports resolve. Projects the graphs, then proves
  * four things: the store holds as many triples per graph as the projector
  * counted; the entity counts the store answers agree with the database;
  * every revision in the union is typed and linked to its definition once;
- * and every paper query in scripts/graph-queries/ executes, and answers
- * whenever the database holds what it asks about. The paper queries are
- * written against the union default graph, which the dataset must provide
- * (scripts/fuseki-test-dataset.ttl does), and under the persistent
- * identifier base; a store projected under another base is queried with
- * that base in their place. On a database with no terms, votes or studies
- * (the CI database holds only what migrations seed) the comparisons are of
- * zero with zero and the queries answer nothing; the round trip is what
- * the run proves there.
+ * and every paper query in scripts/graph-queries/ executes, and answers at
+ * least one row whenever the database holds what it asks about. With
+ * --seeded, against the fixture scripts/seed-ci-graph.ts writes, every
+ * entity count must be above zero and every query must answer. The paper
+ * queries are written against the union default graph, which the dataset
+ * must provide (scripts/fuseki-test-dataset.ttl does), and under the
+ * persistent identifier base; a store projected under another base is
+ * queried with that base in their place.
  */
 
 // First, so lib/site.ts reads the identifier base and the site URL from
@@ -33,6 +32,11 @@ import { count, sql } from "drizzle-orm"
 // Relative to the working directory, which is the repository root under
 // pnpm, the same convention graphs:export uses for its output directory.
 const QUERY_DIR = resolve("scripts/graph-queries")
+
+// The CI db-invariants job passes --seeded once scripts/seed-ci-graph.ts
+// has written its fixture, so an entity count of zero or a query with no
+// rows is a failure there and a fact about the database anywhere else.
+const seeded = process.argv.slice(2).includes("--seeded")
 
 type Binding = Record<string, { type: string; value: string }>
 
@@ -51,6 +55,8 @@ const main = async () => {
   }
 
   const {
+    aiModelsTable,
+    commentsTable,
     db,
     definitionsTable,
     statementsTable,
@@ -133,6 +139,27 @@ const main = async () => {
       )),
     studies: await rows(db.select({ n: count() }).from(studiesTable))
   }
+  if (seeded)
+    for (const key of Object.keys(expected) as (keyof typeof expected)[])
+      assert.ok(expected[key] > 0, `${key}: the seeded database holds none`)
+  // What the paper queries ask about beyond those counts: a comment states
+  // an actor kind as a vote event does, and a model with an IRI of its own
+  // has a contribution once it asserted a statement or voted, in either
+  // record, which is what lib/graph/provenance-dataset.ts attributes or
+  // associates to that IRI.
+  const present = {
+    comments: await rows(db.select({ n: count() }).from(commentsTable)),
+    modelContributions: await rows(
+      db
+        .select({ n: count() })
+        .from(aiModelsTable)
+        .where(
+          sql`EXISTS (SELECT 1 FROM ${statementsTable} s WHERE s."assertedById" = ${aiModelsTable.userId})
+            OR EXISTS (SELECT 1 FROM ${voteEventsTable} e WHERE e."userId" = ${aiModelsTable.userId})
+            OR EXISTS (SELECT 1 FROM ${votesTable} v WHERE v."userId" = ${aiModelsTable.userId})`
+        )
+    )
+  }
   const stored = {
     terms: await countOf(
       inGraph(
@@ -181,32 +208,33 @@ const main = async () => {
   // under its site URL) holds the same graphs under that base, so the base
   // a query names is replaced before it runs. Left as written, such a query
   // would match nothing and pass with no rows.
+  // A query that matches nothing executes and passes as written, which is
+  // how a misspelled predicate would get through, so each one names the
+  // database count it depends on: with that count above zero it must answer
+  // at least one row, and with --seeded every one must.
+  const answers: Record<string, boolean> = {
+    "01-acts-by-actor-kind": expected.voteEvents > 0 || present.comments > 0,
+    "02-assertions-with-retractions": expected.assertions > 0,
+    "03-vote-history-of-a-revision": expected.voteEvents > 0,
+    "04-study-with-its-worklist": expected.studies > 0,
+    "05-contributions-of-a-model": present.modelContributions > 0
+  }
   const files = readdirSync(QUERY_DIR)
     .filter((f) => f.endsWith(".rq"))
     .sort()
   assert.equal(files.length, 5, "five paper queries")
-  // What each query must answer when the database holds its subject: acts
-  // exist when there is a vote event, assertions when there is a statement,
-  // the vote history when there is a vote event, a study when there is one.
-  // Query 05 depends on which accounts are models, which no count here
-  // states, so it is only required to execute.
-  const expectRows: Record<string, boolean> = {
-    "01-acts-by-actor-kind": expected.voteEvents > 0,
-    "02-assertions-with-retractions": expected.assertions > 0,
-    "03-vote-history-of-a-revision": expected.voteEvents > 0,
-    "04-study-with-its-worklist": expected.studies > 0
-  }
   for (const file of files) {
     const query = readFileSync(join(QUERY_DIR, file), "utf8")
     const name = basename(file, ".rq")
     assert.ok(query.startsWith("# "), `${file} starts with its comment`)
+    assert.ok(name in answers, `${file} has no rule for when it must answer`)
     const base = query.match(/^PREFIX matsci: <(.+)\/metadata#>/m)?.[1]
     const rebase = base !== undefined && base !== identifierBaseUrl
     if (rebase) console.log(`${name}\t${base} read as ${identifierBaseUrl}`)
     const bindings = await select(
       rebase ? query.replaceAll(base, identifierBaseUrl) : query
     )
-    if (expectRows[name])
+    if (seeded || answers[name])
       assert.ok(bindings.length > 0, `${name} answers on this database`)
     console.log(`${name}\t${bindings.length} rows`)
   }
