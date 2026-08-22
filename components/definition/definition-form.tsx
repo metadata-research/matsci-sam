@@ -102,19 +102,24 @@ function TermGuidance({
 export type PublishedDefinition = RouterOutput["definitions"]["create"]
 
 /*
- * The definition form, shared by /add and the define step of a walkthrough.
- * On /add the contributor picks the term and the AI workflow; in the
- * walkthrough the step fixes the term, the chooser is not shown and the
- * publish is classic, so the term gets a model definition to compare against
- * at the review step. /add navigates to what was published; the walkthrough
- * stays on the page and advances instead.
+ * The definition form, shared by /add and the position step of a
+ * walkthrough. On /add the contributor picks the term and the AI workflow;
+ * in the walkthrough the step fixes the term, the chooser is not shown and
+ * the publish is classic, so a term without a model definition gets its
+ * draft. An amendment opens with the text of the candidate it amends and
+ * names its current revision, so the record states the derivation. /add
+ * navigates to what was published; the walkthrough stays on the page and
+ * advances instead.
  */
 export const DefinitionForm = ({
   interactive,
   onInteractiveChange,
   initialTerm = "",
+  initialDefinition = "",
+  initialExample = "",
   lockedTerm,
   surveyStepId,
+  derivedFromRevisionId,
   onPublished
 }: {
   interactive: boolean
@@ -122,11 +127,16 @@ export const DefinitionForm = ({
   // when the mode is fixed, and then the chooser is not rendered.
   onInteractiveChange?: (interactive: boolean) => void
   initialTerm?: string
+  // What the fields open with: the text of the candidate being amended.
+  initialDefinition?: string
+  initialExample?: string
   // The term is decided before the form opens, so the field is not shown and
   // the vocabulary list is not loaded.
   lockedTerm?: string
   // The define step the definition is written inside.
   surveyStepId?: number
+  // The current revision of the candidate this definition amends.
+  derivedFromRevisionId?: number
   // Where a publish leads when it is not the term page.
   onPublished?: (published: PublishedDefinition) => void
 }) => {
@@ -135,7 +145,11 @@ export const DefinitionForm = ({
 
   const form = useForm<DefineTerm>({
     resolver: zodResolver(DefineTermSchema),
-    defaultValues: { term, examples: "", definition: "" }
+    defaultValues: {
+      term,
+      examples: initialExample,
+      definition: initialDefinition
+    }
   })
 
   const mutation = trpc.definitions.create.useMutation({
@@ -190,7 +204,12 @@ export const DefinitionForm = ({
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((data) =>
-              mutation.mutate({ ...data, interactive, surveyStepId })
+              mutation.mutate({
+                ...data,
+                interactive,
+                surveyStepId,
+                derivedFromRevisionId
+              })
             )}
             onChange={() => {
               if (mutation.error) mutation.reset()

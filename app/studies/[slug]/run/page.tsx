@@ -144,7 +144,8 @@ export default async function RunPage({
   await trpc.surveys.get.prefetch({ studySlug: slug })
 
   // The resume step is painted first, so what it reads is prefetched too:
-  // the definitions of its term, and for a review step their comments.
+  // the candidates of its term and their comments, which a position step
+  // and a review step both show.
   const walkthrough = prefetched<RouterOutput["surveys"]["get"]>(
     ["surveys", "get"],
     { studySlug: slug }
@@ -152,23 +153,18 @@ export default async function RunPage({
   const resume = walkthrough?.steps.find(
     (step) => step.position === walkthrough.resumePosition
   )
-  if (
-    resume?.termId &&
-    (resume.kind === "review" || resume.hasOriginalDefinition)
-  ) {
+  if (resume?.termId) {
     await trpc.definitions.list.prefetch({ termId: resume.termId })
-    if (resume.kind === "review") {
-      const definitions =
-        prefetched<RouterOutput["definitions"]["list"]>(
-          ["definitions", "list"],
-          { termId: resume.termId }
-        ) ?? []
-      await Promise.all(
-        definitions.map((definition) =>
-          trpc.comments.get.prefetch(definition.id)
-        )
+    const definitions =
+      prefetched<RouterOutput["definitions"]["list"]>(
+        ["definitions", "list"],
+        { termId: resume.termId }
+      ) ?? []
+    await Promise.all(
+      definitions.map((definition) =>
+        trpc.comments.get.prefetch(definition.id)
       )
-    }
+    )
   }
 
   return (

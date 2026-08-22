@@ -21,21 +21,28 @@ import { collectionPath, studyPath } from "@/lib/public-identifiers"
  * The step shell of a walkthrough. It opens at the step the router says the
  * viewer resumes at, shows one step at a time, and moves on when the step
  * is complete. The acts a step asks for are the ordinary surfaces: the
- * definition form, the definition cards with their votes, the comment box.
+ * definition cards with their votes, the definition form, the comment box.
  * Each is given the step, so what it writes names the step it was written
  * in, and the router decides whether the step is done.
  *
+ * A define step is shown as a position step: the candidates of the term,
+ * the draft first, and the three moves. Accepting a candidate is an upvote
+ * that names the step; amending one opens the form with its text and names
+ * its revision as the source; replacing them opens the form empty. A review
+ * step compares the candidates where there is more than one.
+ *
  * A completed step stays readable from the dots, without its controls: its
  * completion stands. A step is reachable once the step before it is
- * complete, so nobody reviews a term they have not defined.
+ * complete, so nobody compares candidates before taking a position.
  */
 
 type Walkthrough = RouterOutput["surveys"]["get"]
 type Step = Walkthrough["steps"][number]
+type Candidate = RouterOutput["definitions"]["list"][number]
 
 const KIND_LABEL: Record<Step["kind"], string> = {
   instructions: "Instructions",
-  define: "Define",
+  define: "Position",
   review: "Review",
   question: "Question"
 }
@@ -116,99 +123,329 @@ const Instructions = ({
   </div>
 )
 
-// The viewer's own definition of the term, as a record: the vote rail is
-// left off, because a define step is not where votes are cast.
-const OwnDefinition = ({
-  termId,
-  termSlug,
-  viewerId
-}: {
-  termId: number
-  termSlug: string
-  viewerId: number
-}) => {
-  const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
-  const own = definitions.find(
-    (definition) =>
-      definition.authorId === viewerId && definition.refinedFromId === null
+// The draft of a term is its model definition, the earliest where there is
+// more than one.
+const isDraft = (candidate: Candidate) => Boolean(candidate.authorModelSlug)
+
+const earliestFirst = (a: Candidate, b: Candidate) =>
+  a.createdAt.localeCompare(b.createdAt) || a.id - b.id
+
+/*
+ * The candidates in the order the position step shows them: the draft
+ * first, then the rest in support order, the earliest first among equals,
+ * which is the order the outcome on the study page reads them in. The
+ * server orders by score with the newest first among equals, for the term
+ * page.
+ */
+const orderCandidates = (definitions: Candidate[]) => {
+  const bySupport = [...definitions].sort(
+    (a, b) => b.score - a.score || earliestFirst(a, b)
+  )
+  const draft = definitions.filter(isDraft).sort(earliestFirst)[0]
+  return draft
+    ? [draft, ...bySupport.filter((candidate) => candidate.id !== draft.id)]
+    : bySupport
+}
+
+// The candidate a held position names, as a record: the vote rail keeps the
+// score with its buttons disabled, because the position is taken.
+const HeldPosition = ({ step }: { step: Step }) => {
+  const [definitions] = trpc.definitions.list.useSuspenseQuery({
+    termId: step.termId!
+  })
+  const held = definitions.find(
+    (definition) => definition.id === step.held?.definitionId
   )
 
-  if (!own)
+  if (!held || !step.held)
     return (
       <p className="text-sm text-muted-foreground">
-        Your definition of this term is no longer in the vocabulary.
+        The candidate you took a position on is no longer in the vocabulary.
       </p>
     )
 
-  return <Definition definition={{ ...own, termSlug, vote: undefined }} />
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        {step.held.kind === "accepted"
+          ? "You accepted this candidate."
+          : "You proposed this candidate."}
+      </p>
+      <Definition
+        definition={{ ...held, termSlug: step.termSlug! }}
+        voteReadOnly
+        voteReadOnlyTitle="Your position on this term is recorded"
+      />
+    </div>
+  )
 }
 
-const Define = ({
+type Move =
+  | { kind: "choose" }
+  | { kind: "amend"; candidate: Candidate }
+  | { kind: "replace" }
+
+/*
+ * The candidates of the term and the three moves. Accepting is an upvote
+ * that names the step, and the completion follows it as the press follows a
+ * review. Amending and replacing publish through the definition form, which
+ * records the completion with the definition.
+ */
+const Candidates = ({
   step,
   viewerId,
   pending,
+  onAccepted,
+  onPublished
+}: {
+  step: Step
+  viewerId: number
+  pending: boolean
+  onAccepted: () => void
+  onPublished: (published: RouterOutput["definitions"]["create"]) => void
+}) => {
+  const termId = step.termId!
+  const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
+  const candidates = orderCandidates(definitions)
+  const [move, setMove] = useState<Move>({ kind: "choose" })
+  const utils = trpc.useUtils()
+
+  const accept = trpc.votes.vote.useMutation({
+    onSuccess: (_, { definitionId, revisionId }) => {
+      // The rail of the accepted card reads votes.get, which was primed from
+      // the list and is read again here, or it would show the score as it
+      // was before the upvote.
+      utils.votes.get.invalidate({ definitionId, revisionId })
+      onAccepted()
+    },
+    onError: (error) => {
+      toast.error(error.message)
+      utils.definitions.list.invalidate({ termId })
+    }
+  })
+
+  // One original definition per person per term: a viewer who already has
+  // one here cannot amend or replace, and accepts instead.
+  const ownOriginal = candidates.some(
+    (candidate) =>
+      candidate.authorId === viewerId && candidate.refinedFromId === null
+  )
+  const busy = pending || accept.isPending
+
+  if (move.kind !== "choose") {
+    const candidate = move.kind === "amend" ? move.candidate : null
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          {candidate
+            ? `Amending definition ${candidate.definitionNumber}. What you publish is a candidate of its own, recorded as derived from it.`
+            : "What you publish joins the candidates."}
+        </p>
+        <DefinitionForm
+          key={candidate?.id ?? "replace"}
+          interactive={false}
+          lockedTerm={step.term!}
+          surveyStepId={step.id}
+          initialDefinition={candidate?.definition}
+          initialExample={candidate?.example}
+          derivedFromRevisionId={candidate?.revisionId}
+          onPublished={onPublished}
+        />
+        <Button
+          variant="ghost"
+          onClick={() => setMove({ kind: "choose" })}
+          disabled={busy}
+        >
+          Back to the candidates
+        </Button>
+      </div>
+    )
+  }
+
+  const draftFirst = candidates.length > 0 && isDraft(candidates[0])
+
+  return (
+    <div className="space-y-6">
+      {candidates.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          This term has no candidate yet.
+        </p>
+      )}
+      {candidates.map((candidate, index) => {
+        // A standing upvote from outside this round would be withdrawn by a
+        // second upvote, so it cannot be re-cast as the position here.
+        const standing = candidate.vote === "up"
+        return (
+          <div key={candidate.id} className="space-y-3">
+            {index === 0 && (
+              <Eyebrow>{draftFirst ? "Draft" : "Candidates"}</Eyebrow>
+            )}
+            {index === 1 && draftFirst && <Eyebrow>Proposed so far</Eyebrow>}
+            <Definition
+              definition={{ ...candidate, termSlug: step.termSlug! }}
+              voteReadOnly
+              voteReadOnlyTitle="Accept a candidate to vote for it"
+            />
+            <div className="space-y-3 pl-4 sm:pl-8">
+              <Suspense fallback={<Skeleton className="h-16 w-full" />}>
+                <TermComments
+                  id={candidate.id}
+                  definitionNumber={candidate.definitionNumber}
+                  readOnly
+                />
+              </Suspense>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={busy || standing}
+                  title={
+                    standing
+                      ? "Your vote for this candidate stands from before this round. Withdraw it on the term page to accept it here."
+                      : undefined
+                  }
+                  onClick={() =>
+                    accept.mutate({
+                      definitionId: candidate.id,
+                      revisionId: candidate.revisionId,
+                      vote: "up",
+                      surveyStepId: step.id
+                    })
+                  }
+                >
+                  Accept
+                </Button>
+                {!ownOriginal && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => setMove({ kind: "amend", candidate })}
+                  >
+                    Amend
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+      {ownOriginal ? (
+        <p className="text-sm text-muted-foreground">
+          You already have a definition of this term, so the move open to you
+          here is to accept a candidate.
+        </p>
+      ) : (
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() => setMove({ kind: "replace" })}
+        >
+          None of these work
+        </Button>
+      )}
+      <AiPendingCard termId={termId} />
+    </div>
+  )
+}
+
+const Position = ({
+  step,
+  viewerId,
+  pending,
+  onAccepted,
   onPublished,
   onContinue
 }: {
   step: Step
   viewerId: number
   pending: boolean
+  onAccepted: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
   onContinue: () => void
-}) => {
-  if (!step.hasOriginalDefinition)
-    return (
-      <div className="space-y-4">
-        {step.prompt && <p className="text-muted-foreground">{step.prompt}</p>}
-        <DefinitionForm
-          interactive={false}
-          lockedTerm={step.term!}
-          surveyStepId={step.id}
+}) => (
+  <div className="space-y-6">
+    {step.prompt && !step.hasPosition && (
+      <p className="text-muted-foreground">{step.prompt}</p>
+    )}
+    <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+      {step.hasPosition ? (
+        <HeldPosition step={step} />
+      ) : (
+        <Candidates
+          step={step}
+          viewerId={viewerId}
+          pending={pending}
+          onAccepted={onAccepted}
           onPublished={onPublished}
         />
+      )}
+    </Suspense>
+    {step.hasPosition && (
+      <Button onClick={onContinue} disabled={pending}>
+        Continue
+      </Button>
+    )}
+  </div>
+)
+
+/*
+ * The candidates of the term, each with its discussion, where there is more
+ * than one to compare. The order is the one the server returns and does not
+ * follow the votes cast here, so a card does not move under the person
+ * commenting on it. Read-only after the step is complete: the vote rail
+ * keeps the score and the viewer's vote with its buttons disabled, and the
+ * comment boxes are not shown. A term with one candidate has nothing to
+ * compare, and the step completes on the press.
+ */
+const ReviewList = ({
+  step,
+  readOnly,
+  pending,
+  onDone
+}: {
+  step: Step
+  readOnly: boolean
+  pending: boolean
+  onDone: () => void
+}) => {
+  const termId = step.termId!
+  const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
+
+  if (definitions.length <= 1)
+    return (
+      <div className="space-y-6">
+        {definitions.length === 1 ? (
+          <>
+            <p className="text-muted-foreground">
+              This term has one candidate, so there is nothing to compare. It
+              stands with the support it has.
+            </p>
+            <Definition
+              definition={{ ...definitions[0], termSlug: step.termSlug! }}
+              voteReadOnly
+              voteReadOnlyTitle="The only candidate is not compared"
+            />
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            This term has no candidate to review.
+          </p>
+        )}
+        <Button onClick={onDone} disabled={pending}>
+          Continue
+        </Button>
       </div>
     )
 
   return (
-    <div className="space-y-4">
-      <Suspense fallback={<Skeleton className="h-32 w-full" />}>
-        <OwnDefinition
-          termId={step.termId!}
-          termSlug={step.termSlug!}
-          viewerId={viewerId}
-        />
-      </Suspense>
-      <Button onClick={onContinue} disabled={pending}>
-        Continue
-      </Button>
-    </div>
-  )
-}
-
-/*
- * The definitions of the term, each with its discussion. The order is the
- * one the server returns and does not follow the votes cast here, so a card
- * does not move under the person commenting on it. Read-only after the
- * step is complete: the vote rail keeps the score and the viewer's vote with
- * its buttons disabled, and the comment boxes are not shown.
- */
-const ReviewList = ({ step, readOnly }: { step: Step; readOnly: boolean }) => {
-  const termId = step.termId!
-  const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
-
-  return (
     <div className="space-y-6">
-      {definitions.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          This term has no definitions to review.
-        </p>
-      )}
+      {step.prompt && <p className="text-muted-foreground">{step.prompt}</p>}
       {definitions.map((definition, index) => (
         <div key={definition.id} className="space-y-3">
           <Definition
             definition={{ ...definition, termSlug: step.termSlug! }}
-            // As on the term page: marked only when there is more than one.
-            isDefault={index === 0 && definitions.length > 1}
+            // As on the term page: the leading candidate is marked.
+            isDefault={index === 0}
             surveyStepId={step.id}
             voteReadOnly={readOnly}
             voteReadOnlyTitle="This step is complete"
@@ -233,6 +470,9 @@ const ReviewList = ({ step, readOnly }: { step: Step; readOnly: boolean }) => {
         </div>
       ))}
       <AiPendingCard termId={termId} />
+      <Button onClick={onDone} disabled={pending}>
+        {step.completed ? "Continue" : "Done with this term"}
+      </Button>
     </div>
   )
 }
@@ -246,15 +486,14 @@ const Review = ({
   pending: boolean
   onDone: () => void
 }) => (
-  <div className="space-y-6">
-    {step.prompt && <p className="text-muted-foreground">{step.prompt}</p>}
-    <Suspense fallback={<Skeleton className="h-32 w-full" />}>
-      <ReviewList step={step} readOnly={step.completed} />
-    </Suspense>
-    <Button onClick={onDone} disabled={pending}>
-      {step.completed ? "Continue" : "Done with this term"}
-    </Button>
-  </div>
+  <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+    <ReviewList
+      step={step}
+      readOnly={step.completed}
+      pending={pending}
+      onDone={onDone}
+    />
+  </Suspense>
 )
 
 const SCALE = [1, 2, 3, 4, 5] as const
@@ -355,7 +594,8 @@ const Finished = ({ study }: { study: Walkthrough["study"] }) => (
   <div className="space-y-4">
     <p className="text-muted-foreground">
       Thank you. Your work here is recorded with the study, and the steps above
-      stay open to read.
+      stay open to read. The study page shows the agreed definition of each
+      term so far.
     </p>
     <div className="flex flex-wrap gap-2">
       <Button asChild>
@@ -400,8 +640,8 @@ export const Walkthrough = ({
   }
 
   // A refusal means the facts the shell holds are behind the record: the
-  // definition a gate took was removed, or the steps were regenerated. The
-  // walkthrough is read again so the step shows what the router sees.
+  // candidate a position named was removed, or the steps were regenerated.
+  // The walkthrough is read again so the step shows what the router sees.
   const reread = () => utils.surveys.get.invalidate({ studySlug })
 
   const complete = trpc.surveys.completeStep.useMutation({
@@ -480,11 +720,17 @@ export const Walkthrough = ({
                 onContinue={() => press(step)}
               />
             ) : step.kind === "define" ? (
-              <Define
+              <Position
                 key={step.id}
                 step={step}
                 viewerId={viewerId}
                 pending={complete.isPending}
+                onAccepted={() => {
+                  // The upvote is the position; the score it changed is read
+                  // again, and the step completes as a press would.
+                  utils.definitions.list.invalidate({ termId: step.termId! })
+                  press(step)
+                }}
                 onPublished={(published) => {
                   utils.definitions.list.invalidate({ termId: step.termId! })
                   // The completion came back with the definition, and with
