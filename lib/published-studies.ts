@@ -3,14 +3,10 @@
 //
 // These are reference material and not rows. A study actually run here is a
 // row in the studies table, read through lib/study-queries.ts. This file is
-// what that work was scoped against.
-//
-// A study is a record here, not a row. Phase 4 of the implementation program
-// owns the data model for a study run on this platform, and it is not started.
+// what that work was scoped against, and each support note records what the
+// application provided when the step was scoped, not what it provides today.
 // Nothing below is stored, none of it is published as RDF, and no identifier
-// here is a public one. The value of writing it down now is that Phase 4 has
-// to be scoped against what the papers actually did, and both protocols say
-// much of the work was email rather than platform features.
+// here is a public one.
 //
 // Both studies ran on predecessor software. The 2024 study used YAMZ and the
 // 2025 study used MatSci-YAMZ, a Python application at matsci.yamz.net. This
@@ -21,8 +17,8 @@ export type StepSupport = "supported" | "partial" | "missing"
 export type ProtocolStep = {
   title: string
   detail: string
-  // What this application provides for the step today, which is the question
-  // Phase 4 has to answer before any of it is built.
+  // What this application provided for the step when the study work was
+  // scoped against it.
   support: StepSupport
   supportNote: string
 }

@@ -12,10 +12,15 @@ All in `drizzle/schema.ts`, under `KNOWLEDGE ORGANIZATION` and
 `TAG PROPOSALS`.
 
 **`conceptSchemes`** is a `skos:ConceptScheme` other than the dictionary.
-`curated` settles both who may attach its concepts and at which level.
-Curated schemes attach at term level as facets, open schemes at definition
-level as topics. `slug` is unique and never all digits, so `/tags/<digits>`
-remains free for the legacy numeric redirect.
+Four policy columns state its rules, so a new scheme is a row rather than a
+code change: `attachesAt` settles the level its concepts attach at, `term`
+as facets or `definition` as topics; `assertableBy` settles whether a
+contributor may assert them or only a curator; `bridgeable` settles whether
+a concept here may be declared the same concept as a term, which facet
+schemes refuse because a classifier is not the thing it classifies; and
+`conceptOrder` settles whether concepts list in seeded order or by label.
+`slug` is unique and never all digits, so `/tags/<digits>` remains free for
+the legacy numeric redirect.
 
 **`concepts`** is a tag. `slug` is unique per scheme, so the IRI includes the
 scheme. `status` is `approved`, `retired` or `proposed`, and a retired
