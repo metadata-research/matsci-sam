@@ -1,9 +1,10 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
-import { db } from "@yamz/db"
+import { eq } from "drizzle-orm"
+import { db, definitionsTable } from "@yamz/db"
 import { baseProcedure, createTRPCRouter } from "../init"
-import { authenticatedProcedure } from "../procedures"
+import { authenticatedProcedure, contributorProcedure } from "../procedures"
 import { requireRunner } from "./communities"
 import { studyState } from "@/lib/communities"
 import { membershipIn } from "@/lib/community-queries"
@@ -22,6 +23,7 @@ import {
   appendQuestionStep,
   completionCountOfStudy,
   hasOriginalDefinition,
+  lockStudy,
   nextPositionFor,
   recordResponse,
   replaceSteps,
@@ -52,10 +54,19 @@ const questionSchema = z.object({
 })
 
 // The SQLSTATE of a database refusal, however drizzle wrapped it.
-const sqlState = (error: unknown) => {
+export const sqlState = (error: unknown) => {
   const cause = (error as { cause?: { code?: unknown } }).cause
   return String(cause?.code ?? (error as { code?: unknown }).code ?? "")
 }
+
+// A step a write named was deleted under it: the steward regenerated the
+// walkthrough between the page loading and the press, and the foreign key
+// refused the row. The same answer from every write that names a step.
+export const regeneratedConflict = () =>
+  new TRPCError({
+    code: "CONFLICT",
+    message: "The walkthrough was regenerated. Reload the page."
+  })
 
 const requireStudy = async (studyId: number) => {
   const study = await studyById(studyId)
@@ -69,8 +80,8 @@ const requireStudy = async (studyId: number) => {
 
 /*
  * A step and its study, for a caller who may act in it: a live membership of
- * the community and an open study. FORBIDDEN names the membership and
- * BAD_REQUEST the window, so the shell can say which.
+ * a community that is not retired, and an open study. FORBIDDEN names the
+ * membership and BAD_REQUEST the window, so the shell can say which.
  */
 const requireParticipation = async (stepId: number, userId: number) => {
   const found = await stepWithStudy(db, stepId)
@@ -78,6 +89,11 @@ const requireParticipation = async (stepId: number, userId: number) => {
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "This step doesn't exist"
+    })
+  if (found.community.retiredAt)
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "This community has been retired"
     })
 
   const membership = await membershipIn(found.study.communityId, userId)
@@ -114,6 +130,29 @@ export const requireStepForAct = async (
       message: "That step is not for this act"
     })
   return found
+}
+
+// The same check for a comment or a vote, whose term is the term of the
+// definition acted on: the definition is looked up first, so the act is
+// checked against the step before anything is written.
+export const requireStepForDefinitionAct = async (
+  stepId: number,
+  userId: number,
+  act: { kind: "comment" | "vote"; definitionId: number }
+) => {
+  const target = await db.query.definitionsTable.findFirst({
+    columns: { termId: true },
+    where: eq(definitionsTable.id, act.definitionId)
+  })
+  if (!target)
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Definition doesn't exist"
+    })
+  return requireStepForAct(stepId, userId, {
+    kind: act.kind,
+    termId: target.termId
+  })
 }
 
 export const surveysRouter = createTRPCRouter({
@@ -197,9 +236,11 @@ export const surveysRouter = createTRPCRouter({
       let steps
       try {
         steps = await db.transaction(async (tx) => {
-          // Counted inside the transaction that deletes, so a completion
-          // landing in between is refused by the foreign key below rather
-          // than lost with its step.
+          // The study row is held first, so an append running at the same
+          // time waits for the renumbering. Counted inside the transaction
+          // that deletes, so a completion landing in between is refused by
+          // the foreign key below rather than lost with its step.
+          await lockStudy(tx, study.id)
           if (!mayRegenerateSteps(await completionCountOfStudy(tx, study.id)))
             throw new TRPCError({
               code: "CONFLICT",
@@ -216,6 +257,8 @@ export const surveysRouter = createTRPCRouter({
             message:
               "An act already refers to a step of this walkthrough, so its steps can only be added to"
           })
+        // A position was taken under the plan.
+        if (sqlState(error) === "23505") throw regeneratedConflict()
         throw error
       }
 
@@ -241,9 +284,10 @@ export const surveysRouter = createTRPCRouter({
 
         let step
         try {
-          step = await db.transaction((tx) =>
-            appendQuestionStep(tx, study.id, { prompt, responseKind })
-          )
+          step = await db.transaction(async (tx) => {
+            await lockStudy(tx, study.id)
+            return appendQuestionStep(tx, study.id, { prompt, responseKind })
+          })
         } catch (error) {
           // Two appends at once computed the same position.
           if (sqlState(error) === "23505")
@@ -263,11 +307,15 @@ export const surveysRouter = createTRPCRouter({
 
   /*
    * Press through a step. Instructions and review complete on the press; a
-   * define step wants the caller's own definition of the term, and a
+   * define step requires the caller's own definition of the term, and a
    * question its answer, which answerQuestion records with the completion.
    * Completing twice is not an error. Returns where the caller resumes.
+   *
+   * A completion reaches no graph, so the press does not mark the graphs
+   * for a rebuild, unlike the acts a step asks for.
    */
-  completeStep: authenticatedProcedure
+  completeStep: contributorProcedure
+    .meta({ marksGraphs: false })
     .input(z.object({ stepId: z.number().int() }))
     .mutation(async ({ ctx: { userId }, input: { stepId } }) => {
       const { step, study } = await requireParticipation(stepId, userId)
@@ -287,20 +335,26 @@ export const surveysRouter = createTRPCRouter({
           message: gate.reason
         })
 
-      const nextPosition = await db.transaction(async (tx) => {
-        await recordCompletion(tx, { stepId: step.id, userId })
-        return nextPositionFor(tx, study.id, userId)
-      })
-
-      return { ok: true, nextPosition }
+      try {
+        const nextPosition = await db.transaction(async (tx) => {
+          await recordCompletion(tx, { stepId: step.id, userId })
+          return nextPositionFor(tx, study.id, userId)
+        })
+        return { ok: true, nextPosition }
+      } catch (error) {
+        if (sqlState(error) === "23503") throw regeneratedConflict()
+        throw error
+      }
     }),
 
   /*
    * Answer a question and complete it, in one transaction. The answer
    * arrives in the form the step asked for and in no other, and a question
-   * is answered once: the unique pair refuses a second answer.
+   * is answered once: the unique pair refuses a second answer. An answer
+   * reaches no graph, as a completion does not.
    */
-  answerQuestion: authenticatedProcedure
+  answerQuestion: contributorProcedure
+    .meta({ marksGraphs: false })
     .input(
       z.object({
         stepId: z.number().int(),
@@ -353,6 +407,7 @@ export const surveysRouter = createTRPCRouter({
               code: "CONFLICT",
               message: "You have already answered this question"
             })
+          if (sqlState(error) === "23503") throw regeneratedConflict()
           throw error
         }
       }

@@ -63,6 +63,8 @@ export const Definition = ({
   isDefault = false,
   onScoreChange,
   surveyStepId,
+  voteReadOnly = false,
+  voteReadOnlyTitle,
   children
 }: {
   definition: DefinitionType & {
@@ -88,6 +90,10 @@ export const Definition = ({
   // The review step of a walkthrough the card is shown in, passed to the
   // vote rail so a vote cast here names it.
   surveyStepId?: number
+  // Keep the score and the viewer's vote on show with the buttons disabled,
+  // and say why on hover.
+  voteReadOnly?: boolean
+  voteReadOnlyTitle?: string
   children?: ReactNode
 }) => (
   <Card
@@ -108,6 +114,8 @@ export const Definition = ({
         revisionId={definition.revisionId}
         onScoreChange={onScoreChange}
         surveyStepId={surveyStepId}
+        readOnly={voteReadOnly}
+        readOnlyTitle={voteReadOnlyTitle}
       />
     )}
     <section className="min-w-0 flex-1 space-y-2">

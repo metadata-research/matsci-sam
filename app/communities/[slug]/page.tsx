@@ -222,6 +222,7 @@ export default async function CommunityPage({
                           inUse={walkthrough.steps.some(
                             (step) => step.completions > 0
                           )}
+                          retired={study.retiredAt !== null}
                         />
                         {walkthrough.total > 0 && (
                           <span className="text-xs text-muted-foreground">

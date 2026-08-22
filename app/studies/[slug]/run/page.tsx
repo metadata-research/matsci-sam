@@ -33,12 +33,12 @@ export async function generateMetadata({
 
 // What a prefetch put in the query client, so the page can prefetch what the
 // resume step renders without running the walkthrough queries twice. The
-// helpers file each query under its procedure path, which is all a partial
-// key match needs.
-const prefetched = <T,>(path: string[]) =>
-  getQueryClient()
-    .getQueryCache()
-    .find({ queryKey: [path] })?.state.data as T | undefined
+// helpers file each query under its procedure path and its input, and the
+// read is by that exact key: a partial key matches nothing.
+const prefetched = <T,>(path: string[], input: unknown) =>
+  getQueryClient().getQueryData([path, { input, type: "query" }]) as
+    | T
+    | undefined
 
 const NOT_OPEN = {
   draft: "This study has not opened yet.",
@@ -145,10 +145,10 @@ export default async function RunPage({
 
   // The resume step is painted first, so what it reads is prefetched too:
   // the definitions of its term, and for a review step their comments.
-  const walkthrough = prefetched<RouterOutput["surveys"]["get"]>([
-    "surveys",
-    "get"
-  ])
+  const walkthrough = prefetched<RouterOutput["surveys"]["get"]>(
+    ["surveys", "get"],
+    { studySlug: slug }
+  )
   const resume = walkthrough?.steps.find(
     (step) => step.position === walkthrough.resumePosition
   )
@@ -159,10 +159,10 @@ export default async function RunPage({
     await trpc.definitions.list.prefetch({ termId: resume.termId })
     if (resume.kind === "review") {
       const definitions =
-        prefetched<RouterOutput["definitions"]["list"]>([
-          "definitions",
-          "list"
-        ]) ?? []
+        prefetched<RouterOutput["definitions"]["list"]>(
+          ["definitions", "list"],
+          { termId: resume.termId }
+        ) ?? []
       await Promise.all(
         definitions.map((definition) =>
           trpc.comments.get.prefetch(definition.id)

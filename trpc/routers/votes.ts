@@ -2,12 +2,7 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { baseProcedure, createTRPCRouter } from "../init"
 import { contributorProcedure } from "../procedures"
-import {
-  db,
-  definitionRevisionsTable,
-  definitionsTable,
-  votesTable
-} from "@yamz/db"
+import { db, definitionRevisionsTable, votesTable } from "@yamz/db"
 import { and, eq, sql } from "drizzle-orm"
 import { activeCommunityFor } from "@/lib/community-queries"
 import {
@@ -15,7 +10,7 @@ import {
   StaleRevisionError,
   VoteTargetMissingError
 } from "@/lib/participation"
-import { requireStepForAct } from "./surveys"
+import { requireStepForDefinitionAct } from "./surveys"
 
 const voteTargetSchema = z.object({
   definitionId: z.number(),
@@ -74,38 +69,31 @@ export const votesRouter = createTRPCRouter({
         ctx: { userId },
         input: { definitionId, revisionId, vote, surveyStepId }
       }) => {
-        // A step is checked against the act before anything is written: the
-        // caller may take part, and the step is the review step of this
-        // term.
-        if (surveyStepId !== undefined) {
-          const target = await db.query.definitionsTable.findFirst({
-            columns: { termId: true },
-            where: eq(definitionsTable.id, definitionId)
-          })
-          if (!target)
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Definition doesn't exist"
-            })
-          await requireStepForAct(surveyStepId, userId, {
-            kind: "vote",
-            termId: target.termId
-          })
-        }
+        const walkthrough =
+          surveyStepId === undefined
+            ? null
+            : await requireStepForDefinitionAct(surveyStepId, userId, {
+                kind: "vote",
+                definitionId
+              })
 
         try {
           const [updatedDefinition] = await db.transaction(async (tx) => {
-            // A session vote is a human act in whatever community the person
-            // is working in right now, resolved inside the transaction that
-            // writes it.
-            const community = await activeCommunityFor(tx, userId)
+            // A session vote is a human act in the community the person is
+            // working in: the community running the study when the vote is
+            // cast inside a walkthrough step, and otherwise whatever the
+            // header points at, resolved inside the transaction that writes
+            // it.
+            const communityId = walkthrough
+              ? walkthrough.study.communityId
+              : ((await activeCommunityFor(tx, userId))?.id ?? null)
             return castVote(tx, {
               definitionId,
               revisionId,
               userId,
               vote,
               actorKind: "human",
-              communityId: community?.id ?? null,
+              communityId,
               surveyStepId: surveyStepId ?? null
             })
           })

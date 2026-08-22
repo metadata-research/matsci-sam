@@ -17,6 +17,9 @@ interface Props {
     vote: "up" | "down" | null
   }
   readOnly?: boolean
+  // Why the buttons are disabled, shown on hover. The default names the
+  // one reason the definition pages have.
+  readOnlyTitle?: string
   // Fired whenever this definition's score changes, so a parent list can
   // re-sort. Optional; most callers do not reorder.
   onScoreChange?: (score: number) => void
@@ -30,6 +33,7 @@ export const TermVotes = ({
   revisionId,
   initial,
   readOnly = false,
+  readOnlyTitle = "Earlier revisions are read-only",
   onScoreChange,
   surveyStepId
 }: Props) => {
@@ -81,7 +85,7 @@ export const TermVotes = ({
           e.preventDefault()
           mutate({ vote: "up", definitionId, revisionId, surveyStepId })
         }}
-        title={readOnly ? "Earlier revisions are read-only" : undefined}
+        title={readOnly ? readOnlyTitle : undefined}
         variant="ghost"
       >
         <ArrowUpIcon />
@@ -98,7 +102,7 @@ export const TermVotes = ({
           e.preventDefault()
           mutate({ vote: "down", definitionId, revisionId, surveyStepId })
         }}
-        title={readOnly ? "Earlier revisions are read-only" : undefined}
+        title={readOnly ? readOnlyTitle : undefined}
         variant="ghost"
       >
         <ArrowDownIcon />

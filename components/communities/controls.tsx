@@ -940,16 +940,19 @@ export const CreateWorklistCollection = ({
  * the steward leaves them out. The steps are replaced wholesale until
  * somebody completes one, and are then only added to, because a
  * participant's place is a position in the list. The router refuses past
- * that point; here the button gives way to the count.
+ * that point, and on a retired study; here the button gives way to the
+ * count.
  */
 export const GenerateWalkthrough = ({
   studyId,
   steps,
-  inUse
+  inUse,
+  retired
 }: {
   studyId: number
   steps: number
   inUse: boolean
+  retired: boolean
 }) => {
   const [closingQuestions, setClosingQuestions] = useState(true)
   const handlers = useRefreshingMutation()
@@ -968,6 +971,13 @@ export const GenerateWalkthrough = ({
     return (
       <span className="text-xs text-muted-foreground">
         {steps} {steps === 1 ? "step" : "steps"}, in use
+      </span>
+    )
+
+  if (retired)
+    return (
+      <span className="text-xs text-muted-foreground">
+        {steps} {steps === 1 ? "step" : "steps"}
       </span>
     )
 

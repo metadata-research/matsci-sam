@@ -14,11 +14,8 @@ import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 import { contributorProcedure } from "../procedures"
-import {
-  CommentRevisionMissingError,
-  insertComment
-} from "@/lib/participation"
-import { requireStepForAct } from "./surveys"
+import { CommentRevisionMissingError, insertComment } from "@/lib/participation"
+import { requireStepForDefinitionAct } from "./surveys"
 
 export const commentsRouter = createTRPCRouter({
   get: baseProcedure.input(z.number()).query(async ({ input: id }) => {
@@ -59,24 +56,11 @@ export const commentsRouter = createTRPCRouter({
         input: { id, revisionId, comment, surveyStepId },
         ctx: { userId }
       }) => {
-        // A step is checked against the act before anything is written: the
-        // caller may take part, and the step is the review step of this
-        // term.
-        if (surveyStepId !== undefined) {
-          const target = await db.query.definitionsTable.findFirst({
-            columns: { termId: true },
-            where: eq(definitionsTable.id, id)
-          })
-          if (!target)
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Definition doesn't exist"
-            })
-          await requireStepForAct(surveyStepId, userId, {
+        if (surveyStepId !== undefined)
+          await requireStepForDefinitionAct(surveyStepId, userId, {
             kind: "comment",
-            termId: target.termId
+            definitionId: id
           })
-        }
 
         // Whether this comment scheduled a model revision of the definition,
         // so the client can say so instead of leaving the trigger invisible —

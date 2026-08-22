@@ -97,8 +97,8 @@ export default async function StudyPage({
             {walkthrough.completedStepIds.length === 0 ? (
               <>
                 <p className="text-sm">
-                  {walkthrough.steps.length} steps, and your place is kept
-                  between visits.
+                  {walkthrough.steps.length} steps. Your place is kept between
+                  visits.
                 </p>
                 <Button asChild>
                   <Link href={studyRunPath(study.slug)}>

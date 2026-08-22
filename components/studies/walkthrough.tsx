@@ -189,8 +189,8 @@ const Define = ({
  * The definitions of the term, each with its discussion. The order is the
  * one the server returns and does not follow the votes cast here, so a card
  * does not move under the person commenting on it. Read-only after the
- * step is complete: the cards lose their vote rail and the comment boxes
- * are not shown.
+ * step is complete: the vote rail keeps the score and the viewer's vote with
+ * its buttons disabled, and the comment boxes are not shown.
  */
 const ReviewList = ({ step, readOnly }: { step: Step; readOnly: boolean }) => {
   const termId = step.termId!
@@ -206,20 +206,19 @@ const ReviewList = ({ step, readOnly }: { step: Step; readOnly: boolean }) => {
       {definitions.map((definition, index) => (
         <div key={definition.id} className="space-y-3">
           <Definition
-            definition={{
-              ...definition,
-              termSlug: step.termSlug!,
-              vote: readOnly ? undefined : definition.vote
-            }}
+            definition={{ ...definition, termSlug: step.termSlug! }}
             // As on the term page: marked only when there is more than one.
             isDefault={index === 0 && definitions.length > 1}
             surveyStepId={step.id}
+            voteReadOnly={readOnly}
+            voteReadOnlyTitle="This step is complete"
           />
           <div className="space-y-3 pl-4 sm:pl-8">
             <Suspense fallback={<Skeleton className="h-16 w-full" />}>
               <TermComments
                 id={definition.id}
                 definitionNumber={definition.definitionNumber}
+                readOnly={readOnly}
               />
             </Suspense>
             {!readOnly && (
@@ -265,10 +264,12 @@ const SCALE = [1, 2, 3, 4, 5] as const
 const Question = ({
   step,
   onAnswered,
+  onFailed,
   onContinue
 }: {
   step: Step
   onAnswered: (nextPosition: number | null) => void
+  onFailed: () => void
   onContinue: () => void
 }) => {
   const answered = step.response !== null
@@ -279,7 +280,10 @@ const Question = ({
 
   const answer = trpc.surveys.answerQuestion.useMutation({
     onSuccess: ({ nextPosition }) => onAnswered(nextPosition),
-    onError: (error) => toast.error(error.message)
+    onError: (error) => {
+      toast.error(error.message)
+      onFailed()
+    }
   })
 
   const ready =
@@ -395,9 +399,17 @@ export const Walkthrough = ({
     show(nextPosition ?? total + 1)
   }
 
+  // A refusal means the facts the shell holds are behind the record: the
+  // definition a gate took was removed, or the steps were regenerated. The
+  // walkthrough is read again so the step shows what the router sees.
+  const reread = () => utils.surveys.get.invalidate({ studySlug })
+
   const complete = trpc.surveys.completeStep.useMutation({
     onSuccess: ({ nextPosition }) => advance(nextPosition),
-    onError: (error) => toast.error(error.message)
+    onError: (error) => {
+      toast.error(error.message)
+      reread()
+    }
   })
 
   // A completed step is pressed through without a second completion.
@@ -495,6 +507,7 @@ export const Walkthrough = ({
                 key={step.id}
                 step={step}
                 onAnswered={advance}
+                onFailed={reread}
                 onContinue={() => show(step.position + 1)}
               />
             )}
