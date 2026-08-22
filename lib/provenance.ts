@@ -120,9 +120,12 @@ const publicProfileUserId = (user: ProfileCapableUser | null | undefined) =>
 export const buildTermProvenance = async (
   termId: number,
   // Public provenance keeps the vote itself visible but does not reveal the
-  // voter node or identity.
-  options: { anonymizeVoters?: boolean } = {}
+  // voter node or identity. The dataset-wide graph (lib/graph/) leaves votes
+  // out of the per-term body and states each voting act once, as a
+  // matsci:VoteEvent, so it passes includeVotes: false.
+  options: { anonymizeVoters?: boolean; includeVotes?: boolean } = {}
 ) => {
+  const includeVotes = options.includeVotes ?? true
   const term = await db.query.termsTable.findFirst({
     where: eq(termsTable.id, termId)
   })
@@ -294,8 +297,9 @@ export const buildTermProvenance = async (
   // withdrawals included. A current-state votes row whose (revision, user)
   // pair has no event is a pre-0040 vote and is synthesized below, so the
   // older record keeps appearing exactly as it always did.
-  const voteEvents = definitionIds.length
-    ? await db
+  const voteEvents =
+    definitionIds.length && includeVotes
+      ? await db
       .select({
         id: voteEventsTable.id,
         revisionId: voteEventsTable.revisionId,
@@ -1146,7 +1150,7 @@ export const buildTermProvenance = async (
     voteEvents.map((event) => `${event.revisionId}:${event.author.id}`)
   )
   const voteActs = [
-    ...voteEvents.map((event) => ({
+    ...(includeVotes ? voteEvents : []).map((event) => ({
       eventId: event.id as number | null,
       revisionId: event.revisionId,
       definitionId: event.definitionId,
@@ -1156,7 +1160,7 @@ export const buildTermProvenance = async (
       migratedLegacy: false,
       author: event.author
     })),
-    ...votes
+    ...(includeVotes ? votes : [])
       .filter(
         (vote) => !eventPairs.has(`${vote.revisionId}:${vote.author.id}`)
       )
