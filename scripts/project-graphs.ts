@@ -11,6 +11,10 @@
  * git.
  */
 
+// First, so lib/site.ts reads the identifier base and the site URL from
+// .env when it loads, as the server does. dotenv never overrides a variable
+// already set, so CI and a host that export them are unaffected.
+import "dotenv/config"
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 

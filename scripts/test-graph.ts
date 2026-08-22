@@ -8,9 +8,10 @@
  *
  * so the "server-only" imports resolve to their empty variant. With
  * --export the fixture documents are written for the CI SHACL step, along
- * with a document that deliberately names a person, which the
- * people-exclusion shape must reject. scripts/test-graph-db.ts holds the
- * checks that need a database and a store.
+ * with three documents that deliberately break one shape each: one names a
+ * person, one breaks the kos rules, one breaks the provenance rules.
+ * scripts/test-graph-db.ts holds the checks that need a database and a
+ * store.
  */
 
 import assert from "node:assert/strict"
@@ -1012,6 +1013,14 @@ const main = async () => {
           term: "austenite",
           slug: "austenite",
           createdAt: "2026-01-02 03:04:05"
+        },
+        // Related to martensite by the ledger fixture, so it is in the
+        // vocabulary too: a relation to a term outside it cannot be stored.
+        {
+          id: 3,
+          term: "band gap",
+          slug: "band_gap",
+          createdAt: "2026-01-02 03:04:05"
         }
       ],
       definitions: [
@@ -1203,6 +1212,41 @@ const main = async () => {
       `  prov:wasAssociatedWith <${identifierBaseUrl}/people/1> .\n`
     parse(negative, "negative-people")
     writeFileSync(join(exportDir, "negative-people.ttl"), negative)
+
+    // What the kos shape must refuse: a tag with two preferred labels, in a
+    // broader cycle with another.
+    const { conceptSchemeUri } = await import("../lib/public-identifiers")
+    const topics = conceptSchemeUri("topics")
+    const metals = conceptUri("topics", "metals")
+    const negativeKos =
+      TTL_PREFIXES +
+      `<${topics}> a skos:ConceptScheme ;\n  dcterms:title "Topics"@en ;\n  matsci:curated false .\n\n` +
+      `<${steel}> a skos:Concept ;\n  skos:inScheme <${topics}> ;\n` +
+      `  skos:prefLabel "Steel"@en ;\n  skos:prefLabel "Steels"@en ;\n` +
+      `  skos:broader <${metals}> .\n\n` +
+      `<${metals}> a skos:Concept ;\n  skos:inScheme <${topics}> ;\n` +
+      `  skos:prefLabel "Metals"@en ;\n  skos:broader <${steel}> .\n`
+    parse(negativeKos, "negative-kos")
+    writeFileSync(join(exportDir, "negative-kos.ttl"), negativeKos)
+
+    // What the provenance shape must refuse: a retraction time with no
+    // retractor, a reifier whose object is an IRI and not a triple term,
+    // and an actor kind outside the three.
+    const negativeProvenance =
+      TTL_PREFIXES +
+      `<${a5}> a matsci:Assertion, prov:Entity ;\n` +
+      `  rdf:reifies <<( <${martensite}> skos:closeMatch <${PMD}> )>> ;\n` +
+      `  prov:generatedAtTime "2026-03-05T10:00:00.000Z"^^xsd:dateTime ;\n` +
+      `  prov:invalidatedAtTime "2026-04-01T12:00:00.000Z"^^xsd:dateTime .\n\n` +
+      `<${a1}> a matsci:Assertion, prov:Entity ;\n` +
+      `  rdf:reifies <${martensite}> ;\n` +
+      `  prov:generatedAtTime "2026-03-01T10:00:00.500Z"^^xsd:dateTime .\n\n` +
+      `<${e1}> a matsci:VoteEvent, prov:Activity ;\n` +
+      `  prov:used <${rev100}> ;\n` +
+      `  matsci:voteKind "up" ;\n  matsci:actorKind "robot" ;\n` +
+      `  prov:atTime "2026-05-01T09:00:00.000Z"^^xsd:dateTime .\n`
+    parse(negativeProvenance, "negative-provenance")
+    writeFileSync(join(exportDir, "negative-provenance.ttl"), negativeProvenance)
     console.log(`Fixture documents written to ${exportDir}`)
   }
 

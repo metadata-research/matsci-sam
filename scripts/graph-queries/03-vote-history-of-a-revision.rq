@@ -1,0 +1,14 @@
+# The vote history of one revision: each voting act in time order, with its kind, the kind of actor, and the agent where the profile is public.
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX matsci: <https://w3id.org/matsci-sam/metadata#>
+
+SELECT ?at ?voteKind ?actorKind ?agent
+WHERE {
+  ?event a matsci:VoteEvent ;
+    prov:used <https://w3id.org/matsci-sam/vocabulary/martensite/definitions/1/revisions/1> ;
+    prov:atTime ?at ;
+    matsci:voteKind ?voteKind ;
+    matsci:actorKind ?actorKind .
+  OPTIONAL { ?event prov:wasAssociatedWith ?agent }
+}
+ORDER BY ?at ?event

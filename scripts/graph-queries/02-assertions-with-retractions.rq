@@ -1,0 +1,17 @@
+# Assertions with their retractions: every stored statement, the triple it asserts, who asserted it and when, and when and by whom it was retracted.
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX matsci: <https://w3id.org/matsci-sam/metadata#>
+
+SELECT ?assertion ?subject ?predicate ?object ?asserter ?assertedAt ?retractedAt ?retractor
+WHERE {
+  ?assertion a matsci:Assertion ;
+    rdf:reifies <<( ?subject ?predicate ?object )>> ;
+    prov:generatedAtTime ?assertedAt .
+  OPTIONAL { ?assertion prov:wasAttributedTo ?asserter }
+  OPTIONAL {
+    ?assertion prov:invalidatedAtTime ?retractedAt ;
+      matsci:retractedBy ?retractor .
+  }
+}
+ORDER BY ?assertedAt ?assertion

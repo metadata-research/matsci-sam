@@ -64,3 +64,5 @@ docs-internal
 
 # Graphs exported from a database; they can hold real names
 graphs-export/
+# Fixture graphs test:graph --export writes for the SHACL step
+graph-fixtures/

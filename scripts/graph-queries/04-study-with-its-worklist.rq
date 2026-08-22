@@ -1,0 +1,19 @@
+# A study with its worklist: each study, its window, and the terms of the collection it works through.
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX matsci: <https://w3id.org/matsci-sam/metadata#>
+
+SELECT ?study ?title ?opens ?closes ?term ?label
+WHERE {
+  ?study a matsci:Study ;
+    dcterms:title ?title ;
+    matsci:worklist ?collection .
+  OPTIONAL { ?study prov:startedAtTime ?opens }
+  OPTIONAL { ?study prov:endedAtTime ?closes }
+  OPTIONAL {
+    ?collection skos:member ?term .
+    ?term skos:prefLabel ?label .
+  }
+}
+ORDER BY ?study ?label
