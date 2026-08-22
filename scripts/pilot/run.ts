@@ -20,8 +20,15 @@ import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 const main = async () => {
-  const { parseArgs, requireEnv, slugs, stateDir, operatorEmail } =
-    await import("./config")
+  const {
+    mulberry32,
+    parseArgs,
+    PILOT_SEED,
+    requireEnv,
+    slugs,
+    stateDir,
+    operatorEmail
+  } = await import("./config")
   const args = parseArgs(process.argv.slice(2))
   requireEnv()
 
@@ -130,11 +137,87 @@ const main = async () => {
         )
       }
 
-  // The remaining protocol needs the 0040/0041 contract; the steps refuse
-  // loudly rather than run a protocol the record cannot express.
-  if (wants("comment")) await unit("comment:all", () => steps.commentStep())
-  if (wants("vote")) await unit("vote:all", () => steps.voteStep())
-  if (wants("rebuttal")) await unit("rebuttal:all", () => steps.rebuttalStep())
+  /*
+   * The review structure is drawn from the seeded generator up front and
+   * unconditionally, so a resumed run derives the same picks it derived
+   * before it stopped. Only the text of an act is nondeterministic.
+   */
+  const rand = mulberry32(PILOT_SEED)
+  const pickDistinct = (pool: number[], count: number) => {
+    const rest = [...pool]
+    const picked: number[] = []
+    while (picked.length < count && rest.length)
+      picked.push(rest.splice(Math.floor(rand() * rest.length), 1)[0])
+    return picked
+  }
+  const allIndexes = pilotTerms.map((_, index) => index)
+  const structure = personas.map((persona) => ({
+    persona,
+    reviewTerms: pickDistinct(
+      allIndexes.filter((index) => !persona.assignedTerms.includes(index)),
+      2
+    ),
+    voteTerms: pickDistinct(allIndexes, 4).map((index) => ({
+      index,
+      kind: (rand() < 0.8 ? "up" : "down") as "up" | "down"
+    }))
+  }))
+
+  // Review round: each persona comments on the model's alternate definition
+  // of their own terms, then on another author's definition of two terms
+  // the seed assigned them to read.
+  if (wants("comment"))
+    for (const { persona, reviewTerms } of structure) {
+      const userId = manifest.personaUserIds[persona.n]
+      for (const index of [...persona.assignedTerms, ...reviewTerms]) {
+        const { term } = resolveTerm(index)
+        await unit(`comment:${persona.n}:${term.slug}`, async () => {
+          const targets = await steps.reviewTargets(term.id)
+          const target = targets.find((t) => t.authorId !== userId)
+          if (!target)
+            throw new Error(`No definition by another author on ${term.term}`)
+          await steps.commentAct(persona, userId, term.term, target)
+        })
+      }
+    }
+
+  if (wants("vote"))
+    for (const { persona, voteTerms } of structure) {
+      const userId = manifest.personaUserIds[persona.n]
+      for (const { index, kind } of voteTerms) {
+        const { term } = resolveTerm(index)
+        await unit(`vote:${persona.n}:${term.slug}`, async () => {
+          const targets = await steps.reviewTargets(term.id)
+          const target = targets.find((t) => t.authorId !== userId)
+          if (!target)
+            throw new Error(`No definition by another author on ${term.term}`)
+          await steps.voteAct(userId, target, kind, containers.community.id)
+        })
+      }
+    }
+
+  // Rebuttal day: each persona answers the comments others left on their
+  // own definitions.
+  if (wants("rebuttal"))
+    for (const { persona } of structure) {
+      const userId = manifest.personaUserIds[persona.n]
+      for (const index of persona.assignedTerms) {
+        const { term } = resolveTerm(index)
+        await unit(`rebuttal:${persona.n}:${term.slug}`, async () => {
+          const targets = await steps.reviewTargets(term.id)
+          const own = targets.find((t) => t.authorId === userId)
+          if (!own) throw new Error(`No own definition on ${term.term}`)
+          const received = await steps.commentsByOthers(own.id, userId)
+          await steps.rebuttalAct(
+            persona,
+            userId,
+            term.term,
+            own,
+            received.map((row) => row.message)
+          )
+        })
+      }
+    }
 
   if (wants("close") && !args.dryRun) {
     manifest.finishedAt = new Date().toISOString()

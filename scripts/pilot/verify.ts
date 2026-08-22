@@ -4,11 +4,9 @@
  *   PILOT_BASE_URL=... pnpm pilot:verify -- --suffix rehearsal-1
  *
  * Two halves. The record half asserts what the paper claims: simulated
- * content is attributed to AI identities, each generated row is stamped,
- * and nothing simulated stands under a human account. The HTTP half checks
- * that the pages and documents the paper cites resolve. Checks that depend
- * on migration 0040 (actor kinds, vote events) are added when it lands;
- * until then this verifies what the current schema can express.
+ * content is attributed to AI identities, each generated act is stamped and
+ * marked, and nothing simulated stands under a human account. The HTTP half
+ * checks that the pages and documents the paper cites resolve.
  */
 
 import { and, eq, inArray, isNull } from "drizzle-orm"
@@ -18,7 +16,8 @@ const main = async () => {
   const args = parseArgs(process.argv.slice(2))
   const names = slugs(args.suffix)
 
-  const { db, definitionsTable, usersTable } = await import("../../drizzle")
+  const { commentsTable, db, definitionsTable, usersTable, voteEventsTable } =
+    await import("../../drizzle")
   const { resolveContainers } = await import("./db")
   const { personaName, personas } = await import("./personas")
 
@@ -74,6 +73,51 @@ const main = async () => {
     definitions.every((definition) => definition.model && definition.prompt),
     "every study definition carries model and prompt"
   )
+
+  // The three-way record on the study terms: acts by kind, and every
+  // simulated utterance stamped to its prompt and model.
+  const definitionIds = definitions.map((definition) => definition.id)
+  if (definitionIds.length) {
+    const commentRows = await db
+      .select({
+        authorKind: commentsTable.authorKind,
+        model: commentsTable.model,
+        promptHash: commentsTable.promptHash
+      })
+      .from(commentsTable)
+      .where(inArray(commentsTable.definitionId, definitionIds))
+    const byKind = new Map<string, number>()
+    for (const row of commentRows)
+      byKind.set(row.authorKind, (byKind.get(row.authorKind) ?? 0) + 1)
+    console.log(
+      `     comments by kind: ${
+        [...byKind.entries()].map(([kind, n]) => `${kind}=${n}`).join(" ") ||
+        "none"
+      }`
+    )
+    check(
+      commentRows
+        .filter((row) => row.authorKind !== "human")
+        .every((row) => row.model && row.promptHash),
+      "every model and simulated comment carries model and prompt hash"
+    )
+
+    const eventRows = await db
+      .select({
+        actorKind: voteEventsTable.actorKind,
+        isAi: usersTable.isAi
+      })
+      .from(voteEventsTable)
+      .innerJoin(usersTable, eq(usersTable.id, voteEventsTable.userId))
+      .where(inArray(voteEventsTable.definitionId, definitionIds))
+    console.log(`     vote events on study terms: ${eventRows.length}`)
+    check(
+      eventRows.every(
+        (row) => (row.actorKind === "human") === !row.isAi
+      ),
+      "every vote event's kind agrees with the account flag"
+    )
+  }
 
   // The surfaces the paper cites.
   const paths = [

@@ -1,23 +1,33 @@
 /*
- * The protocol steps the driver can perform.
- *
- * Implemented now: the persona define step and the AI-definition step, which
- * need nothing beyond what the application already exposes. The comment,
- * vote, rebuttal and walkthrough-progress steps depend on the service-layer
- * contract frozen with migrations 0040 and 0041 (an explicit actor kind on a
- * comment insert and a vote cast, and step completions); each throws until
- * that lands, so a rehearsal cannot silently run a protocol the record
- * cannot yet express.
+ * The protocol steps the driver can perform, one act per function, every
+ * act an ordinary application write through the same lib/ paths the routers
+ * call. Simulated acts are marked simulated and stamped; the AI alternate
+ * definition stays a model act under the registered identity, as in the
+ * 2025 study. The walkthrough-progress step still waits on migration 0041.
  */
 
-import { and, eq, isNull } from "drizzle-orm"
-import { db, definitionsTable, usersTable } from "../../drizzle"
+import { and, asc, eq, isNull, ne } from "drizzle-orm"
+import { commentsTable, db, definitionsTable, usersTable } from "../../drizzle"
 import { upsertAIDefinitionRecord } from "../../lib/crud"
 import { createDefinitionWithInitialRevision } from "../../lib/definition-revisions"
 import { DefinitionOutput, runLLM } from "../../lib/llm/client"
 import { LLMSystemPrompt } from "../../lib/llm/prompts"
+import { castVote, insertComment } from "../../lib/participation"
 import type { PilotTerm } from "./terms"
-import { defineMessage, definePrompt, defineStamp } from "./prompts"
+import {
+  commentMessage,
+  commentPrompt,
+  commentStamp,
+  defineMessage,
+  definePrompt,
+  defineStamp,
+  rebuttalMessage,
+  rebuttalPrompt,
+  rebuttalStamp
+} from "./prompts"
+import { z } from "zod"
+
+const CommentOutput = z.object({ comment: z.string() })
 
 const originalDefinition = (authorId: number, termId: number) =>
   db.query.definitionsTable.findFirst({
@@ -111,14 +121,155 @@ export const aiDefinitionStep = async (
   return { definitionId: written.definition.id }
 }
 
-const contractPending = (step: string) => {
-  throw new Error(
-    `The ${step} step needs the 0040/0041 service-layer contract (comment and vote writes with an explicit actor kind, and step completions). Frozen 2026-08-26 per MTSR-PILOT-PLAN.md.`
+// The definitions of one term as review targets: id, current revision, and
+// the text a reviewer reads.
+export const reviewTargets = (termId: number) =>
+  db
+    .select({
+      id: definitionsTable.id,
+      currentRevisionId: definitionsTable.currentRevisionId,
+      authorId: definitionsTable.authorId,
+      authorName: usersTable.name,
+      definition: definitionsTable.definition,
+      example: definitionsTable.example
+    })
+    .from(definitionsTable)
+    .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+    .where(
+      and(eq(definitionsTable.termId, termId), isNull(definitionsTable.refinedFromId))
+    )
+    .orderBy(asc(definitionsTable.id))
+
+type ReviewTarget = Awaited<ReturnType<typeof reviewTargets>>[number]
+
+// What others said about one definition, for the rebuttal.
+export const commentsByOthers = (definitionId: number, notUserId: number) =>
+  db
+    .select({ message: commentsTable.message })
+    .from(commentsTable)
+    .where(
+      and(
+        eq(commentsTable.definitionId, definitionId),
+        ne(commentsTable.userId, notUserId)
+      )
+    )
+    .orderBy(asc(commentsTable.id))
+
+/*
+ * One review comment by one persona on one definition: generate in the
+ * persona's voice, then post it as a simulated act with the registered
+ * stamp, against the definition's current revision.
+ */
+export const commentAct = async (
+  persona: { voice: string },
+  personaUserId: number,
+  termLabel: string,
+  target: ReviewTarget
+) => {
+  if (!target.currentRevisionId)
+    throw new Error(`No current revision to comment on for ${termLabel}`)
+  const result = await runLLM(
+    [
+      {
+        role: "user",
+        content: commentMessage(
+          persona,
+          termLabel,
+          target.definition,
+          target.example ?? ""
+        )
+      }
+    ],
+    commentPrompt,
+    CommentOutput
+  )
+  if (!result) throw new Error(`Comment generation failed for ${termLabel}`)
+
+  return await db.transaction((tx) =>
+    insertComment(tx, {
+      definitionId: target.id,
+      revisionId: target.currentRevisionId!,
+      userId: personaUserId,
+      message: result.comment,
+      actorKind: "simulated",
+      stamp: commentStamp
+    })
   )
 }
 
-export const commentStep = async () => contractPending("comment")
-export const voteStep = async () => contractPending("vote")
-export const rebuttalStep = async () => contractPending("rebuttal")
-export const walkthroughProgressStep = async () =>
-  contractPending("walkthrough-progress")
+/*
+ * One voting act by one persona, in the pilot community's context. The
+ * choice arrives from the seeded structure in the orchestrator, so a
+ * rehearsal repeats its shape.
+ */
+export const voteAct = async (
+  personaUserId: number,
+  target: ReviewTarget,
+  vote: "up" | "down",
+  communityId: number
+) => {
+  if (!target.currentRevisionId)
+    throw new Error(`No current revision to vote on for definition ${target.id}`)
+  return await db.transaction((tx) =>
+    castVote(tx, {
+      definitionId: target.id,
+      revisionId: target.currentRevisionId!,
+      userId: personaUserId,
+      vote,
+      actorKind: "simulated",
+      communityId
+    })
+  )
+}
+
+/*
+ * The rebuttal, as the 2024 protocol ran it: the author answers the
+ * comments others left on their definition, once, as one reply comment on
+ * their own definition.
+ */
+export const rebuttalAct = async (
+  persona: { voice: string },
+  personaUserId: number,
+  termLabel: string,
+  own: ReviewTarget,
+  commentsByOthers: string[]
+) => {
+  if (!own.currentRevisionId)
+    throw new Error(`No current revision for the rebuttal on ${termLabel}`)
+  if (commentsByOthers.length === 0) return { skipped: true as const }
+
+  const result = await runLLM(
+    [
+      {
+        role: "user",
+        content: rebuttalMessage(
+          persona,
+          termLabel,
+          own.definition,
+          commentsByOthers
+        )
+      }
+    ],
+    rebuttalPrompt,
+    CommentOutput
+  )
+  if (!result) throw new Error(`Rebuttal generation failed for ${termLabel}`)
+
+  await db.transaction((tx) =>
+    insertComment(tx, {
+      definitionId: own.id,
+      revisionId: own.currentRevisionId!,
+      userId: personaUserId,
+      message: result.comment,
+      actorKind: "simulated",
+      stamp: rebuttalStamp
+    })
+  )
+  return { skipped: false as const }
+}
+
+export const walkthroughProgressStep = async () => {
+  throw new Error(
+    "The walkthrough-progress step needs migration 0041 (survey steps and completions)."
+  )
+}
