@@ -8,10 +8,11 @@ is published as linked data, and no community has an identifier of its own.
 
 ## Working in a community
 
-Your account menu carries a **Working in** choice listing every community you
-belong to, plus **Everything**. The choice is yours alone, it stays put between
-sessions, and the name of the active community appears beside your own in the
-navigation bar.
+Once you belong to a community, the navigation bar has a **Working in**
+control. It names the community you are working in, or **Everything**, and
+opens the choice of every community you belong to, along with the page and
+the studies of the one you are in. The choice is yours alone and stays put
+between sessions.
 
 Two pages narrow to that choice. [Browse](/terms) lists the terms the community
 is working through, and [Collections](/collections) lists the collections on its

@@ -1,7 +1,7 @@
 # Adding a term
 
-Sign in and give your name in the profile editor, then open **Contribute** in
-the navigation bar. A contribution is refused until the account has a name,
+Sign in and give your name in the profile editor, then open **Contribute** under
+**Take part** in the navigation bar. A contribution is refused until the account has a name,
 because the name is the attribution.
 
 The form asks for three things.
