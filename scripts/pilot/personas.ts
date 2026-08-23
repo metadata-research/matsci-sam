@@ -24,8 +24,13 @@ export type Persona = {
   voice: string
 }
 
+// A rehearsal's personas say which rehearsal they belong to, so a reader of
+// a host that holds several can tell the cohorts apart; the public run's
+// personas have no such mark.
 export const personaName = (n: number, suffix: string) =>
-  `Simulated Participant ${n} (Gemma 4)${suffix ? ` ${suffix}` : ""}`
+  `Simulated Participant ${n} (Gemma 4)${
+    suffix ? ` (rehearsal ${suffix.replace(/^-/, "")})` : ""
+  }`
 
 export const personas: Omit<Persona, "displayName">[] = [
   {

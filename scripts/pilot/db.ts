@@ -10,7 +10,7 @@
  * attributed to the operator through addedById.
  */
 
-import { and, eq, isNull, sql } from "drizzle-orm"
+import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 import {
   collectionsTable,
   communitiesTable,
@@ -18,6 +18,8 @@ import {
   db,
   statementsTable,
   studiesTable,
+  surveyStepCompletionsTable,
+  surveyStepsTable,
   termsTable,
   usersTable
 } from "../../drizzle"
@@ -43,6 +45,12 @@ export const resolveOperator = async (email: string) => {
   return operator
 }
 
+/*
+ * The containers by slug and the term set of the collection, in whatever
+ * state the study is: the run requires an open study through requireOpen,
+ * and verify.ts reads a closed one, because its checks are on the record
+ * and the record is read after the freeze.
+ */
 export const resolveContainers = async (slugs: {
   community: string
   study: string
@@ -82,15 +90,6 @@ export const resolveContainers = async (slugs: {
       `Study ${slugs.study} does not join community ${slugs.community} to collection ${slugs.collection}`
     )
 
-  // The routers and the run page refuse an act outside an open study, and
-  // the driver writes under the same rule, so the record reads as the pages
-  // would have written it.
-  const state = studyState(study)
-  if (state !== "open")
-    throw new Error(
-      `Study ${slugs.study} is ${state}, not open. Open it through the interface before running the driver.`
-    )
-
   // The active skos:member statements of the collection are the term set.
   const terms = await db
     .select({ id: termsTable.id, term: termsTable.term, slug: termsTable.slug })
@@ -106,6 +105,19 @@ export const resolveContainers = async (slugs: {
     .orderBy(termsTable.term)
 
   return { community, study, collection, terms }
+}
+
+// The routers and the run page refuse an act outside an open study, and
+// the driver writes under the same rule, so the record reads as the pages
+// would have written it.
+export const requireOpen = (
+  study: Parameters<typeof studyState>[0] & { slug: string }
+) => {
+  const state = studyState(study)
+  if (state !== "open")
+    throw new Error(
+      `Study ${study.slug} is ${state}, not open. Open it through the interface before running the driver.`
+    )
 }
 
 export type Walkthrough = {
@@ -154,6 +166,35 @@ export const resolveWalkthrough = async (
     defineStepOf: stepOf("define", byTerm("define")),
     reviewStepOf: stepOf("review", byTerm("review"))
   }
+}
+
+/*
+ * Whether a persona of the cohort the suffix names has completed a step of
+ * the study: the run seen from the record alone, which is what the run-once
+ * guard reads when no manifest is at hand, as on a second machine or after
+ * the state directory is gone.
+ */
+export const cohortHasActed = async (studyId: number, suffix: string) => {
+  const [row] = await db
+    .select({ found: sql<number>`1` })
+    .from(surveyStepCompletionsTable)
+    .innerJoin(
+      surveyStepsTable,
+      eq(surveyStepsTable.id, surveyStepCompletionsTable.stepId)
+    )
+    .innerJoin(usersTable, eq(usersTable.id, surveyStepCompletionsTable.userId))
+    .where(
+      and(
+        eq(surveyStepsTable.studyId, studyId),
+        eq(usersTable.isAi, true),
+        inArray(
+          usersTable.name,
+          personas.map((persona) => personaName(persona.n, suffix))
+        )
+      )
+    )
+    .limit(1)
+  return Boolean(row)
 }
 
 /*
