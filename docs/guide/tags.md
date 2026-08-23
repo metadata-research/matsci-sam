@@ -47,9 +47,8 @@ and properties determine performance in service.
 | Performance | Terms for how a material behaves in service, under the conditions and over the time that an application imposes |
 
 Each facet page also states a scope note, which says what to file under the
-facet. Performance is the hardest to apply, because it describes a dynamic
-aspect of a material rather than a fixed one, so a term may take Properties as
-well.
+facet. A term for how a material behaves in service may take Properties as
+well as Performance.
 
 ![A term page with its facet chip under the identifier line](/images/docs/term-facets.png)
 
@@ -78,25 +77,21 @@ say so from the tag page.
 A linked tag keeps its own page and identifier and gains the definitions of
 the term. The metadata exports state the link in both directions with
 `skos:exactMatch`, so a reader who arrives at either one finds the other.
-Linking is optional and uncommon. Most tags are subject headings that no one
-would write a definition of, and they stay as they are.
+Linking is optional and uncommon.
 
-A facet is never linked, because a facet classifies a term rather than being
-one. A tag is also never linked to a term whose own definitions are filed
-under it, since the statement would say that a definition is about itself.
+A facet cannot be linked to a term, and a tag cannot be linked to a term
+whose own definitions are filed under it.
 
 ## Scope notes
 
-A tag can carry a scope note: a sentence saying what belongs under it, which
+A tag can state a scope note, a sentence saying what belongs under it, which
 is a different question from what it means. "Degradation in service, not
 surface finish" tells a contributor how to use the tag whatever the linked
 term goes on to say.
 
-The note matters most as the vocabulary ages. A tag is a stable identifier
-for a meaning that moves, so the rule is that a label or a scope note is
-edited only to correct it. A tag whose meaning has genuinely changed is
-retired and replaced, which keeps every statement already filed under the old
-tag meaning what it meant.
+A label or a scope note is edited only to correct it. A tag whose meaning
+has genuinely changed is retired and replaced, which keeps every statement
+already filed under the old tag meaning what it meant.
 
 ## Collections
 
@@ -119,9 +114,9 @@ definitions, and says nothing about which collections gather it.
 An administrator retires a collection that has served its purpose. A retired
 collection leaves the Collections page, and its address keeps resolving so
 anything that cited it still works. The Turtle export marks it
-`owl:deprecated`. Retiring retracts the membership statements, which stay on
-record as what the collection held. Restoring returns the collection but not
-its members, so a restored collection starts empty.
+`owl:deprecated`. A retired collection has its membership statements
+retracted, and they stay on record as what it held. A restored collection
+comes back without its members and starts empty.
 
 The [Collections](/collections) page lists them, and each collection page lists
 the terms it gathers. Anyone can browse them. When you have chosen a community
@@ -133,17 +128,17 @@ list more than the Collections page does. See
 
 ## Tag pages and identifiers
 
-The **Tags** page has three parts: the facet schemes and their facets, then
-the topics A to Z with a letter index, then the collections. Each scheme has
-a page at `/tags/{scheme}` and each tag a page at `/tags/{scheme}/{tag}`.
-A scheme page lists the tags it holds with the number of terms filed under
-each. A facet page lists those terms, and a topic page lists the definitions
-filed under it. These paths are the tag identifiers used in the metadata
-exports. A tag keeps its path
-when it is merged or retired. A merged tag redirects to its replacement, and a
-retired tag without a replacement shows that it is retired. Older links of the
-form `/tags/{number}` redirect to the readable path.
-[Identifiers and citation](/docs/identifiers) describes the identifier grammar.
+The **Tags** page lists the facet schemes and their facets, then the topics
+A to Z with a letter index, then the collections. Each scheme has a page at
+`/tags/{scheme}` and each tag a page at `/tags/{scheme}/{tag}`. A scheme
+page lists the tags it holds with the number of terms filed under each. A
+facet page lists those terms, and a topic page lists the definitions filed
+under it. These paths are the tag identifiers used in the metadata exports.
+A tag keeps its path when it is merged or retired. A merged tag redirects to
+its replacement, and a retired tag without a replacement shows that it is
+retired. Older links of the form `/tags/{number}` redirect to the readable
+path. [Identifiers and citation](/docs/identifiers) describes the identifier
+grammar.
 
 ## Metadata
 

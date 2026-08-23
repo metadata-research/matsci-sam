@@ -42,9 +42,9 @@ limits of the pilot workflows.
 ## Knowledge organization
 
 The [knowledge organization](/docs/reference) pages are for readers who work
-with the published metadata: the model behind terms, tags and collections,
-the SKOS and PROV-O it is expressed in, the identifier policy, and how
-curation and language models fit in.
+with the published metadata. They cover the model behind terms, tags and
+collections, the SKOS and PROV-O it is expressed in, the identifier policy,
+and how curation and language models fit in.
 
 ## Metadata models
 

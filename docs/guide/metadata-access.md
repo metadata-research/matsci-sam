@@ -24,12 +24,10 @@ a stored dataset record, or a validation schema.
 `/dataset.ttl` is the one document to fetch to see every kind of entity at
 once. It holds the vocabulary scheme, each term with its definitions and
 revisions, the concept schemes with their concepts and collections, and the
-MatCore element set. The term history is the one thing it leaves out, because
-that record is far larger than the rest and describes activities rather than
-published entities. Fetch it per term instead.
+MatCore element set. The term history is the one thing it leaves out. Fetch
+it per term instead.
 
-The narrower documents remain, so a consumer who wants one layer does not have
-to filter the whole graph.
+A consumer who wants one layer fetches the narrower document for that layer.
 
 ## Named graphs
 
@@ -92,9 +90,8 @@ Tags, facets and collections have readable IRIs of their own:
 ```
 
 A tag that names the same concept as a term states it with
-`skos:exactMatch`, and the term states the same in return, so the tag graph
-and the vocabulary graph are one graph. A tag may also carry a
-`skos:scopeNote` describing what is filed under it.
+`skos:exactMatch`, and the term states the same in return. A tag may also
+state a `skos:scopeNote` describing what is filed under it.
 
 Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
 and each collection a `skos:Collection` of terms. A term or a definition
@@ -163,6 +160,6 @@ The provenance graph adds terms for the record of acts:
 | `backfilled`  | `yes` on a vote event the backfill wrote for a vote that stood with no event of its own, at the recorded time of the vote |
 
 PROV output also uses application properties for descriptive event details,
-such as a model name, score, prompt key, or change note. That set is
-non-exhaustive and may grow as provenance coverage improves. Internal database
-identifiers are not published as application metadata.
+such as a model name, score, prompt key, or change note. That set is not
+exhaustive. Internal database identifiers are not published as application
+metadata.

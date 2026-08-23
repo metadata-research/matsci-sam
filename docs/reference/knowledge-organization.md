@@ -10,9 +10,9 @@ ledger.
 
 Every term is a `skos:Concept` in the concept scheme at `/vocabulary`. The
 term name is its preferred label. Each current definition revision is an
-identified resource that the term points at with `skos:definition`. Competing
-definitions of one term are separate definitions, each with its own revision
-history, and a term does not compete with another term for a meaning.
+identified resource that the term points at with `skos:definition`.
+Competing definitions of one term are separate definitions, each with its
+own revision history.
 
 ## Tag schemes
 
@@ -27,20 +27,17 @@ who sees only term records still finds them.
 The **PSPP** scheme is curated. Its four concepts, Processing, Structure,
 Properties and Performance, classify the term concept itself, and only a
 curator assigns them. Facets attach at term level only. A term may have
-several, and a facet does not claim that the classification is complete.
-The four facets follow Greenberg, J., et al. (2023), "Materials Science
-Ontology Design with an Analytico-Synthetic Facet Analysis Framework". A facet
-classifies terms and is never the same concept as a term, so the PSPP scheme
-declares itself unbridgeable and no facet can be linked to a term. That is a
-fact about what a facet is, so it binds a curator as much as a contributor, and
-the database refuses the row either way.
+several, and a facet does not claim that the classification is complete. The
+four facets follow Greenberg, J., et al. (2023), "Materials Science Ontology
+Design with an Analytico-Synthetic Facet Analysis Framework". The PSPP
+scheme is unbridgeable. No facet can be linked to a term, and the database
+refuses the statement from a curator as well as from a contributor.
 
 The two levels are enforced. A topic cannot attach to a term and a facet
-cannot attach to a definition. Each scheme states four rules for itself rather
-than deriving them from one flag: the level its concepts attach at, who may
-assert them, whether a concept here may be declared the same concept as a term,
-and the order concepts are listed in. Topics and PSPP sit at opposite ends of
-all four, and a scheme is free to hold a combination neither of them does.
+cannot attach to a definition. Each scheme states four rules for itself. The
+rules are the level the concepts attach at, who may assert them, whether a
+concept here may be declared the same concept as a term, and the order
+concepts are listed in.
 
 | Rule | Topics | PSPP |
 | --- | --- | --- |
@@ -50,11 +47,10 @@ all four, and a scheme is free to hold a combination neither of them does.
 | Concept order | label | seeded |
 
 A tag has a preferred label, alternative labels, an optional definition, and
-an optional scope note. The definition says what the concept means. The scope
-note says what belongs under it in classification, which is a different
-question, and it is the text that keeps a tag usable while the meaning of a
-linked term moves. A tag may also have broader and narrower tags within its
-own scheme, and related tags.
+an optional scope note. The definition says what the concept means. The
+scope note says what belongs under the tag in classification, and it keeps
+the tag usable when the meaning of a linked term changes. A tag may also
+have broader and narrower tags within its own scheme, and related tags.
 
 ## Collections
 
@@ -89,9 +85,7 @@ Each predicate accepts only certain kinds of subject and object.
 | `skos:exactMatch`  | tag                 | term                       |
 | other `*Match`     | term or tag         | external IRI               |
 
-A closed predicate set is what keeps tags from becoming a store for
-provenance, source identity or metadata relationships. No predicate accepts
-them.
+No predicate accepts provenance, source identity or metadata relationships.
 
 Statements are retracted, never deleted. A retraction records who withdrew
 the assertion and when, and the row remains readable. The one exception is
@@ -109,12 +103,9 @@ record of their own.
 
 A tag and a term can be the same concept. The ledger records this as
 `skos:exactMatch` from the tag to the term, through a typed reference rather
-than an external IRI. The link is optional and expected to be uncommon, since
-most tags are subject headings nobody would write a definition of.
+than an external IRI. The link is optional.
 
 A linked tag keeps its own identifier and gains the definitions of the term.
-A tag is never linked to a term whose own definitions are filed under it,
-since the statement would say that a definition is about itself. A facet is
-never linked, because a facet classifies a term rather than being one. One
-tag links to one term and one term to one tag, since `skos:exactMatch` is
-symmetric and transitive and two tags naming one term would name each other.
+A tag cannot be linked to a term whose own definitions are filed under it. A
+facet cannot be linked to a term. One tag links to one term, and one term to
+one tag.

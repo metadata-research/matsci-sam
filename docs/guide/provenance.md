@@ -18,28 +18,26 @@ predecessor.
 Unaccepted Discussion previews remain unpublished audit records and are not
 included in the public graph.
 
-The graph uses the W3C PROV-O vocabulary. Entities (definitions,
-suggestions, feedback), activities (writing, refining, accepting), and
-agents (people and models) are drawn as nodes you can click for detail.
+The graph uses the W3C PROV-O vocabulary. The nodes are entities, activities
+and agents. The entities are definitions, suggestions and feedback, the
+activities are writing, refining and accepting, and the agents are the
+people and the models. Select a node for its detail.
 
 ![The profile of a model, with its exact version and the definitions it authored](/images/docs/model-profile.png)
 
-A model that contributes is an author in its own right. On a term page its
-name opens the profile of the model. In the graph and the timeline a model is
+A model that contributes is credited by name. On a term page its name opens
+the profile of the model. In the graph and the timeline a model is
 identified by the exact tag it ran under, such as gemma4:26b, and is not a
-link. The profile gives that tag, who publishes it, what the model has authored
-on its own, and the prompts it worked from. A definition the model only
-coauthored, where a person accepted its suggestion, is credited on that
-definition rather than listed on the profile. One profile covers one
-version, because two versions of one family produce different text and a
-definition can only be traced to the version that wrote it.
-[The provenance model](/docs/reference/provenance-model) describes what the
-record contains and how it is published.
-The timeline below it tells the same story in order.
+link. The profile gives that tag, who publishes it, what the model has
+authored on its own, and the prompts it worked from. A definition the model
+only coauthored, where a person accepted its suggestion, is credited on that
+definition rather than listed on the profile. One profile covers one version
+of a model. [The provenance model](/docs/reference/provenance-model)
+describes what the record contains and how it is published. The timeline
+below the graph presents the same record in order.
 
-Provenance is derived on demand from the ordinary application records.
-There is no separate provenance database to synchronize. The graph can
-also be downloaded as PROV-O Turtle from the provenance page, as
+Provenance is derived on demand from the ordinary application records. The
+graph can also be downloaded as PROV-O Turtle from the provenance page, as
 described in [Metadata access](/docs/metadata-access).
 
 Votes and comments identify the revision visible when each contribution was

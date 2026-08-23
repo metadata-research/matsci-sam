@@ -30,8 +30,8 @@ leave and come back at any point.
 
 The pilot protocol settles a draft list. Each term has a draft definition,
 the one a model generated in the earlier round, with the comments that round
-left on it. Some drafts are wrong, in wording or in kind. Amending or
-replacing a draft is part of the work, and a draft nobody corrects stands.
+left on it. Some drafts are wrong, in wording or in kind. The work includes
+amending or replacing a draft, and a draft nobody corrects stands.
 
 ### Taking a position
 
@@ -86,10 +86,9 @@ are taken.
 ## When a study closes
 
 A study accepts positions, votes, comments and answers only while it is open
-and only from members of its community. Once it has closed, its address still
-resolves and its agreed list counts the votes as they stood on the day it
-closed. What its participants contributed stays in the vocabulary, because a
-term belongs to the vocabulary and not to the study that prompted it.
+and only from members of its community. Once it has closed, its address
+still resolves and its agreed list counts the votes as they stood on the day
+it closed. What its participants contributed stays in the vocabulary.
 
 <details>
 <summary>Running a study</summary>
@@ -99,11 +98,11 @@ scope](/docs/communities) describes, and each study listed there has a
 control for its walkthrough.
 
 **Generate the walkthrough** builds the steps from the collection of the
-study: the instructions, a position and a review step for each term, and,
-with the box ticked, the two closing questions. **Regenerate** replaces them
-until somebody has started, after which the walkthrough is in use and its
-steps are not replaced. The line under the control counts how many members
-of the community have finished.
+study. The steps are the instructions, a position and a review step for each
+term, and, with the box ticked, the two closing questions. **Regenerate**
+replaces them until somebody has started, after which the walkthrough is in
+use and its steps are not replaced. The line under the control counts how
+many members of the community have finished.
 
 When the window closes, the walkthrough stops accepting acts and the agreed
 list becomes the outcome. The terms and their definitions stay open on the

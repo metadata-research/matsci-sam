@@ -14,8 +14,8 @@ sends a short-lived, one-time link only when the address matches an existing
 contributor. The confirmation page does not reveal whether an address was
 found. No password is stored.
 
-Following the link returns the contributor to the same account. The public
-profile never displays the email address.
+The link returns the contributor to the same account. The public profile
+never displays the email address.
 
 ## Create an account by email
 
@@ -25,14 +25,13 @@ contributor. After following its one-time link, the contributor completes
 their name and public-profile choices.
 
 If you already have contributions, sign in with the same Google account you
-used before. Creating another account by email can separate you from work
+used before. A second account created by email can separate you from work
 already attributed to your Google-connected account. A maintainer can enable
 existing-account email sign-in without enabling new account creation, so the
 registration link may not appear in every environment.
 
-Email access depends on reliable delivery. A delayed or filtered message may
-require the contributor to request another link after the short waiting
-period.
+A delayed or filtered message may require the contributor to request another
+link after the short waiting period.
 
 ## Google
 

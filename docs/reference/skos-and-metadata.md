@@ -1,11 +1,10 @@
 # SKOS and metadata
 
-The vocabulary is published in standards that already exist for the purpose.
 SKOS publishes the concepts and the relations between them. Dublin Core
 records attribution and subject. OWL marks a retired concept. PROV-O
 expresses history, described in [the provenance
-model](/docs/reference/provenance-model). A small application namespace names
-the few things none of those vocabularies provide.
+model](/docs/reference/provenance-model). A small application namespace
+names the few things none of those vocabularies provide.
 
 ## Documents
 
@@ -73,17 +72,16 @@ Mapping properties connect the vocabulary outward. The object of
 `relatedMatch` is an absolute IRI in another vocabulary, such as a class in
 EMMO, PMDco, CHAMEO or QUDT. The site references those classes and never
 redeclares them. SKOS says a mapping property entails that its object is a
-concept, which is the standard way to link to an OWL class without
-redeclaring it. A mapping object must be an IRI outside the identifier base
-of the site, so a relation inside the vocabulary is not recorded as a mapping
-in place of a typed reference.
+concept. A mapping object must be an IRI outside the identifier base of the
+site, so a relation inside the vocabulary is not recorded as a mapping in
+place of a typed reference.
 
-The one exception is deliberate. A tag that is the same concept as a term
-states `skos:exactMatch` to the term IRI, and the term states it in return.
-That link goes through a typed reference in the ledger to the term rather
-than a free-text IRI, and it is one-to-one in both directions. With it in
-place a mapping asserted on either side reaches the other, so an external
-correspondence needs asserting once.
+One kind of mapping object is inside the identifier base. A tag that is the
+same concept as a term states `skos:exactMatch` to the term IRI, and the
+term states it in return. That link goes through a typed reference in the
+ledger to the term rather than a free-text IRI, and it is one-to-one in both
+directions. With it in place a mapping asserted on either side reaches the
+other, so an external correspondence needs asserting once.
 
 Labels, titles, descriptions, definition text, examples and scope notes are
 literals tagged `en`. Contributor and creator names, the publisher and the
