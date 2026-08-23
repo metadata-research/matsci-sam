@@ -1,0 +1,69 @@
+{
+  "$comment": "The shape of a curation manifest for pnpm curate:pilot -- --manifest <path>. A real manifest names people by email, so it is private and is not in the repository. Every $comment is ignored.",
+  "operator": "steward@example.invalid",
+  "retire": {
+    "$comment": "Set retiredAt on each row found by slug. A slug that is not found is reported and skipped. A retired row keeps its slug, so a study below may not reuse one retired here.",
+    "communities": ["zhang_lab"],
+    "studies": ["walkthrough_check"],
+    "collections": ["id4-demo"]
+  },
+  "communities": [
+    {
+      "$comment": "Created by slug when absent. Each member is added by email when they have no live episode; an existing member is left as they are. addedAt is now when absent, a date or a date-time with its offset, or first-act-2025, the person's earliest definition, comment or vote of 2025.",
+      "slug": "mrc",
+      "title": "Metadata Research Center",
+      "description": "The research group running the pilot.",
+      "members": [
+        { "email": "steward@example.invalid", "role": "steward" },
+        { "email": "member@example.invalid", "role": "member" },
+        {
+          "email": "contributor@example.invalid",
+          "role": "member",
+          "addedAt": "first-act-2025"
+        }
+      ]
+    }
+  ],
+  "collections": [
+    {
+      "$comment": "Created by slug when absent, curated. Each term is asserted as a member when it is not one already. terms is a list of term texts, matched case-insensitively, or every term created before a date.",
+      "slug": "mrc_pilot_terms",
+      "title": "MRC pilot terms",
+      "description": "The four terms the pilot walks.",
+      "terms": [
+        "band gap",
+        "phase diagram",
+        "activation energy",
+        "density functional theory (dft)"
+      ]
+    },
+    {
+      "slug": "id4_2025_terms",
+      "title": "ID4 terms, 2025",
+      "terms": { "createdBefore": "2026-01-01" }
+    }
+  ],
+  "studies": [
+    {
+      "$comment": "Created by slug when absent, over a community and a collection named above or already in the database. walkthrough generates the steps as the steward's Generate button does, only while the study has none: questions is default for the two closing questions, or a list of { prompt, responseKind } with responseKind text or scale. A study that has already closed gets no walkthrough.",
+      "slug": "mrc_pilot",
+      "title": "MRC pilot",
+      "community": "mrc",
+      "collection": "mrc_pilot_terms",
+      "welcome": "A walk through four terms of the 2025 list, to rehearse the protocol before the second ID4 study.",
+      "opensAt": "2026-08-25T00:00:00-04:00",
+      "closesAt": "2026-09-01T23:59:59-04:00",
+      "walkthrough": { "questions": "default" }
+    },
+    {
+      "$comment": "A study over its past window records what happened then: it is created closed, with no walkthrough.",
+      "slug": "id4_2025",
+      "title": "ID4 study, 2025",
+      "community": "mrc",
+      "collection": "id4_2025_terms",
+      "opensAt": "2025-07-25T00:00:00-04:00",
+      "closesAt": "2025-09-17T23:59:59-04:00",
+      "walkthrough": null
+    }
+  ]
+}

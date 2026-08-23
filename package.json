@@ -30,6 +30,7 @@
     "test:migration-journal": "tsx scripts/test-migration-journal.ts",
     "pilot:run": "tsx --conditions=react-server scripts/pilot/run.ts",
     "pilot:verify": "tsx --conditions=react-server scripts/pilot/verify.ts",
+    "curate:pilot": "tsx --conditions=react-server scripts/curate-pilot.ts",
     "graphs:project": "tsx --conditions=react-server scripts/project-graphs.ts project",
     "graphs:export": "tsx --conditions=react-server scripts/project-graphs.ts export",
     "test:graph": "tsx --conditions=react-server scripts/test-graph.ts",
