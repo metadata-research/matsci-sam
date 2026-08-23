@@ -45,8 +45,10 @@ const main = async () => {
   const { mayRegenerateSteps, planSteps, recordCompletion, DEFAULT_QUESTIONS } =
     await import("../lib/surveys")
   const {
+    actNamesStep,
     appendQuestionStep,
     completionCountOfStudy,
+    gateOf,
     hasPosition,
     nextPositionFor,
     recordResponse,
@@ -109,6 +111,20 @@ const main = async () => {
   }
   const expectAccepted = (outcome: Outcome, label: string) =>
     assert.ok(outcome.ok, `${label}: ${outcome.ok ? "" : outcome.message}`)
+
+  // Run a check inside a savepoint that is rolled back whatever happens, so
+  // a change the check needs leaves the fixture as it was. An assertion
+  // failing inside is thrown through.
+  const within = async (tx: Tx, run: (sp: Tx) => Promise<void>) => {
+    try {
+      await tx.transaction(async (sp) => {
+        await run(sp)
+        throw new Rollback()
+      })
+    } catch (error) {
+      if (!(error instanceof Rollback)) throw error
+    }
+  }
 
   // drizzle/invariants.sql is one DO block behind a psql directive. Run the
   // block inside a savepoint, so a planted violation and the exception it
@@ -184,14 +200,15 @@ const main = async () => {
         ])
         .returning({ id: termsTable.id })
       assert.ok(termA.id < termB.id && termB.id < termC.id)
-      const { definition } = await createDefinitionWithInitialRevision(tx, {
-        termId: termA.id,
-        authorId: user.id,
-        definition: "A fixture definition for the KOS ledger test.",
-        example: "Rolled back at the end.",
-        changeNote: "fixture",
-        source: "initial"
-      })
+      const { definition, revision: fixtureRevision } =
+        await createDefinitionWithInitialRevision(tx, {
+          termId: termA.id,
+          authorId: user.id,
+          definition: "A fixture definition for the KOS ledger test.",
+          example: "Rolled back at the end.",
+          changeNote: "fixture",
+          source: "initial"
+        })
       const [topicX, topicY] = await tx
         .insert(conceptsTable)
         .values([
@@ -749,6 +766,18 @@ const main = async () => {
         "one active and one retracted topic before purge"
       )
 
+      // A vote on the definition before the purge: its event goes with the
+      // definition, the one hard delete of the act record, where the
+      // foreign key to the revision would otherwise refuse the purge.
+      await castVote(tx, {
+        definitionId: definition.id,
+        revisionId: fixtureRevision.id,
+        userId: user.id,
+        vote: "up",
+        actorKind: "human",
+        communityId: null
+      })
+
       const deleted = await deleteDefinitionRows(tx, definition.id)
       assert.equal(deleted?.id, definition.id)
       const after = await tx
@@ -756,6 +785,15 @@ const main = async () => {
         .from(statementsTable)
         .where(eq(statementsTable.subjectDefinitionId, definition.id))
       assert.equal(after.length, 0, "definition-level statements purged")
+      const eventsAfter = await tx
+        .select({ id: voteEventsTable.id })
+        .from(voteEventsTable)
+        .where(eq(voteEventsTable.definitionId, definition.id))
+      assert.equal(
+        eventsAfter.length,
+        0,
+        "the vote events of a purged definition go with it"
+      )
       const remainingFacet = await tx
         .select({ id: statementsTable.id })
         .from(statementsTable)
@@ -1248,9 +1286,11 @@ const main = async () => {
         "a vote event inside the define step of its term"
       )
 
-      // A standing upvote from before the round is the position on the
-      // define step of its term: the gate reads it, and the walkthrough
-      // reports the candidate it stands on as accepted.
+      // A standing upvote on the current revision of a definition of the
+      // term is a position on its define step: the gate reads it, and the
+      // walkthrough reports no held position for it, so the shell shows the
+      // candidates with Accept open on that one. It is not an act naming
+      // the step, so a vote inside the step is not a second act.
       await castVote(tx, {
         definitionId: defB.id,
         revisionId: revB.id,
@@ -1265,10 +1305,128 @@ const main = async () => {
         true,
         "a standing upvote on a definition of the term is a position"
       )
+      const standingWalk = await walkthroughOf(tx, study.id, aiUser.id)
+      assert.equal(standingWalk.steps[2].hasPosition, true)
+      assert.equal(
+        standingWalk.steps[2].held,
+        null,
+        "a standing upvote is not reported as a held position"
+      )
+      assert.equal(
+        await actNamesStep(tx, defineB.id, aiUser.id),
+        false,
+        "a standing upvote names no step"
+      )
+      assert.equal(
+        await actNamesStep(tx, defineB.id, user.id),
+        true,
+        "the upvote cast inside the step names it"
+      )
+      assert.equal(
+        await hasPosition(tx, defineA.id, aiUser.id),
+        false,
+        "an upvote on a definition of another term is not a position"
+      )
+
+      // A standing downvote is not a position: the define step of termA,
+      // whose one definition the AI account votes down.
+      await castVote(tx, {
+        definitionId: defA.id,
+        revisionId: revA.id,
+        userId: aiUser.id,
+        vote: "down",
+        actorKind: "simulated",
+        communityId: community.id,
+        surveyStepId: null
+      })
+      assert.equal(
+        await hasPosition(tx, defineA.id, aiUser.id),
+        false,
+        "a standing downvote is not a position"
+      )
+
+      // An upvote on a superseded revision is not a position: the voter can
+      // neither see it on the candidates nor recast it. A later revision
+      // becomes current inside a savepoint, and the fixture keeps revB.
+      await within(tx, async (sp) => {
+        const [next] = await sp
+          .insert(definitionRevisionsTable)
+          .values({
+            definitionId: defB.id,
+            version: 2,
+            previousRevisionId: revB.id,
+            definitionDiff: [[DiffOp.Equal, "A fixture definition, revised."]],
+            exampleDiff: [[DiffOp.Equal, "Rolled back with the savepoint."]],
+            editorId: user.id,
+            changeNote: "a revision that supersedes the voted one",
+            source: "author_edit",
+            changeDelta: "0.000"
+          })
+          .returning({ id: definitionRevisionsTable.id })
+        await sp
+          .update(definitionsTable)
+          .set({ currentRevisionId: next.id })
+          .where(eq(definitionsTable.id, defB.id))
+        assert.equal(
+          await hasPosition(sp, defineB.id, aiUser.id),
+          false,
+          "an upvote on a superseded revision is not a position"
+        )
+        assert.equal(
+          await hasPosition(sp, defineB.id, user.id),
+          true,
+          "an upvote event naming the step stays one"
+        )
+      })
+
+      // A downvote or a withdrawal naming a define step is not a position
+      // and is not a held position, whatever got it into the record: the
+      // invariant below refuses such rows, and the reads do not count them.
+      for (const kind of ["down", null] as const) {
+        await within(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values({
+            definitionId: defA.id,
+            revisionId: revA.id,
+            userId: aiUser.id,
+            kind,
+            actorKind: "simulated",
+            communityId: community.id,
+            surveyStepId: defineA.id
+          })
+          assert.equal(
+            await hasPosition(sp, defineA.id, aiUser.id),
+            false,
+            `a ${kind ?? "withdrawal"} event naming the define step is not a position`
+          )
+          assert.equal(
+            (await walkthroughOf(sp, study.id, aiUser.id)).steps[1].held,
+            null,
+            `a ${kind ?? "withdrawal"} event naming the define step is not held`
+          )
+        })
+      }
+
+      // The gate as the router evaluates it, with its facts loaded.
+      assert.deepEqual(await gateOf(tx, instructions, aiUser.id), { ok: true })
       assert.deepEqual(
-        (await walkthroughOf(tx, study.id, aiUser.id)).steps[2].held,
-        { kind: "accepted", definitionId: defB.id },
-        "the candidate of the standing upvote is the held position"
+        await gateOf(tx, defineA, aiUser.id),
+        { ok: false, reason: "Take a position on this term first" },
+        "a standing downvote does not pass the define gate"
+      )
+      assert.deepEqual(
+        await gateOf(tx, defineB, aiUser.id),
+        { ok: true },
+        "a standing upvote passes the define gate"
+      )
+      assert.deepEqual(
+        await gateOf(tx, defineB, user.id),
+        { ok: true },
+        "an upvote event naming the step passes the define gate"
+      )
+      assert.deepEqual(
+        await gateOf(tx, scaleQuestion, user.id),
+        { ok: false, reason: "Answer the question first" },
+        "an unanswered question does not pass its gate"
       )
 
       // The review step of termB: a comment and a vote, each naming it. The
@@ -1315,6 +1473,11 @@ const main = async () => {
       assert.equal(
         (await responseOf(tx, scaleQuestion.id, user.id))?.id,
         answer.id
+      )
+      assert.deepEqual(
+        await gateOf(tx, scaleQuestion, user.id),
+        { ok: true },
+        "an answered question passes its gate"
       )
 
       // --- What the router and the pages read back ---
@@ -1536,6 +1699,99 @@ const main = async () => {
         }),
         "vote event step is not a define or review step",
         "vote event inside the instructions step"
+      )
+      // The position rule on the record: inside a define step the vote is
+      // an upvote, and one act per person.
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: aiUser.id,
+            kind: "down",
+            actorKind: "simulated",
+            communityId: community.id,
+            surveyStepId: defineB.id
+          })
+          await runInvariants(sp)
+        }),
+        "vote event inside a define step is not an upvote",
+        "downvote event naming the define step of its term"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: aiUser.id,
+            kind: null,
+            actorKind: "simulated",
+            communityId: community.id,
+            surveyStepId: defineB.id
+          })
+          await runInvariants(sp)
+        }),
+        "vote event inside a define step is not an upvote",
+        "withdrawal event naming the define step of its term"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: user.id,
+            kind: "up",
+            actorKind: "human",
+            communityId: community.id,
+            surveyStepId: defineB.id
+          })
+          await runInvariants(sp)
+        }),
+        "more than one act by one person inside a define step",
+        "a second upvote event by one person naming a define step"
+      )
+      // The AI account, which has no act naming the step and no original
+      // on termB: an upvote event naming the step passes on its own, and an
+      // initial revision beside it does not.
+      expectAccepted(
+        await attempt(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: aiUser.id,
+            kind: "up",
+            actorKind: "simulated",
+            communityId: community.id,
+            surveyStepId: defineB.id
+          })
+          await runInvariants(sp)
+        }),
+        "one upvote event by one person naming a define step"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp.insert(voteEventsTable).values({
+            definitionId: defB.id,
+            revisionId: revB.id,
+            userId: aiUser.id,
+            kind: "up",
+            actorKind: "simulated",
+            communityId: community.id,
+            surveyStepId: defineB.id
+          })
+          await createDefinitionWithInitialRevision(sp, {
+            termId: termB.id,
+            authorId: aiUser.id,
+            definition: "A definition beside an upvote, inside the step.",
+            example: "Rolled back with the savepoint.",
+            changeNote: "fixture",
+            source: "ai_generation",
+            surveyStepId: defineB.id
+          })
+          await runInvariants(sp)
+        }),
+        "more than one act by one person inside a define step",
+        "an initial revision beside an upvote event by one person in a define step"
       )
       expectInvariant(
         await attempt(tx, async (sp) => {

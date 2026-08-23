@@ -18,6 +18,7 @@ import type { ActorKind, GenerationStampInput } from "@/lib/participation"
 import {
   recordCompletion,
   resumePosition,
+  stepGate,
   type Question,
   type Step
 } from "@/lib/surveys"
@@ -148,11 +149,13 @@ export const completionCountOfStudy = async (
 }
 
 /*
- * The position a person holds on a define step: the candidate they accepted
- * with a vote that names the step, or the definition they published with
- * an initial revision that names it. The earliest act is the position.
- * Null when they have taken none, which is what the define gate refuses
- * on.
+ * The position a person holds on a define step as an act naming the step:
+ * the candidate they accepted with an upvote event naming it, or the
+ * definition they published with an initial revision naming it. The
+ * earliest act is the position. Null when no act of theirs names the step,
+ * which is also the case when the gate is satisfied by a standing upvote
+ * (stepsWithPosition): a standing vote is not reported as held, so the
+ * shell shows the candidates and Accept records the completion against it.
  */
 export type Position = {
   kind: "accepted" | "proposed"
@@ -176,7 +179,8 @@ export const positionsOf = async (
       .where(
         and(
           inArray(voteEventsTable.surveyStepId, stepIds),
-          eq(voteEventsTable.userId, userId)
+          eq(voteEventsTable.userId, userId),
+          eq(voteEventsTable.kind, "up")
         )
       )
       .orderBy(asc(voteEventsTable.id)),
@@ -213,40 +217,6 @@ export const positionsOf = async (
   }
   for (const row of accepted) consider("accepted", row)
   for (const row of proposed) consider("proposed", row)
-
-  // A define step nothing names yet, where the person holds a standing
-  // upvote on a definition of the term: that vote is the position, as the
-  // gate reads it. An act inside the step takes precedence when there is one.
-  const unnamed = stepIds.filter((id) => !positions.has(id))
-  if (unnamed.length > 0) {
-    const standing = await executor
-      .select({
-        stepId: surveyStepsTable.id,
-        definitionId: votesTable.definitionId,
-        createdAt: votesTable.createdAt
-      })
-      .from(surveyStepsTable)
-      .innerJoin(
-        definitionsTable,
-        eq(definitionsTable.termId, surveyStepsTable.termId)
-      )
-      .innerJoin(
-        votesTable,
-        and(
-          eq(votesTable.definitionId, definitionsTable.id),
-          eq(votesTable.userId, userId),
-          eq(votesTable.kind, "up")
-        )
-      )
-      .where(
-        and(
-          inArray(surveyStepsTable.id, unnamed),
-          eq(surveyStepsTable.kind, "define")
-        )
-      )
-      .orderBy(asc(votesTable.createdAt))
-    for (const row of standing) consider("accepted", row)
-  }
   return new Map(
     [...positions].map(([stepId, { kind, definitionId }]) => [
       stepId,
@@ -256,13 +226,72 @@ export const positionsOf = async (
 }
 
 /*
- * Whether a person holds a position on a define step, the fact the define
- * gate takes: a vote event or an initial revision of theirs naming the step,
- * or a standing upvote of theirs on a definition of the term from before the
- * round. The vote path toggles, so that vote cannot be cast again inside the
- * step; it is the same endorsement, and Accept records the step against it.
+ * The define steps, among those given, on which a person holds a position:
+ * the fact the define gate takes. A position is exactly one of an upvote
+ * event by the person naming the step, an initial revision of theirs naming
+ * it, or a standing upvote of theirs on the current revision of a
+ * definition of the term. The standing vote satisfies the gate because the
+ * vote path toggles, so it cannot be cast again inside the step; a vote on
+ * a superseded revision is not one, because the person can neither see it
+ * on the candidates nor recast it. A downvote, a withdrawal, and a vote on
+ * a definition of another term are no position.
  */
+export const stepsWithPosition = async (
+  executor: Executor,
+  stepIds: number[],
+  userId: number
+): Promise<Set<number>> => {
+  if (stepIds.length === 0) return new Set()
+  const rows = await executor
+    .select({ id: surveyStepsTable.id })
+    .from(surveyStepsTable)
+    .where(
+      and(
+        inArray(surveyStepsTable.id, stepIds),
+        eq(surveyStepsTable.kind, "define"),
+        or(
+          sql`exists (
+            select 1 from ${voteEventsTable} e
+            where e."surveyStepId" = ${surveyStepsTable.id}
+              and e."userId" = ${userId}
+              and e.kind = 'up'
+          )`,
+          sql`exists (
+            select 1 from ${definitionRevisionsTable} r
+            where r."surveyStepId" = ${surveyStepsTable.id}
+              and r."editorId" = ${userId}
+              and r.version = 1
+          )`,
+          sql`exists (
+            select 1 from ${votesTable} v
+            join ${definitionsTable} d
+              on d.id = v."definitionId"
+             and d."currentRevisionId" = v."revisionId"
+            where v."userId" = ${userId}
+              and v.kind = 'up'
+              and d."termId" = ${surveyStepsTable.termId}
+          )`
+        )
+      )
+    )
+  return new Set(rows.map((row) => row.id))
+}
+
+// Whether a person holds a position on one define step.
 export const hasPosition = async (
+  executor: Executor,
+  stepId: number,
+  userId: number
+): Promise<boolean> =>
+  (await stepsWithPosition(executor, [stepId], userId)).has(stepId)
+
+/*
+ * Whether an act of a person already names a define step: a vote event or
+ * an initial revision. A participant takes one position per define step, so
+ * votes.vote and definitions.create refuse a second act on this, and
+ * drizzle/invariants.sql proves afterwards that one is all there is.
+ */
+export const actNamesStep = async (
   executor: Executor,
   stepId: number,
   userId: number
@@ -284,13 +313,6 @@ export const hasPosition = async (
             where r."surveyStepId" = ${surveyStepsTable.id}
               and r."editorId" = ${userId}
               and r.version = 1
-          )`,
-          sql`exists (
-            select 1 from ${votesTable} v
-            join ${definitionsTable} d on d.id = v."definitionId"
-            where v."userId" = ${userId}
-              and v.kind = 'up'
-              and d."termId" = ${surveyStepsTable.termId}
           )`
         )
       )
@@ -326,13 +348,36 @@ export const responseOf = async (
   return row ?? null
 }
 
+/*
+ * The gate of a step for one person, with its facts loaded: what
+ * completeStep refuses on. The rule is stepGate (lib/surveys.ts); this
+ * loads the position for a define step and the answer for a question, so
+ * the router and scripts/test-kos-db.ts evaluate the gate the same way.
+ */
+export const gateOf = async (
+  executor: Executor,
+  step: Step,
+  userId: number
+): Promise<ReturnType<typeof stepGate>> =>
+  stepGate(step, {
+    hasPosition:
+      step.kind === "define" && (await hasPosition(executor, step.id, userId)),
+    hasResponse:
+      step.kind === "question" &&
+      (await responseOf(executor, step.id, userId)) !== null
+  })
+
 export type WalkthroughStep = StepWithTerm & {
   // Whether the viewer completed it. False for a signed-out viewer.
   completed: boolean
-  // For a define step, whether the viewer holds a position on the term, and
-  // which; false and null elsewhere and for a signed-out viewer. Named held
-  // because position is the place of the step in the list.
+  // For a define step, whether the viewer holds a position on the term, the
+  // fact the gate takes (stepsWithPosition); false elsewhere and for a
+  // signed-out viewer.
   hasPosition: boolean
+  // The act of the viewer naming the step, when there is one. Null where the
+  // position is a standing upvote, which the shell shows as the candidates
+  // with Accept open. Named held because position is the place of the step
+  // in the list.
   held: Position | null
   // For a question step, the viewer's answer if any.
   response: {
@@ -367,13 +412,14 @@ export const walkthroughOf = async (
       resumePosition: resumePosition(steps, new Set())
     }
 
-  const completed = await completedStepIdsOf(executor, studyId, userId)
-
-  const positions = await positionsOf(
-    executor,
-    steps.filter((step) => step.kind === "define").map((step) => step.id),
-    userId
-  )
+  const defineStepIds = steps
+    .filter((step) => step.kind === "define")
+    .map((step) => step.id)
+  const [completed, positions, withPosition] = await Promise.all([
+    completedStepIdsOf(executor, studyId, userId),
+    positionsOf(executor, defineStepIds, userId),
+    stepsWithPosition(executor, defineStepIds, userId)
+  ])
 
   const questionStepIds = steps
     .filter((step) => step.kind === "question")
@@ -398,7 +444,7 @@ export const walkthroughOf = async (
     steps: steps.map((step) => ({
       ...step,
       completed: completed.has(step.id),
-      hasPosition: positions.has(step.id),
+      hasPosition: withPosition.has(step.id),
       held: positions.get(step.id) ?? null,
       response:
         step.kind === "question"

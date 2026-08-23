@@ -34,7 +34,8 @@ defined term alphabetically.
 The **Browse** page lists defined terms alphabetically with the definition
 count in parentheses. A letter index stays pinned to the top of the page while
 you scroll. Signed out, or with no community chosen, it lists every defined
-term. When you have chosen a community from the account menu, Browse narrows to
+term. When you have chosen a community from the **Working in** control in the
+navigation bar, Browse narrows to
 the terms that community is working through, which are the terms in the
 collections on its worklist, and a **Show everything** link drops the narrowing
 for one request without changing your standing choice. See

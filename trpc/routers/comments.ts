@@ -88,11 +88,11 @@ export const commentsRouter = createTRPCRouter({
             throw error
           }
 
-          // The definition and whether a model identity wrote it: a comment on
-          // the model's own current text is feedback the model revises from.
-          // A simulated participant is an AI-flag account without a model
-          // identity, and its text is a person's text here, so a comment on
-          // it schedules nothing.
+          // A comment on the current text of a model identity is feedback the
+          // revision reads; a simulated participant has no model identity (see
+          // definitions.create). A comment inside a review step is a review
+          // act, not feedback, and schedules nothing: a revision would reset
+          // the score of the draft under the positions taken on it.
           const [definition] = await tx
             .select({
               modelUserId: aiModelsTable.userId,
@@ -109,6 +109,7 @@ export const commentsRouter = createTRPCRouter({
             .limit(1)
 
           if (
+            surveyStepId === undefined &&
             definition.modelUserId !== null &&
             definition.currentRevisionId === revisionId
           ) {

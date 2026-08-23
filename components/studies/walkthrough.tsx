@@ -25,11 +25,13 @@ import { collectionPath, studyPath } from "@/lib/public-identifiers"
  * Each is given the step, so what it writes names the step it was written
  * in, and the router decides whether the step is done.
  *
- * A define step is shown as a position step: the candidates of the term,
+ * A define step is labelled Position and shows the candidates of the term,
  * the draft first, and the three moves. Accepting a candidate is an upvote
- * that names the step; amending one opens the form with its text and names
- * its revision as the source; replacing them opens the form empty. A review
- * step compares the candidates where there is more than one.
+ * that names the step, or, on a candidate the viewer already upvoted, the
+ * completion recorded against that standing vote; amending one opens the
+ * form with its text and names its revision as the source; replacing them
+ * opens the form empty. A review step compares the candidates where there
+ * is more than one.
  *
  * A completed step stays readable from the dots, without its controls: its
  * completion stands. A step is reachable once the step before it is
@@ -147,29 +149,37 @@ const orderCandidates = (definitions: Candidate[]) => {
     : bySupport
 }
 
-// The candidate a held position names, as a record: the vote rail keeps the
-// score with its buttons disabled, because the position is taken.
+/*
+ * The candidate a position names, as a record: the act of the viewer naming
+ * the step or, on a completed step with none, the candidate their standing
+ * upvote stands on. The vote rail keeps the score with its buttons
+ * disabled, because the position is taken.
+ */
 const HeldPosition = ({ step }: { step: Step }) => {
   const [definitions] = trpc.definitions.list.useSuspenseQuery({
     termId: step.termId!
   })
-  const held = definitions.find(
-    (definition) => definition.id === step.held?.definitionId
-  )
+  const held = step.held
+    ? definitions.find(
+        (definition) => definition.id === step.held?.definitionId
+      )
+    : definitions.find((definition) => definition.vote === "up")
 
-  if (!held || !step.held)
+  if (!held)
     return (
       <p className="text-sm text-muted-foreground">
-        The candidate you took a position on is no longer in the vocabulary.
+        {step.held
+          ? "The candidate you took a position on is no longer in the vocabulary."
+          : "Your position on this term is recorded."}
       </p>
     )
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        {step.held.kind === "accepted"
-          ? "You accepted this candidate."
-          : "You proposed this candidate."}
+        {step.held?.kind === "proposed"
+          ? "You proposed this candidate."
+          : "You accepted this candidate."}
       </p>
       <Definition
         definition={{ ...held, termSlug: step.termSlug! }}
@@ -272,9 +282,9 @@ const Candidates = ({
         </p>
       )}
       {candidates.map((candidate, index) => {
-        // A standing upvote from before this round is the position already:
+        // A standing upvote on the current text is the position already:
         // the vote path toggles, so Accept records the step against it and
-        // casts nothing.
+        // casts nothing. Said under the candidate, where the button is.
         const standing = candidate.vote === "up"
         return (
           <div key={candidate.id} className="space-y-3">
@@ -295,15 +305,16 @@ const Candidates = ({
                   readOnly
                 />
               </Suspense>
+              {standing && (
+                <p className="text-sm text-muted-foreground">
+                  Your upvote on this candidate stands. Accept records it as
+                  your position.
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   disabled={busy}
-                  title={
-                    standing
-                      ? "Your vote for this candidate stands from before this round. Accepting records it as your position."
-                      : undefined
-                  }
                   onClick={() =>
                     standing
                       ? onAccepted()
@@ -351,6 +362,13 @@ const Candidates = ({
   )
 }
 
+/*
+ * A define step is settled once an act of the viewer names it, or once the
+ * step is complete: the position is then shown as a record, whatever the
+ * gate would say now. Otherwise the candidates are shown with the moves,
+ * a standing upvote included, where Accept on that candidate records the
+ * completion.
+ */
 const Position = ({
   step,
   viewerId,
@@ -365,31 +383,34 @@ const Position = ({
   onAccepted: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
   onContinue: () => void
-}) => (
-  <div className="space-y-6">
-    {step.prompt && !step.hasPosition && (
-      <p className="text-muted-foreground">{step.prompt}</p>
-    )}
-    <Suspense fallback={<Skeleton className="h-32 w-full" />}>
-      {step.hasPosition ? (
-        <HeldPosition step={step} />
-      ) : (
-        <Candidates
-          step={step}
-          viewerId={viewerId}
-          pending={pending}
-          onAccepted={onAccepted}
-          onPublished={onPublished}
-        />
+}) => {
+  const settled = step.completed || step.held !== null
+  return (
+    <div className="space-y-6">
+      {step.prompt && !settled && (
+        <p className="text-muted-foreground">{step.prompt}</p>
       )}
-    </Suspense>
-    {step.hasPosition && (
-      <Button onClick={onContinue} disabled={pending}>
-        Continue
-      </Button>
-    )}
-  </div>
-)
+      <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+        {settled ? (
+          <HeldPosition step={step} />
+        ) : (
+          <Candidates
+            step={step}
+            viewerId={viewerId}
+            pending={pending}
+            onAccepted={onAccepted}
+            onPublished={onPublished}
+          />
+        )}
+      </Suspense>
+      {settled && (
+        <Button onClick={onContinue} disabled={pending}>
+          Continue
+        </Button>
+      )}
+    </div>
+  )
+}
 
 /*
  * The candidates of the term, each with its discussion, where there is more
@@ -461,11 +482,12 @@ const ReviewList = ({
                 readOnly={readOnly}
               />
             </Suspense>
+            {/* A comment here is a review act: the router schedules no model
+                revision from it, so the box discloses none. */}
             {!readOnly && (
               <TermCommentBox
                 id={definition.id}
                 revisionId={definition.revisionId}
-                feedsModelRevision={definition.authorModelSlug !== null}
                 surveyStepId={step.id}
               />
             )}
@@ -661,6 +683,14 @@ export const Walkthrough = ({
       ? show(step.position + 1)
       : complete.mutate({ stepId: step.id })
 
+  // The step after this one reads the candidates of its term, so they are
+  // fetched before the shell moves on, and the step paints without its
+  // skeleton.
+  const prefetchNext = (step: Step) => {
+    const next = steps[step.position]
+    if (next?.termId) utils.definitions.list.prefetch({ termId: next.termId })
+  }
+
   // A step is reachable once the step before it is complete, and the
   // finished state once the last step is.
   const reachable = (at: number) => at === 1 || steps[at - 2].completed
@@ -732,10 +762,12 @@ export const Walkthrough = ({
                   // The upvote is the position; the score it changed is read
                   // again, and the step completes as a press would.
                   utils.definitions.list.invalidate({ termId: step.termId! })
+                  prefetchNext(step)
                   press(step)
                 }}
                 onPublished={(published) => {
                   utils.definitions.list.invalidate({ termId: step.termId! })
+                  prefetchNext(step)
                   // The completion came back with the definition, and with
                   // it where the viewer resumes.
                   if (published.walkthrough)

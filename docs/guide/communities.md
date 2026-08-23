@@ -43,10 +43,13 @@ A study can have a walkthrough, the ordered steps its members work through from
 the study page, with their place kept between visits. The first steps ask for a
 position on each term. The draft definition is shown with its comments and with
 anything proposed since, and you accept one with an upvote, amend the one
-closest to what you would use, or replace them with your own. Later steps
-compare the terms with more than one candidate, two questions about the list
-close it, and the study page shows the definition with the most support as the
-agreed definition of each term so far.
+closest to what you would use, or replace them with your own. An upvote you
+cast on the current text before the round counts as your position, and you
+take one position per term. Comments left inside a review step are read by
+the group, not by the model. Later steps
+compare the terms with more than one candidate, closing questions about the
+list may follow, and the study page shows the definition with the most support
+as the agreed definition of each term so far.
 
 A study that has closed still resolves and still reads. What its participants
 contributed stays in the vocabulary, because a term belongs to the vocabulary

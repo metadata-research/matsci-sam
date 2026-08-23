@@ -102,7 +102,7 @@ function TermGuidance({
 export type PublishedDefinition = RouterOutput["definitions"]["create"]
 
 /*
- * The definition form, shared by /add and the position step of a
+ * The definition form, shared by /add and the define step of a
  * walkthrough. On /add the contributor picks the term and the AI workflow;
  * in the walkthrough the step fixes the term, the chooser is not shown and
  * the publish is classic, so a term without a model definition gets its

@@ -7,8 +7,11 @@ import {
   db,
   definitionsTable,
   studiesTable,
+  surveyStepsTable,
   termsTable,
-  usersTable
+  usersTable,
+  voteEventsTable,
+  votesTable
 } from "@yamz/db"
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { statementsTable } from "@yamz/db"
@@ -41,6 +44,13 @@ const studyColumns = {
     where s."subjectCollectionId" = ${collectionsTable.id}
       and s.predicate = 'skos:member'
       and s."retractedAt" is null
+  )`,
+  // How many steps its walkthrough has, so the study page can say whether
+  // positions are being taken without reading the walkthrough.
+  steps: sql<number>`(
+    select cast(count(*) as int)
+    from ${surveyStepsTable} st
+    where st."studyId" = ${studiesTable.id}
   )`
 }
 
@@ -85,19 +95,25 @@ export const studiesOfCommunity = async (communityId: number) =>
     .orderBy(asc(studiesTable.createdAt))
 
 /*
- * The outcome of a study, read from the vocabulary: for each term of its
+ * The outcome of a study, read from the votes: for each term of its
  * collection, the definition with the most support, which is the agreed
- * definition of the group so far, with its support and how many other
- * candidates stand beside it. Support is the score, and a tie goes to the
- * earliest candidate, the order the position step shows them in. Nothing
- * is written: the outcome is a reading of the votes, as the rank pages are.
+ * definition of the group, with its support and how many other candidates
+ * stand beside it. Support is read from the votes and not from the score
+ * column, which a model revision resets: without asOf it is the votes rows
+ * on the current revision of the definition, up minus down; with asOf, the
+ * closing time of a closed study, it is the last vote event of each person
+ * on each revision at or before that time, summed over the revisions of the
+ * definition, so the page of a closed study shows the outcome of its round
+ * and not the tally since. A tie goes to the earliest candidate, the order
+ * the define step shows them in. Nothing is written: the outcome is a
+ * reading of the votes, as the rank pages are.
  */
 export type AgreedDefinition = {
   id: number
   definitionNumber: number
   definition: string
   example: string
-  score: number
+  support: number
   model: string | null
   author: {
     id: number | null
@@ -108,7 +124,10 @@ export type AgreedDefinition = {
   }
 }
 
-export const agreedDefinitions = async (collectionId: number) => {
+export const agreedDefinitions = async (
+  collectionId: number,
+  asOf?: string | null
+) => {
   const terms = await db
     .select({ id: termsTable.id, term: termsTable.term, slug: termsTable.slug })
     .from(statementsTable)
@@ -123,6 +142,24 @@ export const agreedDefinitions = async (collectionId: number) => {
     .orderBy(asc(termsTable.term))
   if (terms.length === 0) return []
 
+  const support = asOf
+    ? sql<number>`cast(coalesce((
+        select sum(case last.kind when 'up' then 1 when 'down' then -1 else 0 end)
+        from (
+          select distinct on (e."revisionId", e."userId") e.kind
+          from ${voteEventsTable} e
+          where e."definitionId" = ${definitionsTable.id}
+            and e."createdAt" <= ${asOf}
+          order by e."revisionId", e."userId", e."createdAt" desc, e.id desc
+        ) last
+      ), 0) as int)`
+    : sql<number>`cast(coalesce((
+        select sum(case v.kind when 'up' then 1 when 'down' then -1 else 0 end)
+        from ${votesTable} v
+        where v."definitionId" = ${definitionsTable.id}
+          and v."revisionId" = ${definitionsTable.currentRevisionId}
+      ), 0) as int)`
+
   const candidates = await db
     .select({
       id: definitionsTable.id,
@@ -130,7 +167,7 @@ export const agreedDefinitions = async (collectionId: number) => {
       definitionNumber: definitionsTable.definitionNumber,
       definition: definitionsTable.definition,
       example: definitionsTable.example,
-      score: definitionsTable.score,
+      support: support.mapWith(Number).as("support"),
       model: definitionsTable.model,
       author: {
         id: usersTable.id,
@@ -151,7 +188,7 @@ export const agreedDefinitions = async (collectionId: number) => {
     )
     .orderBy(
       asc(definitionsTable.termId),
-      desc(definitionsTable.score),
+      desc(sql`"support"`),
       asc(definitionsTable.createdAt),
       asc(definitionsTable.id)
     )

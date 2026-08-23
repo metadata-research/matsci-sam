@@ -625,6 +625,39 @@ BEGIN
       RAISE EXCEPTION 'vote event step is not a define or review step on the term of its definition';
     END IF;
 
+    -- A voting act inside a define step is the accepting upvote: a downvote
+    -- or a withdrawal takes no position, and the router refuses either.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents" e
+      JOIN "surveySteps" s ON s.id = e."surveyStepId"
+      WHERE s.kind = 'define' AND e.kind IS DISTINCT FROM 'up'
+    ) THEN
+      RAISE EXCEPTION 'vote event inside a define step is not an upvote';
+    END IF;
+
+    -- One act per person per define step: the upvote that accepts a
+    -- candidate or the initial revision that proposes one, not both and not
+    -- two of either. A participant takes one position on a term.
+    IF EXISTS (
+      SELECT 1
+      FROM (
+        SELECT e."surveyStepId" AS step_id, e."userId" AS person_id
+        FROM "voteEvents" e
+        JOIN "surveySteps" s ON s.id = e."surveyStepId"
+        WHERE s.kind = 'define'
+        UNION ALL
+        SELECT r."surveyStepId", r."editorId"
+        FROM "definitionRevisions" r
+        JOIN "surveySteps" s ON s.id = r."surveyStepId"
+        WHERE s.kind = 'define'
+      ) acts
+      GROUP BY step_id, person_id
+      HAVING count(*) > 1
+    ) THEN
+      RAISE EXCEPTION 'more than one act by one person inside a define step';
+    END IF;
+
     -- A voting act inside a step happened in the community running the
     -- study of that step, whatever community the voter's header pointed at.
     IF EXISTS (

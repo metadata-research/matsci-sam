@@ -60,21 +60,32 @@ export default async function StudyPage({
 
   const state = studyState(study)
 
-  // The walkthrough as this viewer sees it: the resume card for a member,
-  // and for anyone whether the study has one, which is when its outcome is
-  // shown. Public study, private progress: a signed-out viewer gets the
-  // steps and nothing of anyone's progress.
+  // The walkthrough as this viewer sees it, for the resume card. A
+  // signed-out viewer has no progress to resume, so nothing is read.
   const user = await getCurrentUser()
-  const walkthrough = await trpc.surveys.get({ studySlug: slug })
+  const walkthrough = user ? await trpc.surveys.get({ studySlug: slug }) : null
   const walks =
-    user !== null &&
+    walkthrough !== null &&
     walkthrough.membership !== null &&
     state === "open" &&
     walkthrough.steps.length > 0
+      ? walkthrough
+      : null
 
-  // The agreed definition of each term, for any study with terms: a closed
-  // study shows the outcome of its round, an open one the list as it moves.
-  const outcome = await agreedDefinitions(study.collectionId)
+  // The agreed definition of each term, for any study with terms. A closed
+  // study shows the outcome of its round, the votes as they stood when it
+  // closed; any other shows the list as it stands.
+  const closedOn =
+    state === "closed" && study.closesAt ? formatDate(study.closesAt) : null
+  const outcome = await agreedDefinitions(
+    study.collectionId,
+    closedOn ? study.closesAt : null
+  )
+  const agreedNote = closedOn
+    ? `The study closed on ${closedOn}.`
+    : state === "open" && study.steps > 0
+      ? "The list moves as positions are taken."
+      : null
 
   return (
     <main className="px-4 py-8">
@@ -103,11 +114,10 @@ export default async function StudyPage({
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Walkthrough
             </div>
-            {walkthrough.completedStepIds.length === 0 ? (
+            {walks.completedStepIds.length === 0 ? (
               <>
                 <p className="text-sm">
-                  {walkthrough.steps.length} steps. Your place is kept between
-                  visits.
+                  {walks.steps.length} steps. Your place is kept between visits.
                 </p>
                 <Button asChild>
                   <Link href={studyRunPath(study.slug)}>
@@ -115,11 +125,10 @@ export default async function StudyPage({
                   </Link>
                 </Button>
               </>
-            ) : walkthrough.resumePosition !== null ? (
+            ) : walks.resumePosition !== null ? (
               <Button asChild>
                 <Link href={studyRunPath(study.slug)}>
-                  Continue (step {walkthrough.resumePosition} of{" "}
-                  {walkthrough.steps.length})
+                  Continue (step {walks.resumePosition} of {walks.steps.length})
                 </Link>
               </Button>
             ) : (
@@ -161,11 +170,14 @@ export default async function StudyPage({
 
         {outcome.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold">Agreed so far</h2>
+            <h2 className="text-xl font-semibold">
+              {closedOn ? "Agreed" : "Agreed so far"}
+            </h2>
             <p className="text-sm text-muted-foreground">
               For each term, the definition with the most support is the
-              group&apos;s agreed definition so far. A tie goes to the earlier
-              candidate, and the list moves as positions are taken.
+              group&apos;s agreed definition{closedOn ? "" : " so far"}. A tie
+              goes to the earlier candidate.
+              {agreedNote && ` ${agreedNote}`}
             </p>
             <ol className="space-y-3">
               {outcome.map((term) => (
@@ -196,7 +208,7 @@ export default async function StudyPage({
                         >
                           Definition {term.agreed.definitionNumber}
                         </Link>
-                        <span>Support {term.agreed.score}</span>
+                        <span>Support {term.agreed.support}</span>
                         <span>
                           {term.alternatives === 0
                             ? "No alternative"

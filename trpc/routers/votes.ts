@@ -10,7 +10,7 @@ import {
   StaleRevisionError,
   VoteTargetMissingError
 } from "@/lib/participation"
-import { requireStepForDefinitionAct } from "./surveys"
+import { requireOnePosition, requireStepForDefinitionAct } from "./surveys"
 
 const voteTargetSchema = z.object({
   definitionId: z.number(),
@@ -61,7 +61,8 @@ export const votesRouter = createTRPCRouter({
       voteTargetSchema.extend({
         vote: z.enum(["up", "down"]),
         // The step of a walkthrough the vote is cast inside: the define step
-        // of the term, where an upvote accepts a candidate, or its review step.
+        // of the term, where an upvote accepts a candidate and a downvote is
+        // refused, or its review step.
         surveyStepId: z.number().int().optional()
       })
     )
@@ -75,11 +76,22 @@ export const votesRouter = createTRPCRouter({
             ? null
             : await requireStepForDefinitionAct(surveyStepId, userId, {
                 kind: "vote",
-                definitionId
+                definitionId,
+                vote
               })
 
         try {
           const [updatedDefinition] = await db.transaction(async (tx) => {
+            // One position per define step, taken by an upvote: checked in
+            // the transaction that writes the vote, against the standing
+            // vote castVote toggles on.
+            if (walkthrough?.step.kind === "define")
+              await requireOnePosition(tx, walkthrough.step, userId, {
+                definitionId,
+                revisionId,
+                vote
+              })
+
             // A session vote is a human act in the community the person is
             // working in: the community running the study when the vote is
             // cast inside a walkthrough step, and otherwise whatever the
