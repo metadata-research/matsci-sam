@@ -33,7 +33,8 @@ const commentSchema = z.object({
 export function TermCommentBox({
   id,
   revisionId,
-  feedsModelRevision = false
+  feedsModelRevision = false,
+  surveyStepId
 }: {
   id: number
   revisionId: number
@@ -41,6 +42,8 @@ export function TermCommentBox({
   // revision is also sent to the model for its next revision. Disclosed up
   // front, matching the discussion page, rather than only after posting.
   feedsModelRevision?: boolean
+  // The review step of a walkthrough the comment is posted inside.
+  surveyStepId?: number
 }) {
   const form = useForm<z.infer<typeof commentSchema>>({
     resolver: zodResolver(commentSchema),
@@ -51,6 +54,7 @@ export function TermCommentBox({
 
   const { isPending, mutate } = useCreateComment({
     definitionId: id,
+    surveyStepId,
     onPosted: () => form.reset()
   })
 

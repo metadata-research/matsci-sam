@@ -37,13 +37,13 @@ const main = async () => {
   } = await import("../lib/kos")
   const { lit } = await import("../lib/rdf-literal")
   const { uniqueSlug } = await import("../lib/slug")
-  const { KosView, conceptJsonLd, kosTurtle } = await import(
-    "../lib/kos-export"
-  )
+  const { KosView, TTL_PREFIXES, conceptJsonLd, kosBlocksTurtle, kosTurtle } =
+    await import("../lib/kos-export")
   type KosData = import("../lib/kos-export").KosData
   const {
     assembleTermSkos,
     renderSchemeTurtle,
+    renderVocabularyTurtle,
     termJsonLd,
     termTurtle,
     conceptSchemeJsonLd
@@ -572,7 +572,17 @@ const main = async () => {
     "concept with broader is not a top concept"
   )
 
-  // Whole-vocabulary document
+  // Whole-vocabulary document. The graph layer projects its two halves as
+  // separate named graphs; their concatenation is the route document, byte
+  // for byte.
+  assert.equal(
+    renderSchemeTurtle({ kos, records: [skos] }),
+    TTL_PREFIXES +
+      renderVocabularyTurtle({ kos, records: [skos] }) +
+      "\n" +
+      kosBlocksTurtle(new KosView(kos)),
+    "vocabulary.ttl is the vocabulary graph followed by the kos graph"
+  )
   const schemeQuads = parse(
     renderSchemeTurtle({ kos, records: [skos] }),
     "renderSchemeTurtle"

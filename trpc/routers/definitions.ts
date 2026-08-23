@@ -38,6 +38,9 @@ import {
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
+import { recordCompletion } from "@/lib/surveys"
+import { nextPositionFor } from "@/lib/survey-queries"
+import { regeneratedConflict, requireStepForAct, sqlState } from "./surveys"
 
 export const definitionsRouter = createTRPCRouter({
   create: contributorProcedure
@@ -56,97 +59,225 @@ export const definitionsRouter = createTRPCRouter({
           .max(EXAMPLE_MAX_LENGTH),
         // The interactive add flow: no term-level auto-AI definition; the
         // author refines their own definition on the definition page instead
-        interactive: z.boolean().default(false)
+        interactive: z.boolean().default(false),
+        // The define step of a walkthrough the definition is written inside.
+        surveyStepId: z.number().int().optional(),
+        // The current revision of a definition of the same term this one
+        // amends, recorded on the initial revision so the record states the
+        // derivation. The position step of a walkthrough sets it when a
+        // participant amends a candidate.
+        derivedFromRevisionId: z.number().int().optional()
       })
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
+      // normalize the term
+      const term = input.term.trim().toLowerCase()
+
+      // A step is checked against the act before anything is written: the
+      // caller may take part, and the step is the define step of this term.
+      // A define step names a term that exists, so a term not yet in the
+      // vocabulary cannot be the one the step is for.
+      let walkthroughStep = null
+      if (input.surveyStepId !== undefined) {
+        const existingTerm = await db.query.termsTable.findFirst({
+          columns: { id: true },
+          where: eq(termsTable.term, term)
+        })
+        if (!existingTerm)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That step is not for this act"
+          })
+        walkthroughStep = await requireStepForAct(
+          input.surveyStepId,
+          authorId,
+          { kind: "define", termId: existingTerm.id }
+        )
+      }
+
       // Whether this submission scheduled an automatic AI alternate
       // definition, so the client can tell the contributor it is coming.
       let aiScheduled = false
-      const { term, definition } = await db.transaction(async (tx) => {
-        // normalize the term
-        const term = input.term.trim().toLowerCase()
+      let written
+      try {
+        written = await db.transaction(async (tx) => {
+          let dbTerm = await tx.query.termsTable.findFirst({
+            where: eq(termsTable.term, term)
+          })
+          if (!dbTerm) {
+            // First time this term has been defined, so create it -- with its
+            // public slug. Distinct terms can normalize to the same slug
+            // ("Band Gap" vs "band gap"), so check what is taken and let
+            // uniqueSlug() number the collision the way OED numbers homographs.
+            // Read inside the transaction so a concurrent insert cannot slip a
+            // colliding slug in between; the unique index is the backstop.
+            const conflicting = await tx
+              .select({ slug: termsTable.slug })
+              .from(termsTable)
+              .where(like(termsTable.slug, `${slugify(term)}%`))
 
-        let dbTerm = await tx.query.termsTable.findFirst({
-          where: eq(termsTable.term, term)
-        })
-        if (!dbTerm) {
-          // First time this term has been defined, so create it -- with its
-          // public slug. Distinct terms can normalize to the same slug
-          // ("Band Gap" vs "band gap"), so check what is taken and let
-          // uniqueSlug() number the collision the way OED numbers homographs.
-          // Read inside the transaction so a concurrent insert cannot slip a
-          // colliding slug in between; the unique index is the backstop.
-          const conflicting = await tx
-            .select({ slug: termsTable.slug })
-            .from(termsTable)
-            .where(like(termsTable.slug, `${slugify(term)}%`))
+            const [insertedTerm] = await tx
+              .insert(termsTable)
+              .values({
+                term,
+                slug: uniqueSlug(term, new Set(conflicting.map((c) => c.slug)))
+              })
+              .returning()
 
-          const [insertedTerm] = await tx
-            .insert(termsTable)
-            .values({
-              term,
-              slug: uniqueSlug(term, new Set(conflicting.map((c) => c.slug)))
-            })
-            .returning()
+            if (!input.interactive) {
+              // insert the ai chat
+              await tx.insert(chatsTable).values({
+                role: "user",
+                userId: authorId,
+                message: `<term>\n${term}\n<example>\n${input.examples}`,
+                termId: insertedTerm.id
+              })
 
-          if (!input.interactive) {
-            // insert the ai chat
-            await tx.insert(chatsTable).values({
-              role: "user",
-              userId: authorId,
-              message: `<term>\n${term}\n<example>\n${input.examples}`,
-              termId: insertedTerm.id
-            })
+              after(() =>
+                // Automatically create AI definition on new term creation
+                reviseDefinition(insertedTerm.id)
+              )
+              aiScheduled = true
+            }
 
-            after(() =>
-              // Automatically create AI definition on new term creation
-              reviseDefinition(insertedTerm.id)
-            )
-            aiScheduled = true
+            dbTerm = insertedTerm
           }
 
-          dbTerm = insertedTerm
-        }
+          const existingOriginal = await tx.query.definitionsTable.findFirst({
+            columns: { id: true },
+            where: and(
+              eq(definitionsTable.termId, dbTerm.id),
+              eq(definitionsTable.authorId, authorId),
+              isNull(definitionsTable.refinedFromId)
+            )
+          })
+          if (existingOriginal)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "You already contributed a definition for this term. Open your existing definition to publish a revision."
+            })
 
-        const existingOriginal = await tx.query.definitionsTable.findFirst({
-          columns: { id: true },
-          where: and(
-            eq(definitionsTable.termId, dbTerm.id),
-            eq(definitionsTable.authorId, authorId),
-            isNull(definitionsTable.refinedFromId)
-          )
+          // An amendment derives from what a reader can see now: the current
+          // revision of a definition of this term. An older revision, or a
+          // revision of another term, is refused rather than recorded as the
+          // source of a definition it was not.
+          if (input.derivedFromRevisionId !== undefined) {
+            const [source] = await tx
+              .select({ id: definitionRevisionsTable.id })
+              .from(definitionRevisionsTable)
+              .innerJoin(
+                definitionsTable,
+                eq(
+                  definitionsTable.currentRevisionId,
+                  definitionRevisionsTable.id
+                )
+              )
+              .where(
+                and(
+                  eq(definitionRevisionsTable.id, input.derivedFromRevisionId),
+                  eq(definitionsTable.termId, dbTerm.id)
+                )
+              )
+              .limit(1)
+            if (!source)
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "The definition you are amending has changed. Reload the page."
+              })
+          }
+
+          const { definition: insertedDefinition } =
+            await createDefinitionWithInitialRevision(tx, {
+              termId: dbTerm.id,
+              authorId,
+              definition: input.definition,
+              example: input.examples,
+              changeNote: input.derivedFromRevisionId
+                ? "Amendment of a candidate"
+                : "Initial contribution",
+              source: "initial",
+              createdVia: input.interactive ? "interactive" : "classic",
+              derivedFromRevisionId: input.derivedFromRevisionId ?? null,
+              surveyStepId: input.surveyStepId ?? null
+            })
+
+          // The completion a define step records with its definition, which
+          // is the position the step asked for, and where the walkthrough
+          // resumes, so the shell can advance on the response. Built and
+          // returned inside the transaction: assigned to an outer variable,
+          // its type would read as the null it started as.
+          let walkthrough: {
+            completedStepId: number
+            nextPosition: number | null
+          } | null = null
+          if (walkthroughStep) {
+            // The define step completes with the definition it asked for, in
+            // the transaction that writes it.
+            await recordCompletion(tx, {
+              stepId: walkthroughStep.step.id,
+              userId: authorId
+            })
+            walkthrough = {
+              completedStepId: walkthroughStep.step.id,
+              nextPosition: await nextPositionFor(
+                tx,
+                walkthroughStep.study.id,
+                authorId
+              )
+            }
+
+            // A study term seeded without a model definition gets one here,
+            // as a new term does: the generation otherwise fires only on term
+            // creation, and the draft of a term in a walkthrough is its model
+            // definition. A model definition is one under
+            // a model identity, an aiModels row, which is what reviseDefinition
+            // writes under; a simulated participant is an AI-flag account
+            // without one and does not count.
+            if (!input.interactive) {
+              const [modelDefinition] = await tx
+                .select({ id: definitionsTable.id })
+                .from(definitionsTable)
+                .innerJoin(
+                  aiModelsTable,
+                  eq(aiModelsTable.userId, definitionsTable.authorId)
+                )
+                .where(eq(definitionsTable.termId, dbTerm.id))
+                .limit(1)
+              if (!modelDefinition) {
+                await tx.insert(chatsTable).values({
+                  role: "user",
+                  userId: authorId,
+                  message: `<term>\n${term}\n<example>\n${input.examples}`,
+                  termId: dbTerm.id
+                })
+                const termId = dbTerm.id
+                after(() => reviseDefinition(termId))
+                aiScheduled = true
+              }
+            }
+          }
+
+          return { term: dbTerm, definition: insertedDefinition, walkthrough }
         })
-        if (existingOriginal)
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "You already contributed a definition for this term. Open your existing definition to publish a revision."
-          })
-
-        const { definition: insertedDefinition } =
-          await createDefinitionWithInitialRevision(tx, {
-            termId: dbTerm.id,
-            authorId,
-            definition: input.definition,
-            example: input.examples,
-            changeNote: "Initial contribution",
-            source: "initial",
-            createdVia: input.interactive ? "interactive" : "classic"
-          })
-
-        return { term: dbTerm, definition: insertedDefinition }
-      })
+      } catch (error) {
+        // The step the definition names was deleted under it.
+        if (walkthroughStep && sqlState(error) === "23503")
+          throw regeneratedConflict()
+        throw error
+      }
+      const { term: dbTermOut, definition, walkthrough } = written
       revalidatePath("/terms")
-      revalidatePath(`/terms/${term.id}`)
+      revalidatePath(`/terms/${dbTermOut.id}`)
       await revalidatePublicDefinition({
         definitionId: definition.id,
         definitionNumber: definition.definitionNumber,
-        termId: term.id,
+        termId: dbTermOut.id,
         version: 1
       })
 
-      return { term, definition, aiScheduled }
+      return { term: dbTermOut, definition, aiScheduled, walkthrough }
     }),
   // The version of a definition's current revision. Cheap enough to poll:
   // the comment hook watches it after a comment schedules a model revision,

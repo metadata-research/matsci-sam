@@ -5,6 +5,12 @@
  *   pnpm pilot:run -- --dry-run
  *   pnpm pilot:run -- --resume --suffix rehearsal-1
  *
+ * The protocol is "settle the list": each persona takes a position on the
+ * draft of every term, most accepting it with an upvote and one or two per
+ * term amending it, then reviews the terms with more than one candidate,
+ * then answers the closing questions. The units run in that order, as the
+ * walkthrough pages order them.
+ *
  * Sequential by design: the protocol is ordered, ws10 serves one generation
  * at a time, and a resumable sequence beats a fast one that cannot say where
  * it stopped. Every completed unit is checkpointed to the manifest before
@@ -14,8 +20,17 @@
  * The public run takes no --suffix and runs once: the driver refuses clean
  * slugs whose containers already hold a completed manifest, and nothing here
  * deletes anything.
+ *
+ * The study must have its walkthrough before the driver starts: each act
+ * names the step it was taken for and completes it, and the walkthrough
+ * step at the end presses through the instructions and answers the closing
+ * questions for each persona.
  */
 
+// First, so .env is loaded before any project module, whichever is imported
+// first. dotenv never overrides a variable already set, so a host that
+// exports them is unaffected.
+import "dotenv/config"
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -38,7 +53,8 @@ const main = async () => {
     ensureMemberships,
     ensurePersonas,
     resolveContainers,
-    resolveOperator
+    resolveOperator,
+    resolveWalkthrough
   } = await import("./db")
   const steps = await import("./steps")
 
@@ -51,6 +67,9 @@ const main = async () => {
     personaUserIds: Record<number, number>
     completed: string[]
     finishedAt?: string
+    // Whether the projection at the close reached the store. "failed" means
+    // the run is in the database and not yet in the store.
+    graphProjection?: "projected" | "failed" | "disabled"
   }
   const manifest: Manifest = existsSync(manifestPath)
     ? JSON.parse(readFileSync(manifestPath, "utf8"))
@@ -70,7 +89,15 @@ const main = async () => {
   const unit = async (key: string, work: () => Promise<unknown>) => {
     if (done.has(key)) return console.log(`skip ${key}`)
     if (args.dryRun) return console.log(`would ${key}`)
-    await work()
+    try {
+      await work()
+    } catch (error) {
+      // The failure names its unit, which is what --resume continues from.
+      throw new Error(
+        `${key}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      )
+    }
     manifest.completed.push(key)
     done.add(key)
     checkpoint()
@@ -80,6 +107,7 @@ const main = async () => {
   // Setup: resolve what the operator built, mint what the driver owns.
   const operator = await resolveOperator(operatorEmail!)
   const containers = await resolveContainers(names)
+  const walkthrough = await resolveWalkthrough(containers.study.id)
   const termByLabel = new Map(
     containers.terms.map((term) => [term.term.toLowerCase(), term])
   )
@@ -114,33 +142,15 @@ const main = async () => {
     return { wanted, term }
   }
 
-  if (wants("define"))
-    for (const persona of personas)
-      for (const index of persona.assignedTerms) {
-        const { wanted, term } = resolveTerm(index)
-        await unit(`define:${persona.n}:${term.slug}`, () =>
-          steps.defineStep(
-            persona,
-            manifest.personaUserIds[persona.n],
-            term.id,
-            wanted
-          )
-        )
-      }
-
-  if (wants("aidef"))
-    for (const persona of personas)
-      for (const index of persona.assignedTerms) {
-        const { term } = resolveTerm(index)
-        await unit(`aidef:${term.slug}`, () =>
-          steps.aiDefinitionStep(term.id, term.term)
-        )
-      }
-
   /*
-   * The review structure is drawn from the seeded generator up front and
-   * unconditionally, so a resumed run derives the same picks it derived
-   * before it stopped. Only the text of an act is nondeterministic.
+   * The structure of the run is drawn from the seeded generator up front
+   * and unconditionally, so a resumed run derives the same picks it derived
+   * before it stopped. Only the text of an act is nondeterministic. Per
+   * term, the one or two personas who amend the draft; everyone else
+   * accepts it. Per persona, the two terms whose candidate they comment on
+   * in review, and per term the candidate they vote on and how. The scale
+   * answers come last, in question order, so the number of questions a
+   * steward adds moves no persona's position or review.
    */
   const rand = mulberry32(PILOT_SEED)
   const pickDistinct = (pool: number[], count: number) => {
@@ -150,76 +160,139 @@ const main = async () => {
       picked.push(rest.splice(Math.floor(rand() * rest.length), 1)[0])
     return picked
   }
-  const allIndexes = pilotTerms.map((_, index) => index)
+  const termIndexes = pilotTerms.map((_, index) => index)
+  const personaIndexes = personas.map((_, index) => index)
+  const amendersByTerm = pilotTerms.map(
+    () => new Set(pickDistinct(personaIndexes, rand() < 0.5 ? 1 : 2))
+  )
   const structure = personas.map((persona) => ({
     persona,
-    reviewTerms: pickDistinct(
-      allIndexes.filter((index) => !persona.assignedTerms.includes(index)),
-      2
-    ),
-    voteTerms: pickDistinct(allIndexes, 4).map((index) => ({
-      index,
+    userId: () => manifest.personaUserIds[persona.n],
+    commentTerms: new Set(pickDistinct(termIndexes, 2)),
+    review: pilotTerms.map(() => ({
+      target: rand(),
       kind: (rand() < 0.8 ? "up" : "down") as "up" | "down"
-    }))
+    })),
+    scaleAnswers: new Map<number, number>()
   }))
+  const scaleQuestions = walkthrough.questions.filter(
+    (step) => step.responseKind === "scale"
+  )
+  for (const entry of structure)
+    for (const step of scaleQuestions)
+      entry.scaleAnswers.set(step.id, 1 + Math.floor(rand() * 5))
 
-  // Review round: each persona comments on the model's alternate definition
-  // of their own terms, then on another author's definition of two terms
-  // the seed assigned them to read.
-  if (wants("comment"))
-    for (const { persona, reviewTerms } of structure) {
-      const userId = manifest.personaUserIds[persona.n]
-      for (const index of [...persona.assignedTerms, ...reviewTerms]) {
-        const { term } = resolveTerm(index)
-        await unit(`comment:${persona.n}:${term.slug}`, async () => {
-          const targets = await steps.reviewTargets(term.id)
-          const target = targets.find((t) => t.authorId !== userId)
-          if (!target)
-            throw new Error(`No definition by another author on ${term.term}`)
-          await steps.commentAct(persona, userId, term.term, target)
+  // The step of each act is resolved before its unit, so a dry run reports
+  // a term the walkthrough does not cover.
+
+  // Positions: every persona on every term, from the define step of the
+  // term. The draft is the model definition already in the database.
+  if (wants("position"))
+    for (const [p, { persona, userId }] of structure.entries())
+      for (const index of termIndexes) {
+        const { wanted, term } = resolveTerm(index)
+        const step = walkthrough.defineStepOf(term.id, term.term)
+        const amends = amendersByTerm[index].has(p)
+        await unit(`position:${persona.n}:${term.slug}`, async () => {
+          const draft = await steps.draftOf(term.id)
+          if (!draft)
+            throw new Error(
+              `No draft for ${term.term}: the term has no model definition. Publish one through the interface first.`
+            )
+          if (amends)
+            await steps.amendAct(persona, userId(), wanted, draft, step)
+          else
+            await steps.acceptAct(
+              userId(),
+              draft,
+              containers.community.id,
+              step
+            )
         })
       }
-    }
 
-  if (wants("vote"))
-    for (const { persona, voteTerms } of structure) {
-      const userId = manifest.personaUserIds[persona.n]
-      for (const { index, kind } of voteTerms) {
+  /*
+   * Review: every persona on every term, from the review step of the term.
+   * Where the term has one candidate the step is pressed through, as the
+   * page does. Otherwise the persona votes on a seeded candidate by another
+   * author that it has no standing vote on, and on two seeded terms
+   * comments on the same candidate. A resumed unit finds the vote it cast
+   * and comments on that candidate rather than drawing another.
+   */
+  if (wants("review"))
+    for (const { persona, userId, commentTerms, review } of structure)
+      for (const index of termIndexes) {
         const { term } = resolveTerm(index)
-        await unit(`vote:${persona.n}:${term.slug}`, async () => {
-          const targets = await steps.reviewTargets(term.id)
-          const target = targets.find((t) => t.authorId !== userId)
-          if (!target)
-            throw new Error(`No definition by another author on ${term.term}`)
-          await steps.voteAct(userId, target, kind, containers.community.id)
+        const step = walkthrough.reviewStepOf(term.id, term.term)
+        await unit(`review:${persona.n}:${term.slug}`, async () => {
+          const candidates = await steps.candidatesOf(term.id, userId())
+          if (candidates.length <= 1) {
+            await steps.pressStep(userId(), step)
+            return
+          }
+          const prior = await steps.stepVoteOf(userId(), step)
+          let target = prior
+            ? candidates.find((candidate) => candidate.id === prior.definitionId)
+            : undefined
+          if (!target) {
+            const eligible = candidates.filter(
+              (candidate) =>
+                candidate.authorId !== userId() && !candidate.votedByViewer
+            )
+            if (eligible.length === 0) {
+              await steps.pressStep(userId(), step)
+              return
+            }
+            target =
+              eligible[Math.floor(review[index].target * eligible.length)]
+            await steps.voteAct(
+              userId(),
+              target,
+              review[index].kind,
+              containers.community.id,
+              step
+            )
+          }
+          if (commentTerms.has(index))
+            await steps.commentAct(persona, userId(), term.term, target, step)
         })
       }
-    }
 
-  // Rebuttal day: each persona answers the comments others left on their
-  // own definitions.
-  if (wants("rebuttal"))
-    for (const { persona } of structure) {
-      const userId = manifest.personaUserIds[persona.n]
-      for (const index of persona.assignedTerms) {
-        const { term } = resolveTerm(index)
-        await unit(`rebuttal:${persona.n}:${term.slug}`, async () => {
-          const targets = await steps.reviewTargets(term.id)
-          const own = targets.find((t) => t.authorId === userId)
-          if (!own) throw new Error(`No own definition on ${term.term}`)
-          const received = await steps.commentsByOthers(own.id, userId)
-          await steps.rebuttalAct(
-            persona,
-            userId,
-            term.term,
-            own,
-            received.map((row) => row.message)
-          )
-        })
-      }
-    }
+  // The walkthrough itself: each persona presses through the instructions
+  // and answers the closing questions. The position and review steps were
+  // completed above, each by the act it asked for.
+  if (wants("walkthrough"))
+    for (const { persona, userId, scaleAnswers } of structure)
+      await unit(`walkthrough:${persona.n}`, () =>
+        steps.walkthroughProgressStep(
+          persona,
+          userId(),
+          walkthrough,
+          scaleAnswers
+        )
+      )
 
   if (wants("close") && !args.dryRun) {
+    // The driver writes through lib/, not tRPC, so nothing marked the
+    // graphs along the way. One projection at the close covers the run.
+    // Every write has committed by now, and a store outage does not undo
+    // that: the run finishes, and the manifest says the store is behind.
+    const { isGraphProjectionEnabled, projectGraphs } = await import(
+      "../../lib/graph/projector"
+    )
+    if (isGraphProjectionEnabled())
+      try {
+        await projectGraphs()
+        manifest.graphProjection = "projected"
+      } catch (error) {
+        manifest.graphProjection = "failed"
+        console.error(
+          `Graph projection failed; the run is in the database and not in the store. Run pnpm graphs:project to project it. ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      }
+    else manifest.graphProjection = "disabled"
     manifest.finishedAt = new Date().toISOString()
     checkpoint()
     console.log(`finished ${names.study}`)

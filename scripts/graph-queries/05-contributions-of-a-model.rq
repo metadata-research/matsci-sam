@@ -1,0 +1,32 @@
+# The contributions of a model: for each model with an identity of its own, how many entities are attributed to it and how many activities it was associated with, by their most specific kind.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+
+SELECT ?model ?label ?kind (COUNT(DISTINCT ?contribution) AS ?contributions)
+WHERE {
+  ?model a prov:SoftwareAgent ;
+    rdfs:label ?label .
+  # A model with a profile has an IRI of its own; a document-scoped agent
+  # node has a fragment and is left out.
+  FILTER (!CONTAINS(STR(?model), "#"))
+  {
+    ?contribution prov:wasAttributedTo ?model .
+  }
+  UNION
+  {
+    ?contribution prov:wasAssociatedWith ?model .
+  }
+  ?contribution a ?kind .
+  # The most specific kind: a revision counts as a matsci:DefinitionRevision
+  # and an assertion as a matsci:Assertion, and a contribution typed by PROV
+  # alone, such as a generation activity, counts under its PROV class.
+  FILTER (
+    ?kind NOT IN (prov:Entity, prov:Activity) ||
+    NOT EXISTS {
+      ?contribution a ?other .
+      FILTER (?other NOT IN (prov:Entity, prov:Activity))
+    }
+  )
+}
+GROUP BY ?model ?label ?kind
+ORDER BY ?model ?kind

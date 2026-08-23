@@ -1,6 +1,7 @@
 import "server-only"
 
 import {
+  aiModelsTable,
   chatsTable,
   commentsTable,
   db,
@@ -14,7 +15,12 @@ import {
   votesTable
 } from "@yamz/db"
 import { and, asc, eq, getTableColumns, inArray, isNotNull } from "drizzle-orm"
-import { definitionUri, revisionUri, termUri } from "./public-identifiers"
+import {
+  definitionUri,
+  modelUri,
+  revisionUri,
+  termUri
+} from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
 
 // Read-only PROV-O mapping over the domain tables. Definition revisions are
@@ -120,9 +126,32 @@ const publicProfileUserId = (user: ProfileCapableUser | null | undefined) =>
 export const buildTermProvenance = async (
   termId: number,
   // Public provenance keeps the vote itself visible but does not reveal the
-  // voter node or identity.
-  options: { anonymizeVoters?: boolean } = {}
+  // voter node or identity. The dataset-wide graph (lib/graph/) leaves votes
+  // out of the per-term body and states each voting act once, as a
+  // matsci:VoteEvent, so it passes includeVotes: false. It also passes
+  // modelIdentities: true, so a model with a profile is named by its own
+  // IRI, the agent its assertions and vote events name in that graph. The
+  // per-term document keeps naming a model by the string it ran under.
+  options: {
+    anonymizeVoters?: boolean
+    includeVotes?: boolean
+    modelIdentities?: boolean
+  } = {}
 ) => {
+  const includeVotes = options.includeVotes ?? true
+  const modelIdentities = options.modelIdentities
+    ? await db
+        .select({
+          userId: aiModelsTable.userId,
+          slug: aiModelsTable.slug,
+          tag: aiModelsTable.tag
+        })
+        .from(aiModelsTable)
+    : []
+  const modelSlugByTag = new Map(modelIdentities.map((m) => [m.tag, m.slug]))
+  const modelSlugByUserId = new Map(
+    modelIdentities.map((m) => [m.userId, m.slug])
+  )
   const term = await db.query.termsTable.findFirst({
     where: eq(termsTable.id, termId)
   })
@@ -233,25 +262,16 @@ export const buildTermProvenance = async (
       .leftJoin(usersTable, eq(chatsTable.userId, usersTable.id))
       .where(eq(chatsTable.termId, termId))
       .orderBy(asc(chatsTable.createdAt)),
+    // The current-state votes, read for the standing score of each revision
+    // and nothing else: every voting act is in voteEvents.
     definitionIds.length
       ? db
         .select({
           revisionId: votesTable.revisionId,
-          definitionId: votesTable.definitionId,
-          kind: votesTable.kind,
-          createdAt: votesTable.createdAt,
-          migratedLegacy: votesTable.migratedLegacy,
-          author: {
-            id: usersTable.id,
-            name: usersTable.name,
-            isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
-          }
+          kind: votesTable.kind
         })
         .from(votesTable)
-        .innerJoin(usersTable, eq(votesTable.userId, usersTable.id))
         .where(inArray(votesTable.definitionId, definitionIds))
-        .orderBy(asc(votesTable.createdAt))
       : Promise.resolve([]),
     definitionIds.length
       ? db
@@ -290,12 +310,12 @@ export const buildTermProvenance = async (
       : Promise.resolve([])
   ])
 
-  // Vote events are the record from migration 0040 forward: one row per act,
-  // withdrawals included. A current-state votes row whose (revision, user)
-  // pair has no event is a pre-0040 vote and is synthesized below, so the
-  // older record keeps appearing exactly as it always did.
-  const voteEvents = definitionIds.length
-    ? await db
+  // Vote events are the record of every voting act: one row per act from
+  // migration 0040 forward, withdrawals included, and one row per earlier
+  // vote as the 0043 backfill wrote it, at the time of the vote.
+  const voteEvents =
+    definitionIds.length && includeVotes
+      ? await db
       .select({
         id: voteEventsTable.id,
         revisionId: voteEventsTable.revisionId,
@@ -303,6 +323,8 @@ export const buildTermProvenance = async (
         kind: voteEventsTable.kind,
         actorKind: voteEventsTable.actorKind,
         createdAt: voteEventsTable.createdAt,
+        backfilled: voteEventsTable.backfilled,
+        migratedLegacy: voteEventsTable.migratedLegacy,
         author: {
           id: usersTable.id,
           name: usersTable.name,
@@ -364,9 +386,21 @@ export const buildTermProvenance = async (
     })
     return id
   }
-  const modelNode = (model: string) => {
+  // A model is keyed by the string it ran under, which is the tag of its
+  // aiModels row when it has one. With modelIdentities the node resolves to
+  // the /models/<slug> IRI, by the account where the act names one and by
+  // the tag otherwise.
+  const modelNode = (model: string, userId?: number) => {
     const id = `model_${model}`
-    addNode({ id, label: model, type: "software" })
+    const slug =
+      (userId !== undefined ? modelSlugByUserId.get(userId) : undefined) ??
+      modelSlugByTag.get(model)
+    addNode({
+      id,
+      label: model,
+      type: "software",
+      ...(slug !== undefined ? { publicResource: { uri: modelUri(slug) } } : {})
+    })
     return id
   }
   const promptNode = (
@@ -604,7 +638,8 @@ export const buildTermProvenance = async (
           ? modelNode(
             revision.model ??
             revision.editor.name ??
-            `AI user ${revision.editor.id}`
+            `AI user ${revision.editor.id}`,
+            revision.editor.id
           )
           : personNode(revision.editor)
         addEdge(activityId, editorNode, "wasAssociatedWith")
@@ -1137,71 +1172,33 @@ export const buildTermProvenance = async (
   }
 
   // --- revision-scoped votes ---
-  // Vote events carry the acts from 0040 forward: cast, change, withdrawal.
-  // A current-state votes row with no event for its (revision, user) pair is
-  // an older vote whose toggle history was never recorded; it is synthesized
-  // as the single act it has always appeared as. Migrated rows disclose
-  // their inferred binding.
-  const eventPairs = new Set(
-    voteEvents.map((event) => `${event.revisionId}:${event.author.id}`)
-  )
-  const voteActs = [
-    ...voteEvents.map((event) => ({
-      eventId: event.id as number | null,
-      revisionId: event.revisionId,
-      definitionId: event.definitionId,
-      kind: event.kind,
-      agency: event.actorKind,
-      createdAt: event.createdAt,
-      migratedLegacy: false,
-      author: event.author
-    })),
-    ...votes
-      .filter(
-        (vote) => !eventPairs.has(`${vote.revisionId}:${vote.author.id}`)
-      )
-      .map((vote) => ({
-        eventId: null as number | null,
-        revisionId: vote.revisionId,
-        definitionId: vote.definitionId,
-        kind: vote.kind as "up" | "down" | null,
-        // The pre-event record never held a simulated act, so the author's
-        // standing decides, exactly as the 0040 comment backfill did.
-        agency: (vote.author.isAi ? "model" : "human") as
-          | "human"
-          | "model"
-          | "simulated",
-        createdAt: vote.createdAt,
-        migratedLegacy: vote.migratedLegacy,
-        author: vote.author
-      }))
-  ].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  )
-
-  for (const [voteIndex, act] of voteActs.entries()) {
+  // One activity per vote event: cast, change, withdrawal, and the one act
+  // the backfill wrote for a vote cast before the record began. A migrated
+  // row discloses its inferred binding, and a backfilled row says so, the
+  // same way; an event written by a vote says neither.
+  for (const [voteIndex, act] of voteEvents.entries()) {
     const revision = revisionById.get(act.revisionId)
     const definition = definitionById.get(act.definitionId)
     const activityId = options.anonymizeVoters
       ? `anonymous_vote_${voteIndex + 1}`
-      : act.eventId !== null
-        ? `vote_event_${act.eventId}`
-        : `vote_${act.revisionId}_${act.author.id}`
+      : `vote_event_${act.id}`
     const versionId = revision
       ? revisionNodeId(revision.definitionId, revision.version)
       : null
     const verb =
       act.kind === null ? "Vote withdrawn" : act.kind === "up" ? "Upvote" : "Downvote"
+    const voteMeta: Record<string, string | number | null> = {
+      at: act.createdAt,
+      revisionId: act.revisionId,
+      actorKind: act.actorKind,
+      legacyAssociationInferred: act.migratedLegacy ? "yes" : "no"
+    }
+    if (act.backfilled) voteMeta.backfilled = "yes"
     addNode({
       id: activityId,
       label: `${verb}${revision ? ` on ${revisionCoordinate(revision)}` : ""}`,
       type: "activity",
-      meta: {
-        at: act.createdAt,
-        revisionId: act.revisionId,
-        actorKind: act.agency,
-        legacyAssociationInferred: act.migratedLegacy ? "yes" : "no"
-      }
+      meta: voteMeta
     })
     if (versionId) addEdge(activityId, versionId, "used")
     if (!options.anonymizeVoters)
@@ -1215,7 +1212,7 @@ export const buildTermProvenance = async (
         ? "A community member"
         : (act.author.name ?? `User ${act.author.id}`),
       actorKind: act.author.isAi ? "software" : "person",
-      agency: act.agency,
+      agency: act.actorKind,
       profileUserId: options.anonymizeVoters
         ? undefined
         : publicProfileUserId(act.author),

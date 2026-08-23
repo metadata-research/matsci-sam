@@ -1,6 +1,8 @@
-import { SITE_URL } from "./site"
+import { IDENTIFIER_BASE_URL } from "./site"
 
-export const identifierBaseUrl = SITE_URL.replace(/\/+$/, "")
+// The authority every IRI below is built under. Already normalized (no
+// trailing slash) and validated in lib/site.ts.
+export const identifierBaseUrl = IDENTIFIER_BASE_URL
 
 const positiveIntegerSegment = (value: number, label: string) => {
   if (!Number.isSafeInteger(value) || value < 1)
@@ -83,10 +85,22 @@ export const communitiesIndexPath = "/communities"
 export const communityPath = (slug: string) =>
   `${communitiesIndexPath}/${slugSegment(slug, "Community slug")}`
 
+/*
+ * A study is published as a prov:Activity: its title, its window and the
+ * collection it works through are in the dataset graph. Its people are not.
+ * The community that runs it, the roster and the invitations stay
+ * application routes with no identifier, and the study IRI says nothing
+ * about who took part.
+ */
 export const studiesIndexPath = "/studies"
 
 export const studyPath = (slug: string) =>
   `${studiesIndexPath}/${slugSegment(slug, "Study slug")}`
+
+// The walkthrough of a study. An application route under the study, with no
+// identifier of its own: what a participant does there is recorded against
+// the terms and the study.
+export const studyRunPath = (slug: string) => `${studyPath(slug)}/run`
 
 export const invitePath = (token: string) =>
   `/invite/${slugSegment(token, "Invitation token")}`
@@ -98,6 +112,7 @@ export const conceptUri = (schemeSlug: string, conceptSlug: string) =>
   absoluteIdentifier(conceptPath(schemeSlug, conceptSlug))
 export const collectionUri = (slug: string) =>
   absoluteIdentifier(collectionPath(slug))
+export const studyUri = (slug: string) => absoluteIdentifier(studyPath(slug))
 
 /*
  * A model that contributes is an agent with a resolvable identity, so it gets

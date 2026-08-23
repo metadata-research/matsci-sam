@@ -8,9 +8,10 @@
  * display names say so, because a reader of the public record must not
  * mistake one for a person.
  *
- * The voice lines flavor the user message a generation runs from. The
- * registered prompt stays identical across personas, so the stamp records
- * one prompt key and the conversation shows the persona.
+ * Every persona walks every term, as every participant does. The voice
+ * lines flavor the user message a generation runs from. The registered
+ * prompt stays identical across personas, so the stamp records one prompt
+ * key and the conversation shows the persona.
  *
  * TODO [Chris]: confirm the display-name wording before the public run.
  */
@@ -21,8 +22,6 @@ export type Persona = {
   displayName: string
   // The persona's line of work, spoken in first person inside prompts.
   voice: string
-  // Indexes into the term list: the two terms this persona defines.
-  assignedTerms: [number, number]
 }
 
 export const personaName = (n: number, suffix: string) =>
@@ -32,37 +31,29 @@ export const personas: Omit<Persona, "displayName">[] = [
   {
     n: 1,
     voice:
-      "I run uniaxial tension and hardness tests on additively manufactured steel coupons.",
-    assignedTerms: [0, 1]
+      "I run uniaxial tension and hardness tests on additively manufactured steel coupons."
   },
   {
     n: 2,
-    voice:
-      "I do DFT calculations of defect energetics in oxide semiconductors.",
-    assignedTerms: [2, 3]
+    voice: "I do DFT calculations of defect energetics in oxide semiconductors."
   },
   {
     n: 3,
-    voice:
-      "I characterize microstructure with SEM and EBSD in a metallurgy lab.",
-    assignedTerms: [4, 5]
+    voice: "I characterize microstructure with SEM and EBSD in a metallurgy lab."
   },
   {
     n: 4,
     voice:
-      "I develop polymer composites and worry mostly about processing windows.",
-    assignedTerms: [6, 7]
+      "I develop polymer composites and worry mostly about processing windows."
   },
   {
     n: 5,
     voice:
-      "I manage a materials data repository and map submissions to a schema.",
-    assignedTerms: [8, 9]
+      "I manage a materials data repository and map submissions to a schema."
   },
   {
     n: 6,
     voice:
-      "I study fatigue and fracture of welded joints for civil infrastructure.",
-    assignedTerms: [10, 11]
+      "I study fatigue and fracture of welded joints for civil infrastructure."
   }
 ]

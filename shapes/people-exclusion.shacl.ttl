@@ -1,0 +1,58 @@
+# The privacy policy as a machine-checked negative. No person has a
+# resolvable IRI: a person is a hash node on the document of the term they
+# acted under, a vote names its agent only for a public profile, and
+# nothing about a community, a roster or an invitation is published. This
+# has no twin in drizzle/invariants.sql; it mirrors lib/public-identifiers.ts,
+# which has no URI builder for a person, a community or an invitation, and
+# the anonymizeVoters option of lib/provenance.ts. The application routes
+# /people/<id>, /communities/<slug> and /invite/<token> are where those
+# would be named, so the check is that no IRI in the data is under any of
+# the three.
+#
+# Every IRI that is a subject or an object anywhere is a focus node, the
+# ends of a reified triple term included, and the constraint fails on any
+# whose text contains one of the three paths. The shape conforms on the
+# real export and fails on negative-people.ttl, which scripts/test-graph.ts
+# writes for CI.
+#
+# Validate with the pinned Jena CLI and read the report. The exit code is 0
+# either way:
+#   shacl validate --shapes shapes/people-exclusion.shacl.ttl --data <document>
+
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix : <#> .
+
+<> a owl:Ontology .
+
+:NoPersonIriShape a sh:NodeShape ;
+  sh:target [
+    a sh:SPARQLTarget ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT DISTINCT ?this WHERE {
+        { ?this ?p ?o }
+        UNION
+        { ?s ?p ?this }
+        UNION
+        { ?s ?p ?triple . FILTER (isTRIPLE(?triple)) BIND (SUBJECT(?triple) AS ?this) }
+        UNION
+        { ?s ?p ?triple . FILTER (isTRIPLE(?triple)) BIND (OBJECT(?triple) AS ?this) }
+        FILTER (isIRI(?this))
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "No IRI under /people/, /communities/ or /invite/ is published" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this WHERE {
+        FILTER (
+          CONTAINS(STR($this), "/people/") ||
+          CONTAINS(STR($this), "/communities/") ||
+          CONTAINS(STR($this), "/invite/")
+        )
+      }
+    """
+  ] .

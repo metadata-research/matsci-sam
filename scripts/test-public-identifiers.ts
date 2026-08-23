@@ -15,6 +15,7 @@ import {
   invitePath,
   studiesIndexPath,
   studyPath,
+  studyUri,
   definitionUri,
   identifierBaseUrl,
   matCoreElementUri,
@@ -32,9 +33,35 @@ import {
   termPath,
   termUri
 } from "../lib/public-identifiers"
-import { SITE_URL } from "../lib/site"
+import { SITE_URL, resolveIdentifierBase } from "../lib/site"
 
-const base = SITE_URL.replace(/\/+$/, "")
+// The identifier authority is separate from the application origin: set, it
+// replaces the origin in every IRI and nothing else; unset or blank, the
+// origin stands in. A trailing slash is dropped, and a value that is not an
+// absolute http(s) URL refuses rather than minting malformed identifiers.
+assert.equal(
+  resolveIdentifierBase(undefined, "https://ego.example"),
+  "https://ego.example"
+)
+assert.equal(
+  resolveIdentifierBase("  ", "https://ego.example/"),
+  "https://ego.example"
+)
+assert.equal(
+  resolveIdentifierBase("https://w3id.org/matsci-sam/", "https://ego.example"),
+  "https://w3id.org/matsci-sam"
+)
+assert.equal(
+  resolveIdentifierBase("http://localhost:3000", "https://ego.example"),
+  "http://localhost:3000"
+)
+assert.throws(() =>
+  resolveIdentifierBase("w3id.org/matsci-sam", "https://ego.example")
+)
+assert.throws(() => resolveIdentifierBase("https://", "https://ego.example"))
+assert.throws(() => resolveIdentifierBase(undefined, "ego.example"))
+
+const base = resolveIdentifierBase(process.env.IDENTIFIER_BASE_URL, SITE_URL)
 
 assert.equal(schemePath, "/vocabulary")
 assert.equal(schemeUri, `${base}/vocabulary`)
@@ -117,6 +144,9 @@ assert.throws(() => communityPath(""), RangeError)
 assert.throws(() => invitePath(""), RangeError)
 assert.equal(studiesIndexPath, "/studies")
 assert.equal(studyPath("id4_round_two"), "/studies/id4_round_two")
+// A study is an activity with a published IRI; the people in it have none.
+assert.equal(studyUri("id4_round_two"), `${base}/studies/id4_round_two`)
 assert.throws(() => studyPath(""), RangeError)
+assert.throws(() => studyUri(""), RangeError)
 
 console.log("Public identifier tests passed")

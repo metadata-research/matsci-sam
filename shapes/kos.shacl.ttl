@@ -1,0 +1,238 @@
+# The published twin of the knowledge-organization rules. The domain and
+# range of each predicate mirror PREDICATES in lib/kos.ts and the
+# statements_predicate_shape CHECK in drizzle/schema.ts. The SPARQL
+# constraints mirror the cross-row clauses of drizzle/invariants.sql: a
+# relation between concepts stays inside one scheme, no skos:broader cycle,
+# SKOS S27 (skos:related is disjoint from skos:broaderTransitive) and SKOS
+# S46 (skos:exactMatch is disjoint from skos:broadMatch and
+# skos:relatedMatch). The retired-tag rule mirrors the concept block of
+# lib/kos-export.ts, which writes nothing else for a retired concept.
+#
+# A tag is a concept whose scheme states matsci:curated, and the dictionary
+# scheme does not, so the shapes separate tags from terms by the scheme and
+# not by an IRI pattern. The application namespace is the one thing the
+# shapes know about the identifier base: it is minted under the persistent
+# namespace, and an export minted under another base needs the matsci:
+# prefix below rewritten before validation.
+#
+# Validate with the pinned Jena CLI and read the report. The exit code is 0
+# either way:
+#   shacl validate --shapes shapes/kos.shacl.ttl --data <merged export>
+
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix matsci: <https://w3id.org/matsci-sam/metadata#> .
+@prefix : <#> .
+
+<> a owl:Ontology ;
+  sh:declare
+    [ sh:prefix "skos" ; sh:namespace "http://www.w3.org/2004/02/skos/core#"^^xsd:anyURI ] ,
+    [ sh:prefix "dcterms" ; sh:namespace "http://purl.org/dc/terms/"^^xsd:anyURI ] ,
+    [ sh:prefix "owl" ; sh:namespace "http://www.w3.org/2002/07/owl#"^^xsd:anyURI ] ,
+    [ sh:prefix "rdf" ; sh:namespace "http://www.w3.org/1999/02/22-rdf-syntax-ns#"^^xsd:anyURI ] ,
+    [ sh:prefix "matsci" ; sh:namespace "https://w3id.org/matsci-sam/metadata#"^^xsd:anyURI ] .
+
+# A tag: its scheme states matsci:curated. Used as a value shape, never as a
+# target, so the test is the sequence path and nothing about the IRI.
+:TagShape a sh:NodeShape ;
+  sh:class skos:Concept ;
+  sh:property [
+    sh:path ( skos:inScheme matsci:curated ) ;
+    sh:minCount 1 ;
+    sh:message "A tag is a concept whose scheme states matsci:curated"
+  ] .
+
+# A term: a concept whose scheme states no matsci:curated.
+:TermShape a sh:NodeShape ;
+  sh:class skos:Concept ;
+  sh:property [
+    sh:path ( skos:inScheme matsci:curated ) ;
+    sh:maxCount 0 ;
+    sh:message "A term is a concept whose scheme states no matsci:curated"
+  ] .
+
+# Every concept, tag or term.
+:ConceptShape a sh:NodeShape ;
+  sh:targetClass skos:Concept ;
+  sh:property [
+    sh:path skos:prefLabel ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:Literal ;
+    sh:message "Exactly one skos:prefLabel"
+  ] ;
+  sh:property [
+    sh:path skos:inScheme ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class skos:ConceptScheme ;
+    sh:message "Exactly one skos:inScheme, and it is a concept scheme"
+  ] ;
+  sh:property [
+    sh:path skos:topConceptOf ;
+    sh:maxCount 1 ;
+    sh:class skos:ConceptScheme
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:nodeKind sh:Literal
+  ] ;
+  sh:property [
+    sh:path skos:scopeNote ;
+    sh:nodeKind sh:Literal
+  ] ;
+  sh:property [
+    sh:path [ sh:alternativePath ( skos:broader skos:narrower skos:related ) ] ;
+    sh:class skos:Concept ;
+    sh:message "The object of a relation is a concept"
+  ] ;
+  sh:property [
+    sh:path [ sh:alternativePath ( skos:exactMatch skos:closeMatch skos:broadMatch skos:narrowMatch skos:relatedMatch ) ] ;
+    sh:nodeKind sh:IRI ;
+    sh:message "The object of a mapping is an IRI"
+  ] ;
+  # Terms are all in the dictionary scheme and a tag in its own, so one
+  # scheme per relation is both the same-kind rule of lib/kos.ts and the
+  # same-scheme clause of the invariants.
+  sh:sparql [
+    sh:message "A relation between concepts stays inside one scheme" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this ?value WHERE {
+        $this skos:broader|skos:narrower|skos:related ?value .
+        $this skos:inScheme ?scheme .
+        ?value skos:inScheme ?other .
+        FILTER (?scheme != ?other)
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A top concept is a top concept of its own scheme" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this ?value WHERE {
+        $this skos:topConceptOf ?value .
+        FILTER NOT EXISTS { $this skos:inScheme ?value }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "No skos:broader cycle" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this WHERE {
+        $this skos:broader+ $this .
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "SKOS S27: skos:related between concepts joined by skos:broader" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this ?value WHERE {
+        $this skos:related ?value .
+        { $this skos:broader+ ?value } UNION { ?value skos:broader+ $this }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "SKOS S46: skos:exactMatch together with skos:broadMatch or skos:relatedMatch to one IRI" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this ?value WHERE {
+        $this skos:exactMatch ?value .
+        $this skos:broadMatch|skos:relatedMatch ?value .
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A retired tag states only its type, scheme, label, deprecation and replacement" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this ?path ?value WHERE {
+        $this owl:deprecated true .
+        $this ?path ?value .
+        FILTER (?path NOT IN (rdf:type, skos:inScheme, skos:prefLabel, owl:deprecated, dcterms:isReplacedBy))
+      }
+    """
+  ] .
+
+# dcterms:subject: from a term or a definition, to a tag.
+:SubjectShape a sh:NodeShape ;
+  sh:targetSubjectsOf dcterms:subject ;
+  sh:or ( :TermShape [ sh:class matsci:Definition ] ) ;
+  sh:message "The subject of dcterms:subject is a term or a definition" ;
+  sh:property [
+    sh:path dcterms:subject ;
+    sh:node :TagShape ;
+    sh:message "The object of dcterms:subject is a tag"
+  ] .
+
+# skos:member: from a collection, to a term.
+:MemberShape a sh:NodeShape ;
+  sh:targetSubjectsOf skos:member ;
+  sh:class skos:Collection ;
+  sh:property [
+    sh:path skos:member ;
+    sh:node :TermShape ;
+    sh:message "The object of skos:member is a term"
+  ] .
+
+# A relation or a mapping starts at a concept.
+:RelationDomainShape a sh:NodeShape ;
+  sh:targetSubjectsOf skos:broader, skos:narrower, skos:related,
+    skos:exactMatch, skos:closeMatch, skos:broadMatch, skos:narrowMatch, skos:relatedMatch ;
+  sh:class skos:Concept ;
+  sh:message "The subject of a relation or a mapping is a concept" .
+
+:ConceptSchemeShape a sh:NodeShape ;
+  sh:targetClass skos:ConceptScheme ;
+  sh:property [
+    sh:path dcterms:title ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:Literal
+  ] ;
+  sh:property [
+    sh:path matsci:curated ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:boolean
+  ] ;
+  sh:property [
+    sh:path skos:hasTopConcept ;
+    sh:class skos:Concept
+  ] ;
+  sh:sparql [
+    sh:message "A top concept is in the scheme that lists it" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this ?value WHERE {
+        $this skos:hasTopConcept ?value .
+        FILTER NOT EXISTS { ?value skos:inScheme $this }
+      }
+    """
+  ] .
+
+:CollectionShape a sh:NodeShape ;
+  sh:targetClass skos:Collection ;
+  sh:property [
+    sh:path skos:prefLabel ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:Literal
+  ] ;
+  sh:property [
+    sh:path dcterms:description ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:Literal
+  ] ;
+  sh:property [
+    sh:path owl:deprecated ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:boolean
+  ] .

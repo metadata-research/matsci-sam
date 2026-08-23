@@ -18,7 +18,9 @@ export const metadata: Metadata = {
 /*
  * The ConceptScheme IRI itself.
  *
- * lib/skos.ts emits <SITE_URL>/vocabulary as skos:inScheme on every concept,
+ * lib/skos.ts emits {identifier-base}/vocabulary as skos:inScheme on every
+ * concept (the identifier base is the application origin unless
+ * IDENTIFIER_BASE_URL names a persistent namespace that redirects here),
  * so this URL has to dereference to something that describes the scheme --
  * publishing RDF whose scheme IRI 404s is the kind of dangling reference FAIR
  * review looks for. This page is that description, for humans; the JSON-LD

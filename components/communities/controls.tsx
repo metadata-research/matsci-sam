@@ -933,3 +933,79 @@ export const CreateWorklistCollection = ({
     </form>
   )
 }
+
+/*
+ * Generate the walkthrough of a study from its collection: instructions, a
+ * define and a review step per term, and the two closing questions unless
+ * the steward leaves them out. The steps are replaced wholesale until
+ * somebody completes one, and are then only added to, because a
+ * participant's place is a position in the list. The router refuses past
+ * that point, and on a retired study; here the button gives way to the
+ * count.
+ */
+export const GenerateWalkthrough = ({
+  studyId,
+  steps,
+  inUse,
+  retired
+}: {
+  studyId: number
+  steps: number
+  inUse: boolean
+  retired: boolean
+}) => {
+  const [closingQuestions, setClosingQuestions] = useState(true)
+  const handlers = useRefreshingMutation()
+  const { mutate: generate, isPending } =
+    trpc.surveys.generateSteps.useMutation({
+      ...handlers,
+      onSuccess: (result) => {
+        toast.success(
+          `Walkthrough of ${result.steps} ${result.steps === 1 ? "step" : "steps"}`
+        )
+        handlers.onSuccess()
+      }
+    })
+
+  if (inUse)
+    return (
+      <span className="text-xs text-muted-foreground">
+        {steps} {steps === 1 ? "step" : "steps"}, in use
+      </span>
+    )
+
+  if (retired)
+    return (
+      <span className="text-xs text-muted-foreground">
+        {steps} {steps === 1 ? "step" : "steps"}
+      </span>
+    )
+
+  return (
+    <form
+      className="flex flex-wrap items-center gap-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        generate({ studyId, includeDefaultQuestions: closingQuestions })
+      }}
+    >
+      <Button type="submit" size="sm" variant="outline" disabled={isPending}>
+        {steps > 0 ? "Regenerate" : "Generate the walkthrough"}
+      </Button>
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={closingQuestions}
+          onChange={(event) => setClosingQuestions(event.target.checked)}
+          className="size-3.5 accent-primary"
+        />
+        Include the two closing questions
+      </label>
+      {steps > 0 && (
+        <span className="text-xs text-muted-foreground">
+          {steps} {steps === 1 ? "step" : "steps"}
+        </span>
+      )}
+    </form>
+  )
+}

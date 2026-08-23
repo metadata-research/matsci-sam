@@ -530,5 +530,221 @@ BEGIN
       RAISE EXCEPTION 'vote withdrawal without a preceding cast';
     END IF;
   END IF;
+
+  -- The legacy vote backfill (migration 0043). From it forward every
+  -- current vote has an event for its (revision, user) pair: the 0043 row
+  -- for a vote cast before the record began, a castVote row for any other.
+  -- Shape-detected on the column the migration added, because a release
+  -- runs this file against the pre-migration restore too.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'voteEvents' AND column_name = 'backfilled'
+  ) THEN
+    IF EXISTS (
+      SELECT 1
+      FROM "votes" v
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM "voteEvents" e
+        WHERE e."revisionId" = v."revisionId" AND e."userId" = v."userId"
+      )
+    ) THEN
+      RAISE EXCEPTION 'current vote without a vote event';
+    END IF;
+
+    -- The backfill wrote one row per vote, and no write path sets the flag.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents"
+      WHERE "backfilled"
+      GROUP BY "revisionId", "userId"
+      HAVING count(*) > 1
+    ) THEN
+      RAISE EXCEPTION 'more than one backfilled vote event for one vote';
+    END IF;
+
+    -- A backfilled event is the vote at the time of the vote. castVote
+    -- keeps the time of a votes row it changes, and a withdrawal deletes
+    -- the row, so while the backfilled event is the only event of its pair
+    -- the two times agree. Once the voter acts again the current row may
+    -- be a later cast with a time of its own, and the comparison no longer
+    -- means anything.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents" e
+      JOIN "votes" v
+        ON v."revisionId" = e."revisionId" AND v."userId" = e."userId"
+      WHERE e."backfilled"
+        AND e."createdAt" <> v."createdAt"
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "voteEvents" later
+          WHERE later."revisionId" = e."revisionId"
+            AND later."userId" = e."userId"
+            AND later.id <> e.id
+        )
+    ) THEN
+      RAISE EXCEPTION 'backfilled vote event time disagrees with its vote';
+    END IF;
+  END IF;
+
+  -- Survey walkthrough (migration 0041). Shape-detected like the blocks
+  -- above, because a release runs this file against the pre-migration
+  -- restore too. A step is context on an act, and the context must fit the
+  -- act: each rule here spans the step, the act and the definition, which a
+  -- row-local CHECK cannot see.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_name = 'surveySteps'
+  ) THEN
+    -- A comment posted inside a step was posted inside a review step on the
+    -- term of its definition.
+    IF EXISTS (
+      SELECT 1
+      FROM "comments" c
+      JOIN "surveySteps" s ON s.id = c."surveyStepId"
+      JOIN "definitions" d ON d.id = c."definitionId"
+      WHERE s.kind <> 'review' OR s."termId" IS DISTINCT FROM d."termId"
+    ) THEN
+      RAISE EXCEPTION 'comment step is not a review step on the term of its definition';
+    END IF;
+
+    -- A voting act inside a step was taken inside the define step of the
+    -- term, where an upvote accepts a candidate as the voter's position, or
+    -- inside its review step.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents" e
+      JOIN "surveySteps" s ON s.id = e."surveyStepId"
+      JOIN "definitions" d ON d.id = e."definitionId"
+      WHERE s.kind NOT IN ('define', 'review')
+         OR s."termId" IS DISTINCT FROM d."termId"
+    ) THEN
+      RAISE EXCEPTION 'vote event step is not a define or review step on the term of its definition';
+    END IF;
+
+    -- A voting act inside a step happened in the community running the
+    -- study of that step, whatever community the voter's header pointed at.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents" e
+      JOIN "surveySteps" s ON s.id = e."surveyStepId"
+      JOIN "studies" st ON st.id = s."studyId"
+      WHERE e."communityId" IS DISTINCT FROM st."communityId"
+    ) THEN
+      RAISE EXCEPTION 'vote event community is not the community of the study of its step';
+    END IF;
+
+    -- A revision written inside a step is the initial revision of a
+    -- definition of the term of a define step. Later revisions are edits,
+    -- and an edit is not what the step asked for.
+    IF EXISTS (
+      SELECT 1
+      FROM "definitionRevisions" r
+      JOIN "surveySteps" s ON s.id = r."surveyStepId"
+      JOIN "definitions" d ON d.id = r."definitionId"
+      WHERE s.kind <> 'define'
+         OR r.version <> 1
+         OR s."termId" IS DISTINCT FROM d."termId"
+    ) THEN
+      RAISE EXCEPTION 'revision step is not a define step on the term of its definition, or the revision is not the first';
+    END IF;
+
+    -- A response answers a question step in the form the step asked for,
+    -- and the step is complete for the person who answered: the two rows
+    -- are written in one transaction.
+    IF EXISTS (
+      SELECT 1
+      FROM "surveyResponses" a
+      JOIN "surveySteps" s ON s.id = a."stepId"
+      WHERE s.kind <> 'question'
+         OR (a."valueText" IS NOT NULL) <> (s."responseKind" = 'text')
+         OR (a."valueScale" IS NOT NULL) <> (s."responseKind" = 'scale')
+         OR NOT EXISTS (
+           SELECT 1
+           FROM "surveyStepCompletions" c
+           WHERE c."stepId" = a."stepId" AND c."userId" = a."userId"
+         )
+    ) THEN
+      RAISE EXCEPTION 'response does not answer a question step in its response kind with a completion';
+    END IF;
+
+    -- A simulated or model answer comes from an AI-flag account and a human
+    -- answer from a human one, the rule comments and vote events follow.
+    IF EXISTS (
+      SELECT 1
+      FROM "surveyResponses" a
+      JOIN "users" u ON u.id = a."userId"
+      WHERE (a."authorKind" = 'human') <> (NOT u."isAi")
+    ) THEN
+      RAISE EXCEPTION 'survey response authorKind disagrees with the account AI flag';
+    END IF;
+
+    -- A text answer from an AI-flag account is generated text and records
+    -- the prompt and model that produced it. The row CHECK keeps a stamp off
+    -- a human answer; a scale answer is a drawn number and has none.
+    IF EXISTS (
+      SELECT 1
+      FROM "surveyResponses" a
+      JOIN "users" u ON u.id = a."userId"
+      WHERE u."isAi"
+        AND a."valueText" IS NOT NULL
+        AND (a."promptHash" IS NULL OR a."model" IS NULL)
+    ) THEN
+      RAISE EXCEPTION 'simulated or model text answer without its generation stamp';
+    END IF;
+
+    -- A completion is by a person who was a member of the community of the
+    -- study when it was recorded. Episodes close and reopen, so the test is
+    -- against the episode covering the moment, not the live row.
+    IF EXISTS (
+      SELECT 1
+      FROM "surveyStepCompletions" c
+      JOIN "surveySteps" s ON s.id = c."stepId"
+      JOIN "studies" st ON st.id = s."studyId"
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM "communityMembers" m
+        WHERE m."communityId" = st."communityId"
+          AND m."userId" = c."userId"
+          AND m."addedAt" <= c."completedAt"
+          AND (m."removedAt" IS NULL OR c."completedAt" < m."removedAt")
+      )
+    ) THEN
+      RAISE EXCEPTION 'completion by a person without a membership episode covering it';
+    END IF;
+
+    -- The pairing in the other direction: a question step is complete for
+    -- a person only with their answer, which answerQuestion writes in the
+    -- same transaction. Define steps have no such rule, because the
+    -- administrative purge of a definition leaves its completion standing.
+    IF EXISTS (
+      SELECT 1
+      FROM "surveyStepCompletions" c
+      JOIN "surveySteps" s ON s.id = c."stepId"
+      WHERE s.kind = 'question'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "surveyResponses" a
+          WHERE a."stepId" = c."stepId" AND a."userId" = c."userId"
+        )
+    ) THEN
+      RAISE EXCEPTION 'question step completion without its response';
+    END IF;
+
+    -- The positions of a study run from 1 with no gaps. Positions are
+    -- positive and unique per study by constraint, so a count equal to the
+    -- maximum means exactly 1..n.
+    IF EXISTS (
+      SELECT 1
+      FROM "surveySteps"
+      GROUP BY "studyId"
+      HAVING min("position") <> 1 OR count(*) <> max("position")
+    ) THEN
+      RAISE EXCEPTION 'survey step positions of a study do not run from 1 without gaps';
+    END IF;
+  END IF;
 END
 $validation$;

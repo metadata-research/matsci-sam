@@ -54,7 +54,10 @@ export class CommentRevisionMissingError extends Error {
  * withdrawal (voting the same way again). The votes row stays the current
  * state the tallies read, and every branch appends one voteEvents row, with
  * kind null recording the withdrawal. communityId is the context the act
- * happened in, resolved by the caller inside this same transaction.
+ * happened in, resolved by the caller inside this same transaction, and
+ * surveyStepId the review step it was taken inside, when it was taken from
+ * a walkthrough. The caller has checked that the step fits the act
+ * (lib/surveys.ts actMatchesStep); drizzle/invariants.sql proves it held.
  */
 export const castVote = async (
   tx: DatabaseTransaction,
@@ -65,10 +68,12 @@ export const castVote = async (
     vote: "up" | "down"
     actorKind: ActorKind
     communityId: number | null
+    surveyStepId?: number | null
   }
 ) => {
   const { definitionId, revisionId, userId, vote, actorKind, communityId } =
     input
+  const surveyStepId = input.surveyStepId ?? null
 
   const [definition] = await tx
     .select({
@@ -99,7 +104,8 @@ export const castVote = async (
       userId,
       kind,
       actorKind,
-      communityId
+      communityId,
+      surveyStepId
     })
 
   if (existing) {
@@ -147,7 +153,9 @@ export const castVote = async (
 /*
  * One comment on one revision. A human comment carries no stamp and the
  * table CHECK holds it to that; a model or simulated comment arrives with
- * the same generation stamp chats and refinement rounds carry.
+ * the same generation stamp chats and refinement rounds carry. surveyStepId
+ * is the review step the comment was posted inside, when it was posted from
+ * a walkthrough, checked against the act by the caller as for castVote.
  */
 export const insertComment = async (
   tx: DatabaseTransaction,
@@ -158,6 +166,7 @@ export const insertComment = async (
     message: string
     actorKind: ActorKind
     stamp?: GenerationStampInput
+    surveyStepId?: number | null
   }
 ) => {
   const revision = await tx.query.definitionRevisionsTable.findFirst({
@@ -177,6 +186,7 @@ export const insertComment = async (
       userId: input.userId,
       message: input.message,
       authorKind: input.actorKind,
+      surveyStepId: input.surveyStepId ?? null,
       ...(input.stamp ?? {})
     })
     .returning()

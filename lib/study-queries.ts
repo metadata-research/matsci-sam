@@ -1,12 +1,16 @@
 import "server-only"
 
 import {
+  aiModelsTable,
   collectionsTable,
   communitiesTable,
   db,
-  studiesTable
+  definitionsTable,
+  studiesTable,
+  termsTable,
+  usersTable
 } from "@yamz/db"
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { statementsTable } from "@yamz/db"
 
 /*
@@ -79,3 +83,92 @@ export const studiesOfCommunity = async (communityId: number) =>
       )
     )
     .orderBy(asc(studiesTable.createdAt))
+
+/*
+ * The outcome of a study, read from the vocabulary: for each term of its
+ * collection, the definition with the most support, which is the agreed
+ * definition of the group so far, with its support and how many other
+ * candidates stand beside it. Support is the score, and a tie goes to the
+ * earliest candidate, the order the position step shows them in. Nothing
+ * is written: the outcome is a reading of the votes, as the rank pages are.
+ */
+export type AgreedDefinition = {
+  id: number
+  definitionNumber: number
+  definition: string
+  example: string
+  score: number
+  model: string | null
+  author: {
+    id: number | null
+    name: string | null
+    isAi: boolean | null
+    isProfilePublic: boolean | null
+    modelSlug: string | null
+  }
+}
+
+export const agreedDefinitions = async (collectionId: number) => {
+  const terms = await db
+    .select({ id: termsTable.id, term: termsTable.term, slug: termsTable.slug })
+    .from(statementsTable)
+    .innerJoin(termsTable, eq(termsTable.id, statementsTable.objectTermId))
+    .where(
+      and(
+        eq(statementsTable.predicate, "skos:member"),
+        eq(statementsTable.subjectCollectionId, collectionId),
+        isNull(statementsTable.retractedAt)
+      )
+    )
+    .orderBy(asc(termsTable.term))
+  if (terms.length === 0) return []
+
+  const candidates = await db
+    .select({
+      id: definitionsTable.id,
+      termId: definitionsTable.termId,
+      definitionNumber: definitionsTable.definitionNumber,
+      definition: definitionsTable.definition,
+      example: definitionsTable.example,
+      score: definitionsTable.score,
+      model: definitionsTable.model,
+      author: {
+        id: usersTable.id,
+        name: usersTable.name,
+        isAi: usersTable.isAi,
+        isProfilePublic: usersTable.isProfilePublic,
+        modelSlug: aiModelsTable.slug
+      }
+    })
+    .from(definitionsTable)
+    .leftJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+    .leftJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
+    .where(
+      inArray(
+        definitionsTable.termId,
+        terms.map((term) => term.id)
+      )
+    )
+    .orderBy(
+      asc(definitionsTable.termId),
+      desc(definitionsTable.score),
+      asc(definitionsTable.createdAt),
+      asc(definitionsTable.id)
+    )
+
+  const byTerm = new Map<number, AgreedDefinition[]>()
+  for (const { termId, ...candidate } of candidates) {
+    const list = byTerm.get(termId) ?? []
+    list.push(candidate)
+    byTerm.set(termId, list)
+  }
+
+  return terms.map((term) => {
+    const list = byTerm.get(term.id) ?? []
+    return {
+      ...term,
+      agreed: list[0] ?? null,
+      alternatives: Math.max(list.length - 1, 0)
+    }
+  })
+}

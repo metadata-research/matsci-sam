@@ -1,129 +1,224 @@
 /*
  * The protocol steps the driver can perform, one act per function, every
  * act an ordinary application write through the same lib/ paths the routers
- * call. Simulated acts are marked simulated and stamped; the AI alternate
- * definition stays a model act under the registered identity, as in the
- * 2025 study. The walkthrough-progress step still waits on migration 0041.
+ * call. Simulated acts are marked simulated and stamped. An act taken for a
+ * step of the walkthrough names that step and completes it in the
+ * transaction of the act, as the pages write it: accepting the draft is an
+ * upvote naming the define step, amending it is a definition whose initial
+ * revision names the step and the revision it derives from, and a review
+ * step, which the pages complete on a separate press, is completed here by
+ * its first act or by the press where there is nothing to compare. The
+ * record of the cohort then reads as the walkthrough pages would have
+ * written it.
+ *
+ * Every act is idempotent per persona and step, because --resume re-runs a
+ * unit that failed after its first write landed: a position already held
+ * is not taken twice, and a vote already cast inside a step is not cast
+ * again, which with the toggling vote path would withdraw it.
  */
 
-import { and, asc, eq, isNull, ne } from "drizzle-orm"
-import { commentsTable, db, definitionsTable, usersTable } from "../../drizzle"
-import { upsertAIDefinitionRecord } from "../../lib/crud"
+import { and, asc, eq, sql } from "drizzle-orm"
+import {
+  aiModelsTable,
+  commentsTable,
+  db,
+  definitionsTable,
+  usersTable,
+  voteEventsTable,
+  votesTable
+} from "../../drizzle"
 import { createDefinitionWithInitialRevision } from "../../lib/definition-revisions"
 import { DefinitionOutput, runLLM } from "../../lib/llm/client"
-import { LLMSystemPrompt } from "../../lib/llm/prompts"
 import { castVote, insertComment } from "../../lib/participation"
+import {
+  hasPosition,
+  recordResponse,
+  responseOf
+} from "../../lib/survey-queries"
+import { recordCompletion } from "../../lib/surveys"
+import type { Walkthrough } from "./db"
 import type { PilotTerm } from "./terms"
 import {
+  amendMessage,
+  amendStamp,
   commentMessage,
-  commentPrompt,
   commentStamp,
-  defineMessage,
-  definePrompt,
-  defineStamp,
-  rebuttalMessage,
-  rebuttalPrompt,
-  rebuttalStamp
+  surveyMessage,
+  surveyPrompt,
+  surveyStamp,
+  amendPrompt,
+  commentPrompt
 } from "./prompts"
 import { z } from "zod"
 
 const CommentOutput = z.object({ comment: z.string() })
-
-const originalDefinition = (authorId: number, termId: number) =>
-  db.query.definitionsTable.findFirst({
-    where: and(
-      eq(definitionsTable.authorId, authorId),
-      eq(definitionsTable.termId, termId),
-      isNull(definitionsTable.refinedFromId)
-    )
-  })
+const AnswerOutput = z.object({ answer: z.string() })
 
 /*
- * One persona defines one assigned term: generate in the persona's voice,
- * then write the ordinary initial definition under the persona account. The
- * source is ai_generation and the row is stamped, because the text is model
- * output however participant-shaped its role in the protocol is.
+ * One generation against ws10, with a bounded retry on a transport failure.
+ * runLLM propagates a dropped connection and resolves to undefined on a
+ * malformed response; only the first is retried, because the second is the
+ * model's answer and a second ask is a second act. The delays double from
+ * two seconds, and the last failure propagates with what was tried.
  */
-export const defineStep = async (
-  persona: { voice: string },
-  personaUserId: number,
-  termId: number,
-  term: PilotTerm
+const GENERATION_ATTEMPTS = 4
+const RETRY_DELAY_MS = 2000
+const generate = async <T extends z.ZodTypeAny>(
+  messages: Parameters<typeof runLLM>[0],
+  systemPrompt: string,
+  schema: T
 ) => {
-  const existing = await originalDefinition(personaUserId, termId)
-  if (existing) return { skipped: true as const }
-
-  const result = await runLLM(
-    [{ role: "user", content: defineMessage(persona, term) }],
-    definePrompt
-  )
-  if (!result) throw new Error(`Define generation failed for ${term.term}`)
-
-  const written = await db.transaction((tx) =>
-    createDefinitionWithInitialRevision(tx, {
-      termId,
-      authorId: personaUserId,
-      definition: result.definition,
-      example: result.example,
-      changeNote: "Initial definition, simulated participant",
-      source: "ai_generation",
-      model: defineStamp.model,
-      prompt: defineStamp.promptText
-    })
-  )
-  return { skipped: false as const, definitionId: written.definition.id }
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await runLLM(messages, systemPrompt, schema)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (attempt >= GENERATION_ATTEMPTS)
+        throw new Error(
+          `Generation failed after ${attempt} attempts: ${message}`,
+          { cause: error }
+        )
+      const delay = RETRY_DELAY_MS * 2 ** (attempt - 1)
+      console.log(
+        `retry ${attempt} of ${GENERATION_ATTEMPTS - 1} in ${delay / 1000}s: ${message}`
+      )
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
 }
 
+// The step an act is taken for: the define step of the term for a
+// position, the review step of the term for a comment or a vote.
+type StepRef = { id: number }
+
 /*
- * The AI alternate definition, as the 2025 protocol ran it: one definition
- * per term, generated from the participant's definition and example, under
- * the registered model identity. Mirrors the term-creation flow, which never
- * fires for pre-seeded study terms.
+ * The draft of a term: its definition under a model identity, an aiModels
+ * row, the earliest where there is more than one. The 2025 drafts are the
+ * MatBot Gemma 3 definitions; a term without one has no draft to take a
+ * position on, and the run stops rather than inventing one.
  */
-export const aiDefinitionStep = async (
-  termId: number,
-  termLabel: string
-) => {
-  const [participant] = await db
+export const draftOf = async (termId: number) => {
+  const [draft] = await db
     .select({
+      id: definitionsTable.id,
+      currentRevisionId: definitionsTable.currentRevisionId,
       definition: definitionsTable.definition,
       example: definitionsTable.example
     })
     .from(definitionsTable)
-    .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
-    .where(
-      and(
-        eq(definitionsTable.termId, termId),
-        eq(usersTable.isAi, true),
-        isNull(definitionsTable.refinedFromId)
-      )
-    )
+    .innerJoin(aiModelsTable, eq(aiModelsTable.userId, definitionsTable.authorId))
+    .where(eq(definitionsTable.termId, termId))
+    .orderBy(asc(definitionsTable.createdAt), asc(definitionsTable.id))
     .limit(1)
-  if (!participant)
-    throw new Error(`No participant definition to generate from for ${termLabel}`)
+  return draft ?? null
+}
 
-  const result = await runLLM(
+type Draft = NonNullable<Awaited<ReturnType<typeof draftOf>>>
+
+/*
+ * Accept the draft: an upvote naming the define step, which is the
+ * position, and the completion of the step in the same transaction, as the
+ * position step completes after the vote. A position already held stands,
+ * and only the completion is recorded again, which is not an error.
+ */
+export const acceptAct = async (
+  personaUserId: number,
+  draft: Draft,
+  communityId: number,
+  step: StepRef
+) => {
+  if (await hasPosition(db, step.id, personaUserId)) {
+    await recordCompletion(db, { stepId: step.id, userId: personaUserId })
+    return { skipped: true as const }
+  }
+  if (!draft.currentRevisionId)
+    throw new Error(`No current revision to accept on definition ${draft.id}`)
+  await db.transaction(async (tx) => {
+    await castVote(tx, {
+      definitionId: draft.id,
+      revisionId: draft.currentRevisionId!,
+      userId: personaUserId,
+      vote: "up",
+      actorKind: "simulated",
+      communityId,
+      surveyStepId: step.id
+    })
+    await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+  })
+  return { skipped: false as const }
+}
+
+/*
+ * Amend the draft: generate the amendment in the persona's voice from the
+ * text of the draft, then write the ordinary initial definition under the
+ * persona account, with the define step and the current revision of the
+ * draft on its initial revision and the completion of the step in the same
+ * transaction, as definitions.create writes it. The source is ai_generation
+ * and the row is stamped, because the text is model output however
+ * participant-shaped its role in the protocol is.
+ */
+export const amendAct = async (
+  persona: { voice: string },
+  personaUserId: number,
+  term: PilotTerm,
+  draft: Draft,
+  step: StepRef
+) => {
+  if (await hasPosition(db, step.id, personaUserId)) {
+    await recordCompletion(db, { stepId: step.id, userId: personaUserId })
+    return { skipped: true as const }
+  }
+  if (!draft.currentRevisionId)
+    throw new Error(`No current revision to amend on definition ${draft.id}`)
+
+  const result = await generate(
     [
       {
         role: "user",
-        content: `<term>\n${termLabel}\n\n<definition>\n${participant.definition}\n\n<example>\n${participant.example}`
+        content: amendMessage(
+          persona,
+          term,
+          draft.definition,
+          draft.example ?? ""
+        )
       }
     ],
-    LLMSystemPrompt,
+    amendPrompt,
     DefinitionOutput
   )
-  if (!result) throw new Error(`AI generation failed for ${termLabel}`)
+  if (!result) throw new Error(`Amend generation failed for ${term.term}`)
 
-  const written = await upsertAIDefinitionRecord(termId, result, {
-    model: defineStamp.model,
-    prompt: LLMSystemPrompt
+  const termId = await db.query.definitionsTable
+    .findFirst({ columns: { termId: true }, where: eq(definitionsTable.id, draft.id) })
+    .then((row) => row?.termId)
+  if (!termId) throw new Error(`Draft ${draft.id} has no term`)
+
+  const written = await db.transaction(async (tx) => {
+    const created = await createDefinitionWithInitialRevision(tx, {
+      termId,
+      authorId: personaUserId,
+      definition: result.definition,
+      example: result.example,
+      changeNote: "Amendment of the draft, simulated participant",
+      source: "ai_generation",
+      model: amendStamp.model,
+      prompt: amendStamp.promptText,
+      derivedFromRevisionId: draft.currentRevisionId,
+      surveyStepId: step.id
+    })
+    await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+    return created
   })
-  return { definitionId: written.definition.id }
+  return { skipped: false as const, definitionId: written.definition.id }
 }
 
-// The definitions of one term as review targets: id, current revision, and
-// the text a reviewer reads.
-export const reviewTargets = (termId: number) =>
+/*
+ * The candidates of one term as a reviewer reads them: every definition of
+ * the term, with its current revision, the text, and whether the reviewer
+ * already has a standing vote on that revision, which a second vote would
+ * change or withdraw.
+ */
+export const candidatesOf = (termId: number, viewerId: number) =>
   db
     .select({
       id: definitionsTable.id,
@@ -131,44 +226,68 @@ export const reviewTargets = (termId: number) =>
       authorId: definitionsTable.authorId,
       authorName: usersTable.name,
       definition: definitionsTable.definition,
-      example: definitionsTable.example
+      example: definitionsTable.example,
+      votedByViewer: sql<boolean>`exists (
+        select 1 from ${votesTable} v
+        where v."definitionId" = ${definitionsTable.id}
+          and v."revisionId" = ${definitionsTable.currentRevisionId}
+          and v."userId" = ${viewerId}
+      )`
     })
     .from(definitionsTable)
     .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
-    .where(
-      and(eq(definitionsTable.termId, termId), isNull(definitionsTable.refinedFromId))
-    )
+    .where(eq(definitionsTable.termId, termId))
     .orderBy(asc(definitionsTable.id))
 
-type ReviewTarget = Awaited<ReturnType<typeof reviewTargets>>[number]
+export type Candidate = Awaited<ReturnType<typeof candidatesOf>>[number]
 
-// What others said about one definition, for the rebuttal.
-export const commentsByOthers = (definitionId: number, notUserId: number) =>
-  db
-    .select({ message: commentsTable.message })
-    .from(commentsTable)
+// The vote a persona already cast inside a step, if any: the definition it
+// was cast on, so a resumed unit comments on the same candidate.
+export const stepVoteOf = async (personaUserId: number, step: StepRef) => {
+  const [event] = await db
+    .select({ definitionId: voteEventsTable.definitionId })
+    .from(voteEventsTable)
     .where(
       and(
-        eq(commentsTable.definitionId, definitionId),
-        ne(commentsTable.userId, notUserId)
+        eq(voteEventsTable.surveyStepId, step.id),
+        eq(voteEventsTable.userId, personaUserId)
       )
     )
-    .orderBy(asc(commentsTable.id))
+    .orderBy(asc(voteEventsTable.id))
+    .limit(1)
+  return event ?? null
+}
 
 /*
- * One review comment by one persona on one definition: generate in the
+ * One review comment by one persona on one candidate: generate in the
  * persona's voice, then post it as a simulated act with the registered
- * stamp, against the definition's current revision.
+ * stamp, against the candidate's current revision, from the review step of
+ * the term. The comment names the step and completes it. A comment the
+ * persona already posted inside the step on this candidate stands.
  */
 export const commentAct = async (
   persona: { voice: string },
   personaUserId: number,
   termLabel: string,
-  target: ReviewTarget
+  target: Candidate,
+  step: StepRef
 ) => {
   if (!target.currentRevisionId)
     throw new Error(`No current revision to comment on for ${termLabel}`)
-  const result = await runLLM(
+  const [posted] = await db
+    .select({ id: commentsTable.id })
+    .from(commentsTable)
+    .where(
+      and(
+        eq(commentsTable.surveyStepId, step.id),
+        eq(commentsTable.userId, personaUserId),
+        eq(commentsTable.definitionId, target.id)
+      )
+    )
+    .limit(1)
+  if (posted) return { skipped: true as const }
+
+  const result = await generate(
     [
       {
         role: "user",
@@ -185,91 +304,118 @@ export const commentAct = async (
   )
   if (!result) throw new Error(`Comment generation failed for ${termLabel}`)
 
-  return await db.transaction((tx) =>
-    insertComment(tx, {
+  await db.transaction(async (tx) => {
+    await insertComment(tx, {
       definitionId: target.id,
       revisionId: target.currentRevisionId!,
       userId: personaUserId,
       message: result.comment,
       actorKind: "simulated",
-      stamp: commentStamp
+      stamp: commentStamp,
+      surveyStepId: step.id
     })
-  )
+    await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+  })
+  return { skipped: false as const }
 }
 
 /*
- * One voting act by one persona, in the pilot community's context. The
- * choice arrives from the seeded structure in the orchestrator, so a
- * rehearsal repeats its shape.
+ * One voting act by one persona on one candidate, in the pilot community's
+ * context and from the review step of the term, which the act names and
+ * completes. The choice arrives from the seeded structure in the
+ * orchestrator, so a rehearsal repeats its shape.
  */
 export const voteAct = async (
   personaUserId: number,
-  target: ReviewTarget,
+  target: Candidate,
   vote: "up" | "down",
-  communityId: number
+  communityId: number,
+  step: StepRef
 ) => {
   if (!target.currentRevisionId)
-    throw new Error(`No current revision to vote on for definition ${target.id}`)
-  return await db.transaction((tx) =>
-    castVote(tx, {
+    throw new Error(
+      `No current revision to vote on for definition ${target.id}`
+    )
+  await db.transaction(async (tx) => {
+    await castVote(tx, {
       definitionId: target.id,
       revisionId: target.currentRevisionId!,
       userId: personaUserId,
       vote,
       actorKind: "simulated",
-      communityId
+      communityId,
+      surveyStepId: step.id
     })
-  )
+    await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+  })
 }
+
+// The press: a review step with one candidate, where there is nothing to
+// compare, completes without an act, as the page completes it.
+export const pressStep = (personaUserId: number, step: StepRef) =>
+  recordCompletion(db, { stepId: step.id, userId: personaUserId })
 
 /*
- * The rebuttal, as the 2024 protocol ran it: the author answers the
- * comments others left on their definition, once, as one reply comment on
- * their own definition.
+ * One persona walks the steps no act of the protocol completes: the
+ * instructions, pressed through, and each closing question, answered as a
+ * simulated act. A scale answer arrives from the seeded structure and is a
+ * drawn number, so it has no stamp; a text answer is generated in the
+ * persona's voice under the survey prompt and is stamped on the row, as a
+ * simulated comment is. The answer and the completion are one transaction,
+ * the pairing the invariants require of a response.
+ *
+ * Idempotent per question, because a question is answered once: a persona
+ * resumed after a transport failure skips what it already answered.
  */
-export const rebuttalAct = async (
+export const walkthroughProgressStep = async (
   persona: { voice: string },
   personaUserId: number,
-  termLabel: string,
-  own: ReviewTarget,
-  commentsByOthers: string[]
+  walkthrough: Pick<Walkthrough, "instructions" | "questions">,
+  scaleAnswers: Map<number, number>
 ) => {
-  if (!own.currentRevisionId)
-    throw new Error(`No current revision for the rebuttal on ${termLabel}`)
-  if (commentsByOthers.length === 0) return { skipped: true as const }
+  for (const step of walkthrough.instructions)
+    await recordCompletion(db, { stepId: step.id, userId: personaUserId })
 
-  const result = await runLLM(
-    [
-      {
-        role: "user",
-        content: rebuttalMessage(
-          persona,
-          termLabel,
-          own.definition,
-          commentsByOthers
+  let answered = 0
+  let skipped = 0
+  for (const step of walkthrough.questions) {
+    if (await responseOf(db, step.id, personaUserId)) {
+      skipped++
+      continue
+    }
+    if (!step.prompt)
+      throw new Error(`Question step ${step.position} has no prompt`)
+
+    let value:
+      | { valueScale: number }
+      | { valueText: string; stamp: typeof surveyStamp }
+    if (step.responseKind === "scale") {
+      const drawn = scaleAnswers.get(step.id)
+      if (drawn === undefined)
+        throw new Error(`No seeded answer for question step ${step.position}`)
+      value = { valueScale: drawn }
+    } else {
+      const result = await generate(
+        [{ role: "user", content: surveyMessage(persona, step.prompt) }],
+        surveyPrompt,
+        AnswerOutput
+      )
+      if (!result?.answer.trim())
+        throw new Error(
+          `Answer generation failed for question step ${step.position}`
         )
-      }
-    ],
-    rebuttalPrompt,
-    CommentOutput
-  )
-  if (!result) throw new Error(`Rebuttal generation failed for ${termLabel}`)
+      value = { valueText: result.answer.trim(), stamp: surveyStamp }
+    }
 
-  await db.transaction((tx) =>
-    insertComment(tx, {
-      definitionId: own.id,
-      revisionId: own.currentRevisionId!,
-      userId: personaUserId,
-      message: result.comment,
-      actorKind: "simulated",
-      stamp: rebuttalStamp
-    })
-  )
-  return { skipped: false as const }
-}
-
-export const walkthroughProgressStep = async () => {
-  throw new Error(
-    "The walkthrough-progress step needs migration 0041 (survey steps and completions)."
-  )
+    await db.transaction((tx) =>
+      recordResponse(tx, {
+        stepId: step.id,
+        userId: personaUserId,
+        authorKind: "simulated",
+        ...value
+      })
+    )
+    answered++
+  }
+  return { answered, skipped }
 }

@@ -10,6 +10,7 @@ import {
   StaleRevisionError,
   VoteTargetMissingError
 } from "@/lib/participation"
+import { requireStepForDefinitionAct } from "./surveys"
 
 const voteTargetSchema = z.object({
   definitionId: z.number(),
@@ -56,25 +57,45 @@ export const votesRouter = createTRPCRouter({
       return data
     }),
   vote: contributorProcedure
-    .input(voteTargetSchema.extend({ vote: z.enum(["up", "down"]) }))
+    .input(
+      voteTargetSchema.extend({
+        vote: z.enum(["up", "down"]),
+        // The step of a walkthrough the vote is cast inside: the define step
+        // of the term, where an upvote accepts a candidate, or its review step.
+        surveyStepId: z.number().int().optional()
+      })
+    )
     .mutation(
       async ({
         ctx: { userId },
-        input: { definitionId, revisionId, vote }
+        input: { definitionId, revisionId, vote, surveyStepId }
       }) => {
+        const walkthrough =
+          surveyStepId === undefined
+            ? null
+            : await requireStepForDefinitionAct(surveyStepId, userId, {
+                kind: "vote",
+                definitionId
+              })
+
         try {
           const [updatedDefinition] = await db.transaction(async (tx) => {
-            // A session vote is a human act in whatever community the person
-            // is working in right now, resolved inside the transaction that
-            // writes it.
-            const community = await activeCommunityFor(tx, userId)
+            // A session vote is a human act in the community the person is
+            // working in: the community running the study when the vote is
+            // cast inside a walkthrough step, and otherwise whatever the
+            // header points at, resolved inside the transaction that writes
+            // it.
+            const communityId = walkthrough
+              ? walkthrough.study.communityId
+              : ((await activeCommunityFor(tx, userId))?.id ?? null)
             return castVote(tx, {
               definitionId,
               revisionId,
               userId,
               vote,
               actorKind: "human",
-              communityId: community?.id ?? null
+              communityId,
+              surveyStepId: surveyStepId ?? null
             })
           })
 

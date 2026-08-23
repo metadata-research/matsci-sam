@@ -23,9 +23,14 @@ const WATCH_TIMEOUT_MS = 5 * 60 * 1000
  */
 export const useCreateComment = ({
   definitionId,
+  surveyStepId,
   onPosted
 }: {
   definitionId: number
+  // The review step of a walkthrough the comment is posted inside. Sent with
+  // every comment posted through this hook, so the surfaces keep calling
+  // mutate with the comment alone.
+  surveyStepId?: number
   // Surface-specific cleanup: reset the form, refresh the route, etc.
   onPosted?: () => void
 }) => {
@@ -69,18 +74,24 @@ export const useCreateComment = ({
     // The version may simply never change, so the timeout needs its own
     // timer rather than piggybacking on poll-result changes.
     const remaining = watch.startedAt + WATCH_TIMEOUT_MS - Date.now()
-    const timer = setTimeout(() => {
-      setWatch(null)
-      toast("The model has not produced a revision yet.", {
-        description: "It may still arrive; refresh the page later to check."
-      })
-    }, Math.max(remaining, 0))
+    const timer = setTimeout(
+      () => {
+        setWatch(null)
+        toast("The model has not produced a revision yet.", {
+          description: "It may still arrive; refresh the page later to check."
+        })
+      },
+      Math.max(remaining, 0)
+    )
     return () => clearTimeout(timer)
   }, [watch, current?.version, definitionId, router, utils])
 
   const mutation = trpc.comments.create.useMutation({
     onSuccess: (created) => {
       utils.comments.get.refetch(definitionId)
+      // The comment count on a definition card comes from definitions.list,
+      // so a surface that shows the card above the box reads it again.
+      utils.definitions.list.invalidate()
       if (created.aiRevisionScheduled) {
         toast(
           "Comment posted. The model will revise this definition in response.",
@@ -104,5 +115,10 @@ export const useCreateComment = ({
     }
   })
 
-  return mutation
+  return {
+    ...mutation,
+    mutate: (
+      input: Omit<Parameters<typeof mutation.mutate>[0], "surveyStepId">
+    ) => mutation.mutate({ ...input, surveyStepId })
+  }
 }

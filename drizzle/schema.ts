@@ -563,6 +563,9 @@ export const definitionRevisionsTable = pgTable(
     sourceRefinementId: integer().references(
       (): AnyPgColumn => refinementsTable.id
     ),
+    // The define step this revision was written inside, when it was written
+    // from a walkthrough; set on the initial revision only. See surveySteps.
+    surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull(),
@@ -592,6 +595,7 @@ export const definitionRevisionsTable = pgTable(
     index("definition_revisions_derived_from_idx").on(
       table.derivedFromRevisionId
     ),
+    index("definition_revisions_survey_step_idx").on(table.surveyStepId),
     check("definition_revisions_version_positive", sql`${table.version} > 0`),
     check(
       "definition_revisions_predecessor_shape",
@@ -833,10 +837,12 @@ export const votesTableRelations = relations(votesTable, ({ one }) => ({
 // Append-only record of every voting act: cast, change, withdrawal. Rows
 // are never updated and never deleted. votes stays the current-state row
 // the tallies read; these rows are what consensus formation is
-// reconstructed from. The two agree only forward from migration 0040:
-// earlier acts were never recorded, inventing them would be false
-// provenance, so there is no backfill and deliberately no cross-check
-// between the tables.
+// reconstructed from. The two records agree from migration 0040 forward
+// for new acts, and for earlier votes through the one row per vote the
+// 0043 backfill wrote: the single act each vote had always been published
+// as, with its own time, flagged backfilled. A change or withdrawal made
+// before 0040 was never recorded and is not invented, so the record does
+// not cross-check the tally beyond one event per current vote.
 export type VoteEvent = typeof voteEventsTable.$inferSelect
 export const voteEventsTable = pgTable(
   "voteEvents",
@@ -855,6 +861,19 @@ export const voteEventsTable = pgTable(
     // The community the voter was working in, resolved at write time inside
     // the vote transaction. Null reads as unscoped, never as unknown.
     communityId: integer().references((): AnyPgColumn => communitiesTable.id),
+    // The review step the act was taken inside, when it was taken from a
+    // walkthrough. See surveySteps.
+    surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
+    // True only on a row migration 0043 wrote for a vote cast before the
+    // event record began. The act is the one the vote had always been
+    // published as, at the time of the vote; its toggle history was never
+    // recorded. No write path sets this.
+    backfilled: boolean().notNull().default(false),
+    // Copied from the votes row at the backfill: the binding of the vote to
+    // its revision was inferred when the record was first migrated, because
+    // the recorded time could not establish which version the voter read.
+    // The graph states matsci:legacyAssociationInferred from it.
+    migratedLegacy: boolean().notNull().default(false),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull()
@@ -865,6 +884,7 @@ export const voteEventsTable = pgTable(
       table.revisionId
     ),
     index("vote_events_user_idx").on(table.userId, table.createdAt),
+    index("vote_events_survey_step_idx").on(table.surveyStepId),
     foreignKey({
       columns: [table.revisionId, table.definitionId],
       foreignColumns: [
@@ -911,6 +931,9 @@ export const commentsTable = pgTable(
     promptHash: text(),
     promptText: text(),
     model: text(),
+    // The review step the comment was posted inside, when it was posted from
+    // a walkthrough. See surveySteps.
+    surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull(),
@@ -936,6 +959,7 @@ export const commentsTable = pgTable(
     ),
     index("comments_revision_idx").on(table.revisionId),
     index("comments_user_idx").on(table.userId),
+    index("comments_survey_step_idx").on(table.surveyStepId),
     foreignKey({
       columns: [table.revisionId, table.definitionId],
       foreignColumns: [
@@ -1424,8 +1448,7 @@ export const communityCollectionsTable = pgTable(
 //
 // Redeeming is a button press rather than a GET, so a mail scanner or a link
 // prefetcher cannot spend an invitation on the invitee's behalf.
-export type CommunityInvitation =
-  typeof communityInvitationsTable.$inferSelect
+export type CommunityInvitation = typeof communityInvitationsTable.$inferSelect
 export const communityInvitationsTable = pgTable(
   "communityInvitations",
   {
@@ -1534,6 +1557,168 @@ export const studiesTable = pgTable(
       sql`${t.opensAt} IS NULL OR ${t.closesAt} IS NULL OR ${t.closesAt} > ${t.opensAt}`
     ),
     index("studies_community_idx").on(t.communityId)
+  ]
+)
+
+// --- SURVEY WALKTHROUGH ---
+// The survey is a walkthrough: an ordered set of steps that takes a
+// participant through the term set of a study, define first, then comment
+// and vote, with per-participant completion. Steps snapshot the collection
+// when a steward generates them, so a term added to the collection later
+// does not lengthen a walkthrough someone has started, and completions are
+// the whole progress record. The rules are in lib/surveys.ts.
+//
+// An act taken inside a step is the ordinary application write with the
+// step as its context: definitionRevisions, voteEvents and comments name it
+// in surveyStepId. The study is reachable through the step and is not
+// stored twice, and drizzle/invariants.sql proves the step fits the act.
+//
+// Nothing here reaches a graph. Who completed what is the participation of
+// the cohort, and the cohort stays unpublished.
+
+export const surveyStepKindEnum = pgEnum("survey_step_kind", [
+  "instructions",
+  "define",
+  "review",
+  "question"
+])
+
+export const surveyResponseKindEnum = pgEnum("survey_response_kind", [
+  "text",
+  "scale"
+])
+
+export type SurveyStep = typeof surveyStepsTable.$inferSelect
+export const surveyStepsTable = pgTable(
+  "surveySteps",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    studyId: integer()
+      .references(() => studiesTable.id)
+      .notNull(),
+    // One-based order within the study, contiguous from 1, which
+    // drizzle/invariants.sql proves. Resumption is the lowest position the
+    // participant has not completed, so there is no status column.
+    position: integer().notNull(),
+    kind: surveyStepKindEnum().notNull(),
+    // The term a define or review step is about. Required for those two
+    // kinds and absent for the other two, by CHECK.
+    termId: integer().references(() => termsTable.id),
+    // The instructions text, a nudge for a define or review step, or the
+    // question text. Plain text, as the study welcome is. Required where the
+    // step is nothing without it: instructions and question.
+    prompt: text(),
+    // Present exactly when the step is a question: how it is answered.
+    responseKind: surveyResponseKindEnum(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    unique("survey_steps_study_position_unique").on(t.studyId, t.position),
+    check("survey_steps_position_positive", sql`${t.position} > 0`),
+    check(
+      "survey_steps_term_by_kind",
+      sql`(${t.kind} IN ('define', 'review')) = (${t.termId} IS NOT NULL)`
+    ),
+    check(
+      "survey_steps_response_by_kind",
+      sql`(${t.kind} = 'question') = (${t.responseKind} IS NOT NULL)`
+    ),
+    check(
+      "survey_steps_prompt_by_kind",
+      sql`${t.kind} NOT IN ('instructions', 'question')
+          OR (${t.prompt} IS NOT NULL AND btrim(${t.prompt}) <> '')`
+    ),
+    index("survey_steps_term_idx").on(t.termId)
+  ]
+)
+
+// One participant's completion of one step. The row is the whole of the
+// progress record: no status enum and no counter. Whether a step may be
+// pressed through is a rule over the acts it asked for (lib/surveys.ts
+// stepGate), and this row says only that it was.
+export type SurveyStepCompletion =
+  typeof surveyStepCompletionsTable.$inferSelect
+export const surveyStepCompletionsTable = pgTable(
+  "surveyStepCompletions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    stepId: integer()
+      .references(() => surveyStepsTable.id)
+      .notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    // drizzle/invariants.sql proves the person had a live membership episode
+    // in the community of the study at this moment.
+    completedAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    unique("survey_step_completions_step_user_unique").on(t.stepId, t.userId),
+    index("survey_step_completions_user_idx").on(t.userId)
+  ]
+)
+
+// The answer to a question step: exactly one of the two value columns, by
+// CHECK, with the scale bounded 1 to 5. Rows rather than jsonb, so the
+// savepoint harness can probe each rule. A question is answered once, by
+// the unique pair. authorKind marks a simulated answer from the pilot driver
+// as the authorKind of a comment does, and its agreement with the account AI
+// flag is proven at release, as for comments.
+export type SurveyResponse = typeof surveyResponsesTable.$inferSelect
+export const surveyResponsesTable = pgTable(
+  "surveyResponses",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    stepId: integer()
+      .references(() => surveyStepsTable.id)
+      .notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    valueText: text(),
+    valueScale: integer(),
+    authorKind: actorKindEnum().notNull(),
+    // Generation provenance for a simulated text answer, the stamp a
+    // simulated comment records (lib/llm/stamp.ts), so the answer is
+    // reproducible to its prompt and model from the row. A human answer has
+    // none, and the CHECK below holds it to that. A scale answer is a drawn
+    // number, not generated text, and has none either.
+    promptKey: text(),
+    promptHash: text(),
+    promptText: text(),
+    model: text(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    unique("survey_responses_step_user_unique").on(t.stepId, t.userId),
+    check(
+      "survey_responses_human_carries_no_stamp",
+      sql`${t.authorKind} <> 'human'
+          OR (${t.promptKey} IS NULL AND ${t.promptHash} IS NULL
+              AND ${t.promptText} IS NULL AND ${t.model} IS NULL)`
+    ),
+    check(
+      "survey_responses_stamp_pair",
+      sql`(${t.promptHash} IS NULL) = (${t.promptText} IS NULL)`
+    ),
+    check(
+      "survey_responses_one_value",
+      sql`num_nonnulls(${t.valueText}, ${t.valueScale}) = 1`
+    ),
+    check(
+      "survey_responses_scale_range",
+      sql`${t.valueScale} IS NULL OR ${t.valueScale} BETWEEN 1 AND 5`
+    ),
+    check(
+      "survey_responses_text_nonblank",
+      sql`${t.valueText} IS NULL OR btrim(${t.valueText}) <> ''`
+    )
   ]
 )
 

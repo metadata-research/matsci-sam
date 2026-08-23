@@ -10,6 +10,9 @@ knowledge organization reference in `docs/reference/`. Keep the three apart.
   tests that hold them together.
 - [The LLM layer](llm-layer.md) covers the client, the prompt registry, the
   provenance stamp, model identities, and how to add a structured call.
+- [The graph layer](graph-layer.md) covers the named graphs, the projector
+  and its hooks, running the Fuseki store and the Jena validators locally,
+  the SHACL shapes, what CI checks, and the paper queries.
 
 When a change touches a table in the ledger, read the first note end to end
 before editing. Most of its rules are enforced in more than one place on

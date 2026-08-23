@@ -16,6 +16,9 @@ import { PublicProfileName } from "../public-profile-name"
 interface Props {
   id: number
   definitionNumber: number
+  // True where no comment box follows the list, so the empty state does not
+  // point at one.
+  readOnly?: boolean
 }
 
 export const TermVotesFallback = () => {
@@ -32,14 +35,20 @@ export const TermVotesFallback = () => {
   )
 }
 
-export const TermComments = ({ id, definitionNumber }: Props) => {
+export const TermComments = ({
+  id,
+  definitionNumber,
+  readOnly = false
+}: Props) => {
   const [comments] = trpc.comments.get.useSuspenseQuery(id)
 
   if (comments.length === 0) {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-dashed bg-card/50 px-4 py-5 text-sm text-muted-foreground">
         <MessageSquareIcon className="size-4 shrink-0" aria-hidden />
-        No comments yet — be the first to comment below.
+        {readOnly
+          ? "No comments."
+          : "No comments yet. Be the first to comment below."}
       </div>
     )
   }

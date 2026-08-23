@@ -428,10 +428,12 @@ export const loadSchemeDocument = async (): Promise<SchemeDocument> => {
   return { kos, records }
 }
 
-// The whole dictionary as one document: the scheme, every term concept, then
-// the knowledge-organization blocks (schemes, concepts, collections) once, so
-// the document stays self-describing.
-export const renderSchemeTurtle = ({ kos, records }: SchemeDocument) => {
+// The dictionary alone, without prefixes: the scheme block, then every term
+// concept with its definitions and revisions. This is the `vocabulary` named
+// graph of the graph layer (lib/graph/documents.ts), and one of the two
+// halves of /vocabulary.ttl. The knowledge-organization blocks are the other
+// half and are the `kos` graph, so the two never state a triple twice.
+export const renderVocabularyTurtle = ({ records }: SchemeDocument) => {
   const scheme = turtleBlock(schemeUri, [
     "a skos:ConceptScheme",
     `dcterms:title ${en(`${SITE_NAME} vocabulary`)}`,
@@ -441,13 +443,18 @@ export const renderSchemeTurtle = ({ kos, records }: SchemeDocument) => {
     `dcterms:publisher ${lit("Metadata Research Center, Drexel University")}`
   ])
 
-  const kosBlocks = kosBlocksTurtle(new KosView(kos))
+  return scheme + "\n" + records.map(conceptTurtle).join("\n")
+}
+
+// The whole dictionary as one document: the scheme, every term concept, then
+// the knowledge-organization blocks (schemes, concepts, collections) once, so
+// the document stays self-describing.
+export const renderSchemeTurtle = (document: SchemeDocument) => {
+  const kosBlocks = kosBlocksTurtle(new KosView(document.kos))
 
   return (
     TTL_PREFIXES +
-    scheme +
-    "\n" +
-    records.map(conceptTurtle).join("\n") +
+    renderVocabularyTurtle(document) +
     (kosBlocks ? "\n" + kosBlocks : "")
   )
 }

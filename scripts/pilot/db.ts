@@ -2,12 +2,12 @@
  * Database plumbing for the pilot driver.
  *
  * The driver resolves the containers and refuses to run when they are
- * missing, because the community, the study and its collection are created
- * by the operator through the interface. What the driver does write is the
- * simulated side: persona accounts and their membership rows. The people
- * picker in the interface filters AI accounts deliberately, so persona
- * membership is a service-layer write by design, attributed to the operator
- * through addedById.
+ * missing, because the community, the study, its collection and its
+ * walkthrough are created by the operator through the interface. What the
+ * driver does write is the simulated side: persona accounts and their
+ * membership rows. The people picker in the interface filters AI accounts
+ * deliberately, so persona membership is a service-layer write by design,
+ * attributed to the operator through addedById.
  */
 
 import { and, eq, isNull, sql } from "drizzle-orm"
@@ -21,6 +21,8 @@ import {
   termsTable,
   usersTable
 } from "../../drizzle"
+import { studyState } from "../../lib/communities"
+import { stepsOfStudy, type StepWithTerm } from "../../lib/survey-queries"
 import { personaName, personas } from "./personas"
 
 export const resolveOperator = async (email: string) => {
@@ -72,9 +74,21 @@ export const resolveContainers = async (slugs: {
       `Create these through the interface first: ${missing.join(", ")}`
     )
 
-  if (study.communityId !== community.id || study.collectionId !== collection.id)
+  if (
+    study.communityId !== community.id ||
+    study.collectionId !== collection.id
+  )
     throw new Error(
       `Study ${slugs.study} does not join community ${slugs.community} to collection ${slugs.collection}`
+    )
+
+  // The routers and the run page refuse an act outside an open study, and
+  // the driver writes under the same rule, so the record reads as the pages
+  // would have written it.
+  const state = studyState(study)
+  if (state !== "open")
+    throw new Error(
+      `Study ${slugs.study} is ${state}, not open. Open it through the interface before running the driver.`
     )
 
   // The active skos:member statements of the collection are the term set.
@@ -92,6 +106,54 @@ export const resolveContainers = async (slugs: {
     .orderBy(termsTable.term)
 
   return { community, study, collection, terms }
+}
+
+export type Walkthrough = {
+  steps: StepWithTerm[]
+  instructions: StepWithTerm[]
+  questions: StepWithTerm[]
+  defineStepOf: (termId: number, termLabel: string) => StepWithTerm
+  reviewStepOf: (termId: number, termLabel: string) => StepWithTerm
+}
+
+/*
+ * The walkthrough of the study: the steps a steward generated through the
+ * interface. Each act of the driver names its step, as an act from the
+ * walkthrough pages does, and completes it. The driver does not generate
+ * the steps: the plan is the steward's, and a term with no step was added
+ * to the collection after the plan was made.
+ */
+export const resolveWalkthrough = async (
+  studyId: number
+): Promise<Walkthrough> => {
+  const steps = await stepsOfStudy(db, studyId)
+  if (steps.length === 0)
+    throw new Error("Generate the walkthrough through the interface first")
+
+  const byTerm = (kind: "define" | "review") =>
+    new Map(
+      steps
+        .filter((step) => step.kind === kind && step.termId !== null)
+        .map((step) => [step.termId!, step])
+    )
+  const stepOf =
+    (kind: "define" | "review", found: Map<number, StepWithTerm>) =>
+    (termId: number, termLabel: string) => {
+      const step = found.get(termId)
+      if (!step)
+        throw new Error(
+          `The walkthrough has no ${kind} step for "${termLabel}". Generate it after the collection is complete.`
+        )
+      return step
+    }
+
+  return {
+    steps,
+    instructions: steps.filter((step) => step.kind === "instructions"),
+    questions: steps.filter((step) => step.kind === "question"),
+    defineStepOf: stepOf("define", byTerm("define")),
+    reviewStepOf: stepOf("review", byTerm("review"))
+  }
 }
 
 /*

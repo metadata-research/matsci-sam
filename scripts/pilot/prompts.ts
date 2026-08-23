@@ -21,25 +21,40 @@ const entry = (key: string) => {
   return found.prompt
 }
 
-export const definePrompt = entry("pilot-persona-define")
+export const amendPrompt = entry("pilot-persona-amend")
 export const commentPrompt = entry("pilot-persona-comment")
+export const surveyPrompt = entry("pilot-persona-survey")
+// The define and rebuttal acts left the protocol when it became "settle the
+// list"; their prompts stay registered for scripts/seed-ci-graph.ts, which
+// stamps its fixture rows with them.
+export const definePrompt = entry("pilot-persona-define")
 export const rebuttalPrompt = entry("pilot-persona-rebuttal")
 
-export const defineStamp = makeGenerationStamp(
-  "pilot-persona-define",
-  definePrompt
-)
+export const amendStamp = makeGenerationStamp("pilot-persona-amend", amendPrompt)
 export const commentStamp = makeGenerationStamp(
   "pilot-persona-comment",
   commentPrompt
+)
+export const surveyStamp = makeGenerationStamp(
+  "pilot-persona-survey",
+  surveyPrompt
+)
+export const defineStamp = makeGenerationStamp(
+  "pilot-persona-define",
+  definePrompt
 )
 export const rebuttalStamp = makeGenerationStamp(
   "pilot-persona-rebuttal",
   rebuttalPrompt
 )
 
-export const defineMessage = (persona: Voiced, term: PilotTerm) =>
-  `${persona.voice} Define the term "${term.term}" as it is used in ${term.hint}.`
+export const amendMessage = (
+  persona: Voiced,
+  term: PilotTerm,
+  definition: string,
+  example: string
+) =>
+  `${persona.voice} The draft definition of "${term.term}", as it is used in ${term.hint}, reads: "${definition}" with the example: "${example}". Write your amended definition and example.`
 
 export const commentMessage = (
   persona: Voiced,
@@ -49,12 +64,5 @@ export const commentMessage = (
 ) =>
   `${persona.voice} A colleague defined "${term}" as: "${definition}" with the example: "${example}". Write your review comment.`
 
-export const rebuttalMessage = (
-  persona: Voiced,
-  term: string,
-  definition: string,
-  comments: string[]
-) =>
-  `${persona.voice} You defined "${term}" as: "${definition}". Colleagues commented: ${comments
-    .map((comment, index) => `(${index + 1}) "${comment}"`)
-    .join(" ")} Write your reply.`
+export const surveyMessage = (persona: Voiced, question: string) =>
+  `${persona.voice} The closing question of the study is: "${question}" Write your answer.`

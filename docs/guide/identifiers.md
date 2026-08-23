@@ -132,17 +132,17 @@ are `skos:Collection` resources at `/collections/{collection}`.
 The [Metadata access](/docs/metadata-access) guide lists the Turtle and JSON-LD
 endpoints.
 
-## Persistence limit
+## Persistence
 
-The authority portion of development IRIs comes from
-`NEXT_PUBLIC_SITE_URL`. Changing that setting changes the full IRI even though
-the path remains the same.
+The authority portion of every IRI is the identifier base of the deployment,
+`IDENTIFIER_BASE_URL` where one is set and the application origin otherwise.
+Changing it changes the full IRI even though the path remains the same, so a
+deployment sets it once, before external citation.
 
-MatSci-SAM does not yet publish these resources through an independent
-persistent-identifier authority. The public site therefore publishes
-host-bound web identifiers, not a promise that the authority will remain
-unchanged indefinitely. Before promising long-term persistence or recommending
-these IRIs for durable external citation, the project must select an authority
-such as w3id.org, an institutional resolver, or a project-controlled domain. A
-persistent resolver can preserve the complete path grammar while application
-hosts change.
+The registered authority is the w3id.org namespace
+`https://w3id.org/matsci-sam`. It is a persistent resolver that redirects the
+complete path grammar to the application host, so an identifier minted under
+it survives a change of host: the move is a redirect rule and touches no
+published IRI. A deployment that mints under its own origin, such as a
+development workstation or a rehearsal host, publishes host-bound identifiers
+that should not be cited as durable.

@@ -47,7 +47,7 @@ interface PublishDefinitionRevisionInput {
   allowUnchangedContent?: boolean
 }
 
-interface CreateDefinitionWithInitialRevisionInput {
+export interface CreateDefinitionWithInitialRevisionInput {
   termId: number
   authorId: number
   definition: string
@@ -63,6 +63,10 @@ interface CreateDefinitionWithInitialRevisionInput {
   derivedFromRevisionId?: number | null
   sourceRefinementId?: number | null
   createdVia?: (typeof definitionsTable.$inferInsert)["createdVia"]
+  // The define step this definition answers, when it was published from a
+  // walkthrough. Written on the initial revision only, which is the act the
+  // step asked for; later revisions are edits.
+  surveyStepId?: number | null
 }
 
 export function diffToStringSimple(diff: Diff[]) {
@@ -157,6 +161,7 @@ export async function createDefinitionWithInitialRevision(
       prompt: input.prompt ?? null,
       derivedFromRevisionId: input.derivedFromRevisionId ?? null,
       sourceRefinementId: input.sourceRefinementId ?? null,
+      surveyStepId: input.surveyStepId ?? null,
       charsAdded: input.definition.length + input.example.length,
       changeDelta: "1.000"
     })

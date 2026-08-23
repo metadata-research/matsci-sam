@@ -1,0 +1,9 @@
+# Acts by actor kind: how many votes and comments were performed by people, by models acting as themselves, and by simulated participants.
+PREFIX matsci: <https://w3id.org/matsci-sam/metadata#>
+
+SELECT ?actorKind (COUNT(?act) AS ?acts)
+WHERE {
+  ?act matsci:actorKind ?actorKind .
+}
+GROUP BY ?actorKind
+ORDER BY ?actorKind

@@ -1,0 +1,208 @@
+# The published twin of the provenance rules. The assertion shape mirrors
+# the statements table in drizzle/schema.ts: the statements_retraction_pair
+# CHECK (retractedAt and retractedById are set together or not at all) and
+# statements_asserter_or_legacy (an asserter is absent only on a migrated
+# row, so at most one). The vote-event and actor-kind shapes mirror
+# actorKindEnum and voteTypeEnum, with "withdrawn" standing for the null
+# kind that records a withdrawal, and the name rule mirrors the identity
+# column of voteEvents, which every act has since the 0043 backfill (the
+# invariant "current vote without a vote event"). The study shape mirrors the studies table:
+# a title, a collection, and an optional window. The study-context shape
+# mirrors the surveyStepId column of voteEvents and comments: an act names
+# the study of at most one walkthrough step, and that study is published.
+#
+# An assertion reifies its triple with an RDF 1.2 triple term, and Jena
+# 6.2.0 checks that with sh:nodeKind sh:TripleTerm (SHACL 1.2). The
+# application namespace is minted under the persistent identifier base; an
+# export minted under another base needs the matsci: prefix rewritten.
+#
+# Validate with the pinned Jena CLI and read the report. The exit code is 0
+# either way:
+#   shacl validate --shapes shapes/provenance.shacl.ttl --data <merged export>
+
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix matsci: <https://w3id.org/matsci-sam/metadata#> .
+@prefix : <#> .
+
+<> a owl:Ontology ;
+  sh:declare
+    [ sh:prefix "prov" ; sh:namespace "http://www.w3.org/ns/prov#"^^xsd:anyURI ] ,
+    [ sh:prefix "matsci" ; sh:namespace "https://w3id.org/matsci-sam/metadata#"^^xsd:anyURI ] .
+
+# One statements row, active or retracted.
+:AssertionShape a sh:NodeShape ;
+  sh:targetClass matsci:Assertion ;
+  sh:nodeKind sh:IRI ;
+  sh:pattern "#statement-[A-Za-z0-9-]+$" ;
+  sh:property [
+    sh:path rdf:type ;
+    sh:hasValue prov:Entity ;
+    sh:message "An assertion is a prov:Entity"
+  ] ;
+  sh:property [
+    sh:path rdf:reifies ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:TripleTerm ;
+    sh:message "An assertion reifies exactly one triple term"
+  ] ;
+  sh:property [
+    sh:path prov:generatedAtTime ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:dateTime
+  ] ;
+  sh:property [
+    sh:path prov:wasAttributedTo ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI
+  ] ;
+  sh:property [
+    sh:path prov:invalidatedAtTime ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:dateTime
+  ] ;
+  sh:property [
+    sh:path matsci:retractedBy ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI
+  ] ;
+  sh:sparql [
+    sh:message "A retraction has a time and a retractor together or not at all" ;
+    sh:prefixes <> ;
+    sh:select """
+      SELECT $this WHERE {
+        { $this prov:invalidatedAtTime ?at . FILTER NOT EXISTS { $this matsci:retractedBy ?by } }
+        UNION
+        { $this matsci:retractedBy ?by . FILTER NOT EXISTS { $this prov:invalidatedAtTime ?at } }
+      }
+    """
+  ] .
+
+# One voting act, a voteEvents row, the rows the 0043 backfill wrote
+# included, named by the id of the row.
+:VoteEventShape a sh:NodeShape ;
+  sh:targetClass matsci:VoteEvent ;
+  sh:nodeKind sh:IRI ;
+  sh:pattern "#vote-event-[0-9]+$" ;
+  sh:message "A vote event is an IRI named #vote-event-N on its revision" ;
+  sh:property [
+    sh:path rdf:type ;
+    sh:hasValue prov:Activity ;
+    sh:message "A vote event is a prov:Activity"
+  ] ;
+  sh:property [
+    sh:path prov:used ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:message "A vote event used exactly one revision"
+  ] ;
+  sh:property [
+    sh:path matsci:voteKind ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in ( "up" "down" "withdrawn" ) ;
+    sh:message "Exactly one matsci:voteKind, up, down or withdrawn"
+  ] ;
+  sh:property [
+    sh:path matsci:actorKind ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "Exactly one matsci:actorKind"
+  ] ;
+  sh:property [
+    sh:path prov:atTime ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:dateTime
+  ] ;
+  sh:property [
+    sh:path prov:wasAssociatedWith ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI
+  ] ;
+  sh:property [
+    sh:path matsci:legacyAssociationInferred ;
+    sh:maxCount 1 ;
+    sh:in ( "yes" )
+  ] ;
+  sh:property [
+    sh:path matsci:backfilled ;
+    sh:maxCount 1 ;
+    sh:in ( "yes" ) ;
+    sh:message "matsci:backfilled is stated at most once, as yes"
+  ] .
+
+# Whatever states an actor kind, a vote event or a comment, states one of
+# the three kinds, once.
+:ActorKindShape a sh:NodeShape ;
+  sh:targetSubjectsOf matsci:actorKind ;
+  sh:property [
+    sh:path matsci:actorKind ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in ( "human" "model" "simulated" ) ;
+    sh:message "matsci:actorKind is human, model or simulated, exactly once"
+  ] .
+
+# Whatever states a study, a vote event or a comment, was taken in one
+# study, and that study is in the graph. Stated once, here, for both.
+:StudyContextShape a sh:NodeShape ;
+  sh:targetSubjectsOf matsci:study ;
+  sh:property [
+    sh:path matsci:study ;
+    sh:maxCount 1 ;
+    sh:class matsci:Study ;
+    sh:message "At most one matsci:study, and it is a study"
+  ] .
+
+# One studies row: the activity, its window and its worklist, nothing about
+# who took part.
+:StudyShape a sh:NodeShape ;
+  sh:targetClass matsci:Study ;
+  sh:nodeKind sh:IRI ;
+  sh:property [
+    sh:path rdf:type ;
+    sh:hasValue prov:Activity ;
+    sh:message "A study is a prov:Activity"
+  ] ;
+  sh:property [
+    sh:path dcterms:title ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:Literal
+  ] ;
+  sh:property [
+    sh:path matsci:worklist ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class skos:Collection ;
+    sh:message "Exactly one matsci:worklist, and it is a collection"
+  ] ;
+  sh:property [
+    sh:path prov:startedAtTime ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:dateTime
+  ] ;
+  sh:property [
+    sh:path prov:endedAtTime ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:dateTime
+  ] ;
+  sh:property [
+    sh:path owl:deprecated ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:boolean
+  ] ;
+  sh:property [
+    sh:path [ sh:alternativePath ( prov:wasAssociatedWith prov:wasAttributedTo ) ] ;
+    sh:maxCount 0 ;
+    sh:message "A study names no agent"
+  ] .
