@@ -40,11 +40,14 @@ export const parseArgs = (argv: string[]): PilotArgs => {
   return args
 }
 
-// Container slugs. The suffix separates rehearsals from the one public run.
+// Container slugs: the ID4 community and its second study, as the curation
+// manifest creates them, so the simulated cohort and the people walk one
+// study. The suffix separates a rehearsal from the one public run; a
+// rehearsal's containers come from a suffixed copy of the manifest.
 export const slugs = (suffix: string) => ({
-  community: `id4-pilot${suffix}`,
-  study: `id4-pilot${suffix}`,
-  collection: `id4-pilot-terms${suffix}`
+  community: `id4${suffix}`,
+  study: `id4_round_two${suffix}`,
+  collection: `id4_round_two_terms${suffix}`
 })
 
 /*
