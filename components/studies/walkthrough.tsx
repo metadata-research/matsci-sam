@@ -272,8 +272,9 @@ const Candidates = ({
         </p>
       )}
       {candidates.map((candidate, index) => {
-        // A standing upvote from outside this round would be withdrawn by a
-        // second upvote, so it cannot be re-cast as the position here.
+        // A standing upvote from before this round is the position already:
+        // the vote path toggles, so Accept records the step against it and
+        // casts nothing.
         const standing = candidate.vote === "up"
         return (
           <div key={candidate.id} className="space-y-3">
@@ -297,19 +298,21 @@ const Candidates = ({
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  disabled={busy || standing}
+                  disabled={busy}
                   title={
                     standing
-                      ? "Your vote for this candidate stands from before this round. Withdraw it on the term page to accept it here."
+                      ? "Your vote for this candidate stands from before this round. Accepting records it as your position."
                       : undefined
                   }
                   onClick={() =>
-                    accept.mutate({
-                      definitionId: candidate.id,
-                      revisionId: candidate.revisionId,
-                      vote: "up",
-                      surveyStepId: step.id
-                    })
+                    standing
+                      ? onAccepted()
+                      : accept.mutate({
+                          definitionId: candidate.id,
+                          revisionId: candidate.revisionId,
+                          vote: "up",
+                          surveyStepId: step.id
+                        })
                   }
                 >
                   Accept

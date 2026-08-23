@@ -1248,6 +1248,29 @@ const main = async () => {
         "a vote event inside the define step of its term"
       )
 
+      // A standing upvote from before the round is the position on the
+      // define step of its term: the gate reads it, and the walkthrough
+      // reports the candidate it stands on as accepted.
+      await castVote(tx, {
+        definitionId: defB.id,
+        revisionId: revB.id,
+        userId: aiUser.id,
+        vote: "up",
+        actorKind: "simulated",
+        communityId: community.id,
+        surveyStepId: null
+      })
+      assert.equal(
+        await hasPosition(tx, defineB.id, aiUser.id),
+        true,
+        "a standing upvote on a definition of the term is a position"
+      )
+      assert.deepEqual(
+        (await walkthroughOf(tx, study.id, aiUser.id)).steps[2].held,
+        { kind: "accepted", definitionId: defB.id },
+        "the candidate of the standing upvote is the held position"
+      )
+
       // The review step of termB: a comment and a vote, each naming it. The
       // vote changes the one cast in the define step, so the event records
       // the new standing.
