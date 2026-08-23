@@ -2,8 +2,8 @@
 
 ## Search
 
-The **Search** navigation link opens the complete Search page without requiring
-a query. The quick-search field in the navigation bar opens the same page with
+The **Search** entry under **Vocabulary** in the navigation bar opens the
+complete Search page without requiring a query. The quick-search field in the navigation bar opens the same page with
 a query. Search covers term names, definition text, and examples of use.
 
 Results are divided into **Terms** and **Definitions**. Checkboxes show

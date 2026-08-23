@@ -12,8 +12,8 @@ the metadata exports.
 ## Topics
 
 A topic is a subject heading such as "Heat treatment" or "Electronic
-structure". Signed-in contributors create topics from **Tags** in the
-navigation bar, with **Add Tag**. Names are matched without regard to case or
+structure". Signed-in contributors create topics from **Tags**, under
+**Vocabulary** in the navigation bar, with **Add Tag**. Names are matched without regard to case or
 surrounding spaces, so a second "heat treatment" returns the existing topic.
 A topic that has been merged into another returns the topic that replaced it.
 
