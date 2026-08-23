@@ -482,11 +482,12 @@ const ReviewList = ({
                 readOnly={readOnly}
               />
             </Suspense>
+            {/* A comment here is a review act: the router schedules no model
+                revision from it, so the box discloses none. */}
             {!readOnly && (
               <TermCommentBox
                 id={definition.id}
                 revisionId={definition.revisionId}
-                feedsModelRevision={definition.authorModelSlug !== null}
                 surveyStepId={step.id}
               />
             )}
