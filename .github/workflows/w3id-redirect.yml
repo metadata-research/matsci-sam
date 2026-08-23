@@ -34,21 +34,22 @@ jobs:
           echo "$PROBE answered $status ${location:+-> $location}"
       - name: Open the issue once
         if: startsWith(steps.probe.outputs.status, '3')
+        env:
+          STATUS: ${{ steps.probe.outputs.status }}
+          LOCATION: ${{ steps.probe.outputs.location }}
         run: |
-          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "in:title \"$TITLE\"" --json number --jq 'length')
-          if [ "$open" != "0" ]; then
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "in:title \"$TITLE\"" --json number --jq 'length')
+          if [ "$existing" != "0" ]; then
             echo "An issue titled '$TITLE' already exists."
             exit 0
           fi
-          gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$(cat <<BODY
-The probe \`$PROBE\` answered ${{ steps.probe.outputs.status }} with \`Location: ${{ steps.probe.outputs.location }}\`, so the w3id.org registration has merged.
+          body="The probe \`$PROBE\` answered $STATUS with \`Location: $LOCATION\`, so the w3id.org registration has merged.
 
-What follows:
+          What follows:
 
-- Set \`IDENTIFIER_BASE_URL=https://w3id.org/matsci-sam\` on each host and release, as the deployment runbook describes.
-- Remove the pending-registration hedge from \`docs/guide/identifiers.md\` (Persistence) and \`docs/reference/identifier-policy.md\` (Authority).
-- Confirm the redirect rule covers the full path grammar: a term, a definition, a revision, a tag, a collection, a model, a study, and \`/metadata\`.
+          - Set \`IDENTIFIER_BASE_URL=https://w3id.org/matsci-sam\` on each host and release, as the deployment runbook describes.
+          - Remove the pending-registration hedge from \`docs/guide/identifiers.md\` (Persistence) and \`docs/reference/identifier-policy.md\` (Authority).
+          - Confirm the redirect rule covers the full path grammar: a term, a definition, a revision, a tag, a collection, a model, a study, and \`/metadata\`.
 
-This workflow (\`.github/workflows/w3id-redirect.yml\`) can be removed once the list above is done.
-BODY
-)"
+          This workflow, \`.github/workflows/w3id-redirect.yml\`, can be removed once the list above is done."
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$body"
