@@ -36,9 +36,18 @@ export type Question = { prompt: string; responseKind: ResponseKind }
 // own: the purpose of the protocol. Plain sentences, rendered as the study
 // welcome is.
 export const DEFAULT_INSTRUCTIONS =
-  "This study is a second round on a draft terminology list. Each term has a draft definition and the comments the first round left on it.\n\nThe first steps ask you to take a position on each term: accept the candidate you would use as it stands, amend the one closest to it, or replace them with your own. The next steps ask you to compare the candidates of the terms where more than one was proposed, voting on each and commenting where you disagree. Two questions about the list close the walkthrough.\n\nThe definition with the most support becomes the group's reference for that term. A step is saved when you press the button at its end, and you can leave and come back to the step you stopped at."
-
-// The two closing questions, about the list the group has settled: whether
+  "This study is a second round on a draft terminology list. Each term has a " +
+  "draft definition and the comments the first round left on it.\n\nThe first " +
+  "steps ask you to take a position on each term: accept the candidate you " +
+  "would use as it stands, amend the one closest to it, or replace them with " +
+  "your own. Some drafts are wrong, in wording or in kind. Amending or " +
+  "replacing a draft is part of the work, and a draft nobody corrects stands. " +
+  "The next steps ask you to compare the candidates of the terms where more " +
+  "than one was proposed, voting on each and commenting where you disagree. " +
+  "Two questions about the list close the walkthrough.\n\nThe definition with " +
+  "the most support becomes the group's reference for that term. A step is " +
+  "saved when you press the button at its end, and you can leave and come " +
+  "back to the step you stopped at."// The two closing questions, about the list the group has settled: whether
 // the participant would use it, and what it lacks. Added after the review
 // steps, and left out when the steward unchecks them.
 export const DEFAULT_QUESTIONS: Question[] = [
