@@ -199,7 +199,9 @@ const CommunityMenu = ({
             <Link href={communityPath(scope.slug)}>Community page</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href={`${communityPath(scope.slug)}#studies`}>Studies</Link>
+            <Link href={`${communityPath(scope.slug)}#studies`}>
+              Studies of {scope.title}
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
         </>

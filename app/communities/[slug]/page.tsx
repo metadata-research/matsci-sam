@@ -162,7 +162,7 @@ export default async function CommunityPage({
           </div>
         )}
 
-        <section className="space-y-3">
+        <section id="studies" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xl font-semibold">Studies</h2>
             {runs && (

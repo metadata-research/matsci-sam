@@ -56,6 +56,12 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  /* When the bar is short of room the search field gives way first, down
+     to its floor, and only then this group, by .scopePill alone. The small
+     shrink factor sets that order; min-width: 0 lets the group shrink at
+     all. */
+  flex-shrink: 0.01;
+  min-width: 0;
 }
 
 .mobileMenu {
@@ -101,6 +107,8 @@
   border-radius: var(--radius-lg);
   background: var(--popover);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.14);
+  /* A control wider than the panel is clipped, not spilled into the page. */
+  overflow: hidden;
 }
 
 .mobileMenuPanel nav {
@@ -118,12 +126,15 @@
   background: var(--accent);
 }
 
+/* A labelled control of the phone panel: the label above the control, so
+   a control as wide as the panel, the community name in its trigger, still
+   fits. The control may shrink to the panel and no further. */
 .mobileUtility,
 .mobileAccount {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   margin-top: 6px;
   padding: 8px 10px 0;
   border-top: 1px solid var(--border);
@@ -131,19 +142,28 @@
   font-size: 12px;
 }
 
+.mobileUtility > :last-child,
+.mobileAccount > :last-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .mobileAccount {
   padding-bottom: 2px;
 }
 
-/* Search field lives between the wordmark and the nav buttons. It shrinks but
-   never grows, leaving .spacer to absorb the slack -- so the nav keeps its
-   layout on /search and on mobile, where this field is not rendered at all. */
+/* The search field is between the wordmark and the nav buttons. It shrinks
+   but never grows, leaving .spacer to absorb the slack -- so the nav keeps
+   its layout on /search and on mobile, where this field is not rendered at
+   all. It keeps room for a short query; past that the community name in
+   .scopePill gives way first. */
 .searchForm {
   position: relative;
   display: flex;
   align-items: center;
   flex: 0 1 20rem;
-  min-width: 0;
+  min-width: 11rem;
   margin-inline: 12px;
 }
 
@@ -272,10 +292,20 @@
   color: var(--muted-foreground);
 }
 
-/* The community a person is working in, with room for its name: the nav
-   has five buttons now, so the name is bounded by width, not characters. */
+/* The community a person is working in, with room for its name. The bar
+   holds several controls, so the name is bounded by width, not characters,
+   and this is the control that shrinks when the bar is short of room, down
+   to its icon, chevron and the first letters of the name. */
 .scopePill {
+  flex: 0 1 auto;
+  min-width: 7rem;
   max-width: 16rem;
+}
+
+@media (max-width: 1200px) {
+  .scopePill {
+    max-width: 11rem;
+  }
 }
 
 .scopeName {
