@@ -10,12 +10,13 @@ gives the same grammar in the form a contributor needs.
 Three levels of vocabulary content have identifiers. A term is the shared
 concept. A definition is one contributed interpretation of that concept. A
 revision is one immutable state of a definition. The knowledge organization
-layer adds tag schemes, tags, collections, and language models, and will add
+layer adds tag schemes, tags, collections, language models, studies, and
 individual statements.
 
-An identifier never exposes a database key. It combines a stable slug with
-numbers the application assigns within a scope, or a slug assigned once and
-never changed.
+A resource identifier never exposes a database key. It combines a stable slug
+with numbers the application assigns within a scope, or a slug assigned once
+and never changed. The two hash fragments described under statements and
+acts are the exception, and neither resolves to a page of its own.
 
 ## Grammar
 
@@ -28,6 +29,7 @@ never changed.
 {base}/tags/{scheme}/{tag}                         a tag
 {base}/collections/{collection}                    a collection
 {base}/models/{model}                              a language model
+{base}/studies/{study}                             a study
 {base}/metadata#{term}                             an application metadata term
 ```
 
@@ -78,7 +80,7 @@ Older addresses that contained a database identity, `/terms/{id}`,
 `/definition/{id}` and `/tags/{id}`, redirect permanently to the
 identifier above. They are never published as canonical.
 
-## Statements
+## Statements and acts
 
 Each stored statement has an opaque key that is never a database row
 identity. The identifier of a statement is a hash IRI on its subject:
@@ -87,8 +89,16 @@ identity. The identifier of a statement is a hash IRI on its subject:
 {subject-IRI}#statement-{key}
 ```
 
-This is the resource that the provenance record will name when it describes
-who asserted a relation and when. The key is assigned once and never reused.
+This is the resource the provenance record names when it describes who
+asserted a relation and when. The key is assigned once and never reused.
+
+Two further fragments are formed from a row identity that is never reused,
+which is what makes them permanent. A voting act is
+`{revision-IRI}#vote-event-{id}`, and a person in a provenance document is
+`{document-IRI}#user_{id}`, the same number on each document the person
+acted on. Neither fragment resolves on its own, and the number of a person
+names no page, as [the provenance model](/docs/reference/provenance-model)
+describes.
 
 ## Dynamic selectors
 
@@ -99,9 +109,12 @@ document.
 
 ## Authority
 
-The path grammar is independent of the host. The public host is configured
-per deployment and is the authority component of every IRI, so changing it
-changes every IRI. MatSci-SAM does not yet publish through an independent
-persistent-identifier authority. Until one is selected and registered, the
-published IRIs are host-bound web identifiers, which resolve but make no
-promise that the authority will stay unchanged.
+The path grammar is independent of the host. The identifier base is
+configured per deployment and is the authority component of every IRI, so
+changing it changes every IRI. The base chosen for persistent identifiers is
+the w3id.org namespace `https://w3id.org/matsci-sam`, a resolver that
+redirects the path grammar to the host serving the application, so that a
+change of host is a redirect rule and touches no published IRI. Its
+registration is pending, and until the registered redirect resolves every
+deployment mints under its own origin. Identifiers minted that way resolve but
+make no promise of stability, and they should not be cited as durable.

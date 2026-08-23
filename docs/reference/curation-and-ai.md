@@ -2,7 +2,8 @@
 
 The vocabulary is built by people and, in bounded ways, by language models.
 This page states who may do what, how the meaning of a tag is protected as the
-vocabulary evolves, and the place of a model in the process. Parts of the
+vocabulary evolves, how a community settles a list of terms in a study, and
+the place of a model in the process. Parts of the
 model workflow are designed and not yet built, and those are marked.
 
 ## Who may assert what
@@ -88,6 +89,45 @@ Output from a model is stored before anyone acts on it, together with the
 model name and the exact prompt that produced it. That record is what makes
 the attribution trustworthy, because a browser cannot claim that a model
 wrote text it did not.
+
+## Studies and agreement
+
+A community can run a study over a collection of terms, and a study can ask
+its members to walk the terms in order. The protocol of the pilot settles a
+draft list. Each term has a draft, the definition a model generated in an
+earlier round, with the comments that round left on it, and a participant
+takes one position per term. To accept a candidate is to upvote it. An
+amendment is a definition of the participant's own whose first revision
+records the revision it started from, and a replacement is one with no such
+derivation. Each position is an ordinary act of the vocabulary, a vote or a
+definition, that also names the step it was taken for. The walkthrough
+adds no assertion of its own beyond the completion of each step and the
+answers to its closing questions.
+
+Agreement is a reading of the record, not an assertion in it. For each term
+the definition with the most support, the upvotes less the downvotes on its
+current revision, is the agreed definition of the group so far, and a tie goes
+to the earlier candidate. Nobody declares a definition agreed, and the reading
+changes as positions are taken. The outcome of a closed study is computed
+from the voting acts as they stood when it closed, over the terms and the
+candidates as they stand.
+
+A person belongs to a community for an episode, from the day they were added
+to the day they were removed, and may act in a study while that episode is
+live and the study is open. The acts that name a study are therefore those
+of people who were members during its window. The community, its roster and
+its invitations are not published. The study is, as an activity with its window and the
+collection it worked through, so a consumer of the record can tell which acts
+a study prompted without learning who was asked.
+
+A simulated participant is an account a model is driven under, and its
+display name says so, so a reader of the record does not mistake one for a
+person. The text it generates, a definition, a comment or an answer, is
+stamped with the model and the prompt it came from, as model output is. Its
+votes, comments and answers name their actor as simulated, and a definition
+it publishes is attributed to the account. The acts of people, of models
+writing under their own names, and of simulated participants are separable in
+the data without reconstruction.
 
 ## Tag proposals and review
 

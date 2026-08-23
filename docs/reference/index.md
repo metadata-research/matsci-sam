@@ -20,8 +20,9 @@ reading the provenance record.
   resources have persistent identifiers, how they are formed, and what stays
   stable when content changes.
 - [Curation and AI](/docs/reference/curation-and-ai) describes who may assert
-  what, how the meaning of a tag is protected as the vocabulary evolves, and
-  the role a language model plays and does not play.
+  what, how the meaning of a tag is protected as the vocabulary evolves, how a
+  community settles a list of terms in a study, and the role a language model
+  plays and does not play.
 - [The provenance model](/docs/reference/provenance-model) describes what the
   PROV-O record contains and how people and models appear in it.
 

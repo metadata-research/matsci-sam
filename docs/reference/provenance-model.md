@@ -89,6 +89,11 @@ of that node is an opaque account number, the same on every document the
 person acted on, so the acts of one account can be joined across the graph.
 The number resolves to nothing.
 
+A definition proposed in a walkthrough as an amendment of a candidate records
+the revision it started from, and its first revision states that derivation
+with `prov:wasDerivedFrom`, so an amended definition is traceable to the
+candidate it amended.
+
 The profile of a model is the resolvable identity behind its
 `prov:SoftwareAgent` in the dataset graph. An assertion a model made, a vote
 a model cast and a revision a model generated are attributed to its

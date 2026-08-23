@@ -30,30 +30,14 @@ Everything.
 
 ## Studies
 
-A study asks the people in a community to work through a set of terms. It names
-the terms, says what to do with them, and says when. Each one has a page at
-`/studies/<slug>` that anyone can read, which is where you go back to when you
-have forgotten what you were asked to do.
-
-An invitation to a study opens on those instructions rather than on a bare
-notice that you have been invited. Accepting puts you in the community running
-it, so the terms appear on your Browse and Collections straight away.
-
-A study can have a walkthrough, the ordered steps its members work through from
-the study page, with their place kept between visits. The first steps ask for a
-position on each term. The draft definition is shown with its comments and with
-anything proposed since, and you accept one with an upvote, amend the one
-closest to what you would use, or replace them with your own. An upvote you
-cast on the current text before the round counts as your position, and you
-take one position per term. Comments left inside a review step are read by
-the group, not by the model. Later steps
-compare the terms with more than one candidate, closing questions about the
-list may follow, and the study page shows the definition with the most support
-as the agreed definition of each term so far.
-
-A study that has closed still resolves and still reads. What its participants
-contributed stays in the vocabulary, because a term belongs to the vocabulary
-and not to the study that prompted it.
+A study asks the people in a community to work through a set of terms. It
+names the terms, says what to do with them, and says when. Each one has a page
+at `/studies/<slug>` that anyone can read, which is where you go back to when
+you have forgotten what you were asked to do. An invitation to a study opens
+on those instructions, and accepting it puts you in the community running the
+study, so the terms appear on your Browse and Collections straight away.
+[Studies](/docs/studies) covers the walkthrough, taking a position on a term,
+and the agreed list.
 
 ## Joining
 
@@ -104,7 +88,9 @@ a participant who cannot see the terms cannot take part. Write the instructions
 in the same form: that text is what an invitee reads when the link opens and
 what everyone comes back to later. The two dates are optional and say when the
 work is expected. Nothing locks when they pass, other than that an invitation
-to a closed study stops being accepted.
+to a closed study stops being accepted and its walkthrough stops accepting
+acts. [Studies](/docs/studies) covers the
+walkthrough a study can have and the control that generates it.
 
 **Per-person invitations.** Give an address and take the link, or have it
 emailed. The link appears once and cannot be read back, because only a digest

@@ -13,6 +13,12 @@ knowledge organization reference in `docs/reference/`. Keep the three apart.
 - [The graph layer](graph-layer.md) covers the named graphs, the projector
   and its hooks, running the Fuseki store and the Jena validators locally,
   the SHACL shapes, what CI checks, and the paper queries.
+- [Studies and the walkthrough](studies.md) covers the study and survey
+  tables, the plan of a walkthrough, the position rule and where it is
+  enforced, the vote event backfill, the agreed list, and the tests.
+- [Pilot tooling](pilot-tooling.md) covers the curation script and its
+  manifest, the driver and its checkpointing, the persona accounts and
+  prompts, the environment, and the verifier.
 
 When a change touches a table in the ledger, read the first note end to end
 before editing. Most of its rules are enforced in more than one place on
