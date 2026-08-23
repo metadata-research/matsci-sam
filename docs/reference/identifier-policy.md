@@ -111,10 +111,10 @@ document.
 
 The path grammar is independent of the host. The identifier base is
 configured per deployment and is the authority component of every IRI, so
-changing it changes every IRI. The registered base is the w3id.org namespace
-`https://w3id.org/matsci-sam`, a persistent resolver that redirects the path
-grammar to the host serving the application. A change of host is then a
-redirect rule and touches no published IRI. A deployment that mints under its
-own origin, such as a development workstation, publishes host-bound
-identifiers that resolve but make no promise of stability, and they should
-not be cited as durable.
+changing it changes every IRI. The base chosen for persistent identifiers is
+the w3id.org namespace `https://w3id.org/matsci-sam`, a resolver that
+redirects the path grammar to the host serving the application, so that a
+change of host is a redirect rule and touches no published IRI. Its
+registration is pending, and until the registered redirect resolves every
+deployment mints under its own origin. Identifiers minted that way resolve but
+make no promise of stability, and they should not be cited as durable.

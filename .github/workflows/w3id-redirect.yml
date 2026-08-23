@@ -1,0 +1,54 @@
+# Asks w3id.org once a week whether the matsci-sam namespace resolves yet.
+# The registration is a pull request against perma-id/w3id.org, and nothing
+# here runs until it is merged. On the first week the redirect answers, the
+# job opens one issue listing what follows from it: flipping
+# IDENTIFIER_BASE_URL on the hosts and removing the hedge in the two
+# identifier pages. Until then the job reports the status and passes, so a
+# pending registration is not a red check.
+name: w3id redirect
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PROBE: https://w3id.org/matsci-sam/vocabulary/band_gap
+      TITLE: "w3id.org redirect is live"
+    steps:
+      - name: Probe the redirect
+        id: probe
+        run: |
+          status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$PROBE" || echo 000)
+          location=$(curl -sSI --max-time 30 "$PROBE" | awk 'tolower($1)=="location:" {print $2}' | tr -d '\r')
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "location=$location" >> "$GITHUB_OUTPUT"
+          echo "$PROBE answered $status ${location:+-> $location}"
+      - name: Open the issue once
+        if: startsWith(steps.probe.outputs.status, '3')
+        run: |
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "in:title \"$TITLE\"" --json number --jq 'length')
+          if [ "$open" != "0" ]; then
+            echo "An issue titled '$TITLE' already exists."
+            exit 0
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$(cat <<BODY
+The probe \`$PROBE\` answered ${{ steps.probe.outputs.status }} with \`Location: ${{ steps.probe.outputs.location }}\`, so the w3id.org registration has merged.
+
+What follows:
+
+- Set \`IDENTIFIER_BASE_URL=https://w3id.org/matsci-sam\` on each host and release, as the deployment runbook describes.
+- Remove the pending-registration hedge from \`docs/guide/identifiers.md\` (Persistence) and \`docs/reference/identifier-policy.md\` (Authority).
+- Confirm the redirect rule covers the full path grammar: a term, a definition, a revision, a tag, a collection, a model, a study, and \`/metadata\`.
+
+This workflow (\`.github/workflows/w3id-redirect.yml\`) can be removed once the list above is done.
+BODY
+)"

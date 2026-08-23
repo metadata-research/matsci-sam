@@ -139,10 +139,11 @@ The authority portion of every IRI is the identifier base of the deployment,
 Changing it changes the full IRI even though the path remains the same, so a
 deployment sets it once, before external citation.
 
-The registered authority is the w3id.org namespace
-`https://w3id.org/matsci-sam`. It is a persistent resolver that redirects the
-complete path grammar to the application host, so an identifier minted under
-it survives a change of host: the move is a redirect rule and touches no
-published IRI. A deployment that mints under its own origin, such as a
-development workstation or a rehearsal host, publishes host-bound identifiers
-that should not be cited as durable.
+The authority chosen for persistent identifiers is the w3id.org namespace
+`https://w3id.org/matsci-sam`, and its registration is pending. Once the
+registered redirect resolves, it forwards the complete path grammar to the
+application host, so an identifier minted under it survives a change of host:
+the move is a redirect rule and touches no published IRI. Until then every
+deployment mints under its own origin, and those identifiers, like the ones a
+development workstation or a rehearsal host publishes, are host-bound and
+should not be cited as durable.
