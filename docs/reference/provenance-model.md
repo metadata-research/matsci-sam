@@ -29,11 +29,14 @@ Two kinds of imported record are marked as inferred rather than observed. A
 comment carried over from before revisions were recorded is associated with
 the revision that was visible at its recorded time. An imported vote is
 associated with the revision current when the data was migrated, because its
-recorded time cannot establish which version the voter read. A vote cast
-before the event record began was written into that record once, at the
-backfill, as the single act it had always been published as, with its own
-time, and is marked as backfilled. A vote cast since is published as each
-act, a change of direction and a withdrawal included.
+recorded time cannot establish which version the voter read. A vote that
+stood with no event of its own when the event record began was written into
+that record once, at the backfill, as the single act it had always been
+published as, and is marked as backfilled. The time of that act is the
+recorded time of the vote, which for a vote cast before 2026-07-19 is the
+creation time of the definition, and `legacyAssociationInferred` marks
+those. A vote cast since is published as each act, a change of direction
+and a withdrawal included.
 
 People and models are agents. A person is a `prov:Person` and a model is a
 `prov:SoftwareAgent`. In the per-term document a vote is public as an event
@@ -67,10 +70,11 @@ the walkthrough of a study, the ordered steps the study asks its members to
 complete, and a comment posted from one, name that study under
 `matsci:study`, whether or not the agent is named. Every act is named
 `{revision}#vote-event-{id}` from the identity of its row, which is assigned
-once and never reused, so the name is permanent. A vote cast before the
-event record began has its row from the backfill, which wrote one act per
-such vote at the time of the vote. That act says `matsci:backfilled` and,
-where the binding to the revision was inferred at migration,
+once and never reused, so the name is permanent. A vote that stood with no
+event of its own when the event record began has its row from the backfill,
+which wrote one act per such vote at the recorded time of the vote. That act
+says `matsci:backfilled` and, where the binding to the revision was inferred
+at migration and the recorded time is the creation time of the definition,
 `matsci:legacyAssociationInferred`. The agent of a vote event is named only
 where the voter is a model or has made their profile public. Otherwise the
 act is in the graph and the agent is not.

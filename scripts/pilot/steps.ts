@@ -7,21 +7,24 @@
  * upvote naming the define step, amending it is a definition whose initial
  * revision names the step and the revision it derives from, and a review
  * step, which the pages complete on a separate press, is completed here by
- * its first act or by the press where there is nothing to compare. The
- * record of the cohort then reads as the walkthrough pages would have
- * written it.
+ * its first act or by the press where there is one candidate or none the
+ * persona may vote on. The record of the cohort then reads as the
+ * walkthrough pages would have written it.
  *
  * Every act is idempotent per persona and step, because --resume re-runs a
- * unit that failed after its first write landed: a position already held
- * is not taken twice, and a vote already cast inside a step is not cast
- * again, which with the toggling vote path would withdraw it.
+ * unit that failed after its first write landed: each act reads the record
+ * before it writes, so a position already held is not taken twice, a vote
+ * already cast inside a step is not cast again, which with the toggling
+ * vote path would withdraw it, and a comment already posted stands.
  */
 
 import { and, asc, eq, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import {
   aiModelsTable,
   commentsTable,
   db,
+  definitionRevisionsTable,
   definitionsTable,
   usersTable,
   voteEventsTable,
@@ -43,6 +46,8 @@ import {
   amendStamp,
   commentMessage,
   commentStamp,
+  positionMessage,
+  positionPrompt,
   surveyMessage,
   surveyPrompt,
   surveyStamp,
@@ -53,13 +58,19 @@ import { z } from "zod"
 
 const CommentOutput = z.object({ comment: z.string() })
 const AnswerOutput = z.object({ answer: z.string() })
+// The position answer, parsed strictly: one of the two moves and a reason,
+// nothing else. A draft is accepted or amended; the driver replaces none.
+const PositionOutput = z
+  .object({ position: z.enum(["accept", "amend"]), reason: z.string().min(1) })
+  .strict()
 
 /*
- * One generation against ws10, with a bounded retry on a transport failure.
- * runLLM propagates a dropped connection and resolves to undefined on a
- * malformed response; only the first is retried, because the second is the
- * model's answer and a second ask is a second act. The delays double from
- * two seconds, and the last failure propagates with what was tried.
+ * One generation against the inference host, with a bounded retry on a
+ * transport failure. runLLM propagates a dropped connection and resolves to
+ * undefined on a malformed response; only the first is retried, because the
+ * second is the model's answer and a second ask is a second act. The delays
+ * double from two seconds, and the last failure propagates with what was
+ * tried.
  */
 const GENERATION_ATTEMPTS = 4
 const RETRY_DELAY_MS = 2000
@@ -115,6 +126,57 @@ export const draftOf = async (termId: number) => {
 
 type Draft = NonNullable<Awaited<ReturnType<typeof draftOf>>>
 
+export type PositionDecision = z.infer<typeof PositionOutput>
+
+/*
+ * The persona's position on the draft, decided by the persona: one
+ * generation in its voice from the text of the draft, answering accept or
+ * amend with one sentence of reason. The answer is parsed strictly. A
+ * malformed answer is asked for once more, and a second one fails the
+ * unit, because the position is the persona's and the driver takes none
+ * on its behalf. The decision is not a row of the record; the act it leads
+ * to is, and the orchestrator keeps the decision and its stamp in the
+ * manifest so a resumed unit acts on the decision it already holds.
+ */
+export const decidePosition = async (
+  persona: { voice: string },
+  term: PilotTerm,
+  draft: Draft
+): Promise<PositionDecision> => {
+  const messages: Parameters<typeof runLLM>[0] = [
+    {
+      role: "user",
+      content: positionMessage(
+        persona,
+        term,
+        draft.definition,
+        draft.example ?? ""
+      )
+    }
+  ]
+  const first = await generate(messages, positionPrompt, PositionOutput)
+  if (first) return { ...first, reason: first.reason.trim() }
+  console.log(`malformed position answer for ${term.term}; asking once more`)
+  const second = await generate(messages, positionPrompt, PositionOutput)
+  if (second) return { ...second, reason: second.reason.trim() }
+  throw new Error(
+    `Position generation failed for ${term.term}: two malformed answers`
+  )
+}
+
+/*
+ * Whether the persona already holds a position on a define step, read
+ * before the persona is asked: a unit re-run without its manifest, from a
+ * fresh state directory or on another machine, takes no second decision
+ * and asks the model nothing. The completion is recorded again, which is
+ * not an error.
+ */
+export const holdsPosition = async (personaUserId: number, step: StepRef) => {
+  if (!(await hasPosition(db, step.id, personaUserId))) return false
+  await recordCompletion(db, { stepId: step.id, userId: personaUserId })
+  return true
+}
+
 /*
  * Accept the draft: an upvote naming the define step, which is the
  * position, and the completion of the step in the same transaction, as the
@@ -155,11 +217,13 @@ export const acceptAct = async (
  * draft on its initial revision and the completion of the step in the same
  * transaction, as definitions.create writes it. The source is ai_generation
  * and the row is stamped, because the text is model output however
- * participant-shaped its role in the protocol is.
+ * participant-shaped its role in the protocol is. The term is the one the
+ * caller resolved the draft and the step for.
  */
 export const amendAct = async (
   persona: { voice: string },
   personaUserId: number,
+  termId: number,
   term: PilotTerm,
   draft: Draft,
   step: StepRef
@@ -188,11 +252,6 @@ export const amendAct = async (
   )
   if (!result) throw new Error(`Amend generation failed for ${term.term}`)
 
-  const termId = await db.query.definitionsTable
-    .findFirst({ columns: { termId: true }, where: eq(definitionsTable.id, draft.id) })
-    .then((row) => row?.termId)
-  if (!termId) throw new Error(`Draft ${draft.id} has no term`)
-
   const written = await db.transaction(async (tx) => {
     const created = await createDefinitionWithInitialRevision(tx, {
       termId,
@@ -214,9 +273,10 @@ export const amendAct = async (
 
 /*
  * The candidates of one term as a reviewer reads them: every definition of
- * the term, with its current revision, the text, and whether the reviewer
- * already has a standing vote on that revision, which a second vote would
- * change or withdraw.
+ * the term, with its current revision, the text, its support, and whether
+ * the reviewer already has a standing vote on that revision, which a second
+ * vote would change or withdraw. Support is read from the votes on the
+ * current text, up less down, as the agreed list reads it.
  */
 export const candidatesOf = (termId: number, viewerId: number) =>
   db
@@ -227,6 +287,12 @@ export const candidatesOf = (termId: number, viewerId: number) =>
       authorName: usersTable.name,
       definition: definitionsTable.definition,
       example: definitionsTable.example,
+      support: sql<number>`(
+        select coalesce(sum(case when v.kind = 'up' then 1 else -1 end), 0)::int
+        from ${votesTable} v
+        where v."definitionId" = ${definitionsTable.id}
+          and v."revisionId" = ${definitionsTable.currentRevisionId}
+      )`,
       votedByViewer: sql<boolean>`exists (
         select 1 from ${votesTable} v
         where v."definitionId" = ${definitionsTable.id}
@@ -240,6 +306,37 @@ export const candidatesOf = (termId: number, viewerId: number) =>
     .orderBy(asc(definitionsTable.id))
 
 export type Candidate = Awaited<ReturnType<typeof candidatesOf>>[number]
+
+/*
+ * The candidate a persona amended from on a term, read from the record: the
+ * definition whose revision the initial revision of the persona's own
+ * definition of the term derives from. Null where the persona amended
+ * nothing there.
+ */
+export const amendedFromOf = async (termId: number, personaUserId: number) => {
+  const source = alias(definitionRevisionsTable, "source")
+  const [row] = await db
+    .select({ definitionId: source.definitionId })
+    .from(definitionRevisionsTable)
+    .innerJoin(
+      definitionsTable,
+      eq(definitionsTable.id, definitionRevisionsTable.definitionId)
+    )
+    .innerJoin(
+      source,
+      eq(source.id, definitionRevisionsTable.derivedFromRevisionId)
+    )
+    .where(
+      and(
+        eq(definitionsTable.termId, termId),
+        eq(definitionsTable.authorId, personaUserId),
+        eq(definitionRevisionsTable.version, 1)
+      )
+    )
+    .orderBy(asc(definitionRevisionsTable.id))
+    .limit(1)
+  return row?.definitionId ?? null
+}
 
 // The vote a persona already cast inside a step, if any: the definition it
 // was cast on, so a resumed unit comments on the same candidate.
@@ -320,18 +417,22 @@ export const commentAct = async (
 }
 
 /*
- * One voting act by one persona on one candidate, in the pilot community's
+ * The review vote: an upvote by one persona on the candidate it prefers
+ * among those it did not write and did not amend, in the pilot community's
  * context and from the review step of the term, which the act names and
- * completes. The choice arrives from the seeded structure in the
- * orchestrator, so a rehearsal repeats its shape.
+ * completes. The choice arrives from the orchestrator, which reads the
+ * persona's position. A vote the persona already cast inside the step
+ * stands, whatever candidate it was on: the vote path toggles, and a
+ * second cast would withdraw it.
  */
 export const voteAct = async (
   personaUserId: number,
   target: Candidate,
-  vote: "up" | "down",
   communityId: number,
   step: StepRef
 ) => {
+  const prior = await stepVoteOf(personaUserId, step)
+  if (prior) return { skipped: true as const, definitionId: prior.definitionId }
   if (!target.currentRevisionId)
     throw new Error(
       `No current revision to vote on for definition ${target.id}`
@@ -341,17 +442,18 @@ export const voteAct = async (
       definitionId: target.id,
       revisionId: target.currentRevisionId!,
       userId: personaUserId,
-      vote,
+      vote: "up",
       actorKind: "simulated",
       communityId,
       surveyStepId: step.id
     })
     await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
   })
+  return { skipped: false as const, definitionId: target.id }
 }
 
-// The press: a review step with one candidate, where there is nothing to
-// compare, completes without an act, as the page completes it.
+// The press: a review step completed without an act, where the term has
+// one candidate or none the persona may vote on, as the page completes it.
 export const pressStep = (personaUserId: number, step: StepRef) =>
   recordCompletion(db, { stepId: step.id, userId: personaUserId })
 

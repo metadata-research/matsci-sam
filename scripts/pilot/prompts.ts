@@ -21,6 +21,7 @@ const entry = (key: string) => {
   return found.prompt
 }
 
+export const positionPrompt = entry("pilot-persona-position")
 export const amendPrompt = entry("pilot-persona-amend")
 export const commentPrompt = entry("pilot-persona-comment")
 export const surveyPrompt = entry("pilot-persona-survey")
@@ -30,6 +31,12 @@ export const surveyPrompt = entry("pilot-persona-survey")
 export const definePrompt = entry("pilot-persona-define")
 export const rebuttalPrompt = entry("pilot-persona-rebuttal")
 
+// The position decision is not a row of the record, so its stamp goes to
+// the manifest of the run; the other stamps go on the rows they produced.
+export const positionStamp = makeGenerationStamp(
+  "pilot-persona-position",
+  positionPrompt
+)
 export const amendStamp = makeGenerationStamp("pilot-persona-amend", amendPrompt)
 export const commentStamp = makeGenerationStamp(
   "pilot-persona-comment",
@@ -47,6 +54,14 @@ export const rebuttalStamp = makeGenerationStamp(
   "pilot-persona-rebuttal",
   rebuttalPrompt
 )
+
+export const positionMessage = (
+  persona: Voiced,
+  term: PilotTerm,
+  definition: string,
+  example: string
+) =>
+  `${persona.voice} The draft definition of "${term.term}", as it is used in ${term.hint}, reads: "${definition}" with the example: "${example}". Do you accept it as it stands, or amend it?`
 
 export const amendMessage = (
   persona: Voiced,

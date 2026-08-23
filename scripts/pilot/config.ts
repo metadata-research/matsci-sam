@@ -7,9 +7,11 @@
  * them and refuses to run when they are missing.
  *
  * The run-once guard: with no --suffix the driver targets the clean public
- * slugs, and it refuses to start against them when a manifest does not mark
- * the run as its own. A rehearsal always passes --suffix, which mints
- * distinct slugs, and nothing is ever torn down.
+ * slugs, and it refuses them when the manifest of the clean run says it
+ * finished, and when the study already holds a completion by a persona with
+ * the clean name while no manifest records the run, which is the public run
+ * seen from the database alone. A rehearsal always passes --suffix, which
+ * mints distinct slugs and persona names, and nothing is ever torn down.
  */
 
 export type PilotArgs = {
@@ -46,9 +48,15 @@ export const slugs = (suffix: string) => ({
 })
 
 /*
- * Deterministic structure. The seed fixes which definitions each persona
- * comments on and votes for, so a rehearsal is comparable to the last one.
- * Text generation is not deterministic and is not made to look like it is.
+ * Deterministic structure. The positions are the personas' own, decided
+ * from the text of each draft, and the review vote follows the position.
+ * What is drawn is the rest of the shape: who comments in the review of a
+ * term, how a tie in support between candidates is broken, and the scale
+ * answers. Each term draws from a generator of its own, derived from the
+ * seed and the label of the term, so the picks of a term depend on nothing
+ * but those two, and adding a term or a question moves no other term's
+ * picks. A rehearsal is then comparable to the last one in shape. Text
+ * generation is not deterministic and is not made to look like it is.
  */
 export const PILOT_SEED = Number(process.env.PILOT_SEED ?? 20260913)
 
@@ -63,9 +71,22 @@ export const mulberry32 = (seed: number) => {
   }
 }
 
+// The generator of one label: FNV-1a over the label, folded with the seed,
+// feeding mulberry32. The same label and seed give the same draws on any
+// host.
+export const generatorFor = (label: string) => {
+  let hash = (0x811c9dc5 ^ PILOT_SEED) >>> 0
+  for (const char of label) {
+    hash ^= char.codePointAt(0)!
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return mulberry32(hash)
+}
+
 /*
  * Where the manifest checkpoints. Every write is recorded after it lands, so
- * --resume skips completed units after a transport failure against ws10.
+ * --resume skips completed units after a transport failure against the
+ * inference host.
  */
 export const stateDir = process.env.PILOT_STATE_DIR ?? ".cache/pilot"
 
