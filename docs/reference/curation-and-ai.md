@@ -15,17 +15,15 @@ a topic may also declare that topic the same concept as a term.
 A curator assigns facets to terms, declares a tag the same concept as a term
 where the scheme allows it, edits the definition, scope note and alternative
 labels of a tag, and merges one tag into another. A scheme says for itself
-whether its concepts may be bridged, which is a claim about what the concepts
-are, so it binds a curator as much as a contributor. In this implementation a
-curator is an administrator.
+whether its concepts may be bridged, and that restriction binds a curator as
+much as a contributor. In this implementation a curator is an administrator.
 
 Collections are governed separately. A collection states who may change its
 membership, so a curator-owned collection accepts curator changes only and a
 contributor-owned one accepts anybody signed in. Whether a contributor may
 create a collection at all is a deployment setting, off by default.
 
-A term is not owned. Nobody has standing to classify a term with an open
-topic, which is why topics attach to definitions and facets are the only
+A term is not owned. Topics attach to definitions, and facets are the only
 term-level classification. The one term-level statement a contributor may
 make is the link between a topic they created and a term, and a curator can
 retract it.
@@ -36,45 +34,41 @@ records who withdrew it and when. Statements carried over from the tagging
 tables that preceded the ledger are marked as migrated, and some of them name
 no asserter, because the earlier tables recorded none.
 
-## Tags stay cheap
+## What a tag requires
 
-A tag never needs a term. A bare label is a legitimate resting state. A tag
-that needs explaining gets a scope note. A tag that is the same concept as a
-term is linked to it. Most tags stay at the first level by design, because
-classification that costs too much does not get done.
+A tag never needs a term. A tag that needs explaining gets a scope note. A
+tag that is the same concept as a term is linked to it. Most tags stay at
+the first level, a label with no scope note and no linked term.
 
 ## Protecting meaning over time
 
-A tag is a stable identifier for a meaning that moves. Statements filed under
-a tag in one year and in the next may mean different things, and nothing in
-the tag itself records that. Three rules hold against it.
+A tag is a stable identifier for a meaning that moves. Three rules keep what
+is filed under a tag readable as the vocabulary ages.
 
-A label or a scope note is edited only to correct it. A tag whose meaning has
-genuinely changed is retired and replaced. The old tag keeps its identifier
-and points at the new one, statements already filed under the old tag keep
-meaning what they meant, and new statements attach to the new tag. The
-merge operation implements the case where one tag is absorbed into another,
-which moves the statements across. Retiring a tag and leaving its statements
-in place is policy that no operation performs yet.
+A label or a scope note is edited only to correct it. A tag whose meaning
+has genuinely changed is retired and replaced. The old tag keeps its
+identifier and points at the new one, statements already filed under the old
+tag keep meaning what they meant, and new statements attach to the new tag.
+The merge operation implements the case where one tag is absorbed into
+another, which moves the statements across. No operation retires a tag and
+leaves its statements in place.
 
 A tag linked to a term is never pinned to one revision of the term. The link
 is to the term, and a curator can retract it if the definitions of the term
 move somewhere the curator did not intend.
 
-Drift is measured rather than discovered late. Each revision records the size
-of its own change, so a report for curators lists the linked tags whose terms
-were substantially rewritten after things were filed under them. The report
-points, and a curator decides.
+Drift is measured. Each revision records the size of its own change, so a
+report for curators lists the linked tags whose terms were substantially
+rewritten after things were filed under them.
 
 ## Language models
 
-A model that contributes is an author. It appears under a name such as
-MatBot Gemma 4, the name opens its profile, and the profile gives the exact
-version it runs under, its publisher, what it has contributed, and the
-prompts it worked from. One profile covers one version, because two versions
-of one family produce different text and a definition can only be traced to
-the version that wrote it. "MatBot" marks the author as a machine, so the
-interface does not repeat the fact beside it.
+A model that contributes is credited by name. It appears under a name such
+as MatBot Gemma 4, the name opens its profile, and the profile gives the
+exact version it runs under, its publisher, what it has contributed, and the
+prompts it worked from. One profile covers one version, so the profile named
+on a definition is the version that generated it. "MatBot" in the name marks
+the author as a machine.
 
 A model generates and returns. A person decides. In the interactive
 refinement workflow the author asks for a suggestion, the model returns one,
@@ -86,9 +80,7 @@ voted on like any other. A comment on such a definition schedules another
 generation, so the model can revise its own entry in the light of discussion.
 
 Output from a model is stored before anyone acts on it, together with the
-model name and the exact prompt that produced it. That record is what makes
-the attribution trustworthy, because a browser cannot claim that a model
-wrote text it did not.
+model name and the exact prompt that produced it.
 
 ## Studies and agreement
 
@@ -116,38 +108,33 @@ A person belongs to a community for an episode, from the day they were added
 to the day they were removed, and may act in a study while that episode is
 live and the study is open. The acts that name a study are therefore those
 of people who were members during its window. The community, its roster and
-its invitations are not published. The study is, as an activity with its window and the
-collection it worked through, so a consumer of the record can tell which acts
-a study prompted without learning who was asked.
+its invitations are not published. The study is published as an activity,
+with its window and the collection it worked through.
 
 A simulated participant is an account a model is driven under, and its
-display name says so, so a reader of the record does not mistake one for a
-person. The text it generates, a definition, a comment or an answer, is
-stamped with the model and the prompt it came from, as model output is. Its
-votes, comments and answers name their actor as simulated, and a definition
-it publishes is attributed to the account. The acts of people, of models
-writing under their own names, and of simulated participants are separable in
-the data without reconstruction.
+display name says so. The text it generates, a definition, a comment or an
+answer, is stamped with the model and the prompt it came from, as model
+output is. Its votes, comments and answers name their actor as simulated,
+and a definition it publishes is attributed to the account. The acts of
+people, of models writing under their own names, and of simulated
+participants are separable in the data without reconstruction.
 
 ## Tag proposals and review
 
 This workflow is designed. The storage for it exists in the database, and no
-part of the application writes to it or reads from it yet. The paragraphs
-below describe the intended process, not the present one.
+part of the application writes to it or reads from it yet.
 
-A proposed tag is stored before anyone decides on it. A model reads it
+A proposed tag is stored before anyone decides on it. A model compares it
 against the existing tags and returns a verdict, approve, merge into a named
 tag, or decline, with reasons, its name and the prompt it ran under. A
-curator acts on the proposal with one click. Review and decision are separate
-facts, so a curator may decide without a review and a review may sit
-undecided, and the agreement between the two is a measurement the system
+curator acts on the proposal with one click. Review and decision are
+separate facts, so a curator may decide without a review and a review may
+sit undecided, and the agreement between the two is a measurement the system
 keeps from the first proposal.
 
 A curator may later enable delegated approval for the narrow class of
-proposals where model verdicts and curator decisions have agreed. A delegated
-approval is attributed to the identity of the model, which for this purpose
-holds the moderator role, and every other proposal still waits for a person.
-The setting ships off and is turned on from evidence in the agreement record
-rather than in advance. Judgements made by a person, suggested by a model,
-and delegated to a model are separable in the data without reconstruction,
-because each one names its asserter.
+proposals where model verdicts and curator decisions have agreed. A
+delegated approval is attributed to the identity of the model, which for
+this purpose holds the moderator role, and every other proposal still waits
+for a person. The setting ships off, and a curator turns it on from the
+agreement record. Each judgement names its asserter.

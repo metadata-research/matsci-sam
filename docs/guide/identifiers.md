@@ -142,8 +142,7 @@ deployment sets it once, before external citation.
 The authority chosen for persistent identifiers is the w3id.org namespace
 `https://w3id.org/matsci-sam`, and its registration is pending. Once the
 registered redirect resolves, it forwards the complete path grammar to the
-application host, so an identifier minted under it survives a change of host:
-the move is a redirect rule and touches no published IRI. Until then every
-deployment mints under its own origin, and those identifiers, like the ones a
-development workstation or a rehearsal host publishes, are host-bound and
-should not be cited as durable.
+application host, so an identifier minted under it survives a change of
+host. Until then every deployment mints under its own origin, and those
+identifiers, like the ones a development workstation or a rehearsal host
+publishes, are host-bound and should not be cited as durable.

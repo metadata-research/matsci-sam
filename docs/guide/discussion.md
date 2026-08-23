@@ -1,9 +1,9 @@
 # Discussion
 
-The **Discussion** page provides a feed of the eight most recently added
-terms. Each card shows one definition, the number of comments on that
-definition, a summary of contributors, and controls for commenting or
-requesting a suggested revision.
+The **Discussion** page lists the eight most recently added terms. Each card
+shows one definition, the number of comments on that definition, a summary
+of contributors, and controls for commenting or requesting a suggested
+revision.
 
 The feed selects an AI-authored definition when a term has one. Otherwise,
 it selects the highest-scored definition. The term name and comment count
@@ -22,8 +22,7 @@ feedback to the locally hosted language model. The returned definition
 and example appear in a preview on the same card.
 
 Before the preview is returned, the application stores the exact source
-revision, feedback, model, prompt, definition, and example. This prevents
-altered browser data from being published with false model attribution.
+revision, feedback, model, prompt, definition, and example.
 
 - **Accept and publish** creates another definition for the term. You are
   the author, the named model is a coauthor, and your feedback is stored

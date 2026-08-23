@@ -2,9 +2,8 @@
 
 Every term has a provenance record, published as W3C PROV-O in Turtle at
 `/terms/{id}/provenance.ttl` and drawn as a graph and a timeline on the
-provenance page of the term. The record is derived from the same tables the
-site reads, so the graph a visitor sees and the document a tool reads cannot
-disagree.
+provenance page of the term. The record is derived from the same application
+records the pages are built from.
 
 ## What the record contains
 
@@ -14,9 +13,9 @@ revision, including across competing definitions, records that derivation
 separately from its place in the linear history. Each revision is a
 `prov:specializationOf` its stable definition.
 
-Publishing a revision is a `prov:Activity`. The activity is
-`prov:wasAssociatedWith` the person who published it, and the revision itself
-is `prov:wasAttributedTo` that person and, when the text came from an
+The publication of a revision is a `prov:Activity`. The activity is
+`prov:wasAssociatedWith` the person who published it, and the revision
+itself is `prov:wasAttributedTo` that person and, when the text came from an
 accepted suggestion, to the named model as well. Votes and comments are
 events on the revision they concern.
 
@@ -31,12 +30,11 @@ the revision that was visible at its recorded time. An imported vote is
 associated with the revision current when the data was migrated, because its
 recorded time cannot establish which version the voter read. A vote that
 stood with no event of its own when the event record began was written into
-that record once, at the backfill, as the single act it had always been
-published as, and is marked as backfilled. The time of that act is the
-recorded time of the vote, which for a vote cast before 2026-07-19 is the
-creation time of the definition, and `legacyAssociationInferred` marks
-those. A vote cast since is published as each act, a change of direction
-and a withdrawal included.
+that record once, at the backfill, and is marked as backfilled. The time of
+that act is the recorded time of the vote, which for a vote cast before
+2026-07-19 is the creation time of the definition, and
+`legacyAssociationInferred` marks those. A vote cast since is published as
+each act, a change of direction and a withdrawal included.
 
 People and models are agents. A person is a `prov:Person` and a model is a
 `prov:SoftwareAgent`. In the per-term document a vote is public as an event
@@ -106,9 +104,8 @@ The named graphs that hold these terms are described in
 
 ## The two views
 
-The SKOS documents state current meaning, which definitions a term has, which
-tags it holds, which term a tag is linked to. The PROV-O document states how
-it came to be so. One stored fact supplies both, and neither document holds
-what belongs to the other. A tag assertion, for instance, appears in SKOS as
-`dcterms:subject` with no asserter or time, and in the provenance graph as
-the assertion, with both.
+The SKOS documents state current meaning, which definitions a term has,
+which tags it holds, which term a tag is linked to. The PROV-O document
+states how it came to be so. A tag assertion, for instance, appears in SKOS
+as `dcterms:subject` with no asserter or time, and in the provenance graph
+as the assertion, with both.

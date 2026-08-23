@@ -8,14 +8,14 @@ original definition can use this multi-round refinement panel.
 
 1. Select **Refine with AI**. The application sends your term, definition,
    and example to the locally hosted language model. A round can take time,
-   especially when the model must first load. The pending round is stored, so
-   a page refresh does not discard it.
+   especially when the model must first load. The pending round is stored,
+   so a page refresh does not discard it.
 2. The suggestion appears as a card, with changed wording highlighted
-   against your current text. Depending on what the model changed, you can:
+   against your current text. The choices depend on what the model changed.
    - **Accept and publish** publishes the revision.
-   - **Accept definition, keep my example** publishes the suggested definition
-     while preserving your example verbatim. This choice appears when the
-     model changed the example.
+   - **Accept definition, keep my example** publishes the suggested
+     definition while preserving your example verbatim. This choice appears
+     when the model changed the example.
    - **Keep mine** closes the round with your original standing.
    - **Re-evaluate** sends your feedback with a request for another pass.
      Type what should change first, for example "mention that the
@@ -23,8 +23,8 @@ original definition can use this multi-round refinement panel.
 3. Each new round appears as its own card. Decided rounds collapse into
    one-line history entries you can expand later.
 
-If a round fails because the model is unavailable, the card says so
-plainly and offers a Retry button.
+If a round fails because the model is unavailable, the card reports the
+failure and offers a Retry button.
 
 ## What accepting does
 
@@ -35,8 +35,8 @@ shows a **Refined with** label naming the model. Readers can vote on either
 definition.
 
 You can refine the original again after a round is decided. The request
-includes the suggestions and feedback from earlier rounds. Accepting a
-later round publishes a new revision of the existing refined definition. The
+includes the suggestions and feedback from earlier rounds. A later
+acceptance publishes a new revision of the existing refined definition. The
 new revision records the accepting author, named model, prompt, accepted
 suggestion, and relationship to the preceding revision. It starts with a new
 vote tally. Earlier revisions and their vote totals remain available in the

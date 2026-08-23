@@ -1,9 +1,8 @@
 # Community review and revisions
 
-"Community" here means everyone using the site, which is the sense the
-definition status chip uses. A **community** in the other sense is a named
-group of people such as a lab or a review panel, covered in
-[Communities and scope](/docs/communities).
+The definition status chip counts votes from everyone using the site. A
+**community** on MatSci-SAM is a named group of people such as a lab or a
+review panel, described in [Communities and scope](/docs/communities).
 
 A term can have several definitions from different contributors. Each
 definition has a stable page and an immutable revision history. The current
@@ -24,11 +23,11 @@ show the email address or authentication details.
 The [account access guide](/docs/account-access) explains how sign-in methods
 and linked ORCID iDs relate to the contributor account.
 
-The profile setting controls the public profile page and links from contributor
-names. Names remain attached to definitions, comments, and provenance as
-attribution even when the profile is private. Turning the setting off makes the
-profile URL unavailable and returns contributor names to plain text. It does
-not remove contributions or revision history.
+The profile setting controls the public profile page and links from
+contributor names. Names remain attached to definitions, comments, and
+provenance as attribution even when the profile is private. The profile URL
+becomes unavailable and contributor names return to plain text when the
+setting is off. It does not remove contributions or revision history.
 
 ## Interface feedback
 
@@ -38,10 +37,10 @@ that works especially well without leaving the page you are reviewing.
 
 Each feedback record contains the comment, the relative MatSci-SAM page
 path, and the submission time. Query parameters and page fragments are not
-stored. When the contributor is signed in, the record is also linked to that
-account; otherwise it is recorded as Anonymous. The account identity is
-determined by the server and is not an editable form field. Administrators can
-review the feedback inbox and mark an item resolved or reopen it.
+stored. A record from a signed-in contributor is also linked to that
+account. A record from a signed-out visitor is recorded as Anonymous. The
+account identity is determined by the server. Administrators can review the
+feedback inbox and mark an item resolved or reopen it.
 
 ## Voting and score
 
@@ -64,9 +63,10 @@ reputation, role, or expert weighting, and authors can vote on their own
 definitions. Each accepted AI-refined definition receives an independent
 score.
 
-Publishing a revision starts its score at zero. Votes on earlier revisions
-remain with those revisions and do not count toward the new score. Historical
-revisions are read-only, so new votes apply only to the current revision.
+A published revision starts with a score of zero. Votes on earlier revisions
+remain with those revisions and do not count toward the new score.
+Historical revisions are read-only, so new votes apply only to the current
+revision.
 
 ## Definition order
 
@@ -118,11 +118,11 @@ revisions remain available from the revision history and
 [provenance](/docs/provenance). The default definition page shows the latest
 revision. Each revision also has an exact citable URL.
 
-The page checks that the source revision is still current before it publishes
-an edit. If another change has superseded that revision, the author must review
-the new revision before trying again. Restoring an earlier revision copies its
-definition and example into another new revision. The restore action does not
-remove any intervening history.
+The page checks that the source revision is still current before it
+publishes an edit. If another change has superseded that revision, the
+author must review the new revision before trying again. A restore copies
+the definition and example of an earlier revision into another new revision.
+The restore action does not remove any intervening history.
 
 [Topics](/docs/tags) remain attached to the stable definition. Facets
 classify the term concept, so a new revision does not change them. Votes are
@@ -177,6 +177,4 @@ suggestions, coauthors, and refined definitions. The shared term and its public
 numbering ledger remain even when no definitions are left, so a deleted number
 is not reassigned.
 
-Permanent cleanup cannot be undone and is not the planned public workflow.
-Author withdrawal, moderator hiding, restoration, tombstones, and
-exceptional redaction remain to be implemented before public use.
+Permanent cleanup cannot be undone.

@@ -1,7 +1,7 @@
 # MatCore and the vocabulary
 
-MatSci-SAM publishes three families of thing. They share one identifier
-grammar and one RDF document, and they mean different things.
+MatSci-SAM publishes three families of identified thing. They share one
+identifier grammar and appear in the same RDF documents.
 
 | Family | What it describes | Where it is identified |
 | --- | --- | --- |
@@ -10,20 +10,34 @@ grammar and one RDF document, and they mean different things.
 | MatCore elements | metadata fields for describing a dataset | `/metadata/matcore#{element}` |
 
 The first two are vocabulary. A term is a word the community defines, and a
-concept is a label used to file terms. The third is a different kind of thing
-altogether. A MatCore element is a slot in a metadata record about a
-computational dataset, transcribed from Greenberg et al. (2025). The dataset is
-not part of the vocabulary, and the element is not a term.
+concept is a label used to file terms. A MatCore element is a field in a
+metadata record about a computational dataset, transcribed from Greenberg et
+al. (2025). An element is a slot a depositor fills in, and it is not a
+concept in any scheme.
 
-Keeping them apart matters, because the temptation is to treat every named
-thing as a term. A `k-points` element is not a term awaiting a definition. It
-is a field a depositor fills in.
+## The element set
 
-## Where the two meet
+Each element is an `rdf:Property` with an English label and comment, the key
+as printed in the source figure under `matsci:sourceKey`, and `matsci:required`
+stating whether the paper marks it required.
 
-They meet at one point. Some MatCore elements take a value that should come
-from a controlled vocabulary rather than free text, and `material` is the clear
-case. The element says as much in RDF.
+The two tiers of the standard are published as `matsci:MetadataProfile`
+resources. Minimal holds eighteen elements and applies to every computational
+dataset. DFT holds nine and is optional. A profile lists its elements with
+`dcterms:hasPart`, and each element names its profile with `dcterms:isPartOf`.
+
+A `dcterms:Standard` resource records what the transcription is taken from,
+`arXiv:2502.07106v1` of February 10, 2025, with its title and source URL. The
+tables are preliminary and this is not an official or current MatCore release.
+
+The element set is served as a named graph at `/graphs/matcore` and is
+included in `/dataset.ttl`. [MatCore metadata](/metadata/matcore) presents the
+same elements as a page, with one synthetic example record.
+
+## Where the vocabulary supplies a value
+
+One element draws its values from the dictionary. `material` declares the
+concept scheme as its range.
 
 ```turtle
 <…/metadata/matcore#material> a rdf:Property ;
@@ -31,45 +45,43 @@ case. The element says as much in RDF.
   rdfs:range <…/vocabulary> .
 ```
 
-`rdfs:range` names the vocabulary as the source of values. It does not assert
-that any particular term has been used in any particular dataset. This site
-holds no dataset records at all, and the ledger has no subject kind for one. If
-deposited datasets are ever recorded here, the link from a dataset to a term
-will be an explicit statement rather than something read off the range.
+A depositor recording a material names a term from the vocabulary instead of
+writing free text. The range says where the values of the element come from.
+MatSci-SAM holds no dataset records, so no document here links a dataset to
+a term.
 
 ## The Dublin Core crosswalk
 
-The 2025 paper places MatCore in the Dublin Core lineage and observes that core
-standards map their properties to it. The paper publishes no crosswalk, so the
-relations below are read off the element descriptions and stated by this
-project rather than attributed to the source.
+MatSci-SAM states this crosswalk. The 2025 paper places MatCore in the Dublin
+Core lineage and publishes no element-by-element mapping, so a consumer reading
+these relations is reading a claim of this project.
 
-Seven of the twenty-seven elements have a Dublin Core counterpart. Five are the
-same property and say so with `owl:equivalentProperty`. Two narrow one and use
-`rdfs:subPropertyOf`, which is the weaker and more accurate claim. A DOI is one
-kind of `dcterms:identifier`, not every kind, and a MatCore license is a
+Seven of the twenty-seven elements have a Dublin Core counterpart.
+
+| Element | Dublin Core property | Relation |
+| --- | --- | --- |
+| `creator` | `dcterms:creator` | `owl:equivalentProperty` |
+| `title` | `dcterms:title` | `owl:equivalentProperty` |
+| `date` | `dcterms:date` | `owl:equivalentProperty` |
+| `description` | `dcterms:description` | `owl:equivalentProperty` |
+| `source-citation` | `dcterms:bibliographicCitation` | `owl:equivalentProperty` |
+| `doi` | `dcterms:identifier` | `rdfs:subPropertyOf` |
+| `license` | `dcterms:license` | `rdfs:subPropertyOf` |
+
+A subproperty relation marks an element that narrows the Dublin Core property.
+A DOI is one kind of `dcterms:identifier`, and a MatCore license is a
 `dcterms:license` restricted to SPDX values.
 
-The remaining twenty elements have no counterpart. `xc-functional` and
-`k-points` describe a density functional theory calculation, and no
-general-purpose standard carries that meaning. Leaving them unmapped is the
-accurate outcome rather than a gap to be filled.
+The other twenty elements have no counterpart, among them the nine that
+describe a density functional theory calculation, such as `xc-functional`
+and `k-points`.
 
-The two tiers, Minimal and DFT, are published as `matsci:MetadataProfile` and
-list their elements with `dcterms:hasPart`. They are not SKOS collections. The
-range of `skos:member` is a concept or a collection, so using it here would
-entail that every element is a concept in this vocabulary, which is the one
-thing the element set must not say.
+Each relation is stated on the element, and no triple in these documents has
+a Dublin Core property as its subject.
 
-No statement is ever made about a Dublin Core property itself. The crosswalk
-points outward from elements this project publishes and never adds triples to
-somebody else's namespace.
+## Types in the RDF
 
-## What this does not do
-
-None of this makes the vocabulary an OWL ontology. Terms are published as
-`skos:Concept`, which in OWL is an individual and not a class, so there is
-nothing here to reason over. MatCore elements are `rdf:Property` rather than
-`owl:DatatypeProperty` or `owl:ObjectProperty`, because the source paper
-specifies no datatypes and choosing one would assert more than the paper
-supports.
+A term is a `skos:Concept` and a MatCore element is an `rdf:Property`. These
+documents declare no OWL classes. An element is not typed
+`owl:DatatypeProperty` or `owl:ObjectProperty`, and the RDF states no datatype
+for the value of an element. The source paper gives none.

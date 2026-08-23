@@ -6,10 +6,10 @@ history. Each step links to the guide page that covers it in full.
 
 ## Sign in
 
-Select **Login** in the navigation bar. Sign-in uses Google or a verified email
-address, and an ORCID iD can be linked to the account afterwards. Reading the
-dictionary requires no account. Adding a definition, voting, and commenting
-each require one.
+Select **Login** in the navigation bar. Sign-in uses Google or a verified
+email address, and an ORCID iD can be linked to the account afterwards.
+Reading the dictionary requires no account. An account is required to add a
+definition, to vote, and to comment.
 
 [Account access](/docs/account-access) describes the sign-in methods and linked
 ORCID iDs.
@@ -49,9 +49,8 @@ status.
 
 ## Comment on a definition
 
-Each definition has its own comment thread. Every comment records the revision
-that was visible when it was posted, which preserves the context a later edit
-would otherwise remove.
+Each definition has its own comment thread. Every comment records the
+revision that was visible when it was posted.
 
 ![A definition page scrolled to its comment thread](/images/docs/quickstart-comments.png)
 
