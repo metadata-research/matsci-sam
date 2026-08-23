@@ -2,13 +2,14 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { baseProcedure, createTRPCRouter } from "../init"
 import { contributorProcedure } from "../procedures"
-import {
-  db,
-  definitionRevisionsTable,
-  definitionsTable,
-  votesTable
-} from "@yamz/db"
+import { db, definitionRevisionsTable, votesTable } from "@yamz/db"
 import { and, eq, sql } from "drizzle-orm"
+import { activeCommunityFor } from "@/lib/community-queries"
+import {
+  castVote,
+  StaleRevisionError,
+  VoteTargetMissingError
+} from "@/lib/participation"
 
 const voteTargetSchema = z.object({
   definitionId: z.number(),
@@ -61,78 +62,30 @@ export const votesRouter = createTRPCRouter({
         ctx: { userId },
         input: { definitionId, revisionId, vote }
       }) => {
-        const [updatedDefinition] = await db.transaction(async (tx) => {
-          const [definition] = await tx
-            .select({
-              id: definitionsTable.id,
-              currentRevisionId: definitionsTable.currentRevisionId
+        try {
+          const [updatedDefinition] = await db.transaction(async (tx) => {
+            // A session vote is a human act in whatever community the person
+            // is working in right now, resolved inside the transaction that
+            // writes it.
+            const community = await activeCommunityFor(tx, userId)
+            return castVote(tx, {
+              definitionId,
+              revisionId,
+              userId,
+              vote,
+              actorKind: "human",
+              communityId: community?.id ?? null
             })
-            .from(definitionsTable)
-            .where(eq(definitionsTable.id, definitionId))
-            .for("update")
-
-          if (!definition)
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Definition doesn't exist"
-            })
-          if (definition.currentRevisionId !== revisionId)
-            throw new TRPCError({
-              code: "CONFLICT",
-              message:
-                "A newer revision is available. Review it before voting again."
-            })
-
-          const voteConstraint = and(
-            eq(votesTable.userId, userId),
-            eq(votesTable.revisionId, revisionId)
-          )
-          const existing = await tx.query.votesTable.findFirst({
-            where: voteConstraint
-          })
-          const value = (kind: "up" | "down") => (kind === "up" ? 1 : -1)
-
-          if (existing) {
-            if (existing.kind === vote) {
-              await tx.delete(votesTable).where(voteConstraint)
-              return await tx
-                .update(definitionsTable)
-                .set({
-                  score: sql`${definitionsTable.score} - ${value(vote)}`
-                })
-                .where(eq(definitionsTable.id, definitionId))
-                .returning()
-            }
-
-            await tx
-              .update(votesTable)
-              .set({ kind: vote })
-              .where(voteConstraint)
-
-            return await tx
-              .update(definitionsTable)
-              .set({
-                score: sql`${definitionsTable.score} + ${value(vote) - value(existing.kind)}`
-              })
-              .where(eq(definitionsTable.id, definitionId))
-              .returning()
-          }
-
-          await tx.insert(votesTable).values({
-            userId,
-            definitionId,
-            revisionId,
-            kind: vote
           })
 
-          return await tx
-            .update(definitionsTable)
-            .set({ score: sql`${definitionsTable.score} + ${value(vote)}` })
-            .where(eq(definitionsTable.id, definitionId))
-            .returning()
-        })
-
-        return { score: updatedDefinition.score, ok: true }
+          return { score: updatedDefinition.score, ok: true }
+        } catch (error) {
+          if (error instanceof VoteTargetMissingError)
+            throw new TRPCError({ code: "NOT_FOUND", message: error.message })
+          if (error instanceof StaleRevisionError)
+            throw new TRPCError({ code: "CONFLICT", message: error.message })
+          throw error
+        }
       }
     )
 })

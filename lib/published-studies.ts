@@ -69,7 +69,7 @@ const ID4_PROTOCOL: ProtocolStep[] = [
       "Participants commented on the AI definitions for their own terms, then on those for other participants' terms, which is where peer review and cross-disciplinary reflection enter.",
     support: "partial",
     supportNote:
-      "Comments and votes are recorded against a revision. A comment records the author and the time and nothing else, so a model comment is separable from a human one only by the AI flag on that account, an AI-drafted comment accepted from a suggestion is stored under the human who accepted it, and nothing marks a comment as simulated. Nothing distinguishes a comment on your own term from a comment on someone else's, or records that a participant finished the step."
+      "Comments and votes are recorded against a revision, and since migration 0040 each act carries its kind: human, model, or simulated, with every voting act kept as an append-only event, withdrawals included. An AI-drafted comment accepted from a suggestion stays a human act with the model as coauthor. Nothing yet distinguishes a comment on your own term from a comment on someone else's, or records that a participant finished the step."
   }
 ]
 
@@ -166,7 +166,7 @@ export const STUDIES: Study[] = [
       "Not selected. Collections supply the term set half and can be built today. Whether terms are distributed to participants or chosen by them is the open protocol question, and the two studies answer it differently.",
     protocol: ID4_PROTOCOL,
     produced: [
-      "Human, model and simulated review separable in the record, which the MTSR system paper needs and the comment record cannot express yet"
+      "Human, model and simulated review separable in the record, which the MTSR system paper needs; the record has expressed the three since migration 0040"
     ],
     source: "docs-internal/IMPLEMENTATION-PROGRAM.md, Phase 4"
   }

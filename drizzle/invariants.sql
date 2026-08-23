@@ -476,5 +476,59 @@ BEGIN
       RAISE EXCEPTION 'overlapping community membership episodes';
     END IF;
   END IF;
+
+  -- An act's recorded kind agrees with the standing of the account that
+  -- performed it: human acts come from human accounts, model and simulated
+  -- acts from AI-flag accounts. Row-local CHECKs cannot see users, so the
+  -- agreement is proven here. Shape-detected because one release runs this
+  -- file against the pre-0040 restore.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'comments' AND column_name = 'authorKind'
+  ) THEN
+    IF EXISTS (
+      SELECT 1
+      FROM "comments" c
+      JOIN "users" u ON u.id = c."userId"
+      WHERE (c."authorKind" = 'human') <> (NOT u."isAi")
+    ) THEN
+      RAISE EXCEPTION 'comment authorKind disagrees with the account AI flag';
+    END IF;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_name = 'voteEvents'
+  ) THEN
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents" e
+      JOIN "users" u ON u.id = e."userId"
+      WHERE (e."actorKind" = 'human') <> (NOT u."isAi")
+    ) THEN
+      RAISE EXCEPTION 'vote event actorKind disagrees with the account AI flag';
+    END IF;
+
+    -- A withdrawal event needs a preceding cast by the same person on the
+    -- same revision. The tally is deliberately not cross-checked against
+    -- events, which begin at 0040; ordering within the record is checkable.
+    IF EXISTS (
+      SELECT 1
+      FROM "voteEvents" w
+      WHERE w.kind IS NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "voteEvents" c
+          WHERE c."userId" = w."userId"
+            AND c."revisionId" = w."revisionId"
+            AND c.kind IS NOT NULL
+            AND (c."createdAt", c.id) < (w."createdAt", w.id)
+        )
+    ) THEN
+      RAISE EXCEPTION 'vote withdrawal without a preceding cast';
+    END IF;
+  END IF;
 END
 $validation$;

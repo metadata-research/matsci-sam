@@ -8,12 +8,16 @@ import {
   chatsTable,
   definitionRevisionsTable
 } from "@yamz/db"
-import { and, asc, eq, getTableColumns } from "drizzle-orm"
+import { asc, eq, getTableColumns } from "drizzle-orm"
 import { reviseDefinition } from "@/lib/llm/definitions"
 import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 import { contributorProcedure } from "../procedures"
+import {
+  CommentRevisionMissingError,
+  insertComment
+} from "@/lib/participation"
 
 export const commentsRouter = createTRPCRouter({
   get: baseProcedure.input(z.number()).query(async ({ input: id }) => {
@@ -56,29 +60,22 @@ export const commentsRouter = createTRPCRouter({
         let aiRevisionScheduled = false
         let commentedVersion: number | null = null
         const insertedComment = await db.transaction(async (tx) => {
-          const revision = await tx.query.definitionRevisionsTable.findFirst({
-            columns: { id: true, version: true },
-            where: and(
-              eq(definitionRevisionsTable.id, revisionId),
-              eq(definitionRevisionsTable.definitionId, id)
-            )
-          })
-          if (!revision)
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message:
-                "The definition revision you commented on no longer exists."
-            })
-
-          const [insertedComment] = await tx
-            .insert(commentsTable)
-            .values({
+          let written
+          try {
+            // A session comment is a human act; the table CHECK refuses a
+            // stamp on it, and the AI flag agreement is proven at release.
+            written = await insertComment(tx, {
               definitionId: id,
               revisionId,
               userId,
-              message: comment
+              message: comment,
+              actorKind: "human"
             })
-            .returning()
+          } catch (error) {
+            if (error instanceof CommentRevisionMissingError)
+              throw new TRPCError({ code: "NOT_FOUND", message: error.message })
+            throw error
+          }
 
           // fetch some info about this term
           const [definition] = await tx
@@ -107,10 +104,10 @@ export const commentsRouter = createTRPCRouter({
               reviseDefinition(definition.termId)
             )
             aiRevisionScheduled = true
-            commentedVersion = revision.version
+            commentedVersion = written.revisionVersion
           }
 
-          return insertedComment
+          return written.comment
         })
 
         return { ...insertedComment, aiRevisionScheduled, commentedVersion }

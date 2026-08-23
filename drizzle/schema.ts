@@ -756,6 +756,19 @@ export const editsTableRelations = relations(editsTable, ({ one }) => ({
 // --- VOTES ---
 export const voteTypeEnum = pgEnum("vote_type", ["up", "down"])
 
+/*
+ * Which of the three separable categories performed an act: a person, a
+ * model acting as itself, or a scripted participant driven under an AI
+ * identity account during a pilot run. A model-authored suggestion accepted
+ * by a person stays human: the decision was the person's, and the model is
+ * credited as coauthor, exactly as before this enum existed.
+ */
+export const actorKindEnum = pgEnum("actor_kind", [
+  "human",
+  "model",
+  "simulated"
+])
+
 export type Vote = typeof votesTable.$inferSelect
 export const votesTable = pgTable(
   "votes",
@@ -775,7 +788,12 @@ export const votesTable = pgTable(
       .notNull(),
     // Existing votes are attached to the revision current at migration time
     // because their historical timestamps may be placeholders.
-    migratedLegacy: boolean().notNull().default(false)
+    migratedLegacy: boolean().notNull().default(false),
+    // The community the voter was working in when this current-state row
+    // was last written, resolved inside the vote transaction. Null reads as
+    // unscoped, never as unknown. A per-community tally groups by this
+    // column; the per-act history is voteEvents.
+    communityId: integer().references((): AnyPgColumn => communitiesTable.id)
   },
   (table) => [
     primaryKey({ columns: [table.revisionId, table.userId] }),
@@ -784,6 +802,7 @@ export const votesTable = pgTable(
       table.revisionId
     ),
     index("votes_user_idx").on(table.userId),
+    index("votes_community_idx").on(table.communityId),
     foreignKey({
       columns: [table.revisionId, table.definitionId],
       foreignColumns: [
@@ -810,6 +829,63 @@ export const votesTableRelations = relations(votesTable, ({ one }) => ({
   })
 }))
 
+// --- VOTE EVENTS ---
+// Append-only record of every voting act: cast, change, withdrawal. Rows
+// are never updated and never deleted. votes stays the current-state row
+// the tallies read; these rows are what consensus formation is
+// reconstructed from. The two agree only forward from migration 0040:
+// earlier acts were never recorded, inventing them would be false
+// provenance, so there is no backfill and deliberately no cross-check
+// between the tables.
+export type VoteEvent = typeof voteEventsTable.$inferSelect
+export const voteEventsTable = pgTable(
+  "voteEvents",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    definitionId: integer()
+      .references(() => definitionsTable.id)
+      .notNull(),
+    revisionId: integer().notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    // The vote as it stood after this act. Null records a withdrawal.
+    kind: voteTypeEnum(),
+    actorKind: actorKindEnum().notNull(),
+    // The community the voter was working in, resolved at write time inside
+    // the vote transaction. Null reads as unscoped, never as unknown.
+    communityId: integer().references((): AnyPgColumn => communitiesTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (table) => [
+    index("vote_events_definition_revision_idx").on(
+      table.definitionId,
+      table.revisionId
+    ),
+    index("vote_events_user_idx").on(table.userId, table.createdAt),
+    foreignKey({
+      columns: [table.revisionId, table.definitionId],
+      foreignColumns: [
+        definitionRevisionsTable.id,
+        definitionRevisionsTable.definitionId
+      ],
+      name: "vote_events_revision_same_definition_fk"
+    })
+  ]
+)
+
+export const voteEventsTableRelations = relations(
+  voteEventsTable,
+  ({ one }) => ({
+    author: one(usersTable, {
+      fields: [voteEventsTable.userId],
+      references: [usersTable.id]
+    })
+  })
+)
+
 // --- COMMENTS ---
 export type Comment = typeof commentsTable.$inferSelect
 export const commentsTable = pgTable(
@@ -824,6 +900,17 @@ export const commentsTable = pgTable(
       .references(() => usersTable.id)
       .notNull(),
     message: text().notNull(),
+    // Which kind of agent wrote it: see actorKindEnum. Backfilled from the
+    // author's AI flag when the column arrived in 0040; nothing earlier is
+    // simulated, because no simulation had run.
+    authorKind: actorKindEnum().notNull(),
+    // Generation provenance for a model or simulated comment, the stamp
+    // chats and refinement rounds already carry (lib/llm/stamp.ts). A human
+    // comment carries none, and the CHECK below holds it to that.
+    promptKey: text(),
+    promptHash: text(),
+    promptText: text(),
+    model: text(),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull(),
@@ -832,6 +919,16 @@ export const commentsTable = pgTable(
     migratedLegacy: boolean().notNull().default(false)
   },
   (table) => [
+    check(
+      "comments_human_carries_no_stamp",
+      sql`${table.authorKind} <> 'human'
+          OR (${table.promptKey} IS NULL AND ${table.promptHash} IS NULL
+              AND ${table.promptText} IS NULL AND ${table.model} IS NULL)`
+    ),
+    check(
+      "comments_stamp_pair",
+      sql`(${table.promptHash} IS NULL) = (${table.promptText} IS NULL)`
+    ),
     index("comments_definition_created_idx").on(
       table.definitionId,
       table.createdAt,
@@ -1393,9 +1490,11 @@ export const communityInvitationsTable = pgTable(
 // a participant comes back to a week later, which is why a study has a page of
 // its own rather than living on the invitation.
 //
-// Public as a page and not as data. /studies/<slug> resolves and keeps
-// resolving, and nothing here reaches the published graph: a study names a
-// cohort, and the vocabulary has never published anything about people.
+// Public as a page, and, since the 2026-08-22 identifier-policy amendment,
+// as an activity in the provenance graph: the study IRI names the title,
+// the window and the worklist collection, and nothing about its people.
+// The cohort stays unpublished. No roster, no invitation, and no per-person
+// participation reaches any graph.
 export type Study = typeof studiesTable.$inferSelect
 export const studiesTable = pgTable(
   "studies",

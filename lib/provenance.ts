@@ -10,6 +10,7 @@ import {
   refinementsTable,
   termsTable,
   usersTable,
+  voteEventsTable,
   votesTable
 } from "@yamz/db"
 import { and, asc, eq, getTableColumns, inArray, isNotNull } from "drizzle-orm"
@@ -76,6 +77,11 @@ export type ProvEvent = {
   | "refine-failed"
   actor: string
   actorKind: "person" | "software" | "unknown"
+  // The recorded three-way category of the act where the row carries one:
+  // a person, a model acting as itself, or a scripted participant driven
+  // under an AI identity account. Absent on event kinds whose rows predate
+  // the record.
+  agency?: "human" | "model" | "simulated"
   profileUserId?: number
   summary: string
   detail?: string
@@ -199,6 +205,10 @@ export const buildTermProvenance = async (
           message: commentsTable.message,
           createdAt: commentsTable.createdAt,
           migratedLegacy: commentsTable.migratedLegacy,
+          authorKind: commentsTable.authorKind,
+          promptKey: commentsTable.promptKey,
+          promptHash: commentsTable.promptHash,
+          model: commentsTable.model,
           author: {
             id: usersTable.id,
             name: usersTable.name,
@@ -280,6 +290,32 @@ export const buildTermProvenance = async (
       : Promise.resolve([])
   ])
 
+  // Vote events are the record from migration 0040 forward: one row per act,
+  // withdrawals included. A current-state votes row whose (revision, user)
+  // pair has no event is a pre-0040 vote and is synthesized below, so the
+  // older record keeps appearing exactly as it always did.
+  const voteEvents = definitionIds.length
+    ? await db
+      .select({
+        id: voteEventsTable.id,
+        revisionId: voteEventsTable.revisionId,
+        definitionId: voteEventsTable.definitionId,
+        kind: voteEventsTable.kind,
+        actorKind: voteEventsTable.actorKind,
+        createdAt: voteEventsTable.createdAt,
+        author: {
+          id: usersTable.id,
+          name: usersTable.name,
+          isAi: usersTable.isAi,
+          isProfilePublic: usersTable.isProfilePublic
+        }
+      })
+      .from(voteEventsTable)
+      .innerJoin(usersTable, eq(voteEventsTable.userId, usersTable.id))
+      .where(inArray(voteEventsTable.definitionId, definitionIds))
+      .orderBy(asc(voteEventsTable.createdAt), asc(voteEventsTable.id))
+    : []
+
   const nodes: ProvNode[] = []
   const edges: ProvEdge[] = []
   const events: ProvEvent[] = []
@@ -321,7 +357,9 @@ export const buildTermProvenance = async (
     addNode({
       id,
       label: author.name ?? `User ${author.id}`,
-      type: "person",
+      // An AI identity account, whether a model author or a simulated pilot
+      // persona, is a software agent wherever it appears in the graph.
+      type: author.isAi ? "software" : "person",
       profileUserId: publicProfileUserId(author)
     })
     return id
@@ -1064,9 +1102,13 @@ export const buildTermProvenance = async (
       : null
     const commentMeta: Record<string, string | number | null> = {
       revisionId: comment.revisionId,
+      actorKind: comment.authorKind,
       legacyAssociationInferred: comment.migratedLegacy ? "yes" : "no"
     }
     if (revision) commentMeta.version = revision.version
+    if (comment.model) commentMeta.model = comment.model
+    if (comment.promptKey) commentMeta.promptKey = comment.promptKey
+    if (comment.promptHash) commentMeta.promptHash = comment.promptHash
 
     addNode({
       id,
@@ -1082,55 +1124,106 @@ export const buildTermProvenance = async (
       at: comment.createdAt,
       kind: "comment",
       actor: comment.author.name ?? `User ${comment.author.id}`,
-      actorKind: "person",
+      actorKind: comment.author.isAi ? "software" : "person",
+      agency: comment.authorKind,
       profileUserId: publicProfileUserId(comment.author),
       summary: revision
         ? `Comment posted on ${revisionCoordinate(revision)}`
         : `Comment posted on revision ${comment.revisionId}`,
-      detail: excerpt(comment.message)
+      detail: excerpt(comment.message),
+      model: comment.model,
+      promptRef: comment.promptKey ?? comment.promptHash
     })
   }
 
   // --- revision-scoped votes ---
-  // A vote row records the user's current vote on one immutable revision, not
-  // a ledger of every toggle. Migrated rows disclose their inferred binding.
-  for (const [voteIndex, vote] of votes.entries()) {
-    const revision = revisionById.get(vote.revisionId)
-    const definition = definitionById.get(vote.definitionId)
+  // Vote events carry the acts from 0040 forward: cast, change, withdrawal.
+  // A current-state votes row with no event for its (revision, user) pair is
+  // an older vote whose toggle history was never recorded; it is synthesized
+  // as the single act it has always appeared as. Migrated rows disclose
+  // their inferred binding.
+  const eventPairs = new Set(
+    voteEvents.map((event) => `${event.revisionId}:${event.author.id}`)
+  )
+  const voteActs = [
+    ...voteEvents.map((event) => ({
+      eventId: event.id as number | null,
+      revisionId: event.revisionId,
+      definitionId: event.definitionId,
+      kind: event.kind,
+      agency: event.actorKind,
+      createdAt: event.createdAt,
+      migratedLegacy: false,
+      author: event.author
+    })),
+    ...votes
+      .filter(
+        (vote) => !eventPairs.has(`${vote.revisionId}:${vote.author.id}`)
+      )
+      .map((vote) => ({
+        eventId: null as number | null,
+        revisionId: vote.revisionId,
+        definitionId: vote.definitionId,
+        kind: vote.kind as "up" | "down" | null,
+        // The pre-event record never held a simulated act, so the author's
+        // standing decides, exactly as the 0040 comment backfill did.
+        agency: (vote.author.isAi ? "model" : "human") as
+          | "human"
+          | "model"
+          | "simulated",
+        createdAt: vote.createdAt,
+        migratedLegacy: vote.migratedLegacy,
+        author: vote.author
+      }))
+  ].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
+
+  for (const [voteIndex, act] of voteActs.entries()) {
+    const revision = revisionById.get(act.revisionId)
+    const definition = definitionById.get(act.definitionId)
     const activityId = options.anonymizeVoters
       ? `anonymous_vote_${voteIndex + 1}`
-      : `vote_${vote.revisionId}_${vote.author.id}`
+      : act.eventId !== null
+        ? `vote_event_${act.eventId}`
+        : `vote_${act.revisionId}_${act.author.id}`
     const versionId = revision
       ? revisionNodeId(revision.definitionId, revision.version)
       : null
+    const verb =
+      act.kind === null ? "Vote withdrawn" : act.kind === "up" ? "Upvote" : "Downvote"
     addNode({
       id: activityId,
-      label: `${vote.kind === "up" ? "Upvote" : "Downvote"}${revision ? ` on ${revisionCoordinate(revision)}` : ""
-        }`,
+      label: `${verb}${revision ? ` on ${revisionCoordinate(revision)}` : ""}`,
       type: "activity",
       meta: {
-        at: vote.createdAt,
-        revisionId: vote.revisionId,
-        legacyAssociationInferred: vote.migratedLegacy ? "yes" : "no"
+        at: act.createdAt,
+        revisionId: act.revisionId,
+        actorKind: act.agency,
+        legacyAssociationInferred: act.migratedLegacy ? "yes" : "no"
       }
     })
     if (versionId) addEdge(activityId, versionId, "used")
     if (!options.anonymizeVoters)
-      addEdge(activityId, personNode(vote.author), "wasAssociatedWith")
+      addEdge(activityId, personNode(act.author), "wasAssociatedWith")
 
     events.push({
       id: activityId,
-      at: vote.createdAt,
+      at: act.createdAt,
       kind: "vote",
       actor: options.anonymizeVoters
         ? "A community member"
-        : (vote.author.name ?? `User ${vote.author.id}`),
-      actorKind: "person",
+        : (act.author.name ?? `User ${act.author.id}`),
+      actorKind: act.author.isAi ? "software" : "person",
+      agency: act.agency,
       profileUserId: options.anonymizeVoters
         ? undefined
-        : publicProfileUserId(vote.author),
-      summary: `${vote.kind === "up" ? "Upvoted" : "Downvoted"} ${definition?.author?.isAi ? "AI-authored " : ""
-        }${revision ? revisionCoordinate(revision) : "definition"}`
+        : publicProfileUserId(act.author),
+      summary:
+        act.kind === null
+          ? `Withdrew their vote on ${revision ? revisionCoordinate(revision) : "the definition"}`
+          : `${act.kind === "up" ? "Upvoted" : "Downvoted"} ${definition?.author?.isAi ? "AI-authored " : ""
+          }${revision ? revisionCoordinate(revision) : "definition"}`
     })
   }
 

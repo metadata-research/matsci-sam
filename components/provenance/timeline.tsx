@@ -74,6 +74,13 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
                 )}
               </span>
             )}
+            {/* human is the unmarked case; badge the recorded kind only when
+                it is not what a reader would assume */}
+            {event.agency && event.agency !== "human" && (
+              <Badge className="!py-0 bg-ai/15 text-ai border-ai/30">
+                {event.agency}
+              </Badge>
+            )}
             {event.model && (
               <Badge className="!py-0 font-mono bg-ai/15 text-ai border-ai/30">
                 {event.model}
