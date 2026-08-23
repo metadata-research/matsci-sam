@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { MailIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,10 +20,15 @@ import {
 } from "@/lib/email-auth"
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
 import { SITE_NAME } from "@/lib/site"
+import { getCurrentUser } from "@/lib/current-user"
 
 export const metadata: Metadata = { title: `Sign in | ${SITE_NAME}` }
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  // Someone already signed in has nothing to do here, and on a host with
+  // email account creation this page would offer them a second account.
+  if (await getCurrentUser()) redirect("/profile")
+
   const devEnabled = isDevAuthEnabled()
   const emailEnabled = isEmailAuthEnabled()
   const emailAccountCreationEnabled = isEmailAccountCreationEnabled()

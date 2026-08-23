@@ -124,11 +124,15 @@ export default async function InvitePage({
             </p>
           ) : alreadyIn ? (
             <>
+              {/* Belonging already is not the same as having spent the link.
+                  A member may be holding someone else's invitation, which is
+                  still live for the person it was sent to. */}
               <p className="text-sm text-muted-foreground">
-                You are already in this community. This invitation has been
-                used, and there is nothing more to do here.
+                {outcome === "redeemed"
+                  ? `You are already in ${community.title}, and this invitation has been used.`
+                  : `You are already in ${community.title}, so there is nothing to accept.`}
               </p>
-              <Button asChild variant="outline">
+              <Button asChild>
                 <Link
                   href={
                     study ? studyPath(study.slug) : communityPath(community.slug)

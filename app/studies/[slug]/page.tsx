@@ -144,6 +144,37 @@ export default async function StudyPage({
           </section>
         )}
 
+        {/* Why the walkthrough card is absent, which the card itself cannot
+            say. A signed-out reader is told how to take part; a reader who
+            is signed in but outside the community is told that is the
+            reason. */}
+        {!walks && state === "open" && study.steps > 0 && !user && (
+          <section className="space-y-3 rounded-md border border-border p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Walkthrough
+            </div>
+            <p className="text-sm">
+              {study.steps} steps. Sign in to take part. Your place is kept
+              between visits.
+            </p>
+            <Button asChild>
+              <Link href="/login">Sign in</Link>
+            </Button>
+          </section>
+        )}
+
+        {!walks &&
+          state === "open" &&
+          study.steps > 0 &&
+          user &&
+          walkthrough !== null &&
+          walkthrough.membership === null && (
+            <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
+              The walkthrough is for members of {study.communityTitle}. An
+              invitation from the community is the way in.
+            </p>
+          )}
+
         {state === "retired" && (
           <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
             This study has been retired. Its address still resolves, and what
