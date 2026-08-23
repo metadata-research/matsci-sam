@@ -5,7 +5,7 @@ import { desc, eq } from "drizzle-orm"
 import { notFound } from "next/navigation"
 import { DefinitionList } from "@/app/terms/[termId]/definitions"
 import Link from "next/link"
-import { NetworkIcon } from "lucide-react"
+import { NetworkIcon, ChartLineIcon } from "lucide-react"
 import { definedTermJsonLd, termUri } from "@/lib/skos"
 import type { Metadata } from "next"
 
@@ -73,6 +73,12 @@ export default async function VocabularyTermPage(props: {
                 className="flex items-center gap-1 text-primary"
               >
                 <NetworkIcon className="size-4" /> Provenance
+              </Link>
+              <Link
+                href={`/terms/${term.id}/activity`}
+                className="flex items-center gap-1 text-primary"
+              >
+                <ChartLineIcon className="size-4" /> Activity
               </Link>
               {/* Machine-readable views of this concept */}
               <span className="flex items-center gap-2 text-xs font-mono text-muted-foreground">

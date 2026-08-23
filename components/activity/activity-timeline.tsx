@@ -43,7 +43,7 @@ function buildDataset(revisions: DefinitionRevision[], definitions: Definition[]
   definitionIds: number[];
 } {
   const definitionIds = Array.from(
-    new Set(definitions.map((r) => r.id)),
+    new Set(definitions.map((r) => r.definitionNumber)),
   ).sort((a, b) => a - b);
 
   // Map IDs to creation date
@@ -51,7 +51,7 @@ function buildDataset(revisions: DefinitionRevision[], definitions: Definition[]
   for (const def of definitions) {
     const time = new Date(def.createdAt).getTime();
     const date = time - (time % MS_IN_DAY);
-    definitionCreations.set(def.id, date)
+    definitionCreations.set(def.definitionNumber, date)
   }
 
   const rowsByTime = new Map<number, DatasetRow>();
@@ -65,8 +65,8 @@ function buildDataset(revisions: DefinitionRevision[], definitions: Definition[]
     if (!row) {
       row = { date: date };
       for (const id of definitionIds) {
-        if (definitionCreations.get(id) ?? 0 >= date) {
-          row[definitionKey(id)] = null;
+        if ((definitionCreations.get(id) ?? 0) <= date) {
+          row[definitionKey(id)] = 0;
         } else {
           row[definitionKey(id)] = null;
 
@@ -75,8 +75,12 @@ function buildDataset(revisions: DefinitionRevision[], definitions: Definition[]
       rowsByTime.set(date, row);
     }
 
-    const key = definitionKey(revision.definitionId);
-    row[key] = (row[key] ?? 0) + Number(revision.changeDelta ?? 0);
+    for (const def of definitions) {
+      if (def.id == revision.definitionId) {
+        const key = definitionKey(def.definitionNumber);
+        row[key] = (row[key] ?? 0) + Number(revision.changeDelta ?? 0);
+      }
+    }
   }
 
   const dataset = Array.from(rowsByTime.values()).sort(

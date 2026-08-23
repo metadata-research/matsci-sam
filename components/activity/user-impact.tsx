@@ -22,7 +22,7 @@ export const UsersImpact = ({ users }: UserImpactProps) => {
     i++;
   }
   return (<div className={styles.userImpactPanel}>
-    <h2 className="text-xl font-semibold pt-2">
+    <h2 className="text-xl font-semibold pt-2" style={{ paddingTop: 0 }}>
       User Impact Rankings
     </h2>
     <table className={styles.userImpactTable}>
@@ -35,6 +35,5 @@ export const UsersImpact = ({ users }: UserImpactProps) => {
         {rows.map(row => row)}
       </tbody>
     </table>
-    <div className={styles.userImpactFooter}>{"Score is the percent of changed data authored by a given user"}</div>
   </div >);
 };
