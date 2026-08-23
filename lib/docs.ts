@@ -49,6 +49,7 @@ const SECTIONS: Record<DocSection, SectionConfig> = {
     order: [
       "account-access",
       "communities",
+      "studies",
       "adding-terms",
       "community",
       "ai-refinement",

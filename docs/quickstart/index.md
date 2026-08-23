@@ -93,8 +93,8 @@ resolve to the exact text it referred to.
 
 ## Where to go next
 
-The [User guide](/docs/guide) covers search, tagging, communities,
-contributor profiles, and metadata downloads in full. The
+The [User guide](/docs/guide) covers search, tagging, communities and
+studies, contributor profiles, and metadata downloads in full. The
 [Knowledge organization](/docs/reference) pages describe the model behind
 terms, tags, and collections, together with the SKOS and PROV-O vocabularies
 used to publish it.

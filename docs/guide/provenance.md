@@ -46,10 +46,14 @@ Votes and comments identify the revision visible when each contribution was
 made. A later definition revision starts a new vote tally. Earlier revision
 tallies and their comments remain in the history.
 
-The vote table stores each person's latest choice for each revision, not an
-append-only sequence of vote actions. Removing a vote removes that record from
-the provenance view. Changing a vote replaces the recorded choice instead of
-preserving both actions.
+Each voting act is recorded as an event with the revision it used, its
+kind, up, down or withdrawn, and the time. A changed or withdrawn vote adds
+an act and removes none, so the provenance view shows the sequence, and the
+current vote of a person on a revision is the last act in it. A vote that
+stood from before acts were recorded has one act written for it at the
+recorded time of the vote, marked as backfilled. A vote cast or a comment
+posted inside the walkthrough of a [study](/docs/studies) names that study,
+so the dataset graph states under which study the act was taken.
 
 Some revisions imported from the earlier pilot schema contain only the
 definition text and time. Their original examples, editors, and change notes
