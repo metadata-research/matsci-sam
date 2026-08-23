@@ -4,9 +4,11 @@ import {
   aiModelsTable,
   collectionsTable,
   communitiesTable,
+  communityMembersTable,
   db,
   definitionsTable,
   studiesTable,
+  surveyStepCompletionsTable,
   surveyStepsTable,
   termsTable,
   usersTable,
@@ -82,6 +84,49 @@ export const studyById = async (id: number) => {
 export const listStudies = async () =>
   withNames()
     .where(isNull(studiesTable.retiredAt))
+    .orderBy(desc(studiesTable.createdAt))
+
+/*
+ * The studies of the communities the viewer belongs to, each with how many
+ * walkthrough steps the viewer has saved, for the "Your studies" section of
+ * the index. Counts and not the steps themselves, so the section is one
+ * query. Membership is read live, the same rule the walkthrough applies.
+ */
+export const studiesOfViewer = async (userId: number) =>
+  db
+    .select({
+      ...studyColumns,
+      saved: sql<number>`(
+        select cast(count(*) as int)
+        from ${surveyStepCompletionsTable} c
+        join ${surveyStepsTable} cs on cs.id = c."stepId"
+        where cs."studyId" = ${studiesTable.id}
+          and c."userId" = ${userId}
+      )`
+    })
+    .from(studiesTable)
+    .innerJoin(
+      communitiesTable,
+      eq(communitiesTable.id, studiesTable.communityId)
+    )
+    .innerJoin(
+      collectionsTable,
+      eq(collectionsTable.id, studiesTable.collectionId)
+    )
+    .innerJoin(
+      communityMembersTable,
+      and(
+        eq(communityMembersTable.communityId, studiesTable.communityId),
+        eq(communityMembersTable.userId, userId),
+        isNull(communityMembersTable.removedAt)
+      )
+    )
+    .where(
+      and(
+        isNull(studiesTable.retiredAt),
+        isNull(communitiesTable.retiredAt)
+      )
+    )
     .orderBy(desc(studiesTable.createdAt))
 
 export const studiesOfCommunity = async (communityId: number) =>

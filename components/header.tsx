@@ -145,6 +145,41 @@ export const Header = async () => {
   )
 }
 
+/*
+ * The strip the walkthrough run page shows in place of the navigation. A
+ * participant working through a study stays in the walkthrough: the site
+ * navigation is the one path out mid-step, and a vote cast out there is
+ * recorded without its step. What remains is identity and appearance, so a
+ * participant can confirm the account their acts are recorded under. The
+ * wordmark is not a link here for the same reason the menus are gone.
+ */
+export const HeaderStrip = async () => {
+  const user = await getCurrentUser()
+
+  return (
+    <div className={styles.wrapper}>
+      <header className={styles.navbar}>
+        <span className={styles.logoHome}>
+          <Image
+            src="/logo.svg"
+            alt=""
+            width={30}
+            height={30}
+            className={styles.logo}
+            preload
+          />
+          <span className={styles.logoText}>{SITE_NAME}</span>
+        </span>
+        <div className={styles.spacer} />
+        <div className={styles.stripLinks}>
+          <ThemeToggle alwaysVisible />
+          <AccountMenu user={user} />
+        </div>
+      </header>
+    </div>
+  )
+}
+
 // A group of the primary navigation: a trigger in the bar, its entries in a
 // menu. The links are plain anchors, so a server component can render it.
 const NavMenu = ({ label, entries }: { label: string; entries: Entry[] }) => (

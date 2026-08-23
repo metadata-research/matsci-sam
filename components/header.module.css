@@ -284,6 +284,14 @@
   }
 }
 
+/* The two controls of the run-page strip, kept at every width: the strip
+   has no phone panel to fall back to. */
+.stripLinks {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* The chevron of a menu trigger, muted like the label it follows. */
 .navChevron {
   width: 14px;

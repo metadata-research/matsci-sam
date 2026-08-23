@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
 import "./globals.css"
-import { Header } from "@/components/header"
+import { Header, HeaderStrip } from "@/components/header"
+import { HeaderSwitch } from "@/components/header-switch"
 import { FeedbackWidget } from "@/components/feedback-widget"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TRPCProvider } from "@/trpc/client"
@@ -57,7 +58,7 @@ export default async function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <Header />
+            <HeaderSwitch full={<Header />} strip={<HeaderStrip />} />
             {/* overflow-x-clip, not -hidden: clip does not create a scroll
               container, so position:sticky keeps working inside pages */}
             <div className="flex-1 overflow-x-clip">{children}</div>

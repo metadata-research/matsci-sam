@@ -817,6 +817,8 @@ export const communitiesRouter = createTRPCRouter({
           message: "This community has been retired"
         })
 
+      let studySlug: string | null = null
+
       if (invitation) {
         if (invitation.revokedAt)
           throw new TRPCError({
@@ -837,6 +839,7 @@ export const communitiesRouter = createTRPCRouter({
         if (invitation.studyId !== null) {
           const [study] = await db
             .select({
+              slug: studiesTable.slug,
               opensAt: studiesTable.opensAt,
               closesAt: studiesTable.closesAt,
               retiredAt: studiesTable.retiredAt
@@ -849,6 +852,9 @@ export const communitiesRouter = createTRPCRouter({
               code: "BAD_REQUEST",
               message: "This study has closed"
             })
+          // Where acceptance lands: the study the person was asked to take
+          // part in, not the community behind it.
+          if (study) studySlug = study.slug
         }
       }
 
@@ -864,6 +870,7 @@ export const communitiesRouter = createTRPCRouter({
         return {
           ok: true,
           slug: community.slug,
+          studySlug,
           alreadyIn: true,
           nowWorkingIn: null
         }
@@ -917,7 +924,7 @@ export const communitiesRouter = createTRPCRouter({
       revalidatePath("/terms")
       revalidatePath(collectionsIndexPath)
 
-      return { ok: true, slug: community.slug, alreadyIn: false, nowWorkingIn }
+      return { ok: true, slug: community.slug, studySlug, alreadyIn: false, nowWorkingIn }
     }),
 
   /*
