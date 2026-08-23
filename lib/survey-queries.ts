@@ -4,13 +4,15 @@ import {
   communityMembersTable,
   db,
   definitionRevisionsTable,
+  definitionsTable,
   studiesTable,
   surveyResponsesTable,
   surveyStepCompletionsTable,
   surveyStepsTable,
   termsTable,
   usersTable,
-  voteEventsTable
+  voteEventsTable,
+  votesTable
 } from "@yamz/db"
 import type { ActorKind, GenerationStampInput } from "@/lib/participation"
 import {
@@ -211,6 +213,40 @@ export const positionsOf = async (
   }
   for (const row of accepted) consider("accepted", row)
   for (const row of proposed) consider("proposed", row)
+
+  // A define step nothing names yet, where the person holds a standing
+  // upvote on a definition of the term: that vote is the position, as the
+  // gate reads it. An act inside the step takes precedence when there is one.
+  const unnamed = stepIds.filter((id) => !positions.has(id))
+  if (unnamed.length > 0) {
+    const standing = await executor
+      .select({
+        stepId: surveyStepsTable.id,
+        definitionId: votesTable.definitionId,
+        createdAt: votesTable.createdAt
+      })
+      .from(surveyStepsTable)
+      .innerJoin(
+        definitionsTable,
+        eq(definitionsTable.termId, surveyStepsTable.termId)
+      )
+      .innerJoin(
+        votesTable,
+        and(
+          eq(votesTable.definitionId, definitionsTable.id),
+          eq(votesTable.userId, userId),
+          eq(votesTable.kind, "up")
+        )
+      )
+      .where(
+        and(
+          inArray(surveyStepsTable.id, unnamed),
+          eq(surveyStepsTable.kind, "define")
+        )
+      )
+      .orderBy(asc(votesTable.createdAt))
+    for (const row of standing) consider("accepted", row)
+  }
   return new Map(
     [...positions].map(([stepId, { kind, definitionId }]) => [
       stepId,
@@ -219,8 +255,13 @@ export const positionsOf = async (
   )
 }
 
-// Whether a person holds a position on a define step, the fact the define
-// gate takes: a vote event or an initial revision of theirs naming the step.
+/*
+ * Whether a person holds a position on a define step, the fact the define
+ * gate takes: a vote event or an initial revision of theirs naming the step,
+ * or a standing upvote of theirs on a definition of the term from before the
+ * round. The vote path toggles, so that vote cannot be cast again inside the
+ * step; it is the same endorsement, and Accept records the step against it.
+ */
 export const hasPosition = async (
   executor: Executor,
   stepId: number,
@@ -243,6 +284,13 @@ export const hasPosition = async (
             where r."surveyStepId" = ${surveyStepsTable.id}
               and r."editorId" = ${userId}
               and r.version = 1
+          )`,
+          sql`exists (
+            select 1 from ${votesTable} v
+            join ${definitionsTable} d on d.id = v."definitionId"
+            where v."userId" = ${userId}
+              and v.kind = 'up'
+              and d."termId" = ${surveyStepsTable.termId}
           )`
         )
       )

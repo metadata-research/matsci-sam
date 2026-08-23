@@ -72,13 +72,9 @@ export default async function StudyPage({
     state === "open" &&
     walkthrough.steps.length > 0
 
-  // The outcome is a reading of the vocabulary and not of the walkthrough,
-  // so it is shown as soon as the study has one, whether or not anyone has
-  // taken a position yet.
-  const outcome =
-    walkthrough.steps.length > 0
-      ? await agreedDefinitions(study.collectionId)
-      : []
+  // The agreed definition of each term, for any study with terms: a closed
+  // study shows the outcome of its round, an open one the list as it moves.
+  const outcome = await agreedDefinitions(study.collectionId)
 
   return (
     <main className="px-4 py-8">
