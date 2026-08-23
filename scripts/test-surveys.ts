@@ -89,7 +89,11 @@ const main = async () => {
     DEFAULT_QUESTIONS.map((question) => question.responseKind),
     ["scale", "text"]
   )
-  assert.match(DEFAULT_QUESTIONS[0].prompt, /use this list as it stands/)
+  assert.equal(
+    DEFAULT_QUESTIONS[0].prompt,
+    "Would you use this list as it stands in your work?",
+    "the scale question is one sentence; the shell labels the ends"
+  )
   assert.match(DEFAULT_QUESTIONS[1].prompt, /missing from the list, or wrong/)
   assert.ok(DEFAULT_INSTRUCTIONS.trim().length > 0)
   assert.match(DEFAULT_INSTRUCTIONS, /second round/)
@@ -182,12 +186,35 @@ const main = async () => {
     (step) => step.kind === "review" && step.termId === 12
   )!
 
+  const vote = (termId: number, vote: "up" | "down" | null) =>
+    ({ kind: "vote", termId, vote }) as const
+
   assert.equal(actMatchesStep({ kind: "comment", termId: 11 }, review11), true)
-  assert.equal(actMatchesStep({ kind: "vote", termId: 11 }, review11), true)
+  assert.equal(actMatchesStep(vote(11, "up"), review11), true)
   assert.equal(
-    actMatchesStep({ kind: "vote", termId: 11 }, define11),
+    actMatchesStep(vote(11, "down"), review11),
+    true,
+    "a review step takes a vote of either kind"
+  )
+  assert.equal(
+    actMatchesStep(vote(11, null), review11),
+    true,
+    "and a withdrawal"
+  )
+  assert.equal(
+    actMatchesStep(vote(11, "up"), define11),
     true,
     "an upvote accepts a candidate in the define step of its term"
+  )
+  assert.equal(
+    actMatchesStep(vote(11, "down"), define11),
+    false,
+    "a downvote takes no position"
+  )
+  assert.equal(
+    actMatchesStep(vote(11, null), define11),
+    false,
+    "a withdrawal takes no position"
   )
   assert.equal(actMatchesStep({ kind: "define", termId: 11 }, define11), true)
   assert.equal(
@@ -196,7 +223,7 @@ const main = async () => {
     "a review step of another term"
   )
   assert.equal(
-    actMatchesStep({ kind: "vote", termId: 11 }, define12),
+    actMatchesStep(vote(11, "up"), define12),
     false,
     "a define step of another term is not where a vote accepts"
   )
@@ -219,9 +246,26 @@ const main = async () => {
     actMatchesStep({ kind: "comment", termId: 11 }, byKind("instructions")),
     false
   )
+  assert.equal(actMatchesStep(vote(11, "up"), byKind("question")), false)
+
+  // The kind rule on its own: a step of the term of the act and of a kind
+  // the act does not belong to, so the term check cannot answer for it.
+  const question11: Step = { ...byKind("question"), termId: 11 }
+  const instructions11: Step = { ...byKind("instructions"), termId: 11 }
   assert.equal(
-    actMatchesStep({ kind: "vote", termId: 11 }, byKind("question")),
-    false
+    actMatchesStep(vote(11, "up"), question11),
+    false,
+    "a vote names no question step, whatever the term"
+  )
+  assert.equal(
+    actMatchesStep({ kind: "comment", termId: 11 }, instructions11),
+    false,
+    "a comment names no instructions step, whatever the term"
+  )
+  assert.equal(
+    actMatchesStep({ kind: "define", termId: 11 }, question11),
+    false,
+    "a definition names no question step, whatever the term"
   )
 
   // --- Taking part needs a live membership and an open study ---

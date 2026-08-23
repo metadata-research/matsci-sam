@@ -1,8 +1,13 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
-import { eq } from "drizzle-orm"
-import { db, definitionsTable } from "@yamz/db"
+import { and, eq, sql } from "drizzle-orm"
+import {
+  db,
+  definitionsTable,
+  surveyStepCompletionsTable,
+  votesTable
+} from "@yamz/db"
 import { baseProcedure, createTRPCRouter } from "../init"
 import { authenticatedProcedure, contributorProcedure } from "../procedures"
 import { requireRunner } from "./communities"
@@ -17,17 +22,18 @@ import {
   mayRegenerateSteps,
   planSteps,
   recordCompletion,
-  stepGate
+  type Act,
+  type Step
 } from "@/lib/surveys"
 import {
+  actNamesStep,
   appendQuestionStep,
   completionCountOfStudy,
-  hasPosition,
+  gateOf,
   lockStudy,
   nextPositionFor,
   recordResponse,
   replaceSteps,
-  responseOf,
   stepWithStudy,
   studyProgress,
   walkthroughOf
@@ -52,6 +58,8 @@ const questionSchema = z.object({
   prompt: z.string().trim().min(1).max(SURVEY_PROMPT_MAX_LENGTH),
   responseKind: z.enum(["text", "scale"])
 })
+
+type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 // The SQLSTATE of a database refusal, however drizzle wrapped it.
 export const sqlState = (error: unknown) => {
@@ -115,21 +123,23 @@ const requireParticipation = async (stepId: number, userId: number) => {
 /*
  * For votes.vote, comments.create and definitions.create: the step an act
  * names must be one the caller may act in, and must be a step for that act
- * on that term: a vote accepts a candidate in a define step or compares in
- * a review step. Checked before the write; drizzle/invariants.sql proves
- * afterwards that it held.
+ * on that term: an upvote accepts a candidate in a define step, and a vote
+ * of either kind compares in a review step. Checked before the write;
+ * drizzle/invariants.sql proves afterwards that it held.
  */
+const notForThisAct = () =>
+  new TRPCError({
+    code: "BAD_REQUEST",
+    message: "That step is not for this act"
+  })
+
 export const requireStepForAct = async (
   stepId: number,
   userId: number,
-  act: { kind: "comment" | "vote" | "define"; termId: number }
+  act: Act
 ) => {
   const found = await requireParticipation(stepId, userId)
-  if (!actMatchesStep(act, found.step))
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "That step is not for this act"
-    })
+  if (!actMatchesStep(act, found.step)) throw notForThisAct()
   return found
 }
 
@@ -139,7 +149,10 @@ export const requireStepForAct = async (
 export const requireStepForDefinitionAct = async (
   stepId: number,
   userId: number,
-  act: { kind: "comment" | "vote"; definitionId: number }
+  act: { definitionId: number } & (
+    | { kind: "comment" }
+    | { kind: "vote"; vote: "up" | "down" }
+  )
 ) => {
   const target = await db.query.definitionsTable.findFirst({
     columns: { termId: true },
@@ -150,10 +163,65 @@ export const requireStepForDefinitionAct = async (
       code: "NOT_FOUND",
       message: "Definition doesn't exist"
     })
-  return requireStepForAct(stepId, userId, {
-    kind: act.kind,
-    termId: target.termId
-  })
+  return requireStepForAct(
+    stepId,
+    userId,
+    act.kind === "vote"
+      ? { kind: "vote", termId: target.termId, vote: act.vote }
+      : { kind: "comment", termId: target.termId }
+  )
+}
+
+/*
+ * For a vote or a definition inside a define step, in the transaction that
+ * writes it: a participant takes one position per define step, so an act
+ * of the caller already naming the step refuses a second, and so does the
+ * completion of the step, which a standing upvote is recorded against with
+ * no act of its own. For a vote, the act is the kind the vote will stand
+ * at: a cast on a candidate the caller already upvoted is a withdrawal, and
+ * a withdrawal names no define step. The definition row is held first, as
+ * castVote holds it, so the standing vote read here is the one castVote
+ * toggles on.
+ */
+export const requireOnePosition = async (
+  tx: DatabaseTransaction,
+  step: Step,
+  userId: number,
+  vote?: { definitionId: number; revisionId: number; vote: "up" | "down" }
+) => {
+  if (vote) {
+    if (step.termId === null) throw notForThisAct()
+    await tx.execute(
+      sql`SELECT id FROM ${definitionsTable} WHERE id = ${vote.definitionId} FOR UPDATE`
+    )
+    const standing = await tx.query.votesTable.findFirst({
+      columns: { kind: true },
+      where: and(
+        eq(votesTable.userId, userId),
+        eq(votesTable.revisionId, vote.revisionId)
+      )
+    })
+    const kind = standing?.kind === vote.vote ? null : vote.vote
+    if (
+      !actMatchesStep({ kind: "vote", termId: step.termId, vote: kind }, step)
+    )
+      throw notForThisAct()
+  }
+  const [completion] = await tx
+    .select({ id: surveyStepCompletionsTable.id })
+    .from(surveyStepCompletionsTable)
+    .where(
+      and(
+        eq(surveyStepCompletionsTable.stepId, step.id),
+        eq(surveyStepCompletionsTable.userId, userId)
+      )
+    )
+    .limit(1)
+  if (completion || (await actNamesStep(tx, step.id, userId)))
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "Your position on this term is recorded"
+    })
 }
 
 export const surveysRouter = createTRPCRouter({
@@ -311,6 +379,8 @@ export const surveysRouter = createTRPCRouter({
    * define step requires the caller's position on the term, and a question
    * its answer, which answerQuestion records with the completion.
    * Completing twice is not an error. Returns where the caller resumes.
+   * The order of the steps is a rule of the shell, not of the router: any
+   * completion whose gate passes is recorded.
    *
    * A completion reaches no graph, so the press does not mark the graphs
    * for a rebuild, unlike the acts a step asks for.
@@ -321,13 +391,7 @@ export const surveysRouter = createTRPCRouter({
     .mutation(async ({ ctx: { userId }, input: { stepId } }) => {
       const { step, study } = await requireParticipation(stepId, userId)
 
-      const gate = stepGate(step, {
-        hasPosition:
-          step.kind === "define" && (await hasPosition(db, step.id, userId)),
-        hasResponse:
-          step.kind === "question" &&
-          (await responseOf(db, step.id, userId)) !== null
-      })
+      const gate = await gateOf(db, step, userId)
       if (!gate.ok)
         throw new TRPCError({
           code: "PRECONDITION_FAILED",

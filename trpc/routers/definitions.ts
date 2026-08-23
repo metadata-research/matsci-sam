@@ -40,7 +40,12 @@ import {
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 import { recordCompletion } from "@/lib/surveys"
 import { nextPositionFor } from "@/lib/survey-queries"
-import { regeneratedConflict, requireStepForAct, sqlState } from "./surveys"
+import {
+  regeneratedConflict,
+  requireOnePosition,
+  requireStepForAct,
+  sqlState
+} from "./surveys"
 
 export const definitionsRouter = createTRPCRouter({
   create: contributorProcedure
@@ -64,7 +69,7 @@ export const definitionsRouter = createTRPCRouter({
         surveyStepId: z.number().int().optional(),
         // The current revision of a definition of the same term this one
         // amends, recorded on the initial revision so the record states the
-        // derivation. The position step of a walkthrough sets it when a
+        // derivation. The define step of a walkthrough sets it when a
         // participant amends a candidate.
         derivedFromRevisionId: z.number().int().optional()
       })
@@ -143,6 +148,12 @@ export const definitionsRouter = createTRPCRouter({
             dbTerm = insertedTerm
           }
 
+          // One position per define step: an act of the author already
+          // naming the step refuses this definition, in the transaction that
+          // would write it.
+          if (walkthroughStep)
+            await requireOnePosition(tx, walkthroughStep.step, authorId)
+
           const existingOriginal = await tx.query.definitionsTable.findFirst({
             columns: { id: true },
             where: and(
@@ -159,28 +170,31 @@ export const definitionsRouter = createTRPCRouter({
             })
 
           // An amendment derives from what a reader can see now: the current
-          // revision of a definition of this term. An older revision, or a
-          // revision of another term, is refused rather than recorded as the
-          // source of a definition it was not.
+          // revision of a definition of this term. A revision of another
+          // term, or none, is no candidate here; an older revision of a
+          // candidate is refused with a reload, because the text has moved
+          // on. Neither is recorded as the source of a definition it was not.
           if (input.derivedFromRevisionId !== undefined) {
             const [source] = await tx
-              .select({ id: definitionRevisionsTable.id })
+              .select({
+                termId: definitionsTable.termId,
+                current: sql<boolean>`${definitionsTable.currentRevisionId} = ${definitionRevisionsTable.id}`
+              })
               .from(definitionRevisionsTable)
               .innerJoin(
                 definitionsTable,
-                eq(
-                  definitionsTable.currentRevisionId,
-                  definitionRevisionsTable.id
-                )
+                eq(definitionsTable.id, definitionRevisionsTable.definitionId)
               )
               .where(
-                and(
-                  eq(definitionRevisionsTable.id, input.derivedFromRevisionId),
-                  eq(definitionsTable.termId, dbTerm.id)
-                )
+                eq(definitionRevisionsTable.id, input.derivedFromRevisionId)
               )
               .limit(1)
-            if (!source)
+            if (!source || source.termId !== dbTerm.id)
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "That revision is not a candidate of this term"
+              })
+            if (!source.current)
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:

@@ -47,13 +47,14 @@ export const DEFAULT_INSTRUCTIONS =
   "Two questions about the list close the walkthrough.\n\nThe definition with " +
   "the most support becomes the group's reference for that term. A step is " +
   "saved when you press the button at its end, and you can leave and come " +
-  "back to the step you stopped at."// The two closing questions, about the list the group has settled: whether
+  "back to the step you stopped at."
+
+// The two closing questions, about the list the group has settled: whether
 // the participant would use it, and what it lacks. Added after the review
 // steps, and left out when the steward unchecks them.
 export const DEFAULT_QUESTIONS: Question[] = [
   {
-    prompt:
-      "Would you use this list as it stands in your work? Answer from 1, not at all, to 5, as it stands.",
+    prompt: "Would you use this list as it stands in your work?",
     responseKind: "scale"
   },
   {
@@ -67,9 +68,9 @@ const nonblank = (text: string | null) =>
 
 /*
  * The plan of a walkthrough from the collection of a study: instructions,
- * one position step per term, one review step per term, then the questions.
+ * one define step per term, one review step per term, then the questions.
  * Terms arrive in label order, as collectionMembers returns them, and keep
- * it, so the position steps and the review steps read in the same order.
+ * it, so the define steps and the review steps read in the same order.
  */
 export const planSteps = (input: {
   welcome: string | null
@@ -119,9 +120,13 @@ export const resumePosition = (
 /*
  * Whether a step may be pressed through, given the facts the caller loaded.
  * Instructions and review complete on the press. A define step requires a
- * position: a vote event or an initial revision by the participant naming
- * the step (lib/survey-queries.ts hasPosition). A question requires its
- * answer, which answerQuestion writes together with the completion.
+ * position on its term, which is exactly one of: an upvote event by the
+ * participant naming the step, an initial revision of theirs naming the
+ * step, or a standing upvote of theirs on the current revision of a
+ * definition of the term, which satisfies the gate without being an act of
+ * the step (lib/survey-queries.ts hasPosition loads the fact, gateOf the
+ * whole gate). A question requires its answer, which answerQuestion writes
+ * together with the completion.
  */
 export const stepGate = (
   step: Step,
@@ -149,22 +154,31 @@ export const mayRegenerateSteps = (completionCount: number) =>
 
 /*
  * Whether an act may name a step as its context. A comment is a review act
- * on the term of a review step. A vote is a review act there too, and the
- * accepting act of a define step on its term. A definition is the act of a
- * define step on its term. Anything else is a step for some other act, and
- * the context is refused rather than recorded wrong.
+ * on the term of a review step. A vote is a review act there too, whatever
+ * its kind, and in the define step of its term the accepting act, which is
+ * an upvote: a downvote or a withdrawal takes no position, so neither may
+ * name a define step. A definition is the act of a define step on its term.
+ * Anything else is a step for some other act, and the context is refused
+ * rather than recorded wrong.
  */
-const STEPS_OF_ACT: Record<"comment" | "vote" | "define", StepKind[]> = {
+const STEPS_OF_ACT: Record<Act["kind"], StepKind[]> = {
   comment: ["review"],
   vote: ["review", "define"],
   define: ["define"]
 }
 
-export const actMatchesStep = (
-  act: { kind: "comment" | "vote" | "define"; termId: number },
-  step: Step
-): boolean =>
-  STEPS_OF_ACT[act.kind].includes(step.kind) && step.termId === act.termId
+// A vote act carries the kind the vote stands at after it, as the event
+// records it: null is a withdrawal.
+export type Act =
+  | { kind: "comment"; termId: number }
+  | { kind: "define"; termId: number }
+  | { kind: "vote"; termId: number; vote: "up" | "down" | null }
+
+export const actMatchesStep = (act: Act, step: Step): boolean => {
+  if (!STEPS_OF_ACT[act.kind].includes(step.kind)) return false
+  if (step.termId !== act.termId) return false
+  return act.kind !== "vote" || step.kind !== "define" || act.vote === "up"
+}
 
 // Whether a person may act in a study right now: a live membership of its
 // community and an open study. A steward or an administrator who is not a
