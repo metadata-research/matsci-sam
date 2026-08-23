@@ -58,3 +58,6 @@ docs-internal
 
 # Local agent tooling
 .agents/
+
+# Pilot driver run manifests
+.cache/
