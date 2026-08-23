@@ -200,14 +200,15 @@ const main = async () => {
         ])
         .returning({ id: termsTable.id })
       assert.ok(termA.id < termB.id && termB.id < termC.id)
-      const { definition } = await createDefinitionWithInitialRevision(tx, {
-        termId: termA.id,
-        authorId: user.id,
-        definition: "A fixture definition for the KOS ledger test.",
-        example: "Rolled back at the end.",
-        changeNote: "fixture",
-        source: "initial"
-      })
+      const { definition, revision: fixtureRevision } =
+        await createDefinitionWithInitialRevision(tx, {
+          termId: termA.id,
+          authorId: user.id,
+          definition: "A fixture definition for the KOS ledger test.",
+          example: "Rolled back at the end.",
+          changeNote: "fixture",
+          source: "initial"
+        })
       const [topicX, topicY] = await tx
         .insert(conceptsTable)
         .values([
@@ -765,6 +766,18 @@ const main = async () => {
         "one active and one retracted topic before purge"
       )
 
+      // A vote on the definition before the purge: its event goes with the
+      // definition, the one hard delete of the act record, where the
+      // foreign key to the revision would otherwise refuse the purge.
+      await castVote(tx, {
+        definitionId: definition.id,
+        revisionId: fixtureRevision.id,
+        userId: user.id,
+        vote: "up",
+        actorKind: "human",
+        communityId: null
+      })
+
       const deleted = await deleteDefinitionRows(tx, definition.id)
       assert.equal(deleted?.id, definition.id)
       const after = await tx
@@ -772,6 +785,15 @@ const main = async () => {
         .from(statementsTable)
         .where(eq(statementsTable.subjectDefinitionId, definition.id))
       assert.equal(after.length, 0, "definition-level statements purged")
+      const eventsAfter = await tx
+        .select({ id: voteEventsTable.id })
+        .from(voteEventsTable)
+        .where(eq(voteEventsTable.definitionId, definition.id))
+      assert.equal(
+        eventsAfter.length,
+        0,
+        "the vote events of a purged definition go with it"
+      )
       const remainingFacet = await tx
         .select({ id: statementsTable.id })
         .from(statementsTable)

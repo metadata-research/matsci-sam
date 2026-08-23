@@ -835,12 +835,15 @@ export const votesTableRelations = relations(votesTable, ({ one }) => ({
 
 // --- VOTE EVENTS ---
 // Append-only record of every voting act: cast, change, withdrawal. Rows
-// are never updated and never deleted. votes stays the current-state row
-// the tallies read; these rows are what consensus formation is
-// reconstructed from. The two records agree from migration 0040 forward
-// for new acts, and for earlier votes through the one row per vote the
-// 0043 backfill wrote: the single act each vote had always been published
-// as, with its own time, flagged backfilled. A change or withdrawal made
+// are not updated, and are deleted only with their definition by the
+// administrative purge (lib/definition-purge.ts), the one hard delete.
+// votes stays the current-state row the tallies read; these rows are what
+// consensus formation is reconstructed from. The two records agree from
+// migration 0040 forward for new acts, and for earlier votes through the
+// one row per vote the 0043 backfill wrote: the single act each vote had
+// always been published as, flagged backfilled, at the recorded time of the
+// vote, which for a vote cast before 2026-07-19 is the creation time of its
+// definition; migratedLegacy marks those rows. A change or withdrawal made
 // before 0040 was never recorded and is not invented, so the record does
 // not cross-check the tally beyond one event per current vote.
 export type VoteEvent = typeof voteEventsTable.$inferSelect
@@ -861,13 +864,15 @@ export const voteEventsTable = pgTable(
     // The community the voter was working in, resolved at write time inside
     // the vote transaction. Null reads as unscoped, never as unknown.
     communityId: integer().references((): AnyPgColumn => communitiesTable.id),
-    // The review step the act was taken inside, when it was taken from a
-    // walkthrough. See surveySteps.
+    // The step the act was taken inside, when it was taken from a
+    // walkthrough: the define step of the term, where an upvote accepts a
+    // candidate, or its review step. See surveySteps.
     surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
     // True only on a row migration 0043 wrote for a vote cast before the
     // event record began. The act is the one the vote had always been
-    // published as, at the time of the vote; its toggle history was never
-    // recorded. No write path sets this.
+    // published as, at the recorded time of the vote, a placeholder for a
+    // vote cast before 2026-07-19 (see votes.createdAt); its toggle history
+    // was never recorded. No write path sets this.
     backfilled: boolean().notNull().default(false),
     // Copied from the votes row at the backfill: the binding of the vote to
     // its revision was inferred when the record was first migrated, because

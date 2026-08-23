@@ -312,7 +312,7 @@ export const buildTermProvenance = async (
 
   // Vote events are the record of every voting act: one row per act from
   // migration 0040 forward, withdrawals included, and one row per earlier
-  // vote as the 0043 backfill wrote it, at the time of the vote.
+  // vote as the 0043 backfill wrote it, at the recorded time of the vote.
   const voteEvents =
     definitionIds.length && includeVotes
       ? await db

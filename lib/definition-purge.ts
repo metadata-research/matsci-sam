@@ -9,6 +9,7 @@ import {
   refinementsTable,
   statementsTable,
   tagsToDefinitions,
+  voteEventsTable,
   votesTable
 } from "@yamz/db"
 import { eq, or } from "drizzle-orm"
@@ -18,8 +19,10 @@ type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 /*
  * Delete everything that references a single definition row, then the row.
  * This is the exceptional administrative purge (definitions.delete); nothing
- * else hard-deletes contributed content. Foreign keys are all ON DELETE no
- * action, so the cascade is spelled out here inside the caller's transaction.
+ * else hard-deletes contributed content, and the act record of the
+ * definition, its vote events included, goes with it. Foreign keys are all
+ * ON DELETE no action, so the cascade is spelled out here inside the
+ * caller's transaction.
  *
  * Plain module (no revalidatePath, no "server-only") so scripts/test-kos-db.ts
  * can call it directly.
@@ -40,6 +43,10 @@ export const deleteDefinitionRows = async (
   await tx.delete(commentsTable).where(eq(commentsTable.definitionId, id))
 
   await tx.delete(votesTable).where(eq(votesTable.definitionId, id))
+
+  // The vote events of the definition are the one part of the append-only
+  // act record a purge deletes: they name revisions that are about to go.
+  await tx.delete(voteEventsTable).where(eq(voteEventsTable.definitionId, id))
 
   await tx.delete(editsTable).where(eq(editsTable.definitionId, id))
 
