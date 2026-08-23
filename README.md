@@ -18,7 +18,8 @@ version is recorded in `package.json`.
 6. Open <http://localhost:3000>.
 
 PostgreSQL is required. Ollama is required only for AI generation and
-refinement.
+refinement. A Jena Fuseki store is optional, and
+`docs/technical/graph-layer.md` says how to run one.
 
 ## Verification
 
@@ -32,9 +33,17 @@ pnpm test:identifiers
 pnpm test:revisions
 pnpm test:interface
 pnpm test:ollama-context
+pnpm test:kos
+pnpm test:graph
+pnpm test:communities
+pnpm test:surveys
+pnpm test:migration-journal
 pnpm db:check
 pnpm build
 ```
+
+`pnpm test:kos-db`, `pnpm test:graph-db` and `pnpm db:invariants` read a
+database through `DATABASE_URL` and run in CI against a seeded one.
 
 ## Contributing
 
