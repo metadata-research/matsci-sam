@@ -23,12 +23,25 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { db, definitionsTable, termsTable } from "@yamz/db"
+import { studiesOfViewer } from "@/lib/study-queries"
+import { studyState } from "@/lib/communities"
+import { studyPath } from "@/lib/public-identifiers"
+import { walkthroughProgress } from "@/components/studies/progress"
 
 export const metadata: Metadata = { title: `Profile | ${SITE_NAME}` }
+
+const STUDY_STATE_LABEL = {
+  draft: "Not open yet",
+  open: "Open",
+  closed: "Closed",
+  retired: "Retired"
+} as const
 
 export default async function ProfilePage() {
   const { user } = await auth()
   if (!user) redirect("/login")
+
+  const myStudies = await studiesOfViewer(user.id)
 
   const authoredTerms = await db
     .select({
@@ -143,6 +156,45 @@ export default async function ProfilePage() {
                 }
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Your studies</CardTitle>
+            <CardDescription>
+              The studies of the communities you belong to.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {myStudies.length ? (
+              <ul className="divide-y">
+                {myStudies.map((study) => (
+                  <li key={study.id}>
+                    <Link
+                      href={studyPath(study.slug)}
+                      className="flex items-baseline justify-between gap-4 rounded-md px-2 py-3 hover:bg-accent"
+                    >
+                      <span className="font-medium">{study.title}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {walkthroughProgress(study) ??
+                          STUDY_STATE_LABEL[studyState(study)]}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="space-y-3 py-3 text-sm text-muted-foreground">
+                <p>
+                  You are not in any studies yet. A study appears here once
+                  you join the community running it.
+                </p>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/studies">See the studies</Link>
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
