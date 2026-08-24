@@ -21,9 +21,11 @@ broader class first, then what distinguishes the term from its neighbours.
 If the term already exists, open its vocabulary page and choose one of the
 actions there instead.
 
-An optional **Suggest a definition with AI** button supplies an editable
-draft. Review it before publishing. The application credits the named model
-if you use the suggestion; it does not silently publish a second definition.
+Select **Suggest a definition with AI** to generate an editable draft. Review
+and edit the draft before publishing. The published definition is attributed
+to you and the named model.
+
+![The New term form with its definition field and optional AI suggestion control](/images/docs/quickstart-contribute.png)
 
 [Adding a term](/docs/adding-terms) covers the contribution actions and the
 form in detail.
@@ -72,8 +74,8 @@ publishes nothing. Use the separate **Comment** action when the feedback should
 remain discussion only.
 
 [Discussion](/docs/discussion) covers the feed, and [AI-assisted
-suggestions](/docs/ai-refinement) covers the two places where AI can draft
-text.
+suggestions](/docs/ai-refinement) covers the two contribution actions that can
+request an AI draft.
 
 ## Replace or illustrate a definition
 
@@ -94,7 +96,7 @@ replacement links, AI suggestions that are used, examples, comments, and
 votes. The provenance page for a term presents the published history as a
 timeline and as a W3C PROV-O graph available for download.
 
-![The provenance timeline for passivation, listing term creation and each revision in order](/images/docs/quickstart-provenance.png)
+![The provenance graph for passivation, including definitions, examples, AI-assisted activity, comments, and the timeline](/images/docs/quickstart-provenance.png)
 
 Definitions and revisions keep stable addresses, so a citation continues to
 resolve to the exact text it referred to.

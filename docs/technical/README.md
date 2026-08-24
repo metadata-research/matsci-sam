@@ -10,6 +10,9 @@ the knowledge organization reference in `docs/reference/`.
   tests that verify their consistency.
 - [The LLM layer](llm-layer.md) covers the client, the prompt registry, the
   provenance stamp, model identities, and how to add a structured call.
+- [Examples of use](examples.md) covers independent example contributions,
+  featured-example history, compatibility projections, legacy records, and the
+  tests that protect those contracts.
 - [The graph layer](graph-layer.md) covers the named graphs, the projector
   and its hooks, running the Fuseki store and the Jena validators locally,
   the SHACL shapes, what CI checks, and the paper queries.

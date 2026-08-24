@@ -30,19 +30,25 @@ itself is `prov:wasAttributedTo` that person and, when the text came from an
 accepted suggestion, to the named model as well. Votes and comments are
 events on the revision they concern.
 
-An accepted AI suggestion records one of two intents. A new-term suggestion
-records the requested term, contributor context when supplied, stored model
-output, prompt, named model, and published definition. A revision suggestion
-also records the exact source revision and the contributor's critique. The
-suggestion is stored before the contributor reviews, edits, publishes, or
-discards it. Only publishing creates vocabulary content.
+An AI suggestion records one of two intents. A new-term suggestion records the
+requested term, contributor context when supplied, stored model output, prompt,
+and named model. A revision suggestion also records the exact source revision
+and the contributor's critique. The application stores the suggestion before
+the contributor reviews and edits it. Publication links the suggestion to the
+new definition and creates vocabulary content. Discard leaves the stored draft
+outside the vocabulary.
+
+Historical accepted suggestions from retired workflows remain in the record
+when the stored output link identifies the published definition. The
+application does not infer the provenance of an output from another suggestion
+on the source definition.
 
 An application-created example is an immutable contribution to a stable
 definition and identifies the exact revision visible when it was added. A
 definition can have several examples. A featured-example selection records who
 made the selection and the interval during which it applied. Selection does
 not create a definition revision or change a vote. Examples recovered from the
-former scalar example field are marked as legacy; their exact source revision,
+former scalar example field are marked as legacy. Their exact source revision,
 actor, contribution time, selector, and selection time were not recorded and
 remain unknown in the provenance graph.
 

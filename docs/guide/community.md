@@ -99,7 +99,7 @@ voters. Scientific assessment comes from the definitions and their discussion.
 
 The primary author can revise the definition text in place. Other contributors
 can comment, vote, suggest an AI-assisted revision, or propose a replacement.
-Suggested revisions and replacements are separate voteable candidates; they do
+Suggested revisions and replacements are separate voteable candidates. They do
 not overwrite their source or target.
 
 **Publish revision** keeps the definition identifier and URL. The new revision
@@ -131,8 +131,8 @@ not invoke AI.
 
 Examples are independent contributions to a particular definition. Any
 contributor can use **Add example**, and a definition can keep more than one.
-Each example records the definition revision visible when it was added, its
-contributor, and its publication time.
+Each example added through the application records the definition revision
+visible when it was added, its contributor, and its publication time.
 
 The first example is featured automatically. The definition author or a
 moderator can feature a different one. Compact definition cards show that
@@ -145,12 +145,14 @@ Records created under the earlier pilot schema contain all stored definition
 text, but some imported revisions lack an editor or change note. The revision
 history labels those snapshots as imported and leaves unknown values empty.
 Examples imported from the earlier single-example field are labeled as legacy
-examples; an original contributor may be unknown.
+examples. The earlier schema did not record their independent contributor,
+exact source revision, publication time, selector, or selection time. The
+facts remain unknown in the interface and provenance graph.
 
-MatSci-SAM associated existing comments with the revision visible at their
-recorded time and labels those links as imported associations. Imported votes
-refer to the revision current during migration because earlier vote timestamps
-cannot establish which text the voter evaluated.
+Imported comments identify the revision visible at their recorded time, and
+the interface labels those links as imported associations. Imported votes
+identify the revision current during migration. Their earlier timestamps do
+not establish which text the voter evaluated.
 
 ## Comments
 

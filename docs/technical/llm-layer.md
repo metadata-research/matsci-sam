@@ -21,7 +21,7 @@ clear error for an unknown key. `NewTermSystemPrompt` and
 `RevisionSuggestionSystemPrompt` are the prompts for the two canonical
 AI-assisted actions. `LLMSystemPrompt` remains for administrator-run legacy
 term generation. Historical refinement rows carry their own stored prompt text
-and model provenance; the retired refinement prompt is no longer executable.
+and model provenance. The retired refinement prompt is no longer executable.
 The prompts are resolved at import, so import this module only where a prompt
 is needed.
 
@@ -60,6 +60,23 @@ canonical public entry point is
 preview. `definitions.create` validates and consumes the suggestion identifier
 when the contributor publishes it.
 
+**`ai-contribution-suggestions.ts`** owns discard semantics. A requester may
+discard a generated preview, and a retry against the same discarded row is a
+successful no-op. The update preserves the first decision time and does not
+expose a preview to another account.
+
+**`definition-source.ts`** locks the stable definition that owns a source
+revision. `definitions.create` and the pilot driver use this shared check so a
+concurrent edit either commits before source validation or waits until the
+derived definition commits.
+
+**`ai-contribution-provenance.ts`** loads accepted canonical and historical
+Discussion suggestions through the exact output definition foreign key.
+`featured-provenance.ts` resolves the homepage activity label from those exact
+records and from an accepted historical refinement when one is linked to the
+output revision. `lib/provenance.ts` uses the same canonical queries for the
+term record.
+
 ## Canonical contribution boundary
 
 AI is optional inside **New term** and required to draft **Suggest a
@@ -75,8 +92,15 @@ This is an architectural boundary as well as interface copy: the comments
 router performs only the comment write, replacement publication has no
 suggestion identifier, and examples use their own contribution table.
 `scripts/test-public-router-surface.ts` inspects the mounted application router
-in CI so retained historical refinement code cannot accidentally become a
-second public workflow again.
+in CI. It requires the three `aiAssist` procedures, a read-only Discussion
+router, and the absence of the retired refinements router and its source file.
+
+Publication holds the source-definition lock while it checks that the source
+revision remains current and consumes the suggestion. Discard is idempotent, so
+a client may retry after a lost response without changing the first decision
+time. `scripts/test-definition-source-lock.ts` and
+`scripts/test-ai-contribution-discard-db.ts` exercise these cases against a
+migrated database.
 
 **`model-identity.ts`** turns a model tag into an identity, giving a slug,
 display name, vendor, family and parameter size. It is pure, so a model that
@@ -109,10 +133,11 @@ resolved prompt from `prompts.ts`, then export the corresponding stamp from
 `runLLM(messages, prompt, Schema)`. Write the stamp on whatever row records the
 result before a person acts on it. Persist the model output before the human
 decision to retain the complete attribution record. A new public drafting
-feature must also fit one of the two canonical AI-assisted actions; it must not
+feature must also fit one of the two canonical AI-assisted actions. It must not
 attach a model side effect to a comment, replacement, or example.
 
 `scripts/test-prompt.ts` compares every registered prompt against the live
 host for one term without touching the database. Use it when editing a
 prompt. `scripts/test-ollama-revision-context.ts` covers the pure context
-helpers and runs in CI.
+helpers. `scripts/test-featured-provenance.ts` checks the precedence and exact
+linkage of homepage AI activity. These tests run in CI.

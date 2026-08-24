@@ -23,6 +23,8 @@ participant interface.
 - `components/studies/walkthrough.tsx` is the step shell, and
   `GenerateWalkthrough` in `components/communities/controls.tsx` is the
   steward control.
+- `components/use-mutation-activity.ts` counts nested mutation lifecycles so
+  the step shell can disable movement until every active write settles.
 
 ## Tables
 
@@ -115,10 +117,11 @@ comment and never triggers a model request. `definitions.create` with a step
 runs `requireStepForAct` as a define act, and inside the transaction runs
 `requireOnePosition`. For **Suggest a revision**, it checks that
 `derivedFromRevisionId` is the current revision of a definition of the same
-term and consumes the explicit AI suggestion. For **Propose a replacement**,
-it checks that `replacesDefinitionId` is a stable definition of the same term.
-It records the completion with the newly published candidate and returns where
-the walkthrough resumes.
+term, holds the stable definition through that check, and consumes the explicit
+AI suggestion. For **Propose a replacement**, it checks that
+`replacesDefinitionId` is a stable definition of the same term. It records the
+completion with the newly published candidate and returns where the walkthrough
+resumes.
 
 ## The support list
 
@@ -165,6 +168,13 @@ closing questions, and gives way to the step count once the walkthrough is in
 use or the study is retired. `studyProgress` gives the page how many
 participants have finished.
 
+The `Walkthrough` component owns a counted interaction state. Vote, comment,
+definition, AI draft, discard, completion, and answer controls report their
+mutation lifecycle to this state. Step dots and movement controls remain
+disabled from the initiating action until all related writes settle. Counting
+supports sequences such as the position vote followed by step completion and
+also supports overlapping child writes.
+
 ## Tests and what CI checks
 
 `pnpm test:surveys` runs `scripts/test-surveys.ts` under plain `tsx` with a
@@ -178,3 +188,8 @@ back through `walkthroughOf` and `gateOf`. The `db-invariants` job applies the
 migrations, runs `pnpm db:invariants` and this test, seeds the database with
 `pnpm seed:ci-graph`, whose fixture includes a study, and runs the invariants
 again on the result.
+
+`pnpm test:definition-ui-safety` checks that the walkthrough receives each
+child mutation lifecycle and disables step navigation, votes, comments, and
+question controls while a write is active. `pnpm test:definition-source-lock`
+checks the shared source lock with two concurrent database transactions.

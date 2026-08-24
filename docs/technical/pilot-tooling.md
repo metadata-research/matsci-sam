@@ -106,6 +106,11 @@ a second cast that would withdraw an existing vote. `--steps` takes a
 comma-separated subset of `setup`, `position`, `review`, `walkthrough`, and
 `close`.
 
+An amendment uses `lockDefinitionRevisionSource` after model generation and
+before publication. The lock confirms that the source revision shown to the
+model remains current and prevents a concurrent edit from advancing the source
+definition until the derived definition commits.
+
 `slugs(suffix)` names the containers `id4`, `id4_round_two` and
 `id4_round_two_terms`, each with the suffix appended. The public run takes no
 suffix and runs once. The driver refuses clean slugs when the checkpoint file
