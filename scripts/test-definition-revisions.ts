@@ -32,6 +32,27 @@ const main = async () => {
     changeDelta: "0.307"
   })
 
+  const emptyDiff = createTextDiff("", "")
+  assert.deepEqual(emptyDiff, [[DiffOp.Equal, ""]])
+  assert.equal(diffToStringSimple(emptyDiff), "")
+  assert.deepEqual(revisionDiffMetrics([emptyDiff]), {
+    charsAdded: 0,
+    charsRemoved: 0,
+    changeDelta: "0.000"
+  })
+
+  const clearedDiff = createTextDiff("Example text.", "")
+  assert.deepEqual(clearedDiff, [
+    [DiffOp.Delete, "Example text."],
+    [DiffOp.Equal, ""]
+  ])
+  assert.equal(diffToStringSimple(clearedDiff), "")
+  assert.deepEqual(revisionDiffMetrics([clearedDiff]), {
+    charsAdded: 0,
+    charsRemoved: 13,
+    changeDelta: "1.000"
+  })
+
   console.log("Definition revision diff checks passed.")
 }
 

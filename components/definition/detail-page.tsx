@@ -161,9 +161,9 @@ export async function DefinitionDetailPage({
                 >
                   <DefinitionExamples
                     definitionId={definition.id}
-                    sourceRevisionId={
-                      definition.currentRevisionId ?? definition.revisionId
-                    }
+                    sourceRevisionId={definition.revisionId}
+                    readOnly={!definition.isCurrentRevision}
+                    currentRevisionHref={stableDefinitionPath}
                   />
                 </Suspense>
 
@@ -441,7 +441,7 @@ export async function DefinitionDetailPage({
                     </div>
                     {definition.authorId === sesh.id &&
                       !current &&
-                      revision.exampleDiff !== null && (
+                      revision.restorable && (
                         <RestoreRevisionButton
                           definitionId={definition.id}
                           revisionId={revision.id}

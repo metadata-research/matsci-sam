@@ -14,6 +14,7 @@ import { Badge } from "./ui/badge"
 import { definitionStatus, type DefinitionStatus } from "@/lib/status"
 import { PublicProfileName } from "./public-profile-name"
 import { definitionPath } from "@/lib/public-identifiers"
+import type { MutationActivityCallbacks } from "@/components/use-mutation-activity"
 
 // Shared by the definition cards and the single-definition page so both use
 // one label treatment.
@@ -65,7 +66,10 @@ export const Definition = ({
   surveyStepId,
   expectedInstructions,
   voteReadOnly = false,
+  voteDisabled = false,
   voteReadOnlyTitle,
+  onMutationStart,
+  onMutationEnd,
   children
 }: {
   definition: DefinitionType & {
@@ -95,9 +99,12 @@ export const Definition = ({
   // Keep the score and the viewer's vote on show with the buttons disabled,
   // and say why on hover.
   voteReadOnly?: boolean
+  // Temporarily disable votes while a surrounding workflow transition owns
+  // the step. Unlike read-only, this does not describe persisted state.
+  voteDisabled?: boolean
   voteReadOnlyTitle?: string
   children?: ReactNode
-}) => (
+} & MutationActivityCallbacks) => (
   <Card
     // The leading (highest-voted) definition is marked by a full primary
     // border and a soft lift, not a label and not a fill -- a colored edge on
@@ -118,7 +125,10 @@ export const Definition = ({
         surveyStepId={surveyStepId}
         expectedInstructions={expectedInstructions}
         readOnly={voteReadOnly}
+        disabled={voteDisabled}
         readOnlyTitle={voteReadOnlyTitle}
+        onMutationStart={onMutationStart}
+        onMutationEnd={onMutationEnd}
       />
     )}
     <section className="min-w-0 flex-1 space-y-2">

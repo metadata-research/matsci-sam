@@ -25,11 +25,6 @@ const resolveSystemPrompt = () => {
 
 export const LLMSystemPrompt = resolveSystemPrompt()
 
-// Prompt for the interactive refine flow; REFINE_PROMPT_KEY overrides the
-// default "refine" entry in lib/prompts.json.
-export const RefinePromptKey = process.env.REFINE_PROMPT_KEY ?? "refine"
-export const RefineSystemPrompt = resolvePromptKey(RefinePromptKey)
-
 // The explicit pre-publication suggestion in the canonical New term action.
 // It deliberately returns definition text only: examples have their own
 // contribution lifecycle and are never smuggled in through this action.

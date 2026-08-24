@@ -47,6 +47,7 @@ import {
 } from "./surveys"
 import { GetModelUser } from "@/lib/crud"
 import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
+import { lockDefinitionRevisionSource } from "@/lib/definition-source"
 
 // Compatibility projection for compact definition views while examples have
 // their own endpoint: expose the active featured contribution under the old
@@ -277,25 +278,16 @@ export const definitionsRouter = createTRPCRouter({
           // on. Neither is recorded as the source of a definition it was not.
           let sourceDefinitionId: number | null = null
           if (derivedFromRevisionId !== undefined) {
-            const [source] = await tx
-              .select({
-                definitionId: definitionsTable.id,
-                termId: definitionsTable.termId,
-                current: sql<boolean>`${definitionsTable.currentRevisionId} = ${definitionRevisionsTable.id}`
-              })
-              .from(definitionRevisionsTable)
-              .innerJoin(
-                definitionsTable,
-                eq(definitionsTable.id, definitionRevisionsTable.definitionId)
-              )
-              .where(eq(definitionRevisionsTable.id, derivedFromRevisionId))
-              .limit(1)
+            const source = await lockDefinitionRevisionSource(
+              tx,
+              derivedFromRevisionId
+            )
             if (!source || source.termId !== dbTerm.id)
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message: "That revision is not a candidate of this term"
               })
-            if (!source.current)
+            if (!source.isCurrent)
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:
@@ -756,7 +748,14 @@ export const definitionsRouter = createTRPCRouter({
         changeNote: selectedRevision.changeNote,
         legacyIncomplete: selectedRevision.legacyIncomplete,
         editor: selectedRevision.editor,
-        revisions,
+        revisions: revisions.map((revision) => ({
+          ...revision,
+          // Examples have their own append-only history. Restoring a legacy
+          // revision whose only difference was its embedded example would be
+          // a no-op, so do not offer that action in the definition history.
+          restorable:
+            diffToStringSimple(revision.definitionDiff) !== def.definition
+        })),
         coauthors,
         refinedFromDefinitionNumber: refinedFrom?.definitionNumber ?? null,
         refinedVersionId: refinedVersion?.id ?? null,

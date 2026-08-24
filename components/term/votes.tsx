@@ -8,8 +8,12 @@ import { trpc } from "@/trpc/client"
 import { toast } from "sonner"
 import { loginToast } from "@/components/login-toast"
 import { useEffect, useRef } from "react"
+import {
+  type MutationActivityCallbacks,
+  useMutationActivity
+} from "@/components/use-mutation-activity"
 
-interface Props {
+interface Props extends MutationActivityCallbacks {
   definitionId: number
   revisionId: number
   initial: {
@@ -17,6 +21,7 @@ interface Props {
     vote: "up" | "down" | null
   }
   readOnly?: boolean
+  disabled?: boolean
   // Why the buttons are disabled, shown on hover. The default names the
   // one reason the definition pages have.
   readOnlyTitle?: string
@@ -34,10 +39,13 @@ export const TermVotes = ({
   revisionId,
   initial,
   readOnly = false,
+  disabled = false,
   readOnlyTitle = "Earlier revisions are read-only",
   onScoreChange,
   surveyStepId,
-  expectedInstructions
+  expectedInstructions,
+  onMutationStart,
+  onMutationEnd
 }: Props) => {
   const { data, refetch } = trpc.votes.get.useQuery(
     { definitionId, revisionId },
@@ -58,12 +66,14 @@ export const TermVotes = ({
     cbRef.current?.(data?.score == null ? 0 : Number(data.score))
   }, [data?.score])
 
+  const activity = useMutationActivity({ onMutationStart, onMutationEnd })
   const { isPending, mutate } = trpc.votes.vote.useMutation({
     onSuccess: () => refetch(),
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED") loginToast("vote")
       else toast.error(error.message)
-    }
+    },
+    onSettled: activity.end
   })
 
   return (
@@ -82,9 +92,10 @@ export const TermVotes = ({
           "rounded-t-full !px-2 !pb-1",
           data?.vote === "up" ? "text-primary" : ""
         )}
-        disabled={isPending || readOnly}
+        disabled={activity.busy || isPending || readOnly || disabled}
         onClick={(e) => {
           e.preventDefault()
+          activity.start()
           mutate({
             vote: "up",
             definitionId,
@@ -105,9 +116,10 @@ export const TermVotes = ({
           "rounded-b-full !px-2 !pt-1",
           data?.vote === "down" ? "text-primary" : ""
         )}
-        disabled={isPending || readOnly}
+        disabled={activity.busy || isPending || readOnly || disabled}
         onClick={(e) => {
           e.preventDefault()
+          activity.start()
           mutate({
             vote: "down",
             definitionId,

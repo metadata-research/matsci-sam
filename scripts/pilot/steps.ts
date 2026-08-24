@@ -31,6 +31,7 @@ import {
   votesTable
 } from "../../drizzle"
 import { createDefinitionWithInitialRevision } from "../../lib/definition-revisions"
+import { lockDefinitionRevisionSource } from "../../lib/definition-source"
 import { DefinitionOutput, runLLM } from "../../lib/llm/client"
 import { castVote, insertComment } from "../../lib/participation"
 import {
@@ -294,13 +295,15 @@ export const amendAct = async (
     // definition through this write so a concurrent revision either lands
     // before this check (and refuses the stale amendment) or waits until the
     // derivation has committed.
-    const [currentDraft] = await tx
-      .select({ currentRevisionId: definitionsTable.currentRevisionId })
-      .from(definitionsTable)
-      .where(eq(definitionsTable.id, draft.id))
-      .limit(1)
-      .for("share")
-    if (!currentDraft || currentDraft.currentRevisionId !== sourceRevisionId)
+    const currentDraft = await lockDefinitionRevisionSource(
+      tx,
+      sourceRevisionId
+    )
+    if (
+      !currentDraft ||
+      currentDraft.definitionId !== draft.id ||
+      !currentDraft.isCurrent
+    )
       throw new Error(
         `Definition ${draft.id} changed while its amendment was being generated; retry from the current revision`
       )

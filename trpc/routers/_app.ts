@@ -8,7 +8,6 @@ import { commentsRouter } from "./comments"
 import { feedbackRouter } from "./feedback"
 import { adminRouter } from "./admin"
 import { termsRouter } from "./terms"
-import { refinementsRouter } from "./refinements"
 import { discussionRouter } from "./discussion"
 import { surveysRouter } from "./surveys"
 import { examplesRouter } from "./examples"
@@ -51,7 +50,6 @@ export const appRouter = createTRPCRouter({
   communities: communitiesRouter,
   user: userRouter,
   definitions: definitionsRouter,
-  refinements: refinementsRouter,
   votes: votesRouter,
   terms: termsRouter,
   comments: commentsRouter,

@@ -5,7 +5,7 @@
  */
 
 import assert from "node:assert/strict"
-import { and, asc, eq, isNull } from "drizzle-orm"
+import { and, asc, eq, isNull, sql } from "drizzle-orm"
 
 class Rollback extends Error {}
 
@@ -148,6 +148,19 @@ const main = async () => {
         )
       assert.equal(activeSelection.exampleId, second.example.id)
 
+      const historyIndex = await tx.execute(sql`
+        SELECT indexdef
+        FROM pg_indexes
+        WHERE schemaname = current_schema()
+          AND indexname = 'definition_example_selections_definition_history_idx'
+      `)
+      assert.equal(historyIndex.rows.length, 1)
+      assert.match(
+        String(historyIndex.rows[0]?.indexdef),
+        /\("definitionId", "selectedAt", id\)/,
+        "featured-example history has its definition/time/id index"
+      )
+
       let immutableUpdateRejected = false
       try {
         await tx.transaction(async (savepoint) => {
@@ -163,6 +176,115 @@ const main = async () => {
         )
       }
       assert.ok(immutableUpdateRejected, "published example text is immutable")
+
+      let immutableAttributionRejected = false
+      try {
+        await tx.transaction(async (savepoint) => {
+          await savepoint
+            .update(definitionExamplesTable)
+            .set({ authorId: null, actorKind: null })
+            .where(eq(definitionExamplesTable.id, first.example.id))
+        })
+      } catch (error) {
+        const cause = (error as { cause?: unknown }).cause ?? error
+        immutableAttributionRejected = String(cause).includes(
+          "definition example content and provenance are immutable"
+        )
+      }
+      assert.ok(
+        immutableAttributionRejected,
+        "published example attribution is immutable after migration repair"
+      )
+
+      let immutableSelectionOriginRejected = false
+      try {
+        await tx.transaction(async (savepoint) => {
+          await savepoint
+            .update(definitionExampleSelectionsTable)
+            .set({ selectedById: null })
+            .where(
+              eq(definitionExampleSelectionsTable.exampleId, second.example.id)
+            )
+        })
+      } catch (error) {
+        const cause = (error as { cause?: unknown }).cause ?? error
+        immutableSelectionOriginRejected = String(cause).includes(
+          "definition example selection history is immutable"
+        )
+      }
+      assert.ok(
+        immutableSelectionOriginRejected,
+        "featured-example selection origin is immutable after migration repair"
+      )
+
+      let endedSelectionRewriteRejected = false
+      try {
+        await tx.transaction(async (savepoint) => {
+          await savepoint
+            .update(definitionExampleSelectionsTable)
+            .set({ endedAt: "2099-01-01T00:00:00.000Z" })
+            .where(
+              eq(definitionExampleSelectionsTable.exampleId, first.example.id)
+            )
+        })
+      } catch (error) {
+        const cause = (error as { cause?: unknown }).cause ?? error
+        endedSelectionRewriteRejected = String(cause).includes(
+          "definition example selection history is immutable"
+        )
+      }
+      assert.ok(
+        endedSelectionRewriteRejected,
+        "an ended featured-example interval cannot be rewritten"
+      )
+
+      let fabricatedLegacyActorRejected = false
+      try {
+        await tx.transaction(async (savepoint) => {
+          await savepoint.insert(definitionExamplesTable).values({
+            definitionId: definition.id,
+            exampleNumber: 3,
+            sourceRevisionId: revision.id,
+            text: "A legacy row must not invent an example contributor.",
+            authorId: author.id,
+            actorKind: "human",
+            legacyBackfill: true
+          })
+        })
+      } catch (error) {
+        const cause = (error as { cause?: unknown }).cause ?? error
+        fabricatedLegacyActorRejected = String(cause).includes(
+          "definition_examples_attribution_complete_or_legacy"
+        )
+      }
+      assert.ok(
+        fabricatedLegacyActorRejected,
+        "legacy examples require unknown actor attribution"
+      )
+
+      let fabricatedLegacySelectorRejected = false
+      try {
+        await tx.transaction(async (savepoint) => {
+          await savepoint.insert(definitionExampleSelectionsTable).values({
+            definitionId: definition.id,
+            exampleId: first.example.id,
+            selectedById: author.id,
+            selectedAt: "2026-01-01T00:00:00.000Z",
+            endedAt: "2026-01-01T00:00:00.000Z",
+            endedById: author.id,
+            legacyBackfill: true
+          })
+        })
+      } catch (error) {
+        const cause = (error as { cause?: unknown }).cause ?? error
+        fabricatedLegacySelectorRejected = String(cause).includes(
+          "definition_example_selections_actor_or_legacy"
+        )
+      }
+      assert.ok(
+        fabricatedLegacySelectorRejected,
+        "legacy feature intervals require an unknown selector"
+      )
 
       throw new Rollback()
     })

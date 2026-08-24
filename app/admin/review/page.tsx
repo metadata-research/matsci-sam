@@ -24,7 +24,7 @@ export default async function AdminReviewPage() {
     <HydrateClient>
       <AdminPageHeader
         title="Review"
-        description="Review queued AI generation work. Content moderation actions will appear here after lifecycle states are enabled."
+        description="Review administrator-run term generation and retained records from the retired refinement workflow."
       />
       {hasWork ? (
         <div className={styles.sectionStack}>
@@ -48,7 +48,7 @@ export default async function AdminReviewPage() {
             </section>
           )}
           {refinements.length > 0 && (
-            <RefinementQueue refinements={refinements} />
+            <LegacyRefinementRecords refinements={refinements} />
           )}
         </div>
       ) : (
@@ -58,8 +58,9 @@ export default async function AdminReviewPage() {
               <ClipboardCheckIcon aria-hidden />
               <h2>No generation work is waiting</h2>
               <p>
-                Term-level AI requests and definition refinements will appear
-                here when they need administrative review.
+                Term-level AI requests will appear here when they need
+                administrative review. Retired refinement records remain visible
+                above when any still require attention.
               </p>
             </div>
           </div>
@@ -71,7 +72,11 @@ export default async function AdminReviewPage() {
 
 type Refinement = Awaited<ReturnType<typeof trpc.admin.refinementQueue>>[number]
 
-function RefinementQueue({ refinements }: { refinements: Refinement[] }) {
+function LegacyRefinementRecords({
+  refinements
+}: {
+  refinements: Refinement[]
+}) {
   return (
     <section
       className={styles.panel}
@@ -80,10 +85,11 @@ function RefinementQueue({ refinements }: { refinements: Refinement[] }) {
       <div className={styles.panelHeader}>
         <div>
           <h2 id="definition-refinement-heading" className={styles.panelTitle}>
-            Definition refinements
+            Retired refinement records
           </h2>
           <p className={styles.panelMeta}>
-            Background requests still running or needing author follow-up
+            Legacy requests retained for audit; this workflow no longer accepts
+            new public actions
           </p>
         </div>
       </div>
@@ -102,6 +108,7 @@ function RefinementQueue({ refinements }: { refinements: Refinement[] }) {
           <tbody>
             {refinements.map((refinement) => {
               const failed = refinement.status === "failed"
+              const suggested = refinement.status === "suggested"
 
               return (
                 <tr key={refinement.id}>
@@ -126,7 +133,11 @@ function RefinementQueue({ refinements }: { refinements: Refinement[] }) {
                           className="mr-1 inline size-4"
                         />
                       )}
-                      {failed ? "Generation failed" : "Generating"}
+                      {failed
+                        ? "Legacy failure"
+                        : suggested
+                          ? "Retired suggestion"
+                          : "Legacy pending"}
                     </span>
                   </td>
                   <td>{refinement.authorName ?? "Community member"}</td>

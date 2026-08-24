@@ -12,6 +12,10 @@ import { COMMENT_MAX_LENGTH, DEFINITION_MAX_LENGTH } from "@/lib/input-limits"
 import { definitionPath } from "@/lib/public-identifiers"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
+import {
+  type MutationActivityCallbacks,
+  useMutationActivity
+} from "@/components/use-mutation-activity"
 
 type PublishedDefinition = RouterOutput["definitions"]["create"]
 
@@ -27,7 +31,10 @@ export function RevisionSuggestionForm({
   sourceRevisionId,
   surveyStepId,
   expectedInstructions,
-  onPublished
+  onPublished,
+  onBusyChange,
+  onMutationStart,
+  onMutationEnd
 }: {
   term: string
   definitionId: number
@@ -35,8 +42,14 @@ export function RevisionSuggestionForm({
   surveyStepId?: number
   expectedInstructions?: string | null
   onPublished?: (published: PublishedDefinition) => void
-}) {
+  onBusyChange?: (busy: boolean) => void
+} & MutationActivityCallbacks) {
   const router = useRouter()
+  const activity = useMutationActivity({
+    onBusyChange,
+    onMutationStart,
+    onMutationEnd
+  })
   const [feedback, setFeedback] = useState("")
   const [draft, setDraft] = useState<{
     suggestionId: number
@@ -44,12 +57,16 @@ export function RevisionSuggestionForm({
     model: string
   } | null>(null)
 
-  const discard = trpc.aiAssist.discard.useMutation()
+  const discard = trpc.aiAssist.discard.useMutation({
+    onSuccess: () => setDraft(null),
+    onSettled: activity.end
+  })
   const suggest = trpc.aiAssist.suggestRevision.useMutation({
     onSuccess: setDraft,
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED") loginToast("suggest a revision")
-    }
+    },
+    onSettled: activity.end
   })
   const publish = trpc.definitions.create.useMutation({
     onSuccess: (published) => {
@@ -67,18 +84,20 @@ export function RevisionSuggestionForm({
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED")
         loginToast("publish a suggested revision")
-    }
+    },
+    onSettled: activity.end
   })
 
-  const busy = suggest.isPending || publish.isPending || discard.isPending
+  const busy =
+    activity.busy || suggest.isPending || publish.isPending || discard.isPending
   const critique = feedback.trim()
   const revisedDefinition = draft?.definition.trim() ?? ""
   const error = suggest.error ?? publish.error ?? discard.error
 
   const clearDraft = () => {
-    if (draft && !discard.isPending)
-      discard.mutate({ suggestionId: draft.suggestionId })
-    setDraft(null)
+    if (!draft || discard.isPending) return
+    activity.start()
+    discard.mutate({ suggestionId: draft.suggestionId })
   }
 
   return (
@@ -151,7 +170,8 @@ export function RevisionSuggestionForm({
               <Button
                 type="button"
                 disabled={busy || !revisedDefinition}
-                onClick={() =>
+                onClick={() => {
+                  activity.start()
                   publish.mutate({
                     term,
                     definition: revisedDefinition,
@@ -160,7 +180,7 @@ export function RevisionSuggestionForm({
                     derivedFromRevisionId: sourceRevisionId,
                     aiSuggestionId: draft.suggestionId
                   })
-                }
+                }}
               >
                 <SendIcon aria-hidden />
                 {publish.isPending ? "Publishing…" : "Publish revision"}
@@ -181,13 +201,14 @@ export function RevisionSuggestionForm({
             type="button"
             variant="outline"
             disabled={busy || !critique}
-            onClick={() =>
+            onClick={() => {
+              activity.start()
               suggest.mutate({
                 definitionId,
                 sourceRevisionId,
                 feedback: critique
               })
-            }
+            }}
           >
             <SparklesIcon aria-hidden />
             {suggest.isPending ? "Drafting…" : "Draft revision with AI"}

@@ -47,10 +47,10 @@ Votes and comments identify the revision visible when each contribution was
 made. A later definition revision starts a new vote tally. Earlier revision
 tallies and their comments remain in the history.
 
-An example identifies the definition and exact revision visible when it was
-added. Multiple examples may belong to one definition. Featuring an example
-is a separately attributed selection with its own time interval; it does not
-change the definition revision or vote tally.
+An application-created example identifies the definition and exact revision
+visible when it was added. Multiple examples may belong to one definition.
+Featuring an example is a separately attributed selection with its own time
+interval; it does not change the definition revision or vote tally.
 
 Each voting act is recorded as an event with the revision it used, its kind
 (up, down, or withdrawn), and the time. A change or withdrawal appends an act,
@@ -64,12 +64,14 @@ so the dataset graph states under which study the act was taken.
 Some revisions imported from the earlier pilot schema contain only the
 definition text and time. Their editors and change notes were not stored. The
 provenance view labels these partial revisions and leaves unknown values empty.
-Examples recovered from the former single-example field are marked as legacy
-and may have no recorded contributor. The migration associates imported
-comments and older refinement rounds with the revision visible at their
-recorded time. MatSci-SAM associated imported votes with the revision current
-during migration because the old timestamps do not establish an earlier
-revision.
+Examples recovered from the former single-example field are marked as legacy.
+The older schema did not record their independent contributor, exact source
+revision, publication time, selector, or selection time, so the application
+and graph leave those facts unknown rather than presenting migration anchors
+as observed provenance. The migration associates imported comments and older
+refinement rounds with the revision visible at their recorded time. MatSci-SAM
+associated imported votes with the revision current during migration because
+the old timestamps do not establish an earlier revision.
 
 [Community review and revisions](/docs/community) describes revision
 publishing, restoration, and the imported-history limits.

@@ -29,7 +29,7 @@ export class RevisionConflictError extends Error {
 
 export class RevisionNoChangeError extends Error {
   constructor() {
-    super("Change the definition or example before publishing a revision.")
+    super("Change the definition content before publishing a revision.")
     this.name = "RevisionNoChangeError"
   }
 }
@@ -80,8 +80,16 @@ export function diffToStringSimple(diff: Diff[]) {
   return value
 }
 
-export function createTextDiff(previous: string, next: string) {
-  return new DiffMatchPatch().diff_main(previous, next)
+export function createTextDiff(previous: string, next: string): Diff[] {
+  const diff = new DiffMatchPatch().diff_main(previous, next)
+
+  // diff-match-patch emits either no operations for two empty strings or only
+  // deletions when text becomes empty. Persist an explicit empty equality so
+  // the database can always reconstruct the target value from equal/insert
+  // operations, while retaining deletions for accurate change metrics.
+  return diff.some(([operation]) => operation !== DiffOp.Delete)
+    ? diff
+    : [...diff, [DiffOp.Equal, next]]
 }
 
 export function revisionDiffMetrics(diffs: Diff[][]) {

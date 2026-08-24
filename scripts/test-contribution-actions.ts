@@ -46,12 +46,21 @@ const suggestNewTerm = procedure(
   "suggestRevision"
 )
 const suggestRevision = procedure(aiAssistSource, "suggestRevision", "discard")
+const discardSuggestion = procedure(aiAssistSource, "discard")
 for (const suggestion of [suggestNewTerm, suggestRevision]) {
   assert.doesNotMatch(suggestion, /\.insert\(definitionsTable\)/)
   assert.doesNotMatch(suggestion, /\.insert\(commentsTable\)/)
   assert.doesNotMatch(suggestion, /\.insert\(definitionExamplesTable\)/)
 }
 assert.match(suggestRevision, /feedback/)
+assert.match(discardSuggestion, /discardAiContributionSuggestion/)
+const discardHelper = source("lib/ai-contribution-suggestions.ts")
+assert.match(discardHelper, /\[\s*"generated",\s*"discarded"\s*\]/)
+assert.match(
+  discardHelper,
+  /coalesce\(\$\{aiContributionSuggestionsTable\.decidedAt\}, now\(\)\)/,
+  "discard is idempotent when the first successful response is lost"
+)
 
 // Comment has one outcome: a stored human comment. It cannot schedule or
 // publish a model revision.
