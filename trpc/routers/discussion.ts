@@ -24,15 +24,15 @@ import {
 } from "@/lib/definition-revisions"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
+import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
 
 /*
  * Feed for the /discussion page: the most-recent terms, each paired with the
  * definition a comment should attach to.
  *
- * Comments target the term's AI definition when it has one, because commenting
- * on an AI definition feeds the model a revision (see comments.create). That is
- * the "dialog with the model" the page is for. Terms with no AI definition fall
- * back to their highest-voted definition, where a comment is an ordinary one.
+ * The feed keeps a consistent discussion target for each term: its model draft
+ * when one exists, otherwise its highest-supported definition. Commenting is a
+ * comment-only act; requesting an AI revision remains an explicit action.
  */
 export const discussionRouter = createTRPCRouter({
   recent: baseProcedure
@@ -62,7 +62,7 @@ export const discussionRouter = createTRPCRouter({
           revisionId: definitionRevisionsTable.id,
           version: definitionRevisionsTable.version,
           definition: definitionsTable.definition,
-          example: definitionsTable.example,
+          example: currentFeaturedExampleText().as("example"),
           model: definitionRevisionsTable.model,
           isAi: usersTable.isAi,
           authorId: usersTable.id,
@@ -305,7 +305,7 @@ export const discussionRouter = createTRPCRouter({
             currentRevisionId: definitionsTable.currentRevisionId,
             term: termsTable.term,
             definition: definitionsTable.definition,
-            example: definitionsTable.example
+            example: currentFeaturedExampleText().as("example")
           })
           .from(definitionsTable)
           .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))

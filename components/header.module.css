@@ -102,13 +102,15 @@
   top: calc(100% + 10px);
   right: 0;
   width: min(17rem, calc(100vw - 32px));
+  max-height: calc(100dvh - 5rem);
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--popover);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.14);
   /* A control wider than the panel is clipped, not spilled into the page. */
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .mobileMenuPanel nav {

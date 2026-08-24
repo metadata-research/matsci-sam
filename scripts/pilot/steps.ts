@@ -35,11 +35,15 @@ import { DefinitionOutput, runLLM } from "../../lib/llm/client"
 import { castVote, insertComment } from "../../lib/participation"
 import {
   hasPosition,
+  instructionPromptOfStudy,
+  lockStudy,
   recordResponse,
-  responseOf
+  responseOf,
+  stepWithStudy
 } from "../../lib/survey-queries"
 import { recordCompletion } from "../../lib/surveys"
-import type { Walkthrough } from "./db"
+import { studyState } from "../../lib/communities"
+import type { PilotStep, Walkthrough } from "./db"
 import type { PilotTerm } from "./terms"
 import {
   amendMessage,
@@ -100,7 +104,25 @@ const generate = async <T extends z.ZodTypeAny>(
 
 // The step an act is taken for: the define step of the term for a
 // position, the review step of the term for a comment or a vote.
-type StepRef = { id: number }
+type StepRef = Pick<PilotStep, "id" | "studyId" | "expectedInstructions">
+type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+const lockPilotStep = async (tx: DatabaseTransaction, step: StepRef) => {
+  const lockedStudy = await lockStudy(tx, step.studyId)
+  if (!lockedStudy)
+    throw new Error("The study no longer exists. Reload the pilot plan.")
+  const found = await stepWithStudy(tx, step.id)
+  if (!found || found.study.id !== step.studyId)
+    throw new Error("The walkthrough was regenerated. Reload the pilot plan.")
+  if (studyState(lockedStudy) !== "open")
+    throw new Error("The study is no longer open.")
+  if (
+    (await instructionPromptOfStudy(tx, step.studyId)) !==
+    step.expectedInstructions
+  )
+    throw new Error("The study instructions changed. Reload the pilot plan.")
+  return found
+}
 
 /*
  * The draft of a term: its definition under a model identity, an aiModels
@@ -117,7 +139,10 @@ export const draftOf = async (termId: number) => {
       example: definitionsTable.example
     })
     .from(definitionsTable)
-    .innerJoin(aiModelsTable, eq(aiModelsTable.userId, definitionsTable.authorId))
+    .innerJoin(
+      aiModelsTable,
+      eq(aiModelsTable.userId, definitionsTable.authorId)
+    )
     .where(eq(definitionsTable.termId, termId))
     .orderBy(asc(definitionsTable.createdAt), asc(definitionsTable.id))
     .limit(1)
@@ -173,7 +198,10 @@ export const decidePosition = async (
  */
 export const holdsPosition = async (personaUserId: number, step: StepRef) => {
   if (!(await hasPosition(db, step.id, personaUserId))) return false
-  await recordCompletion(db, { stepId: step.id, userId: personaUserId })
+  await db.transaction(async (tx) => {
+    await lockPilotStep(tx, step)
+    await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+  })
   return true
 }
 
@@ -190,12 +218,16 @@ export const acceptAct = async (
   step: StepRef
 ) => {
   if (await hasPosition(db, step.id, personaUserId)) {
-    await recordCompletion(db, { stepId: step.id, userId: personaUserId })
+    await db.transaction(async (tx) => {
+      await lockPilotStep(tx, step)
+      await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+    })
     return { skipped: true as const }
   }
   if (!draft.currentRevisionId)
     throw new Error(`No current revision to accept on definition ${draft.id}`)
   await db.transaction(async (tx) => {
+    await lockPilotStep(tx, step)
     await castVote(tx, {
       definitionId: draft.id,
       revisionId: draft.currentRevisionId!,
@@ -229,10 +261,14 @@ export const amendAct = async (
   step: StepRef
 ) => {
   if (await hasPosition(db, step.id, personaUserId)) {
-    await recordCompletion(db, { stepId: step.id, userId: personaUserId })
+    await db.transaction(async (tx) => {
+      await lockPilotStep(tx, step)
+      await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+    })
     return { skipped: true as const }
   }
-  if (!draft.currentRevisionId)
+  const sourceRevisionId = draft.currentRevisionId
+  if (!sourceRevisionId)
     throw new Error(`No current revision to amend on definition ${draft.id}`)
 
   const result = await generate(
@@ -253,6 +289,21 @@ export const amendAct = async (
   if (!result) throw new Error(`Amend generation failed for ${term.term}`)
 
   const written = await db.transaction(async (tx) => {
+    await lockPilotStep(tx, step)
+    // The model answered the exact revision it was shown. Hold the source
+    // definition through this write so a concurrent revision either lands
+    // before this check (and refuses the stale amendment) or waits until the
+    // derivation has committed.
+    const [currentDraft] = await tx
+      .select({ currentRevisionId: definitionsTable.currentRevisionId })
+      .from(definitionsTable)
+      .where(eq(definitionsTable.id, draft.id))
+      .limit(1)
+      .for("share")
+    if (!currentDraft || currentDraft.currentRevisionId !== sourceRevisionId)
+      throw new Error(
+        `Definition ${draft.id} changed while its amendment was being generated; retry from the current revision`
+      )
     const created = await createDefinitionWithInitialRevision(tx, {
       termId,
       authorId: personaUserId,
@@ -262,7 +313,7 @@ export const amendAct = async (
       source: "ai_generation",
       model: amendStamp.model,
       prompt: amendStamp.promptText,
-      derivedFromRevisionId: draft.currentRevisionId,
+      derivedFromRevisionId: sourceRevisionId,
       surveyStepId: step.id
     })
     await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
@@ -402,6 +453,7 @@ export const commentAct = async (
   if (!result) throw new Error(`Comment generation failed for ${termLabel}`)
 
   await db.transaction(async (tx) => {
+    await lockPilotStep(tx, step)
     await insertComment(tx, {
       definitionId: target.id,
       revisionId: target.currentRevisionId!,
@@ -438,6 +490,7 @@ export const voteAct = async (
       `No current revision to vote on for definition ${target.id}`
     )
   await db.transaction(async (tx) => {
+    await lockPilotStep(tx, step)
     await castVote(tx, {
       definitionId: target.id,
       revisionId: target.currentRevisionId!,
@@ -455,7 +508,10 @@ export const voteAct = async (
 // The press: a review step completed without an act, where the term has
 // one candidate or none the persona may vote on, as the page completes it.
 export const pressStep = (personaUserId: number, step: StepRef) =>
-  recordCompletion(db, { stepId: step.id, userId: personaUserId })
+  db.transaction(async (tx) => {
+    await lockPilotStep(tx, step)
+    return recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+  })
 
 /*
  * One persona walks the steps no act of the protocol completes: the
@@ -476,7 +532,10 @@ export const walkthroughProgressStep = async (
   scaleAnswers: Map<number, number>
 ) => {
   for (const step of walkthrough.instructions)
-    await recordCompletion(db, { stepId: step.id, userId: personaUserId })
+    await db.transaction(async (tx) => {
+      await lockPilotStep(tx, step)
+      await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+    })
 
   let answered = 0
   let skipped = 0
@@ -509,14 +568,15 @@ export const walkthroughProgressStep = async (
       value = { valueText: result.answer.trim(), stamp: surveyStamp }
     }
 
-    await db.transaction((tx) =>
-      recordResponse(tx, {
+    await db.transaction(async (tx) => {
+      await lockPilotStep(tx, step)
+      await recordResponse(tx, {
         stepId: step.id,
         userId: personaUserId,
         authorKind: "simulated",
         ...value
       })
-    )
+    })
     answered++
   }
   return { answered, skipped }

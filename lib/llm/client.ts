@@ -10,6 +10,11 @@ export const DefinitionOutput = z.object({
   example: z.string()
 })
 
+export type DefinitionTextOutput = z.infer<typeof DefinitionTextOutput>
+export const DefinitionTextOutput = z.object({
+  definition: z.string()
+})
+
 export const ollama = new Ollama({
   host: process.env.OLLAMA_HOST
 })

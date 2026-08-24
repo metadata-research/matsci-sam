@@ -26,8 +26,9 @@ reopened for reading. The button at the end records completion, and progress is
 stored between visits.
 
 The default pilot protocol begins with a model-generated draft definition and
-the comments from the earlier round. A participant can accept, amend, or
-replace that draft. The result is one recorded position on each term.
+the comments from the earlier round. A participant can **Accept**, **Suggest a
+revision**, or **Propose a replacement**. These are the same actions available
+outside the walkthrough. The result is one recorded position on each term.
 
 ### Taking a position
 
@@ -36,11 +37,13 @@ Definitions proposed later appear under **Proposed so far**, ordered by support
 and accompanied by their votes and comments.
 
 **Accept** records an upvote on the selected candidate as your position.
-**Amend** opens the definition form with that candidate as the starting text.
-The published definition is attributed to you and records its derivation from
-the candidate. **None of these work** opens an empty form and publishes your
-definition as another candidate. Amending the closest candidate gives later
-participants a specific text to evaluate.
+**Suggest a revision** asks what is wrong or missing, returns an editable AI
+draft, and publishes only after you review it. The published candidate is
+attributed to you and the named model and records its derivation from the exact
+source revision. **Propose a replacement** opens an empty definition form and
+publishes a human-authored candidate linked to the definition it is intended
+to supersede. Existing candidates remain available for later participants to
+compare and vote on.
 
 After a position is recorded, the step displays the accepted or proposed
 candidate and enables **Continue**. An existing upvote can supply the position
@@ -56,10 +59,9 @@ fixed during the step. **Done with this term** completes the review. A term with
 one candidate presents that candidate and its support with the same completion
 control.
 
-Comments posted in a review step remain part of the study discussion. Ordinary
-comments on the current revision of a model-authored definition can schedule
-another model generation, as described in [Community review and
-revisions](/docs/community).
+Comments posted in a review step remain part of the study discussion. A
+comment records exactly the text submitted and never schedules model work, as
+described in [Community review and revisions](/docs/community).
 
 ### The closing questions
 

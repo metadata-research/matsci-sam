@@ -45,14 +45,8 @@ assert.equal(maySetCommunityRole(anonymous), false)
 // --- The roster belongs to a steward ---
 
 // An administrator acts on any community, member of it or not.
-assert.equal(
-  maySetCommunityMember(admin, notIn, targetStranger(9), true),
-  true
-)
-assert.equal(
-  maySetCommunityMember(admin, notIn, targetSteward(2), false),
-  true
-)
+assert.equal(maySetCommunityMember(admin, notIn, targetStranger(9), true), true)
+assert.equal(maySetCommunityMember(admin, notIn, targetSteward(2), false), true)
 
 // A steward adds anyone and removes plain members.
 assert.equal(
@@ -232,6 +226,22 @@ assert.equal(
   ),
   "retired"
 )
+assert.equal(
+  studyState({
+    ...window(null, null),
+    communityRetiredAt: "2026-09-05T00:00:00Z"
+  }),
+  "retired",
+  "a retired community suspends its studies"
+)
+assert.equal(
+  studyState({
+    ...window(null, null),
+    collectionRetiredAt: "2026-09-05T00:00:00Z"
+  }),
+  "retired",
+  "a retired collection suspends its studies"
+)
 
 // Both directions, because a rule checked only where it refuses can pass while
 // admitting nobody.
@@ -251,6 +261,39 @@ assert.equal(
     during
   ),
   false
+)
+assert.equal(
+  studyAcceptsParticipants(
+    {
+      ...window(null, null),
+      communityRetiredAt: "2026-09-05T00:00:00Z"
+    },
+    during
+  ),
+  false,
+  "an invitation cannot redeem beneath a retired community"
+)
+assert.equal(
+  studyAcceptsParticipants(
+    {
+      ...window(null, null),
+      collectionRetiredAt: "2026-09-05T00:00:00Z"
+    },
+    during
+  ),
+  false,
+  "an invitation cannot redeem beneath a retired collection"
+)
+assert.equal(
+  studyAcceptsParticipants(
+    {
+      ...window(null, null),
+      collectionRetiredAt: "2026-09-05T00:00:00Z"
+    },
+    during
+  ),
+  false,
+  "a study under a retired parent accepts no participants"
 )
 
 console.log("Community rule tests passed")

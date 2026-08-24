@@ -25,8 +25,10 @@ import {
   getOllamaHealth,
   getServiceHealth
 } from "@/lib/admin/integration-readiness"
+import { adminStudiesRouter } from "./admin-studies"
 
 export const adminRouter = createTRPCRouter({
+  studies: adminStudiesRouter,
   ollama: adminProcedure.query(() => getOllamaHealth()),
   serviceHealth: adminProcedure.query(() => getServiceHealth()),
   feedbackInbox: adminProcedure

@@ -15,6 +15,9 @@ import { and, asc, eq, exists, isNull, sql } from "drizzle-orm"
 import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import { TOPICS_SCHEME_SLUG, type ConceptRow } from "./kos"
 
+type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type Executor = typeof db | DatabaseTransaction
+
 /*
  * Read queries shared by the knowledge-organization pages. A statement is
  * active while retractedAt is null; rows are never deleted, so that is the
@@ -199,8 +202,11 @@ export const collectionsWithCounts = async ({
 
 // Members drive from the statements table, so the liveness conditions belong
 // in WHERE here; there is no outer join to degrade.
-export const collectionMembers = async (collectionId: number) =>
-  await db
+export const collectionMembers = async (
+  collectionId: number,
+  executor: Executor = db
+) =>
+  await executor
     .select({
       id: termsTable.id,
       term: termsTable.term,

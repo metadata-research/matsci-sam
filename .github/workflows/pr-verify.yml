@@ -85,6 +85,14 @@ jobs:
         run: |
           pnpm test:kos-db
 
+      # Exercises multiple immutable examples and the auditable featured-
+      # example history inside one rolled-back transaction.
+      - name: Test definition examples
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:examples-db
+
       # A migrated database holds no term, statement, vote or study, so the
       # graph steps below had nothing to check: the shapes saw no assertion,
       # vote event or study, and the paper queries answered no rows. The
@@ -342,6 +350,10 @@ jobs:
       - name: Test Study Copy
         run: |
           pnpm test:study-copy
+
+      - name: Test Study Editor
+        run: |
+          pnpm test:study-editor
 
       - name: Check Migration Journal
         run: |

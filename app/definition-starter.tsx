@@ -5,23 +5,13 @@ import { Input } from "@/components/ui/input"
 import { TERM_MAX_LENGTH } from "@/lib/input-limits"
 import styles from "./home.module.css"
 
-type SuggestedTerm = {
-  id: number
-  term: string
-}
-
-export function DefinitionStarter({
-  signedIn,
-  terms
-}: {
-  signedIn: boolean
-  terms: SuggestedTerm[]
-}) {
+export function DefinitionStarter({ signedIn }: { signedIn: boolean }) {
   return (
     <>
       <p className={styles.contributionIntro}>
-        Add another perspective to an existing term, or introduce one the
-        vocabulary is missing.
+        Introduce a materials science term the vocabulary is missing. To revise,
+        replace, comment on, or add an example to an existing term, open its
+        vocabulary page.
       </p>
 
       {signedIn ? (
@@ -34,25 +24,19 @@ export function DefinitionStarter({
               id="home-definition-term"
               name="term"
               type="text"
-              list="home-materials-terms"
               required
               maxLength={TERM_MAX_LENGTH}
               autoComplete="off"
               placeholder="e.g., grain boundary"
             />
-            <datalist id="home-materials-terms">
-              {terms.map((term) => (
-                <option key={term.id} value={term.term} />
-              ))}
-            </datalist>
             <Button type="submit">
               <FilePlus2Icon aria-hidden />
-              Start a definition
+              Start a new term
             </Button>
           </div>
           <p className={styles.contributionNote}>
-            Choose a suggested term or enter a new one. Next, write the
-            definition, add an example of use, and choose how AI should assist.
+            Next, write the first definition yourself or ask AI for an editable
+            suggestion. Examples are added separately after publication.
           </p>
         </form>
       ) : (

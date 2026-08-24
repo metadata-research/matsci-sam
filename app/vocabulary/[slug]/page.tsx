@@ -44,8 +44,10 @@ export default async function VocabularyTermPage(props: {
 
   if (!term) notFound()
 
-  trpc.definitions.list.prefetch({ termId: term.id })
-  trpc.tags.facets.prefetch({ termId: term.id })
+  await Promise.all([
+    trpc.definitions.list.prefetch({ termId: term.id }),
+    trpc.tags.facets.prefetch({ termId: term.id })
+  ])
 
   // Facets are curated, so only an administrator gets the editing control and
   // only then is the option list worth loading.

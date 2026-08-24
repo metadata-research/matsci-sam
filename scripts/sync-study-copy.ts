@@ -142,6 +142,7 @@ const main = async () => {
     voteEventsTable
   } = await import("../drizzle")
   const { mayRunCommunity } = await import("../lib/communities")
+  const { lockStudy } = await import("../lib/survey-queries")
 
   type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
   type Executor = typeof db | Transaction
@@ -353,17 +354,47 @@ const main = async () => {
   }
 
   const applied = await db.transaction(async (tx) => {
-    const targetSlugs = manifest.studies.map((study) => study.slug)
-    const lockedStudies = await tx
-      .select({ id: studiesTable.id, slug: studiesTable.slug })
-      .from(studiesTable)
-      .where(inArray(studiesTable.slug, targetSlugs))
-      .orderBy(asc(studiesTable.id))
-      .for("update")
-    if (lockedStudies.length !== targetSlugs.length)
+    // Take every target study row before taking any parent row. This extends
+    // the shared study -> community -> collection order across the whole
+    // multi-study transaction and avoids holding one parent's SHARE lock while
+    // waiting for another study. lockStudy below then takes the parents and
+    // returns the authoritative lifecycle/copy fields.
+    const sortedPlans = [...preview.plans].sort(
+      (left, right) => left.studyId - right.studyId
+    )
+    const targetStudyIds = sortedPlans.map((plan) => plan.studyId)
+    const prelockedStudies =
+      targetStudyIds.length === 0
+        ? []
+        : await tx
+            .select({ id: studiesTable.id, slug: studiesTable.slug })
+            .from(studiesTable)
+            .where(inArray(studiesTable.id, targetStudyIds))
+            .orderBy(asc(studiesTable.id))
+            .for("update")
+    if (prelockedStudies.length !== targetStudyIds.length)
       throw new Error("A target study disappeared; nothing was written")
 
-    const studyIds = lockedStudies.map((study) => study.id)
+    const studyIds: number[] = []
+    for (const plan of sortedPlans) {
+      const lockedStudy = await lockStudy(tx, plan.studyId)
+      if (!lockedStudy || lockedStudy.slug !== plan.slug)
+        throw new Error(
+          `Study ${plan.slug} changed or disappeared; nothing was written`
+        )
+      if (lockedStudy.retiredAt)
+        throw new Error(`Study ${plan.slug} is retired; nothing was written`)
+      if (lockedStudy.communityRetiredAt)
+        throw new Error(
+          `Community ${lockedStudy.communitySlug} is retired; nothing was written`
+        )
+      if (lockedStudy.collectionRetiredAt)
+        throw new Error(
+          `The collection of ${plan.slug} is retired; nothing was written`
+        )
+      studyIds.push(lockedStudy.id)
+    }
+
     if (studyIds.length > 0)
       await tx
         .select({ id: surveyStepsTable.id })
@@ -391,7 +422,21 @@ const main = async () => {
             ...(title ? { title: title.after } : {}),
             ...(welcome ? { welcome: welcome.after } : {})
           })
-          .where(eq(studiesTable.id, plan.studyId))
+          .where(
+            and(
+              eq(studiesTable.id, plan.studyId),
+              title
+                ? title.before === null
+                  ? isNull(studiesTable.title)
+                  : eq(studiesTable.title, title.before)
+                : undefined,
+              welcome
+                ? welcome.before === null
+                  ? isNull(studiesTable.welcome)
+                  : eq(studiesTable.welcome, welcome.before)
+                : undefined
+            )
+          )
           .returning({ id: studiesTable.id })
         if (updated.length !== 1)
           throw new Error(`Study ${plan.slug} was not updated exactly once`)
@@ -404,7 +449,17 @@ const main = async () => {
         const updated = await tx
           .update(surveyStepsTable)
           .set({ prompt: instructions.after })
-          .where(eq(surveyStepsTable.id, instructions.rowId))
+          .where(
+            and(
+              eq(surveyStepsTable.id, instructions.rowId),
+              eq(surveyStepsTable.studyId, plan.studyId),
+              eq(surveyStepsTable.position, 1),
+              eq(surveyStepsTable.kind, "instructions"),
+              instructions.before === null
+                ? isNull(surveyStepsTable.prompt)
+                : eq(surveyStepsTable.prompt, instructions.before)
+            )
+          )
           .returning({ id: surveyStepsTable.id })
         if (updated.length !== 1)
           throw new Error(

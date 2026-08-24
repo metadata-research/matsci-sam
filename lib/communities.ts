@@ -146,10 +146,13 @@ export const studyState = (
     opensAt: string | null
     closesAt: string | null
     retiredAt: string | null
+    communityRetiredAt?: string | null
+    collectionRetiredAt?: string | null
   },
   now: Date = new Date()
 ): StudyState => {
-  if (study.retiredAt) return "retired"
+  if (study.retiredAt || study.communityRetiredAt || study.collectionRetiredAt)
+    return "retired"
   if (study.opensAt && new Date(study.opensAt) > now) return "draft"
   if (study.closesAt && new Date(study.closesAt) <= now) return "closed"
   return "open"

@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
@@ -25,7 +29,7 @@ export function ThemeToggle({
 }: {
   alwaysVisible?: boolean
 }) {
-  const { setTheme } = useTheme()
+  const { theme = "system" } = useTheme()
 
   return (
     <DropdownMenu>
@@ -34,26 +38,41 @@ export function ThemeToggle({
           variant="outline"
           size="icon"
           className={cn(
-            "group hover:bg-[#0A0A0A] dark:hover:bg-[#FAFAFA]",
+            "group",
             !alwaysVisible && "invisible max-w-0 sm:visible sm:max-w-none"
           )}
+          aria-label={`Choose appearance (current: ${theme})`}
         >
-          <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90 group-hover:-rotate-90 dark:group-hover:scale-100 dark:group-hover:text-[#0A0A0A]" />
-          <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0 group-hover:scale-100 group-hover:rotate-0 group-hover:text-[#FAFAFA] dark:group-hover:scale-0 dark:group-hover:rotate-90" />
-          <span className="sr-only">Toggle theme</span>
+          <Sun className="scale-100 rotate-0 transition-transform motion-reduce:transition-none dark:scale-0 dark:-rotate-90" />
+          <Moon className="absolute scale-0 rotate-90 transition-transform motion-reduce:transition-none dark:scale-100 dark:rotate-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          System
-        </DropdownMenuItem>
+        <ThemeChoices />
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+export function ThemeMenu() {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>Appearance</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <ThemeChoices />
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
+}
+
+function ThemeChoices() {
+  const { theme = "system", setTheme } = useTheme()
+
+  return (
+    <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+      <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+      <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+      <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+    </DropdownMenuRadioGroup>
   )
 }

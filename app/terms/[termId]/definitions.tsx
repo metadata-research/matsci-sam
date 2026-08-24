@@ -1,7 +1,6 @@
 "use client"
 
 import { Definition } from "@/components/definition"
-import { AiPendingCard } from "@/components/definition/ai-pending-card"
 import { trpc } from "@/trpc/client"
 import { useFlip } from "@/lib/use-flip"
 import { useRef, useState } from "react"
@@ -50,7 +49,6 @@ export const DefinitionList = ({
           />
         </div>
       ))}
-      <AiPendingCard termId={termId} />
     </div>
   )
 }

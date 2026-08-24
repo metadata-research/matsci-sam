@@ -187,8 +187,8 @@ export default async function ProfilePage() {
             ) : (
               <div className="space-y-3 py-3 text-sm text-muted-foreground">
                 <p>
-                  You are not in any studies yet. A study appears here once
-                  you join the community running it.
+                  You are not in any studies yet. A study appears here once you
+                  join the community running it.
                 </p>
                 <Button asChild size="sm" variant="outline">
                   <Link href="/studies">See the studies</Link>
@@ -230,7 +230,7 @@ export default async function ProfilePage() {
               <div className="space-y-3 py-3 text-sm text-muted-foreground">
                 <p>This account has not authored any terms yet.</p>
                 <Button asChild size="sm">
-                  <Link href="/add">Define a term</Link>
+                  <Link href="/add">Add a new term</Link>
                 </Button>
               </div>
             )}

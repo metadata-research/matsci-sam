@@ -22,6 +22,10 @@ import {
   termUri
 } from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
+import {
+  activeExampleTextsForDefinitions,
+  type ActiveDefinitionExampleText
+} from "./definition-example-queries"
 import { lit } from "./rdf-literal"
 import {
   JSONLD_CONTEXT,
@@ -45,7 +49,7 @@ export { schemeUri, termUri } from "./public-identifiers"
  * SKOS view of the dictionary, derived on demand from the domain tables in
  * the same spirit as the PROV-O view. A term is a skos:Concept, its name the
  * prefLabel, and each current definition revision an identified
- * skos:definition resource with its text, example, and Dublin Core
+ * skos:definition resource with its text, examples, and Dublin Core
  * attribution. Facets, topics, term relations and external mappings come
  * from the knowledge-organization statement ledger (lib/kos.ts,
  * lib/kos-export.ts): term-level dcterms:subject for facets, definition-level
@@ -70,6 +74,8 @@ export type TermSkos = {
       uri: string
       version: number
       text: string
+      examples: string[]
+      // Featured compatibility projection for callers that display one value.
       example: string
       contributors: string[]
       created: string
@@ -168,6 +174,7 @@ export type TermSkosRows = {
   terms: TermRow[]
   definitions: DefinitionRow[]
   coauthors: CoauthorRow[]
+  examples?: ActiveDefinitionExampleText[]
 }
 
 // Pure assembly of TermSkos records from loaded rows and a KOS snapshot.
@@ -189,6 +196,12 @@ export const assembleTermSkos = (
     list.push(c)
     coauthorsByDefinition.set(c.definitionId, list)
   }
+  const examplesByDefinition = new Map<number, ActiveDefinitionExampleText[]>()
+  for (const example of rows.examples ?? []) {
+    const list = examplesByDefinition.get(example.definitionId) ?? []
+    list.push(example)
+    examplesByDefinition.set(example.definitionId, list)
+  }
 
   return rows.terms.map((term) => {
     const definitions = (definitionsByTerm.get(term.id) ?? [])
@@ -206,7 +219,19 @@ export const assembleTermSkos = (
             )
             .map((c) => c.name ?? "unknown")
         ]
-        const example = diffToStringSimple(d.revisionExample ?? [])
+        const revisionExample = diffToStringSimple(d.revisionExample ?? [])
+        const legacyExample =
+          revisionExample === "" ? d.legacyExample : revisionExample
+        const normalizedExamples = examplesByDefinition.get(d.id) ?? []
+        const examples =
+          normalizedExamples.length > 0
+            ? normalizedExamples.map((example) => example.text)
+            : legacyExample
+              ? [legacyExample]
+              : []
+        const featured =
+          normalizedExamples.find((example) => example.isFeatured) ??
+          normalizedExamples[0]
 
         return {
           id: d.id,
@@ -217,9 +242,10 @@ export const assembleTermSkos = (
             uri: revisionUri(term.slug, d.definitionNumber, d.revisionVersion),
             version: d.revisionVersion,
             text: diffToStringSimple(d.revisionDefinition),
-            // Legacy revision imports may not contain the historical example.
-            // The stable row mirrors the current content and supplies it here.
-            example: example === "" ? d.legacyExample : example,
+            examples,
+            // Normalized examples are canonical. The current revision/stable
+            // mirrors are fallback-only for a pre-migration fixture or record.
+            example: featured?.text ?? legacyExample,
             contributors: [...new Set(contributors)],
             created: d.revisionCreatedAt,
             status: definitionStatus(d.score)
@@ -302,19 +328,22 @@ export const buildTermsSkos = async (
     .orderBy(asc(definitionsTable.definitionNumber))
 
   const definitionIds = definitions.map((d) => d.id)
-  const coauthors = definitionIds.length
-    ? await db
-        .select({
-          definitionId: coauthorsTable.definitionId,
-          name: usersTable.name,
-          isAi: usersTable.isAi
-        })
-        .from(coauthorsTable)
-        .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
-        .where(inArray(coauthorsTable.definitionId, definitionIds))
-    : []
+  const [coauthors, examples] = definitionIds.length
+    ? await Promise.all([
+        db
+          .select({
+            definitionId: coauthorsTable.definitionId,
+            name: usersTable.name,
+            isAi: usersTable.isAi
+          })
+          .from(coauthorsTable)
+          .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
+          .where(inArray(coauthorsTable.definitionId, definitionIds)),
+        activeExampleTextsForDefinitions(definitionIds)
+      ])
+    : [[], []]
 
-  return assembleTermSkos({ terms, definitions, coauthors }, kos)
+  return assembleTermSkos({ terms, definitions, coauthors, examples }, kos)
 }
 
 export const buildTermSkos = async (
@@ -396,7 +425,7 @@ const conceptTurtle = (skos: TermSkos) => {
       turtleBlock(revision.uri, [
         "a matsci:DefinitionRevision",
         `rdf:value ${en(revision.text)}`,
-        ...(revision.example ? [`skos:example ${en(revision.example)}`] : []),
+        ...revision.examples.map((example) => `skos:example ${en(example)}`),
         `dcterms:isVersionOf <${d.uri}>`,
         `prov:specializationOf <${d.uri}>`,
         ...revision.contributors.map((c) => `dcterms:creator ${lit(c)}`),
@@ -495,12 +524,12 @@ export const termJsonLd = (skos: TermSkos, kos: KosData) => {
         "@id": revision.uri,
         "@type": "matsci:DefinitionRevision",
         "rdf:value": { "@value": revision.text, "@language": "en" },
-        ...(revision.example
+        ...(revision.examples.length
           ? {
-              "skos:example": {
-                "@value": revision.example,
+              "skos:example": revision.examples.map((example) => ({
+                "@value": example,
                 "@language": "en"
-              }
+              }))
             }
           : {}),
         "dcterms:creator": revision.contributors,

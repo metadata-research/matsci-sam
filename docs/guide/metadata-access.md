@@ -54,9 +54,12 @@ database remains the system of record.
 
 Each term is a `skos:Concept`, and its name is the `skos:prefLabel`. Each
 `skos:definition` value is the identified current revision of a contributed
-definition. That revision associates `rdf:value` and `skos:example` with
-Dublin Core creators and date, the activity status, and the revision number.
-It also identifies the stable definition of which it is a version.
+definition. That revision associates `rdf:value` and every active
+`skos:example` for the stable definition with Dublin Core creators and date,
+the activity status, and the revision number. Repeated `skos:example` values
+preserve multiple examples; the featured choice used by compact application
+views does not suppress the others in the export. The revision also identifies
+the stable definition of which it is a version.
 
 ## Resource identifiers
 

@@ -104,7 +104,16 @@ export const resolveContainers = async (slugs: {
     )
     .orderBy(termsTable.term)
 
-  return { community, study, collection, terms }
+  return {
+    community,
+    study: {
+      ...study,
+      communityRetiredAt: community.retiredAt,
+      collectionRetiredAt: collection.retiredAt
+    },
+    collection,
+    terms
+  }
 }
 
 // The routers and the run page refuse an act outside an open study, and
@@ -120,12 +129,17 @@ export const requireOpen = (
     )
 }
 
+export type PilotStep = StepWithTerm & {
+  studyId: number
+  expectedInstructions: string | null
+}
+
 export type Walkthrough = {
-  steps: StepWithTerm[]
-  instructions: StepWithTerm[]
-  questions: StepWithTerm[]
-  defineStepOf: (termId: number, termLabel: string) => StepWithTerm
-  reviewStepOf: (termId: number, termLabel: string) => StepWithTerm
+  steps: PilotStep[]
+  instructions: PilotStep[]
+  questions: PilotStep[]
+  defineStepOf: (termId: number, termLabel: string) => PilotStep
+  reviewStepOf: (termId: number, termLabel: string) => PilotStep
 }
 
 /*
@@ -138,9 +152,18 @@ export type Walkthrough = {
 export const resolveWalkthrough = async (
   studyId: number
 ): Promise<Walkthrough> => {
-  const steps = await stepsOfStudy(db, studyId)
-  if (steps.length === 0)
+  const loadedSteps = await stepsOfStudy(db, studyId)
+  if (loadedSteps.length === 0)
     throw new Error("Generate the walkthrough through the interface first")
+  const expectedInstructions =
+    loadedSteps.find(
+      (step) => step.kind === "instructions" && step.position === 1
+    )?.prompt ?? null
+  const steps: PilotStep[] = loadedSteps.map((step) => ({
+    ...step,
+    studyId,
+    expectedInstructions
+  }))
 
   const byTerm = (kind: "define" | "review") =>
     new Map(
@@ -149,7 +172,7 @@ export const resolveWalkthrough = async (
         .map((step) => [step.termId!, step])
     )
   const stepOf =
-    (kind: "define" | "review", found: Map<number, StepWithTerm>) =>
+    (kind: "define" | "review", found: Map<number, PilotStep>) =>
     (termId: number, termLabel: string) => {
       const step = found.get(termId)
       if (!step)

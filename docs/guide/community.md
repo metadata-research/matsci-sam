@@ -57,8 +57,8 @@ negative.
 | Down            | Change to up      |              +2 |
 
 Each account contributes one vote of equal weight, and authors may vote on
-their own definitions. Each accepted AI-refined definition receives an
-independent score.
+their own definitions. Each published AI-assisted revision candidate receives
+an independent score.
 
 A published revision starts with a score of zero. Votes on earlier revisions
 remain with those revisions. Historical revisions are read-only, and voting is
@@ -95,43 +95,57 @@ raise or lower it. The SKOS Turtle and JSON-LD records publish the status on the
 identified revision resource. These labels summarize activity among site
 voters. Scientific assessment comes from the definitions and their discussion.
 
-## Editing a definition
+## Editing and proposing definitions
 
-The primary author can revise the definition text or example of use. Other
-contributors can comment, vote, submit another definition, or suggest a
-revision.
+The primary author can revise the definition text in place. Other contributors
+can comment, vote, suggest an AI-assisted revision, or propose a replacement.
+Suggested revisions and replacements are separate voteable candidates; they do
+not overwrite their source or target.
 
 **Publish revision** keeps the definition identifier and URL. The new revision
-records the definition, example of use, editor, publication time, change note,
-and relationship to the preceding revision. Earlier revisions remain available
+records the definition text, editor, publication time, change note, and
+relationship to the preceding revision. Earlier revisions remain available
 from the revision history and [provenance](/docs/provenance). The default
 definition page presents the latest revision, and every revision has an exact
 citable URL.
 
 The page verifies that the source revision remains current before publication.
 If another edit has superseded it, review the latest revision and submit the
-edit again. A restore appends a revision that copies the definition and example
-from an earlier revision, preserving the intervening history.
+edit again. A restore appends a revision that copies the earlier definition
+text, preserving the intervening history.
 
 [Topics](/docs/tags) remain attached to the stable definition through later
 revisions. Facets classify the term concept. Votes belong to a revision.
 Comments remain in the stable discussion thread with a revision label that
 preserves their context.
 
-The first accepted suggestion from the author-only [AI
-refinement](/docs/ai-refinement) workflow creates a separate definition
-credited to the author and named model. That definition has its own score and
-comments. A later acceptance publishes an immutable revision of the refined
-definition and starts a new vote tally. Model and prompt provenance identify
-the revision that accepted each suggestion.
+The shared [AI-assisted suggestion](/docs/ai-refinement) action asks a
+contributor what is wrong, then returns an editable draft. Publishing creates a
+separate definition credited to the contributor and named model. It records
+the exact source revision, has its own score and comments, and leaves the
+source candidate in place. **Propose a replacement** also creates a separate
+candidate, but records which definition it is intended to supersede and does
+not invoke AI.
+
+## Examples of use
+
+Examples are independent contributions to a particular definition. Any
+contributor can use **Add example**, and a definition can keep more than one.
+Each example records the definition revision visible when it was added, its
+contributor, and its publication time.
+
+The first example is featured automatically. The definition author or a
+moderator can feature a different one. Compact definition cards show that
+example, while the definition page shows the complete list. Changing the
+featured example does not revise the definition or reset its votes.
 
 ### Imported revision history
 
 Records created under the earlier pilot schema contain all stored definition
-text, but some imported revisions lack an example of use, editor, or change
-note. The revision history labels those snapshots as imported and leaves
-unknown values empty. Restoration requires the original example, so an
-incomplete imported revision is unavailable for restoration.
+text, but some imported revisions lack an editor or change note. The revision
+history labels those snapshots as imported and leaves unknown values empty.
+Examples imported from the earlier single-example field are labeled as legacy
+examples; an original contributor may be unknown.
 
 MatSci-SAM associated existing comments with the revision visible at their
 recorded time and labels those links as imported associations. Imported votes
@@ -141,13 +155,10 @@ cannot establish which text the voter evaluated.
 ## Comments
 
 Each definition includes a comment thread. The application records every
-comment against the revision visible when it was posted. A comment on a
-human-authored definition remains a discussion comment. Posting on the current
-revision of a model-authored definition schedules another term-level generation,
-and the prompt includes the comment. The comment box states this behavior
-before publication. The application announces the updated definition when it
-is published. The comment and resulting revision appear in the recorded
-[provenance](/docs/provenance).
+comment against the revision visible when it was posted. A comment always
+remains discussion text. It does not modify a definition or trigger model
+generation. Use **Suggest a revision** when you want the text to guide an
+AI-assisted candidate instead.
 
 The [Discussion](/docs/discussion) page provides another route for commenting
 on definitions attached to recently added terms.
@@ -157,7 +168,9 @@ on definitions attached to recently added terms.
 Published definitions normally remain in the revision record. Administrators
 have a permanent cleanup action for pre-pilot test data. It removes the
 definition and its votes, comments, tag links, revision history, refinement
-rounds, Discussion suggestions, coauthors, and refined definitions. The shared
-term and public numbering ledger remain, so a removed number is not reassigned.
+rounds, AI suggestion records, examples, featured-example history, coauthors,
+and derived definitions. A replacement link from another definition is cleared
+before removal. The shared term and public numbering ledger remain, so a
+removed number is not reassigned.
 
 Permanent cleanup cannot be undone.

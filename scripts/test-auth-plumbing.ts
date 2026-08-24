@@ -8,11 +8,7 @@ import {
   oneTimeTokenExpiry
 } from "../lib/auth-tokens"
 import { EmailAuthIntentSchema } from "../lib/email-auth-intent"
-import {
-  DEFINITION_MAX_LENGTH,
-  EXAMPLE_MAX_LENGTH,
-  TERM_MAX_LENGTH
-} from "../lib/input-limits"
+import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "../lib/input-limits"
 import { isValidOrcidId, normalizeOrcidId } from "../lib/orcid"
 import { DefineTermSchema } from "../lib/schemas/terms"
 
@@ -92,10 +88,14 @@ assert.match(
 
 const validTerm = {
   term: "t".repeat(TERM_MAX_LENGTH),
-  definition: "d".repeat(DEFINITION_MAX_LENGTH),
-  examples: "e".repeat(EXAMPLE_MAX_LENGTH)
+  definition: "d".repeat(DEFINITION_MAX_LENGTH)
 }
 assert.equal(DefineTermSchema.safeParse(validTerm).success, true)
+assert.deepEqual(
+  Object.keys(DefineTermSchema.shape),
+  ["term", "definition"],
+  "publishing a new term does not bundle an example contribution"
+)
 assert.equal(
   DefineTermSchema.safeParse({
     ...validTerm,
@@ -107,13 +107,6 @@ assert.equal(
   DefineTermSchema.safeParse({
     ...validTerm,
     definition: `${validTerm.definition}d`
-  }).success,
-  false
-)
-assert.equal(
-  DefineTermSchema.safeParse({
-    ...validTerm,
-    examples: `${validTerm.examples}e`
   }).success,
   false
 )

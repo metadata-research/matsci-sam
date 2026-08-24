@@ -1,54 +1,55 @@
-# AI refinement
+# AI-assisted suggestions
 
-When you add a definition with **Publish, then refine** selected, your
-definition page shows a **Refine with AI** button. Only the author of the
-original definition can use this multi-round refinement panel.
+AI is an optional drafting aid inside two contribution actions: **New term**
+and **Suggest a revision**. It is not a separate publication workflow.
+Comments, replacement proposals, and examples never start model work.
 
-## The loop
+## Suggest a definition for a new term
 
-1. Select **Refine with AI**. The application sends your term, definition,
-   and example to the configured language model. A round can take time,
-   especially when the model must first load. The pending round is stored,
-   including across a page refresh.
-2. The suggestion appears as a card, with changed wording highlighted
-   against your current text. The choices depend on what the model changed.
-   - **Accept and publish** publishes the revision.
-   - **Accept definition, keep my example** publishes the suggested
-     definition while preserving your example verbatim. This choice appears
-     when the model changed the example.
-   - **Keep mine** closes the round and leaves the current definition in place.
-   - **Re-evaluate** sends your feedback with a request for another pass.
-     Type what should change first, for example "mention that the
-     transformation is diffusionless".
-3. Each new round appears as its own card. Decided rounds collapse into
-   one-line history entries you can expand later.
+On **Contribute**, enter a term that is not already in the vocabulary. You may
+write the definition yourself or select **Suggest a definition with AI**. If
+you have started writing, that text is sent as contributor context.
 
-If a round fails because the model is unavailable, the card reports the
-failure and offers **Retry**.
+The suggested definition appears in the editable definition field. Nothing is
+published until you review the draft and select **Publish new term**. If you
+publish using the suggestion, the resulting definition credits you and the
+named model. Select **Remove AI draft** to discard it and continue without the
+suggestion.
 
-## What accepting does
+Examples are never bundled into an AI draft. Add them separately from the
+published definition page.
 
-The first accepted suggestion creates a **separate definition** credited
-to you and to the model by name. Your original definition remains
-unchanged. The two definitions link to each other, and the refined one
-shows a **Refined with** label naming the model. Readers can vote on either
-definition.
+## Suggest a revision to a definition
 
-You can refine the original again after a round is decided. The request
-includes the suggestions and feedback from earlier rounds. A later
-acceptance publishes a new revision of the existing refined definition. The
-new revision records the accepting author, named model, prompt, accepted
-suggestion, and relationship to the preceding revision. It starts with a new
-vote tally. Earlier revisions and their vote totals remain available in the
-revision history.
+Open a current definition and select **Suggest a revision**. This action is
+also available on the **Discussion** page and inside a study position step.
 
-A refinement request records the source revision. Acceptance requires that
-revision to remain current while the round is open. If it changes, start a new
-round from the latest revision.
+1. In **What should change?**, identify the error, ambiguity, or missing
+   distinction.
+2. Select **Draft revision with AI**. The application sends the term, the
+   exact source definition, and your critique to the configured model.
+3. Review and edit the returned definition. The model and its exact version
+   are shown beside the draft.
+4. Select **Publish revision** to create a separately voteable candidate, or
+   **Discard draft** to publish nothing.
 
-Every request, suggestion, decision, and piece of feedback appears in the
-stored [provenance](/docs/provenance) record for the term.
+The source definition remains available for comparison and voting. The new
+candidate records the exact source revision, your critique, the stored model
+output, the prompt, and the model identity. It is attributed to you with the
+model as a coauthor.
 
-Manual editing through **Edit** uses the same immutable revision mechanism.
-[Community review and revisions](/docs/community) describes the revision
-record and the handling of votes and comments.
+The source revision must still be current when the suggestion is requested and
+published. If it changes, review the latest wording and request a new draft.
+
+## Keep the actions distinct
+
+- Use **Comment** to post discussion text unchanged. It never revises a
+  definition or triggers AI.
+- Use **Propose a replacement** to write a different human-authored candidate
+  that should supersede the current one. This action does not request AI.
+- Use **Add example** to contribute an example of use. Examples have their own
+  attribution and do not change the definition revision or its votes.
+
+[Community review and revisions](/docs/community) explains candidate voting
+and immutable revision history. [Provenance](/docs/provenance) explains the
+record retained for accepted AI-assisted contributions.

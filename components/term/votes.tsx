@@ -26,6 +26,7 @@ interface Props {
   // The review step of a walkthrough the vote is cast inside, passed through
   // to votes.vote, which checks it against the act.
   surveyStepId?: number
+  expectedInstructions?: string | null
 }
 
 export const TermVotes = ({
@@ -35,7 +36,8 @@ export const TermVotes = ({
   readOnly = false,
   readOnlyTitle = "Earlier revisions are read-only",
   onScoreChange,
-  surveyStepId
+  surveyStepId,
+  expectedInstructions
 }: Props) => {
   const { data, refetch } = trpc.votes.get.useQuery(
     { definitionId, revisionId },
@@ -83,7 +85,13 @@ export const TermVotes = ({
         disabled={isPending || readOnly}
         onClick={(e) => {
           e.preventDefault()
-          mutate({ vote: "up", definitionId, revisionId, surveyStepId })
+          mutate({
+            vote: "up",
+            definitionId,
+            revisionId,
+            surveyStepId,
+            expectedInstructions
+          })
         }}
         title={readOnly ? readOnlyTitle : undefined}
         variant="ghost"
@@ -100,7 +108,13 @@ export const TermVotes = ({
         disabled={isPending || readOnly}
         onClick={(e) => {
           e.preventDefault()
-          mutate({ vote: "down", definitionId, revisionId, surveyStepId })
+          mutate({
+            vote: "down",
+            definitionId,
+            revisionId,
+            surveyStepId,
+            expectedInstructions
+          })
         }}
         title={readOnly ? readOnlyTitle : undefined}
         variant="ghost"

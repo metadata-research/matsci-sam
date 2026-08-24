@@ -6,13 +6,13 @@ import {
   termsTable,
   votesTable,
   definitionsTable,
-  chatsTable,
   usersTable,
   commentsTable,
   coauthorsTable,
-  definitionRevisionsTable
+  definitionRevisionsTable,
+  aiContributionSuggestionsTable
 } from "@yamz/db"
-import { and, desc, eq, getTableColumns, isNull, like, sql } from "drizzle-orm"
+import { and, desc, eq, getTableColumns, like, sql } from "drizzle-orm"
 import { slugify, uniqueSlug } from "@/lib/slug"
 import { deleteDefinitionRows } from "@/lib/definition-purge"
 import {
@@ -21,8 +21,6 @@ import {
   contributorProcedure
 } from "../procedures"
 import { revalidatePath } from "next/cache"
-import { reviseDefinition } from "@/lib/llm/definitions"
-import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
 import {
   createDefinitionWithInitialRevision,
@@ -34,49 +32,101 @@ import {
 import {
   CHANGE_NOTE_MAX_LENGTH,
   DEFINITION_MAX_LENGTH,
-  EXAMPLE_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 import { recordCompletion } from "@/lib/surveys"
 import { nextPositionFor } from "@/lib/survey-queries"
 import {
+  expectedInstructionsSchema,
+  lockParticipation,
   regeneratedConflict,
   requireOnePosition,
   requireStepForAct,
   sqlState
 } from "./surveys"
+import { GetModelUser } from "@/lib/crud"
+import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
+
+// Compatibility projection for compact definition views while examples have
+// their own endpoint: expose the active featured contribution under the old
+// scalar property, falling back to the legacy mirror during migration.
+const featuredExample = currentFeaturedExampleText()
 
 export const definitionsRouter = createTRPCRouter({
   create: contributorProcedure
     .input(
-      z.object({
-        term: z.string().trim().min(1, "Term is required").max(TERM_MAX_LENGTH),
-        definition: z
-          .string()
-          .trim()
-          .min(1, "You must give a definition")
-          .max(DEFINITION_MAX_LENGTH),
-        examples: z
-          .string()
-          .trim()
-          .min(1, "You must give an example")
-          .max(EXAMPLE_MAX_LENGTH),
-        // The interactive add flow: no term-level auto-AI definition; the
-        // author refines their own definition on the definition page instead
-        interactive: z.boolean().default(false),
-        // The define step of a walkthrough the definition is written inside.
-        surveyStepId: z.number().int().optional(),
-        // The current revision of a definition of the same term this one
-        // amends, recorded on the initial revision so the record states the
-        // derivation. The define step of a walkthrough sets it when a
-        // participant amends a candidate.
-        derivedFromRevisionId: z.number().int().optional()
-      })
+      z
+        .object({
+          term: z
+            .string()
+            .trim()
+            .min(1, "Term is required")
+            .max(TERM_MAX_LENGTH),
+          definition: z
+            .string()
+            .trim()
+            .min(1, "You must give a definition")
+            .max(DEFINITION_MAX_LENGTH),
+          // The define step of a walkthrough the definition is written inside.
+          surveyStepId: z.number().int().optional(),
+          expectedInstructions: expectedInstructionsSchema.optional(),
+          // The current revision of a definition of the same term this one
+          // revises, recorded on the initial revision so the record states the
+          // derivation. The define step of a walkthrough sets it when a
+          // participant suggests a revision to a candidate.
+          derivedFromRevisionId: z.number().int().positive().optional(),
+          // A separately voteable proposal intended to supersede this
+          // definition while keeping the existing candidate available.
+          replacesDefinitionId: z.number().int().positive().optional(),
+          // An explicit, persisted AI preview generated inside either New term
+          // or Suggest revision. The server consumes it exactly once.
+          aiSuggestionId: z.number().int().positive().optional()
+        })
+        .refine(
+          ({ derivedFromRevisionId, replacesDefinitionId }) =>
+            derivedFromRevisionId === undefined ||
+            replacesDefinitionId === undefined,
+          {
+            message:
+              "A contribution cannot be both a revision and a replacement"
+          }
+        )
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
+      if (
+        input.surveyStepId !== undefined &&
+        input.expectedInstructions === undefined
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Reload the walkthrough before contributing."
+        })
       // normalize the term
       const term = input.term.trim().toLowerCase()
+
+      // Model identity creation performs its own transaction, so resolve it
+      // before the publication transaction. The row is locked and rechecked
+      // below before any attribution is accepted.
+      const suggestionPreview = input.aiSuggestionId
+        ? await db.query.aiContributionSuggestionsTable.findFirst({
+            columns: { requestedById: true, model: true, status: true },
+            where: eq(aiContributionSuggestionsTable.id, input.aiSuggestionId)
+          })
+        : null
+      if (
+        input.aiSuggestionId &&
+        (!suggestionPreview ||
+          suggestionPreview.requestedById !== authorId ||
+          suggestionPreview.status !== "generated")
+      )
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No such pending AI suggestion"
+        })
+      const modelUser = suggestionPreview
+        ? await GetModelUser(suggestionPreview.model)
+        : null
 
       // A step is checked against the act before anything is written: the
       // caller may take part, and the step is the define step of this term.
@@ -100,15 +150,97 @@ export const definitionsRouter = createTRPCRouter({
         )
       }
 
-      // Whether this submission scheduled an automatic AI alternate
-      // definition, so the client can tell the contributor it is coming.
-      let aiScheduled = false
       let written
       try {
         written = await db.transaction(async (tx) => {
+          const lockedWalkthroughStep =
+            walkthroughStep && input.surveyStepId !== undefined
+              ? await lockParticipation(
+                  tx,
+                  input.surveyStepId,
+                  walkthroughStep.study.id,
+                  authorId,
+                  input.expectedInstructions!
+                )
+              : null
+          const aiSuggestion = input.aiSuggestionId
+            ? (
+                await tx
+                  .select()
+                  .from(aiContributionSuggestionsTable)
+                  .where(
+                    eq(aiContributionSuggestionsTable.id, input.aiSuggestionId)
+                  )
+                  .for("update")
+              )[0]
+            : null
+
+          if (
+            input.aiSuggestionId &&
+            (!aiSuggestion ||
+              aiSuggestion.requestedById !== authorId ||
+              aiSuggestion.status !== "generated")
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "This AI suggestion is no longer available"
+            })
+          if (
+            aiSuggestion &&
+            aiSuggestion.termText.trim().toLowerCase() !== term
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "That AI suggestion was generated for a different term"
+            })
+          if (aiSuggestion?.intent === "new_term") {
+            if (
+              input.derivedFromRevisionId !== undefined ||
+              input.replacesDefinitionId !== undefined ||
+              input.surveyStepId !== undefined
+            )
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "A new-term suggestion cannot publish a revision or replacement"
+              })
+          }
+          if (aiSuggestion?.intent === "revise_definition") {
+            if (
+              input.replacesDefinitionId !== undefined ||
+              aiSuggestion.sourceRevisionId === null ||
+              (input.derivedFromRevisionId !== undefined &&
+                input.derivedFromRevisionId !== aiSuggestion.sourceRevisionId)
+            )
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "That AI suggestion does not match this revision action"
+              })
+          }
+
+          const derivedFromRevisionId =
+            aiSuggestion?.intent === "revise_definition"
+              ? aiSuggestion.sourceRevisionId!
+              : input.derivedFromRevisionId
+          const isRevision = derivedFromRevisionId !== undefined
+          const isReplacement = input.replacesDefinitionId !== undefined
+          const isNewTerm = !isRevision && !isReplacement
+
           let dbTerm = await tx.query.termsTable.findFirst({
             where: eq(termsTable.term, term)
           })
+          if (dbTerm && isNewTerm)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "That term is already in the vocabulary. Open it to suggest a revision or propose a replacement."
+            })
+          if (!dbTerm && !isNewTerm)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "A revision or replacement must target an existing term"
+            })
           if (!dbTerm) {
             // First time this term has been defined, so create it -- with its
             // public slug. Distinct terms can normalize to the same slug
@@ -129,54 +261,25 @@ export const definitionsRouter = createTRPCRouter({
               })
               .returning()
 
-            if (!input.interactive) {
-              // insert the ai chat
-              await tx.insert(chatsTable).values({
-                role: "user",
-                userId: authorId,
-                message: `<term>\n${term}\n<example>\n${input.examples}`,
-                termId: insertedTerm.id
-              })
-
-              after(() =>
-                // Automatically create AI definition on new term creation
-                reviseDefinition(insertedTerm.id)
-              )
-              aiScheduled = true
-            }
-
             dbTerm = insertedTerm
           }
 
           // One position per define step: an act of the author already
           // naming the step refuses this definition, in the transaction that
           // would write it.
-          if (walkthroughStep)
-            await requireOnePosition(tx, walkthroughStep.step, authorId)
+          if (lockedWalkthroughStep)
+            await requireOnePosition(tx, lockedWalkthroughStep.step, authorId)
 
-          const existingOriginal = await tx.query.definitionsTable.findFirst({
-            columns: { id: true },
-            where: and(
-              eq(definitionsTable.termId, dbTerm.id),
-              eq(definitionsTable.authorId, authorId),
-              isNull(definitionsTable.refinedFromId)
-            )
-          })
-          if (existingOriginal)
-            throw new TRPCError({
-              code: "CONFLICT",
-              message:
-                "You already contributed a definition for this term. Open your existing definition to publish a revision."
-            })
-
-          // An amendment derives from what a reader can see now: the current
+          // A suggested revision derives from what a reader can see now: the current
           // revision of a definition of this term. A revision of another
           // term, or none, is no candidate here; an older revision of a
           // candidate is refused with a reload, because the text has moved
           // on. Neither is recorded as the source of a definition it was not.
-          if (input.derivedFromRevisionId !== undefined) {
+          let sourceDefinitionId: number | null = null
+          if (derivedFromRevisionId !== undefined) {
             const [source] = await tx
               .select({
+                definitionId: definitionsTable.id,
                 termId: definitionsTable.termId,
                 current: sql<boolean>`${definitionsTable.currentRevisionId} = ${definitionRevisionsTable.id}`
               })
@@ -185,9 +288,7 @@ export const definitionsRouter = createTRPCRouter({
                 definitionsTable,
                 eq(definitionsTable.id, definitionRevisionsTable.definitionId)
               )
-              .where(
-                eq(definitionRevisionsTable.id, input.derivedFromRevisionId)
-              )
+              .where(eq(definitionRevisionsTable.id, derivedFromRevisionId))
               .limit(1)
             if (!source || source.termId !== dbTerm.id)
               throw new TRPCError({
@@ -198,7 +299,31 @@ export const definitionsRouter = createTRPCRouter({
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:
-                  "The definition you are amending has changed. Reload the page."
+                  "The definition you are revising has changed. Reload the page."
+              })
+            sourceDefinitionId = source.definitionId
+
+            if (
+              aiSuggestion?.intent === "revise_definition" &&
+              aiSuggestion.definitionId !== source.definitionId
+            )
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "That AI suggestion belongs to a different definition"
+              })
+          }
+
+          if (input.replacesDefinitionId !== undefined) {
+            const replacementTarget = await tx.query.definitionsTable.findFirst(
+              {
+                columns: { id: true, termId: true },
+                where: eq(definitionsTable.id, input.replacesDefinitionId)
+              }
+            )
+            if (!replacementTarget || replacementTarget.termId !== dbTerm.id)
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "That replacement target is not part of this term"
               })
           }
 
@@ -207,15 +332,42 @@ export const definitionsRouter = createTRPCRouter({
               termId: dbTerm.id,
               authorId,
               definition: input.definition,
-              example: input.examples,
-              changeNote: input.derivedFromRevisionId
-                ? "Amendment of a candidate"
-                : "Initial contribution",
-              source: "initial",
-              createdVia: input.interactive ? "interactive" : "classic",
-              derivedFromRevisionId: input.derivedFromRevisionId ?? null,
+              // Examples are now independent contributions. Keep the legacy
+              // non-null column and revision shape valid while the normalized
+              // example records become canonical.
+              example: "",
+              changeNote: isRevision
+                ? aiSuggestion
+                  ? "AI-assisted suggested revision"
+                  : "Suggested revision of a candidate"
+                : isReplacement
+                  ? "Replacement proposal"
+                  : aiSuggestion
+                    ? "AI-assisted new-term contribution"
+                    : "Initial contribution",
+              source: aiSuggestion ? "ai_assisted" : "initial",
+              model: aiSuggestion?.model ?? null,
+              prompt: aiSuggestion?.promptText ?? null,
+              refinedFromId: sourceDefinitionId,
+              replacesDefinitionId: input.replacesDefinitionId ?? null,
+              derivedFromRevisionId: derivedFromRevisionId ?? null,
               surveyStepId: input.surveyStepId ?? null
             })
+
+          if (aiSuggestion && modelUser) {
+            await tx.insert(coauthorsTable).values({
+              definitionId: insertedDefinition.id,
+              userId: modelUser.id
+            })
+            await tx
+              .update(aiContributionSuggestionsTable)
+              .set({
+                status: "accepted",
+                outputDefinitionId: insertedDefinition.id,
+                decidedAt: sql`now()`
+              })
+              .where(eq(aiContributionSuggestionsTable.id, aiSuggestion.id))
+          }
 
           // The completion a define step records with its definition, which
           // is the position the step asked for, and where the walkthrough
@@ -226,50 +378,20 @@ export const definitionsRouter = createTRPCRouter({
             completedStepId: number
             nextPosition: number | null
           } | null = null
-          if (walkthroughStep) {
+          if (lockedWalkthroughStep) {
             // The define step completes with the definition it asked for, in
             // the transaction that writes it.
             await recordCompletion(tx, {
-              stepId: walkthroughStep.step.id,
+              stepId: lockedWalkthroughStep.step.id,
               userId: authorId
             })
             walkthrough = {
-              completedStepId: walkthroughStep.step.id,
+              completedStepId: lockedWalkthroughStep.step.id,
               nextPosition: await nextPositionFor(
                 tx,
-                walkthroughStep.study.id,
+                lockedWalkthroughStep.study.id,
                 authorId
               )
-            }
-
-            // A study term seeded without a model definition gets one here,
-            // as a new term does: the generation otherwise fires only on term
-            // creation, and the draft of a term in a walkthrough is its model
-            // definition. A model definition is one under
-            // a model identity, an aiModels row, which is what reviseDefinition
-            // writes under; a simulated participant is an AI-flag account
-            // without one and does not count.
-            if (!input.interactive) {
-              const [modelDefinition] = await tx
-                .select({ id: definitionsTable.id })
-                .from(definitionsTable)
-                .innerJoin(
-                  aiModelsTable,
-                  eq(aiModelsTable.userId, definitionsTable.authorId)
-                )
-                .where(eq(definitionsTable.termId, dbTerm.id))
-                .limit(1)
-              if (!modelDefinition) {
-                await tx.insert(chatsTable).values({
-                  role: "user",
-                  userId: authorId,
-                  message: `<term>\n${term}\n<example>\n${input.examples}`,
-                  termId: dbTerm.id
-                })
-                const termId = dbTerm.id
-                after(() => reviseDefinition(termId))
-                aiScheduled = true
-              }
             }
           }
 
@@ -291,11 +413,14 @@ export const definitionsRouter = createTRPCRouter({
         version: 1
       })
 
-      return { term: dbTermOut, definition, aiScheduled, walkthrough }
+      return {
+        term: dbTermOut,
+        definition,
+        walkthrough
+      }
     }),
-  // The version of a definition's current revision. Cheap enough to poll:
-  // the comment hook watches it after a comment schedules a model revision,
-  // so the arrival can be announced instead of landing silently.
+  // A compact version read retained for clients that need to detect an
+  // explicitly published revision.
   currentVersion: baseProcedure
     .input(z.number())
     .query(async ({ input: definitionId }) => {
@@ -319,11 +444,6 @@ export const definitionsRouter = createTRPCRouter({
           .trim()
           .min(1, "Definition is required")
           .max(DEFINITION_MAX_LENGTH),
-        example: z
-          .string()
-          .trim()
-          .min(1, "Example of use is required")
-          .max(EXAMPLE_MAX_LENGTH),
         changeNote: z
           .string()
           .trim()
@@ -335,12 +455,12 @@ export const definitionsRouter = createTRPCRouter({
     .mutation(
       async ({
         ctx: { userId },
-        input: { id, definition, example, changeNote, expectedRevisionId }
+        input: { id, definition, changeNote, expectedRevisionId }
       }) => {
         try {
           const result = await db.transaction(async (tx) => {
             const owned = await tx.query.definitionsTable.findFirst({
-              columns: { id: true },
+              columns: { id: true, example: true },
               where: and(
                 eq(definitionsTable.authorId, userId),
                 eq(definitionsTable.id, id)
@@ -357,7 +477,9 @@ export const definitionsRouter = createTRPCRouter({
               definitionId: id,
               editorId: userId,
               definition,
-              example,
+              // Editing definition wording must not edit its independently
+              // contributed examples. Preserve the compatibility mirror.
+              example: owned.example,
               changeNote,
               source: "author_edit",
               expectedRevisionId
@@ -404,7 +526,7 @@ export const definitionsRouter = createTRPCRouter({
         try {
           const result = await db.transaction(async (tx) => {
             const definition = await tx.query.definitionsTable.findFirst({
-              columns: { id: true },
+              columns: { id: true, example: true },
               where: and(
                 eq(definitionsTable.id, definitionId),
                 eq(definitionsTable.authorId, userId)
@@ -427,18 +549,13 @@ export const definitionsRouter = createTRPCRouter({
                 code: "NOT_FOUND",
                 message: "No such revision"
               })
-            if (target.exampleDiff === null)
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message:
-                  "This imported legacy revision has no recorded example and cannot be restored directly."
-              })
-
             return publishDefinitionRevision(tx, {
               definitionId,
               editorId: userId,
               definition: diffToStringSimple(target.definitionDiff),
-              example: diffToStringSimple(target.exampleDiff),
+              // A definition rollback must not replace independently managed
+              // examples with the legacy example stored in an old revision.
+              example: definition.example,
               changeNote,
               source: "rollback",
               expectedRevisionId,
@@ -477,6 +594,7 @@ export const definitionsRouter = createTRPCRouter({
       const [def] = await db
         .select({
           ...getTableColumns(definitionsTable),
+          example: featuredExample.as("example"),
           author: {
             id: usersTable.id,
             name: usersTable.name,
@@ -565,11 +683,11 @@ export const definitionsRouter = createTRPCRouter({
             })
             .from(coauthorsTable)
             .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
+            .innerJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
             .where(
               and(
                 eq(coauthorsTable.definitionId, def.id),
-                eq(usersTable.isAi, true),
-                eq(usersTable.name, selectedRevision.model)
+                eq(aiModelsTable.tag, selectedRevision.model)
               )
             )
         : []
@@ -577,29 +695,41 @@ export const definitionsRouter = createTRPCRouter({
       // Public identities for both sides of the accepted-refinement lineage.
       // Internal row IDs remain relationship keys only and are not exposed in
       // the links rendered by the definition page.
-      const [refinedFrom, refinedVersion] = await Promise.all([
-        def.refinedFromId === null
-          ? null
-          : db.query.definitionsTable.findFirst({
-              columns: { definitionNumber: true },
-              where: eq(definitionsTable.id, def.refinedFromId)
-            }),
-        def.authorId === null
-          ? null
-          : db.query.definitionsTable.findFirst({
-              columns: { id: true, definitionNumber: true },
-              where: and(
-                eq(definitionsTable.refinedFromId, def.id),
-                eq(definitionsTable.authorId, def.authorId),
-                sql`exists (
+      const [refinedFrom, refinedVersion, replaces, replacements] =
+        await Promise.all([
+          def.refinedFromId === null
+            ? null
+            : db.query.definitionsTable.findFirst({
+                columns: { definitionNumber: true },
+                where: eq(definitionsTable.id, def.refinedFromId)
+              }),
+          def.authorId === null
+            ? null
+            : db.query.definitionsTable.findFirst({
+                columns: { id: true, definitionNumber: true },
+                where: and(
+                  eq(definitionsTable.refinedFromId, def.id),
+                  eq(definitionsTable.authorId, def.authorId),
+                  sql`exists (
                   select 1
                   from ${definitionRevisionsTable} artifact_revision
                   where artifact_revision."definitionId" = ${definitionsTable.id}
                     and artifact_revision."sourceRefinementId" is not null
                 )`
-              )
-            })
-      ])
+                )
+              }),
+          def.replacesDefinitionId === null
+            ? null
+            : db.query.definitionsTable.findFirst({
+                columns: { definitionNumber: true },
+                where: eq(definitionsTable.id, def.replacesDefinitionId)
+              }),
+          db.query.definitionsTable.findMany({
+            columns: { definitionNumber: true },
+            where: eq(definitionsTable.replacesDefinitionId, def.id),
+            orderBy: definitionsTable.definitionNumber
+          })
+        ])
 
       const currentVersion =
         revisions.find((revision) => revision.id === def.currentRevisionId)
@@ -609,9 +739,11 @@ export const definitionsRouter = createTRPCRouter({
         ...def,
         definition: diffToStringSimple(selectedRevision.definitionDiff),
         example:
-          selectedRevision.exampleDiff === null
-            ? null
-            : diffToStringSimple(selectedRevision.exampleDiff),
+          selectedRevision.id === def.currentRevisionId
+            ? def.example
+            : selectedRevision.exampleDiff === null
+              ? null
+              : diffToStringSimple(selectedRevision.exampleDiff),
         model: selectedRevision.model,
         prompt: selectedRevision.prompt,
         score: selectedRevision.score,
@@ -628,7 +760,12 @@ export const definitionsRouter = createTRPCRouter({
         coauthors,
         refinedFromDefinitionNumber: refinedFrom?.definitionNumber ?? null,
         refinedVersionId: refinedVersion?.id ?? null,
-        refinedVersionDefinitionNumber: refinedVersion?.definitionNumber ?? null
+        refinedVersionDefinitionNumber:
+          refinedVersion?.definitionNumber ?? null,
+        replacesDefinitionNumber: replaces?.definitionNumber ?? null,
+        replacementDefinitionNumbers: replacements.map(
+          (replacement) => replacement.definitionNumber
+        )
       }
     }),
   mine: authenticatedProcedure.query(async ({ ctx: { userId } }) => {
@@ -646,6 +783,7 @@ export const definitionsRouter = createTRPCRouter({
       const definitionsQuery = db
         .select({
           ...getTableColumns(definitionsTable),
+          example: featuredExample.as("example"),
           revisionId: definitionRevisionsTable.id,
           version: definitionRevisionsTable.version,
           isAi: usersTable.isAi,

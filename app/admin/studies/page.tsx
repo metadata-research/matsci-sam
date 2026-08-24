@@ -1,68 +1,143 @@
 import Link from "next/link"
-import { ArrowRightIcon, FlaskConicalIcon } from "lucide-react"
+import {
+  ArrowRightIcon,
+  BookOpenIcon,
+  FlaskConicalIcon,
+  PencilIcon
+} from "lucide-react"
 import { AdminPageHeader } from "../page-header"
 import styles from "../admin.module.css"
-import { STUDIES } from "@/lib/published-studies"
+import { adminStudyOptions, listAdminStudies } from "@/lib/admin-study-queries"
+import { studyState, type StudyState } from "@/lib/communities"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table"
+import { CreateStudyDialog } from "./create-study-dialog"
 
 export const metadata = {
   title: "Studies"
 }
 
-export default function AdminStudiesPage() {
+const STATE_LABEL: Record<StudyState, string> = {
+  draft: "Draft",
+  open: "Open",
+  closed: "Closed",
+  retired: "Retired"
+}
+
+export default async function AdminStudiesPage() {
+  const [studies, options] = await Promise.all([
+    listAdminStudies(),
+    adminStudyOptions()
+  ])
+
   return (
     <>
       <AdminPageHeader
         title="Studies"
-        description="The published studies this platform answers to, and the second ID4 study they are the template for."
+        description="Create studies and maintain the instructions participants see."
+        actions={<CreateStudyDialog options={options} />}
       />
-      <div className={styles.sectionStack}>
-        <p className={styles.sectionDescription}>
-          A study joins a cohort of people to a set of terms and runs them
-          through an ordered protocol. Both studies below ran on predecessor
-          software, and neither is stored here. They are written down so the
-          protocol work can be scoped against what the papers actually did.
-        </p>
 
-        {STUDIES.map((study) => (
-          <section className={styles.panel} key={study.slug}>
-            <div className={styles.panelHeader}>
-              <h2 className={styles.panelTitle}>
-                <FlaskConicalIcon aria-hidden />
-                {study.title}
-              </h2>
-              <span className={styles.panelMeta}>
-                {study.state === "completed" ? "Completed" : "Proposed"}
-              </span>
+      <section className={styles.panel}>
+        {studies.length === 0 ? (
+          <div className={styles.emptyState}>
+            <div>
+              <FlaskConicalIcon aria-hidden />
+              <h2>No studies yet</h2>
+              <p>
+                Create the first study to connect a community, a collection, and
+                a clear block of participant instructions.
+              </p>
             </div>
-            <p className="px-5 text-sm text-muted-foreground">{study.lede}</p>
-            <dl className="grid gap-3 px-5 pt-4 text-sm sm:grid-cols-3">
-              <Fact label="Platform" value={study.platform} />
-              <Fact label="Cohort" value={study.cohort} />
-              <Fact label="Terms" value={study.termSet} />
-            </dl>
-            <div className={styles.panelFooter}>
-              <Link
-                href={`/admin/studies/${study.slug}`}
-                className={styles.textLink}
-              >
-                Read the protocol
-                <ArrowRightIcon aria-hidden />
-              </Link>
-            </div>
-          </section>
-        ))}
-      </div>
+          </div>
+        ) : (
+          <Table className={styles.recordTable}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Study</TableHead>
+                <TableHead>Community</TableHead>
+                <TableHead>Collection</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Activity</TableHead>
+                <TableHead>
+                  <span className="sr-only">Edit</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {studies.map((study) => {
+                const state = studyState(study)
+                return (
+                  <TableRow className={styles.recordTableRow} key={study.id}>
+                    <TableCell>
+                      <div className={styles.studyNameCell}>
+                        <Link
+                          className={styles.activityTerm}
+                          href={`/admin/studies/${study.id}`}
+                        >
+                          {study.title}
+                        </Link>
+                        <span className={styles.codeText}>/{study.slug}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell data-label="Community">
+                      {study.communityTitle}
+                    </TableCell>
+                    <TableCell data-label="Collection">
+                      {study.collectionTitle}
+                    </TableCell>
+                    <TableCell data-label="Status">
+                      <Badge
+                        variant={state === "retired" ? "secondary" : "outline"}
+                      >
+                        {STATE_LABEL[state]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell data-label="Activity">
+                      <span
+                        className={
+                          study.activity > 0
+                            ? styles.tableMetric
+                            : styles.tableMetricEmpty
+                        }
+                      >
+                        {study.activity}
+                      </span>
+                    </TableCell>
+                    <TableCell data-label="Edit">
+                      <Button asChild size="sm" variant="ghost">
+                        <Link
+                          href={`/admin/studies/${study.id}`}
+                          aria-label={`Edit ${study.title}`}
+                        >
+                          <PencilIcon data-icon="inline-start" aria-hidden />
+                          Edit
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+
+        <div className={styles.panelFooter}>
+          <Link href="/admin/studies/reference" className={styles.textLink}>
+            <BookOpenIcon aria-hidden />
+            Read the protocol reference
+            <ArrowRightIcon aria-hidden />
+          </Link>
+        </div>
+      </section>
     </>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-1 text-foreground">{value}</dd>
-    </div>
   )
 }

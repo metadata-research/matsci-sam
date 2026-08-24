@@ -8,9 +8,10 @@ attribution and provenance.
 
 ## Contributor and administrator roles
 
-Contributors write definitions and examples of use. They may create topics and
-attach them to definitions they wrote. A contributor who created a topic may
-link it to an equivalent vocabulary term when the scheme permits the link.
+Contributors create terms and definitions and may add separately attributed
+examples of use. They may create topics and attach them to definitions they
+wrote. A contributor who created a topic may link it to an equivalent
+vocabulary term when the scheme permits the link.
 
 Administrators assign facets to terms and manage tags. They may edit a tag
 definition, scope note, and alternative labels, link bridgeable tags to
@@ -52,20 +53,35 @@ Each definition revision records the size of its change. The Tag drift report
 lists linked tags whose term definitions changed by at least 25 percent after
 classification statements were first filed under them.
 
-## AI-assisted definitions
+## Contribution actions and AI
 
-MatSci-SAM provides two paths for AI-assisted definitions. The term-level path
-publishes a definition and example under a named model identity. The model
-definition appears beside human definitions and accepts votes and comments in
-the same way. A comment on its current revision outside a study review step
-schedules another generation. A changed result becomes a new immutable
-revision under the same model identity.
+MatSci-SAM exposes five contribution actions with the same meaning on
+vocabulary pages, in Discussion, and in studies.
 
-The interactive refinement path begins with a definition owned by its author.
-The author requests a suggestion and may accept it, keep the original, or
-submit feedback for another generation. The first accepted suggestion creates
-a separate definition attributed to the author and the named model. Later
-acceptances create immutable revisions of that refined definition.
+- **New term** creates a vocabulary term and its first definition.
+- **Suggest a revision** creates a separate candidate derived from an exact
+  source revision.
+- **Propose a replacement** creates a separate candidate linked to the
+  definition it is intended to supersede.
+- **Comment** records discussion against the visible revision without changing
+  vocabulary content.
+- **Add example** attaches a separately attributed usage example to one
+  definition.
+
+AI is an optional drafting control inside **New term** and **Suggest a
+revision**, not an independent workflow. For a new term, the contributor may
+request an editable definition draft before publication. For a revision, the
+contributor first states what is wrong or missing; the application sends that
+critique with the exact source definition and returns an editable draft.
+Publishing either draft attributes the definition to the contributor and the
+named model. A suggested revision remains separately voteable and leaves its
+source unchanged.
+
+Comments, replacement proposals, and examples do not trigger model work.
+Examples have their own immutable contribution records, so one definition can
+retain several. One example may be featured in compact views; the full list
+remains available, and changing the featured selection does not affect the
+definition revision or its votes.
 
 Each contributing model has a profile at `/models/{model}`. The profile records
 the exact runtime tag, publisher, model family, parameter size, authored
@@ -73,23 +89,26 @@ definitions, and prompts recorded for its revisions. One profile corresponds
 to one runtime tag. Display names begin with `MatBot` to identify model
 accounts.
 
-The application stores each model output before the next person acts on it,
-together with the exact prompt and model tag. The author decides whether an
-interactive suggestion becomes published vocabulary content.
+The application stores each model output before the contributor acts on it,
+together with the exact prompt and model tag. The contributor reviews and may
+edit the draft before deciding whether it becomes published vocabulary
+content.
 
 The [provenance model](/docs/reference/provenance-model) connects each
-refinement request to its source revision, feedback, prompt, stored output,
-decision, and published revision. The record identifies the generated text and
-the human action that accepted it.
+accepted revision suggestion to its source revision, critique, prompt, stored
+output, decision, and published candidate. The record identifies the generated
+text and the human action that published it. New-term suggestions use the same
+generation stamp without a source revision.
 
 ## Studies and support
 
 A community may conduct a study over a collection of terms with an ordered
 walkthrough. The pilot protocol asks each participant to take one position on
-each term by accepting, amending, or replacing a candidate definition.
-Acceptance records an upvote. An amendment creates a definition whose first
-revision names the source revision. A replacement creates a definition without
-that derivation.
+each term by accepting a candidate, suggesting a revision, or proposing a
+replacement. Acceptance records an upvote. A suggested revision uses the
+shared critique-driven AI action and creates a definition whose first revision
+names the source revision. A replacement names the stable definition it is
+intended to supersede.
 
 Votes, comments, and definitions created through the walkthrough name the
 study step that prompted them. Step completions and closing answers form

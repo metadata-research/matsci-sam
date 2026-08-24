@@ -9,26 +9,24 @@ Each section links to the corresponding page of the user guide.
 Select **Login** in the navigation bar. Sign-in uses Google or a verified
 email address. You can link an ORCID iD to the account later.
 Anyone can read the dictionary without an account. An account is required to
-add a definition, vote, or comment.
+add a definition or example, vote, or comment.
 
 [Account access](/docs/account-access) describes the sign-in methods and linked
 ORCID iDs.
 
 ## Add a term
 
-Open **Contribute** and fill in the term, a definition, and an example of use.
-Name the broader class first, then what distinguishes the term from its
-neighbours.
+Open **Contribute** and fill in the new term and its definition. Name the
+broader class first, then what distinguishes the term from its neighbours.
+If the term already exists, open its vocabulary page and choose one of the
+actions there instead.
 
-![The Contribute form, showing the workflow choice above the term, definition, and example fields](/images/docs/quickstart-contribute.png)
+An optional **Suggest a definition with AI** button supplies an editable
+draft. Review it before publishing. The application credits the named model
+if you use the suggestion; it does not silently publish a second definition.
 
-Choose one of the two AI workflows before publishing. **Publish and compare**
-adds your definition and, for a term with no existing definition, requests a
-separately attributed model-authored definition alongside it. **Publish, then refine**
-adds your definition and offers a refinement control on the definition page.
-
-[Adding a term](/docs/adding-terms) covers both workflows and the form in
-detail.
+[Adding a term](/docs/adding-terms) covers the contribution actions and the
+form in detail.
 
 ## Compare the definitions
 
@@ -54,33 +52,47 @@ comment against the revision visible when it was posted.
 
 ![A definition page scrolled to its comment thread](/images/docs/quickstart-comments.png)
 
-A comment on the current revision of a model-authored definition schedules
-another term-level generation. The prompt for that generation
-includes the comment. The comment box states this before you post.
+A comment stores exactly the text you post. It does not alter the definition
+or start model work.
 
 ## Ask for a revision
 
-The **Discussion** page lists the eight most recently added terms. Enter what
-should change and select **Suggest revision**. The application sends the
-definition, the example, and your feedback to the configured language model,
-then returns a preview on the same card.
+On a current definition, select **Suggest a revision**, explain what is wrong
+or missing, and ask AI to draft new wording. The application sends the term,
+source definition, and your feedback to the configured language model. The
+editable preview appears before anything is published. The same action is
+available in the **Discussion** feed and in a study walkthrough.
 
-![The Discussion page, with a feedback box and the Suggest revision and Post comment controls](/images/docs/quickstart-revise.png)
+![The Discussion page, with separate Suggest a revision and Comment controls](/images/docs/quickstart-revise.png)
 
-Accept the preview and it publishes another definition for the term, credited
-to you with the named model as a coauthor. **Post comment instead** records
-your feedback without publishing a definition. Any signed-in contributor can
-use this one-step workflow. An author who chose **Publish, then refine** also
-has a longer multi-round panel on the current revision of that definition.
+Publish the reviewed draft to create a separate voteable candidate, linked to
+the exact source revision. The source remains available. The new candidate is
+credited to you, with the named model as a coauthor. Discarding the draft
+publishes nothing. Use the separate **Comment** action when the feedback should
+remain discussion only.
 
-[Discussion](/docs/discussion) covers this feed and the revision workflow, and
-[AI refinement](/docs/ai-refinement) covers the multi-round panel.
+[Discussion](/docs/discussion) covers the feed, and [AI-assisted
+suggestions](/docs/ai-refinement) covers the two places where AI can draft
+text.
+
+## Replace or illustrate a definition
+
+Select **Propose a replacement** when you want to write a different candidate
+that should supersede the current definition. The proposal and its target both
+remain visible for comparison and voting.
+
+Select **Add example** to contribute a usage example to a particular
+definition. A definition can have several examples. Its page shows all of
+them, while one featured example represents the definition in compact views.
+Adding or featuring an example does not create a definition revision or reset
+its votes.
 
 ## Follow the record
 
-The application records term creation, definition publication, revisions,
-model generation, comments, and votes. The provenance page for a term presents
-that history as a timeline and as a W3C PROV-O graph available for download.
+The application records term creation, definition publication, derivation and
+replacement links, AI suggestions that are used, examples, comments, and
+votes. The provenance page for a term presents the published history as a
+timeline and as a W3C PROV-O graph available for download.
 
 ![The provenance timeline for passivation, listing term creation and each revision in order](/images/docs/quickstart-provenance.png)
 

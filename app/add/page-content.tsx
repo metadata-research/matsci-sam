@@ -1,10 +1,8 @@
 import { DefineTermForm } from "./form"
 
 export function AddTermPageContent({
-  interactive = false,
   initialTerm = ""
 }: {
-  interactive?: boolean
   initialTerm?: string
 }) {
   return (
@@ -12,15 +10,16 @@ export function AddTermPageContent({
       <div className="mx-auto max-w-2xl space-y-6">
         <section className="max-w-xl space-y-2">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Define a term
+            Add a new term
           </h1>
           <p className="leading-7 text-muted-foreground">
-            Contribute a materials science term with a clear definition and
-            example of use. Definitions are public and open to community voting,
-            comments, and alternatives.
+            Contribute a new materials science term and its first definition.
+            You can write it yourself or ask AI for an editable suggestion.
+            After publishing, examples can be added separately so a definition
+            can collect more than one.
           </p>
         </section>
-        <DefineTermForm interactive={interactive} initialTerm={initialTerm} />
+        <DefineTermForm initialTerm={initialTerm} />
       </div>
     </main>
   )

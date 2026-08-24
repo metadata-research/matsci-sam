@@ -1,5 +1,7 @@
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm"
 import {
+  commentsTable,
+  collectionsTable,
   communitiesTable,
   communityMembersTable,
   db,
@@ -84,7 +86,9 @@ export const stepWithStudy = async (executor: Executor, stepId: number) => {
         communityId: studiesTable.communityId,
         opensAt: studiesTable.opensAt,
         closesAt: studiesTable.closesAt,
-        retiredAt: studiesTable.retiredAt
+        retiredAt: studiesTable.retiredAt,
+        communityRetiredAt: communitiesTable.retiredAt,
+        collectionRetiredAt: collectionsTable.retiredAt
       },
       community: {
         retiredAt: communitiesTable.retiredAt
@@ -96,18 +100,84 @@ export const stepWithStudy = async (executor: Executor, stepId: number) => {
       communitiesTable,
       eq(communitiesTable.id, studiesTable.communityId)
     )
+    .innerJoin(
+      collectionsTable,
+      eq(collectionsTable.id, studiesTable.collectionId)
+    )
     .where(eq(surveyStepsTable.id, stepId))
     .limit(1)
   return row ?? null
 }
 
-// Hold the study row for the rest of the transaction, so two stewards
-// replacing and appending steps at once serialize instead of leaving a gap
-// in the positions.
-export const lockStudy = (tx: DatabaseTransaction, studyId: number) =>
-  tx.execute(
-    sql`SELECT id FROM ${studiesTable} WHERE id = ${studyId} FOR UPDATE`
-  )
+/*
+ * Hold the study and both parents in one explicit order for the rest of the
+ * transaction. Participant acts, lifecycle edits and step generation all
+ * start with the study; community and collection retirement then either land
+ * before this authoritative read or wait until the transaction commits.
+ */
+export const lockStudy = async (tx: DatabaseTransaction, studyId: number) => {
+  const [study] = await tx
+    .select({
+      id: studiesTable.id,
+      slug: studiesTable.slug,
+      title: studiesTable.title,
+      communityId: studiesTable.communityId,
+      collectionId: studiesTable.collectionId,
+      welcome: studiesTable.welcome,
+      opensAt: studiesTable.opensAt,
+      closesAt: studiesTable.closesAt,
+      retiredAt: studiesTable.retiredAt
+    })
+    .from(studiesTable)
+    .where(eq(studiesTable.id, studyId))
+    .limit(1)
+    .for("update")
+  if (!study) return null
+
+  const [community] = await tx
+    .select({
+      slug: communitiesTable.slug,
+      retiredAt: communitiesTable.retiredAt
+    })
+    .from(communitiesTable)
+    .where(eq(communitiesTable.id, study.communityId))
+    .limit(1)
+    .for("share")
+  const [collection] = await tx
+    .select({ retiredAt: collectionsTable.retiredAt })
+    .from(collectionsTable)
+    .where(eq(collectionsTable.id, study.collectionId))
+    .limit(1)
+    .for("share")
+  if (!community || !collection) return null
+
+  return {
+    ...study,
+    communitySlug: community.slug,
+    communityRetiredAt: community.retiredAt,
+    collectionRetiredAt: collection.retiredAt
+  }
+}
+
+// The participant-visible protocol copy protected by the study lock. Null is
+// meaningful: it says the walkthrough has no canonical instructions step.
+export const instructionPromptOfStudy = async (
+  executor: Executor,
+  studyId: number
+): Promise<string | null> => {
+  const [row] = await executor
+    .select({ prompt: surveyStepsTable.prompt })
+    .from(surveyStepsTable)
+    .where(
+      and(
+        eq(surveyStepsTable.studyId, studyId),
+        eq(surveyStepsTable.position, 1),
+        eq(surveyStepsTable.kind, "instructions")
+      )
+    )
+    .limit(1)
+  return row?.prompt ?? null
+}
 
 // The ids of the steps of a study one person has completed.
 export const completedStepIdsOf = async (
@@ -146,6 +216,75 @@ export const completionCountOfStudy = async (
     )
     .where(eq(surveyStepsTable.studyId, studyId))
   return row?.count ?? 0
+}
+
+/*
+ * Every persisted act that can make a walkthrough's wording part of the
+ * study record. An instructions edit must consider all five kinds: a person
+ * can act inside a step before completing it, so completions alone are not a
+ * safe proxy for whether the walkthrough has been used.
+ */
+export type WalkthroughUsage = {
+  completions: number
+  responses: number
+  definitionRevisions: number
+  voteEvents: number
+  comments: number
+}
+
+export const walkthroughUsageOfStudy = async (
+  executor: Executor,
+  studyId: number
+): Promise<WalkthroughUsage> => {
+  const count = sql<number>`cast(count(*) as int)`.mapWith(Number)
+  const [completions] = await executor
+    .select({ count })
+    .from(surveyStepCompletionsTable)
+    .innerJoin(
+      surveyStepsTable,
+      eq(surveyStepsTable.id, surveyStepCompletionsTable.stepId)
+    )
+    .where(eq(surveyStepsTable.studyId, studyId))
+  const [responses] = await executor
+    .select({ count })
+    .from(surveyResponsesTable)
+    .innerJoin(
+      surveyStepsTable,
+      eq(surveyStepsTable.id, surveyResponsesTable.stepId)
+    )
+    .where(eq(surveyStepsTable.studyId, studyId))
+  const [definitionRevisions] = await executor
+    .select({ count })
+    .from(definitionRevisionsTable)
+    .innerJoin(
+      surveyStepsTable,
+      eq(surveyStepsTable.id, definitionRevisionsTable.surveyStepId)
+    )
+    .where(eq(surveyStepsTable.studyId, studyId))
+  const [voteEvents] = await executor
+    .select({ count })
+    .from(voteEventsTable)
+    .innerJoin(
+      surveyStepsTable,
+      eq(surveyStepsTable.id, voteEventsTable.surveyStepId)
+    )
+    .where(eq(surveyStepsTable.studyId, studyId))
+  const [comments] = await executor
+    .select({ count })
+    .from(commentsTable)
+    .innerJoin(
+      surveyStepsTable,
+      eq(surveyStepsTable.id, commentsTable.surveyStepId)
+    )
+    .where(eq(surveyStepsTable.studyId, studyId))
+
+  return {
+    completions: completions?.count ?? 0,
+    responses: responses?.count ?? 0,
+    definitionRevisions: definitionRevisions?.count ?? 0,
+    voteEvents: voteEvents?.count ?? 0,
+    comments: comments?.count ?? 0
+  }
 }
 
 /*

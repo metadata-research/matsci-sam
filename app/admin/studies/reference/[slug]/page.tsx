@@ -2,14 +2,15 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import {
   AlertTriangleIcon,
-  ArrowRightIcon,
+  ArrowLeftIcon,
   CheckCircle2Icon,
   ExternalLinkIcon,
   ListChecksIcon,
   MinusCircleIcon
 } from "lucide-react"
-import { AdminPageHeader } from "../../page-header"
-import styles from "../../admin.module.css"
+import { AdminPageHeader } from "../../../page-header"
+import styles from "../../../admin.module.css"
+import { Badge } from "@/components/ui/badge"
 import {
   STUDIES,
   SUPPORT_LABEL,
@@ -28,7 +29,9 @@ export async function generateMetadata({
   const { slug } = await params
   const study = studyBySlug(slug)
 
-  return { title: study?.title ?? "Study" }
+  return {
+    title: study ? `${study.title} protocol reference` : "Protocol reference"
+  }
 }
 
 const SUPPORT_ICON: Record<StepSupport, typeof CheckCircle2Icon> = {
@@ -54,11 +57,15 @@ export default async function AdminStudyPage({
 
   return (
     <>
-      <AdminPageHeader title={study.title} description={study.lede} />
+      <AdminPageHeader
+        title={study.title}
+        description={`Read-only protocol reference · ${study.lede}`}
+        actions={<Badge variant="secondary">Reference only</Badge>}
+      />
       <div className={styles.sectionStack}>
-        <Link href="/admin/studies" className={styles.textLink}>
-          All studies
-          <ArrowRightIcon aria-hidden />
+        <Link href="/admin/studies/reference" className={styles.textLink}>
+          <ArrowLeftIcon aria-hidden />
+          All protocol references
         </Link>
 
         <section className={styles.panel}>
@@ -131,7 +138,9 @@ export default async function AdminStudyPage({
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
             <h2 className={styles.panelTitle}>
-              {study.state === "completed" ? "What it produced" : "What it owes"}
+              {study.state === "completed"
+                ? "What it produced"
+                : "What it owes"}
             </h2>
           </div>
           <ul className={styles.statusList}>
@@ -157,6 +166,7 @@ export default async function AdminStudyPage({
                 rel="noreferrer"
               >
                 {study.source}
+                <span className="sr-only"> (opens in a new tab)</span>
                 <ExternalLinkIcon aria-hidden />
               </a>
             ) : (

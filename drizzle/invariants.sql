@@ -10,6 +10,25 @@ BEGIN
     RAISE EXCEPTION 'definition without a revision head';
   END IF;
 
+  -- Replacement proposals are separate candidates of the same vocabulary
+  -- term. The self-FK proves the target exists; this cross-row rule proves a
+  -- proposal cannot claim to replace a definition of another term.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'definitions' AND column_name = 'replacesDefinitionId'
+  ) THEN
+    IF EXISTS (
+      SELECT 1
+      FROM "definitions" proposal
+      JOIN "definitions" target
+        ON target.id = proposal."replacesDefinitionId"
+      WHERE proposal."termId" <> target."termId"
+    ) THEN
+      RAISE EXCEPTION 'replacement proposal target belongs to another term';
+    END IF;
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM "definitions" d
@@ -108,6 +127,87 @@ BEGIN
       COALESCE(d.maximum_definition_number, 0)
   ) THEN
     RAISE EXCEPTION 'public definition number allocator is not ahead of assigned numbers';
+  END IF;
+
+  -- Independent examples (migration 0044). Shape-detected because the
+  -- restore rehearsal runs this file once before and once after the migration.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_name = 'definitionExamples'
+  ) THEN
+    -- The source revision and every feature decision are scoped to the same
+    -- stable definition as the example. Composite foreign keys enforce this
+    -- online; this query makes drift visible in restore and upgrade checks.
+    IF EXISTS (
+      SELECT 1
+      FROM "definitionExamples" e
+      LEFT JOIN "definitionRevisions" r ON r.id = e."sourceRevisionId"
+      WHERE r.id IS NULL OR r."definitionId" <> e."definitionId"
+    ) THEN
+      RAISE EXCEPTION 'definition example source revision scope mismatch';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM "definitionExampleSelections" s
+      LEFT JOIN "definitionExamples" e ON e.id = s."exampleId"
+      WHERE e.id IS NULL OR e."definitionId" <> s."definitionId"
+    ) THEN
+      RAISE EXCEPTION 'definition example selection scope mismatch';
+    END IF;
+
+    -- A definition with any active example has exactly one active featured
+    -- selection, and that selection cannot point to a withdrawn example.
+    IF EXISTS (
+      SELECT e."definitionId"
+      FROM "definitionExamples" e
+      WHERE e."withdrawnAt" IS NULL
+      GROUP BY e."definitionId"
+      HAVING (
+        SELECT count(*)
+        FROM "definitionExampleSelections" s
+        WHERE s."definitionId" = e."definitionId" AND s."endedAt" IS NULL
+      ) <> 1
+    ) THEN
+      RAISE EXCEPTION 'definition with active examples does not have exactly one active selection';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM "definitionExampleSelections" s
+      JOIN "definitionExamples" e ON e.id = s."exampleId"
+      WHERE s."endedAt" IS NULL AND e."withdrawnAt" IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'active definition example selection points to a withdrawn example';
+    END IF;
+
+    -- Allocation is monotonic: numbers are permanent and never reused after
+    -- withdrawal, so the stored next number must remain above every row.
+    IF EXISTS (
+      SELECT 1
+      FROM "definitions" d
+      LEFT JOIN (
+        SELECT "definitionId", max("exampleNumber") AS maximum_example_number
+        FROM "definitionExamples"
+        GROUP BY "definitionId"
+      ) e ON e."definitionId" = d.id
+      WHERE d."nextExampleNumber" <= COALESCE(e.maximum_example_number, 0)
+    ) THEN
+      RAISE EXCEPTION 'definition example number allocator is not ahead of assigned numbers';
+    END IF;
+
+    -- The recorded actor category agrees with the account. Model and
+    -- simulated are both AI identities; the model profile distinguishes them.
+    IF EXISTS (
+      SELECT 1
+      FROM "definitionExamples" e
+      JOIN "users" u ON u.id = e."authorId"
+      WHERE e."actorKind" IS NOT NULL
+        AND ((e."actorKind" = 'human') <> (NOT u."isAi"))
+    ) THEN
+      RAISE EXCEPTION 'definition example actorKind disagrees with the account AI flag';
+    END IF;
   END IF;
 
   IF EXISTS (

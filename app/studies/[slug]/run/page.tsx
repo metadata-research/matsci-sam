@@ -156,20 +156,17 @@ export default async function RunPage({
   if (resume?.termId) {
     await trpc.definitions.list.prefetch({ termId: resume.termId })
     const definitions =
-      prefetched<RouterOutput["definitions"]["list"]>(
-        ["definitions", "list"],
-        { termId: resume.termId }
-      ) ?? []
+      prefetched<RouterOutput["definitions"]["list"]>(["definitions", "list"], {
+        termId: resume.termId
+      }) ?? []
     await Promise.all(
-      definitions.map((definition) =>
-        trpc.comments.get.prefetch(definition.id)
-      )
+      definitions.map((definition) => trpc.comments.get.prefetch(definition.id))
     )
   }
 
   return (
     <HydrateClient>
-      <Walkthrough studySlug={slug} viewerId={user.id} />
+      <Walkthrough studySlug={slug} />
     </HydrateClient>
   )
 }

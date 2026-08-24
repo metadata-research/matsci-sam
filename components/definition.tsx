@@ -63,6 +63,7 @@ export const Definition = ({
   isDefault = false,
   onScoreChange,
   surveyStepId,
+  expectedInstructions,
   voteReadOnly = false,
   voteReadOnlyTitle,
   children
@@ -90,6 +91,7 @@ export const Definition = ({
   // The review step of a walkthrough the card is shown in, passed to the
   // vote rail so a vote cast here names it.
   surveyStepId?: number
+  expectedInstructions?: string | null
   // Keep the score and the viewer's vote on show with the buttons disabled,
   // and say why on hover.
   voteReadOnly?: boolean
@@ -114,6 +116,7 @@ export const Definition = ({
         revisionId={definition.revisionId}
         onScoreChange={onScoreChange}
         surveyStepId={surveyStepId}
+        expectedInstructions={expectedInstructions}
         readOnly={voteReadOnly}
         readOnlyTitle={voteReadOnlyTitle}
       />
@@ -128,10 +131,12 @@ export const Definition = ({
           <Eyebrow>Definition</Eyebrow>
           <p>{definition.definition}</p>
         </div>
-        <div>
-          <Eyebrow>Example</Eyebrow>
-          <p className="text-muted-foreground">{definition.example}</p>
-        </div>
+        {definition.example?.trim() ? (
+          <div>
+            <Eyebrow>Featured example</Eyebrow>
+            <p className="text-muted-foreground">{definition.example}</p>
+          </div>
+        ) : null}
       </Link>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-sm text-muted-foreground">
         {definition.isAi ? (
@@ -195,16 +200,18 @@ export const Definition = ({
               : "No comments"}
           </Link>
         )}
-        {/* The badge slot means one thing only: this definition is a
-            refinement of another. AI authorship is stated by the identity
-            chip above. Closing out the metadata row rather than sitting in a
-            side column, which reserved full-card-height width for one line
-            of content; ml-auto right-aligns it on whichever line it wraps
-            onto. */}
-        {definition.refinedFromId && definition.model && (
-          <Badge className="ml-auto bg-ai/15 text-ai border-ai/30 font-mono">
-            Refined with {definition.model}
+        {definition.refinedFromId && (
+          <Badge
+            variant="outline"
+            className={definition.model ? "border-ai/30 text-ai" : undefined}
+          >
+            {definition.model
+              ? `AI-assisted revision · ${definition.model}`
+              : "Suggested revision"}
           </Badge>
+        )}
+        {definition.replacesDefinitionId && (
+          <Badge variant="outline">Replacement proposal</Badge>
         )}
       </div>
     </section>

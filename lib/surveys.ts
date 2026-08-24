@@ -14,9 +14,9 @@ import {
  * A walkthrough is the ordered steps of a study: instructions, one define
  * step per term, one review step per term, then the questions. A define
  * step is a position step: the participant accepts one of the candidates of
- * the term with an upvote, amends one, or replaces them with a definition
- * of their own. The kind stays "define" in the schema; the shell labels it
- * "Position". Progress is the set of completions and nothing else.
+ * the term with an upvote, suggests a revision to one, or proposes a
+ * replacement of their own. The kind stays "define" in the schema; the shell
+ * labels it "Position". Progress is the set of completions and nothing else.
  * Resumption is the lowest position without one, and a gate is a rule over
  * the acts a step asked for, so there is no status column to drift from the
  * record.
@@ -41,14 +41,20 @@ export type Question = { prompt: string; responseKind: ResponseKind }
 // welcome is.
 export const DEFAULT_INSTRUCTIONS =
   "This study is a second round on a terminology list. Each term may have " +
-  "candidate definitions and comments from earlier work.\n\nFor each term, " +
-  "take a position by accepting a candidate as written or, when available, " +
-  "amending the closest candidate or adding a definition. Then compare the " +
-  "candidates, vote on each, and comment where you disagree or can add " +
-  "information. Any closing questions come last.\n\nMatSci-SAM records the " +
-  "upvote used to accept a candidate, any new or amended definitions, review " +
-  "votes, comments, and question responses. Completed steps are saved between " +
-  "visits, and the walkthrough returns to the first incomplete step."
+  "candidate definitions, examples, and comments from earlier work.\n\n" +
+  "MatSci-SAM uses five contribution actions: New term, Suggest a revision, " +
+  "Propose a replacement, Comment, and Add example. AI help, when offered, " +
+  "is an optional drafting aid inside New term or Suggest a revision; it does " +
+  "not publish automatically. A comment stays a comment, and an example stays " +
+  "separate from the definition.\n\nFor each term in this study, take a " +
+  "position by accepting a candidate as written, using Suggest a revision to " +
+  "say what is wrong or missing, or using Propose a replacement to offer a " +
+  "different candidate. Then compare the candidates, vote on each, and use " +
+  "Comment where you disagree or can add information. Any closing questions " +
+  "come last.\n\nMatSci-SAM records the upvote used to accept a candidate, " +
+  "revision and replacement proposals, review votes, comments, and question " +
+  "responses. Completed steps are saved between visits, and the walkthrough " +
+  "returns to the first incomplete step."
 
 // The two default closing questions: likelihood of use and what the participant
 // would change. Added after the review steps, and left out when the steward
@@ -88,7 +94,7 @@ export const planSteps = (input: {
     ...input.terms.map((term) => ({
       kind: "define" as const,
       termId: term.id,
-      prompt: `Accept the candidate of ${term.term} you would use as it stands, or amend the one closest to it.`,
+      prompt: `Accept the candidate of ${term.term} you would use as it stands, use Suggest a revision on the closest candidate, or Propose a replacement.`,
       responseKind: null
     })),
     ...input.terms.map((term) => ({

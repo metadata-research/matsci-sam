@@ -30,6 +30,9 @@ import {
   type CommunityRole
 } from "@/lib/communities"
 import { uniqueSlug } from "@/lib/slug"
+import { setStudyRetired, updateStudyDetails } from "@/lib/study-update"
+import { lockMembershipIn } from "@/lib/community-queries"
+import { lockStudy } from "@/lib/survey-queries"
 import {
   collectionsIndexPath,
   communitiesIndexPath,
@@ -198,7 +201,10 @@ export const communitiesRouter = createTRPCRouter({
       })
     )
     .mutation(
-      async ({ ctx: { userId }, input: { communityId, title, description } }) => {
+      async ({
+        ctx: { userId },
+        input: { communityId, title, description }
+      }) => {
         await requireAdmin(userId, "Only a curator can rename a community")
         const community = await requireCommunity(communityId)
 
@@ -370,7 +376,10 @@ export const communitiesRouter = createTRPCRouter({
       })
     )
     .mutation(
-      async ({ ctx: { userId }, input: { communityId, title, description } }) => {
+      async ({
+        ctx: { userId },
+        input: { communityId, title, description }
+      }) => {
         const community = await requireRunner(communityId, userId)
         const runner = await GetUser(userId)
 
@@ -389,7 +398,8 @@ export const communitiesRouter = createTRPCRouter({
               ),
               title,
               description: description || null,
-              assertableBy: runner?.role === "admin" ? "curator" : "contributor",
+              assertableBy:
+                runner?.role === "admin" ? "curator" : "contributor",
               createdById: userId
             })
             .returning({
@@ -423,10 +433,7 @@ export const communitiesRouter = createTRPCRouter({
       })
     )
     .mutation(
-      async ({
-        ctx: { userId },
-        input: { communityId, collectionId, on }
-      }) => {
+      async ({ ctx: { userId }, input: { communityId, collectionId, on } }) => {
         const community = await requireRunner(communityId, userId)
 
         const [collection] = await db
@@ -626,8 +633,7 @@ export const communitiesRouter = createTRPCRouter({
           id: communityInvitationsTable.id,
           communityId: communityInvitationsTable.communityId,
           email: communityInvitationsTable.email,
-          redeemedAt: communityInvitationsTable.redeemedAt,
-          revokedAt: communityInvitationsTable.revokedAt
+          tokenHash: communityInvitationsTable.tokenHash
         })
         .from(communityInvitationsTable)
         .where(eq(communityInvitationsTable.id, invitationId))
@@ -640,26 +646,48 @@ export const communitiesRouter = createTRPCRouter({
 
       const community = await requireRunner(invitation.communityId, userId)
 
-      if (invitation.redeemedAt)
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This invitation has already been accepted"
-        })
-      if (invitation.revokedAt)
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This invitation has been revoked"
-        })
-
       const token = createOneTimeToken()
-      await db
-        .update(communityInvitationsTable)
-        .set({
-          tokenHash: hashOneTimeToken(token),
-          expiresAt: invitationExpiry().toISOString(),
-          sentAt: null
-        })
-        .where(eq(communityInvitationsTable.id, invitationId))
+      await db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({
+            tokenHash: communityInvitationsTable.tokenHash,
+            redeemedAt: communityInvitationsTable.redeemedAt,
+            revokedAt: communityInvitationsTable.revokedAt
+          })
+          .from(communityInvitationsTable)
+          .where(eq(communityInvitationsTable.id, invitationId))
+          .limit(1)
+          .for("update")
+        if (!current)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "This invitation doesn't exist"
+          })
+        if (current.redeemedAt)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This invitation has already been accepted"
+          })
+        if (current.revokedAt)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This invitation has been revoked"
+          })
+        if (current.tokenHash !== invitation.tokenHash)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This invitation was reissued. Reload before trying again."
+          })
+
+        await tx
+          .update(communityInvitationsTable)
+          .set({
+            tokenHash: hashOneTimeToken(token),
+            expiresAt: invitationExpiry().toISOString(),
+            sentAt: null
+          })
+          .where(eq(communityInvitationsTable.id, invitationId))
+      })
 
       if (send) {
         await sendCommunityInvitation({
@@ -689,8 +717,7 @@ export const communitiesRouter = createTRPCRouter({
       const [invitation] = await db
         .select({
           id: communityInvitationsTable.id,
-          communityId: communityInvitationsTable.communityId,
-          redeemedAt: communityInvitationsTable.redeemedAt
+          communityId: communityInvitationsTable.communityId
         })
         .from(communityInvitationsTable)
         .where(eq(communityInvitationsTable.id, invitationId))
@@ -703,18 +730,39 @@ export const communitiesRouter = createTRPCRouter({
 
       const community = await requireRunner(invitation.communityId, userId)
 
-      // An invitation ends once and one way. Revoking a redeemed one would
-      // leave no answer to whether the person was admitted.
-      if (invitation.redeemedAt)
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This invitation has already been accepted"
-        })
+      await db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({
+            redeemedAt: communityInvitationsTable.redeemedAt,
+            revokedAt: communityInvitationsTable.revokedAt
+          })
+          .from(communityInvitationsTable)
+          .where(eq(communityInvitationsTable.id, invitationId))
+          .limit(1)
+          .for("update")
+        if (!current)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "This invitation doesn't exist"
+          })
+        // An invitation ends once and one way. Revoking a redeemed one would
+        // leave no answer to whether the person was admitted.
+        if (current.redeemedAt)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This invitation has already been accepted"
+          })
+        if (current.revokedAt)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This invitation has already been revoked"
+          })
 
-      await db
-        .update(communityInvitationsTable)
-        .set({ revokedAt: sql`now()`, revokedById: userId })
-        .where(eq(communityInvitationsTable.id, invitationId))
+        await tx
+          .update(communityInvitationsTable)
+          .set({ revokedAt: sql`now()`, revokedById: userId })
+          .where(eq(communityInvitationsTable.id, invitationId))
+      })
 
       revalidatePath(communityPath(community.slug))
 
@@ -750,7 +798,11 @@ export const communitiesRouter = createTRPCRouter({
           .limit(1)
 
         if (on && current?.joinToken && !rotate)
-          return { ok: true, link: invitePath(current.joinToken), rotated: false }
+          return {
+            ok: true,
+            link: invitePath(current.joinToken),
+            rotated: false
+          }
 
         const token = on ? createOneTimeToken() : null
         await db
@@ -786,10 +838,7 @@ export const communitiesRouter = createTRPCRouter({
         .select({
           id: communityInvitationsTable.id,
           communityId: communityInvitationsTable.communityId,
-          studyId: communityInvitationsTable.studyId,
-          expiresAt: communityInvitationsTable.expiresAt,
-          revokedAt: communityInvitationsTable.revokedAt,
-          redeemedAt: communityInvitationsTable.redeemedAt
+          studyId: communityInvitationsTable.studyId
         })
         .from(communityInvitationsTable)
         .where(eq(communityInvitationsTable.tokenHash, digest))
@@ -810,121 +859,157 @@ export const communitiesRouter = createTRPCRouter({
           message: "This invitation link is not valid"
         })
 
-      const community = await requireCommunity(communityId)
-      if (community.retiredAt)
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This community has been retired"
-        })
+      const accepted = await db.transaction(async (tx) => {
+        let studySlug: string | null = null
 
-      let studySlug: string | null = null
-
-      if (invitation) {
-        if (invitation.revokedAt)
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "This invitation has been revoked"
-          })
-        if (invitation.redeemedAt)
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "This invitation has already been used"
-          })
-        if (new Date(invitation.expiresAt) <= new Date())
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "This invitation has expired"
-          })
-
-        if (invitation.studyId !== null) {
-          const [study] = await db
-            .select({
-              slug: studiesTable.slug,
-              opensAt: studiesTable.opensAt,
-              closesAt: studiesTable.closesAt,
-              retiredAt: studiesTable.retiredAt
+        // A study invitation uses the same study -> community -> collection
+        // lock order as participation. A plain community link has no study,
+        // so it starts with the community row itself.
+        if (invitation?.studyId !== null && invitation?.studyId !== undefined) {
+          const study = await lockStudy(tx, invitation.studyId)
+          if (!study || study.communityId !== communityId)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "This invitation's study no longer exists"
             })
-            .from(studiesTable)
-            .where(eq(studiesTable.id, invitation.studyId))
-            .limit(1)
-          if (study && !studyAcceptsParticipants(study))
+          if (!studyAcceptsParticipants(study))
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "This study has closed"
+              message: "This study is not accepting participants"
             })
-          // Where acceptance lands: the study the person was asked to take
-          // part in, not the community behind it.
-          if (study) studySlug = study.slug
+          studySlug = study.slug
         }
-      }
 
-      const existing = await membershipOf(communityId, userId)
-      if (existing) {
-        // Already in. Not an error: the person did what they were asked to do.
-        if (invitation && !invitation.redeemedAt)
-          await db
-            .update(communityInvitationsTable)
-            .set({ redeemedAt: sql`now()`, redeemedById: userId })
+        const [community] = await tx
+          .select({
+            id: communitiesTable.id,
+            slug: communitiesTable.slug,
+            title: communitiesTable.title,
+            retiredAt: communitiesTable.retiredAt,
+            joinToken: communitiesTable.joinToken
+          })
+          .from(communitiesTable)
+          .where(eq(communitiesTable.id, communityId))
+          .limit(1)
+          // Already held by lockStudy for study invitations; explicit here
+          // keeps community and open-link acceptance serialized as well.
+          .for("share")
+        if (!community)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "This invitation link is not valid"
+          })
+        if (community.retiredAt)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This community has been retired"
+          })
+
+        if (invitation) {
+          const [currentInvitation] = await tx
+            .select({
+              tokenHash: communityInvitationsTable.tokenHash,
+              studyId: communityInvitationsTable.studyId,
+              expiresAt: communityInvitationsTable.expiresAt,
+              revokedAt: communityInvitationsTable.revokedAt,
+              redeemedAt: communityInvitationsTable.redeemedAt
+            })
+            .from(communityInvitationsTable)
             .where(eq(communityInvitationsTable.id, invitation.id))
-
-        return {
-          ok: true,
-          slug: community.slug,
-          studySlug,
-          alreadyIn: true,
-          nowWorkingIn: null
+            .limit(1)
+            .for("update")
+          if (
+            !currentInvitation ||
+            currentInvitation.tokenHash !== digest ||
+            currentInvitation.studyId !== invitation.studyId
+          )
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "This invitation link is not valid"
+            })
+          if (currentInvitation.revokedAt)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This invitation has been revoked"
+            })
+          if (currentInvitation.redeemedAt)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This invitation has already been used"
+            })
+          if (new Date(currentInvitation.expiresAt) <= new Date())
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This invitation has expired"
+            })
+        } else if (community.joinToken !== token) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "This invitation link is not valid"
+          })
         }
-      }
 
-      let nowWorkingIn: string | null = null
+        const existing = await lockMembershipIn(tx, communityId, userId)
+        if (existing) {
+          // Already in. Not an error: the person did what they were asked to
+          // do, and a named invitation is still consumed exactly once.
+          if (invitation)
+            await tx
+              .update(communityInvitationsTable)
+              .set({ redeemedAt: sql`now()`, redeemedById: userId })
+              .where(eq(communityInvitationsTable.id, invitation.id))
+          return {
+            community,
+            studySlug,
+            alreadyIn: true,
+            nowWorkingIn: null as string | null
+          }
+        }
 
-      await db.transaction(async (tx) => {
         // An invitee joins as a member. A steward is named by an
         // administrator, never granted by a link.
         await tx
           .insert(communityMembersTable)
-          .values({
-            communityId,
-            userId,
-            addedById: userId
-          })
+          .values({ communityId, userId, addedById: userId })
           .onConflictDoNothing()
 
         // Someone who has never chosen a scope starts working in the community
-        // they just joined, which is what the invitation page told them would
-        // happen. A person who already has a scope keeps it, because accepting
-        // a second invitation must not move them out of the first.
+        // they just joined. A person who already has a scope keeps it.
         const [switched] = await tx
           .update(usersTable)
           .set({ activeCommunityId: communityId })
           .where(
-            and(
-              eq(usersTable.id, userId),
-              isNull(usersTable.activeCommunityId)
-            )
+            and(eq(usersTable.id, userId), isNull(usersTable.activeCommunityId))
           )
           .returning({ id: usersTable.id })
-        if (switched) nowWorkingIn = community.title
 
         if (invitation)
           await tx
             .update(communityInvitationsTable)
             .set({ redeemedAt: sql`now()`, redeemedById: userId })
-            .where(
-              and(
-                eq(communityInvitationsTable.id, invitation.id),
-                isNull(communityInvitationsTable.redeemedAt)
-              )
-            )
+            .where(eq(communityInvitationsTable.id, invitation.id))
+
+        return {
+          community,
+          studySlug,
+          alreadyIn: false,
+          nowWorkingIn: switched ? community.title : null
+        }
       })
 
       revalidatePath(communitiesIndexPath)
-      revalidatePath(communityPath(community.slug))
+      revalidatePath(communityPath(accepted.community.slug))
       revalidatePath("/", "layout")
       revalidatePath("/terms")
       revalidatePath(collectionsIndexPath)
 
-      return { ok: true, slug: community.slug, studySlug, alreadyIn: false, nowWorkingIn }
+      return {
+        ok: true,
+        slug: accepted.community.slug,
+        studySlug: accepted.studySlug,
+        alreadyIn: accepted.alreadyIn,
+        nowWorkingIn: accepted.nowWorkingIn
+      }
     }),
 
   /*
@@ -1058,7 +1143,8 @@ export const communitiesRouter = createTRPCRouter({
               // collections.create follows. Hardcoding "curator" here would
               // lock a steward who is not an administrator out of the
               // collection they had just made for their own study.
-              assertableBy: runner?.role === "admin" ? "curator" : "contributor",
+              assertableBy:
+                runner?.role === "admin" ? "curator" : "contributor",
               createdById: userId
             })
             .returning({ id: collectionsTable.id })
@@ -1138,26 +1224,19 @@ export const communitiesRouter = createTRPCRouter({
       const study = await requireStudy(studyId)
       await requireRunner(study.communityId, userId)
 
-      // The slug is not derived again. The address stays put when the title
-      // it came from changes.
-      await db
-        .update(studiesTable)
-        .set({
-          ...(fields.title === undefined ? {} : { title: fields.title }),
-          ...(fields.welcome === undefined
-            ? {}
-            : { welcome: fields.welcome || null }),
-          ...(fields.opensAt === undefined
-            ? {}
-            : { opensAt: fields.opensAt ?? null }),
-          ...(fields.closesAt === undefined
-            ? {}
-            : { closesAt: fields.closesAt ?? null })
-        })
-        .where(eq(studiesTable.id, studyId))
+      // The shared operation keeps the stable slug and makes schedule and
+      // instructions edits obey the walkthrough activity lock in every API.
+      const updated = await updateStudyDetails({
+        studyId,
+        title: fields.title,
+        instructions: fields.welcome,
+        opensAt: fields.opensAt,
+        closesAt: fields.closesAt
+      })
 
       revalidatePath(studiesIndexPath)
-      revalidatePath(studyPath(study.slug))
+      revalidatePath(studyPath(updated.slug))
+      revalidatePath(communityPath(updated.communitySlug))
 
       return { ok: true }
     }),
@@ -1169,14 +1248,16 @@ export const communitiesRouter = createTRPCRouter({
       await requireRunner(study.communityId, userId)
 
       // Retiring the study leaves the collection on the worklist and every
-      // membership alone. What the cohort did stays where it is.
-      await db
-        .update(studiesTable)
-        .set({ retiredAt: on ? sql`now()` : null })
-        .where(eq(studiesTable.id, studyId))
+      // membership alone. The shared operation serializes with activity and
+      // refuses to restore beneath a retired parent.
+      const updated = await setStudyRetired({
+        studyId,
+        retired: on
+      })
 
       revalidatePath(studiesIndexPath)
-      revalidatePath(studyPath(study.slug))
+      revalidatePath(studyPath(updated.slug))
+      revalidatePath(communityPath(updated.communitySlug))
 
       return { ok: true }
     }),

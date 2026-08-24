@@ -942,6 +942,160 @@ const main = async () => {
           label: "Upvote on definition 1 · revision 2",
           type: "activity",
           meta: { at: "2026-05-01 09:00:00+00", actorKind: "human" }
+        },
+        // Canonical AI assistance keeps the request, exact source text,
+        // feedback, prompt, model output and final published revision as
+        // distinct PROV resources.
+        {
+          id: "ai_contribution_request_42",
+          label: "Revision AI request by Ada",
+          type: "entity",
+          detail: "martensite",
+          meta: {
+            intent: "revise_definition",
+            termText: "martensite",
+            requestedAt: "2026-01-02T23:59:00.000Z",
+            acceptedAt: "2026-01-03T00:00:00.000Z"
+          }
+        },
+        {
+          id: "ai_contribution_input_42",
+          label: "Source definition supplied to the model",
+          type: "entity",
+          detail: "A hard phase.",
+          meta: { intent: "revise_definition" }
+        },
+        {
+          id: "ai_contribution_feedback_42",
+          label: "Revision feedback by Ada",
+          type: "entity",
+          detail: "State the crystal structure.",
+          meta: {
+            requestedAt: "2026-01-02T23:59:00.000Z",
+            sourceRevisionId: 100
+          }
+        },
+        {
+          id: "prompt_ai-assisted-revision-hash",
+          label: "prompt: ai-assisted-revision",
+          type: "entity",
+          detail: "Exact stored system prompt.",
+          meta: {
+            hash: "ai-assisted-revision-hash",
+            promptKey: "ai-assisted-revision"
+          }
+        },
+        {
+          id: "act_ai_contribution_suggestion_42",
+          label: "Generate revision suggestion",
+          type: "activity",
+          meta: {
+            at: "2026-01-02T23:59:00.000Z",
+            intent: "revise_definition",
+            model: "gemma4:26b",
+            status: "accepted",
+            acceptedAt: "2026-01-03T00:00:00.000Z",
+            sourceRevisionId: 100,
+            outputDefinitionId: 10
+          }
+        },
+        {
+          id: "ai_contribution_suggestion_42",
+          label: "Accepted revision AI suggestion",
+          type: "entity",
+          detail:
+            'A hard phase with a "body-centred" tetragonal lattice.',
+          meta: {
+            intent: "revise_definition",
+            termText: "martensite",
+            model: "gemma4:26b",
+            status: "accepted",
+            generatedAt: "2026-01-02T23:59:00.000Z",
+            acceptedAt: "2026-01-03T00:00:00.000Z",
+            sourceRevisionId: 100,
+            outputDefinitionId: 10,
+            outputRevisionId: 101
+          }
+        },
+        {
+          id: "definition_1",
+          label: "Definition 1",
+          type: "entity",
+          publicResource: { uri: def1 },
+          meta: { definitionNumber: 1 }
+        },
+        {
+          id: "definition_2",
+          label: "Definition 2",
+          type: "entity",
+          publicResource: {
+            uri: definitionUri("martensite", 2),
+            proposesReplacementFor: def1
+          },
+          meta: { definitionNumber: 2, replacesDefinitionNumber: 1 }
+        },
+        {
+          id: "definition_1_example_1",
+          label: "Definition 1 · example 1",
+          type: "entity",
+          rdfBlankNode: "example_fixture_martensite_1_1",
+          detail: "Quenched steel formed martensite.",
+          meta: {
+            definitionNumber: 1,
+            exampleNumber: 1,
+            published: "2026-01-04T00:00:00.000Z",
+            withdrawnAt: null,
+            actorKind: "human",
+            legacyBackfill: "no",
+            model: null
+          }
+        },
+        {
+          id: "act_definition_1_example_1",
+          label: "Publish example",
+          type: "activity",
+          rdfBlankNode: "publishExample_fixture_martensite_1_1",
+          meta: {
+            at: "2026-01-04T00:00:00.000Z",
+            actorKind: "human",
+            legacyBackfill: "no",
+            model: null
+          }
+        },
+        {
+          id: "act_feature_fixture_martensite_1_1",
+          label: "Feature example 1",
+          type: "activity",
+          rdfBlankNode: "featureExample_fixture_martensite_1_1",
+          meta: {
+            at: "2026-01-05T00:00:00.000Z",
+            decision: "feature",
+            legacyBackfill: "no"
+          }
+        },
+        {
+          id: "featured_fixture_martensite_1_1",
+          label: "Featured example 1",
+          type: "entity",
+          rdfBlankNode: "featuredExample_fixture_martensite_1_1",
+          meta: {
+            definitionNumber: 1,
+            exampleNumber: 1,
+            selectedAt: "2026-01-05T00:00:00.000Z",
+            endedAt: "2026-01-06T00:00:00.000Z",
+            state: "ended",
+            legacyBackfill: "no"
+          }
+        },
+        {
+          id: "act_end_feature_fixture_martensite_1_1",
+          label: "End featured status for example 1",
+          type: "activity",
+          rdfBlankNode: "endFeatureExample_fixture_martensite_1_1",
+          meta: {
+            at: "2026-01-06T00:00:00.000Z",
+            decision: "end feature interval"
+          }
         }
       ],
       edges: [
@@ -992,6 +1146,186 @@ const main = async () => {
           source: "comment_7",
           target: "user_4",
           rel: "wasAssociatedWith"
+        },
+        {
+          id: "e9",
+          source: "ai_contribution_request_42",
+          target: "user_1",
+          rel: "wasAttributedTo"
+        },
+        {
+          id: "e10",
+          source: "act_ai_contribution_suggestion_42",
+          target: "model_gemma4:26b",
+          rel: "wasAssociatedWith"
+        },
+        {
+          id: "e11",
+          source: "act_ai_contribution_suggestion_42",
+          target: "user_1",
+          rel: "wasAssociatedWith"
+        },
+        {
+          id: "e12",
+          source: "act_ai_contribution_suggestion_42",
+          target: "prompt_ai-assisted-revision-hash",
+          rel: "used"
+        },
+        {
+          id: "e13",
+          source: "act_ai_contribution_suggestion_42",
+          target: "ai_contribution_request_42",
+          rel: "used"
+        },
+        {
+          id: "e14",
+          source: "act_ai_contribution_suggestion_42",
+          target: "ai_contribution_input_42",
+          rel: "used"
+        },
+        {
+          id: "e15",
+          source: "act_ai_contribution_suggestion_42",
+          target: "ai_contribution_feedback_42",
+          rel: "used"
+        },
+        {
+          id: "e16",
+          source: "act_ai_contribution_suggestion_42",
+          target: "def_10_v1",
+          rel: "used"
+        },
+        {
+          id: "e17",
+          source: "ai_contribution_input_42",
+          target: "def_10_v1",
+          rel: "wasDerivedFrom"
+        },
+        {
+          id: "e18",
+          source: "ai_contribution_feedback_42",
+          target: "user_1",
+          rel: "wasAttributedTo"
+        },
+        {
+          id: "e19",
+          source: "ai_contribution_feedback_42",
+          target: "def_10_v1",
+          rel: "wasDerivedFrom"
+        },
+        {
+          id: "e20",
+          source: "ai_contribution_suggestion_42",
+          target: "act_ai_contribution_suggestion_42",
+          rel: "wasGeneratedBy"
+        },
+        {
+          id: "e21",
+          source: "ai_contribution_suggestion_42",
+          target: "model_gemma4:26b",
+          rel: "wasAttributedTo"
+        },
+        {
+          id: "e22",
+          source: "ai_contribution_suggestion_42",
+          target: "def_10_v1",
+          rel: "wasDerivedFrom"
+        },
+        {
+          id: "e23",
+          source: "def_10_v2",
+          target: "ai_contribution_suggestion_42",
+          rel: "wasDerivedFrom"
+        },
+        {
+          id: "e24",
+          source: "act_revision_101",
+          target: "ai_contribution_suggestion_42",
+          rel: "used"
+        },
+        {
+          id: "e25",
+          source: "definition_1_example_1",
+          target: "act_definition_1_example_1",
+          rel: "wasGeneratedBy"
+        },
+        {
+          id: "e26",
+          source: "definition_1_example_1",
+          target: "def_10_v1",
+          rel: "wasDerivedFrom"
+        },
+        {
+          id: "e27",
+          source: "definition_1_example_1",
+          target: "user_1",
+          rel: "wasAttributedTo"
+        },
+        {
+          id: "e28",
+          source: "act_definition_1_example_1",
+          target: "def_10_v1",
+          rel: "used"
+        },
+        {
+          id: "e29",
+          source: "act_definition_1_example_1",
+          target: "definition_1",
+          rel: "used"
+        },
+        {
+          id: "e30",
+          source: "act_definition_1_example_1",
+          target: "user_1",
+          rel: "wasAssociatedWith"
+        },
+        {
+          id: "e31",
+          source: "act_feature_fixture_martensite_1_1",
+          target: "definition_1_example_1",
+          rel: "used"
+        },
+        {
+          id: "e32",
+          source: "act_feature_fixture_martensite_1_1",
+          target: "definition_1",
+          rel: "used"
+        },
+        {
+          id: "e33",
+          source: "act_feature_fixture_martensite_1_1",
+          target: "user_1",
+          rel: "wasAssociatedWith"
+        },
+        {
+          id: "e34",
+          source: "featured_fixture_martensite_1_1",
+          target: "act_feature_fixture_martensite_1_1",
+          rel: "wasGeneratedBy"
+        },
+        {
+          id: "e35",
+          source: "featured_fixture_martensite_1_1",
+          target: "definition_1_example_1",
+          rel: "wasDerivedFrom"
+        },
+        {
+          id: "e36",
+          source: "act_end_feature_fixture_martensite_1_1",
+          target: "featured_fixture_martensite_1_1",
+          rel: "used"
+        },
+        {
+          id: "e37",
+          source: "act_end_feature_fixture_martensite_1_1",
+          target: "definition_1",
+          rel: "used"
+        },
+        {
+          id: "e38",
+          source: "act_end_feature_fixture_martensite_1_1",
+          target: "user_1",
+          rel: "wasAssociatedWith"
         }
       ]
     }
@@ -1019,6 +1353,141 @@ const main = async () => {
     modelUri("gemma4-26b")
   ])
   assert.equal(view.assertionAgent(data.assertions[1], 3).iri, modelUri("gemma4-26b"))
+
+  // An accepted canonical AI suggestion remains distinguishable from the
+  // published revision. The generation uses its exact request inputs,
+  // immutable source revision and stored prompt; the model output derives
+  // from that activity, and the final human-published revision derives from
+  // the model output. Private database identifiers remain out of the public
+  // metadata even though the graph retains their public-resource links.
+  const provenanceNode = (id: string) =>
+    `${martensite}/provenance#${encodeURIComponent(id)}`
+  const aiRequest = provenanceNode("ai_contribution_request_42")
+  const aiInput = provenanceNode("ai_contribution_input_42")
+  const aiFeedback = provenanceNode("ai_contribution_feedback_42")
+  const aiPrompt = provenanceNode("prompt_ai-assisted-revision-hash")
+  const aiActivity = provenanceNode("act_ai_contribution_suggestion_42")
+  const aiSuggestion = provenanceNode("ai_contribution_suggestion_42")
+
+  assertTypes(inGraph, aiActivity, [`${PROV}Activity`])
+  assert.deepEqual(
+    values(inGraph, aiActivity, `${PROV}used`).sort(),
+    [aiPrompt, aiRequest, aiInput, aiFeedback, rev1].sort()
+  )
+  assert.deepEqual(
+    values(inGraph, aiActivity, `${PROV}wasAssociatedWith`).sort(),
+    [modelUri("gemma4-26b"), personUnder("martensite", 1)].sort()
+  )
+  assert.deepEqual(values(inGraph, aiPrompt, `${PROV}value`), [
+    "Exact stored system prompt."
+  ])
+  assert.deepEqual(values(inGraph, aiPrompt, matsci("hash")), [
+    "ai-assisted-revision-hash"
+  ])
+  assert.deepEqual(values(inGraph, aiPrompt, matsci("promptKey")), [
+    "ai-assisted-revision"
+  ])
+  assert.deepEqual(values(inGraph, aiInput, `${PROV}value`), ["A hard phase."])
+  assert.deepEqual(values(inGraph, aiFeedback, `${PROV}value`), [
+    "State the crystal structure."
+  ])
+  assert.deepEqual(values(inGraph, aiRequest, `${PROV}wasAttributedTo`), [
+    personUnder("martensite", 1)
+  ])
+  assert.deepEqual(values(inGraph, aiSuggestion, `${PROV}value`), [
+    'A hard phase with a "body-centred" tetragonal lattice.'
+  ])
+  assert.deepEqual(values(inGraph, aiSuggestion, `${PROV}wasGeneratedBy`), [
+    aiActivity
+  ])
+  assert.deepEqual(values(inGraph, aiSuggestion, `${PROV}wasAttributedTo`), [
+    modelUri("gemma4-26b")
+  ])
+  assert.deepEqual(values(inGraph, aiSuggestion, `${PROV}wasDerivedFrom`), [
+    rev1
+  ])
+  assert.ok(values(inGraph, rev2, `${PROV}wasDerivedFrom`).includes(aiSuggestion))
+  assert.equal(values(inGraph, aiSuggestion, matsci("sourceRevisionId")).length, 0)
+  assert.equal(values(inGraph, aiSuggestion, matsci("outputDefinitionId")).length, 0)
+  assert.equal(values(inGraph, aiSuggestion, matsci("outputRevisionId")).length, 0)
+
+  // Examples and feature decisions are document-scoped blank nodes: their
+  // immutable content, source revision, contributor and interval survive,
+  // but no database row identifier becomes a public RDF identifier. A
+  // replacement points between the two established stable definition IRIs
+  // without claiming the proposal's text was derived from the target.
+  const blankNodeNamed = (label: string) => {
+    const labelQuad = inGraph.find(
+      (q) => q.predicate.value === RDFS + "label" && q.object.value === label
+    )
+    assert.ok(labelQuad, `RDF node labeled ${label}`)
+    assert.equal(loose(labelQuad.subject).termType, "BlankNode", label)
+    return labelQuad.subject.value
+  }
+  const example = blankNodeNamed("Definition 1 · example 1")
+  const publishExample = blankNodeNamed("Publish example")
+  const featureExample = blankNodeNamed("Feature example 1")
+  const featuredExample = blankNodeNamed("Featured example 1")
+  const endFeatureExample = blankNodeNamed(
+    "End featured status for example 1"
+  )
+  const def2 = definitionUri("martensite", 2)
+
+  assertTypes(inGraph, example, [`${PROV}Entity`])
+  assert.deepEqual(values(inGraph, example, `${PROV}value`), [
+    "Quenched steel formed martensite."
+  ])
+  assert.deepEqual(values(inGraph, example, `${PROV}wasDerivedFrom`), [rev1])
+  assert.deepEqual(values(inGraph, example, `${PROV}wasAttributedTo`), [
+    personUnder("martensite", 1)
+  ])
+  assert.deepEqual(values(inGraph, example, `${PROV}wasGeneratedBy`), [
+    publishExample
+  ])
+  assert.deepEqual(values(inGraph, publishExample, `${PROV}used`).sort(), [
+    def1,
+    rev1
+  ].sort())
+  assert.deepEqual(
+    values(inGraph, publishExample, `${PROV}wasAssociatedWith`),
+    [personUnder("martensite", 1)]
+  )
+
+  assert.deepEqual(values(inGraph, featureExample, `${PROV}used`).sort(), [
+    def1,
+    example
+  ].sort())
+  assert.deepEqual(
+    values(inGraph, featureExample, `${PROV}wasAssociatedWith`),
+    [personUnder("martensite", 1)]
+  )
+  assert.deepEqual(values(inGraph, featuredExample, `${PROV}wasGeneratedBy`), [
+    featureExample
+  ])
+  assert.deepEqual(values(inGraph, featuredExample, `${PROV}wasDerivedFrom`), [
+    example
+  ])
+  assert.deepEqual(values(inGraph, featuredExample, matsci("selectedAt")), [
+    "2026-01-05T00:00:00.000Z"
+  ])
+  assert.deepEqual(values(inGraph, featuredExample, matsci("endedAt")), [
+    "2026-01-06T00:00:00.000Z"
+  ])
+  assert.deepEqual(values(inGraph, endFeatureExample, `${PROV}used`).sort(), [
+    def1,
+    featuredExample
+  ].sort())
+  assert.deepEqual(
+    values(inGraph, endFeatureExample, `${PROV}wasAssociatedWith`),
+    [personUnder("martensite", 1)]
+  )
+  assert.deepEqual(
+    values(inGraph, def2, matsci("proposesReplacementFor")),
+    [def1]
+  )
+  assert.equal(values(inGraph, def2, `${PROV}wasDerivedFrom`).length, 0)
+  assert.ok(!bodyInGraph.includes("definitionExamples"))
+  assert.ok(!bodyInGraph.includes("definitionExampleSelections"))
   // A comment states its actor kind as a literal, the spelling the vote
   // events use, and the persona it is associated with is a software agent.
   // The body states no study; that triple is the dataset blocks' to add.
@@ -1050,10 +1519,19 @@ const main = async () => {
   assert.deepEqual(values(inGraph, rev2, `${PROV}wasAttributedTo`), [
     personUnder("martensite", 1)
   ])
-  // Three triples, all about the current revision and its definition: the
-  // revision typing, the definition typing, and the specializationOf.
-  const omitted = [...tripleKeys(alone)].filter(
-    (k) => !tripleKeys(inGraph).has(k)
+  // Blank-node labels are parser-local, so compare the named-resource
+  // subgraphs here. Three named triples are omitted, all about the current
+  // revision and its definition: their typing and specializationOf.
+  const namedResourceQuads = (quads: Quad[]) =>
+    quads.filter(
+      (q) =>
+        loose(q.subject).termType !== "BlankNode" &&
+        loose(q.object).termType !== "BlankNode"
+    )
+  const aloneNamed = tripleKeys(namedResourceQuads(alone))
+  const inGraphNamed = tripleKeys(namedResourceQuads(inGraph))
+  const omitted = [...aloneNamed].filter(
+    (k) => !inGraphNamed.has(k)
   )
   assert.equal(omitted.length, 3, `omitted: ${omitted}`)
   assert.ok(
@@ -1065,7 +1543,7 @@ const main = async () => {
     )
   )
   assert.equal(
-    [...tripleKeys(inGraph)].filter((k) => !tripleKeys(alone).has(k)).length,
+    [...inGraphNamed].filter((k) => !aloneNamed.has(k)).length,
     0
   )
 

@@ -24,6 +24,7 @@ import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PublicProfileName } from "@/components/public-profile-name"
+import { DEFAULT_INSTRUCTIONS } from "@/lib/surveys"
 
 // Shared by generateMetadata and the body, so the page runs one query.
 const loadStudy = cache(async (slug: string) => studyBySlug(slug))
@@ -90,6 +91,8 @@ export default async function StudyPage({
   const supportDescription = studySupportDescription(
     supportClosesAt ? formatDateTime(supportClosesAt) : null
   )
+  const participantInstructions =
+    study.welcome ?? (study.steps > 0 ? DEFAULT_INSTRUCTIONS : null)
 
   return (
     <main className="px-4 py-8">
@@ -186,18 +189,20 @@ export default async function StudyPage({
           </p>
         )}
 
-        {study.welcome ? (
+        {participantInstructions ? (
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">
               {studyWelcomeHeading(state, study.steps)}
             </h2>
             {/* Plain text, split on blank lines. Nothing typed here becomes
                 markup, which is why the column is not markdown. */}
-            {study.welcome.split(/\n\s*\n/).map((paragraph, index) => (
-              <p key={index} className="whitespace-pre-line">
-                {paragraph}
-              </p>
-            ))}
+            {participantInstructions
+              .split(/\n\s*\n/)
+              .map((paragraph, index) => (
+                <p key={index} className="whitespace-pre-line">
+                  {paragraph}
+                </p>
+              ))}
           </section>
         ) : (
           <p className="text-sm text-muted-foreground">

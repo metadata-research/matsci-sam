@@ -29,3 +29,18 @@ export const LLMSystemPrompt = resolveSystemPrompt()
 // default "refine" entry in lib/prompts.json.
 export const RefinePromptKey = process.env.REFINE_PROMPT_KEY ?? "refine"
 export const RefineSystemPrompt = resolvePromptKey(RefinePromptKey)
+
+// The explicit pre-publication suggestion in the canonical New term action.
+// It deliberately returns definition text only: examples have their own
+// contribution lifecycle and are never smuggled in through this action.
+export const NewTermPromptKey =
+  process.env.NEW_TERM_PROMPT_KEY ?? "new-term-suggestion"
+export const NewTermSystemPrompt = resolvePromptKey(NewTermPromptKey)
+
+// The explicit critique-driven suggestion in the canonical Revise action.
+// Like New term, it returns definition text only; examples are independent.
+export const RevisionSuggestionPromptKey =
+  process.env.REVISION_SUGGESTION_PROMPT_KEY ?? "revision-suggestion"
+export const RevisionSuggestionSystemPrompt = resolvePromptKey(
+  RevisionSuggestionPromptKey
+)
