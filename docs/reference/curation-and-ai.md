@@ -55,8 +55,9 @@ classification statements were first filed under them.
 
 ## Contribution actions and AI
 
-MatSci-SAM exposes five contribution actions with the same meaning on
-vocabulary pages, in Discussion, and in studies.
+MatSci-SAM uses five contribution actions. An action has the same meaning and
+records the same kind of contribution wherever it appears on a vocabulary
+page, in Discussion, or in a study.
 
 - **New term** creates a vocabulary term and its first definition.
 - **Suggest a revision** creates a separate candidate derived from an exact
@@ -68,18 +69,18 @@ vocabulary pages, in Discussion, and in studies.
 - **Add example** attaches a separately attributed usage example to one
   definition.
 
-AI is an optional drafting control inside **New term** and **Suggest a
-revision**, not an independent workflow. For a new term, the contributor may
-request an editable definition draft before publication. For a revision, the
-contributor first states what is wrong or missing; the application sends that
-critique with the exact source definition and returns an editable draft.
-Publishing either draft attributes the definition to the contributor and the
-named model. A suggested revision remains separately voteable and leaves its
-source unchanged.
+The application calls the configured model only inside **New term** and
+**Suggest a revision**. The call is optional for a new term. For a revision,
+the contributor first states what is wrong or missing. The application sends
+that critique with the exact source definition and returns an editable draft.
+Both calls are drafting controls within a contribution action. They do not form
+a separate publication workflow. Publishing either draft attributes the
+definition to the contributor and the named model. A suggested revision remains
+separately voteable and leaves its source unchanged.
 
 Comments, replacement proposals, and examples do not trigger model work.
 Examples have their own immutable contribution records, so one definition can
-retain several. One example may be featured in compact views; the full list
+retain several. One example may be featured in compact views. The full list
 remains available, and changing the featured selection does not affect the
 definition revision or its votes.
 

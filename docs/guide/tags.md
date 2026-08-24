@@ -15,7 +15,7 @@ structure". Signed-in contributors create topics from **Tags**, under
 case and surrounding spaces, so a second "heat treatment" returns the existing
 topic. A merged topic returns its replacement.
 
-![A definition with its topic badges and the author controls](/images/docs/definition-tags.png)
+![A definition page with its example collection, Add example control, and Corrosion topic badge](/images/docs/definition-tags.png)
 
 The author of a definition manages topics on the definition page. The pencil
 next to the tag badges opens the topic picker. Selecting a topic attaches it,

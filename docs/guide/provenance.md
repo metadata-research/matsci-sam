@@ -22,10 +22,9 @@ its chronological predecessor.
 Discarded AI drafts remain unpublished records and are not vocabulary
 definitions.
 
-The graph uses the W3C PROV-O vocabulary. The nodes are entities, activities
-and agents. The entities include definitions, accepted suggestions and
-feedback; the activities include writing and publishing; and the agents are
-people and models. Select a node for its detail.
+The graph uses the W3C PROV-O vocabulary. The nodes include entities such as
+definitions, accepted suggestions, and feedback. Writing and publishing are
+activities. People and models are agents. Select a node for its detail.
 
 ![The profile of a model, with its exact version and the definitions it authored](/images/docs/model-profile.png)
 
@@ -50,28 +49,26 @@ tallies and their comments remain in the history.
 An application-created example identifies the definition and exact revision
 visible when it was added. Multiple examples may belong to one definition.
 Featuring an example is a separately attributed selection with its own time
-interval; it does not change the definition revision or vote tally.
+interval. It does not change the definition revision or vote tally.
 
 Each voting act is recorded as an event with the revision it used, its kind
 (up, down, or withdrawn), and the time. A change or withdrawal appends an act,
 so the provenance view shows the sequence. The last act gives the current vote
-of a person on a revision. A vote that
-stood from before acts were recorded has one act written for it at the
-recorded time of the vote, marked as backfilled. A vote cast or a comment
-posted inside the walkthrough of a [study](/docs/studies) names that study,
-so the dataset graph states under which study the act was taken.
+of a person on a revision. A standing vote from before event recording began
+has one backfilled act at the recorded time of the vote. A vote cast or a
+comment posted inside the walkthrough of a [study](/docs/studies) names that
+study, so the dataset graph states under which study the act was taken.
 
 Some revisions imported from the earlier pilot schema contain only the
 definition text and time. Their editors and change notes were not stored. The
 provenance view labels these partial revisions and leaves unknown values empty.
 Examples recovered from the former single-example field are marked as legacy.
 The older schema did not record their independent contributor, exact source
-revision, publication time, selector, or selection time, so the application
-and graph leave those facts unknown rather than presenting migration anchors
-as observed provenance. The migration associates imported comments and older
-refinement rounds with the revision visible at their recorded time. MatSci-SAM
-associated imported votes with the revision current during migration because
-the old timestamps do not establish an earlier revision.
+revision, publication time, selector, or selection time. Those facts remain
+unknown in the application and graph. Imported comments and older refinement
+rounds identify the revision visible at their recorded time. Imported votes
+identify the revision current during migration. Their earlier timestamps do
+not establish which revision the voter evaluated.
 
 [Community review and revisions](/docs/community) describes revision
 publishing, restoration, and the imported-history limits.
