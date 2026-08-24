@@ -86,3 +86,7 @@ are `xsd:positiveInteger`. Dates are `xsd:dateTime`, except the creation date
 of a term, which is `xsd:date` in the Turtle documents and an untyped string
 in the JSON-LD term document. Every identifier in these documents is one
 described in [the identifier policy](/docs/reference/identifier-policy).
+
+Each active example of a definition is emitted as a separate `skos:example`
+value on its current revision. The application may feature one example in
+compact views, but the SKOS documents include the complete active set.

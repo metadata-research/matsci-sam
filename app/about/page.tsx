@@ -5,8 +5,8 @@ import {
   BracesIcon,
   FilePlus2Icon,
   HistoryIcon,
-  MessageSquareTextIcon,
-  SparklesIcon
+  ListPlusIcon,
+  MessageSquareTextIcon
 } from "lucide-react"
 import { SITE_NAME } from "@/lib/site"
 import styles from "./about.module.css"
@@ -58,30 +58,32 @@ export default function AboutPage() {
             <p className={styles.eyebrow}>Community method</p>
             <h2 id="workflow-heading">How a definition develops</h2>
             <p>
-              A contribution is available for review when it is submitted.
-              Community evaluation and author-controlled refinement then build a
-              visible history around it.
+              A contribution is available for review when it is submitted. A
+              small set of explicit actions then builds a visible history around
+              it.
             </p>
           </div>
 
           <ol className={styles.workflow}>
-            <WorkflowStep
-              icon={<FilePlus2Icon />}
-              number="1"
-              title="Contribute"
-            >
-              Add a term, definition, and example of use for community review.
+            <WorkflowStep icon={<FilePlus2Icon />} number="1" title="New term">
+              Add a missing term and its first definition. AI can optionally
+              suggest an editable draft.
             </WorkflowStep>
             <WorkflowStep
               icon={<MessageSquareTextIcon />}
               number="2"
-              title="Evaluate"
+              title="Revise or replace"
             >
-              Compare alternatives through votes and substantive comments.
+              Explain what is wrong to draft a revision, or propose a separate
+              replacement for people to compare and vote on.
             </WorkflowStep>
-            <WorkflowStep icon={<SparklesIcon />} number="3" title="Refine" ai>
-              A locally hosted model can suggest text. The author decides
-              whether to accept it.
+            <WorkflowStep
+              icon={<ListPlusIcon />}
+              number="3"
+              title="Comment or illustrate"
+            >
+              Post a comment as written, or add another example of use. Neither
+              action changes the definition.
             </WorkflowStep>
             <WorkflowStep icon={<HistoryIcon />} number="4" title="Preserve">
               Retain attribution, versions, decisions, and model involvement in
@@ -90,18 +92,18 @@ export default function AboutPage() {
           </ol>
 
           <p className={styles.workflowDecision}>
-            The author can accept the full suggestion, accept its definition
-            while preserving the original example, keep the original, or request
-            another pass. An accepted suggestion is attributed to both the
-            author and the named model.
+            AI assistance is confined to New term and Suggest a revision.
+            Nothing publishes automatically, and an accepted draft credits both
+            the contributor and the named model. Examples remain independent so
+            each definition can keep more than one.
           </p>
           <div className={styles.linkRow}>
             <Link href="/docs/community" className={styles.textLink}>
               Review scoring and revision policy
               <ArrowRightIcon aria-hidden />
             </Link>
-            <Link href="/docs/ai-refinement" className={styles.textLink}>
-              Read about AI-assisted refinement
+            <Link href="/docs/adding-terms" className={styles.textLink}>
+              Read about contribution actions
               <ArrowRightIcon aria-hidden />
             </Link>
           </div>

@@ -30,8 +30,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   CHANGE_NOTE_MAX_LENGTH,
-  DEFINITION_MAX_LENGTH,
-  EXAMPLE_MAX_LENGTH
+  DEFINITION_MAX_LENGTH
 } from "@/lib/input-limits"
 
 type EditTerm = z.infer<typeof EditTermSchema>
@@ -41,11 +40,6 @@ const EditTermSchema = z.object({
     .trim()
     .min(1, "Definition is required")
     .max(DEFINITION_MAX_LENGTH),
-  example: z
-    .string()
-    .trim()
-    .min(1, "Example of use is required")
-    .max(EXAMPLE_MAX_LENGTH),
   changeNote: z
     .string()
     .trim()
@@ -58,7 +52,6 @@ const EditTermSchema = z.object({
 
 interface Props {
   defaultValues: {
-    example: string
     definition: string
     changeNote?: string
   }
@@ -115,14 +108,12 @@ export const EditDefinitionDialog = ({
             className="space-y-5"
           >
             <DialogHeader>
-              <DialogTitle className="text-2xl">
-                Publish a revision
-              </DialogTitle>
+              <DialogTitle className="text-2xl">Publish a revision</DialogTitle>
               <DialogDescription>
                 This publishes a new immutable revision under the same
-                definition URL. Its definition, example, editor, and change note
-                remain in history. Community voting restarts for the new
-                revision.
+                definition URL. Its definition text, editor, and change note
+                remain in history. Examples are managed separately and are not
+                changed here. Community voting restarts for the new revision.
               </DialogDescription>
             </DialogHeader>
             <FormField
@@ -154,24 +145,6 @@ export const EditDefinitionDialog = ({
                       placeholder="Summarize the reason for this revision."
                       className="min-h-20 resize-y"
                       maxLength={CHANGE_NOTE_MAX_LENGTH}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="example"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Example of use</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Show how the term is used in context."
-                      className="min-h-24 resize-y"
-                      maxLength={EXAMPLE_MAX_LENGTH}
                       {...field}
                     />
                   </FormControl>

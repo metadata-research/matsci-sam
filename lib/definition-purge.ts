@@ -1,7 +1,10 @@
 import {
   coauthorsTable,
   commentsTable,
+  aiContributionSuggestionsTable,
   db,
+  definitionExamplesTable,
+  definitionExampleSelectionsTable,
   definitionRevisionsTable,
   definitionsTable,
   discussionSuggestionsTable,
@@ -31,6 +34,15 @@ export const deleteDefinitionRows = async (
   tx: DatabaseTransaction,
   id: number
 ) => {
+  await tx
+    .delete(aiContributionSuggestionsTable)
+    .where(
+      or(
+        eq(aiContributionSuggestionsTable.definitionId, id),
+        eq(aiContributionSuggestionsTable.outputDefinitionId, id)
+      )
+    )
+
   await tx
     .delete(discussionSuggestionsTable)
     .where(
@@ -64,6 +76,26 @@ export const deleteDefinitionRows = async (
   await tx.delete(refinementsTable).where(eq(refinementsTable.definitionId, id))
 
   await tx.delete(coauthorsTable).where(eq(coauthorsTable.definitionId, id))
+
+  // Feature intervals reference examples, and examples reference the exact
+  // source revision, so both must go before the revision history.
+  await tx
+    .delete(definitionExampleSelectionsTable)
+    .where(eq(definitionExampleSelectionsTable.definitionId, id))
+  await tx
+    .delete(definitionExamplesTable)
+    .where(eq(definitionExamplesTable.definitionId, id))
+
+  // Preserve separately voteable descendants when their source is
+  // administratively purged; only the now-dangling lineage edge is removed.
+  await tx
+    .update(definitionsTable)
+    .set({ refinedFromId: null })
+    .where(eq(definitionsTable.refinedFromId, id))
+  await tx
+    .update(definitionsTable)
+    .set({ replacesDefinitionId: null })
+    .where(eq(definitionsTable.replacesDefinitionId, id))
 
   await tx
     .update(definitionsTable)

@@ -1,17 +1,12 @@
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
-  aiModelsTable,
   db,
   commentsTable,
   usersTable,
-  definitionsTable,
-  chatsTable,
   definitionRevisionsTable
 } from "@yamz/db"
 import { asc, eq, getTableColumns } from "drizzle-orm"
-import { reviseDefinition } from "@/lib/llm/definitions"
-import { after } from "next/server"
 import { TRPCError } from "@trpc/server"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 import { contributorProcedure } from "../procedures"
@@ -63,12 +58,6 @@ export const commentsRouter = createTRPCRouter({
             definitionId: id
           })
 
-        // Whether this comment scheduled a model revision of the definition,
-        // so the client can say so instead of leaving the trigger invisible —
-        // and the version it was scheduled against, so the client can watch
-        // for the revision landing.
-        let aiRevisionScheduled = false
-        let commentedVersion: number | null = null
         const insertedComment = await db.transaction(async (tx) => {
           let written
           try {
@@ -88,50 +77,10 @@ export const commentsRouter = createTRPCRouter({
             throw error
           }
 
-          // A comment on the current text of a model identity is feedback the
-          // revision reads; a simulated participant has no model identity (see
-          // definitions.create). A comment inside a review step is a review
-          // act, not feedback, and schedules nothing: a revision would reset
-          // the score of the draft under the positions taken on it.
-          const [definition] = await tx
-            .select({
-              modelUserId: aiModelsTable.userId,
-              termId: definitionsTable.termId,
-              id: definitionsTable.id,
-              currentRevisionId: definitionsTable.currentRevisionId
-            })
-            .from(definitionsTable)
-            .where(eq(definitionsTable.id, id))
-            .leftJoin(
-              aiModelsTable,
-              eq(aiModelsTable.userId, definitionsTable.authorId)
-            )
-            .limit(1)
-
-          if (
-            surveyStepId === undefined &&
-            definition.modelUserId !== null &&
-            definition.currentRevisionId === revisionId
-          ) {
-            await tx.insert(chatsTable).values({
-              role: "user",
-              userId,
-              message: `<feedback>\n${comment}`,
-              termId: definition.termId
-            })
-
-            after(() =>
-              // Revise our definition with the new comment
-              reviseDefinition(definition.termId)
-            )
-            aiRevisionScheduled = true
-            commentedVersion = written.revisionVersion
-          }
-
           return written.comment
         })
 
-        return { ...insertedComment, aiRevisionScheduled, commentedVersion }
+        return insertedComment
       }
     )
 })

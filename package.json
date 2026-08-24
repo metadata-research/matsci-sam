@@ -12,6 +12,8 @@
     "test:revisions": "tsx scripts/test-definition-revisions.ts",
     "test:identifiers": "tsx scripts/test-public-identifiers.ts",
     "test:auth": "tsx scripts/test-auth-plumbing.ts",
+    "test:contributions": "tsx scripts/test-contribution-actions.ts",
+    "test:examples-db": "tsx scripts/test-definition-examples-db.ts",
     "test:interface": "tsx scripts/test-interface-state.ts",
     "test:ollama-context": "tsx scripts/test-ollama-revision-context.ts",
     "test:communities": "tsx scripts/test-communities.ts",

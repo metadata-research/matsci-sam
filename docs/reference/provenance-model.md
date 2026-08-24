@@ -1,7 +1,8 @@
 # The provenance model
 
-MatSci-SAM records how people and language models create, refine, discuss, and
-select definitions. [Curation and AI](/docs/reference/curation-and-ai)
+MatSci-SAM records how people and language models create, revise, replace,
+discuss, illustrate, and select definitions. [Curation and
+AI](/docs/reference/curation-and-ai)
 describes the workflow and the roles within it. The provenance layer publishes
 the resulting activities, agents, entities, and derivations as W3C PROV-O.
 
@@ -17,16 +18,30 @@ revision, including across competing definitions, records that derivation
 separately from its place in the linear history. Each revision is a
 `prov:specializationOf` its stable definition.
 
+A suggested revision creates a new stable definition whose first revision
+names the exact source revision with `prov:wasDerivedFrom`. A replacement
+proposal instead names the stable definition it is intended to supersede. In
+both cases, the source or target remains part of the record and available for
+comparison and voting.
+
 The publication of a revision is a `prov:Activity`. The activity is
 `prov:wasAssociatedWith` the person who published it, and the revision
 itself is `prov:wasAttributedTo` that person and, when the text came from an
 accepted suggestion, to the named model as well. Votes and comments are
 events on the revision they concern.
 
-An interactive refinement round is an activity with the source revision it
-started from, the feedback the author gave, the stored model output, the
-prompt, the named model, and the outcome. A term-level automatic definition
-records the prompt and model that generated it.
+An accepted AI suggestion records one of two intents. A new-term suggestion
+records the requested term, contributor context when supplied, stored model
+output, prompt, named model, and published definition. A revision suggestion
+also records the exact source revision and the contributor's critique. The
+suggestion is stored before the contributor reviews, edits, publishes, or
+discards it. Only publishing creates vocabulary content.
+
+An example is an immutable contribution to a stable definition and identifies
+the exact revision visible when it was added. A definition can have several
+examples. A featured-example selection records who made the selection and the
+interval during which it applied. Selection does not create a definition
+revision or change a vote.
 
 Two kinds of imported record are marked as inferred rather than observed. A
 comment carried over from before revisions were recorded is associated with
@@ -86,10 +101,11 @@ term provenance document where they acted. The node uses an opaque account
 number consistently across documents, so the graph can join acts from the same
 account. The hash node is not a resolvable profile IRI.
 
-A definition proposed in a walkthrough as an amendment of a candidate records
+A definition proposed in a walkthrough through **Suggest a revision** records
 the revision it started from, and its first revision states that derivation
-with `prov:wasDerivedFrom`, so an amended definition is traceable to the
-candidate it amended.
+with `prov:wasDerivedFrom`. A **Propose a replacement** contribution records
+the stable candidate it is intended to supersede. The study step is recorded
+on the act in either case.
 
 The dataset graph identifies a model as a `prov:SoftwareAgent` with a
 resolvable `/models/{slug}` IRI. Assertions, votes, and revisions produced by
@@ -102,7 +118,9 @@ The named graphs that hold these terms are described in
 
 ## The two views
 
-The SKOS documents state current meaning, including definitions, tags, and
-topic-to-term links. The PROV-O document states the activity and attribution
-behind that state. A tag assertion appears in SKOS as `dcterms:subject`. The
-provenance graph presents the same assertion with its asserter and time.
+The SKOS documents state current meaning, including definitions, every active
+example of use, tags, and topic-to-term links. The featured example is a
+presentation choice rather than a restriction on the SKOS export. The PROV-O
+document states the activity and attribution behind the recorded state. A tag
+assertion appears in SKOS as `dcterms:subject`. The provenance graph presents
+the same assertion with its asserter and time.

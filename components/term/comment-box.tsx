@@ -13,7 +13,6 @@ import {
   FormMessage
 } from "@/components/ui/form"
 import { Textarea } from "../ui/textarea"
-import { ModelRevisionDisclosure } from "@/components/comments/model-revision-disclosure"
 import { useCreateComment } from "@/components/comments/use-create-comment"
 import { MessageSquareIcon } from "lucide-react"
 import { Card } from "../ui/card"
@@ -33,15 +32,10 @@ const commentSchema = z.object({
 export function TermCommentBox({
   id,
   revisionId,
-  feedsModelRevision = false,
   surveyStepId
 }: {
   id: number
   revisionId: number
-  // True when the definition is AI-authored, where a comment on the current
-  // revision is also sent to the model for its next revision. Disclosed up
-  // front, matching the discussion page, rather than only after posting.
-  feedsModelRevision?: boolean
   // The review step of a walkthrough the comment is posted inside.
   surveyStepId?: number
 }) {
@@ -85,8 +79,7 @@ export function TermCommentBox({
               </FormItem>
             )}
           />
-          <div className="flex items-center justify-between gap-3">
-            {feedsModelRevision ? <ModelRevisionDisclosure /> : <span />}
+          <div className="flex justify-end">
             <Button type="submit" disabled={isPending}>
               <MessageSquareIcon aria-hidden />
               {isPending ? "Posting…" : "Post comment"}

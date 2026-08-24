@@ -50,11 +50,11 @@ export const provenanceBodyTurtle = (
 ) => {
   const base = `${termUri(prov.term.slug)}/provenance#`
   const nodeById = new Map(prov.graph.nodes.map((node) => [node.id, node]))
-  const node = (id: string) =>
-    `<${
-      nodeById.get(id)?.publicResource?.uri ??
-      `${base}${encodeURIComponent(id)}`
-    }>`
+  const node = (id: string) => {
+    const graphNode = nodeById.get(id)
+    if (graphNode?.rdfBlankNode) return `_:${graphNode.rdfBlankNode}`
+    return `<${graphNode?.publicResource?.uri ?? `${base}${encodeURIComponent(id)}`}>`
+  }
   const metaProperty = (key: string) => `<${applicationMetadataUri(key)}>`
   // Database identifiers support the private graph builder but are not part
   // of the public metadata contract. Public resources are identified by their
@@ -67,13 +67,26 @@ export const provenanceBodyTurtle = (
   const statesVocabularyTriples = (n: Provenance["graph"]["nodes"][number]) =>
     vocabularyTriples || n.meta?.current !== "yes"
 
+  const stableDefinitions = new Set(
+    prov.graph.nodes.flatMap((node) =>
+      node.publicResource?.specializationOf
+        ? [node.publicResource.specializationOf]
+        : []
+    )
+  )
+
   const lines: string[] = []
 
   for (const n of prov.graph.nodes) {
+    const isExplicitStableDefinition =
+      n.publicResource?.uri !== undefined &&
+      stableDefinitions.has(n.publicResource.uri)
     const statements = [
       `a ${TYPE_MAP[n.type]}${
         n.publicResource?.specializationOf && statesVocabularyTriples(n)
           ? ", matsci:DefinitionRevision"
+          : isExplicitStableDefinition && vocabularyTriples
+            ? ", matsci:Definition"
           : ""
       }`,
       `rdfs:label ${lit(n.label)}`
@@ -87,31 +100,34 @@ export const provenanceBodyTurtle = (
     lines.push(`${node(n.id)} ${statements.join(" ;\n  ")} .`)
   }
 
-  const stableDefinitions = new Set(
+  const explicitlyRenderedResources = new Set(
     prov.graph.nodes.flatMap((node) =>
-      node.publicResource?.specializationOf
-        ? [node.publicResource.specializationOf]
-        : []
+      node.publicResource?.uri ? [node.publicResource.uri] : []
     )
   )
   for (const uri of stableDefinitions)
-    lines.push(
-      vocabularyTriples
-        ? `<${uri}> a prov:Entity, matsci:Definition .`
-        : `<${uri}> a prov:Entity .`
-    )
+    if (!explicitlyRenderedResources.has(uri))
+      lines.push(
+        vocabularyTriples
+          ? `<${uri}> a prov:Entity, matsci:Definition .`
+          : `<${uri}> a prov:Entity .`
+      )
 
   for (const n of prov.graph.nodes) {
     const resource = n.publicResource
-    if (!resource?.specializationOf) continue
+    if (!resource) continue
 
-    if (statesVocabularyTriples(n))
+    if (resource.specializationOf && statesVocabularyTriples(n))
       lines.push(
         `${node(n.id)} prov:specializationOf <${resource.specializationOf}> .`
       )
     if (resource.wasRevisionOf)
       lines.push(
         `${node(n.id)} prov:wasRevisionOf <${resource.wasRevisionOf}> .`
+      )
+    if (resource.proposesReplacementFor)
+      lines.push(
+        `${node(n.id)} matsci:proposesReplacementFor <${resource.proposesReplacementFor}> .`
       )
   }
 

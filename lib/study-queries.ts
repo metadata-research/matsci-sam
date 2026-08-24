@@ -17,6 +17,7 @@ import {
 } from "@yamz/db"
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { statementsTable } from "@yamz/db"
+import { currentFeaturedExampleText } from "./definition-example-queries"
 
 /*
  * Reads for studies. A study is public as a page, so none of these gate on the
@@ -206,7 +207,7 @@ export const mostSupportedDefinitions = async (
       termId: definitionsTable.termId,
       definitionNumber: definitionsTable.definitionNumber,
       definition: definitionsTable.definition,
-      example: definitionsTable.example,
+      example: currentFeaturedExampleText().as("example"),
       support: support.mapWith(Number).as("support"),
       model: definitionsTable.model,
       author: {

@@ -40,7 +40,9 @@ in 1 to 5, with an `authorKind`. Migration 0042 added its four stamp columns,
 stamp off a human answer. `surveyStepId` on `voteEvents`, `comments` and
 `definitionRevisions`, also from 0041, is the step an act was taken inside.
 `derivedFromRevisionId` on `definitionRevisions` is older, from migration
-0018, and the define step sets it when a participant amends a candidate.
+0018, and the define step sets it when a participant publishes a suggested
+revision. A replacement proposal uses `definitions.replacesDefinitionId` to
+name the stable candidate it is intended to supersede.
 
 Migration 0043 added `backfilled` and `migratedLegacy` to `voteEvents` and
 inserted one event for each vote that had none for its revision and user pair,
@@ -108,16 +110,15 @@ once the position is held. `recordResponse` inserts the answer with its
 
 `votes.vote` with a `surveyStepId` runs `requireStepForDefinitionAct` before
 the transaction and `requireOnePosition` inside it for a define step, and
-`comments.create` runs the same check. Its model revision hook fires on a
-comment on the current revision of a definition whose author has an `aiModels`
-row, and not on `users.isAi`, because a simulated participant is an AI-flag
-account with no model identity. The review-step context skips the model
-revision hook, preserving the draft and the score used for participant
-positions. `definitions.create` with a step runs
-`requireStepForAct` as a define act, and inside the transaction runs
-`requireOnePosition`, checks that `derivedFromRevisionId` is the current
-revision of a definition of the same term, writes both columns on the initial
-revision, records the completion and returns where the walkthrough resumes.
+`comments.create` runs the same participation check. A comment writes only the
+comment and never triggers a model request. `definitions.create` with a step
+runs `requireStepForAct` as a define act, and inside the transaction runs
+`requireOnePosition`. For **Suggest a revision**, it checks that
+`derivedFromRevisionId` is the current revision of a definition of the same
+term and consumes the explicit AI suggestion. For **Propose a replacement**,
+it checks that `replacesDefinitionId` is a stable definition of the same term.
+It records the completion with the newly published candidate and returns where
+the walkthrough resumes.
 
 ## The support list
 
@@ -155,8 +156,10 @@ The study page at `/studies/<slug>` is public. It calls
 `surveys.get` for a signed-in viewer to render the resume card and renders the
 support list for every viewer. Community pages provide the roster. The run page
 at `/studies/<slug>/run` admits a signed-in member while the study is open and
-renders one step at a time. Each write surface receives the step so the new act
-can name it. The community page renders
+renders one step at a time. A define step offers **Accept**, the shared
+critique-driven **Suggest a revision** action, and **Propose a replacement**.
+Each write surface receives the step so the new act can name it. The community
+page renders
 `GenerateWalkthrough`, which generates or regenerates, with a checkbox for the
 closing questions, and gives way to the step count once the walkthrough is in
 use or the study is retired. `studyProgress` gives the page how many

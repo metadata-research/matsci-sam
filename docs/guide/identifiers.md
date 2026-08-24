@@ -121,9 +121,9 @@ because the hostname depends on the deployment.
 
 Every term is a `skos:Concept` in the concept scheme at `/vocabulary`. SKOS
 records identify current definition revisions as related resources. Those
-resources associate the text with its example, creators, date, status, and
-revision number. PROV-O records use the same definition and revision IRIs for
-the revision chain and derivation history.
+resources associate the text with all active examples of use, creators, date,
+status, and revision number. PROV-O records use the same definition and
+revision IRIs for the revision chain and derivation history.
 
 Tags are `skos:Concept` resources in their own schemes at `/tags/{scheme}`,
 and a term or definition points at them with `dcterms:subject`. Collections

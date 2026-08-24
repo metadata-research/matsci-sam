@@ -1,5 +1,6 @@
 import { EditDefinitionDialog } from "@/components/definition/edit-dialog"
-import { RefinePanel } from "@/components/definition/refine-panel"
+import { DefinitionExamples } from "@/components/definition/examples"
+import { DefinitionContributionActions } from "@/components/definition/contribution-actions"
 import { EditTags } from "@/components/tags/selector"
 import { TermTags, TermTagsFallback } from "@/components/tags/tags"
 import { TermCommentBox } from "@/components/term/comment-box"
@@ -11,6 +12,7 @@ import { aiRevisionSources, revisionSourceLabels } from "@/lib/revision-sources"
 import {
   ArrowLeftIcon,
   HistoryIcon,
+  ReplaceIcon,
   SparklesIcon,
   UserIcon
 } from "lucide-react"
@@ -42,13 +44,12 @@ export async function DefinitionDetailPage({
   version?: number
 }) {
   const sesh = await getSession()
-  trpc.comments.get.prefetch(definitionId)
-  trpc.tags.get.prefetch({ definitionId })
-
-  const definition = await trpc.definitions.get({
-    definitionId,
-    version
-  })
+  const [definition] = await Promise.all([
+    trpc.definitions.get({ definitionId, version }),
+    trpc.comments.get.prefetch(definitionId),
+    trpc.examples.list.prefetch({ definitionId }),
+    trpc.tags.get.prefetch({ definitionId })
+  ])
   if (!definition) notFound()
 
   const stableDefinitionPath = definitionPath(
@@ -64,7 +65,7 @@ export async function DefinitionDetailPage({
           definition.version
         )
 
-  trpc.votes.get.prefetch({
+  await trpc.votes.get.prefetch({
     definitionId: definition.id,
     revisionId: definition.revisionId
   })
@@ -123,8 +124,7 @@ export async function DefinitionDetailPage({
                     definition.isCurrentRevision && (
                       <EditDefinitionDialog
                         defaultValues={{
-                          definition: definition.definition,
-                          example: definition.example ?? ""
+                          definition: definition.definition
                         }}
                         definitionId={definition.id}
                         expectedRevisionId={definition.revisionId}
@@ -149,25 +149,23 @@ export async function DefinitionDetailPage({
                   </p>
                 </section>
 
-                {definition.example ? (
-                  <section aria-labelledby="example-heading">
-                    <div id="example-heading">
-                      <Eyebrow>Example of use</Eyebrow>
-                    </div>
-                    <p className="mt-1.5 leading-7 text-muted-foreground">
-                      {definition.example}
+                <Suspense
+                  fallback={
+                    <p
+                      className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground"
+                      role="status"
+                    >
+                      Loading examples…
                     </p>
-                  </section>
-                ) : (
-                  <section aria-labelledby="example-heading">
-                    <div id="example-heading">
-                      <Eyebrow>Example of use</Eyebrow>
-                    </div>
-                    <p className="mt-1.5 text-sm italic leading-7 text-muted-foreground">
-                      No example was recorded for this imported legacy revision.
-                    </p>
-                  </section>
-                )}
+                  }
+                >
+                  <DefinitionExamples
+                    definitionId={definition.id}
+                    sourceRevisionId={
+                      definition.currentRevisionId ?? definition.revisionId
+                    }
+                  />
+                </Suspense>
 
                 <section aria-labelledby="tags-heading">
                   <div className="flex items-center gap-1">
@@ -245,16 +243,21 @@ export async function DefinitionDetailPage({
                     Published {formatDate(definition.revisionCreatedAt)}
                   </span>
                   {definition.refinedFromId && (
-                    <Badge className="ml-auto bg-ai/15 text-ai border-ai/30 font-mono">
+                    <Badge className="border-ai/30 bg-ai/15 text-ai">
                       {definition.model
-                        ? `Refined with ${definition.model}`
-                        : "Refined"}
+                        ? `AI-assisted revision · ${definition.model}`
+                        : "Suggested revision"}
                     </Badge>
+                  )}
+                  {definition.replacesDefinitionId && (
+                    <Badge variant="outline">Replacement proposal</Badge>
                   )}
                 </div>
 
                 {(definition.refinedFromDefinitionNumber ||
-                  definition.refinedVersionDefinitionNumber) && (
+                  definition.refinedVersionDefinitionNumber ||
+                  definition.replacesDefinitionNumber ||
+                  definition.replacementDefinitionNumbers.length > 0) && (
                   <nav
                     aria-label="Definition lineage"
                     className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-4 text-sm"
@@ -286,26 +289,64 @@ export async function DefinitionDetailPage({
                         See the AI-refined definition
                       </Link>
                     )}
+                    {definition.replacesDefinitionNumber && (
+                      <Link
+                        className="flex items-center gap-1.5 text-primary hover:underline"
+                        href={definitionPath(
+                          definition.termSlug,
+                          definition.replacesDefinitionNumber
+                        )}
+                      >
+                        <ReplaceIcon className="size-3.5" aria-hidden />
+                        Proposed to replace Definition{" "}
+                        {definition.replacesDefinitionNumber}
+                      </Link>
+                    )}
+                    {definition.replacementDefinitionNumbers.map(
+                      (definitionNumber) => (
+                        <Link
+                          key={definitionNumber}
+                          className="flex items-center gap-1.5 text-primary hover:underline"
+                          href={definitionPath(
+                            definition.termSlug,
+                            definitionNumber
+                          )}
+                        >
+                          <ReplaceIcon className="size-3.5" aria-hidden />
+                          See replacement proposal Definition {definitionNumber}
+                        </Link>
+                      )
+                    )}
                   </nav>
                 )}
               </footer>
             </article>
           </Card>
 
-          {definition.authorId === sesh.id &&
-            definition.isCurrentRevision &&
-            definition.createdVia === "interactive" &&
-            !definition.refinedFromId && (
-              <RefinePanel
+          {definition.isCurrentRevision && (
+            <section
+              aria-labelledby="definition-actions-heading"
+              className="space-y-4 border-t pt-8"
+            >
+              <header className="space-y-1">
+                <h2
+                  id="definition-actions-heading"
+                  className="text-2xl font-semibold"
+                >
+                  Propose a change
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Suggest a revision to this candidate, or propose a separate
+                  replacement for people to compare and vote on.
+                </p>
+              </header>
+              <DefinitionContributionActions
+                term={definition.term}
                 definitionId={definition.id}
                 revisionId={definition.revisionId}
-                termSlug={definition.termSlug}
-                current={{
-                  definition: definition.definition,
-                  example: definition.example ?? ""
-                }}
               />
-            )}
+            </section>
+          )}
 
           <section
             aria-labelledby="revision-history-heading"
@@ -322,8 +363,9 @@ export async function DefinitionDetailPage({
                 </h2>
               </div>
               <p className="text-sm text-muted-foreground">
-                Every published revision keeps its text, example, editor, change
-                note, and community vote tally.
+                Every published revision keeps its text, editor, change note,
+                and community vote tally. Examples have their own contribution
+                history above.
               </p>
             </header>
             <ol className="overflow-hidden rounded-xl border bg-card">
@@ -427,12 +469,8 @@ export async function DefinitionDetailPage({
                 Comments
               </h2>
               <p className="text-sm text-muted-foreground">
-                Discuss this definition with the community. To have the model
-                draft a revision from your feedback, use the{" "}
-                <Link href="/discussion" className="text-primary underline">
-                  discussion page
-                </Link>
-                .
+                Discuss this definition with the community. A comment records
+                what you write without changing the definition.
               </p>
             </header>
             <TermComments
@@ -442,10 +480,6 @@ export async function DefinitionDetailPage({
             <TermCommentBox
               id={definition.id}
               revisionId={definition.revisionId}
-              feedsModelRevision={
-                definition.author.modelSlug !== null &&
-                definition.isCurrentRevision
-              }
             />
           </section>
         </div>

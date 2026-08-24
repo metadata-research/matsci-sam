@@ -1,18 +1,18 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   CircleAlertIcon,
   CircleCheckIcon,
-  GitCompareArrowsIcon,
   PlusCircleIcon,
   SendIcon,
-  SparklesIcon
+  SparklesIcon,
+  XIcon
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+import Link from "next/link"
 import { AutoComplete } from "@/components/autocomplete"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -26,52 +26,25 @@ import {
   FormMessage
 } from "@/components/ui/form"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
 import { DefineTerm, DefineTermSchema } from "@/lib/schemas/terms"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
-import {
-  DEFINITION_MAX_LENGTH,
-  EXAMPLE_MAX_LENGTH,
-  TERM_MAX_LENGTH
-} from "@/lib/input-limits"
-import { definitionPath, termPath } from "@/lib/public-identifiers"
-
-const AI_WORKFLOWS = [
-  {
-    interactive: false,
-    title: "Publish and compare",
-    description:
-      "Publish your definition as written. New terms also receive a separately attributed model definition.",
-    icon: GitCompareArrowsIcon,
-    iconClassName: "text-primary"
-  },
-  {
-    interactive: true,
-    title: "Publish, then refine",
-    description:
-      "Publish first, then request model suggestions and choose whether to accept a suggestion or keep your original.",
-    icon: SparklesIcon,
-    iconClassName: "text-ai"
-  }
-] as const
+import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "@/lib/input-limits"
+import { definitionPath } from "@/lib/public-identifiers"
+import { loginToast } from "@/components/login-toast"
 
 function TermGuidance({
   normalizedTerm,
   isExisting,
-  isLoading
+  isLoading,
+  existingSlug
 }: {
   normalizedTerm: string
   isExisting: boolean
   isLoading: boolean
+  existingSlug?: string
 }) {
-  if (!normalizedTerm)
-    return (
-      <>
-        Choose an existing term to add another definition, or enter a new
-        vocabulary term.
-      </>
-    )
+  if (!normalizedTerm) return <>Enter a new vocabulary term.</>
 
   if (isLoading) return <>Checking the vocabulary…</>
 
@@ -82,8 +55,21 @@ function TermGuidance({
           className="mt-0.5 size-3.5 shrink-0 text-primary"
           aria-hidden
         />
-        Existing term — your contribution will be added as a new, separate
-        definition alongside the existing definitions.
+        <span>
+          This term already exists.{" "}
+          {existingSlug ? (
+            <Link
+              href={"/vocabulary/" + existingSlug}
+              className="font-medium text-primary underline"
+            >
+              Open it
+            </Link>
+          ) : (
+            "Open it"
+          )}{" "}
+          to suggest a revision, propose a replacement, comment, or add an
+          example.
+        </span>
       </span>
     )
 
@@ -103,100 +89,112 @@ export type PublishedDefinition = RouterOutput["definitions"]["create"]
 
 /*
  * The definition form, shared by /add and the define step of a
- * walkthrough. On /add the contributor picks the term and the AI workflow;
- * in the walkthrough the step fixes the term, the chooser is not shown and
- * the publish is classic, so a term without a model definition gets its
- * draft. An amendment opens with the text of the candidate it amends and
- * names its current revision, so the record states the derivation. /add
- * navigates to what was published; the walkthrough stays on the page and
- * advances instead.
+ * walkthrough. On /add the contributor picks the term. In the walkthrough
+ * the step fixes the term. A suggested revision opens with the text of the
+ * candidate it derives from; a proposed replacement opens empty. /add
+ * navigates to the published definition, while the walkthrough advances.
+ * Examples are separate contributions and are added after publication.
  */
 export const DefinitionForm = ({
-  interactive,
-  onInteractiveChange,
   initialTerm = "",
   initialDefinition = "",
-  initialExample = "",
   lockedTerm,
   surveyStepId,
   derivedFromRevisionId,
+  replacesDefinitionId,
   onPublished
 }: {
-  interactive: boolean
-  // Given by /add, where the workflow chooser switches modes in place. Absent
-  // when the mode is fixed, and then the chooser is not rendered.
-  onInteractiveChange?: (interactive: boolean) => void
   initialTerm?: string
-  // What the fields open with: the text of the candidate being amended.
+  // What the fields open with: the text of the candidate being revised.
   initialDefinition?: string
-  initialExample?: string
   // The term is decided before the form opens, so the field is not shown and
   // the vocabulary list is not loaded.
   lockedTerm?: string
   // The define step the definition is written inside.
   surveyStepId?: number
-  // The current revision of the candidate this definition amends.
+  // The current revision of the candidate this definition revises.
   derivedFromRevisionId?: number
+  // The stable candidate this separately voteable proposal would supersede.
+  replacesDefinitionId?: number
   // Where a publish leads when it is not the term page.
   onPublished?: (published: PublishedDefinition) => void
 }) => {
   const router = useRouter()
   const term = lockedTerm ?? initialTerm
+  const [aiDraft, setAiDraft] = useState<{
+    suggestionId: number
+    definition: string
+    model: string
+    term: string
+  } | null>(null)
 
   const form = useForm<DefineTerm>({
     resolver: zodResolver(DefineTermSchema),
     defaultValues: {
       term,
-      examples: initialExample,
       definition: initialDefinition
     }
   })
 
   const mutation = trpc.definitions.create.useMutation({
     onSuccess: (published) => {
-      const { definition, term, aiScheduled } = published
-      if (aiScheduled) {
-        // The alternate definition is generated in the background after this
-        // response; say so, or it appears later with no explanation.
-        toast(
-          `The model is generating an alternate definition of "${term.term}". It will appear alongside yours shortly.`,
-          { icon: <SparklesIcon className="size-4 text-ai" /> }
-        )
-      }
+      const { definition, term } = published
       if (onPublished) {
         onPublished(published)
-        return
-      }
-      if (aiScheduled) {
-        // Land on the term rather than this one definition. The model
-        // definition is published as a sibling, and the term page is the only
-        // place that shows both, carries the placeholder card, and announces
-        // the arrival. Sending the author to their own definition instead
-        // leaves them watching a page where nothing will ever change.
-        router.push(termPath(term.slug))
         return
       }
       router.push(definitionPath(term.slug, definition.definitionNumber))
     }
   })
 
-  const { data: terms, isLoading: termsAreLoading } =
-    trpc.terms.list.useQuery(undefined, { enabled: lockedTerm === undefined })
+  const { data: terms, isLoading: termsAreLoading } = trpc.terms.list.useQuery(
+    undefined,
+    { enabled: lockedTerm === undefined }
+  )
   const termValue = useWatch({
     control: form.control,
     name: "term",
     defaultValue: term
   })
   const normalizedTerm = termValue.trim().toLowerCase()
-  const existingTerms = useMemo(
-    () => new Set((terms ?? []).map((term) => term.value.trim().toLowerCase())),
+  const existingTermByName = useMemo(
+    () =>
+      new Map(
+        (terms ?? []).map((term) => [term.value.trim().toLowerCase(), term])
+      ),
     [terms]
   )
-  const isExistingTerm =
-    normalizedTerm.length > 0 && existingTerms.has(normalizedTerm)
-  const selectedWorkflow =
-    AI_WORKFLOWS.find((workflow) => workflow.interactive === interactive) ??
-    AI_WORKFLOWS[0]
+  const existingTerm = existingTermByName.get(normalizedTerm)
+  const isExistingTerm = normalizedTerm.length > 0 && Boolean(existingTerm)
+
+  const discardAiDraft = trpc.aiAssist.discard.useMutation()
+  const suggestAiDraft = trpc.aiAssist.suggestNewTerm.useMutation({
+    onSuccess: (suggestion, variables) => {
+      setAiDraft({
+        ...suggestion,
+        term: variables.term.trim().toLowerCase()
+      })
+      form.setValue("definition", suggestion.definition, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true
+      })
+    },
+    onError: (error) => {
+      if (error.data?.code === "UNAUTHORIZED")
+        loginToast("ask AI for a new-term definition")
+    }
+  })
+
+  const clearAiDraft = () => {
+    if (aiDraft && !discardAiDraft.isPending)
+      discardAiDraft.mutate({ suggestionId: aiDraft.suggestionId })
+    setAiDraft(null)
+    form.setValue("definition", "", {
+      shouldDirty: true,
+      shouldValidate: true
+    })
+  }
 
   return (
     <Card className="py-0">
@@ -206,9 +204,13 @@ export const DefinitionForm = ({
             onSubmit={form.handleSubmit((data) =>
               mutation.mutate({
                 ...data,
-                interactive,
                 surveyStepId,
-                derivedFromRevisionId
+                derivedFromRevisionId,
+                replacesDefinitionId,
+                aiSuggestionId:
+                  aiDraft?.term === normalizedTerm
+                    ? aiDraft.suggestionId
+                    : undefined
               })
             )}
             onChange={() => {
@@ -216,65 +218,6 @@ export const DefinitionForm = ({
             }}
             className="space-y-6"
           >
-            {onInteractiveChange && (
-              <fieldset className="space-y-3 border-b pb-6">
-                <div className="space-y-1">
-                  <legend className="text-sm font-semibold">
-                    Choose an AI workflow
-                  </legend>
-                  <p className="text-sm text-muted-foreground">
-                    Choose what happens after publication.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {AI_WORKFLOWS.map((workflow) => {
-                    const selected = interactive === workflow.interactive
-                    const Icon = workflow.icon
-                    const value = workflow.interactive ? "refine" : "compare"
-
-                    return (
-                      <label
-                        key={workflow.title}
-                        className={cn(
-                          "flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-colors",
-                          "hover:border-primary/40 hover:bg-accent/50",
-                          selected && "border-primary/60 bg-primary/5"
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="ai-workflow"
-                          value={value}
-                          checked={selected}
-                          onChange={() =>
-                            onInteractiveChange(workflow.interactive)
-                          }
-                          aria-label={`${workflow.title}. ${workflow.description}`}
-                          className="mt-1 size-4 shrink-0 accent-primary"
-                        />
-                        <span className="flex min-w-0 items-start gap-1.5 text-sm font-medium leading-5 sm:text-base">
-                          <Icon
-                            className={cn(
-                              "mt-0.5 size-4 shrink-0",
-                              workflow.iconClassName
-                            )}
-                            aria-hidden
-                          />
-                          {workflow.title}
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-                <p
-                  aria-live="polite"
-                  className="text-sm leading-5 text-muted-foreground"
-                >
-                  {selectedWorkflow.description}
-                </p>
-              </fieldset>
-            )}
-
             {lockedTerm === undefined && (
               <FormField
                 control={form.control}
@@ -285,10 +228,27 @@ export const DefinitionForm = ({
                     <FormControl>
                       <AutoComplete
                         defaultValue={field.value}
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => {
+                          const nextTerm = value.trim().toLowerCase()
+                          if (aiDraft && nextTerm !== aiDraft.term) {
+                            if (!discardAiDraft.isPending)
+                              discardAiDraft.mutate({
+                                suggestionId: aiDraft.suggestionId
+                              })
+                            setAiDraft(null)
+                            form.setValue("definition", "", {
+                              shouldDirty: true,
+                              shouldValidate: true
+                            })
+                          }
+                          field.onChange(value)
+                        }}
                         options={terms ?? []}
                         placeholder="Start typing a materials science term…"
                         maxLength={TERM_MAX_LENGTH}
+                        disabled={
+                          mutation.isPending || suggestAiDraft.isPending
+                        }
                       />
                     </FormControl>
                     <FormDescription aria-live="polite">
@@ -296,6 +256,7 @@ export const DefinitionForm = ({
                         normalizedTerm={normalizedTerm}
                         isExisting={isExistingTerm}
                         isLoading={termsAreLoading}
+                        existingSlug={existingTerm?.slug}
                       />
                     </FormDescription>
                     <FormMessage />
@@ -325,26 +286,75 @@ export const DefinitionForm = ({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="examples"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Example of use</FormLabel>
-                  <FormDescription>
-                    Show how the term appears in a materials science context.
-                  </FormDescription>
-                  <FormControl>
-                    <Textarea
-                      className="min-h-20"
-                      maxLength={EXAMPLE_MAX_LENGTH}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {lockedTerm === undefined && !isExistingTerm ? (
+              <div className="space-y-3 rounded-lg border border-ai/30 bg-ai/5 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="flex items-center gap-1.5 font-medium text-ai">
+                      <SparklesIcon className="size-4" aria-hidden />
+                      Optional AI assistance
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Ask for an editable definition draft. Nothing is published
+                      until you review and submit it.
+                    </p>
+                  </div>
+                  {aiDraft ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={
+                        mutation.isPending ||
+                        suggestAiDraft.isPending ||
+                        discardAiDraft.isPending
+                      }
+                      onClick={clearAiDraft}
+                    >
+                      <XIcon aria-hidden />
+                      Remove AI draft
+                    </Button>
+                  ) : null}
+                </div>
+
+                {aiDraft ? (
+                  <p className="text-xs text-muted-foreground" role="status">
+                    Drafted by{" "}
+                    <span className="font-mono">{aiDraft.model}</span>. You can
+                    edit it before publishing; the model will remain credited as
+                    a coauthor.
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={
+                      !normalizedTerm ||
+                      termsAreLoading ||
+                      mutation.isPending ||
+                      suggestAiDraft.isPending
+                    }
+                    onClick={() =>
+                      suggestAiDraft.mutate({
+                        term: termValue,
+                        context: form.getValues("definition") || undefined
+                      })
+                    }
+                  >
+                    <SparklesIcon aria-hidden />
+                    {suggestAiDraft.isPending
+                      ? "Drafting…"
+                      : "Suggest a definition with AI"}
+                  </Button>
+                )}
+
+                {suggestAiDraft.error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {suggestAiDraft.error.message}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             {mutation.error ? (
               <div
@@ -369,11 +379,22 @@ export const DefinitionForm = ({
             <Button
               type="submit"
               size="lg"
-              disabled={mutation.isPending}
+              disabled={
+                mutation.isPending ||
+                suggestAiDraft.isPending ||
+                (lockedTerm === undefined && termsAreLoading) ||
+                (lockedTerm === undefined && isExistingTerm)
+              }
               className="w-full"
             >
               <SendIcon aria-hidden />
-              {mutation.isPending ? "Publishing…" : "Publish definition"}
+              {mutation.isPending
+                ? "Publishing…"
+                : derivedFromRevisionId
+                  ? "Publish suggested revision"
+                  : replacesDefinitionId
+                    ? "Publish replacement proposal"
+                    : "Publish new term"}
             </Button>
           </form>
         </Form>

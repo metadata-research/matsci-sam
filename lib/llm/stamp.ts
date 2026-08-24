@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto"
 import { OllamaModel } from "./model"
-import { LLMSystemPrompt, RefinePromptKey, RefineSystemPrompt } from "./prompts"
+import {
+  LLMSystemPrompt,
+  NewTermPromptKey,
+  NewTermSystemPrompt,
+  RefinePromptKey,
+  RefineSystemPrompt,
+  RevisionSuggestionPromptKey,
+  RevisionSuggestionSystemPrompt
+} from "./prompts"
 
 // Provenance stamp written on every AI-generated row (chats, refinement
 // rounds) so each generation stays attributable to the exact prompt and model
@@ -27,4 +35,14 @@ export const generationStamp = makeGenerationStamp(
 export const refineGenerationStamp = makeGenerationStamp(
   RefinePromptKey,
   RefineSystemPrompt
+)
+
+export const newTermGenerationStamp = makeGenerationStamp(
+  NewTermPromptKey,
+  NewTermSystemPrompt
+)
+
+export const revisionSuggestionGenerationStamp = makeGenerationStamp(
+  RevisionSuggestionPromptKey,
+  RevisionSuggestionSystemPrompt
 )

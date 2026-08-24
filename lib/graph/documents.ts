@@ -63,7 +63,7 @@ export const countTriples = (turtle: string) => {
   return store.size
 }
 
-// One term at a time: buildTermProvenance runs six queries at once for a
+// One term at a time: buildTermProvenance runs seven queries at once for a
 // term, the pool has ten connections by default, and the request path shares
 // it. Two terms at once would leave nothing for a write during a rebuild.
 const TERM_BATCH = 1

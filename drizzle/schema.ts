@@ -337,6 +337,12 @@ export const definitionsTable = pgTable(
     // The original definition this one was refined from (accepted AI
     // suggestion); null for originals
     refinedFromId: integer().references((): AnyPgColumn => definitionsTable.id),
+    // A separately votable proposal intended to supersede another stable
+    // definition. This is deliberately distinct from revision derivation:
+    // both definitions remain public candidates with their own histories.
+    replacesDefinitionId: integer().references(
+      (): AnyPgColumn => definitionsTable.id
+    ),
     // Which add flow created this definition; interactive definitions get the
     // refine panel and skip the automatic term-level AI definition
     createdVia: definitionSourceEnum().notNull().default("classic"),
@@ -348,6 +354,10 @@ export const definitionsTable = pgTable(
     currentRevisionId: integer().references(
       (): AnyPgColumn => definitionRevisionsTable.id
     ),
+    // The next permanent example number to allocate within this stable
+    // definition. As with a term's definition counter, allocation is an atomic
+    // UPDATE that also serializes concurrent example contributions.
+    nextExampleNumber: integer().notNull().default(1),
     score: integer().notNull().default(0),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
@@ -363,8 +373,11 @@ export const definitionsTable = pgTable(
     // with the author's original
     uniqueIndex("definitions_author_term_original_unique")
       .on(table.authorId, table.termId)
-      .where(sql`${table.refinedFromId} IS NULL`),
+      .where(
+        sql`${table.refinedFromId} IS NULL AND ${table.replacesDefinitionId} IS NULL`
+      ),
     index("definitions_current_revision_idx").on(table.currentRevisionId),
+    index("definitions_replaces_definition_idx").on(table.replacesDefinitionId),
     uniqueIndex("definitions_term_number_unique").on(
       table.termId,
       table.definitionNumber
@@ -372,6 +385,14 @@ export const definitionsTable = pgTable(
     check(
       "definitions_definition_number_positive",
       sql`${table.definitionNumber} > 0`
+    ),
+    check(
+      "definitions_next_example_number_positive",
+      sql`${table.nextExampleNumber} > 0`
+    ),
+    check(
+      "definitions_replacement_not_self",
+      sql`${table.replacesDefinitionId} IS NULL OR ${table.replacesDefinitionId} <> ${table.id}`
     )
   ]
 )
@@ -395,6 +416,14 @@ export const definitionsTableRelations = relations(
     refinedVersions: many(definitionsTable, {
       relationName: "refinedVersions"
     }),
+    replaces: one(definitionsTable, {
+      fields: [definitionsTable.replacesDefinitionId],
+      references: [definitionsTable.id],
+      relationName: "replacementProposals"
+    }),
+    replacements: many(definitionsTable, {
+      relationName: "replacementProposals"
+    }),
     coauthors: many(coauthorsTable),
     refinements: many(refinementsTable),
     revisions: many(definitionRevisionsTable, {
@@ -408,6 +437,8 @@ export const definitionsTableRelations = relations(
     edits: many(editsTable),
     comments: many(commentsTable),
     votes: many(votesTable),
+    examples: many(definitionExamplesTable),
+    exampleSelections: many(definitionExampleSelectionsTable),
     tags: many(tagsToDefinitions)
   })
 )
@@ -527,6 +558,7 @@ export const definitionRevisionSourceEnum = pgEnum(
   [
     "initial",
     "author_edit",
+    "ai_assisted",
     "ai_refinement",
     "ai_generation",
     "rollback",
@@ -678,6 +710,209 @@ export const definitionRevisionsTableRelations = relations(
   })
 )
 
+/*
+ * Which of the three separable categories performed an act: a person, a
+ * model acting as itself, or a scripted participant driven under an AI
+ * identity account during a pilot run. A model-authored suggestion accepted
+ * by a person stays human: the decision was the person's.
+ */
+export const actorKindEnum = pgEnum("actor_kind", [
+  "human",
+  "model",
+  "simulated"
+])
+
+// --- DEFINITION EXAMPLES ---
+// Examples are independent, immutable contributions under a stable definition.
+// sourceRevisionId records the exact definition text the contributor saw; the
+// composite FK proves that source belongs to this definition. Withdrawing an
+// example changes only its lifecycle and never rewrites its text or provenance.
+export type DefinitionExample = typeof definitionExamplesTable.$inferSelect
+export const definitionExamplesTable = pgTable(
+  "definitionExamples",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    definitionId: integer()
+      .references(() => definitionsTable.id)
+      .notNull(),
+    exampleNumber: integer().notNull(),
+    sourceRevisionId: integer().notNull(),
+    text: text().notNull(),
+    // Null is reserved for backfilled rows whose legacy revision did not retain
+    // an editor. Every application-created row supplies both author and kind.
+    authorId: integer().references(() => usersTable.id),
+    actorKind: actorKindEnum(),
+    // Optional generation stamp. promptKey may be null for a raw prompt, while
+    // hash/text/model are present together whenever a stamp exists.
+    promptKey: text(),
+    promptHash: text(),
+    promptText: text(),
+    model: text(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    withdrawnAt: timestamp({ mode: "string", withTimezone: true }),
+    legacyBackfill: boolean().notNull().default(false)
+  },
+  (table) => [
+    uniqueIndex("definition_examples_definition_number_unique").on(
+      table.definitionId,
+      table.exampleNumber
+    ),
+    // Composite references from selections and superseding records can prove
+    // their example and definition name the same contribution.
+    uniqueIndex("definition_examples_id_definition_unique").on(
+      table.id,
+      table.definitionId
+    ),
+    index("definition_examples_definition_active_idx").on(
+      table.definitionId,
+      table.withdrawnAt,
+      table.exampleNumber
+    ),
+    index("definition_examples_source_revision_idx").on(table.sourceRevisionId),
+    index("definition_examples_author_idx").on(table.authorId),
+    check(
+      "definition_examples_number_positive",
+      sql`${table.exampleNumber} > 0`
+    ),
+    check(
+      "definition_examples_text_content",
+      sql`btrim(${table.text}) <> '' AND char_length(${table.text}) <= 5000`
+    ),
+    check(
+      "definition_examples_attribution_complete_or_legacy",
+      sql`${table.legacyBackfill}
+          OR (${table.authorId} IS NOT NULL AND ${table.actorKind} IS NOT NULL)`
+    ),
+    check(
+      "definition_examples_generation_stamp",
+      sql`(${table.promptHash} IS NULL
+            AND ${table.promptText} IS NULL
+            AND ${table.model} IS NULL
+            AND ${table.promptKey} IS NULL)
+          OR (${table.promptHash} IS NOT NULL
+            AND ${table.promptText} IS NOT NULL
+            AND ${table.model} IS NOT NULL
+            AND btrim(${table.promptHash}) <> ''
+            AND btrim(${table.promptText}) <> ''
+            AND btrim(${table.model}) <> ''
+            AND (${table.promptKey} IS NULL OR btrim(${table.promptKey}) <> ''))`
+    ),
+    check(
+      "definition_examples_withdrawal_ordered",
+      sql`${table.withdrawnAt} IS NULL OR ${table.withdrawnAt} >= ${table.createdAt}`
+    ),
+    foreignKey({
+      columns: [table.sourceRevisionId, table.definitionId],
+      foreignColumns: [
+        definitionRevisionsTable.id,
+        definitionRevisionsTable.definitionId
+      ],
+      name: "definition_examples_source_same_definition_fk"
+    })
+  ]
+)
+
+export const definitionExamplesTableRelations = relations(
+  definitionExamplesTable,
+  ({ one, many }) => ({
+    definition: one(definitionsTable, {
+      fields: [definitionExamplesTable.definitionId],
+      references: [definitionsTable.id]
+    }),
+    sourceRevision: one(definitionRevisionsTable, {
+      fields: [definitionExamplesTable.sourceRevisionId],
+      references: [definitionRevisionsTable.id]
+    }),
+    author: one(usersTable, {
+      fields: [definitionExamplesTable.authorId],
+      references: [usersTable.id]
+    }),
+    selections: many(definitionExampleSelectionsTable)
+  })
+)
+
+// One interval during which an example was featured for its definition. Ending
+// a selection and inserting its successor in one transaction preserves every
+// decision while the partial unique index guarantees one active selection.
+export type DefinitionExampleSelection =
+  typeof definitionExampleSelectionsTable.$inferSelect
+export const definitionExampleSelectionsTable = pgTable(
+  "definitionExampleSelections",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    definitionId: integer()
+      .references(() => definitionsTable.id)
+      .notNull(),
+    exampleId: integer()
+      .references(() => definitionExamplesTable.id)
+      .notNull(),
+    selectedById: integer().references(() => usersTable.id),
+    selectedAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    endedAt: timestamp({ mode: "string", withTimezone: true }),
+    endedById: integer().references(() => usersTable.id),
+    legacyBackfill: boolean().notNull().default(false)
+  },
+  (table) => [
+    uniqueIndex("definition_example_selections_one_active")
+      .on(table.definitionId)
+      .where(sql`${table.endedAt} IS NULL`),
+    index("definition_example_selections_example_idx").on(table.exampleId),
+    index("definition_example_selections_selected_by_idx").on(
+      table.selectedById
+    ),
+    index("definition_example_selections_ended_by_idx").on(table.endedById),
+    check(
+      "definition_example_selections_actor_or_legacy",
+      sql`${table.legacyBackfill} OR ${table.selectedById} IS NOT NULL`
+    ),
+    check(
+      "definition_example_selections_end_pair",
+      sql`(${table.endedAt} IS NULL AND ${table.endedById} IS NULL)
+          OR (${table.endedAt} IS NOT NULL AND ${table.endedById} IS NOT NULL)`
+    ),
+    check(
+      "definition_example_selections_end_ordered",
+      sql`${table.endedAt} IS NULL OR ${table.endedAt} >= ${table.selectedAt}`
+    ),
+    foreignKey({
+      columns: [table.exampleId, table.definitionId],
+      foreignColumns: [
+        definitionExamplesTable.id,
+        definitionExamplesTable.definitionId
+      ],
+      name: "definition_example_selections_same_definition_fk"
+    })
+  ]
+)
+
+export const definitionExampleSelectionsTableRelations = relations(
+  definitionExampleSelectionsTable,
+  ({ one }) => ({
+    definition: one(definitionsTable, {
+      fields: [definitionExampleSelectionsTable.definitionId],
+      references: [definitionsTable.id]
+    }),
+    example: one(definitionExamplesTable, {
+      fields: [definitionExampleSelectionsTable.exampleId],
+      references: [definitionExamplesTable.id]
+    }),
+    selectedBy: one(usersTable, {
+      fields: [definitionExampleSelectionsTable.selectedById],
+      references: [usersTable.id],
+      relationName: "definitionExampleSelectedBy"
+    }),
+    endedBy: one(usersTable, {
+      fields: [definitionExampleSelectionsTable.endedById],
+      references: [usersTable.id],
+      relationName: "definitionExampleEndedBy"
+    })
+  })
+)
+
 // --- DISCUSSION SUGGESTIONS ---
 // A Discussion suggestion is generated before the user decides whether to
 // publish it. Persisting the exact source revision and model output prevents a
@@ -737,6 +972,143 @@ export const discussionSuggestionsTable = pgTable(
   ]
 )
 
+// --- CANONICAL AI CONTRIBUTION SUGGESTIONS ---
+// A narrow, persisted pre-publication record shared by the explicit New term
+// and Revise definition AI paths. The model output and complete generation
+// stamp are stored before a person accepts or discards the suggestion.
+export const aiContributionIntentEnum = pgEnum("ai_contribution_intent", [
+  "new_term",
+  "revise_definition"
+])
+export const aiContributionStatusEnum = pgEnum("ai_contribution_status", [
+  "generated",
+  "accepted",
+  "discarded"
+])
+
+export type AiContributionSuggestion =
+  typeof aiContributionSuggestionsTable.$inferSelect
+export const aiContributionSuggestionsTable = pgTable(
+  "aiContributionSuggestions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    intent: aiContributionIntentEnum().notNull(),
+    requestedById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    termText: text().notNull(),
+    // Present together only for a revision suggestion. The composite FK proves
+    // the immutable source revision belongs to the target definition.
+    definitionId: integer().references(() => definitionsTable.id),
+    sourceRevisionId: integer(),
+    feedback: text(),
+    inputDefinition: text(),
+    suggestedDefinition: text().notNull(),
+    promptKey: text().notNull(),
+    promptHash: text().notNull(),
+    promptText: text().notNull(),
+    model: text().notNull(),
+    status: aiContributionStatusEnum().notNull().default("generated"),
+    outputDefinitionId: integer().references(() => definitionsTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    decidedAt: timestamp({ mode: "string", withTimezone: true })
+  },
+  (table) => [
+    index("ai_contribution_suggestions_requester_created_idx").on(
+      table.requestedById,
+      table.createdAt
+    ),
+    index("ai_contribution_suggestions_target_created_idx").on(
+      table.definitionId,
+      table.createdAt
+    ),
+    index("ai_contribution_suggestions_source_revision_idx").on(
+      table.sourceRevisionId
+    ),
+    uniqueIndex("ai_contribution_suggestions_output_unique")
+      .on(table.outputDefinitionId)
+      .where(sql`${table.outputDefinitionId} IS NOT NULL`),
+    check(
+      "ai_contribution_suggestions_intent_shape",
+      sql`(${table.intent} = 'new_term'
+            AND ${table.definitionId} IS NULL
+            AND ${table.sourceRevisionId} IS NULL)
+          OR (${table.intent} = 'revise_definition'
+            AND ${table.definitionId} IS NOT NULL
+            AND ${table.sourceRevisionId} IS NOT NULL
+            AND ${table.feedback} IS NOT NULL
+            AND btrim(${table.feedback}) <> '')`
+    ),
+    check(
+      "ai_contribution_suggestions_decision_shape",
+      sql`(${table.status} = 'generated'
+            AND ${table.outputDefinitionId} IS NULL
+            AND ${table.decidedAt} IS NULL)
+          OR (${table.status} = 'accepted'
+            AND ${table.outputDefinitionId} IS NOT NULL
+            AND ${table.decidedAt} IS NOT NULL)
+          OR (${table.status} = 'discarded'
+            AND ${table.outputDefinitionId} IS NULL
+            AND ${table.decidedAt} IS NOT NULL)`
+    ),
+    check(
+      "ai_contribution_suggestions_nonblank",
+      sql`btrim(${table.termText}) <> ''
+          AND char_length(${table.termText}) <= 200
+          AND btrim(${table.suggestedDefinition}) <> ''
+          AND char_length(${table.suggestedDefinition}) <= 10000
+          AND btrim(${table.promptKey}) <> ''
+          AND btrim(${table.promptHash}) <> ''
+          AND btrim(${table.promptText}) <> ''
+          AND btrim(${table.model}) <> ''
+          AND (${table.feedback} IS NULL
+            OR (btrim(${table.feedback}) <> ''
+              AND char_length(${table.feedback}) <= 4000))
+          AND (${table.inputDefinition} IS NULL
+            OR (btrim(${table.inputDefinition}) <> ''
+              AND char_length(${table.inputDefinition}) <= 10000))`
+    ),
+    check(
+      "ai_contribution_suggestions_decision_ordered",
+      sql`${table.decidedAt} IS NULL OR ${table.decidedAt} >= ${table.createdAt}`
+    ),
+    foreignKey({
+      columns: [table.sourceRevisionId, table.definitionId],
+      foreignColumns: [
+        definitionRevisionsTable.id,
+        definitionRevisionsTable.definitionId
+      ],
+      name: "ai_contribution_suggestions_source_same_definition_fk"
+    })
+  ]
+)
+
+export const aiContributionSuggestionsTableRelations = relations(
+  aiContributionSuggestionsTable,
+  ({ one }) => ({
+    requester: one(usersTable, {
+      fields: [aiContributionSuggestionsTable.requestedById],
+      references: [usersTable.id]
+    }),
+    definition: one(definitionsTable, {
+      fields: [aiContributionSuggestionsTable.definitionId],
+      references: [definitionsTable.id],
+      relationName: "aiContributionSuggestionTarget"
+    }),
+    sourceRevision: one(definitionRevisionsTable, {
+      fields: [aiContributionSuggestionsTable.sourceRevisionId],
+      references: [definitionRevisionsTable.id]
+    }),
+    outputDefinition: one(definitionsTable, {
+      fields: [aiContributionSuggestionsTable.outputDefinitionId],
+      references: [definitionsTable.id],
+      relationName: "aiContributionSuggestionOutput"
+    })
+  })
+)
+
 // --- DEFINITION EDITS ---
 // Legacy expand/rollback compatibility only. New edits append a complete row to
 // definitionRevisions and advance definitions.currentRevisionId.
@@ -759,19 +1131,6 @@ export const editsTableRelations = relations(editsTable, ({ one }) => ({
 
 // --- VOTES ---
 export const voteTypeEnum = pgEnum("vote_type", ["up", "down"])
-
-/*
- * Which of the three separable categories performed an act: a person, a
- * model acting as itself, or a scripted participant driven under an AI
- * identity account during a pilot run. A model-authored suggestion accepted
- * by a person stays human: the decision was the person's, and the model is
- * credited as coauthor, exactly as before this enum existed.
- */
-export const actorKindEnum = pgEnum("actor_kind", [
-  "human",
-  "model",
-  "simulated"
-])
 
 export type Vote = typeof votesTable.$inferSelect
 export const votesTable = pgTable(

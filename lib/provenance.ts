@@ -1,10 +1,14 @@
 import "server-only"
 
+import { createHash } from "node:crypto"
 import {
+  aiContributionSuggestionsTable,
   aiModelsTable,
   chatsTable,
   commentsTable,
   db,
+  definitionExamplesTable,
+  definitionExampleSelectionsTable,
   definitionRevisionsTable,
   definitionsTable,
   discussionSuggestionsTable,
@@ -15,6 +19,7 @@ import {
   votesTable
 } from "@yamz/db"
 import { and, asc, eq, getTableColumns, inArray, isNotNull } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import {
   definitionUri,
   modelUri,
@@ -22,6 +27,9 @@ import {
   termUri
 } from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
+
+const exampleSelectedByUsers = alias(usersTable, "exampleSelectedByUsers")
+const exampleEndedByUsers = alias(usersTable, "exampleEndedByUsers")
 
 // Read-only PROV-O mapping over the domain tables. Definition revisions are
 // the canonical version record; the mutable definitions row is used only for
@@ -49,7 +57,12 @@ export type ProvNode = {
     uri: string
     specializationOf?: string
     wasRevisionOf?: string
+    proposesReplacementFor?: string
   }
+  // Records without a published identifier (examples and feature decisions)
+  // remain document-scoped blank nodes in RDF. This label is derived without
+  // exposing a database row id.
+  rdfBlankNode?: string
   profileUserId?: number
   // shown in the node details panel
   detail?: string
@@ -162,6 +175,7 @@ export const buildTermProvenance = async (
       id: definitionsTable.id,
       definitionNumber: definitionsTable.definitionNumber,
       currentRevisionId: definitionsTable.currentRevisionId,
+      replacesDefinitionId: definitionsTable.replacesDefinitionId,
       createdAt: definitionsTable.createdAt,
       author: {
         id: usersTable.id,
@@ -183,7 +197,10 @@ export const buildTermProvenance = async (
     chats,
     votes,
     refinements,
-    discussionSuggestions
+    discussionSuggestions,
+    aiContributionSuggestions,
+    definitionExamples,
+    exampleSelections
   ] = await Promise.all([
     definitionIds.length
       ? db
@@ -307,6 +324,100 @@ export const buildTermProvenance = async (
           )
         )
         .orderBy(asc(discussionSuggestionsTable.createdAt))
+      : Promise.resolve([]),
+    definitionIds.length
+      ? db
+        .select({
+          ...getTableColumns(aiContributionSuggestionsTable),
+          requester: {
+            id: usersTable.id,
+            name: usersTable.name,
+            isAi: usersTable.isAi,
+            isProfilePublic: usersTable.isProfilePublic
+          }
+        })
+        .from(aiContributionSuggestionsTable)
+        .innerJoin(
+          usersTable,
+          eq(aiContributionSuggestionsTable.requestedById, usersTable.id)
+        )
+        // An accepted suggestion belongs in the term document containing
+        // the stable definition it published. The output foreign key is the
+        // authoritative linkage for both New term and Suggest revision.
+        .where(
+          and(
+            eq(aiContributionSuggestionsTable.status, "accepted"),
+            isNotNull(aiContributionSuggestionsTable.outputDefinitionId),
+            inArray(
+              aiContributionSuggestionsTable.outputDefinitionId,
+              definitionIds
+            )
+          )
+        )
+        .orderBy(
+          asc(aiContributionSuggestionsTable.createdAt),
+          asc(aiContributionSuggestionsTable.id)
+        )
+      : Promise.resolve([]),
+    definitionIds.length
+      ? db
+        .select({
+          ...getTableColumns(definitionExamplesTable),
+          author: {
+            id: usersTable.id,
+            name: usersTable.name,
+            isAi: usersTable.isAi,
+            isProfilePublic: usersTable.isProfilePublic
+          }
+        })
+        .from(definitionExamplesTable)
+        .leftJoin(usersTable, eq(definitionExamplesTable.authorId, usersTable.id))
+        .where(inArray(definitionExamplesTable.definitionId, definitionIds))
+        .orderBy(
+          asc(definitionExamplesTable.definitionId),
+          asc(definitionExamplesTable.exampleNumber)
+        )
+      : Promise.resolve([]),
+    definitionIds.length
+      ? db
+        .select({
+          ...getTableColumns(definitionExampleSelectionsTable),
+          selectedBy: {
+            id: exampleSelectedByUsers.id,
+            name: exampleSelectedByUsers.name,
+            isAi: exampleSelectedByUsers.isAi,
+            isProfilePublic: exampleSelectedByUsers.isProfilePublic
+          },
+          endedBy: {
+            id: exampleEndedByUsers.id,
+            name: exampleEndedByUsers.name,
+            isAi: exampleEndedByUsers.isAi,
+            isProfilePublic: exampleEndedByUsers.isProfilePublic
+          }
+        })
+        .from(definitionExampleSelectionsTable)
+        .leftJoin(
+          exampleSelectedByUsers,
+          eq(
+            definitionExampleSelectionsTable.selectedById,
+            exampleSelectedByUsers.id
+          )
+        )
+        .leftJoin(
+          exampleEndedByUsers,
+          eq(
+            definitionExampleSelectionsTable.endedById,
+            exampleEndedByUsers.id
+          )
+        )
+        .where(
+          inArray(definitionExampleSelectionsTable.definitionId, definitionIds)
+        )
+        .orderBy(
+          asc(definitionExampleSelectionsTable.definitionId),
+          asc(definitionExampleSelectionsTable.selectedAt),
+          asc(definitionExampleSelectionsTable.id)
+        )
       : Promise.resolve([])
   ])
 
@@ -414,7 +525,7 @@ export const buildTermProvenance = async (
       label: key ? `prompt: ${key}` : `prompt ${hash.slice(0, 8)}`,
       type: "entity",
       detail: text ?? undefined,
-      meta: { hash }
+      meta: { hash, ...(key !== null ? { promptKey: key } : {}) }
     })
     return id
   }
@@ -424,6 +535,49 @@ export const buildTermProvenance = async (
   const revisionById = new Map(
     revisions.map((revision) => [revision.id, revision])
   )
+  const exampleById = new Map(
+    definitionExamples.map((example) => [example.id, example])
+  )
+  const blankNodeScope = createHash("sha256")
+    .update(term.slug)
+    .digest("hex")
+    .slice(0, 16)
+  const stableDefinitionNodeId = (definitionNumber: number) =>
+    `definition_${definitionNumber}`
+  const exampleNodeId = (definitionNumber: number, exampleNumber: number) =>
+    `definition_${definitionNumber}_example_${exampleNumber}`
+
+  // Stable definitions already have published IRIs. Naming them explicitly
+  // lets replacement proposals and feature decisions point at the stable
+  // candidate rather than falsely treating either as a revision derivation.
+  for (const definition of definitions) {
+    const replacementTarget =
+      definition.replacesDefinitionId === null
+        ? undefined
+        : definitionById.get(definition.replacesDefinitionId)
+    addNode({
+      id: stableDefinitionNodeId(definition.definitionNumber),
+      label: `Definition ${definition.definitionNumber}`,
+      type: "entity",
+      publicResource: {
+        uri: definitionUri(term.slug, definition.definitionNumber),
+        ...(replacementTarget
+          ? {
+              proposesReplacementFor: definitionUri(
+                term.slug,
+                replacementTarget.definitionNumber
+              )
+            }
+          : {})
+      },
+      meta: {
+        definitionNumber: definition.definitionNumber,
+        ...(replacementTarget
+          ? { replacesDefinitionNumber: replacementTarget.definitionNumber }
+          : {})
+      }
+    })
+  }
   const revisionCoordinate = (revision: (typeof revisions)[number]) => {
     const definition = definitionById.get(revision.definitionId)
     return definition
@@ -609,6 +763,8 @@ export const buildTermProvenance = async (
       const activityLabel =
         revision.source === "rollback"
           ? "Restore earlier revision"
+          : revision.source === "ai_assisted"
+            ? "Publish AI-assisted contribution"
           : revision.source === "ai_refinement"
             ? "Accept AI suggestion"
             : revision.source === "ai_generation"
@@ -633,6 +789,21 @@ export const buildTermProvenance = async (
       })
       addEdge(id, activityId, "wasGeneratedBy")
 
+      if (
+        revision.version === 1 &&
+        definition.replacesDefinitionId !== null
+      ) {
+        const replacementTarget = definitionById.get(
+          definition.replacesDefinitionId
+        )
+        if (replacementTarget)
+          addEdge(
+            activityId,
+            stableDefinitionNodeId(replacementTarget.definitionNumber),
+            "used"
+          )
+      }
+
       if (revision.editor) {
         const editorNode = revision.editor.isAi
           ? modelNode(
@@ -648,12 +819,16 @@ export const buildTermProvenance = async (
 
       if (
         revision.model &&
-        (revision.source === "ai_generation" ||
+        (revision.source === "ai_assisted" ||
+          revision.source === "ai_generation" ||
           revision.source === "ai_refinement")
       ) {
         const model = modelNode(revision.model)
         addEdge(id, model, "wasAttributedTo")
-        if (revision.source === "ai_generation")
+        if (
+          revision.source === "ai_assisted" ||
+          revision.source === "ai_generation"
+        )
           addEdge(activityId, model, "wasAssociatedWith")
       }
 
@@ -705,6 +880,8 @@ export const buildTermProvenance = async (
           ? `Imported historical ${revisionCoordinate(revision)} snapshot`
           : revision.source === "rollback"
             ? `Earlier content restored as ${revisionCoordinate(revision)}`
+            : revision.source === "ai_assisted"
+              ? `${revisionLabel(revision)} published with AI assistance`
             : revision.source === "ai_refinement"
               ? `${revisionLabel(revision)} published with AI assistance`
               : isAiGeneration
@@ -728,13 +905,176 @@ export const buildTermProvenance = async (
         profileUserId: actor.profileUserId,
         summary,
         detail,
-        model: isAiGeneration ? revision.model : null,
+        model:
+          isAiGeneration || revision.source === "ai_assisted"
+            ? revision.model
+            : null,
         promptRef: matchedChat
           ? (matchedChat.promptKey ?? matchedChat.promptHash)
           : revision.prompt
             ? `revision ${revision.id}`
             : null
       })
+    }
+  }
+
+  // --- immutable examples and featured-example decisions ---
+  // Examples have no standalone published identifier, so their RDF nodes are
+  // document-scoped blank nodes. Their graph ids use the permanent public
+  // definition/example coordinates rather than database row ids.
+  for (const example of definitionExamples) {
+    const definition = definitionById.get(example.definitionId)
+    const sourceRevision = revisionById.get(example.sourceRevisionId)
+    if (!definition || !sourceRevision) continue
+
+    const id = exampleNodeId(
+      definition.definitionNumber,
+      example.exampleNumber
+    )
+    const sourceVersion = revisionNodeId(
+      sourceRevision.definitionId,
+      sourceRevision.version
+    )
+    const activityId = `act_${id}`
+    const hasGenerationStamp =
+      example.promptHash !== null &&
+      example.promptText !== null &&
+      example.model !== null
+
+    addNode({
+      id,
+      label: `Definition ${definition.definitionNumber} · example ${example.exampleNumber}`,
+      type: "entity",
+      rdfBlankNode: `example_${blankNodeScope}_${definition.definitionNumber}_${example.exampleNumber}`,
+      detail: example.text,
+      meta: {
+        definitionNumber: definition.definitionNumber,
+        exampleNumber: example.exampleNumber,
+        published: example.createdAt,
+        withdrawnAt: example.withdrawnAt,
+        actorKind: example.actorKind,
+        legacyBackfill: example.legacyBackfill ? "yes" : "no",
+        model: example.model
+      }
+    })
+    addNode({
+      id: activityId,
+      label: hasGenerationStamp ? "Generate and publish example" : "Publish example",
+      type: "activity",
+      rdfBlankNode: `publishExample_${blankNodeScope}_${definition.definitionNumber}_${example.exampleNumber}`,
+      meta: {
+        at: example.createdAt,
+        actorKind: example.actorKind,
+        legacyBackfill: example.legacyBackfill ? "yes" : "no",
+        model: example.model
+      }
+    })
+    addEdge(id, activityId, "wasGeneratedBy")
+    addEdge(id, sourceVersion, "wasDerivedFrom")
+    addEdge(activityId, sourceVersion, "used")
+    addEdge(
+      activityId,
+      stableDefinitionNodeId(definition.definitionNumber),
+      "used"
+    )
+
+    if (example.author) {
+      const author = personNode(example.author)
+      addEdge(id, author, "wasAttributedTo")
+      addEdge(activityId, author, "wasAssociatedWith")
+    }
+
+    if (hasGenerationStamp) {
+      const model = modelNode(
+        example.model!,
+        example.actorKind === "model" ? (example.author?.id ?? undefined) : undefined
+      )
+      const prompt = promptNode(
+        example.promptHash!,
+        example.promptText,
+        example.promptKey
+      )
+      addEdge(id, model, "wasAttributedTo")
+      addEdge(activityId, model, "wasAssociatedWith")
+      addEdge(activityId, prompt, "used")
+    }
+  }
+
+  for (const [index, selection] of exampleSelections.entries()) {
+    const definition = definitionById.get(selection.definitionId)
+    const example = exampleById.get(selection.exampleId)
+    if (!definition || !example) continue
+
+    const exampleId = exampleNodeId(
+      definition.definitionNumber,
+      example.exampleNumber
+    )
+    const selectionCoordinate = `${blankNodeScope}_${definition.definitionNumber}_${index + 1}`
+    const selectionActivityId = `act_feature_${selectionCoordinate}`
+    const featuredStateId = `featured_${selectionCoordinate}`
+
+    addNode({
+      id: selectionActivityId,
+      label: `Feature example ${example.exampleNumber}`,
+      type: "activity",
+      rdfBlankNode: `featureExample_${selectionCoordinate}`,
+      meta: {
+        at: selection.selectedAt,
+        decision: "feature",
+        legacyBackfill: selection.legacyBackfill ? "yes" : "no"
+      }
+    })
+    addEdge(selectionActivityId, exampleId, "used")
+    addEdge(
+      selectionActivityId,
+      stableDefinitionNodeId(definition.definitionNumber),
+      "used"
+    )
+    if (selection.selectedBy)
+      addEdge(
+        selectionActivityId,
+        personNode(selection.selectedBy),
+        "wasAssociatedWith"
+      )
+
+    addNode({
+      id: featuredStateId,
+      label: `Featured example ${example.exampleNumber}`,
+      type: "entity",
+      rdfBlankNode: `featuredExample_${selectionCoordinate}`,
+      meta: {
+        definitionNumber: definition.definitionNumber,
+        exampleNumber: example.exampleNumber,
+        selectedAt: selection.selectedAt,
+        endedAt: selection.endedAt,
+        state: selection.endedAt === null ? "active" : "ended",
+        legacyBackfill: selection.legacyBackfill ? "yes" : "no"
+      }
+    })
+    addEdge(featuredStateId, selectionActivityId, "wasGeneratedBy")
+    addEdge(featuredStateId, exampleId, "wasDerivedFrom")
+
+    if (selection.endedAt !== null) {
+      const endingActivityId = `act_end_feature_${selectionCoordinate}`
+      addNode({
+        id: endingActivityId,
+        label: `End featured status for example ${example.exampleNumber}`,
+        type: "activity",
+        rdfBlankNode: `endFeatureExample_${selectionCoordinate}`,
+        meta: { at: selection.endedAt, decision: "end feature interval" }
+      })
+      addEdge(endingActivityId, featuredStateId, "used")
+      addEdge(
+        endingActivityId,
+        stableDefinitionNodeId(definition.definitionNumber),
+        "used"
+      )
+      if (selection.endedBy)
+        addEdge(
+          endingActivityId,
+          personNode(selection.endedBy),
+          "wasAssociatedWith"
+        )
     }
   }
 
@@ -982,6 +1322,204 @@ export const buildTermProvenance = async (
         profileUserId: publicProfileUserId(definition.author),
         summary: `Author kept their original (round ${round.round})`
       })
+  }
+
+  // --- accepted canonical AI contribution suggestions ---
+  // The preview is a first-class entity rather than being collapsed into the
+  // published revision: a contributor may edit it before accepting it. This
+  // keeps the model's exact output, every exact input, and the final human-
+  // published output distinguishable while the accepted output foreign key
+  // supplies their authoritative linkage.
+  for (const suggestion of aiContributionSuggestions) {
+    if (
+      suggestion.status !== "accepted" ||
+      suggestion.outputDefinitionId === null
+    )
+      continue
+
+    const requesterName =
+      suggestion.requester.name ?? `User ${suggestion.requester.id}`
+    const requesterKind = suggestion.requester.isAi
+      ? ("software" as const)
+      : ("person" as const)
+    const requester = personNode(suggestion.requester)
+    const model = modelNode(suggestion.model)
+    const sourceRevision =
+      suggestion.sourceRevisionId === null
+        ? undefined
+        : revisionById.get(suggestion.sourceRevisionId)
+    const sourceVersion = sourceRevision
+      ? revisionNodeId(sourceRevision.definitionId, sourceRevision.version)
+      : null
+    const outputRevision = revisions.find(
+      (revision) =>
+        revision.definitionId === suggestion.outputDefinitionId &&
+        revision.version === 1
+    )
+    const outputVersion = outputRevision
+      ? revisionNodeId(outputRevision.definitionId, outputRevision.version)
+      : null
+
+    const requestId = `ai_contribution_request_${suggestion.id}`
+    addNode({
+      id: requestId,
+      label:
+        suggestion.intent === "new_term"
+          ? `New-term AI request by ${requesterName}`
+          : `Revision AI request by ${requesterName}`,
+      type: "entity",
+      detail: suggestion.termText,
+      meta: {
+        intent: suggestion.intent,
+        termText: suggestion.termText,
+        requestedAt: suggestion.createdAt,
+        acceptedAt: suggestion.decidedAt
+      }
+    })
+    addEdge(requestId, requester, "wasAttributedTo")
+
+    const prompt = promptNode(
+      suggestion.promptHash,
+      suggestion.promptText,
+      suggestion.promptKey
+    )
+    const activityId = `act_ai_contribution_suggestion_${suggestion.id}`
+    addNode({
+      id: activityId,
+      label:
+        suggestion.intent === "new_term"
+          ? "Generate new-term suggestion"
+          : "Generate revision suggestion",
+      type: "activity",
+      meta: {
+        at: suggestion.createdAt,
+        intent: suggestion.intent,
+        model: suggestion.model,
+        status: suggestion.status,
+        acceptedAt: suggestion.decidedAt,
+        sourceRevisionId: suggestion.sourceRevisionId,
+        outputDefinitionId: suggestion.outputDefinitionId
+      }
+    })
+    addEdge(activityId, model, "wasAssociatedWith")
+    addEdge(activityId, requester, "wasAssociatedWith")
+    addEdge(activityId, prompt, "used")
+    addEdge(activityId, requestId, "used")
+    if (sourceVersion) addEdge(activityId, sourceVersion, "used")
+
+    if (suggestion.inputDefinition !== null) {
+      const inputId = `ai_contribution_input_${suggestion.id}`
+      addNode({
+        id: inputId,
+        label:
+          suggestion.intent === "new_term"
+            ? "Contributor notes supplied to the model"
+            : "Source definition supplied to the model",
+        type: "entity",
+        detail: suggestion.inputDefinition,
+        meta: { intent: suggestion.intent }
+      })
+      addEdge(activityId, inputId, "used")
+      if (suggestion.intent === "new_term")
+        addEdge(inputId, requester, "wasAttributedTo")
+      else if (sourceVersion)
+        addEdge(inputId, sourceVersion, "wasDerivedFrom")
+    }
+
+    if (suggestion.feedback !== null) {
+      const feedbackId = `ai_contribution_feedback_${suggestion.id}`
+      addNode({
+        id: feedbackId,
+        label: `Revision feedback by ${requesterName}`,
+        type: "entity",
+        detail: suggestion.feedback,
+        meta: {
+          requestedAt: suggestion.createdAt,
+          sourceRevisionId: suggestion.sourceRevisionId
+        }
+      })
+      addEdge(feedbackId, requester, "wasAttributedTo")
+      if (sourceVersion) addEdge(feedbackId, sourceVersion, "wasDerivedFrom")
+      addEdge(activityId, feedbackId, "used")
+    }
+
+    const suggestionId = `ai_contribution_suggestion_${suggestion.id}`
+    addNode({
+      id: suggestionId,
+      label:
+        suggestion.intent === "new_term"
+          ? "Accepted new-term AI suggestion"
+          : "Accepted revision AI suggestion",
+      type: "entity",
+      detail: suggestion.suggestedDefinition,
+      meta: {
+        intent: suggestion.intent,
+        termText: suggestion.termText,
+        model: suggestion.model,
+        status: suggestion.status,
+        generatedAt: suggestion.createdAt,
+        acceptedAt: suggestion.decidedAt,
+        sourceRevisionId: suggestion.sourceRevisionId,
+        outputDefinitionId: suggestion.outputDefinitionId,
+        ...(outputRevision !== undefined
+          ? { outputRevisionId: outputRevision.id }
+          : {})
+      }
+    })
+    addEdge(suggestionId, activityId, "wasGeneratedBy")
+    addEdge(suggestionId, model, "wasAttributedTo")
+    if (sourceVersion)
+      addEdge(suggestionId, sourceVersion, "wasDerivedFrom")
+
+    if (outputRevision && outputVersion) {
+      addEdge(outputVersion, suggestionId, "wasDerivedFrom")
+      if (sourceVersion) addEdge(outputVersion, sourceVersion, "wasDerivedFrom")
+      addEdge(outputVersion, model, "wasAttributedTo")
+
+      const publicationActivity = revisionActivityId(outputRevision)
+      addEdge(publicationActivity, suggestionId, "used")
+      if (sourceVersion) addEdge(publicationActivity, sourceVersion, "used")
+      addEdge(publicationActivity, requester, "wasAssociatedWith")
+    }
+
+    events.push({
+      id: requestId,
+      at: suggestion.createdAt,
+      kind:
+        suggestion.intent === "new_term" ? "initial-message" : "feedback",
+      actor: requesterName,
+      actorKind: requesterKind,
+      profileUserId: publicProfileUserId(suggestion.requester),
+      summary:
+        suggestion.intent === "new_term"
+          ? `AI assistance requested for new term “${suggestion.termText}”`
+          : sourceRevision
+            ? `Revision guidance submitted for ${revisionCoordinate(sourceRevision)}`
+            : "Revision guidance submitted",
+      detail:
+        suggestion.feedback !== null
+          ? excerpt(suggestion.feedback)
+          : suggestion.inputDefinition !== null
+            ? excerpt(suggestion.inputDefinition)
+            : undefined
+    })
+    events.push({
+      id: suggestionId,
+      at: suggestion.createdAt,
+      kind:
+        suggestion.intent === "new_term"
+          ? "ai-generation"
+          : "refine-suggested",
+      actor: suggestion.model,
+      actorKind: "software",
+      summary:
+        suggestion.intent === "new_term"
+          ? "AI generated a new-term suggestion"
+          : "AI generated a revision suggestion",
+      detail: excerpt(suggestion.suggestedDefinition),
+      model: suggestion.model,
+      promptRef: suggestion.promptKey ?? suggestion.promptHash
+    })
   }
 
   // --- accepted discussion suggestions ---

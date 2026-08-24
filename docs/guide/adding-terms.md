@@ -4,38 +4,48 @@ Sign in and give your name in the profile editor, then open **Contribute**
 under **Take part** in the navigation bar. Complete the account name before
 submitting a contribution.
 
-The form asks for three entries.
+## New term
 
-- **Term.** The word or phrase you are defining. If the term already
-  exists, your definition is added alongside the others, and readers can
-  compare and vote. Each person can contribute one original definition
-  per term.
+- **Term.** The new word or phrase you are defining. If it already exists,
+  the form points you to its vocabulary page instead of creating another term.
 - **Definition.** Name the broader class, then what distinguishes the term.
   For austenite, "A face-centered cubic phase of iron and its alloys,
   able to dissolve considerably more carbon than ferrite."
-- **Example of use.** One or more sentences showing the term in a materials
-  science context.
 
-The form offers two AI workflows. Your definition is published first in
-either workflow.
+An **optional AI suggestion** button can draft the definition. The draft is
+editable and nothing is published until you review and submit it. The model is
+credited when its suggestion is used; the application does not silently add a
+second model-authored definition.
 
-**Publish and compare.** Your definition is added as written. When a term is
-defined for the first time and the model service is available, the
-application requests an independent, separately attributed model-authored
-definition for comparison. A notice at publication states that the definition
-has been requested. The term page shows a placeholder card during generation
-and announces the published model-authored definition. The independent request
-occurs once, with the first definition of a new term.
+Select **Publish new term** to create the vocabulary term and its first
+numbered definition. An example is not bundled into this action. Add one from
+the definition page after publication.
 
-**Publish, then refine.** Your definition is added as written. The definition
-page offers a **Refine with AI** button, which starts the model request. See
-[AI refinement](/docs/ai-refinement) for the review loop.
+## The five contribution actions
 
-After selecting **Publish definition** you arrive at revision 1 of your
-numbered definition. **Publish and compare** opens the term page when yours is
-the first definition of a new term, so the requested model-authored definition can
-appear alongside it. The definition keeps the same identifier and URL when
-you publish later revisions. You can [tag your contribution](/docs/tags),
-review votes and comments, and start refinement after choosing **Publish, then
-refine**. [Community review and revisions](/docs/community) explains how
-revisions affect voting, comments, and provenance.
+MatSci-SAM uses the same small set of actions on vocabulary pages, in
+discussion, and in studies.
+
+- **New term** creates a vocabulary term and its first definition. AI can
+  optionally suggest an editable definition draft.
+- **Suggest a revision** starts from a particular current definition. Tell the
+  application what is wrong or missing, then review and edit the AI draft
+  before publishing. The result is a separately voteable candidate linked to
+  the exact definition revision it came from; the source remains available.
+- **Propose a replacement** lets you write a different candidate that should
+  supersede the current one. Both remain visible for comparison and voting.
+- **Comment** posts exactly the comment you wrote. It does not revise a
+  definition or start model work.
+- **Add example** contributes an example of use to one definition. Definitions
+  can have multiple examples. One may be featured in compact views, while the
+  complete list remains visible on the definition page.
+
+AI assistance is confined to **New term** and **Suggest a revision**. Replacing
+a definition, commenting, and adding an example are distinct human actions.
+Adding or featuring an example does not create a new definition revision or
+reset its votes.
+
+The definition keeps the same identifier and URL when its author publishes
+later revisions. You can also [tag your contribution](/docs/tags).
+[Community review and revisions](/docs/community) explains voting, comments,
+and provenance.

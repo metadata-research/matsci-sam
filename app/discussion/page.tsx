@@ -16,14 +16,13 @@ import { revisionSourceLabels } from "@/lib/revision-sources"
 export const metadata: Metadata = {
   title: `Discussion | ${SITE_NAME}`,
   description:
-    "Comment on recently added terms without leaving the page. Comments on an AI definition are sent to the model for its next revision."
+    "Suggest an AI-assisted revision or post a comment on recently added definitions."
 }
 
 /*
  * Lightweight discussion feed: the most-recent terms, each with the definition
- * a comment attaches to and an inline box, so contributors can weigh in without
- * opening each term page. Comments on an AI definition feed the model a
- * revision (comments.create), which is what the note under each box states.
+ * under discussion and two explicit actions. A revision request gets an
+ * editable AI draft; a comment is stored as-is and never triggers model work.
  */
 export default async function DiscussionPage() {
   const items = await trpc.discussion.recent({ limit: 8 })
@@ -34,9 +33,8 @@ export default async function DiscussionPage() {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold">Discussion</h1>
           <p className="text-muted-foreground">
-            Suggest revision sends your comment to the model for a proposed
-            rewrite you can review. Comment posts it as-is to this
-            definition&apos;s discussion.
+            Suggest a revision by explaining what is wrong, or post a comment
+            without changing the definition.
           </p>
         </div>
 
@@ -196,8 +194,7 @@ export default async function DiscussionPage() {
                 <DiscussionCommentBox
                   definitionId={item.def.definitionId}
                   revisionId={item.def.revisionId}
-                  termSlug={item.slug}
-                  feedsModelRevision={item.def.isAi}
+                  term={item.term}
                 />
               </div>
 

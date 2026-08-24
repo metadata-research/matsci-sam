@@ -1,7 +1,4 @@
-import {
-  DiffMatchPatch,
-  DiffOp
-} from "diff-match-patch-ts"
+import { DiffMatchPatch, DiffOp } from "diff-match-patch-ts"
 import type { Diff } from "diff-match-patch-ts"
 import {
   db,
@@ -10,6 +7,11 @@ import {
   termsTable
 } from "@yamz/db"
 import { and, desc, eq, sql } from "drizzle-orm"
+import {
+  createDefinitionExample,
+  exampleActorKindForUser,
+  exampleStampFromLegacyGeneration
+} from "./definition-examples"
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -55,11 +57,12 @@ export interface CreateDefinitionWithInitialRevisionInput {
   changeNote: string
   source: Extract<
     DefinitionRevisionSource,
-    "initial" | "ai_refinement" | "ai_generation"
+    "initial" | "ai_assisted" | "ai_refinement" | "ai_generation"
   >
   model?: string | null
   prompt?: string | null
   refinedFromId?: number | null
+  replacesDefinitionId?: number | null
   derivedFromRevisionId?: number | null
   sourceRefinementId?: number | null
   createdVia?: (typeof definitionsTable.$inferInsert)["createdVia"]
@@ -95,7 +98,9 @@ export function revisionDiffMetrics(diffs: Diff[][]) {
   const previousLength = unchanged + charsRemoved
   const nextLength = unchanged + charsAdded
   const removalShare =
-    previousLength === 0 ? Number(charsAdded > 0) : charsRemoved / previousLength
+    previousLength === 0
+      ? Number(charsAdded > 0)
+      : charsRemoved / previousLength
   const additionShare =
     nextLength === 0 ? Number(charsRemoved > 0) : charsAdded / nextLength
 
@@ -142,6 +147,7 @@ export async function createDefinitionWithInitialRevision(
       model: input.model ?? null,
       prompt: input.prompt ?? null,
       refinedFromId: input.refinedFromId ?? null,
+      replacesDefinitionId: input.replacesDefinitionId ?? null,
       createdVia: input.createdVia ?? "classic"
     })
     .returning()
@@ -172,6 +178,18 @@ export async function createDefinitionWithInitialRevision(
     .set({ currentRevisionId: revision.id })
     .where(eq(definitionsTable.id, insertedDefinition.id))
     .returning()
+
+  if (input.example.trim()) {
+    const actorKind = await exampleActorKindForUser(tx, input.authorId)
+    await createDefinitionExample(tx, {
+      definitionId: definition.id,
+      sourceRevisionId: revision.id,
+      text: input.example,
+      authorId: input.authorId,
+      actorKind,
+      generation: exampleStampFromLegacyGeneration(input.model, input.prompt)
+    })
+  }
 
   return { definition, revision }
 }
@@ -204,15 +222,15 @@ export async function publishDefinitionRevision(
 
   const currentRevision = stableDefinition.currentRevisionId
     ? await tx.query.definitionRevisionsTable.findFirst({
-      where: and(
-        eq(definitionRevisionsTable.id, stableDefinition.currentRevisionId),
-        eq(definitionRevisionsTable.definitionId, stableDefinition.id)
-      )
-    })
+        where: and(
+          eq(definitionRevisionsTable.id, stableDefinition.currentRevisionId),
+          eq(definitionRevisionsTable.definitionId, stableDefinition.id)
+        )
+      })
     : await tx.query.definitionRevisionsTable.findFirst({
-      where: eq(definitionRevisionsTable.definitionId, stableDefinition.id),
-      orderBy: desc(definitionRevisionsTable.version)
-    })
+        where: eq(definitionRevisionsTable.definitionId, stableDefinition.id),
+        orderBy: desc(definitionRevisionsTable.version)
+      })
 
   if (
     !input.allowUnchangedContent &&

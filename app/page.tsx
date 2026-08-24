@@ -44,23 +44,13 @@ export default async function Home() {
   const personalWorkPromise = sesh.id
     ? getPersonalWork(sesh.id)
     : Promise.resolve([])
-  const contributionTermsPromise = sesh.id
-    ? getContributionTerms()
-    : Promise.resolve([])
-
-  const [
-    latestTerms,
-    recentDiscussion,
-    featured,
-    personalWork,
-    contributionTerms
-  ] = await Promise.all([
-    latestTermsPromise,
-    recentDiscussionPromise,
-    featuredDefinitionPromise,
-    personalWorkPromise,
-    contributionTermsPromise
-  ])
+  const [latestTerms, recentDiscussion, featured, personalWork] =
+    await Promise.all([
+      latestTermsPromise,
+      recentDiscussionPromise,
+      featuredDefinitionPromise,
+      personalWorkPromise
+    ])
 
   return (
     <HydrateClient>
@@ -96,11 +86,8 @@ export default async function Home() {
                 className={styles.contributionPanel}
                 aria-labelledby="contribution-heading"
               >
-                <h2 id="contribution-heading">Contribute a definition</h2>
-                <DefinitionStarter
-                  signedIn={Boolean(sesh.id)}
-                  terms={contributionTerms}
-                />
+                <h2 id="contribution-heading">Add a new term</h2>
+                <DefinitionStarter signedIn={Boolean(sesh.id)} />
                 <Link
                   href="/about#definition-workflow"
                   className={styles.textLink}
@@ -320,9 +307,7 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
                 isAi: featured.authorIsAi,
                 isProfilePublic: featured.authorProfilePublic
               }}
-              className={
-                featured.authorIsAi ? "text-ai font-mono" : undefined
-              }
+              className={featured.authorIsAi ? "text-ai font-mono" : undefined}
               fallback="Community contributor"
             />
           </dd>
@@ -472,7 +457,7 @@ function PersonalWorkSection({
         <div className={styles.personalEmpty}>
           <p>No definitions are attributed to this account yet.</p>
           <Button asChild size="sm">
-            <Link href="/add">Contribute a definition</Link>
+            <Link href="/add">Add a new term</Link>
           </Button>
         </div>
       )}
@@ -625,16 +610,6 @@ async function getPersonalWork(userId: number) {
   }
 
   return latest
-}
-
-async function getContributionTerms() {
-  return db
-    .select({
-      id: termsTable.id,
-      term: termsTable.term
-    })
-    .from(termsTable)
-    .orderBy(asc(termsTable.term))
 }
 
 async function getFeaturedDefinition() {

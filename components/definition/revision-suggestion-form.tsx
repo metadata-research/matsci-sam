@@ -1,0 +1,209 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { CircleAlertIcon, SendIcon, SparklesIcon, XIcon } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Textarea } from "@/components/ui/textarea"
+import { loginToast } from "@/components/login-toast"
+import { COMMENT_MAX_LENGTH, DEFINITION_MAX_LENGTH } from "@/lib/input-limits"
+import { definitionPath } from "@/lib/public-identifiers"
+import { trpc } from "@/trpc/client"
+import type { RouterOutput } from "@/trpc/trpc-helpers"
+
+type PublishedDefinition = RouterOutput["definitions"]["create"]
+
+/**
+ * The one canonical AI-assisted revision action. A contributor first states
+ * what is wrong, then reviews and may edit the model's draft. The feedback is
+ * revision provenance, not a public comment; publishing creates a separately
+ * voteable candidate derived from the exact source revision.
+ */
+export function RevisionSuggestionForm({
+  term,
+  definitionId,
+  sourceRevisionId,
+  surveyStepId,
+  onPublished
+}: {
+  term: string
+  definitionId: number
+  sourceRevisionId: number
+  surveyStepId?: number
+  onPublished?: (published: PublishedDefinition) => void
+}) {
+  const router = useRouter()
+  const [feedback, setFeedback] = useState("")
+  const [draft, setDraft] = useState<{
+    suggestionId: number
+    definition: string
+    model: string
+  } | null>(null)
+
+  const discard = trpc.aiAssist.discard.useMutation()
+  const suggest = trpc.aiAssist.suggestRevision.useMutation({
+    onSuccess: setDraft,
+    onError: (error) => {
+      if (error.data?.code === "UNAUTHORIZED") loginToast("suggest a revision")
+    }
+  })
+  const publish = trpc.definitions.create.useMutation({
+    onSuccess: (published) => {
+      if (onPublished) {
+        onPublished(published)
+        return
+      }
+      router.push(
+        definitionPath(
+          published.term.slug,
+          published.definition.definitionNumber
+        )
+      )
+    },
+    onError: (error) => {
+      if (error.data?.code === "UNAUTHORIZED")
+        loginToast("publish a suggested revision")
+    }
+  })
+
+  const busy = suggest.isPending || publish.isPending || discard.isPending
+  const critique = feedback.trim()
+  const revisedDefinition = draft?.definition.trim() ?? ""
+  const error = suggest.error ?? publish.error ?? discard.error
+
+  const clearDraft = () => {
+    if (draft && !discard.isPending)
+      discard.mutate({ suggestionId: draft.suggestionId })
+    setDraft(null)
+  }
+
+  return (
+    <Card className="py-0">
+      <CardContent className="space-y-5 p-5 sm:p-6">
+        <div className="space-y-1">
+          <p className="flex items-center gap-1.5 font-medium text-ai">
+            <SparklesIcon className="size-4" aria-hidden />
+            Suggest a revision
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Explain what is wrong or missing. AI will draft a revision for you
+            to review and edit before anything is published.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor={"revision-feedback-" + definitionId}
+            className="font-medium"
+          >
+            What should change?
+          </label>
+          <Textarea
+            id={"revision-feedback-" + definitionId}
+            value={feedback}
+            maxLength={COMMENT_MAX_LENGTH}
+            className="min-h-24"
+            placeholder="Name the error, ambiguity, or missing distinction."
+            disabled={busy || draft !== null}
+            onChange={(event) => setFeedback(event.target.value)}
+          />
+        </div>
+
+        {draft ? (
+          <>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label
+                  htmlFor={"revision-draft-" + definitionId}
+                  className="font-medium"
+                >
+                  Proposed definition
+                </label>
+                <span className="text-xs text-muted-foreground">
+                  Drafted by <span className="font-mono">{draft.model}</span>
+                </span>
+              </div>
+              <Textarea
+                id={"revision-draft-" + definitionId}
+                value={draft.definition}
+                maxLength={DEFINITION_MAX_LENGTH}
+                className="min-h-28"
+                disabled={busy}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, definition: event.target.value }
+                      : current
+                  )
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Publishing creates a separate candidate. The source remains
+                available for comparison and voting, and the model is credited.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={busy || !revisedDefinition}
+                onClick={() =>
+                  publish.mutate({
+                    term,
+                    definition: revisedDefinition,
+                    surveyStepId,
+                    derivedFromRevisionId: sourceRevisionId,
+                    aiSuggestionId: draft.suggestionId
+                  })
+                }
+              >
+                <SendIcon aria-hidden />
+                {publish.isPending ? "Publishing…" : "Publish revision"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onClick={clearDraft}
+              >
+                <XIcon aria-hidden />
+                Discard draft
+              </Button>
+            </div>
+          </>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || !critique}
+            onClick={() =>
+              suggest.mutate({
+                definitionId,
+                sourceRevisionId,
+                feedback: critique
+              })
+            }
+          >
+            <SparklesIcon aria-hidden />
+            {suggest.isPending ? "Drafting…" : "Draft revision with AI"}
+          </Button>
+        )}
+
+        {error ? (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm"
+          >
+            <CircleAlertIcon
+              className="mt-0.5 size-4 shrink-0 text-destructive"
+              aria-hidden
+            />
+            <span>{error.message}</span>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}

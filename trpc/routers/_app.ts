@@ -11,6 +11,8 @@ import { termsRouter } from "./terms"
 import { refinementsRouter } from "./refinements"
 import { discussionRouter } from "./discussion"
 import { surveysRouter } from "./surveys"
+import { examplesRouter } from "./examples"
+import { aiAssistRouter } from "./ai-assist"
 import { z } from "zod"
 import {
   aiModelsTable,
@@ -33,6 +35,7 @@ import {
   SEARCH_QUERY_MAX_LENGTH,
   SEARCH_RESULT_MAX_LIMIT
 } from "@/lib/input-limits"
+import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
 
 const searchQuerySchema = z.string().trim().max(SEARCH_QUERY_MAX_LENGTH)
 const searchLimitSchema = z
@@ -56,6 +59,8 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   discussion: discussionRouter,
   surveys: surveysRouter,
+  examples: examplesRouter,
+  aiAssist: aiAssistRouter,
   me: authenticatedProcedure.query(async ({ ctx }) => {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.id, ctx.userId)
@@ -131,6 +136,7 @@ export const appRouter = createTRPCRouter({
         const resultsQuery = db
           .select({
             ...getTableColumns(definitionsTable),
+            example: currentFeaturedExampleText().as("example"),
             revisionId: definitionRevisionsTable.id,
             version: definitionRevisionsTable.version,
             isAi: usersTable.isAi,

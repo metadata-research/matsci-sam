@@ -3,10 +3,10 @@
 MatSci-SAM is a collaborative dictionary for materials science
 terminology, built by the Metadata Research Center at Drexel University.
 Signed-in contributors submit definitions and examples of use. Community
-members evaluate definitions through votes and comments. Authors can request
-suggested revisions from the configured language model and decide whether to
-publish them. The site also publishes standards-based metadata for data
-consumers and semantic web tools.
+members evaluate definitions through votes and comments. Contributors can
+request suggested revisions from the configured language model and decide
+whether to publish them. The site also publishes standards-based metadata for
+data consumers and semantic web tools.
 
 The [quick start](/docs) follows a new term from contribution to its recorded
 history. The pages below provide detailed instructions for each feature.
@@ -18,14 +18,14 @@ history. The pages below provide detailed instructions for each feature.
   its worklist.
 - [Studies](/docs/studies) covers a study a community runs, its walkthrough,
   taking a position on a term, and the resulting definition list.
-- [Adding a term](/docs/adding-terms) covers the Contribute page and the two
-  modes.
+- [Adding a term](/docs/adding-terms) covers the five contribution actions and
+  the Contribute page.
 - [Community review and revisions](/docs/community) covers voting,
   score and status, author editing, comments, and removal limits.
-- [AI refinement](/docs/ai-refinement) covers the interactive loop for
-  requesting and reviewing suggested revisions.
+- [AI-assisted suggestions](/docs/ai-refinement) covers the optional draft in
+  **New term** and the critique-driven draft in **Suggest a revision**.
 - [Discussion](/docs/discussion) covers the recent-term feed, ordinary
-  comments, and one-step revision suggestions.
+  comments, and the shared revision-suggestion action.
 - [Search and browse](/docs/search) covers search filters and the
   alphabetical term list.
 - [Tags](/docs/tags) covers community topics on definitions, PSPP facets

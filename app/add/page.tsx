@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
-export const metadata: Metadata = { title: `Add Definition | ${SITE_NAME}` }
+export const metadata: Metadata = { title: `Add New Term | ${SITE_NAME}` }
 import { auth } from "@/lib/auth"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { initialTermFromSearchParam } from "./initial-term"

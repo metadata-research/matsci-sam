@@ -7,7 +7,7 @@ import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Definition, Eyebrow } from "@/components/definition"
 import { DefinitionForm } from "@/components/definition/definition-form"
-import { AiPendingCard } from "@/components/definition/ai-pending-card"
+import { RevisionSuggestionForm } from "@/components/definition/revision-suggestion-form"
 import { TermComments } from "@/components/term/comments"
 import { TermCommentBox } from "@/components/term/comment-box"
 import { Button } from "@/components/ui/button"
@@ -27,12 +27,12 @@ import { scaleLabelsForPrompt } from "@/lib/study-presentation"
  * in, and the router decides whether the step is done.
  *
  * A define step is labelled Position and shows the candidates of the term,
- * the draft first, and the three moves. Accepting a candidate is an upvote
+ * the draft first, and three explicit moves. Accepting a candidate is an upvote
  * that names the step, or, on a candidate the viewer already upvoted, the
- * completion recorded against that standing vote; amending one opens the
- * form with its text and names its revision as the source; replacing them
- * opens the form empty. A review step compares the candidates where there
- * is more than one.
+ * completion recorded against that standing vote; suggesting a revision
+ * opens the form with a candidate's text and names its revision as the source;
+ * proposing a replacement opens the form empty. A review step compares the
+ * candidates where there is more than one.
  *
  * A completed step stays readable from the dots, without its controls: its
  * completion stands. A step is reachable once the step before it is
@@ -193,24 +193,22 @@ const HeldPosition = ({ step }: { step: Step }) => {
 
 type Move =
   | { kind: "choose" }
-  | { kind: "amend"; candidate: Candidate }
-  | { kind: "replace" }
+  | { kind: "revise"; candidate: Candidate }
+  | { kind: "replace"; candidate: Candidate }
 
 /*
- * The candidates of the term and the three moves. Accepting is an upvote
- * that names the step, and the completion follows it as the press follows a
- * review. Amending and replacing publish through the definition form, which
- * records the completion with the definition.
+ * The candidates of the term and the three moves. Accepting is an upvote that
+ * names the step. A suggested revision and a proposed replacement publish
+ * separate candidates through the shared definition form, which records the
+ * completion with the definition.
  */
 const Candidates = ({
   step,
-  viewerId,
   pending,
   onAccepted,
   onPublished
 }: {
   step: Step
-  viewerId: number
   pending: boolean
   onAccepted: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
@@ -235,33 +233,33 @@ const Candidates = ({
     }
   })
 
-  // One original definition per person per term: a viewer who already has
-  // one here cannot amend or replace, and accepts instead.
-  const ownOriginal = candidates.some(
-    (candidate) =>
-      candidate.authorId === viewerId && candidate.refinedFromId === null
-  )
   const busy = pending || accept.isPending
 
   if (move.kind !== "choose") {
-    const candidate = move.kind === "amend" ? move.candidate : null
+    const candidate = move.candidate
     return (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          {candidate
-            ? `Amending definition ${candidate.definitionNumber}. What you publish is a candidate of its own, recorded as derived from it.`
-            : "What you publish joins the candidates."}
+          {move.kind === "revise"
+            ? `Suggesting a revision to Definition ${candidate.definitionNumber}. Publishing creates a separate candidate derived from it; the source remains available for comparison and voting.`
+            : "Proposing a replacement creates a separate candidate for this term. Existing candidates remain available for comparison and voting."}
         </p>
-        <DefinitionForm
-          key={candidate?.id ?? "replace"}
-          interactive={false}
-          lockedTerm={step.term!}
-          surveyStepId={step.id}
-          initialDefinition={candidate?.definition}
-          initialExample={candidate?.example}
-          derivedFromRevisionId={candidate?.revisionId}
-          onPublished={onPublished}
-        />
+        {move.kind === "revise" ? (
+          <RevisionSuggestionForm
+            term={step.term!}
+            definitionId={candidate.id}
+            sourceRevisionId={candidate.revisionId}
+            surveyStepId={step.id}
+            onPublished={onPublished}
+          />
+        ) : (
+          <DefinitionForm
+            lockedTerm={step.term!}
+            surveyStepId={step.id}
+            replacesDefinitionId={candidate.id}
+            onPublished={onPublished}
+          />
+        )}
         <Button
           variant="ghost"
           onClick={() => setMove({ kind: "choose" })}
@@ -329,36 +327,27 @@ const Candidates = ({
                 >
                   Accept
                 </Button>
-                {!ownOriginal && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => setMove({ kind: "amend", candidate })}
-                  >
-                    Amend
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setMove({ kind: "revise", candidate })}
+                >
+                  Suggest a revision
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setMove({ kind: "replace", candidate })}
+                >
+                  Propose a replacement
+                </Button>
               </div>
             </div>
           </div>
         )
       })}
-      {ownOriginal ? (
-        <p className="text-sm text-muted-foreground">
-          You already have a definition of this term, so the move open to you
-          here is to accept a candidate.
-        </p>
-      ) : (
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={() => setMove({ kind: "replace" })}
-        >
-          None of these work
-        </Button>
-      )}
-      <AiPendingCard termId={termId} />
     </div>
   )
 }
@@ -372,14 +361,12 @@ const Candidates = ({
  */
 const Position = ({
   step,
-  viewerId,
   pending,
   onAccepted,
   onPublished,
   onContinue
 }: {
   step: Step
-  viewerId: number
   pending: boolean
   onAccepted: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
@@ -397,7 +384,6 @@ const Position = ({
         ) : (
           <Candidates
             step={step}
-            viewerId={viewerId}
             pending={pending}
             onAccepted={onAccepted}
             onPublished={onPublished}
@@ -483,8 +469,7 @@ const ReviewList = ({
                 readOnly={readOnly}
               />
             </Suspense>
-            {/* A comment here is a review act: the router schedules no model
-                revision from it, so the box discloses none. */}
+            {/* A comment here is the same comment-only act used everywhere. */}
             {!readOnly && (
               <TermCommentBox
                 id={definition.id}
@@ -495,7 +480,6 @@ const ReviewList = ({
           </div>
         </div>
       ))}
-      <AiPendingCard termId={termId} />
       <Button onClick={onDone} disabled={pending}>
         {step.completed ? "Continue" : "Done with this term"}
       </Button>
@@ -643,13 +627,7 @@ const Finished = ({ study }: { study: Walkthrough["study"] }) => (
   </div>
 )
 
-export const Walkthrough = ({
-  studySlug,
-  viewerId
-}: {
-  studySlug: string
-  viewerId: number
-}) => {
+export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
   const [walkthrough] = trpc.surveys.get.useSuspenseQuery({ studySlug })
   const utils = trpc.useUtils()
   const { study, steps } = walkthrough
@@ -764,7 +742,6 @@ export const Walkthrough = ({
               <Position
                 key={step.id}
                 step={step}
-                viewerId={viewerId}
                 pending={complete.isPending}
                 onAccepted={() => {
                   // The upvote is the position; the score it changed is read
