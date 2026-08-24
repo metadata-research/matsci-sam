@@ -10,7 +10,12 @@ import {
   StaleRevisionError,
   VoteTargetMissingError
 } from "@/lib/participation"
-import { requireOnePosition, requireStepForDefinitionAct } from "./surveys"
+import {
+  expectedInstructionsSchema,
+  lockParticipation,
+  requireOnePosition,
+  requireStepForDefinitionAct
+} from "./surveys"
 
 const voteTargetSchema = z.object({
   definitionId: z.number(),
@@ -63,14 +68,26 @@ export const votesRouter = createTRPCRouter({
         // The step of a walkthrough the vote is cast inside: the define step
         // of the term, where an upvote accepts a candidate and a downvote is
         // refused, or its review step.
-        surveyStepId: z.number().int().optional()
+        surveyStepId: z.number().int().optional(),
+        expectedInstructions: expectedInstructionsSchema.optional()
       })
     )
     .mutation(
       async ({
         ctx: { userId },
-        input: { definitionId, revisionId, vote, surveyStepId }
+        input: {
+          definitionId,
+          revisionId,
+          vote,
+          surveyStepId,
+          expectedInstructions
+        }
       }) => {
+        if (surveyStepId !== undefined && expectedInstructions === undefined)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Reload the walkthrough before voting."
+          })
         const walkthrough =
           surveyStepId === undefined
             ? null
@@ -82,11 +99,21 @@ export const votesRouter = createTRPCRouter({
 
         try {
           const [updatedDefinition] = await db.transaction(async (tx) => {
+            const lockedWalkthrough =
+              walkthrough && surveyStepId !== undefined
+                ? await lockParticipation(
+                    tx,
+                    surveyStepId,
+                    walkthrough.study.id,
+                    userId,
+                    expectedInstructions!
+                  )
+                : null
             // One position per define step, taken by an upvote: checked in
             // the transaction that writes the vote, against the standing
             // vote castVote toggles on.
-            if (walkthrough?.step.kind === "define")
-              await requireOnePosition(tx, walkthrough.step, userId, {
+            if (lockedWalkthrough?.step.kind === "define")
+              await requireOnePosition(tx, lockedWalkthrough.step, userId, {
                 definitionId,
                 revisionId,
                 vote
@@ -97,8 +124,8 @@ export const votesRouter = createTRPCRouter({
             // cast inside a walkthrough step, and otherwise whatever the
             // header points at, resolved inside the transaction that writes
             // it.
-            const communityId = walkthrough
-              ? walkthrough.study.communityId
+            const communityId = lockedWalkthrough
+              ? lockedWalkthrough.study.communityId
               : ((await activeCommunityFor(tx, userId))?.id ?? null)
             return castVote(tx, {
               definitionId,

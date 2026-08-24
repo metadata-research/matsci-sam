@@ -100,6 +100,7 @@ export const DefinitionForm = ({
   initialDefinition = "",
   lockedTerm,
   surveyStepId,
+  expectedInstructions,
   derivedFromRevisionId,
   replacesDefinitionId,
   onPublished
@@ -112,6 +113,7 @@ export const DefinitionForm = ({
   lockedTerm?: string
   // The define step the definition is written inside.
   surveyStepId?: number
+  expectedInstructions?: string | null
   // The current revision of the candidate this definition revises.
   derivedFromRevisionId?: number
   // The stable candidate this separately voteable proposal would supersede.
@@ -205,6 +207,7 @@ export const DefinitionForm = ({
               mutation.mutate({
                 ...data,
                 surveyStepId,
+                expectedInstructions,
                 derivedFromRevisionId,
                 replacesDefinitionId,
                 aiSuggestionId:

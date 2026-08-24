@@ -32,12 +32,14 @@ const commentSchema = z.object({
 export function TermCommentBox({
   id,
   revisionId,
-  surveyStepId
+  surveyStepId,
+  expectedInstructions
 }: {
   id: number
   revisionId: number
   // The review step of a walkthrough the comment is posted inside.
   surveyStepId?: number
+  expectedInstructions?: string | null
 }) {
   const form = useForm<z.infer<typeof commentSchema>>({
     resolver: zodResolver(commentSchema),
@@ -49,6 +51,7 @@ export function TermCommentBox({
   const { isPending, mutate } = useCreateComment({
     definitionId: id,
     surveyStepId,
+    expectedInstructions,
     onPosted: () => form.reset()
   })
 

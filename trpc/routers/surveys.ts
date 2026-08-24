@@ -12,7 +12,7 @@ import { baseProcedure, createTRPCRouter } from "../init"
 import { authenticatedProcedure, contributorProcedure } from "../procedures"
 import { requireRunner } from "./communities"
 import { studyState } from "@/lib/communities"
-import { membershipIn } from "@/lib/community-queries"
+import { lockMembershipIn, membershipIn } from "@/lib/community-queries"
 import { collectionMembers } from "@/lib/kos-queries"
 import { studyById, studyBySlug } from "@/lib/study-queries"
 import {
@@ -30,6 +30,7 @@ import {
   appendQuestionStep,
   completionCountOfStudy,
   gateOf,
+  instructionPromptOfStudy,
   lockStudy,
   nextPositionFor,
   recordResponse,
@@ -58,6 +59,10 @@ const questionSchema = z.object({
   prompt: z.string().trim().min(1).max(SURVEY_PROMPT_MAX_LENGTH),
   responseKind: z.enum(["text", "scale"])
 })
+export const expectedInstructionsSchema = z
+  .string()
+  .max(SURVEY_PROMPT_MAX_LENGTH)
+  .nullable()
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -91,8 +96,12 @@ const requireStudy = async (studyId: number) => {
  * a community that is not retired, and an open study. FORBIDDEN names the
  * membership and BAD_REQUEST the window, so the shell can say which.
  */
-const requireParticipation = async (stepId: number, userId: number) => {
-  const found = await stepWithStudy(db, stepId)
+const requireParticipation = async (
+  stepId: number,
+  userId: number,
+  executor: typeof db | DatabaseTransaction = db
+) => {
+  const found = await stepWithStudy(executor, stepId)
   if (!found)
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -104,7 +113,11 @@ const requireParticipation = async (stepId: number, userId: number) => {
       message: "This community has been retired"
     })
 
-  const membership = await membershipIn(found.study.communityId, userId)
+  const membership = await membershipIn(
+    found.study.communityId,
+    userId,
+    executor
+  )
   if (!mayParticipate(membership, studyState(found.study))) {
     if (!membership)
       throw new TRPCError({
@@ -117,6 +130,40 @@ const requireParticipation = async (stepId: number, userId: number) => {
       message: "This study is not open"
     })
   }
+  return found
+}
+
+/*
+ * Serialize every walkthrough act with study edits and step generation. The
+ * caller's first read gives us the study id needed to take the lock in the
+ * common study-first order; the second read is authoritative after any writer
+ * that was already holding the lock has committed.
+ */
+export const lockParticipation = async (
+  tx: DatabaseTransaction,
+  stepId: number,
+  studyId: number,
+  userId: number,
+  expectedInstructions: string | null
+) => {
+  const lockedStudy = await lockStudy(tx, studyId)
+  if (!lockedStudy) throw regeneratedConflict()
+  await lockMembershipIn(tx, lockedStudy.communityId, userId)
+  let found
+  try {
+    found = await requireParticipation(stepId, userId, tx)
+  } catch (error) {
+    if (error instanceof TRPCError && error.code === "NOT_FOUND")
+      throw regeneratedConflict()
+    throw error
+  }
+  if (found.study.id !== studyId) throw regeneratedConflict()
+  const currentInstructions = await instructionPromptOfStudy(tx, studyId)
+  if (currentInstructions !== expectedInstructions)
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "The study instructions changed. Reload the walkthrough."
+    })
   return found
 }
 
@@ -286,21 +333,10 @@ export const surveysRouter = createTRPCRouter({
           message: "This study has been retired"
         })
 
-      const terms = await collectionMembers(study.collectionId)
-      if (terms.length === 0)
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Add terms to the collection of this study first"
-        })
-
-      const plan = planSteps({
-        welcome: study.welcome,
-        terms,
-        questions: [
-          ...(input.questions ?? []),
-          ...(input.includeDefaultQuestions ? DEFAULT_QUESTIONS : [])
-        ]
-      })
+      const questions = [
+        ...(input.questions ?? []),
+        ...(input.includeDefaultQuestions ? DEFAULT_QUESTIONS : [])
+      ]
 
       let steps
       try {
@@ -309,13 +345,38 @@ export const surveysRouter = createTRPCRouter({
           // time waits for the renumbering. Counted inside the transaction
           // that deletes, so a completion landing in between is refused by
           // the foreign key below rather than lost with its step.
-          await lockStudy(tx, study.id)
+          const currentStudy = await lockStudy(tx, study.id)
+          if (!currentStudy)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "This study doesn't exist"
+            })
+          if (
+            currentStudy.retiredAt ||
+            currentStudy.communityRetiredAt ||
+            currentStudy.collectionRetiredAt
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This study or one of its parents has been retired"
+            })
+          const terms = await collectionMembers(currentStudy.collectionId, tx)
+          if (terms.length === 0)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Add terms to the collection of this study first"
+            })
           if (!mayRegenerateSteps(await completionCountOfStudy(tx, study.id)))
             throw new TRPCError({
               code: "CONFLICT",
               message:
                 "Someone has started this walkthrough, so its steps can only be added to"
             })
+          const plan = planSteps({
+            welcome: currentStudy.welcome,
+            terms,
+            questions
+          })
           return replaceSteps(tx, study.id, plan)
         })
       } catch (error) {
@@ -354,7 +415,21 @@ export const surveysRouter = createTRPCRouter({
         let step
         try {
           step = await db.transaction(async (tx) => {
-            await lockStudy(tx, study.id)
+            const currentStudy = await lockStudy(tx, study.id)
+            if (!currentStudy)
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "This study doesn't exist"
+              })
+            if (
+              currentStudy.retiredAt ||
+              currentStudy.communityRetiredAt ||
+              currentStudy.collectionRetiredAt
+            )
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "This study or one of its parents has been retired"
+              })
             return appendQuestionStep(tx, study.id, { prompt, responseKind })
           })
         } catch (error) {
@@ -387,28 +462,41 @@ export const surveysRouter = createTRPCRouter({
    */
   completeStep: contributorProcedure
     .meta({ marksGraphs: false })
-    .input(z.object({ stepId: z.number().int() }))
-    .mutation(async ({ ctx: { userId }, input: { stepId } }) => {
-      const { step, study } = await requireParticipation(stepId, userId)
+    .input(
+      z.object({
+        stepId: z.number().int(),
+        expectedInstructions: expectedInstructionsSchema
+      })
+    )
+    .mutation(
+      async ({ ctx: { userId }, input: { stepId, expectedInstructions } }) => {
+        const preview = await requireParticipation(stepId, userId)
 
-      const gate = await gateOf(db, step, userId)
-      if (!gate.ok)
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: gate.reason
-        })
-
-      try {
-        const nextPosition = await db.transaction(async (tx) => {
-          await recordCompletion(tx, { stepId: step.id, userId })
-          return nextPositionFor(tx, study.id, userId)
-        })
-        return { ok: true, nextPosition }
-      } catch (error) {
-        if (sqlState(error) === "23503") throw regeneratedConflict()
-        throw error
+        try {
+          const nextPosition = await db.transaction(async (tx) => {
+            const { step, study } = await lockParticipation(
+              tx,
+              stepId,
+              preview.study.id,
+              userId,
+              expectedInstructions
+            )
+            const gate = await gateOf(tx, step, userId)
+            if (!gate.ok)
+              throw new TRPCError({
+                code: "PRECONDITION_FAILED",
+                message: gate.reason
+              })
+            await recordCompletion(tx, { stepId: step.id, userId })
+            return nextPositionFor(tx, study.id, userId)
+          })
+          return { ok: true, nextPosition }
+        } catch (error) {
+          if (sqlState(error) === "23503") throw regeneratedConflict()
+          throw error
+        }
       }
-    }),
+    ),
 
   /*
    * Answer a question and complete it, in one transaction. The answer
@@ -421,6 +509,7 @@ export const surveysRouter = createTRPCRouter({
     .input(
       z.object({
         stepId: z.number().int(),
+        expectedInstructions: expectedInstructionsSchema,
         valueText: z
           .string()
           .trim()
@@ -431,15 +520,18 @@ export const surveysRouter = createTRPCRouter({
       })
     )
     .mutation(
-      async ({ ctx: { userId }, input: { stepId, valueText, valueScale } }) => {
-        const { step, study } = await requireParticipation(stepId, userId)
-        if (step.kind !== "question")
+      async ({
+        ctx: { userId },
+        input: { stepId, expectedInstructions, valueText, valueScale }
+      }) => {
+        const preview = await requireParticipation(stepId, userId)
+        if (preview.step.kind !== "question")
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "That step is not a question"
           })
 
-        const wantsText = step.responseKind === "text"
+        const wantsText = preview.step.responseKind === "text"
         const fits = wantsText
           ? valueText !== undefined && valueScale === undefined
           : valueScale !== undefined && valueText === undefined
@@ -453,6 +545,20 @@ export const surveysRouter = createTRPCRouter({
 
         try {
           const nextPosition = await db.transaction(async (tx) => {
+            const { step, study } = await lockParticipation(
+              tx,
+              stepId,
+              preview.study.id,
+              userId,
+              expectedInstructions
+            )
+            if (step.kind !== "question")
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "That step is not a question"
+              })
+            const lockedWantsText = step.responseKind === "text"
+            if (lockedWantsText !== wantsText) throw regeneratedConflict()
             // A session answer is a human act, as a session comment is.
             await recordResponse(tx, {
               stepId: step.id,

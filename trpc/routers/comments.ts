@@ -11,7 +11,11 @@ import { TRPCError } from "@trpc/server"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 import { contributorProcedure } from "../procedures"
 import { CommentRevisionMissingError, insertComment } from "@/lib/participation"
-import { requireStepForDefinitionAct } from "./surveys"
+import {
+  expectedInstructionsSchema,
+  lockParticipation,
+  requireStepForDefinitionAct
+} from "./surveys"
 
 export const commentsRouter = createTRPCRouter({
   get: baseProcedure.input(z.number()).query(async ({ input: id }) => {
@@ -44,21 +48,37 @@ export const commentsRouter = createTRPCRouter({
         revisionId: z.number(),
         comment: z.string().trim().min(1).max(COMMENT_MAX_LENGTH),
         // The review step of a walkthrough the comment is posted inside.
-        surveyStepId: z.number().int().optional()
+        surveyStepId: z.number().int().optional(),
+        expectedInstructions: expectedInstructionsSchema.optional()
       })
     )
     .mutation(
       async ({
-        input: { id, revisionId, comment, surveyStepId },
+        input: { id, revisionId, comment, surveyStepId, expectedInstructions },
         ctx: { userId }
       }) => {
-        if (surveyStepId !== undefined)
-          await requireStepForDefinitionAct(surveyStepId, userId, {
-            kind: "comment",
-            definitionId: id
+        if (surveyStepId !== undefined && expectedInstructions === undefined)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Reload the walkthrough before commenting."
           })
+        const walkthrough =
+          surveyStepId === undefined
+            ? null
+            : await requireStepForDefinitionAct(surveyStepId, userId, {
+                kind: "comment",
+                definitionId: id
+              })
 
         const insertedComment = await db.transaction(async (tx) => {
+          if (walkthrough && surveyStepId !== undefined)
+            await lockParticipation(
+              tx,
+              surveyStepId,
+              walkthrough.study.id,
+              userId,
+              expectedInstructions!
+            )
           let written
           try {
             // A session comment is a human act; the table CHECK refuses a

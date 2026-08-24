@@ -287,6 +287,35 @@ const main = async () => {
   )
     refuse("retiring a community, a study or a collection is a curator's act")
 
+  // The retire section is one transaction. Take every study row before any
+  // parent row, matching lockStudy's study -> community -> collection order;
+  // otherwise retiring a parent and one of its studies can deadlock with a
+  // participant who already holds the study and is waiting for the parent.
+  for (const slug of manifest.retire.studies) {
+    const row = studies.get(slug)
+    const what = `study ${slug}`
+    if (!row) retireItems.push({ outcome: "skipped", what, note: "not found" })
+    else if (row.retiredAt)
+      retireItems.push({
+        outcome: "present",
+        what,
+        note: `retired ${day(row.retiredAt)}`
+      })
+    else
+      retireItems.push({
+        outcome: "retired",
+        what,
+        write: async (tx) => {
+          // As communities.retireStudy: the collection stays on the
+          // worklist and every membership stays where it is.
+          await tx
+            .update(studiesTable)
+            .set({ retiredAt: sql`now()` })
+            .where(eq(studiesTable.id, row.id))
+        }
+      })
+  }
+
   for (const slug of manifest.retire.communities) {
     const row = communities.get(slug)
     const what = `community ${slug}`
@@ -313,31 +342,6 @@ const main = async () => {
             .update(usersTable)
             .set({ activeCommunityId: null })
             .where(eq(usersTable.activeCommunityId, row.id))
-        }
-      })
-  }
-
-  for (const slug of manifest.retire.studies) {
-    const row = studies.get(slug)
-    const what = `study ${slug}`
-    if (!row) retireItems.push({ outcome: "skipped", what, note: "not found" })
-    else if (row.retiredAt)
-      retireItems.push({
-        outcome: "present",
-        what,
-        note: `retired ${day(row.retiredAt)}`
-      })
-    else
-      retireItems.push({
-        outcome: "retired",
-        what,
-        write: async (tx) => {
-          // As communities.retireStudy: the collection stays on the
-          // worklist and every membership stays where it is.
-          await tx
-            .update(studiesTable)
-            .set({ retiredAt: sql`now()` })
-            .where(eq(studiesTable.id, row.id))
         }
       })
   }
@@ -799,24 +803,43 @@ const main = async () => {
       note: `${1 + 2 * termCount + questions.length} steps`,
       write: async (tx) => {
         const studyId = studyIds.get(slug)!
-        // The study row is held first and the completions counted inside
-        // the transaction, as generateSteps does, so a participant who
-        // started between the read above and this write is not cut off.
-        await lockStudy(tx, studyId)
+        // Hold the study and both parents in the common order, then take every
+        // generation input from that authoritative transaction state. A
+        // participant act, lifecycle change or instructions edit either lands
+        // before these reads or waits until the plan is written.
+        const currentStudy = await lockStudy(tx, studyId)
+        if (!currentStudy) throw new Error(`study ${slug} no longer exists`)
+        const expectedCommunityId = communityIds.get(study.community)!
+        const expectedCollectionId = collectionIds.get(study.collection)!
+        if (currentStudy.communityId !== expectedCommunityId)
+          throw new Error(`study ${slug} now belongs to another community`)
+        if (currentStudy.collectionId !== expectedCollectionId)
+          throw new Error(`study ${slug} now uses another collection`)
+        if (currentStudy.retiredAt)
+          throw new Error(`study ${slug} has been retired`)
+        if (currentStudy.communityRetiredAt)
+          throw new Error(`community ${study.community} has been retired`)
+        if (currentStudy.collectionRetiredAt)
+          throw new Error(`collection ${study.collection} has been retired`)
+        if (studyState(currentStudy) === "closed")
+          throw new Error(`study ${slug} has closed`)
+        const currentSteps = await stepsOfStudy(tx, studyId)
+        if (currentSteps.length > 0)
+          throw new Error(
+            `walkthrough ${slug} was generated after this curation was planned; rerun the curation`
+          )
         if (!mayRegenerateSteps(await completionCountOfStudy(tx, studyId)))
           throw new Error(
             `someone has started the walkthrough of ${slug}, so its steps can only be added to`
           )
-        // The terms are read as generateSteps reads them, from the
-        // collection as committed by the section before this one.
-        const terms = await collectionMembers(
-          collectionIds.get(study.collection)!
-        )
+        const terms = await collectionMembers(currentStudy.collectionId, tx)
+        if (terms.length === 0)
+          throw new Error(`collection ${study.collection} has no terms`)
         const written = await replaceSteps(
           tx,
           studyId,
           planSteps({
-            welcome: existing?.welcome ?? study.welcome ?? null,
+            welcome: currentStudy.welcome,
             terms,
             questions
           })

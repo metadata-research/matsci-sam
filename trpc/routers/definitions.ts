@@ -38,6 +38,8 @@ import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 import { recordCompletion } from "@/lib/surveys"
 import { nextPositionFor } from "@/lib/survey-queries"
 import {
+  expectedInstructionsSchema,
+  lockParticipation,
   regeneratedConflict,
   requireOnePosition,
   requireStepForAct,
@@ -68,6 +70,7 @@ export const definitionsRouter = createTRPCRouter({
             .max(DEFINITION_MAX_LENGTH),
           // The define step of a walkthrough the definition is written inside.
           surveyStepId: z.number().int().optional(),
+          expectedInstructions: expectedInstructionsSchema.optional(),
           // The current revision of a definition of the same term this one
           // revises, recorded on the initial revision so the record states the
           // derivation. The define step of a walkthrough sets it when a
@@ -91,6 +94,14 @@ export const definitionsRouter = createTRPCRouter({
         )
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
+      if (
+        input.surveyStepId !== undefined &&
+        input.expectedInstructions === undefined
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Reload the walkthrough before contributing."
+        })
       // normalize the term
       const term = input.term.trim().toLowerCase()
 
@@ -142,6 +153,16 @@ export const definitionsRouter = createTRPCRouter({
       let written
       try {
         written = await db.transaction(async (tx) => {
+          const lockedWalkthroughStep =
+            walkthroughStep && input.surveyStepId !== undefined
+              ? await lockParticipation(
+                  tx,
+                  input.surveyStepId,
+                  walkthroughStep.study.id,
+                  authorId,
+                  input.expectedInstructions!
+                )
+              : null
           const aiSuggestion = input.aiSuggestionId
             ? (
                 await tx
@@ -246,8 +267,8 @@ export const definitionsRouter = createTRPCRouter({
           // One position per define step: an act of the author already
           // naming the step refuses this definition, in the transaction that
           // would write it.
-          if (walkthroughStep)
-            await requireOnePosition(tx, walkthroughStep.step, authorId)
+          if (lockedWalkthroughStep)
+            await requireOnePosition(tx, lockedWalkthroughStep.step, authorId)
 
           // A suggested revision derives from what a reader can see now: the current
           // revision of a definition of this term. A revision of another
@@ -357,18 +378,18 @@ export const definitionsRouter = createTRPCRouter({
             completedStepId: number
             nextPosition: number | null
           } | null = null
-          if (walkthroughStep) {
+          if (lockedWalkthroughStep) {
             // The define step completes with the definition it asked for, in
             // the transaction that writes it.
             await recordCompletion(tx, {
-              stepId: walkthroughStep.step.id,
+              stepId: lockedWalkthroughStep.step.id,
               userId: authorId
             })
             walkthrough = {
-              completedStepId: walkthroughStep.step.id,
+              completedStepId: lockedWalkthroughStep.step.id,
               nextPosition: await nextPositionFor(
                 tx,
-                walkthroughStep.study.id,
+                lockedWalkthroughStep.study.id,
                 authorId
               )
             }

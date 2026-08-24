@@ -204,11 +204,13 @@ type Move =
  */
 const Candidates = ({
   step,
+  expectedInstructions,
   pending,
   onAccepted,
   onPublished
 }: {
   step: Step
+  expectedInstructions: string | null
   pending: boolean
   onAccepted: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
@@ -250,12 +252,14 @@ const Candidates = ({
             definitionId={candidate.id}
             sourceRevisionId={candidate.revisionId}
             surveyStepId={step.id}
+            expectedInstructions={expectedInstructions}
             onPublished={onPublished}
           />
         ) : (
           <DefinitionForm
             lockedTerm={step.term!}
             surveyStepId={step.id}
+            expectedInstructions={expectedInstructions}
             replacesDefinitionId={candidate.id}
             onPublished={onPublished}
           />
@@ -321,7 +325,8 @@ const Candidates = ({
                           definitionId: candidate.id,
                           revisionId: candidate.revisionId,
                           vote: "up",
-                          surveyStepId: step.id
+                          surveyStepId: step.id,
+                          expectedInstructions
                         })
                   }
                 >
@@ -361,12 +366,14 @@ const Candidates = ({
  */
 const Position = ({
   step,
+  expectedInstructions,
   pending,
   onAccepted,
   onPublished,
   onContinue
 }: {
   step: Step
+  expectedInstructions: string | null
   pending: boolean
   onAccepted: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
@@ -384,6 +391,7 @@ const Position = ({
         ) : (
           <Candidates
             step={step}
+            expectedInstructions={expectedInstructions}
             pending={pending}
             onAccepted={onAccepted}
             onPublished={onPublished}
@@ -410,11 +418,13 @@ const Position = ({
  */
 const ReviewList = ({
   step,
+  expectedInstructions,
   readOnly,
   pending,
   onDone
 }: {
   step: Step
+  expectedInstructions: string | null
   readOnly: boolean
   pending: boolean
   onDone: () => void
@@ -458,6 +468,7 @@ const ReviewList = ({
             // As on the term page: the leading candidate is marked.
             isDefault={index === 0}
             surveyStepId={step.id}
+            expectedInstructions={expectedInstructions}
             voteReadOnly={readOnly}
             voteReadOnlyTitle="This step is complete"
           />
@@ -475,6 +486,7 @@ const ReviewList = ({
                 id={definition.id}
                 revisionId={definition.revisionId}
                 surveyStepId={step.id}
+                expectedInstructions={expectedInstructions}
               />
             )}
           </div>
@@ -489,16 +501,19 @@ const ReviewList = ({
 
 const Review = ({
   step,
+  expectedInstructions,
   pending,
   onDone
 }: {
   step: Step
+  expectedInstructions: string | null
   pending: boolean
   onDone: () => void
 }) => (
   <Suspense fallback={<Skeleton className="h-32 w-full" />}>
     <ReviewList
       step={step}
+      expectedInstructions={expectedInstructions}
       readOnly={step.completed}
       pending={pending}
       onDone={onDone}
@@ -512,11 +527,13 @@ const SCALE = [1, 2, 3, 4, 5] as const
 // with its controls disabled, when the step is read again.
 const Question = ({
   step,
+  expectedInstructions,
   onAnswered,
   onFailed,
   onContinue
 }: {
   step: Step
+  expectedInstructions: string | null
   onAnswered: (nextPosition: number | null) => void
   onFailed: () => void
   onContinue: () => void
@@ -547,8 +564,8 @@ const Question = ({
         if (!ready || answered) return
         answer.mutate(
           step.responseKind === "text"
-            ? { stepId: step.id, valueText: text }
-            : { stepId: step.id, valueScale: scale! }
+            ? { stepId: step.id, expectedInstructions, valueText: text }
+            : { stepId: step.id, expectedInstructions, valueScale: scale! }
         )
       }}
     >
@@ -632,6 +649,11 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
   const utils = trpc.useUtils()
   const { study, steps } = walkthrough
   const total = steps.length
+  const expectedInstructions =
+    steps.find(
+      (candidate) =>
+        candidate.kind === "instructions" && candidate.position === 1
+    )?.prompt ?? null
 
   // The position on show. One past the last step is the finished state.
   const [position, setPosition] = useState(
@@ -667,7 +689,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
   const press = (step: Step) =>
     step.completed
       ? show(step.position + 1)
-      : complete.mutate({ stepId: step.id })
+      : complete.mutate({ stepId: step.id, expectedInstructions })
 
   // The step after this one reads the candidates of its term, so they are
   // fetched before the shell moves on, and the step paints without its
@@ -742,6 +764,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
               <Position
                 key={step.id}
                 step={step}
+                expectedInstructions={expectedInstructions}
                 pending={complete.isPending}
                 onAccepted={() => {
                   // The upvote is the position; the score it changed is read
@@ -765,6 +788,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
               <Review
                 key={step.id}
                 step={step}
+                expectedInstructions={expectedInstructions}
                 pending={complete.isPending}
                 onDone={() => press(step)}
               />
@@ -772,6 +796,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
               <Question
                 key={step.id}
                 step={step}
+                expectedInstructions={expectedInstructions}
                 onAnswered={advance}
                 onFailed={reread}
                 onContinue={() => show(step.position + 1)}

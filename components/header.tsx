@@ -1,7 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { SITE_NAME } from "@/lib/site"
-import { ThemeToggle } from "./theme-provider"
+import { ThemeMenu, ThemeToggle } from "./theme-provider"
 import { getCurrentUser } from "@/lib/current-user"
 import { getActiveCommunity, myCommunities } from "@/lib/community-queries"
 import { CommunitySwitcher } from "@/components/communities/switcher"
@@ -16,20 +16,17 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "./ui/dropdown-menu"
 import { Button, buttonVariants } from "./ui/button"
-import {
-  ChevronDownIcon,
-  MenuIcon,
-  UserCircleIcon,
-  UsersIcon
-} from "lucide-react"
+import { ChevronDownIcon, UserCircleIcon, UsersIcon } from "lucide-react"
 import { LogoutButton } from "./logout"
 import { HeaderSearch } from "./header-search"
+import { MobileNavigationMenu } from "./mobile-navigation-menu"
 import { cn } from "@/lib/utils"
 import styles from "./header.module.css"
 
@@ -94,20 +91,17 @@ export const Header = async () => {
         <div className={styles.spacer} />
         <nav className={styles.navLinks} aria-label="Primary">
           <NavMenu label="Vocabulary" entries={VOCABULARY} />
-          <NavMenu label="Take part" entries={TAKE_PART} />
+          <NavMenu label="Participate" entries={TAKE_PART} />
           <Link href="/docs" className={styles.navButton}>
-            Docs
+            Documentation
           </Link>
           {memberships.length > 0 && (
             <CommunityMenu scope={scope} memberships={memberships} />
           )}
-          <ThemeToggle />
+          {!user && <ThemeToggle />}
           <AccountMenu user={user} />
         </nav>
-        <details className={styles.mobileMenu}>
-          <summary aria-label="Open navigation menu">
-            <MenuIcon aria-hidden />
-          </summary>
+        <MobileNavigationMenu className={styles.mobileMenu}>
           <div className={styles.mobileMenuPanel}>
             <nav aria-label="Mobile">
               <span className={styles.mobileLabel}>Vocabulary</span>
@@ -116,13 +110,13 @@ export const Header = async () => {
                   {entry.label}
                 </Link>
               ))}
-              <span className={styles.mobileLabel}>Take part</span>
+              <span className={styles.mobileLabel}>Participate</span>
               {TAKE_PART.map((entry) => (
                 <Link key={entry.href} href={entry.href}>
                   {entry.label}
                 </Link>
               ))}
-              <Link href="/docs">Docs</Link>
+              <Link href="/docs">Documentation</Link>
             </nav>
             {memberships.length > 0 && (
               <div className={styles.mobileUtility}>
@@ -130,16 +124,18 @@ export const Header = async () => {
                 <CommunityMenu scope={scope} memberships={memberships} />
               </div>
             )}
-            <div className={styles.mobileUtility}>
-              <span>Appearance</span>
-              <ThemeToggle alwaysVisible />
-            </div>
+            {!user && (
+              <div className={styles.mobileUtility}>
+                <span>Appearance</span>
+                <ThemeToggle alwaysVisible />
+              </div>
+            )}
             <div className={styles.mobileUtility}>
               <span>Account</span>
               <AccountMenu user={user} showName />
             </div>
           </div>
-        </details>
+        </MobileNavigationMenu>
       </header>
     </div>
   )
@@ -172,7 +168,7 @@ export const HeaderStrip = async () => {
         </span>
         <div className={styles.spacer} />
         <div className={styles.stripLinks}>
-          <ThemeToggle alwaysVisible />
+          {!user && <ThemeToggle alwaysVisible />}
           <AccountMenu user={user} />
         </div>
       </header>
@@ -189,11 +185,13 @@ const NavMenu = ({ label, entries }: { label: string; entries: Entry[] }) => (
       <ChevronDownIcon className={styles.navChevron} aria-hidden />
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start">
-      {entries.map((entry) => (
-        <DropdownMenuItem key={entry.href} asChild>
-          <Link href={entry.href}>{entry.label}</Link>
-        </DropdownMenuItem>
-      ))}
+      <DropdownMenuGroup>
+        {entries.map((entry) => (
+          <DropdownMenuItem key={entry.href} asChild>
+            <Link href={entry.href}>{entry.label}</Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuGroup>
     </DropdownMenuContent>
   </DropdownMenu>
 )
@@ -218,7 +216,7 @@ const CommunityMenu = ({
         scope ? `Working in ${scope.title}` : "Working in every community"
       }
     >
-      <UsersIcon className="size-4" aria-hidden />
+      <UsersIcon aria-hidden />
       <span className={styles.scopeName}>
         {scope ? scope.title : "Everything"}
       </span>
@@ -230,20 +228,24 @@ const CommunityMenu = ({
       {scope && (
         <>
           <DropdownMenuLabel>{scope.title}</DropdownMenuLabel>
-          <DropdownMenuItem asChild>
-            <Link href={communityPath(scope.slug)}>Community page</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href={`${communityPath(scope.slug)}#studies`}>
-              Studies of {scope.title}
-            </Link>
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem asChild>
+              <Link href={communityPath(scope.slug)}>Community page</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`${communityPath(scope.slug)}#studies`}>
+                Studies of {scope.title}
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
         </>
       )}
-      <DropdownMenuItem asChild>
-        <Link href={communitiesIndexPath}>All communities</Link>
-      </DropdownMenuItem>
+      <DropdownMenuGroup>
+        <DropdownMenuItem asChild>
+          <Link href={communitiesIndexPath}>All communities</Link>
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
     </DropdownMenuContent>
   </DropdownMenu>
 )
@@ -259,7 +261,7 @@ const AccountMenu = ({
     return (
       <DropdownMenu>
         <DropdownMenuTrigger className={buttonVariants({ variant: "outline" })}>
-          <UserCircleIcon className="size-4" />
+          <UserCircleIcon aria-hidden />
           <span className={showName ? undefined : "hidden sm:block"}>
             {user.name}
           </span>
@@ -267,20 +269,30 @@ const AccountMenu = ({
         <DropdownMenuContent align="end">
           {user.role === "admin" && (
             <>
-              <DropdownMenuItem asChild>
-                <Link href="/admin">Admin Page</Link>
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin">Admin Page</Link>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
             </>
           )}
-          <DropdownMenuItem asChild>
-            <Link href="/profile">Profile</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/profile#authored-terms">Definitions</Link>
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem asChild>
+              <Link href="/profile">Profile</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/profile#authored-terms">Definitions</Link>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <LogoutButton />
+          <DropdownMenuGroup>
+            <ThemeMenu />
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <LogoutButton />
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     )

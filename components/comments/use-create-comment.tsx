@@ -15,6 +15,7 @@ import { toast } from "sonner"
 export const useCreateComment = ({
   definitionId,
   surveyStepId,
+  expectedInstructions,
   onPosted
 }: {
   definitionId: number
@@ -22,6 +23,7 @@ export const useCreateComment = ({
   // every comment posted through this hook, so the surfaces keep calling
   // mutate with the comment alone.
   surveyStepId?: number
+  expectedInstructions?: string | null
   // Surface-specific cleanup: reset the form, refresh the route, etc.
   onPosted?: () => void
 }) => {
@@ -45,7 +47,10 @@ export const useCreateComment = ({
   return {
     ...mutation,
     mutate: (
-      input: Omit<Parameters<typeof mutation.mutate>[0], "surveyStepId">
-    ) => mutation.mutate({ ...input, surveyStepId })
+      input: Omit<
+        Parameters<typeof mutation.mutate>[0],
+        "surveyStepId" | "expectedInstructions"
+      >
+    ) => mutation.mutate({ ...input, surveyStepId, expectedInstructions })
   }
 }

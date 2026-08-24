@@ -36,9 +36,11 @@ const studyColumns = {
   communityId: studiesTable.communityId,
   communitySlug: communitiesTable.slug,
   communityTitle: communitiesTable.title,
+  communityRetiredAt: communitiesTable.retiredAt,
   collectionId: studiesTable.collectionId,
   collectionSlug: collectionsTable.slug,
   collectionTitle: collectionsTable.title,
+  collectionRetiredAt: collectionsTable.retiredAt,
   // How many terms the study is actually working through, so the community
   // page can show the study and its terms as one thing.
   terms: sql<number>`(
@@ -84,7 +86,13 @@ export const studyById = async (id: number) => {
 // study slug is assigned once and anything that cited it must keep working.
 export const listStudies = async () =>
   withNames()
-    .where(isNull(studiesTable.retiredAt))
+    .where(
+      and(
+        isNull(studiesTable.retiredAt),
+        isNull(communitiesTable.retiredAt),
+        isNull(collectionsTable.retiredAt)
+      )
+    )
     .orderBy(desc(studiesTable.createdAt))
 
 /*
@@ -123,7 +131,11 @@ export const studiesOfViewer = async (userId: number) =>
       )
     )
     .where(
-      and(isNull(studiesTable.retiredAt), isNull(communitiesTable.retiredAt))
+      and(
+        isNull(studiesTable.retiredAt),
+        isNull(communitiesTable.retiredAt),
+        isNull(collectionsTable.retiredAt)
+      )
     )
     .orderBy(desc(studiesTable.createdAt))
 
@@ -132,7 +144,9 @@ export const studiesOfCommunity = async (communityId: number) =>
     .where(
       and(
         eq(studiesTable.communityId, communityId),
-        isNull(studiesTable.retiredAt)
+        isNull(studiesTable.retiredAt),
+        isNull(communitiesTable.retiredAt),
+        isNull(collectionsTable.retiredAt)
       )
     )
     .orderBy(asc(studiesTable.createdAt))

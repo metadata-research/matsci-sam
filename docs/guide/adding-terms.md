@@ -1,7 +1,7 @@
 # Adding a term
 
 Sign in and give your name in the profile editor, then open **Contribute**
-under **Take part** in the navigation bar. Complete the account name before
+under **Participate** in the navigation bar. Complete the account name before
 submitting a contribution.
 
 ## New term

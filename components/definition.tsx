@@ -63,6 +63,7 @@ export const Definition = ({
   isDefault = false,
   onScoreChange,
   surveyStepId,
+  expectedInstructions,
   voteReadOnly = false,
   voteReadOnlyTitle,
   children
@@ -90,6 +91,7 @@ export const Definition = ({
   // The review step of a walkthrough the card is shown in, passed to the
   // vote rail so a vote cast here names it.
   surveyStepId?: number
+  expectedInstructions?: string | null
   // Keep the score and the viewer's vote on show with the buttons disabled,
   // and say why on hover.
   voteReadOnly?: boolean
@@ -114,6 +116,7 @@ export const Definition = ({
         revisionId={definition.revisionId}
         onScoreChange={onScoreChange}
         surveyStepId={surveyStepId}
+        expectedInstructions={expectedInstructions}
         readOnly={voteReadOnly}
         readOnlyTitle={voteReadOnlyTitle}
       />

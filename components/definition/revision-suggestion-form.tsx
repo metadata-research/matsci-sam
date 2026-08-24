@@ -26,12 +26,14 @@ export function RevisionSuggestionForm({
   definitionId,
   sourceRevisionId,
   surveyStepId,
+  expectedInstructions,
   onPublished
 }: {
   term: string
   definitionId: number
   sourceRevisionId: number
   surveyStepId?: number
+  expectedInstructions?: string | null
   onPublished?: (published: PublishedDefinition) => void
 }) {
   const router = useRouter()
@@ -154,6 +156,7 @@ export function RevisionSuggestionForm({
                     term,
                     definition: revisedDefinition,
                     surveyStepId,
+                    expectedInstructions,
                     derivedFromRevisionId: sourceRevisionId,
                     aiSuggestionId: draft.suggestionId
                   })

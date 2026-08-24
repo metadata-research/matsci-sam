@@ -300,8 +300,12 @@ export const communityBySlug = async (slug: string) => {
 
 // The viewer's own standing in one community, which every rule on the page
 // takes as its second argument.
-export const membershipIn = async (communityId: number, userId: number) => {
-  const [row] = await db
+export const membershipIn = async (
+  communityId: number,
+  userId: number,
+  executor: typeof db | DatabaseTransaction = db
+) => {
+  const [row] = await executor
     .select({ role: communityMembersTable.role })
     .from(communityMembersTable)
     .where(
@@ -312,6 +316,29 @@ export const membershipIn = async (communityId: number, userId: number) => {
       )
     )
     .limit(1)
+  return row ?? null
+}
+
+// Participation takes this lock after the study and its parents. A concurrent
+// removal therefore either precedes the authoritative check or waits until
+// the participant act has committed.
+export const lockMembershipIn = async (
+  tx: DatabaseTransaction,
+  communityId: number,
+  userId: number
+) => {
+  const [row] = await tx
+    .select({ id: communityMembersTable.id })
+    .from(communityMembersTable)
+    .where(
+      and(
+        eq(communityMembersTable.communityId, communityId),
+        eq(communityMembersTable.userId, userId),
+        isNull(communityMembersTable.removedAt)
+      )
+    )
+    .limit(1)
+    .for("share")
   return row ?? null
 }
 

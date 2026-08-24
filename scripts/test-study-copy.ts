@@ -167,6 +167,18 @@ assert.match(
   plan(current({ retiredAt: "2026-08-24T00:00:00Z" })).refusals.join("\n"),
   /is retired/
 )
+assert.match(
+  plan(current({ communityRetiredAt: "2026-08-24T00:00:00Z" })).refusals.join(
+    "\n"
+  ),
+  /community id4 is retired/
+)
+assert.match(
+  plan(current({ collectionRetiredAt: "2026-08-24T00:00:00Z" })).refusals.join(
+    "\n"
+  ),
+  /collection id4_round_two_terms is retired/
+)
 
 const hash = studyCopyPlanHash([drift, noDrift])
 assert.match(hash, /^[a-f0-9]{64}$/)
