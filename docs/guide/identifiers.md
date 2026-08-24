@@ -1,12 +1,12 @@
 # Identifiers and citation
 
 MatSci-SAM assigns public identifiers to terms, contributed definitions, and
-immutable revisions. Public paths use a readable term slug and stored numbers.
-They do not expose database primary keys.
+immutable revisions. Readable slugs and stored numbers form the public paths,
+while database primary keys remain internal.
 
 ## Identifier paths
 
-The three canonical path forms for vocabulary content are:
+Vocabulary content uses three canonical path forms.
 
 ```text
 /vocabulary/{term-slug}
@@ -36,7 +36,7 @@ because each definition has an independent revision sequence.
 
 The application assigns a slug when a term is created. It lowercases the term
 name, writes spaces as underscores, and retains hyphens. Characters outside
-`a-z`, `0-9`, `_`, and `-` are dropped.
+`a-z`, `0-9`, `_`, and `-` are dropped, and diacritics are removed.
 
 For example, _density functional theory (DFT)_ receives the slug
 `density_functional_theory_dft`.
@@ -53,10 +53,10 @@ changes.
 
 Each competing definition receives a positive number within its term. The
 application assigns these numbers in creation order and stores them. A score,
-page position, author, or AI status does not change the number.
+page position, author, or AI status leaves the number unchanged.
 
 Each immutable revision receives a positive number within its definition.
-Publishing an edit or restoration increments the revision number while
+A published edit or restoration increments the revision number while
 retaining the definition number. AI involvement is recorded through
 attribution and provenance, not through the identifier.
 
@@ -78,7 +78,7 @@ same slug.
 
 For example, `/tags/pspp/processing` is the Processing facet in the PSPP
 scheme (Processing, Structure, Properties, Performance). A community topic
-takes the same form under `/tags/topics`. A collection is a curated named set
+takes the same form under `/tags/topics`. A collection is a named set
 of terms. The scheme of a tag states which kind of tag it is, and the metadata
 exports publish that scheme as `skos:inScheme`.
 
@@ -101,8 +101,8 @@ A term also has a dynamic rank lookup:
 
 For example, `/vocabulary/martensite/rank/1` redirects temporarily to the
 definition that holds first place when the request is evaluated. Voting can
-change that target. A rank path is a lookup, not a persistent identifier. Do
-not cite or store it as the identity of a definition.
+change that target. A rank path is a lookup, not a persistent identifier. Use
+the definition or revision IRI for citation and storage.
 
 ## Citation
 
@@ -115,7 +115,7 @@ A minimal exact citation has this form:
 > martensite, Definition 2, revision 1. _MatSci-SAM_. [full revision IRI]
 
 The pages display full IRIs for the active deployment. Copy the displayed IRI
-instead of assuming a hostname.
+because the hostname depends on the deployment.
 
 ## Machine-readable forms
 
@@ -136,13 +136,9 @@ endpoints.
 
 The authority portion of every IRI is the identifier base of the deployment,
 `IDENTIFIER_BASE_URL` where one is set and the application origin otherwise.
-Changing it changes the full IRI even though the path remains the same, so a
-deployment sets it once, before external citation.
+The full IRI changes when that base changes, even though the path remains the
+same. A deployment sets the base once, before external citation.
 
-The authority chosen for persistent identifiers is the w3id.org namespace
-`https://w3id.org/matsci-sam`, and its registration is pending. Once the
-registered redirect resolves, it forwards the complete path grammar to the
-application host, so an identifier minted under it survives a change of
-host. Until then every deployment mints under its own origin, and those
-identifiers, like the ones a development workstation or a rehearsal host
-publishes, are host-bound and should not be cited as durable.
+A deployment that requires durable citations configures a persistent resolver
+as its identifier base before publishing. An identifier minted under the
+application origin is bound to that host.

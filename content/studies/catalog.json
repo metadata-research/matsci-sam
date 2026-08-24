@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "studies": [
+    {
+      "key": "id4-2025",
+      "title": "ID4 study, 2025"
+    },
+    {
+      "key": "id4-round-two",
+      "title": "ID4 study, round two"
+    },
+    {
+      "key": "mrc-demo",
+      "title": "MRC demonstration"
+    },
+    {
+      "key": "mrc-pilot",
+      "title": "MRC pilot"
+    },
+    {
+      "key": "mrc-pilot-demo",
+      "title": "MRC pilot, demonstration"
+    }
+  ]
+}

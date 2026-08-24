@@ -1,73 +1,68 @@
 # Metadata access
 
-The dictionary publishes standards-based serializations for researchers,
+MatSci-SAM publishes standards-based serializations for researchers,
 harvesters, and semantic web tools.
 
-MatSci-SAM also provides a
-[read-only MatCore metadata reference](/metadata/matcore). It transcribes the
-preliminary Minimal and DFT elements from `arXiv:2502.07106v1` and includes a
-clearly synthetic example. It is not an official or current MatCore release,
-a stored dataset record, or a validation schema.
+The [MatCore metadata reference](/metadata/matcore) presents the MatSci-SAM
+representation of the preliminary Minimal and DFT elements from
+`arXiv:2502.07106v1`, together with a synthetic example. [MatCore and the
+vocabulary](/docs/reference/matcore-and-the-vocabulary) describes the source
+and its place in the application architecture.
 
-| Resource             | URL                          | Format                                       |
-| -------------------- | ---------------------------- | -------------------------------------------- |
-| Everything           | `/dataset.ttl`               | The whole published graph, Turtle            |
-| Whole vocabulary     | `/vocabulary.ttl`            | SKOS concept scheme, Turtle                  |
-| One term             | `/terms/{id}/skos.ttl`       | SKOS concept, Turtle                         |
-| One term             | `/terms/{id}/skos.jsonld`    | SKOS concept, JSON-LD                        |
-| Term history         | `/terms/{id}/provenance.ttl` | PROV-O, Turtle                               |
-| Tags and collections | `/tags.ttl`                  | SKOS concept schemes and collections, Turtle |
-| Dataset description  | `/dataset`                   | VoID and SPARQL service description, Turtle  |
-| One named graph      | `/graphs/{name}`             | One of the five named graphs, Turtle         |
-| SPARQL endpoint      | `/sparql`                    | SPARQL 1.1 query over the union of the graphs |
+| Resource                  | URL                          | Format                                                    |
+| ------------------------- | ---------------------------- | --------------------------------------------------------- |
+| Current published dataset | `/dataset.ttl`               | Vocabulary, knowledge organization, and MatCore in Turtle |
+| Whole vocabulary          | `/vocabulary.ttl`            | SKOS concept scheme in Turtle                             |
+| One term                  | `/terms/{id}/skos.ttl`       | SKOS concept in Turtle                                    |
+| One term                  | `/terms/{id}/skos.jsonld`    | SKOS concept in JSON-LD                                   |
+| Term history              | `/terms/{id}/provenance.ttl` | PROV-O in Turtle                                          |
+| Tags and collections      | `/tags.ttl`                  | SKOS concept schemes and collections in Turtle            |
+| Dataset description       | `/dataset`                   | VoID and SPARQL service description in Turtle             |
+| One named graph           | `/graphs/{name}`             | Named graph in Turtle                                     |
+| SPARQL endpoint           | `/sparql`                    | SPARQL 1.1 query over the graph union                     |
 
-`/dataset.ttl` is the one document to fetch to see every kind of entity at
-once. It holds the vocabulary scheme, each term with its definitions and
-revisions, the concept schemes with their concepts and collections, and the
-MatCore element set. The term history is the one thing it leaves out. Fetch
-it per term instead.
+`/dataset.ttl` combines the current dictionary, definitions and revisions, tag
+schemes, tags, collections, and MatCore element set. Per-term provenance
+downloads and the provenance named graph provide the recorded histories.
 
-A consumer who wants one layer fetches the narrower document for that layer.
+Use a layer-specific document when an application needs only one part of the
+dataset.
 
 ## Named graphs
 
-The same record is also held in a SPARQL store as five named graphs,
-projected from the application database after each change. A graph is at
-`{identifier-base}/graphs/{name}` and is served as Turtle at that address.
+The SPARQL store holds five named graphs projected from the application
+database. Each graph is served as Turtle at
+`{identifier-base}/graphs/{name}`.
 
-| Graph        | Content                                                                                    |
-| ------------ | ------------------------------------------------------------------------------------------ |
-| `vocabulary` | The dictionary scheme, each term, and its definitions and their revisions                  |
-| `kos`        | The tag schemes, tags, hierarchy, mappings and collections                                 |
-| `provenance` | The history of every term, the assertions of the statement ledger, voting acts and studies |
-| `matcore`    | The MatCore element set and its Dublin Core crosswalk                                      |
-| `meta`       | The dataset description: the graphs, their triple counts and the time of projection        |
+| Graph        | Content                                                        |
+| ------------ | -------------------------------------------------------------- |
+| `vocabulary` | The dictionary scheme, terms, definitions, and revisions       |
+| `kos`        | Tag schemes, tags, hierarchy, mappings, and collections        |
+| `provenance` | Term histories, statement assertions, vote events, and studies |
+| `matcore`    | The MatCore element set and Dublin Core crosswalk              |
+| `meta`       | Dataset description, graph counts, and projection time         |
 
-The four content graphs are pairwise disjoint. No triple is stated in two of
-them, so a count over the union counts each fact once, and a consumer who
-wants one layer fetches one graph. `/dataset` describes the whole as a
-`void:Dataset` and the endpoint as an `sd:Service`, with the triple count of
-each graph and the time of the projection it describes. On a deployment
-without a store the counts are computed at request time and the time is that
-of the build. `/sparql` answers SPARQL 1.1 queries, by GET or POST, over the
-union of the graphs, so a query that names no graph reads all five. The
-endpoint is read-only. It is served at the public host, which forwards the
-path to the query endpoint of the store, and the application serves no such
-route itself. The store is a projection of the database, and the database
-remains the system of record.
+The four content graphs are pairwise disjoint, so a count over the union counts
+each triple once. `/dataset` describes the union as a `void:Dataset` and the
+endpoint as an `sd:Service`. The description includes the triple count of each
+graph and the projection time.
 
-Each term is published as a `skos:Concept`. The term is the
-`skos:prefLabel`. Each `skos:definition` value is an identified current
-revision resource. That resource associates the definition text in
-`rdf:value` with its `skos:example`, Dublin Core creators and date, community
-status, and revision number. It also identifies the stable contributed
-definition of which it is a version.
+`/sparql` accepts SPARQL 1.1 GET and POST queries over the union. A query with
+no named graph clause returns matches from all five graphs. The endpoint is
+read-only. The public host forwards the path to the graph store, while the application
+database remains the system of record.
+
+Each term is a `skos:Concept`, and its name is the `skos:prefLabel`. Each
+`skos:definition` value is the identified current revision of a contributed
+definition. That revision associates `rdf:value` and `skos:example` with
+Dublin Core creators and date, the activity status, and the revision number.
+It also identifies the stable definition of which it is a version.
 
 ## Resource identifiers
 
-The `@id` of every concept, definition, and revision is a human-readable IRI,
-not a database key. The authority is the identifier base of the deployment,
-and the canonical path follows it:
+Every concept, definition, and revision uses a human-readable IRI. The
+authority is the identifier base of the deployment, followed by the canonical
+path.
 
 ```text
 {identifier-base}/vocabulary/martensite
@@ -75,13 +70,11 @@ and the canonical path follows it:
 {identifier-base}/vocabulary/martensite/definitions/2/revisions/1
 ```
 
-The concept scheme uses the corresponding
-`{identifier-base}/vocabulary` IRI, which resolves to a human-readable
-vocabulary page with embedded JSON-LD. Every term concept points at that IRI
-with `skos:inScheme`. A tag concept in the same export points instead at the
-tag scheme it belongs to.
+The concept scheme uses `{identifier-base}/vocabulary`, which resolves to the
+vocabulary page with embedded JSON-LD. Every term points to that scheme with
+`skos:inScheme`.
 
-Tags, facets and collections have readable IRIs of their own:
+Tags, facets, and collections also have readable IRIs.
 
 ```text
 {identifier-base}/tags/{scheme}
@@ -89,51 +82,43 @@ Tags, facets and collections have readable IRIs of their own:
 {identifier-base}/collections/{collection}
 ```
 
-A tag that names the same concept as a term states it with
-`skos:exactMatch`, and the term states the same in return. A tag may also
-state a `skos:scopeNote` describing what is filed under it.
+A topic that identifies the same concept as a term uses `skos:exactMatch`,
+published in both directions. A tag may also use `skos:scopeNote` to state its
+classification scope.
 
-Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
-and each collection a `skos:Collection` of terms. A term or a definition
-points at a tag with `dcterms:subject`. The `skos:inScheme` statement on a tag
-identifies it as a facet in a curated scheme such as PSPP, or as a community
-topic. Each `dcterms:subject` object is a tag IRI in the `/tags/{scheme}/{tag}`
-form, and the numeric `/tags/{id}` address redirects permanently to it.
+Each tag scheme is a `skos:ConceptScheme`, each tag is a `skos:Concept` in that
+scheme, and each collection is a `skos:Collection` of terms. A term or
+definition points to a tag with `dcterms:subject`. `skos:inScheme` identifies
+the applicable topic or facet scheme. Numeric `/tags/{id}` routes redirect
+permanently to the readable tag path.
 
-The identifier base is `IDENTIFIER_BASE_URL` where a deployment sets one,
-and the application origin otherwise. Changing it changes every resource and
-scheme IRI, so a deployment sets it once, before external citation or
-harvesting. The public site mints under the persistent namespace
-`https://w3id.org/matsci-sam`, which redirects every path to the application
-host, so the host can move afterwards without touching an identifier. Numeric
-term and definition routes on the application host remain compatibility
-aliases and redirect permanently to readable canonical addresses.
+The identifier base comes from `IDENTIFIER_BASE_URL` when configured and from
+the application origin otherwise. Changing the base changes every resource and
+scheme IRI. A deployment that requires durable citations sets a persistent
+resolver before publishing. IRIs minted under the application origin remain
+bound to that host.
 
-The [Identifiers and citation](/docs/identifiers) guide explains the path
-grammar, how slug collisions are numbered, and what stability to expect.
+Numeric term and definition routes are compatibility aliases that redirect to
+readable canonical paths. [Identifiers and citation](/docs/identifiers)
+explains the path grammar, collision suffixes, and persistence policy.
 
-Term pages embed schema.org `DefinedTerm` markup for crawlers. Tags and terms
-with a curated ontology mapping contribute `skos:exactMatch` or related
-mapping statements to the exports. These mappings connect the vocabulary to
-external ontologies such as EMMO or PMDco. Term-to-term relations appear as
-`skos:broader`, `skos:narrower` and `skos:related` between term IRIs.
+Term pages embed schema.org `DefinedTerm` markup for crawlers. Where the
+statement ledger contains external mappings, the exports publish
+`skos:exactMatch` or another SKOS mapping property. Stored term relations are
+published as `skos:broader`, `skos:narrower`, and `skos:related` between term
+IRIs.
 
-The term page links to its SKOS Turtle and JSON-LD serializations. The PROV-O
-Turtle download is linked from the provenance page. Revision entities use
-`prov:specializationOf` to identify their stable definition and
-`prov:wasRevisionOf` to identify the preceding revision.
+The term page links to its SKOS Turtle and JSON-LD serializations. The
+provenance page links to the PROV-O Turtle download. Revision entities use
+`prov:specializationOf` for their stable definition and `prov:wasRevisionOf`
+for the preceding revision.
 
 ## Application metadata vocabulary
 
 MatSci-SAM uses a small application vocabulary for details that SKOS, Dublin
-Core, and PROV-O do not name directly. Its namespace is:
-
-```text
-{identifier-base}/metadata#
-```
-
-The base `/metadata` address redirects to this guide. Its core resource
-identity terms are:
+Core, and PROV-O do not name directly. Its namespace is
+`{identifier-base}/metadata#`. The base `/metadata` address redirects to this
+guide.
 
 | Term                 | Meaning                                               |
 | -------------------- | ----------------------------------------------------- |
@@ -142,24 +127,23 @@ identity terms are:
 | `definitionNumber`   | The permanent creation-order number within a term     |
 | `currentRevision`    | The active revision of a stable definition            |
 | `version`            | The positive revision number stored in the RDF record |
-| `status`             | The score-derived community status of a revision      |
+| `status`             | The score-derived activity status of a revision       |
 
-The provenance graph adds terms for the record of acts:
+The provenance graph adds terms for recorded acts.
 
-| Term          | Meaning                                                                       |
-| ------------- | ----------------------------------------------------------------------------- |
-| `Assertion`   | One stored statement of the ledger, active or retracted, reifying its triple  |
-| `retractedBy` | The agent that retracted an assertion                                         |
-| `VoteEvent`   | One voting act on a revision                                                  |
-| `voteKind`    | What the act did: `up`, `down` or `withdrawn`                                 |
-| `actorKind`   | The kind of actor that performed an act: `human`, `model` or `simulated`      |
-| `Study`       | A study run over a collection of terms, published as an activity              |
-| `worklist`    | The collection a study works through                                          |
-| `study`       | The study in which a vote event or a comment was made from its walkthrough, the ordered steps a study asks its members to complete |
-| `legacyAssociationInferred` | `yes` on a vote whose binding to the revision was inferred when the record was migrated, and whose recorded time is the creation time of its definition. The per-term document also states `no` |
-| `backfilled`  | `yes` on a vote event the backfill wrote for a vote that stood with no event of its own, at the recorded time of the vote |
+| Term                        | Meaning                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| `Assertion`                 | One active or retracted ledger statement that reifies its triple                |
+| `retractedBy`               | The agent that retracted an assertion                                           |
+| `VoteEvent`                 | One voting act on a revision                                                    |
+| `voteKind`                  | The act type, `up`, `down`, or `withdrawn`                                      |
+| `actorKind`                 | The actor type, `human`, `model`, or `simulated`                                |
+| `Study`                     | A study over a collection of terms, published as an activity                    |
+| `worklist`                  | The collection used by a study                                                  |
+| `study`                     | The study associated with an act made from its walkthrough                      |
+| `legacyAssociationInferred` | Marks an imported vote whose revision association was inferred during migration |
+| `backfilled`                | Marks the event created for a standing vote when vote-event recording began     |
 
-PROV output also uses application properties for descriptive event details,
-such as a model name, score, prompt key, or change note. That set is not
-exhaustive. Internal database identifiers are not published as application
-metadata.
+Additional application properties record descriptive event details such as the
+model name, score, prompt key, and change note. Public resource identities use
+the identifier grammar described above.

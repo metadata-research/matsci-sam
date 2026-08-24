@@ -1542,8 +1542,9 @@ export const studiesTable = pgTable(
     // What participants are asked to do, in their own words. Stored and
     // rendered as plain text, so nothing a curator types becomes markup.
     welcome: text(),
-    // Both dates are optional and informational. Nothing is enforced against
-    // them except that an invitation to a closed study stops being acceptable.
+    // Both dates are optional and derive the study state. Walkthrough
+    // participation requires an open study; a study invitation is acceptable
+    // before opening and while open, but not after closing or retirement.
     opensAt: timestamp({ mode: "string", withTimezone: true }),
     closesAt: timestamp({ mode: "string", withTimezone: true }),
     retiredAt: timestamp({ mode: "string", withTimezone: true }),

@@ -1,13 +1,13 @@
 # Technical documentation
 
-Notes for someone changing the code. They assume the
-[developer guide](../../developing.md) for setup, and they are not served on
-the site. The two served layers are the user guide in `docs/guide/` and the
-knowledge organization reference in `docs/reference/`. Keep the three apart.
+These notes are for developers changing the code and assume the setup in the
+[developer guide](../../developing.md). They are repository documentation. The
+served documentation is divided between the user guide in `docs/guide/` and
+the knowledge organization reference in `docs/reference/`.
 
 - [The statement ledger](knowledge-organization-ledger.md) covers the schema,
   the checks, the invariants, the predicate registry, the export, and the
-  tests that hold them together.
+  tests that verify their consistency.
 - [The LLM layer](llm-layer.md) covers the client, the prompt registry, the
   provenance stamp, model identities, and how to add a structured call.
 - [The graph layer](graph-layer.md) covers the named graphs, the projector
@@ -15,11 +15,11 @@ knowledge organization reference in `docs/reference/`. Keep the three apart.
   the SHACL shapes, what CI checks, and the paper queries.
 - [Studies and the walkthrough](studies.md) covers the study and survey
   tables, the plan of a walkthrough, the position rule and where it is
-  enforced, the vote event backfill, the agreed list, and the tests.
+  enforced, the vote event backfill, the support-based outcome, and the tests.
 - [Pilot tooling](pilot-tooling.md) covers the curation script and its
   manifest, the driver and its checkpointing, the persona accounts and
   prompts, the environment, and the verifier.
 
-When a change touches a table in the ledger, read the first note end to end
-before editing. Most of its rules are enforced in more than one place on
-purpose, and the tests fail loudly when the places disagree.
+Read the statement-ledger note before changing a ledger table. Several rules
+are enforced in more than one layer, and the tests verify that those layers
+agree.

@@ -122,10 +122,7 @@ export const studiesOfViewer = async (userId: number) =>
       )
     )
     .where(
-      and(
-        isNull(studiesTable.retiredAt),
-        isNull(communitiesTable.retiredAt)
-      )
+      and(isNull(studiesTable.retiredAt), isNull(communitiesTable.retiredAt))
     )
     .orderBy(desc(studiesTable.createdAt))
 
@@ -140,20 +137,18 @@ export const studiesOfCommunity = async (communityId: number) =>
     .orderBy(asc(studiesTable.createdAt))
 
 /*
- * The outcome of a study, read from the votes: for each term of its
- * collection, the definition with the most support, which is the agreed
- * definition of the group, with its support and how many other candidates
- * stand beside it. Support is read from the votes and not from the score
- * column, which a model revision resets: without asOf it is the votes rows
- * on the current revision of the definition, up minus down; with asOf, the
- * closing time of a closed study, it is the last vote event of each person
- * on each revision at or before that time, summed over the revisions of the
- * definition, so the page of a closed study shows the outcome of its round
- * and not the tally since. A tie goes to the earliest candidate, the order
- * the define step shows them in. Nothing is written: the outcome is a
- * reading of the votes, as the rank pages are.
+ * The support list of a study's collection: for each term, the definition with
+ * the greatest site-wide net support, plus how many other candidates stand
+ * beside it. Support is read from votes and not from the score column, which a
+ * model revision resets. Without asOf it is the votes rows on the current
+ * revision of the definition, up minus down. With asOf it is the last vote
+ * event of each person on each revision at or before that time, summed over the
+ * revisions of the definition. Neither path limits votes to the study or its
+ * community. The asOf path time-bounds support only: collection membership,
+ * the candidate set and displayed candidate text remain current. A tie goes to
+ * the earliest candidate. Nothing is written.
  */
-export type AgreedDefinition = {
+export type MostSupportedDefinition = {
   id: number
   definitionNumber: number
   definition: string
@@ -169,7 +164,7 @@ export type AgreedDefinition = {
   }
 }
 
-export const agreedDefinitions = async (
+export const mostSupportedDefinitions = async (
   collectionId: number,
   asOf?: string | null
 ) => {
@@ -238,7 +233,7 @@ export const agreedDefinitions = async (
       asc(definitionsTable.id)
     )
 
-  const byTerm = new Map<number, AgreedDefinition[]>()
+  const byTerm = new Map<number, MostSupportedDefinition[]>()
   for (const { termId, ...candidate } of candidates) {
     const list = byTerm.get(termId) ?? []
     list.push(candidate)
@@ -249,7 +244,7 @@ export const agreedDefinitions = async (
     const list = byTerm.get(term.id) ?? []
     return {
       ...term,
-      agreed: list[0] ?? null,
+      mostSupported: list[0] ?? null,
       alternatives: Math.max(list.length - 1, 0)
     }
   })

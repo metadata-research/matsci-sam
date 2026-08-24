@@ -45,12 +45,11 @@
   ],
   "studies": [
     {
-      "$comment": "Created by slug when absent, over a community and a collection named above or already in the database. walkthrough generates the steps as the steward's Generate button does, only while the study has none: questions is default for the two closing questions, or a list of { prompt, responseKind } with responseKind text or scale. A study that has already closed gets no walkthrough.",
+      "$comment": "Created by slug when absent, over a community and a collection named above or already in the database. contentKey resolves the reviewed title and welcome text under content/studies. walkthrough generates the steps as the steward's Generate button does, only while the study has none: questions is default for the two closing questions, or a list of { prompt, responseKind } with responseKind text or scale. A study that has already closed gets no walkthrough.",
       "slug": "mrc_pilot",
-      "title": "MRC pilot",
+      "contentKey": "mrc-pilot",
       "community": "mrc",
       "collection": "mrc_pilot_terms",
-      "welcome": "A walk through four terms of the 2025 list, to rehearse the protocol before the second ID4 study.",
       "opensAt": "2026-08-25T00:00:00-04:00",
       "closesAt": "2026-09-01T23:59:59-04:00",
       "walkthrough": { "questions": "default" }
@@ -58,7 +57,7 @@
     {
       "$comment": "A study over its past window records what happened then: it is created closed, with no walkthrough.",
       "slug": "id4_2025",
-      "title": "ID4 study, 2025",
+      "contentKey": "id4-2025",
       "community": "mrc",
       "collection": "id4_2025_terms",
       "opensAt": "2025-07-25T00:00:00-04:00",

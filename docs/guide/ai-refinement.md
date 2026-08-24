@@ -7,16 +7,16 @@ original definition can use this multi-round refinement panel.
 ## The loop
 
 1. Select **Refine with AI**. The application sends your term, definition,
-   and example to the locally hosted language model. A round can take time,
+   and example to the configured language model. A round can take time,
    especially when the model must first load. The pending round is stored,
-   so a page refresh does not discard it.
+   including across a page refresh.
 2. The suggestion appears as a card, with changed wording highlighted
    against your current text. The choices depend on what the model changed.
    - **Accept and publish** publishes the revision.
    - **Accept definition, keep my example** publishes the suggested
      definition while preserving your example verbatim. This choice appears
      when the model changed the example.
-   - **Keep mine** closes the round with your original standing.
+   - **Keep mine** closes the round and leaves the current definition in place.
    - **Re-evaluate** sends your feedback with a request for another pass.
      Type what should change first, for example "mention that the
      transformation is diffusionless".
@@ -24,7 +24,7 @@ original definition can use this multi-round refinement panel.
    one-line history entries you can expand later.
 
 If a round fails because the model is unavailable, the card reports the
-failure and offers a Retry button.
+failure and offers **Retry**.
 
 ## What accepting does
 
@@ -42,13 +42,13 @@ suggestion, and relationship to the preceding revision. It starts with a new
 vote tally. Earlier revisions and their vote totals remain available in the
 revision history.
 
-A refinement request records the source revision. The application does not
-accept the suggestion if that source changes while the round is open. Start a
-new round from the latest revision in that case.
+A refinement request records the source revision. Acceptance requires that
+revision to remain current while the round is open. If it changes, start a new
+round from the latest revision.
 
-Every request, suggestion, decision, and piece of feedback is recorded in
-the stored [provenance](/docs/provenance) for the term.
+Every request, suggestion, decision, and piece of feedback appears in the
+stored [provenance](/docs/provenance) record for the term.
 
-The ordinary **Edit** action uses the same immutable revision mechanism.
+Manual editing through **Edit** uses the same immutable revision mechanism.
 [Community review and revisions](/docs/community) describes the revision
 record and the handling of votes and comments.

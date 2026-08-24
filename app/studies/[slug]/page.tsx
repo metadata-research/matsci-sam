@@ -3,7 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
-import { agreedDefinitions, studyBySlug } from "@/lib/study-queries"
+import { mostSupportedDefinitions, studyBySlug } from "@/lib/study-queries"
 import { studyState } from "@/lib/communities"
 import { getCurrentUser } from "@/lib/current-user"
 import {
@@ -13,7 +13,13 @@ import {
   studyRunPath,
   termPath
 } from "@/lib/public-identifiers"
-import { formatDate } from "@/lib/date"
+import { formatDate, formatDateTime } from "@/lib/date"
+import {
+  MOST_SUPPORTED_DEFINITIONS_HEADING,
+  studySupportDescription,
+  studyWindowExplanation,
+  studyWelcomeHeading
+} from "@/lib/study-presentation"
 import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -72,20 +78,18 @@ export default async function StudyPage({
       ? walkthrough
       : null
 
-  // The agreed definition of each term, for any study with terms. A closed
-  // study shows the outcome of its round, the votes as they stood when it
-  // closed; any other shows the list as it stands.
-  const closedOn =
-    state === "closed" && study.closesAt ? formatDate(study.closesAt) : null
-  const outcome = await agreedDefinitions(
+  // The most-supported definition of each term, for any study with terms. A
+  // closed study time-bounds support counts at closesAt; candidate text and
+  // collection membership remain current.
+  const supportClosesAt =
+    state === "closed" && study.closesAt ? study.closesAt : null
+  const supportList = await mostSupportedDefinitions(
     study.collectionId,
-    closedOn ? study.closesAt : null
+    supportClosesAt
   )
-  const agreedNote = closedOn
-    ? `The study closed on ${closedOn}.`
-    : state === "open" && study.steps > 0
-      ? "The list moves as positions are taken."
-      : null
+  const supportDescription = studySupportDescription(
+    supportClosesAt ? formatDateTime(supportClosesAt) : null
+  )
 
   return (
     <main className="px-4 py-8">
@@ -184,7 +188,9 @@ export default async function StudyPage({
 
         {study.welcome ? (
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold">What to do</h2>
+            <h2 className="text-xl font-semibold">
+              {studyWelcomeHeading(state, study.steps)}
+            </h2>
             {/* Plain text, split on blank lines. Nothing typed here becomes
                 markup, which is why the column is not markdown. */}
             {study.welcome.split(/\n\s*\n/).map((paragraph, index) => (
@@ -199,19 +205,16 @@ export default async function StudyPage({
           </p>
         )}
 
-        {outcome.length > 0 && (
+        {supportList.length > 0 && (
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">
-              {closedOn ? "Agreed" : "Agreed so far"}
+              {MOST_SUPPORTED_DEFINITIONS_HEADING}
             </h2>
             <p className="text-sm text-muted-foreground">
-              For each term, the definition with the most support is the
-              group&apos;s agreed definition{closedOn ? "" : " so far"}. A tie
-              goes to the earlier candidate.
-              {agreedNote && ` ${agreedNote}`}
+              {supportDescription}
             </p>
             <ol className="space-y-3">
-              {outcome.map((term) => (
+              {supportList.map((term) => (
                 <li
                   key={term.id}
                   className="space-y-2 rounded-md border border-border p-4"
@@ -222,24 +225,26 @@ export default async function StudyPage({
                   >
                     {term.term}
                   </Link>
-                  {term.agreed ? (
+                  {term.mostSupported ? (
                     <>
-                      <p>{term.agreed.definition}</p>
+                      <p>{term.mostSupported.definition}</p>
                       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                         <PublicProfileName
-                          user={term.agreed.author}
+                          user={term.mostSupported.author}
                           fallback="Unknown contributor"
                         />
                         <Link
                           href={definitionPath(
                             term.slug,
-                            term.agreed.definitionNumber
+                            term.mostSupported.definitionNumber
                           )}
                           className="hover:underline"
                         >
-                          Definition {term.agreed.definitionNumber}
+                          Definition {term.mostSupported.definitionNumber}
                         </Link>
-                        <span>Support {term.agreed.support}</span>
+                        <span>
+                          Site-wide net support {term.mostSupported.support}
+                        </span>
                         <span>
                           {term.alternatives === 0
                             ? "No alternative"
@@ -281,8 +286,7 @@ export default async function StudyPage({
             <p className="text-sm text-muted-foreground">
               {study.opensAt && `Opens ${formatDate(study.opensAt)}. `}
               {study.closesAt && `Closes ${formatDate(study.closesAt)}. `}
-              The dates say when the work is expected. Nothing is locked when
-              they pass, and an invitation to a closed study stops working.
+              {studyWindowExplanation(study.steps)}
             </p>
           </section>
         )}

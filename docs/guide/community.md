@@ -1,46 +1,44 @@
 # Community review and revisions
 
-The definition status chip counts votes from everyone using the site. A
-**community** on MatSci-SAM is a named group of people such as a lab or a
-review panel, described in [Communities and scope](/docs/communities).
+MatSci-SAM calculates definition scores and status from votes across the site.
+A community is a named group of people with a shared worklist and studies, as
+described in [Communities and scope](/docs/communities).
 
 A term can have several definitions from different contributors. Each
 definition has a stable page and an immutable revision history. The current
-revision has its own score and status. Comments remain in one discussion
-thread and identify the revision on which each comment was posted. Anyone can
-read scores and comments. The public provenance view shows present vote
-records without identifying voters. You must sign in to vote or comment.
-Only the primary author can publish a revision.
+revision has its own score and status. Comments share one discussion thread and
+identify the revision visible when each comment was posted. Anyone can read
+scores and comments. Sign in to vote or comment. The primary author publishes
+revisions.
 
 ## Contributor profiles
 
 Contributor profiles are private by default. A signed-in contributor can
-publish their profile from [Edit profile](/profile/edit). The public page shows
-the contributor's display name, affiliation, verified ORCID when one is
-linked, and the terms with definitions attributed to the account. It does not
-show the email address or authentication details.
+publish a profile from [Edit profile](/profile/edit). The public page shows the
+display name, affiliation, verified ORCID iD when linked, and terms with
+definitions attributed to the account. Email addresses and authentication
+details remain private.
 
 The [account access guide](/docs/account-access) explains how sign-in methods
 and linked ORCID iDs relate to the contributor account.
 
-The profile setting controls the public profile page and links from
-contributor names. Names remain attached to definitions, comments, and
-provenance as attribution even when the profile is private. The profile URL
-becomes unavailable and contributor names return to plain text when the
-setting is off. It does not remove contributions or revision history.
+The visibility setting controls the public profile page and links from
+contributor names. Names remain on definitions, comments, and provenance as
+attribution when the profile is private. Turning visibility off returns names
+to plain text and removes access to the profile page while preserving the
+contributions and revision history.
 
 ## Interface feedback
 
 A collapsed **Feedback** control is available on every page. Use it to report
-something confusing or missing, suggest an improvement, or note something
-that works especially well without leaving the page you are reviewing.
+confusing or missing information, suggest an improvement, or identify a useful
+feature from the page under review.
 
-Each feedback record contains the comment, the relative MatSci-SAM page
-path, and the submission time. Query parameters and page fragments are not
-stored. A record from a signed-in contributor is also linked to that
-account. A record from a signed-out visitor is recorded as Anonymous. The
-account identity is determined by the server. Administrators can review the
-feedback inbox and mark an item resolved or reopen it.
+Each feedback record contains the comment, relative page path, and submission
+time. The stored path omits query parameters and page fragments. A record from
+a signed-in contributor links to that account, while a signed-out submission
+is recorded as Anonymous. The server determines the account identity.
+Administrators can resolve and reopen items in the feedback inbox.
 
 ## Voting and score
 
@@ -58,32 +56,29 @@ negative.
 | Up              | Change to down    |              -2 |
 | Down            | Change to up      |              +2 |
 
-All accounts have the same voting weight. The pilot does not apply
-reputation, role, or expert weighting, and authors can vote on their own
-definitions. Each accepted AI-refined definition receives an independent
-score.
+Each account contributes one vote of equal weight, and authors may vote on
+their own definitions. Each accepted AI-refined definition receives an
+independent score.
 
 A published revision starts with a score of zero. Votes on earlier revisions
-remain with those revisions and do not count toward the new score.
-Historical revisions are read-only, so new votes apply only to the current
-revision.
+remain with those revisions. Historical revisions are read-only, and voting is
+available on the current revision.
 
 ## Definition order
 
-Definitions on a term page are ordered from highest to lowest score. The
-newest definition appears first when scores are equal. The leading
-definition receives a stronger border when the term has multiple
-definitions. Its text also supplies the schema.org description embedded in
-the term page.
+Definitions on a term page are ordered from highest to lowest score. The newest
+definition appears first when scores are equal. The leading definition receives
+a stronger border when the term has multiple definitions. Its text also
+supplies the schema.org description embedded in the term page.
 
-Each definition also has a permanent creation-order number within the term.
-That number does not change when votes reorder the page. The dynamic
+Each definition receives a permanent creation-order number within the term.
+Votes change the displayed order while the number remains fixed. The dynamic
 `/rank/{number}` lookup redirects to the definition at that rank when the
 request is evaluated.
 
 This order applies to term pages. Search uses text relevance, and the
-[Discussion](/docs/discussion) feed prefers an AI-authored definition when
-one is available.
+[Discussion](/docs/discussion) feed selects a model-authored definition when one
+is available.
 
 ## Definition status
 
@@ -95,86 +90,74 @@ A chip summarizes the net score of each definition.
 | community-reviewed |      2 to 4 |
 | stable             | 5 or higher |
 
-Status is computed from the score of the current revision. It can rise or fall
-when votes change. The SKOS Turtle and JSON-LD records publish the status on
-the identified revision resource.
-
-These labels report activity in the pilot community. They do not certify
-scientific correctness, state a formal project endorsement, or establish
-consensus among a representative group of materials scientists. The
-thresholds are provisional while the contributor community is small.
+MatSci-SAM computes status from the score of the current revision. A vote can
+raise or lower it. The SKOS Turtle and JSON-LD records publish the status on the
+identified revision resource. These labels summarize activity among site
+voters. Scientific assessment comes from the definitions and their discussion.
 
 ## Editing a definition
 
-Only the primary author can revise the definition text or example of use.
-Other contributors can comment, vote, submit another definition, or
-suggest a revision. The author controls their contribution, not the shared
-term label, another contributor's definition, or the community history.
+The primary author can revise the definition text or example of use. Other
+contributors can comment, vote, submit another definition, or suggest a
+revision.
 
-**Publish revision** keeps the same definition identifier and URL. The
-published revision records the definition, example of use, editor, publication
-time, change note, and relationship to the preceding revision. Earlier
-revisions remain available from the revision history and
-[provenance](/docs/provenance). The default definition page shows the latest
-revision. Each revision also has an exact citable URL.
+**Publish revision** keeps the definition identifier and URL. The new revision
+records the definition, example of use, editor, publication time, change note,
+and relationship to the preceding revision. Earlier revisions remain available
+from the revision history and [provenance](/docs/provenance). The default
+definition page presents the latest revision, and every revision has an exact
+citable URL.
 
-The page checks that the source revision is still current before it
-publishes an edit. If another change has superseded that revision, the
-author must review the new revision before trying again. A restore copies
-the definition and example of an earlier revision into another new revision.
-The restore action does not remove any intervening history.
+The page verifies that the source revision remains current before publication.
+If another edit has superseded it, review the latest revision and submit the
+edit again. A restore appends a revision that copies the definition and example
+from an earlier revision, preserving the intervening history.
 
-[Topics](/docs/tags) remain attached to the stable definition. Facets
-classify the term concept, so a new revision does not change them. Votes are
-specific to one revision. Comments remain in the stable discussion thread,
-with a revision label that preserves the context in which each comment was
-posted.
+[Topics](/docs/tags) remain attached to the stable definition through later
+revisions. Facets classify the term concept. Votes belong to a revision.
+Comments remain in the stable discussion thread with a revision label that
+preserves their context.
 
-An accepted suggestion from the author-only
-[AI refinement](/docs/ai-refinement) workflow follows a different path. The
-first acceptance creates a separate definition credited to the author and
-the named model. That definition has its own score and comments. A later
-acceptance publishes a new immutable revision of that refined definition and
-starts a new vote tally. Model and prompt provenance are specific to the
-revision that accepted the suggestion.
+The first accepted suggestion from the author-only [AI
+refinement](/docs/ai-refinement) workflow creates a separate definition
+credited to the author and named model. That definition has its own score and
+comments. A later acceptance publishes an immutable revision of the refined
+definition and starts a new vote tally. Model and prompt provenance identify
+the revision that accepted each suggestion.
 
 ### Imported revision history
 
 Records created under the earlier pilot schema contain all stored definition
-text, but some imported revisions are incomplete. The earlier schema did not
-store the example of use, editor, or change note for an edit. The revision
-history labels those snapshots as imported and does not invent missing values.
-An incomplete revision cannot be restored directly because its original
-example is unknown.
+text, but some imported revisions lack an example of use, editor, or change
+note. The revision history labels those snapshots as imported and leaves
+unknown values empty. Restoration requires the original example, so an
+incomplete imported revision is unavailable for restoration.
 
-Existing comments were associated with the revision visible at their recorded
-time and are labeled as imported associations. Existing votes were associated
-with the revision current during migration because the earlier vote timestamps
-cannot establish which prior text a voter evaluated.
+MatSci-SAM associated existing comments with the revision visible at their
+recorded time and labels those links as imported associations. Imported votes
+refer to the revision current during migration because earlier vote timestamps
+cannot establish which text the voter evaluated.
 
 ## Comments
 
-Each definition has its own comment thread. Every comment records the revision
-visible when the contributor posted it. A comment on a human-authored
-definition is stored as discussion. A comment on the current revision of an
-AI-authored definition is also added to the term-level model context, and the
-application requests an updated AI definition in the background. The comment
-box states this beneath the buttons before you post, and the application
-announces the updated definition when it is published. The comment
-and resulting revision appear in the recorded
+Each definition includes a comment thread. The application records every
+comment against the revision visible when it was posted. A comment on a
+human-authored definition remains a discussion comment. Posting on the current
+revision of a model-authored definition schedules another term-level generation,
+and the prompt includes the comment. The comment box states this behavior
+before publication. The application announces the updated definition when it
+is published. The comment and resulting revision appear in the recorded
 [provenance](/docs/provenance).
 
-The [Discussion](/docs/discussion) page provides another way to comment on
-definitions attached to recently added terms.
+The [Discussion](/docs/discussion) page provides another route for commenting
+on definitions attached to recently added terms.
 
-## Removal and moderation
+## Administrative cleanup
 
-Authors cannot delete a published definition in the pilot. Moderators also
-have no hide or withdrawal control. Administrators have a permanent cleanup
-action for pre-pilot test data. It removes the definition and its votes,
-comments, tag links, revision history, refinement rounds, Discussion
-suggestions, coauthors, and refined definitions. The shared term and its public
-numbering ledger remain even when no definitions are left, so a deleted number
-is not reassigned.
+Published definitions normally remain in the revision record. Administrators
+have a permanent cleanup action for pre-pilot test data. It removes the
+definition and its votes, comments, tag links, revision history, refinement
+rounds, Discussion suggestions, coauthors, and refined definitions. The shared
+term and public numbering ledger remain, so a removed number is not reassigned.
 
 Permanent cleanup cannot be undone.

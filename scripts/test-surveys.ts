@@ -51,7 +51,11 @@ const main = async () => {
   )
   assert.equal(plan[0].responseKind, null)
   assert.match(plan[1].prompt ?? "", /band gap/, "a define step names its term")
-  assert.match(plan[4].prompt ?? "", /grain boundary/, "a review step names its term")
+  assert.match(
+    plan[4].prompt ?? "",
+    /grain boundary/,
+    "a review step names its term"
+  )
   assert.equal(plan[5].prompt, DEFAULT_QUESTIONS[0].prompt)
   assert.equal(plan[5].responseKind, "scale")
   assert.equal(plan[6].responseKind, "text")
@@ -82,8 +86,8 @@ const main = async () => {
     "a plan with no terms is instructions and the questions"
   )
 
-  // The closing questions are about the list the group settled, and the
-  // instructions say what the protocol is for.
+  // The default closing questions ask about likely use and possible changes,
+  // and the instructions describe the protocol without claiming consensus.
   assert.equal(DEFAULT_QUESTIONS.length, 2)
   assert.deepEqual(
     DEFAULT_QUESTIONS.map((question) => question.responseKind),
@@ -91,14 +95,20 @@ const main = async () => {
   )
   assert.equal(
     DEFAULT_QUESTIONS[0].prompt,
-    "Would you use this list as it stands in your work?",
+    "How likely are you to use this list in your work?",
     "the scale question is one sentence; the shell labels the ends"
   )
-  assert.match(DEFAULT_QUESTIONS[1].prompt, /missing from the list, or wrong/)
+  assert.equal(
+    DEFAULT_QUESTIONS[1].prompt,
+    "What would you add or change in this list?"
+  )
   assert.ok(DEFAULT_INSTRUCTIONS.trim().length > 0)
   assert.match(DEFAULT_INSTRUCTIONS, /second round/)
   assert.match(DEFAULT_INSTRUCTIONS, /position/)
-  assert.match(DEFAULT_INSTRUCTIONS, /reference/)
+  assert.doesNotMatch(
+    DEFAULT_INSTRUCTIONS,
+    /agreed|group's reference|nobody corrects|drafts are wrong/i
+  )
   assert.match(
     plan[1].prompt ?? "",
     /accept|amend/i,
@@ -107,7 +117,10 @@ const main = async () => {
 
   // --- Resumption is the lowest position without a completion ---
 
-  const steps: Step[] = plan.map((step, index) => ({ id: 100 + index, ...step }))
+  const steps: Step[] = plan.map((step, index) => ({
+    id: 100 + index,
+    ...step
+  }))
   const ids = (positions: number[]) =>
     new Set(
       steps
@@ -127,7 +140,11 @@ const main = async () => {
     null,
     "everything done: nothing to resume"
   )
-  assert.equal(resumePosition([], new Set()), null, "no steps: nothing to resume")
+  assert.equal(
+    resumePosition([], new Set()),
+    null,
+    "no steps: nothing to resume"
+  )
   assert.equal(
     resumePosition(steps, new Set([999])),
     1,
@@ -138,7 +155,8 @@ const main = async () => {
 
   // --- Gates ---
 
-  const byKind = (kind: Step["kind"]) => steps.find((step) => step.kind === kind)!
+  const byKind = (kind: Step["kind"]) =>
+    steps.find((step) => step.kind === kind)!
   const neither = { hasPosition: false, hasResponse: false }
   const both = { hasPosition: true, hasResponse: true }
 
@@ -274,7 +292,11 @@ const main = async () => {
   const asSteward = { role: "steward" }
   assert.equal(mayParticipate(asMember, "open"), true)
   assert.equal(mayParticipate(asSteward, "open"), true)
-  assert.equal(mayParticipate(null, "open"), false, "a non-member, whoever they are")
+  assert.equal(
+    mayParticipate(null, "open"),
+    false,
+    "a non-member, whoever they are"
+  )
   assert.equal(mayParticipate(asMember, "draft"), false)
   assert.equal(mayParticipate(asMember, "closed"), false)
   assert.equal(mayParticipate(asMember, "retired"), false)

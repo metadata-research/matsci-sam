@@ -35,134 +35,12 @@
 // first. dotenv never overrides a variable already set, so a host that
 // exports them is unaffected.
 import "dotenv/config"
-import { readFileSync } from "node:fs"
 import { and, asc, eq, isNull, lt, sql } from "drizzle-orm"
-import { z } from "zod"
-import { SURVEY_PROMPT_MAX_LENGTH } from "../lib/input-limits"
-
-// --- The manifest ---
-
-// The limits the communities and collections routers apply to a title and
-// a description, so a manifest is refused where a form would be.
-const TITLE_MAX = 120
-const DESCRIPTION_MAX = 2000
-
-// The slug CHECK on communities, collections and studies, applied here so a
-// bad slug is refused before a section starts rather than inside it.
-const slugSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/, "not a slug")
-const emailSchema = z
-  .string()
-  .trim()
-  .email()
-  .max(254)
-  .transform((value) => value.toLowerCase())
-const titleSchema = z.string().trim().min(1).max(TITLE_MAX)
-const descriptionSchema = z.string().trim().max(DESCRIPTION_MAX).optional()
-// A moment PostgreSQL parses: a date, or a date-time with its offset. It is
-// stored as given, so the offset in the manifest is the offset recorded.
-const momentSchema = z
-  .string()
-  .trim()
-  .refine((value) => !Number.isNaN(Date.parse(value)), "not a date")
-// A note to the reader of the manifest, ignored here. JSON has no comments.
-const commentSchema = z.string().optional()
-
-// The person's earliest definition, comment or vote of 2025, which is when
-// the 2025 cohort joined the community the manifest puts them in.
-const FIRST_ACT = "first-act-2025"
-
-const memberSchema = z
-  .object({
-    $comment: commentSchema,
-    email: emailSchema,
-    role: z.enum(["member", "steward"]).default("member"),
-    addedAt: z.union([z.literal(FIRST_ACT), momentSchema]).optional()
-  })
-  .strict()
-
-const communitySchema = z
-  .object({
-    $comment: commentSchema,
-    slug: slugSchema,
-    title: titleSchema,
-    description: descriptionSchema,
-    members: z.array(memberSchema).default([])
-  })
-  .strict()
-
-const collectionSchema = z
-  .object({
-    $comment: commentSchema,
-    slug: slugSchema,
-    title: titleSchema,
-    description: descriptionSchema,
-    // Term texts, or every term created before a date.
-    terms: z.union([
-      z.array(z.string().trim().min(1)),
-      z.object({ createdBefore: momentSchema }).strict()
-    ])
-  })
-  .strict()
-
-const questionSchema = z
-  .object({
-    prompt: z.string().trim().min(1).max(SURVEY_PROMPT_MAX_LENGTH),
-    responseKind: z.enum(["text", "scale"])
-  })
-  .strict()
-
-const studySchema = z
-  .object({
-    $comment: commentSchema,
-    slug: slugSchema,
-    title: titleSchema,
-    community: slugSchema,
-    collection: slugSchema,
-    welcome: z.string().trim().max(DESCRIPTION_MAX).optional(),
-    opensAt: momentSchema.nullish(),
-    closesAt: momentSchema.nullish(),
-    // Null means no walkthrough. "default" is the two closing questions of
-    // lib/surveys.ts; a list is those questions and no other.
-    walkthrough: z
-      .object({
-        questions: z.union([
-          z.literal("default"),
-          z.array(questionSchema).max(20)
-        ])
-      })
-      .strict()
-      .nullable()
-      .default(null)
-  })
-  .strict()
-  .refine(
-    (study) =>
-      !study.opensAt ||
-      !study.closesAt ||
-      Date.parse(study.closesAt) > Date.parse(study.opensAt),
-    { message: "closesAt is not after opensAt", path: ["closesAt"] }
-  )
-
-const manifestSchema = z
-  .object({
-    $comment: commentSchema,
-    operator: emailSchema,
-    retire: z
-      .object({
-        $comment: commentSchema,
-        communities: z.array(slugSchema).default([]),
-        studies: z.array(slugSchema).default([]),
-        collections: z.array(slugSchema).default([])
-      })
-      .strict()
-      .default({}),
-    communities: z.array(communitySchema).default([]),
-    collections: z.array(collectionSchema).default([]),
-    studies: z.array(studySchema).default([])
-  })
-  .strict()
-
-type Manifest = z.infer<typeof manifestSchema>
+import {
+  FIRST_ACT,
+  loadPilotManifest,
+  type PilotManifest
+} from "./curate-pilot-manifest"
 
 // --- The command line ---
 
@@ -188,24 +66,6 @@ const parseArgs = (argv: string[]) => {
 const message = (error: unknown) =>
   error instanceof Error ? error.message : String(error)
 
-const loadManifest = (path: string): Manifest => {
-  let raw: unknown
-  try {
-    raw = JSON.parse(readFileSync(path, "utf8"))
-  } catch (error) {
-    console.error(`Cannot read ${path}: ${message(error)}`)
-    process.exit(1)
-  }
-  const parsed = manifestSchema.safeParse(raw)
-  if (!parsed.success) {
-    console.error(`${path} is not a manifest:`)
-    for (const issue of parsed.error.issues)
-      console.error(`  ${issue.path.join(".") || "(root)"}: ${issue.message}`)
-    process.exit(1)
-  }
-  return parsed.data
-}
-
 // The date of a moment, for the report. Both the manifest and PostgreSQL
 // put the date first.
 const day = (moment: string) => moment.slice(0, 10)
@@ -227,7 +87,7 @@ type Outcome = "created" | "present" | "retired" | "skipped"
 
 const main = async () => {
   const args = parseArgs(process.argv.slice(2))
-  const manifest = loadManifest(args.manifest)
+  const manifest: PilotManifest = loadPilotManifest(args.manifest)
 
   const {
     collectionsTable,
@@ -845,7 +705,7 @@ const main = async () => {
       studyItems.push({
         outcome: "present",
         what: `study ${slug}`,
-        note: window(existing)
+        note: `${window(existing)}, content ${study.contentKey}@${study.contentHash.slice(0, 12)}`
       })
     } else {
       if (
@@ -861,7 +721,7 @@ const main = async () => {
         note: `"${study.title}", ${window({
           opensAt: study.opensAt ?? null,
           closesAt: study.closesAt ?? null
-        })}`,
+        })}, content ${study.contentKey}@${study.contentHash.slice(0, 12)}`,
         write: async (tx) => {
           // As communities.createStudy with an existing collection: the
           // study, then its collection on the worklist in the same

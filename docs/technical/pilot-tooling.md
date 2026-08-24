@@ -2,10 +2,10 @@
 
 Three scripts run a pilot. The curation script builds the containers from a
 manifest, the driver walks a simulated cohort through the walkthrough of a
-study, and the verifier asserts the record and the pages afterwards. This note
-maps them. The rules they write under are in `studies.md` and
-`knowledge-organization-ledger.md`, and the plan of the pilot, with its design
-record, is kept outside the repository.
+study, and the verifier checks the resulting records and pages. `studies.md`
+and `knowledge-organization-ledger.md` describe the rules they use. The
+internal [pilot plan](../../docs-internal/MTSR-PILOT-PLAN.md) records the
+protocol decisions and acceptance criteria.
 
 ## Modules
 
@@ -26,10 +26,10 @@ record, is kept outside the repository.
 
 ## The curation script
 
-`pnpm curate:pilot -- --manifest <path> [--dry-run]` makes the database hold
-what the manifest says, by slug, and prints one line per item. The manifest
-names its `operator` by email and has four sections, resolved and written in
-the order `retire`, `communities`, `collections`, `studies`. Each community
+`pnpm curate:pilot -- --manifest <path> [--dry-run]` reconciles the database
+with the manifest by slug and prints one line per item. The manifest names its
+`operator` by email and processes four sections in order, `retire`,
+`communities`, `collections`, and `studies`. Each community
 has a slug, a title, a description and its members by email, each with a role
 and an optional `addedAt`, which may be a moment or `first-act-2025`, the
 earliest definition, comment or vote of the person in 2025. Each collection
@@ -39,25 +39,26 @@ a title, a welcome, the window, and a `walkthrough`, null for none,
 `"default"` for the two closing questions, or a list of questions. A
 `$comment` anywhere is ignored.
 
-The manifest is resolved in full before the first write. An account that
-cannot be found, a term the vocabulary lacks, a slug held by a row of another
-shape, an operator without standing, or a study over a retired container is
-refused with nothing written. Each section then runs in a transaction of its
-own, so a failure leaves the earlier sections committed and the next run finds
-them present. The run is idempotent by slug. A second run reports each item
-present and writes nothing, an existing member keeps their episode and role,
-an existing study keeps its window, and a retired row keeps its slug. The
-walkthrough is written only while the study has no steps, through `lockStudy`,
-`completionCountOfStudy`, `replaceSteps` and `planSteps` as `generateSteps`
-writes it, and is skipped for a closed study and for an empty collection.
+The script resolves the complete manifest before the first write. Missing
+accounts or terms, conflicting slug shapes, an operator without standing, and
+studies over retired containers abort validation. Each section then runs in its
+own transaction. A later failure leaves earlier sections committed, and the
+next run finds those rows present.
+
+The run is idempotent by slug. A repeated run reports existing items as
+`present`. Existing members keep their episode and role, studies keep their
+window, and retired rows keep their slug. The script writes a walkthrough while
+the study has no steps. It uses `lockStudy`, `completionCountOfStudy`,
+`replaceSteps`, and `planSteps`, matching `generateSteps`. Closed studies and
+empty collections receive no walkthrough.
 
 Each write is the act of the operator, row for row as the communities,
 collections and surveys routers write it, through the `lib/` functions where
-those exist. Each line of the report reads `created`, `present`, `retired` or
-`skipped`, with a note, and a count line closes the report. `--dry-run` prints
-the report with `would create` and `would retire` and writes nothing. A
-manifest names people by email, so one in use is private and only the example
-is in the repository.
+those exist. Each report line begins with `created`, `present`, `retired` or
+`skipped`, followed by a note. A count line closes the report. `--dry-run` prints
+the report with `would create` and `would retire` and makes no database
+changes. A manifest in use contains private email addresses. The repository
+includes only the example manifest.
 
 ## The driver
 
@@ -67,37 +68,42 @@ pnpm pilot:run -- --dry-run
 pnpm pilot:run -- --resume --suffix rehearsal-1
 ```
 
-The protocol is to settle the list, and the driver performs it in the order
-the walkthrough pages order it. Setup mints the persona accounts and their
-memberships. In the position unit of each persona and term, the persona
-decides from the text of the draft whether to accept or amend it. Accepting is
-an upvote naming the define step, and amending is a definition whose initial
-revision names the step and the current revision of the draft it derives from.
-In the review unit, a persona that accepted presses the review step through,
-and one that amended upvotes the best-supported candidate that is neither its
-own nor the draft, a draw breaking a tie, or presses where there is none. The
-one or two personas drawn for the term comment on the candidate they voted
-for. The walkthrough unit presses the instructions and answers the closing
-questions, a scale answer drawn and a text answer generated and stamped. The
-close projects the graphs once, since writes through `lib/` mark nothing, and
-records the finish. Each act names its step and completes it in the
-transaction of the act, as the pages write it, and is marked `simulated` and
-stamped.
+### Protocol execution
 
-The study must have its walkthrough before the driver runs, and the driver
-generates no steps. It resolves the operator, the containers, the walkthrough
-and the draft of each term before the first unit, refuses a missing container,
-a study that is not open, a term without its two steps and a term without a
-draft, and creates no term. The driver is sequential by design, because the
-protocol is ordered and the inference host serves one generation at a time.
-Each completed unit is checkpointed in a file under the state directory, named
-for the study slug, which the code calls the manifest of the run. It records
-the persona ids, the position decisions with their stamps, the completed units
-and the finish. `--resume` skips the completed units, and a resumed position
-unit acts on the decision it holds. Each act reads the record before it
-writes, so a position already held is not taken twice and a vote already cast
-inside a step is not cast again, which would withdraw it. `--steps` takes a
-comma-separated subset of `setup`, `position`, `review`, `walkthrough` and
+The driver follows the order of the walkthrough. Setup creates persona accounts
+and memberships. For each persona and term, the position unit uses the draft to
+choose acceptance or amendment. Acceptance creates an upvote that names the
+define step. Amendment creates a definition whose initial revision names the
+step and the current draft revision from which it derives.
+
+During review, a persona that accepted completes the review step. A persona
+that amended upvotes the best-supported candidate outside its own definition
+and the draft, using a draw to break a tie. It completes the step directly when
+no such candidate exists. One or two personas selected for the term comment on
+the candidate they supported.
+
+The walkthrough unit completes the instructions and closing questions. Scale
+answers are drawn, and text answers are generated and stamped. The close unit
+projects the graphs once and records completion. Each simulated act names its
+step and completes the step in the same transaction as the act. Generated
+definitions, comments, and text answers also record a generation stamp.
+
+### Checkpoints and rehearsals
+
+The driver requires a generated walkthrough. Before the first unit, it resolves
+the operator, containers, walkthrough, and draft of each term. Missing
+containers, a closed study, missing term steps, or a missing draft abort the
+run. Curation creates the terms before the driver starts. The driver is
+sequential because the protocol is ordered and the inference host serves one
+generation at a time.
+
+Each completed unit is checkpointed in a file under the state directory,
+named for the study slug. This run manifest records the persona IDs, position
+decisions and their stamps, completed units, and finish. `--resume` skips the
+completed units, and a resumed position unit acts on its recorded decision.
+Each act reads the record before it writes, preventing a repeated position or
+a second cast that would withdraw an existing vote. `--steps` takes a
+comma-separated subset of `setup`, `position`, `review`, `walkthrough`, and
 `close`.
 
 `slugs(suffix)` names the containers `id4`, `id4_round_two` and
@@ -105,28 +111,29 @@ comma-separated subset of `setup`, `position`, `review`, `walkthrough` and
 suffix and runs once. The driver refuses clean slugs when the checkpoint file
 says the run finished, and when the study holds a completion by a persona with
 the clean name while no checkpoint file records the run. A rehearsal passes
-`--suffix`, which mints distinct slugs and persona names. Nothing is torn
-down. The structure of a run is drawn from a generator per term, FNV-1a over
-the label folded with the seed and feeding `mulberry32`, so the picks of a
-term depend on the seed and the label alone and an added term or question
-moves no other. Drawn are who comments in the review of a term, the tie-break
-of each persona, and the scale answers. The positions are not drawn, and the
-review vote follows the position. Text generation is not deterministic.
+`--suffix`, which mints distinct slugs and persona names. Rehearsal state is
+retained. Each term has a generator based on FNV-1a over the label, folded with
+the seed and passed to `mulberry32`. The seed and label determine the
+commenters, persona tie-breaks, and scale answers for that term. Position
+decisions come from model output, and review votes follow those positions.
 
-A persona is a `users` row with `isAi` true and no `aiModels` row. It is an
-account a model is driven under, and its display name says so. The name is
-`Simulated Participant n (Gemma 4)`, with the rehearsal named after it when
-there is a suffix. Accounts are created once by exact name, and memberships
-are added as `member` with the operator as `addedById`. The prompts are the
-`pilot-persona-*` entries of `lib/prompts.json`, one per act and identical
-across personas. The voice of the persona arrives in the user message, so the
-stamp records one prompt key and hash per act. `pilot-persona-position`
-decides accept or amend, `pilot-persona-amend` amends the draft,
-`pilot-persona-comment` reviews a candidate and `pilot-persona-survey` answers
-a closing question. `pilot-persona-define` and `pilot-persona-rebuttal` are
-registered from the earlier protocol and the driver does not use them. The
-position stamp goes to the checkpoint file, because the decision is not a row
-of the record.
+### Simulated identities
+
+A persona is a `users` row with `isAi` true. It has no `aiModels` row. A model
+is driven under the account, and the display name identifies it as simulated.
+The public-run name is `Simulated Participant n (Gemma 4)`. A rehearsal suffix
+adds the rehearsal name. Accounts are created once by exact name, and
+memberships are added as `member` with the operator as `addedById`. The prompts
+are the `pilot-persona-position`, `pilot-persona-amend`,
+`pilot-persona-comment`, and `pilot-persona-survey` entries of
+`lib/prompts.json`. They are identical across personas. The voice of the
+persona arrives in the user message, and each generation stamp records the
+prompt key and hash. `pilot-persona-position` returns `accept` or `amend`,
+`pilot-persona-amend` generates the amendment, `pilot-persona-comment`
+generates a review, and `pilot-persona-survey` generates a text answer.
+`pilot-persona-define` and `pilot-persona-rebuttal` remain registered for the
+earlier protocol. The position stamp goes to the checkpoint file because the
+decision has no row in the application record.
 
 ## Environment
 
@@ -138,8 +145,8 @@ of the record.
 | `PILOT_STATE_DIR`      | Where the checkpoint files are written. Defaults to `.cache/pilot`.                                          |
 | `OLLAMA_HOST`          | The inference host `lib/llm/client.ts` sends each generation to.                                             |
 
-`requireEnv` also wants `DATABASE_URL` and `SYSTEM_PROMPT_KEY` or
-`SYSTEM_PROMPT`, which the prompt registry reads at import.
+`requireEnv` also requires `DATABASE_URL` and `SYSTEM_PROMPT_KEY` or
+`SYSTEM_PROMPT`, which the prompt registry loads at import.
 
 ## The verifier
 
@@ -148,11 +155,12 @@ state of the study and runs two halves. The record half asserts what the paper
 claims. The persona accounts exist and are AI identities. Each persona
 definition is an amendment, stamped, written inside a define step and derived
 from the current revision of a definition of the term of that step. Each model
-or simulated comment and vote event is stamped, and the kind of each agrees
-with the account flag. Each persona holds a position on each term, its
-completions are exactly the steps its acts completed, and no draft was revised
-after the first completion of the cohort. Each persona answered each closing
-question as a simulated act, with a stamp on a text answer. The HTTP half
+or simulated comment records its generation stamp. Every comment, vote event,
+and response has an actor kind that agrees with the account flag. Each persona
+holds a position on each term, its completions are exactly the steps its acts
+completed, and no draft was revised after the first completion of the cohort.
+Each persona answered each closing question as a simulated act, with a stamp
+on each text answer. The HTTP half
 fetches the study page, the run page, the collection, the provenance page and
 Turtle document of three terms, the dataset document and the models page, and
 requires each to resolve. A failed check exits with status 1.

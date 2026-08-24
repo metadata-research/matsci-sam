@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { SURVEY_RESPONSE_MAX_LENGTH } from "@/lib/input-limits"
 import { collectionPath, studyPath } from "@/lib/public-identifiers"
+import { scaleLabelsForPrompt } from "@/lib/study-presentation"
 
 /*
  * The step shell of a walkthrough. It opens at the step the router says the
@@ -552,6 +553,7 @@ const Question = ({
 
   const ready =
     step.responseKind === "text" ? text.trim().length > 0 : scale !== null
+  const scaleLabels = scaleLabelsForPrompt(step.prompt)
 
   return (
     <form
@@ -578,9 +580,13 @@ const Question = ({
         />
       ) : (
         <fieldset>
-          <legend className="sr-only">Your answer, from 1 to 5</legend>
+          <legend className="sr-only">
+            {`Your answer, from 1 (${scaleLabels.minimum}) to 5 (${scaleLabels.maximum})`}
+          </legend>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-muted-foreground">Lowest</span>
+            <span className="text-xs text-muted-foreground">
+              {scaleLabels.minimum}
+            </span>
             {SCALE.map((value) => (
               <label
                 key={value}
@@ -598,7 +604,9 @@ const Question = ({
                 {value}
               </label>
             ))}
-            <span className="text-xs text-muted-foreground">Highest</span>
+            <span className="text-xs text-muted-foreground">
+              {scaleLabels.maximum}
+            </span>
           </div>
         </fieldset>
       )}
@@ -619,8 +627,8 @@ const Finished = ({ study }: { study: Walkthrough["study"] }) => (
   <div className="space-y-4">
     <p className="text-muted-foreground">
       Thank you. Your work here is recorded with the study, and the steps above
-      stay open to read. The study page shows the agreed definition of each
-      term so far.
+      stay open to read. The study page shows the candidate with the greatest
+      site-wide support for each term.
     </p>
     <div className="flex flex-wrap gap-2">
       <Button asChild>
