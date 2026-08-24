@@ -17,6 +17,7 @@ import { useCreateComment } from "@/components/comments/use-create-comment"
 import { MessageSquareIcon } from "lucide-react"
 import { Card } from "../ui/card"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
+import type { MutationActivityCallbacks } from "@/components/use-mutation-activity"
 
 const commentSchema = z.object({
   message: z
@@ -33,14 +34,20 @@ export function TermCommentBox({
   id,
   revisionId,
   surveyStepId,
-  expectedInstructions
+  expectedInstructions,
+  disabled = false,
+  onMutationStart,
+  onMutationEnd
 }: {
   id: number
   revisionId: number
   // The review step of a walkthrough the comment is posted inside.
   surveyStepId?: number
   expectedInstructions?: string | null
-}) {
+  // A surrounding workflow can freeze this control while it completes the
+  // step, without unmounting an in-flight comment form.
+  disabled?: boolean
+} & MutationActivityCallbacks) {
   const form = useForm<z.infer<typeof commentSchema>>({
     resolver: zodResolver(commentSchema),
     defaultValues: {
@@ -52,15 +59,19 @@ export function TermCommentBox({
     definitionId: id,
     surveyStepId,
     expectedInstructions,
+    onMutationStart,
+    onMutationEnd,
     onPosted: () => form.reset()
   })
+  const postingDisabled = disabled || isPending
 
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit((data) =>
+        onSubmit={form.handleSubmit((data) => {
+          if (disabled) return
           mutate({ id, revisionId, comment: data.message })
-        )}
+        })}
         className="space-y-3"
       >
         <Card className="gap-3 p-4 shadow-none sm:p-5">
@@ -75,6 +86,7 @@ export function TermCommentBox({
                     placeholder="Add a comment"
                     className="min-h-28 resize-y bg-background"
                     maxLength={COMMENT_MAX_LENGTH}
+                    disabled={postingDisabled}
                     {...field}
                   />
                 </FormControl>
@@ -83,7 +95,7 @@ export function TermCommentBox({
             )}
           />
           <div className="flex justify-end">
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={postingDisabled}>
               <MessageSquareIcon aria-hidden />
               {isPending ? "Posting…" : "Post comment"}
             </Button>

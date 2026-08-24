@@ -37,11 +37,14 @@ also records the exact source revision and the contributor's critique. The
 suggestion is stored before the contributor reviews, edits, publishes, or
 discards it. Only publishing creates vocabulary content.
 
-An example is an immutable contribution to a stable definition and identifies
-the exact revision visible when it was added. A definition can have several
-examples. A featured-example selection records who made the selection and the
-interval during which it applied. Selection does not create a definition
-revision or change a vote.
+An application-created example is an immutable contribution to a stable
+definition and identifies the exact revision visible when it was added. A
+definition can have several examples. A featured-example selection records who
+made the selection and the interval during which it applied. Selection does
+not create a definition revision or change a vote. Examples recovered from the
+former scalar example field are marked as legacy; their exact source revision,
+actor, contribution time, selector, and selection time were not recorded and
+remain unknown in the provenance graph.
 
 Two kinds of imported record are marked as inferred rather than observed. A
 comment carried over from before revisions were recorded is associated with

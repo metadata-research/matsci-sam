@@ -28,6 +28,11 @@ import { Button } from "@/components/ui/button"
 import { PublicProfileName } from "@/components/public-profile-name"
 import styles from "./home.module.css"
 import { definitionPath } from "@/lib/public-identifiers"
+import {
+  acceptedAiSuggestionsForOutputs,
+  acceptedLegacyDiscussionSuggestionsForOutputs
+} from "@/lib/ai-contribution-provenance"
+import { resolveFeaturedActivity } from "@/lib/featured-provenance"
 
 const MILLISECONDS_PER_DAY = 86_400_000
 const FEATURED_SHOWCASE_SLUGS = ["fatigue", "martensite", "sintering"] as const
@@ -258,6 +263,10 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
   const sourceDate = featured.sourceCreatedAt ?? featured.createdAt
   const suggestionDate = featured.suggestedAt ?? featured.createdAt
   const acceptedDate = featured.decidedAt ?? featured.createdAt
+  const isAiAssisted =
+    featured.activityKind === "canonical-ai" ||
+    featured.activityKind === "legacy-ai"
+  const isAiRevision = isAiAssisted && featured.aiIntent !== "new_term"
 
   return (
     <article className={styles.featuredRecord}>
@@ -274,10 +283,10 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
           </div>
           <p>Featured record</p>
         </div>
-        {featured.refinedFromId && (
+        {isAiAssisted && (
           <span className={styles.aiMarker}>
             <SparklesIcon aria-hidden />
-            AI-assisted revision
+            {isAiRevision ? "AI-assisted revision" : "AI-assisted contribution"}
           </span>
         )}
       </div>
@@ -332,15 +341,19 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
         </div>
       </dl>
 
-      {featured.refinedFromId ? (
+      {isAiAssisted ? (
         <div className={styles.provenanceTrace}>
-          <h3>Revision activity</h3>
+          <h3>
+            {isAiRevision ? "Revision activity" : "Contribution activity"}
+          </h3>
           <ol>
-            <li>
-              <span className={styles.timelineMarker} aria-hidden />
-              <time dateTime={sourceDate}>{formatDate(sourceDate)}</time>
-              <span>Human draft contributed</span>
-            </li>
+            {isAiRevision && (
+              <li>
+                <span className={styles.timelineMarker} aria-hidden />
+                <time dateTime={sourceDate}>{formatDate(sourceDate)}</time>
+                <span>Source definition published</span>
+              </li>
+            )}
             <li>
               <span
                 className={`${styles.timelineMarker} ${styles.timelineMarkerAi}`}
@@ -352,8 +365,8 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
                 {formatDate(suggestionDate)}
               </time>
               <span>
-                {featured.model
-                  ? `${featured.model} generated a suggestion`
+                {featured.activityModel
+                  ? `${featured.activityModel} generated a suggestion`
                   : "The model generated a suggestion"}
               </span>
             </li>
@@ -363,7 +376,30 @@ function FeaturedRecord({ featured }: { featured: FeaturedDefinition }) {
                 aria-hidden
               />
               <time dateTime={acceptedDate}>{formatDate(acceptedDate)}</time>
-              <span>Author accepted the revision</span>
+              <span>
+                {isAiRevision
+                  ? "Contributor published the revision"
+                  : "Contributor published the definition"}
+              </span>
+            </li>
+          </ol>
+        </div>
+      ) : featured.refinedFromId ? (
+        <div className={styles.provenanceTrace}>
+          <h3>Revision activity</h3>
+          <ol>
+            <li>
+              <span className={styles.timelineMarker} aria-hidden />
+              <time dateTime={sourceDate}>{formatDate(sourceDate)}</time>
+              <span>Source definition published</span>
+            </li>
+            <li>
+              <span
+                className={`${styles.timelineMarker} ${styles.timelineMarkerAccepted}`}
+                aria-hidden
+              />
+              <time dateTime={acceptedDate}>{formatDate(acceptedDate)}</time>
+              <span>Contributor published a suggested revision</span>
             </li>
           </ol>
         </div>
@@ -427,7 +463,7 @@ function PersonalWorkSection({
                   <strong>{item.term}</strong>
                   <small>
                     {item.refinedFromId
-                      ? "AI-assisted revision"
+                      ? "Suggested revision"
                       : "Authored definition"}
                   </small>
                 </span>
@@ -438,17 +474,10 @@ function PersonalWorkSection({
                   <span aria-hidden>·</span>
                   {formatDate(item.lastEditedAt ?? item.createdAt)}
                 </span>
-                {item.suggestionReady ? (
-                  <span className={styles.suggestionReady}>
-                    <SparklesIcon aria-hidden />
-                    Suggestion ready
-                  </span>
-                ) : (
-                  <span className={styles.openDefinition}>
-                    Open
-                    <ArrowRightIcon aria-hidden />
-                  </span>
-                )}
+                <span className={styles.openDefinition}>
+                  Open
+                  <ArrowRightIcon aria-hidden />
+                </span>
               </Link>
             </li>
           ))}
@@ -552,13 +581,7 @@ async function getPersonalWork(userId: number) {
       refinedFromId: definitionsTable.refinedFromId,
       comments: sql<number>`cast(count(${commentsTable.id}) as int)`.mapWith(
         Number
-      ),
-      suggestionReady: sql<boolean>`exists (
-        select 1
-        from ${refinementsTable}
-        where ${refinementsTable.definitionId} = ${definitionsTable.id}
-          and ${refinementsTable.status} = 'suggested'
-      )`
+      )
     })
     .from(definitionsTable)
     .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
@@ -647,7 +670,6 @@ async function getFeaturedDefinition() {
         authorIsAi: usersTable.isAi,
         authorProfilePublic: usersTable.isProfilePublic,
         score: definitionsTable.score,
-        model: definitionsTable.model,
         refinedFromId: definitionsTable.refinedFromId,
         createdAt: definitionsTable.createdAt,
         updatedAt: definitionsTable.updatedAt,
@@ -677,33 +699,73 @@ async function getFeaturedDefinition() {
   const featured = preferred[0]
   if (!featured) return null
 
-  let sourceCreatedAt: string | null = null
-  let suggestedAt: string | null = null
-  let decidedAt: string | null = null
+  // Read publication provenance from exact foreign keys. A source definition
+  // can have many unrelated legacy refinement rounds, so "newest round on the
+  // source" is not evidence that a particular output accepted that round.
+  const [
+    canonicalSuggestions,
+    legacyDiscussionSuggestions,
+    outputRevision,
+    sourceDefinition
+  ] = await Promise.all([
+    acceptedAiSuggestionsForOutputs([featured.definitionId]),
+    acceptedLegacyDiscussionSuggestionsForOutputs([featured.definitionId]),
+    db.query.definitionRevisionsTable.findFirst({
+      columns: {
+        sourceRefinementId: true,
+        derivedFromRevisionId: true
+      },
+      where: and(
+        eq(definitionRevisionsTable.definitionId, featured.definitionId),
+        eq(definitionRevisionsTable.version, 1)
+      )
+    }),
+    featured.refinedFromId
+      ? db.query.definitionsTable.findFirst({
+          columns: { createdAt: true },
+          where: eq(definitionsTable.id, featured.refinedFromId)
+        })
+      : Promise.resolve(undefined)
+  ])
 
-  if (featured.refinedFromId) {
-    const [source, refinement] = await Promise.all([
-      db.query.definitionsTable.findFirst({
-        columns: { createdAt: true },
-        where: eq(definitionsTable.id, featured.refinedFromId)
-      }),
-      db.query.refinementsTable.findFirst({
-        columns: { suggestedAt: true, decidedAt: true },
-        where: eq(refinementsTable.definitionId, featured.refinedFromId),
-        orderBy: [desc(refinementsTable.round)]
-      })
-    ])
+  const canonicalSuggestion = canonicalSuggestions[0]
+  const legacyDiscussionSuggestion = legacyDiscussionSuggestions[0]
+  const [sourceRevision, legacyRefinement] = await Promise.all([
+    outputRevision?.derivedFromRevisionId
+      ? db.query.definitionRevisionsTable.findFirst({
+          columns: { createdAt: true },
+          where: eq(
+            definitionRevisionsTable.id,
+            outputRevision.derivedFromRevisionId
+          )
+        })
+      : Promise.resolve(undefined),
+    !canonicalSuggestion &&
+    !legacyDiscussionSuggestion &&
+    outputRevision?.sourceRefinementId
+      ? db.query.refinementsTable.findFirst({
+          columns: { suggestedAt: true, decidedAt: true, model: true },
+          where: and(
+            eq(refinementsTable.id, outputRevision.sourceRefinementId),
+            eq(refinementsTable.status, "accepted")
+          )
+        })
+      : Promise.resolve(undefined)
+  ])
 
-    sourceCreatedAt = source?.createdAt ?? null
-    suggestedAt = refinement?.suggestedAt ?? null
-    decidedAt = refinement?.decidedAt ?? null
-  }
+  const activity = resolveFeaturedActivity({
+    canonicalSuggestion,
+    legacyDiscussionSuggestion,
+    legacyRefinement,
+    refinedFromId: featured.refinedFromId,
+    createdAt: featured.createdAt
+  })
 
   return {
     ...featured,
     definitionCount: candidate.definitionCount,
-    sourceCreatedAt,
-    suggestedAt,
-    decidedAt
+    ...activity,
+    sourceCreatedAt:
+      sourceRevision?.createdAt ?? sourceDefinition?.createdAt ?? null
   }
 }

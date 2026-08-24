@@ -93,6 +93,29 @@ jobs:
         run: |
           pnpm test:examples-db
 
+      # Proves a lost discard response can be retried without changing the
+      # original decision time or exposing another contributor's preview.
+      - name: Test AI contribution discard retry
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:ai-contribution-discard-db
+
+      # Reconstructs the populated 0044 example tables in an isolated schema,
+      # applies the real 0045 SQL, verifies the provenance repair, and rolls
+      # the whole fixture back.
+      - name: Test populated example provenance upgrade
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:example-provenance-upgrade-db
+
+      - name: Test definition source lock
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:definition-source-lock
+
       # A migrated database holds no term, statement, vote or study, so the
       # graph steps below had nothing to check: the shapes saw no assertion,
       # vote event or study, and the paper queries answered no rows. The
@@ -323,6 +346,27 @@ jobs:
         run: |
           pnpm test:revisions
 
+      - name: Test Contribution Actions
+        run: |
+          pnpm test:contributions
+
+      # This one mounts the tRPC app router, and the AI-assist procedures
+      # resolve the system prompt at module load. Every other test here reads
+      # source as text, so the build was the only step that needed the key.
+      - name: Test Public Contribution Router
+        env:
+          SYSTEM_PROMPT_KEY: materials-reference
+        run: |
+          pnpm test:router-surface
+
+      - name: Test Definition UI Safety
+        run: |
+          pnpm test:definition-ui-safety
+
+      - name: Test Featured Provenance Routing
+        run: |
+          pnpm test:featured-provenance
+
       - name: Test Interface State
         run: |
           pnpm test:interface
@@ -359,6 +403,10 @@ jobs:
         run: |
           pnpm test:migration-journal
 
+      - name: Test Legacy Example Provenance Repair
+        run: |
+          pnpm test:example-provenance-migration
+
       - name: Check Migrations
         run: |
           pnpm db:check
@@ -366,6 +414,5 @@ jobs:
       - name: Build
         env:
           SYSTEM_PROMPT_KEY: materials-reference
-          REFINE_PROMPT_KEY: refine
         run: |
           pnpm build

@@ -59,9 +59,10 @@ export function RestoreRevisionButton({
             Restore revision {version}
           </DialogTitle>
           <DialogDescription>
-            Restoration does not erase later history. It copies this text and
-            example into a new current revision, with a fresh community vote
-            tally.
+            Restoration does not erase later history. It copies only this
+            definition text into a new current revision, with a fresh community
+            vote tally. Examples are separate contributions and remain
+            unchanged.
           </DialogDescription>
         </DialogHeader>
         <label className="space-y-2 text-sm font-medium">

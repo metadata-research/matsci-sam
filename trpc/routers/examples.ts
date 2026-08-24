@@ -23,7 +23,6 @@ import { createTRPCRouter, baseProcedure } from "../init"
 import { authenticatedProcedure, contributorProcedure } from "../procedures"
 import { revalidatePath } from "next/cache"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
-import { markGraphsDirty } from "@/lib/graph/projector"
 
 const definitionIdSchema = z.number().int().positive()
 
@@ -80,7 +79,6 @@ const revalidateExampleSurfaces = async (definitionId: number) => {
     definitionNumber: definition.definitionNumber,
     termId: definition.termId
   })
-  markGraphsDirty()
 }
 
 const readExampleItem = async (exampleId: number) => {

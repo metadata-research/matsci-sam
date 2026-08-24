@@ -19,7 +19,7 @@ export default function AdminPromptsPage() {
     <div className={styles.sectionStack}>
       <AdminPageHeader
         title="Prompt registry"
-        description="Inspect the versioned instructions available to the AI definition and refinement pipelines."
+        description="Inspect versioned instructions for current AI definition assistance and study tooling."
       />
       <AiSubnav />
       {rawOverride && (

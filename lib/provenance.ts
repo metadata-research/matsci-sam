@@ -2,7 +2,6 @@ import "server-only"
 
 import { createHash } from "node:crypto"
 import {
-  aiContributionSuggestionsTable,
   aiModelsTable,
   chatsTable,
   commentsTable,
@@ -11,14 +10,13 @@ import {
   definitionExampleSelectionsTable,
   definitionRevisionsTable,
   definitionsTable,
-  discussionSuggestionsTable,
   refinementsTable,
   termsTable,
   usersTable,
   voteEventsTable,
   votesTable
 } from "@yamz/db"
-import { and, asc, eq, getTableColumns, inArray, isNotNull } from "drizzle-orm"
+import { asc, eq, getTableColumns, inArray } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
   definitionUri,
@@ -27,6 +25,10 @@ import {
   termUri
 } from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
+import {
+  acceptedAiSuggestionsForOutputs,
+  acceptedLegacyDiscussionSuggestionsForOutputs
+} from "./ai-contribution-provenance"
 
 const exampleSelectedByUsers = alias(usersTable, "exampleSelectedByUsers")
 const exampleEndedByUsers = alias(usersTable, "exampleEndedByUsers")
@@ -80,20 +82,20 @@ export type ProvEvent = {
   id: string
   at: string
   kind:
-  | "term-created"
-  | "initial-message"
-  | "feedback"
-  | "ai-generation"
-  | "ai-revision"
-  | "definition-created"
-  | "definition-edited"
-  | "comment"
-  | "vote"
-  | "refine-requested"
-  | "refine-suggested"
-  | "refine-accepted"
-  | "refine-kept"
-  | "refine-failed"
+    | "term-created"
+    | "initial-message"
+    | "feedback"
+    | "ai-generation"
+    | "ai-revision"
+    | "definition-created"
+    | "definition-edited"
+    | "comment"
+    | "vote"
+    | "refine-requested"
+    | "refine-suggested"
+    | "refine-accepted"
+    | "refine-kept"
+    | "refine-failed"
   actor: string
   actorKind: "person" | "software" | "unknown"
   // The recorded three-way category of the act where the row carries one:
@@ -204,68 +206,68 @@ export const buildTermProvenance = async (
   ] = await Promise.all([
     definitionIds.length
       ? db
-        .select({
-          id: definitionRevisionsTable.id,
-          definitionId: definitionRevisionsTable.definitionId,
-          version: definitionRevisionsTable.version,
-          previousRevisionId: definitionRevisionsTable.previousRevisionId,
-          definitionDiff: definitionRevisionsTable.definitionDiff,
-          exampleDiff: definitionRevisionsTable.exampleDiff,
-          editorId: definitionRevisionsTable.editorId,
-          changeNote: definitionRevisionsTable.changeNote,
-          legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
-          source: definitionRevisionsTable.source,
-          model: definitionRevisionsTable.model,
-          prompt: definitionRevisionsTable.prompt,
-          derivedFromRevisionId:
-            definitionRevisionsTable.derivedFromRevisionId,
-          sourceRefinementId: definitionRevisionsTable.sourceRefinementId,
-          createdAt: definitionRevisionsTable.createdAt,
-          charsAdded: definitionRevisionsTable.charsAdded,
-          charsRemoved: definitionRevisionsTable.charsRemoved,
-          changeDelta: definitionRevisionsTable.changeDelta,
-          editor: {
-            id: usersTable.id,
-            name: usersTable.name,
-            isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
-          }
-        })
-        .from(definitionRevisionsTable)
-        .leftJoin(
-          usersTable,
-          eq(definitionRevisionsTable.editorId, usersTable.id)
-        )
-        .where(inArray(definitionRevisionsTable.definitionId, definitionIds))
-        .orderBy(
-          asc(definitionRevisionsTable.definitionId),
-          asc(definitionRevisionsTable.version)
-        )
+          .select({
+            id: definitionRevisionsTable.id,
+            definitionId: definitionRevisionsTable.definitionId,
+            version: definitionRevisionsTable.version,
+            previousRevisionId: definitionRevisionsTable.previousRevisionId,
+            definitionDiff: definitionRevisionsTable.definitionDiff,
+            exampleDiff: definitionRevisionsTable.exampleDiff,
+            editorId: definitionRevisionsTable.editorId,
+            changeNote: definitionRevisionsTable.changeNote,
+            legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
+            source: definitionRevisionsTable.source,
+            model: definitionRevisionsTable.model,
+            prompt: definitionRevisionsTable.prompt,
+            derivedFromRevisionId:
+              definitionRevisionsTable.derivedFromRevisionId,
+            sourceRefinementId: definitionRevisionsTable.sourceRefinementId,
+            createdAt: definitionRevisionsTable.createdAt,
+            charsAdded: definitionRevisionsTable.charsAdded,
+            charsRemoved: definitionRevisionsTable.charsRemoved,
+            changeDelta: definitionRevisionsTable.changeDelta,
+            editor: {
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            }
+          })
+          .from(definitionRevisionsTable)
+          .leftJoin(
+            usersTable,
+            eq(definitionRevisionsTable.editorId, usersTable.id)
+          )
+          .where(inArray(definitionRevisionsTable.definitionId, definitionIds))
+          .orderBy(
+            asc(definitionRevisionsTable.definitionId),
+            asc(definitionRevisionsTable.version)
+          )
       : Promise.resolve([]),
     definitionIds.length
       ? db
-        .select({
-          id: commentsTable.id,
-          definitionId: commentsTable.definitionId,
-          revisionId: commentsTable.revisionId,
-          message: commentsTable.message,
-          createdAt: commentsTable.createdAt,
-          migratedLegacy: commentsTable.migratedLegacy,
-          authorKind: commentsTable.authorKind,
-          promptKey: commentsTable.promptKey,
-          promptHash: commentsTable.promptHash,
-          model: commentsTable.model,
-          author: {
-            id: usersTable.id,
-            name: usersTable.name,
-            isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
-          }
-        })
-        .from(commentsTable)
-        .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
-        .where(inArray(commentsTable.definitionId, definitionIds))
-        .orderBy(asc(commentsTable.createdAt))
+          .select({
+            id: commentsTable.id,
+            definitionId: commentsTable.definitionId,
+            revisionId: commentsTable.revisionId,
+            message: commentsTable.message,
+            createdAt: commentsTable.createdAt,
+            migratedLegacy: commentsTable.migratedLegacy,
+            authorKind: commentsTable.authorKind,
+            promptKey: commentsTable.promptKey,
+            promptHash: commentsTable.promptHash,
+            model: commentsTable.model,
+            author: {
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            }
+          })
+          .from(commentsTable)
+          .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
+          .where(inArray(commentsTable.definitionId, definitionIds))
+          .orderBy(asc(commentsTable.createdAt))
       : Promise.resolve([]),
     db
       .select({
@@ -283,141 +285,90 @@ export const buildTermProvenance = async (
     // and nothing else: every voting act is in voteEvents.
     definitionIds.length
       ? db
-        .select({
-          revisionId: votesTable.revisionId,
-          kind: votesTable.kind
-        })
-        .from(votesTable)
-        .where(inArray(votesTable.definitionId, definitionIds))
+          .select({
+            revisionId: votesTable.revisionId,
+            kind: votesTable.kind
+          })
+          .from(votesTable)
+          .where(inArray(votesTable.definitionId, definitionIds))
       : Promise.resolve([]),
     definitionIds.length
       ? db
-        .select()
-        .from(refinementsTable)
-        .where(inArray(refinementsTable.definitionId, definitionIds))
-        .orderBy(
-          asc(refinementsTable.definitionId),
-          asc(refinementsTable.round)
-        )
-      : Promise.resolve([]),
-    definitionIds.length
-      ? db
-        .select({
-          ...getTableColumns(discussionSuggestionsTable),
-          requester: {
-            id: usersTable.id,
-            name: usersTable.name,
-            isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
-          }
-        })
-        .from(discussionSuggestionsTable)
-        .innerJoin(
-          usersTable,
-          eq(discussionSuggestionsTable.userId, usersTable.id)
-        )
-        .where(
-          and(
-            inArray(discussionSuggestionsTable.definitionId, definitionIds),
-            isNotNull(discussionSuggestionsTable.acceptedAt),
-            isNotNull(discussionSuggestionsTable.outputDefinitionId)
+          .select()
+          .from(refinementsTable)
+          .where(inArray(refinementsTable.definitionId, definitionIds))
+          .orderBy(
+            asc(refinementsTable.definitionId),
+            asc(refinementsTable.round)
           )
-        )
-        .orderBy(asc(discussionSuggestionsTable.createdAt))
+      : Promise.resolve([]),
+    acceptedLegacyDiscussionSuggestionsForOutputs(definitionIds),
+    acceptedAiSuggestionsForOutputs(definitionIds),
+    definitionIds.length
+      ? db
+          .select({
+            ...getTableColumns(definitionExamplesTable),
+            author: {
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            }
+          })
+          .from(definitionExamplesTable)
+          .leftJoin(
+            usersTable,
+            eq(definitionExamplesTable.authorId, usersTable.id)
+          )
+          .where(inArray(definitionExamplesTable.definitionId, definitionIds))
+          .orderBy(
+            asc(definitionExamplesTable.definitionId),
+            asc(definitionExamplesTable.exampleNumber)
+          )
       : Promise.resolve([]),
     definitionIds.length
       ? db
-        .select({
-          ...getTableColumns(aiContributionSuggestionsTable),
-          requester: {
-            id: usersTable.id,
-            name: usersTable.name,
-            isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
-          }
-        })
-        .from(aiContributionSuggestionsTable)
-        .innerJoin(
-          usersTable,
-          eq(aiContributionSuggestionsTable.requestedById, usersTable.id)
-        )
-        // An accepted suggestion belongs in the term document containing
-        // the stable definition it published. The output foreign key is the
-        // authoritative linkage for both New term and Suggest revision.
-        .where(
-          and(
-            eq(aiContributionSuggestionsTable.status, "accepted"),
-            isNotNull(aiContributionSuggestionsTable.outputDefinitionId),
+          .select({
+            ...getTableColumns(definitionExampleSelectionsTable),
+            selectedBy: {
+              id: exampleSelectedByUsers.id,
+              name: exampleSelectedByUsers.name,
+              isAi: exampleSelectedByUsers.isAi,
+              isProfilePublic: exampleSelectedByUsers.isProfilePublic
+            },
+            endedBy: {
+              id: exampleEndedByUsers.id,
+              name: exampleEndedByUsers.name,
+              isAi: exampleEndedByUsers.isAi,
+              isProfilePublic: exampleEndedByUsers.isProfilePublic
+            }
+          })
+          .from(definitionExampleSelectionsTable)
+          .leftJoin(
+            exampleSelectedByUsers,
+            eq(
+              definitionExampleSelectionsTable.selectedById,
+              exampleSelectedByUsers.id
+            )
+          )
+          .leftJoin(
+            exampleEndedByUsers,
+            eq(
+              definitionExampleSelectionsTable.endedById,
+              exampleEndedByUsers.id
+            )
+          )
+          .where(
             inArray(
-              aiContributionSuggestionsTable.outputDefinitionId,
+              definitionExampleSelectionsTable.definitionId,
               definitionIds
             )
           )
-        )
-        .orderBy(
-          asc(aiContributionSuggestionsTable.createdAt),
-          asc(aiContributionSuggestionsTable.id)
-        )
-      : Promise.resolve([]),
-    definitionIds.length
-      ? db
-        .select({
-          ...getTableColumns(definitionExamplesTable),
-          author: {
-            id: usersTable.id,
-            name: usersTable.name,
-            isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
-          }
-        })
-        .from(definitionExamplesTable)
-        .leftJoin(usersTable, eq(definitionExamplesTable.authorId, usersTable.id))
-        .where(inArray(definitionExamplesTable.definitionId, definitionIds))
-        .orderBy(
-          asc(definitionExamplesTable.definitionId),
-          asc(definitionExamplesTable.exampleNumber)
-        )
-      : Promise.resolve([]),
-    definitionIds.length
-      ? db
-        .select({
-          ...getTableColumns(definitionExampleSelectionsTable),
-          selectedBy: {
-            id: exampleSelectedByUsers.id,
-            name: exampleSelectedByUsers.name,
-            isAi: exampleSelectedByUsers.isAi,
-            isProfilePublic: exampleSelectedByUsers.isProfilePublic
-          },
-          endedBy: {
-            id: exampleEndedByUsers.id,
-            name: exampleEndedByUsers.name,
-            isAi: exampleEndedByUsers.isAi,
-            isProfilePublic: exampleEndedByUsers.isProfilePublic
-          }
-        })
-        .from(definitionExampleSelectionsTable)
-        .leftJoin(
-          exampleSelectedByUsers,
-          eq(
-            definitionExampleSelectionsTable.selectedById,
-            exampleSelectedByUsers.id
+          .orderBy(
+            asc(definitionExampleSelectionsTable.definitionId),
+            asc(definitionExampleSelectionsTable.selectedAt),
+            asc(definitionExampleSelectionsTable.id)
           )
-        )
-        .leftJoin(
-          exampleEndedByUsers,
-          eq(
-            definitionExampleSelectionsTable.endedById,
-            exampleEndedByUsers.id
-          )
-        )
-        .where(
-          inArray(definitionExampleSelectionsTable.definitionId, definitionIds)
-        )
-        .orderBy(
-          asc(definitionExampleSelectionsTable.definitionId),
-          asc(definitionExampleSelectionsTable.selectedAt),
-          asc(definitionExampleSelectionsTable.id)
-        )
       : Promise.resolve([])
   ])
 
@@ -427,27 +378,27 @@ export const buildTermProvenance = async (
   const voteEvents =
     definitionIds.length && includeVotes
       ? await db
-      .select({
-        id: voteEventsTable.id,
-        revisionId: voteEventsTable.revisionId,
-        definitionId: voteEventsTable.definitionId,
-        kind: voteEventsTable.kind,
-        actorKind: voteEventsTable.actorKind,
-        createdAt: voteEventsTable.createdAt,
-        backfilled: voteEventsTable.backfilled,
-        migratedLegacy: voteEventsTable.migratedLegacy,
-        author: {
-          id: usersTable.id,
-          name: usersTable.name,
-          isAi: usersTable.isAi,
-          isProfilePublic: usersTable.isProfilePublic
-        }
-      })
-      .from(voteEventsTable)
-      .innerJoin(usersTable, eq(voteEventsTable.userId, usersTable.id))
-      .where(inArray(voteEventsTable.definitionId, definitionIds))
-      .orderBy(asc(voteEventsTable.createdAt), asc(voteEventsTable.id))
-    : []
+          .select({
+            id: voteEventsTable.id,
+            revisionId: voteEventsTable.revisionId,
+            definitionId: voteEventsTable.definitionId,
+            kind: voteEventsTable.kind,
+            actorKind: voteEventsTable.actorKind,
+            createdAt: voteEventsTable.createdAt,
+            backfilled: voteEventsTable.backfilled,
+            migratedLegacy: voteEventsTable.migratedLegacy,
+            author: {
+              id: usersTable.id,
+              name: usersTable.name,
+              isAi: usersTable.isAi,
+              isProfilePublic: usersTable.isProfilePublic
+            }
+          })
+          .from(voteEventsTable)
+          .innerJoin(usersTable, eq(voteEventsTable.userId, usersTable.id))
+          .where(inArray(voteEventsTable.definitionId, definitionIds))
+          .orderBy(asc(voteEventsTable.createdAt), asc(voteEventsTable.id))
+      : []
 
   const nodes: ProvNode[] = []
   const edges: ProvEdge[] = []
@@ -607,7 +558,7 @@ export const buildTermProvenance = async (
     scoreByRevisionId.set(
       vote.revisionId,
       (scoreByRevisionId.get(vote.revisionId) ?? 0) +
-      (vote.kind === "up" ? 1 : -1)
+        (vote.kind === "up" ? 1 : -1)
     )
 
   // A chat row and a revision are linked only when their stored definition and
@@ -697,7 +648,8 @@ export const buildTermProvenance = async (
         meta.previousRevisionId = revision.previousRevisionId
       if (revision.derivedFromRevisionId !== null)
         meta.derivedFromRevisionId = revision.derivedFromRevisionId
-      if (revision.exampleDiff !== null) meta.example = diffToStringSimple(revision.exampleDiff)
+      if (revision.exampleDiff !== null)
+        meta.example = diffToStringSimple(revision.exampleDiff)
       if (revision.editorId !== null) meta.editorId = revision.editorId
       if (revision.editor?.name) meta.editor = revision.editor.name
       if (revision.changeNote !== null) meta.changeNote = revision.changeNote
@@ -719,12 +671,12 @@ export const buildTermProvenance = async (
           specializationOf: stableDefinitionUri,
           ...(previousRevision
             ? {
-              wasRevisionOf: revisionUri(
-                term.slug,
-                definition.definitionNumber,
-                previousRevision.version
-              )
-            }
+                wasRevisionOf: revisionUri(
+                  term.slug,
+                  definition.definitionNumber,
+                  previousRevision.version
+                )
+              }
             : {})
         },
         detail: diffToStringSimple(revision.definitionDiff),
@@ -765,17 +717,17 @@ export const buildTermProvenance = async (
           ? "Restore earlier revision"
           : revision.source === "ai_assisted"
             ? "Publish AI-assisted contribution"
-          : revision.source === "ai_refinement"
-            ? "Accept AI suggestion"
-            : revision.source === "ai_generation"
-              ? revision.version === 1
-                ? "Generate definition"
-                : "Regenerate definition"
-              : revision.source === "author_edit"
-                ? "Edit definition"
-                : revision.source === "legacy"
-                  ? "Imported historical revision"
-                  : "Write definition"
+            : revision.source === "ai_refinement"
+              ? "Accept AI suggestion"
+              : revision.source === "ai_generation"
+                ? revision.version === 1
+                  ? "Generate definition"
+                  : "Regenerate definition"
+                : revision.source === "author_edit"
+                  ? "Edit definition"
+                  : revision.source === "legacy"
+                    ? "Imported historical revision"
+                    : "Write definition"
 
       addNode({
         id: activityId,
@@ -789,10 +741,7 @@ export const buildTermProvenance = async (
       })
       addEdge(id, activityId, "wasGeneratedBy")
 
-      if (
-        revision.version === 1 &&
-        definition.replacesDefinitionId !== null
-      ) {
+      if (revision.version === 1 && definition.replacesDefinitionId !== null) {
         const replacementTarget = definitionById.get(
           definition.replacesDefinitionId
         )
@@ -807,11 +756,11 @@ export const buildTermProvenance = async (
       if (revision.editor) {
         const editorNode = revision.editor.isAi
           ? modelNode(
-            revision.model ??
-            revision.editor.name ??
-            `AI user ${revision.editor.id}`,
-            revision.editor.id
-          )
+              revision.model ??
+                revision.editor.name ??
+                `AI user ${revision.editor.id}`,
+              revision.editor.id
+            )
           : personNode(revision.editor)
         addEdge(activityId, editorNode, "wasAssociatedWith")
         addEdge(id, editorNode, "wasAttributedTo")
@@ -836,10 +785,10 @@ export const buildTermProvenance = async (
         const prompt =
           matchedChat?.promptHash && matchedChat.promptText === revision.prompt
             ? promptNode(
-              matchedChat.promptHash,
-              matchedChat.promptText,
-              matchedChat.promptKey
-            )
+                matchedChat.promptHash,
+                matchedChat.promptText,
+                matchedChat.promptKey
+              )
             : revisionPromptNode(revision)
         addEdge(activityId, prompt, "used")
       }
@@ -847,24 +796,24 @@ export const buildTermProvenance = async (
       const actor =
         revision.editor === null
           ? {
-            name: "unknown",
-            kind: "unknown" as const,
-            profileUserId: undefined
-          }
-          : revision.editor.isAi
-            ? {
-              name:
-                revision.model ??
-                revision.editor.name ??
-                `AI user ${revision.editor.id}`,
-              kind: "software" as const,
+              name: "unknown",
+              kind: "unknown" as const,
               profileUserId: undefined
             }
+          : revision.editor.isAi
+            ? {
+                name:
+                  revision.model ??
+                  revision.editor.name ??
+                  `AI user ${revision.editor.id}`,
+                kind: "software" as const,
+                profileUserId: undefined
+              }
             : {
-              name: revision.editor.name ?? `User ${revision.editor.id}`,
-              kind: "person" as const,
-              profileUserId: publicProfileUserId(revision.editor)
-            }
+                name: revision.editor.name ?? `User ${revision.editor.id}`,
+                kind: "person" as const,
+                profileUserId: publicProfileUserId(revision.editor)
+              }
 
       const isAiGeneration = revision.source === "ai_generation"
       const kind =
@@ -882,13 +831,13 @@ export const buildTermProvenance = async (
             ? `Earlier content restored as ${revisionCoordinate(revision)}`
             : revision.source === "ai_assisted"
               ? `${revisionLabel(revision)} published with AI assistance`
-            : revision.source === "ai_refinement"
-              ? `${revisionLabel(revision)} published with AI assistance`
-              : isAiGeneration
-                ? `${revisionLabel(revision)} generated by AI`
-                : revision.version === 1
-                  ? `${revisionLabel(revision)} written`
-                  : `${revisionLabel(revision)} revised`
+              : revision.source === "ai_refinement"
+                ? `${revisionLabel(revision)} published with AI assistance`
+                : isAiGeneration
+                  ? `${revisionLabel(revision)} generated by AI`
+                  : revision.version === 1
+                    ? `${revisionLabel(revision)} written`
+                    : `${revisionLabel(revision)} revised`
       const detail = revision.changeNote
         ? `${revision.changeNote}\n\n${excerpt(diffToStringSimple(revision.definitionDiff))}`
         : excerpt(diffToStringSimple(revision.definitionDiff))
@@ -927,16 +876,15 @@ export const buildTermProvenance = async (
     const sourceRevision = revisionById.get(example.sourceRevisionId)
     if (!definition || !sourceRevision) continue
 
-    const id = exampleNodeId(
-      definition.definitionNumber,
-      example.exampleNumber
-    )
+    const id = exampleNodeId(definition.definitionNumber, example.exampleNumber)
     const sourceVersion = revisionNodeId(
       sourceRevision.definitionId,
       sourceRevision.version
     )
     const activityId = `act_${id}`
+    const hasObservedOrigin = !example.legacyBackfill
     const hasGenerationStamp =
+      hasObservedOrigin &&
       example.promptHash !== null &&
       example.promptText !== null &&
       example.model !== null
@@ -947,38 +895,58 @@ export const buildTermProvenance = async (
       type: "entity",
       rdfBlankNode: `example_${blankNodeScope}_${definition.definitionNumber}_${example.exampleNumber}`,
       detail: example.text,
-      meta: {
-        definitionNumber: definition.definitionNumber,
-        exampleNumber: example.exampleNumber,
-        published: example.createdAt,
-        withdrawnAt: example.withdrawnAt,
-        actorKind: example.actorKind,
-        legacyBackfill: example.legacyBackfill ? "yes" : "no",
-        model: example.model
-      }
+      meta: hasObservedOrigin
+        ? {
+            definitionNumber: definition.definitionNumber,
+            exampleNumber: example.exampleNumber,
+            published: example.createdAt,
+            withdrawnAt: example.withdrawnAt,
+            actorKind: example.actorKind,
+            legacyBackfill: "no",
+            model: example.model
+          }
+        : {
+            definitionNumber: definition.definitionNumber,
+            exampleNumber: example.exampleNumber,
+            legacyBackfill: "yes",
+            origin:
+              "Imported legacy example; exact source, actor, and time were not recorded",
+            withdrawnAt: example.withdrawnAt
+          }
     })
     addNode({
       id: activityId,
-      label: hasGenerationStamp ? "Generate and publish example" : "Publish example",
+      label: example.legacyBackfill
+        ? "Import legacy example"
+        : hasGenerationStamp
+          ? "Generate and publish example"
+          : "Publish example",
       type: "activity",
       rdfBlankNode: `publishExample_${blankNodeScope}_${definition.definitionNumber}_${example.exampleNumber}`,
-      meta: {
-        at: example.createdAt,
-        actorKind: example.actorKind,
-        legacyBackfill: example.legacyBackfill ? "yes" : "no",
-        model: example.model
-      }
+      meta: hasObservedOrigin
+        ? {
+            at: example.createdAt,
+            actorKind: example.actorKind,
+            legacyBackfill: "no",
+            model: example.model
+          }
+        : {
+            legacyBackfill: "yes",
+            origin: "Legacy import; publication time was not recorded"
+          }
     })
     addEdge(id, activityId, "wasGeneratedBy")
-    addEdge(id, sourceVersion, "wasDerivedFrom")
-    addEdge(activityId, sourceVersion, "used")
+    if (hasObservedOrigin) {
+      addEdge(id, sourceVersion, "wasDerivedFrom")
+      addEdge(activityId, sourceVersion, "used")
+    }
     addEdge(
       activityId,
       stableDefinitionNodeId(definition.definitionNumber),
       "used"
     )
 
-    if (example.author) {
+    if (hasObservedOrigin && example.author) {
       const author = personNode(example.author)
       addEdge(id, author, "wasAttributedTo")
       addEdge(activityId, author, "wasAssociatedWith")
@@ -987,7 +955,9 @@ export const buildTermProvenance = async (
     if (hasGenerationStamp) {
       const model = modelNode(
         example.model!,
-        example.actorKind === "model" ? (example.author?.id ?? undefined) : undefined
+        example.actorKind === "model"
+          ? (example.author?.id ?? undefined)
+          : undefined
       )
       const prompt = promptNode(
         example.promptHash!,
@@ -1012,17 +982,26 @@ export const buildTermProvenance = async (
     const selectionCoordinate = `${blankNodeScope}_${definition.definitionNumber}_${index + 1}`
     const selectionActivityId = `act_feature_${selectionCoordinate}`
     const featuredStateId = `featured_${selectionCoordinate}`
+    const hasObservedSelection = !selection.legacyBackfill
 
     addNode({
       id: selectionActivityId,
-      label: `Feature example ${example.exampleNumber}`,
+      label: selection.legacyBackfill
+        ? `Import featured state for example ${example.exampleNumber}`
+        : `Feature example ${example.exampleNumber}`,
       type: "activity",
       rdfBlankNode: `featureExample_${selectionCoordinate}`,
-      meta: {
-        at: selection.selectedAt,
-        decision: "feature",
-        legacyBackfill: selection.legacyBackfill ? "yes" : "no"
-      }
+      meta: hasObservedSelection
+        ? {
+            at: selection.selectedAt,
+            decision: "feature",
+            legacyBackfill: "no"
+          }
+        : {
+            decision: "import legacy featured state",
+            legacyBackfill: "yes",
+            origin: "Selector and selection time were not recorded"
+          }
     })
     addEdge(selectionActivityId, exampleId, "used")
     addEdge(
@@ -1030,7 +1009,7 @@ export const buildTermProvenance = async (
       stableDefinitionNodeId(definition.definitionNumber),
       "used"
     )
-    if (selection.selectedBy)
+    if (hasObservedSelection && selection.selectedBy)
       addEdge(
         selectionActivityId,
         personNode(selection.selectedBy),
@@ -1042,14 +1021,23 @@ export const buildTermProvenance = async (
       label: `Featured example ${example.exampleNumber}`,
       type: "entity",
       rdfBlankNode: `featuredExample_${selectionCoordinate}`,
-      meta: {
-        definitionNumber: definition.definitionNumber,
-        exampleNumber: example.exampleNumber,
-        selectedAt: selection.selectedAt,
-        endedAt: selection.endedAt,
-        state: selection.endedAt === null ? "active" : "ended",
-        legacyBackfill: selection.legacyBackfill ? "yes" : "no"
-      }
+      meta: hasObservedSelection
+        ? {
+            definitionNumber: definition.definitionNumber,
+            exampleNumber: example.exampleNumber,
+            selectedAt: selection.selectedAt,
+            endedAt: selection.endedAt,
+            state: selection.endedAt === null ? "active" : "ended",
+            legacyBackfill: "no"
+          }
+        : {
+            definitionNumber: definition.definitionNumber,
+            exampleNumber: example.exampleNumber,
+            endedAt: selection.endedAt,
+            state: selection.endedAt === null ? "active" : "ended",
+            legacyBackfill: "yes",
+            origin: "Selection time was not recorded"
+          }
     })
     addEdge(featuredStateId, selectionActivityId, "wasGeneratedBy")
     addEdge(featuredStateId, exampleId, "wasDerivedFrom")
@@ -1111,11 +1099,11 @@ export const buildTermProvenance = async (
             chat.authorId === null
               ? undefined
               : publicProfileUserId({
-                id: chat.authorId,
-                name: chat.authorName,
-                isAi: chat.authorIsAi,
-                isProfilePublic: chat.authorProfilePublic
-              }),
+                  id: chat.authorId,
+                  name: chat.authorName,
+                  isAi: chat.authorIsAi,
+                  isProfilePublic: chat.authorProfilePublic
+                }),
           summary:
             index === 0 ? "Initial message submitted" : "Feedback for the AI",
           detail: excerpt(chat.message)
@@ -1133,7 +1121,7 @@ export const buildTermProvenance = async (
       id: activityId,
       label:
         matchedRevision?.version === 1 ||
-          (!matchedRevision && systemIndex === 1)
+        (!matchedRevision && systemIndex === 1)
           ? "Generate definition"
           : "Revise definition",
       type: "activity",
@@ -1422,8 +1410,7 @@ export const buildTermProvenance = async (
       addEdge(activityId, inputId, "used")
       if (suggestion.intent === "new_term")
         addEdge(inputId, requester, "wasAttributedTo")
-      else if (sourceVersion)
-        addEdge(inputId, sourceVersion, "wasDerivedFrom")
+      else if (sourceVersion) addEdge(inputId, sourceVersion, "wasDerivedFrom")
     }
 
     if (suggestion.feedback !== null) {
@@ -1468,8 +1455,7 @@ export const buildTermProvenance = async (
     })
     addEdge(suggestionId, activityId, "wasGeneratedBy")
     addEdge(suggestionId, model, "wasAttributedTo")
-    if (sourceVersion)
-      addEdge(suggestionId, sourceVersion, "wasDerivedFrom")
+    if (sourceVersion) addEdge(suggestionId, sourceVersion, "wasDerivedFrom")
 
     if (outputRevision && outputVersion) {
       addEdge(outputVersion, suggestionId, "wasDerivedFrom")
@@ -1485,8 +1471,7 @@ export const buildTermProvenance = async (
     events.push({
       id: requestId,
       at: suggestion.createdAt,
-      kind:
-        suggestion.intent === "new_term" ? "initial-message" : "feedback",
+      kind: suggestion.intent === "new_term" ? "initial-message" : "feedback",
       actor: requesterName,
       actorKind: requesterKind,
       profileUserId: publicProfileUserId(suggestion.requester),
@@ -1507,9 +1492,7 @@ export const buildTermProvenance = async (
       id: suggestionId,
       at: suggestion.createdAt,
       kind:
-        suggestion.intent === "new_term"
-          ? "ai-generation"
-          : "refine-suggested",
+        suggestion.intent === "new_term" ? "ai-generation" : "refine-suggested",
       actor: suggestion.model,
       actorKind: "software",
       summary:
@@ -1557,8 +1540,9 @@ export const buildTermProvenance = async (
     const feedbackId = `discussion_feedback_${suggestion.id}`
     addNode({
       id: feedbackId,
-      label: `Discussion feedback by ${suggestion.requester.name ?? `User ${suggestion.requester.id}`
-        }`,
+      label: `Discussion feedback by ${
+        suggestion.requester.name ?? `User ${suggestion.requester.id}`
+      }`,
       type: "entity",
       detail: suggestion.comment,
       meta: {
@@ -1724,7 +1708,11 @@ export const buildTermProvenance = async (
       ? revisionNodeId(revision.definitionId, revision.version)
       : null
     const verb =
-      act.kind === null ? "Vote withdrawn" : act.kind === "up" ? "Upvote" : "Downvote"
+      act.kind === null
+        ? "Vote withdrawn"
+        : act.kind === "up"
+          ? "Upvote"
+          : "Downvote"
     const voteMeta: Record<string, string | number | null> = {
       at: act.createdAt,
       revisionId: act.revisionId,
@@ -1757,8 +1745,9 @@ export const buildTermProvenance = async (
       summary:
         act.kind === null
           ? `Withdrew their vote on ${revision ? revisionCoordinate(revision) : "the definition"}`
-          : `${act.kind === "up" ? "Upvoted" : "Downvoted"} ${definition?.author?.isAi ? "AI-authored " : ""
-          }${revision ? revisionCoordinate(revision) : "definition"}`
+          : `${act.kind === "up" ? "Upvoted" : "Downvoted"} ${
+              definition?.author?.isAi ? "AI-authored " : ""
+            }${revision ? revisionCoordinate(revision) : "definition"}`
     })
   }
 

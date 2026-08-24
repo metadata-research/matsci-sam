@@ -1,0 +1,6285 @@
+{
+  "id": "2766ecb0-56b5-4a7b-a2bd-e60a5cc0854b",
+  "prevId": "f1f538ce-7e9a-4ee5-9231-88dddaf4d378",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.aiContributionSuggestions": {
+      "name": "aiContributionSuggestions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "aiContributionSuggestions_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "intent": {
+          "name": "intent",
+          "type": "ai_contribution_intent",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requestedById": {
+          "name": "requestedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "termText": {
+          "name": "termText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sourceRevisionId": {
+          "name": "sourceRevisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "feedback": {
+          "name": "feedback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inputDefinition": {
+          "name": "inputDefinition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "suggestedDefinition": {
+          "name": "suggestedDefinition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "ai_contribution_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'generated'"
+        },
+        "outputDefinitionId": {
+          "name": "outputDefinitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "decidedAt": {
+          "name": "decidedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "ai_contribution_suggestions_requester_created_idx": {
+          "name": "ai_contribution_suggestions_requester_created_idx",
+          "columns": [
+            {
+              "expression": "requestedById",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ai_contribution_suggestions_target_created_idx": {
+          "name": "ai_contribution_suggestions_target_created_idx",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ai_contribution_suggestions_source_revision_idx": {
+          "name": "ai_contribution_suggestions_source_revision_idx",
+          "columns": [
+            {
+              "expression": "sourceRevisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ai_contribution_suggestions_output_unique": {
+          "name": "ai_contribution_suggestions_output_unique",
+          "columns": [
+            {
+              "expression": "outputDefinitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"aiContributionSuggestions\".\"outputDefinitionId\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "aiContributionSuggestions_requestedById_users_id_fk": {
+          "name": "aiContributionSuggestions_requestedById_users_id_fk",
+          "tableFrom": "aiContributionSuggestions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "requestedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "aiContributionSuggestions_definitionId_definitions_id_fk": {
+          "name": "aiContributionSuggestions_definitionId_definitions_id_fk",
+          "tableFrom": "aiContributionSuggestions",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "aiContributionSuggestions_outputDefinitionId_definitions_id_fk": {
+          "name": "aiContributionSuggestions_outputDefinitionId_definitions_id_fk",
+          "tableFrom": "aiContributionSuggestions",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "outputDefinitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ai_contribution_suggestions_source_same_definition_fk": {
+          "name": "ai_contribution_suggestions_source_same_definition_fk",
+          "tableFrom": "aiContributionSuggestions",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "sourceRevisionId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ai_contribution_suggestions_intent_shape": {
+          "name": "ai_contribution_suggestions_intent_shape",
+          "value": "(\"aiContributionSuggestions\".\"intent\" = 'new_term'\n            AND \"aiContributionSuggestions\".\"definitionId\" IS NULL\n            AND \"aiContributionSuggestions\".\"sourceRevisionId\" IS NULL)\n          OR (\"aiContributionSuggestions\".\"intent\" = 'revise_definition'\n            AND \"aiContributionSuggestions\".\"definitionId\" IS NOT NULL\n            AND \"aiContributionSuggestions\".\"sourceRevisionId\" IS NOT NULL\n            AND \"aiContributionSuggestions\".\"feedback\" IS NOT NULL\n            AND btrim(\"aiContributionSuggestions\".\"feedback\") <> '')"
+        },
+        "ai_contribution_suggestions_decision_shape": {
+          "name": "ai_contribution_suggestions_decision_shape",
+          "value": "(\"aiContributionSuggestions\".\"status\" = 'generated'\n            AND \"aiContributionSuggestions\".\"outputDefinitionId\" IS NULL\n            AND \"aiContributionSuggestions\".\"decidedAt\" IS NULL)\n          OR (\"aiContributionSuggestions\".\"status\" = 'accepted'\n            AND \"aiContributionSuggestions\".\"outputDefinitionId\" IS NOT NULL\n            AND \"aiContributionSuggestions\".\"decidedAt\" IS NOT NULL)\n          OR (\"aiContributionSuggestions\".\"status\" = 'discarded'\n            AND \"aiContributionSuggestions\".\"outputDefinitionId\" IS NULL\n            AND \"aiContributionSuggestions\".\"decidedAt\" IS NOT NULL)"
+        },
+        "ai_contribution_suggestions_nonblank": {
+          "name": "ai_contribution_suggestions_nonblank",
+          "value": "btrim(\"aiContributionSuggestions\".\"termText\") <> ''\n          AND char_length(\"aiContributionSuggestions\".\"termText\") <= 200\n          AND btrim(\"aiContributionSuggestions\".\"suggestedDefinition\") <> ''\n          AND char_length(\"aiContributionSuggestions\".\"suggestedDefinition\") <= 10000\n          AND btrim(\"aiContributionSuggestions\".\"promptKey\") <> ''\n          AND btrim(\"aiContributionSuggestions\".\"promptHash\") <> ''\n          AND btrim(\"aiContributionSuggestions\".\"promptText\") <> ''\n          AND btrim(\"aiContributionSuggestions\".\"model\") <> ''\n          AND (\"aiContributionSuggestions\".\"feedback\" IS NULL\n            OR (btrim(\"aiContributionSuggestions\".\"feedback\") <> ''\n              AND char_length(\"aiContributionSuggestions\".\"feedback\") <= 4000))\n          AND (\"aiContributionSuggestions\".\"inputDefinition\" IS NULL\n            OR (btrim(\"aiContributionSuggestions\".\"inputDefinition\") <> ''\n              AND char_length(\"aiContributionSuggestions\".\"inputDefinition\") <= 10000))"
+        },
+        "ai_contribution_suggestions_decision_ordered": {
+          "name": "ai_contribution_suggestions_decision_ordered",
+          "value": "\"aiContributionSuggestions\".\"decidedAt\" IS NULL OR \"aiContributionSuggestions\".\"decidedAt\" >= \"aiContributionSuggestions\".\"createdAt\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.aiModels": {
+      "name": "aiModels",
+      "schema": "",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tag": {
+          "name": "tag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vendor": {
+          "name": "vendor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "family": {
+          "name": "family",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parameterSize": {
+          "name": "parameterSize",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retiredAt": {
+          "name": "retiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "aiModels_userId_users_id_fk": {
+          "name": "aiModels_userId_users_id_fk",
+          "tableFrom": "aiModels",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "aiModels_slug_unique": {
+          "name": "aiModels_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        },
+        "aiModels_tag_unique": {
+          "name": "aiModels_tag_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tag"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "ai_models_slug_shape": {
+          "name": "ai_models_slug_shape",
+          "value": "\"aiModels\".\"slug\" ~ '^[a-z0-9][a-z0-9_-]*$'"
+        },
+        "ai_models_nonblank": {
+          "name": "ai_models_nonblank",
+          "value": "btrim(\"aiModels\".\"tag\") <> '' AND btrim(\"aiModels\".\"vendor\") <> ''\n          AND (\"aiModels\".\"family\" IS NULL OR btrim(\"aiModels\".\"family\") <> '')\n          AND (\"aiModels\".\"parameterSize\" IS NULL OR btrim(\"aiModels\".\"parameterSize\") <> '')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.chats": {
+      "name": "chats",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "chats_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "termId": {
+          "name": "termId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "chat_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chats_termId_terms_id_fk": {
+          "name": "chats_termId_terms_id_fk",
+          "tableFrom": "chats",
+          "tableTo": "terms",
+          "columnsFrom": [
+            "termId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "chats_userId_users_id_fk": {
+          "name": "chats_userId_users_id_fk",
+          "tableFrom": "chats",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.definitionCoauthors": {
+      "name": "definitionCoauthors",
+      "schema": "",
+      "columns": {
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "definitionCoauthors_definitionId_definitions_id_fk": {
+          "name": "definitionCoauthors_definitionId_definitions_id_fk",
+          "tableFrom": "definitionCoauthors",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitionCoauthors_userId_users_id_fk": {
+          "name": "definitionCoauthors_userId_users_id_fk",
+          "tableFrom": "definitionCoauthors",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "definitionCoauthors_definitionId_userId_pk": {
+          "name": "definitionCoauthors_definitionId_userId_pk",
+          "columns": [
+            "definitionId",
+            "userId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.collections": {
+      "name": "collections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "collections_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assertableBy": {
+          "name": "assertableBy",
+          "type": "assertable_by",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'curator'"
+        },
+        "retiredAt": {
+          "name": "retiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdById": {
+          "name": "createdById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "collections_createdById_users_id_fk": {
+          "name": "collections_createdById_users_id_fk",
+          "tableFrom": "collections",
+          "tableTo": "users",
+          "columnsFrom": [
+            "createdById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "collections_slug_unique": {
+          "name": "collections_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "collections_slug_shape": {
+          "name": "collections_slug_shape",
+          "value": "\"collections\".\"slug\" ~ '^[a-z0-9][a-z0-9_-]*$'"
+        },
+        "collections_title_nonblank": {
+          "name": "collections_title_nonblank",
+          "value": "btrim(\"collections\".\"title\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.comments": {
+      "name": "comments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "comments_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revisionId": {
+          "name": "revisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authorKind": {
+          "name": "authorKind",
+          "type": "actor_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "surveyStepId": {
+          "name": "surveyStepId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "migratedLegacy": {
+          "name": "migratedLegacy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "comments_definition_created_idx": {
+          "name": "comments_definition_created_idx",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "comments_revision_idx": {
+          "name": "comments_revision_idx",
+          "columns": [
+            {
+              "expression": "revisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "comments_user_idx": {
+          "name": "comments_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "comments_survey_step_idx": {
+          "name": "comments_survey_step_idx",
+          "columns": [
+            {
+              "expression": "surveyStepId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "comments_definitionId_definitions_id_fk": {
+          "name": "comments_definitionId_definitions_id_fk",
+          "tableFrom": "comments",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "comments_userId_users_id_fk": {
+          "name": "comments_userId_users_id_fk",
+          "tableFrom": "comments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "comments_surveyStepId_surveySteps_id_fk": {
+          "name": "comments_surveyStepId_surveySteps_id_fk",
+          "tableFrom": "comments",
+          "tableTo": "surveySteps",
+          "columnsFrom": [
+            "surveyStepId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "comments_revision_same_definition_fk": {
+          "name": "comments_revision_same_definition_fk",
+          "tableFrom": "comments",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "revisionId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "comments_human_carries_no_stamp": {
+          "name": "comments_human_carries_no_stamp",
+          "value": "\"comments\".\"authorKind\" <> 'human'\n          OR (\"comments\".\"promptKey\" IS NULL AND \"comments\".\"promptHash\" IS NULL\n              AND \"comments\".\"promptText\" IS NULL AND \"comments\".\"model\" IS NULL)"
+        },
+        "comments_stamp_pair": {
+          "name": "comments_stamp_pair",
+          "value": "(\"comments\".\"promptHash\" IS NULL) = (\"comments\".\"promptText\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.communities": {
+      "name": "communities",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "communities_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retiredAt": {
+          "name": "retiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "joinToken": {
+          "name": "joinToken",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdById": {
+          "name": "createdById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "communities_createdById_users_id_fk": {
+          "name": "communities_createdById_users_id_fk",
+          "tableFrom": "communities",
+          "tableTo": "users",
+          "columnsFrom": [
+            "createdById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "communities_slug_unique": {
+          "name": "communities_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        },
+        "communities_joinToken_unique": {
+          "name": "communities_joinToken_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "joinToken"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "communities_slug_shape": {
+          "name": "communities_slug_shape",
+          "value": "\"communities\".\"slug\" ~ '^[a-z0-9][a-z0-9_-]*$'"
+        },
+        "communities_title_nonblank": {
+          "name": "communities_title_nonblank",
+          "value": "btrim(\"communities\".\"title\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.communityCollections": {
+      "name": "communityCollections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "communityCollections_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "communityId": {
+          "name": "communityId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "collectionId": {
+          "name": "collectionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "addedById": {
+          "name": "addedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "addedAt": {
+          "name": "addedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "removedAt": {
+          "name": "removedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "removedById": {
+          "name": "removedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "community_collections_active_unique": {
+          "name": "community_collections_active_unique",
+          "columns": [
+            {
+              "expression": "communityId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "collectionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"communityCollections\".\"removedAt\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "community_collections_collection_idx": {
+          "name": "community_collections_collection_idx",
+          "columns": [
+            {
+              "expression": "collectionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "communityCollections_communityId_communities_id_fk": {
+          "name": "communityCollections_communityId_communities_id_fk",
+          "tableFrom": "communityCollections",
+          "tableTo": "communities",
+          "columnsFrom": [
+            "communityId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityCollections_collectionId_collections_id_fk": {
+          "name": "communityCollections_collectionId_collections_id_fk",
+          "tableFrom": "communityCollections",
+          "tableTo": "collections",
+          "columnsFrom": [
+            "collectionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityCollections_addedById_users_id_fk": {
+          "name": "communityCollections_addedById_users_id_fk",
+          "tableFrom": "communityCollections",
+          "tableTo": "users",
+          "columnsFrom": [
+            "addedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityCollections_removedById_users_id_fk": {
+          "name": "communityCollections_removedById_users_id_fk",
+          "tableFrom": "communityCollections",
+          "tableTo": "users",
+          "columnsFrom": [
+            "removedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "community_collections_removal_pair": {
+          "name": "community_collections_removal_pair",
+          "value": "(\"communityCollections\".\"removedAt\" IS NULL) = (\"communityCollections\".\"removedById\" IS NULL)"
+        },
+        "community_collections_removed_after_added": {
+          "name": "community_collections_removed_after_added",
+          "value": "\"communityCollections\".\"removedAt\" IS NULL OR \"communityCollections\".\"removedAt\" >= \"communityCollections\".\"addedAt\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.communityInvitations": {
+      "name": "communityInvitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "communityInvitations_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "communityId": {
+          "name": "communityId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "studyId": {
+          "name": "studyId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tokenHash": {
+          "name": "tokenHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invitedById": {
+          "name": "invitedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sentAt": {
+          "name": "sentAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revokedAt": {
+          "name": "revokedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revokedById": {
+          "name": "revokedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "redeemedAt": {
+          "name": "redeemedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "redeemedById": {
+          "name": "redeemedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "community_invitations_community_idx": {
+          "name": "community_invitations_community_idx",
+          "columns": [
+            {
+              "expression": "communityId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "communityInvitations_communityId_communities_id_fk": {
+          "name": "communityInvitations_communityId_communities_id_fk",
+          "tableFrom": "communityInvitations",
+          "tableTo": "communities",
+          "columnsFrom": [
+            "communityId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityInvitations_studyId_studies_id_fk": {
+          "name": "communityInvitations_studyId_studies_id_fk",
+          "tableFrom": "communityInvitations",
+          "tableTo": "studies",
+          "columnsFrom": [
+            "studyId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityInvitations_invitedById_users_id_fk": {
+          "name": "communityInvitations_invitedById_users_id_fk",
+          "tableFrom": "communityInvitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "invitedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityInvitations_revokedById_users_id_fk": {
+          "name": "communityInvitations_revokedById_users_id_fk",
+          "tableFrom": "communityInvitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "revokedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityInvitations_redeemedById_users_id_fk": {
+          "name": "communityInvitations_redeemedById_users_id_fk",
+          "tableFrom": "communityInvitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "redeemedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "communityInvitations_tokenHash_unique": {
+          "name": "communityInvitations_tokenHash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tokenHash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "community_invitations_revocation_pair": {
+          "name": "community_invitations_revocation_pair",
+          "value": "(\"communityInvitations\".\"revokedAt\" IS NULL) = (\"communityInvitations\".\"revokedById\" IS NULL)"
+        },
+        "community_invitations_redemption_pair": {
+          "name": "community_invitations_redemption_pair",
+          "value": "(\"communityInvitations\".\"redeemedAt\" IS NULL) = (\"communityInvitations\".\"redeemedById\" IS NULL)"
+        },
+        "community_invitations_one_outcome": {
+          "name": "community_invitations_one_outcome",
+          "value": "\"communityInvitations\".\"revokedAt\" IS NULL OR \"communityInvitations\".\"redeemedAt\" IS NULL"
+        },
+        "community_invitations_expires_after_created": {
+          "name": "community_invitations_expires_after_created",
+          "value": "\"communityInvitations\".\"expiresAt\" > \"communityInvitations\".\"createdAt\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.communityMembers": {
+      "name": "communityMembers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "communityMembers_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "communityId": {
+          "name": "communityId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "community_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
+        },
+        "addedById": {
+          "name": "addedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "addedAt": {
+          "name": "addedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "removedAt": {
+          "name": "removedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "removedById": {
+          "name": "removedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "community_members_active_unique": {
+          "name": "community_members_active_unique",
+          "columns": [
+            {
+              "expression": "communityId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"communityMembers\".\"removedAt\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "community_members_user_idx": {
+          "name": "community_members_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "communityMembers_communityId_communities_id_fk": {
+          "name": "communityMembers_communityId_communities_id_fk",
+          "tableFrom": "communityMembers",
+          "tableTo": "communities",
+          "columnsFrom": [
+            "communityId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityMembers_userId_users_id_fk": {
+          "name": "communityMembers_userId_users_id_fk",
+          "tableFrom": "communityMembers",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityMembers_addedById_users_id_fk": {
+          "name": "communityMembers_addedById_users_id_fk",
+          "tableFrom": "communityMembers",
+          "tableTo": "users",
+          "columnsFrom": [
+            "addedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "communityMembers_removedById_users_id_fk": {
+          "name": "communityMembers_removedById_users_id_fk",
+          "tableFrom": "communityMembers",
+          "tableTo": "users",
+          "columnsFrom": [
+            "removedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "community_members_removal_pair": {
+          "name": "community_members_removal_pair",
+          "value": "(\"communityMembers\".\"removedAt\" IS NULL) = (\"communityMembers\".\"removedById\" IS NULL)"
+        },
+        "community_members_removed_after_added": {
+          "name": "community_members_removed_after_added",
+          "value": "\"communityMembers\".\"removedAt\" IS NULL OR \"communityMembers\".\"removedAt\" >= \"communityMembers\".\"addedAt\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.conceptSchemes": {
+      "name": "conceptSchemes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "conceptSchemes_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attachesAt": {
+          "name": "attachesAt",
+          "type": "scheme_attaches_at",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'definition'"
+        },
+        "assertableBy": {
+          "name": "assertableBy",
+          "type": "assertable_by",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'contributor'"
+        },
+        "bridgeable": {
+          "name": "bridgeable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "conceptOrder": {
+          "name": "conceptOrder",
+          "type": "concept_order",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'label'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "conceptSchemes_slug_unique": {
+          "name": "conceptSchemes_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "concept_schemes_slug_shape": {
+          "name": "concept_schemes_slug_shape",
+          "value": "\"conceptSchemes\".\"slug\" ~ '^[a-z0-9][a-z0-9_-]*$' AND \"conceptSchemes\".\"slug\" !~ '^[0-9]+$'"
+        },
+        "concept_schemes_title_nonblank": {
+          "name": "concept_schemes_title_nonblank",
+          "value": "btrim(\"conceptSchemes\".\"title\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.concepts": {
+      "name": "concepts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "concepts_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "schemeId": {
+          "name": "schemeId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prefLabel": {
+          "name": "prefLabel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "altLabels": {
+          "name": "altLabels",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "definition": {
+          "name": "definition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scopeNote": {
+          "name": "scopeNote",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "concept_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'approved'"
+        },
+        "replacedById": {
+          "name": "replacedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legacyTagId": {
+          "name": "legacyTagId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdById": {
+          "name": "createdById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "concepts_scheme_label_unique": {
+          "name": "concepts_scheme_label_unique",
+          "columns": [
+            {
+              "expression": "schemeId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lower(btrim(\"prefLabel\"))",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"concepts\".\"status\" <> 'retired'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "concepts_legacy_tag_unique": {
+          "name": "concepts_legacy_tag_unique",
+          "columns": [
+            {
+              "expression": "legacyTagId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"concepts\".\"legacyTagId\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "concepts_schemeId_conceptSchemes_id_fk": {
+          "name": "concepts_schemeId_conceptSchemes_id_fk",
+          "tableFrom": "concepts",
+          "tableTo": "conceptSchemes",
+          "columnsFrom": [
+            "schemeId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "concepts_replacedById_concepts_id_fk": {
+          "name": "concepts_replacedById_concepts_id_fk",
+          "tableFrom": "concepts",
+          "tableTo": "concepts",
+          "columnsFrom": [
+            "replacedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "concepts_createdById_users_id_fk": {
+          "name": "concepts_createdById_users_id_fk",
+          "tableFrom": "concepts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "createdById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "concepts_scheme_slug_unique": {
+          "name": "concepts_scheme_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "schemeId",
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "concepts_slug_shape": {
+          "name": "concepts_slug_shape",
+          "value": "\"concepts\".\"slug\" ~ '^[a-z0-9][a-z0-9_-]*$'"
+        },
+        "concepts_label_nonblank": {
+          "name": "concepts_label_nonblank",
+          "value": "btrim(\"concepts\".\"prefLabel\") <> ''"
+        },
+        "concepts_replaced_only_when_retired": {
+          "name": "concepts_replaced_only_when_retired",
+          "value": "\"concepts\".\"replacedById\" IS NULL OR \"concepts\".\"status\" = 'retired'"
+        },
+        "concepts_not_self_replaced": {
+          "name": "concepts_not_self_replaced",
+          "value": "\"concepts\".\"replacedById\" IS NULL OR \"concepts\".\"replacedById\" <> \"concepts\".\"id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.definitionExampleSelections": {
+      "name": "definitionExampleSelections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "definitionExampleSelections_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "exampleId": {
+          "name": "exampleId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "selectedById": {
+          "name": "selectedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selectedAt": {
+          "name": "selectedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "endedAt": {
+          "name": "endedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "endedById": {
+          "name": "endedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legacyBackfill": {
+          "name": "legacyBackfill",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "definition_example_selections_one_active": {
+          "name": "definition_example_selections_one_active",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"definitionExampleSelections\".\"endedAt\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_example_selections_definition_history_idx": {
+          "name": "definition_example_selections_definition_history_idx",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "selectedAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_example_selections_example_idx": {
+          "name": "definition_example_selections_example_idx",
+          "columns": [
+            {
+              "expression": "exampleId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_example_selections_selected_by_idx": {
+          "name": "definition_example_selections_selected_by_idx",
+          "columns": [
+            {
+              "expression": "selectedById",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_example_selections_ended_by_idx": {
+          "name": "definition_example_selections_ended_by_idx",
+          "columns": [
+            {
+              "expression": "endedById",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "definitionExampleSelections_definitionId_definitions_id_fk": {
+          "name": "definitionExampleSelections_definitionId_definitions_id_fk",
+          "tableFrom": "definitionExampleSelections",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitionExampleSelections_exampleId_definitionExamples_id_fk": {
+          "name": "definitionExampleSelections_exampleId_definitionExamples_id_fk",
+          "tableFrom": "definitionExampleSelections",
+          "tableTo": "definitionExamples",
+          "columnsFrom": [
+            "exampleId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitionExampleSelections_selectedById_users_id_fk": {
+          "name": "definitionExampleSelections_selectedById_users_id_fk",
+          "tableFrom": "definitionExampleSelections",
+          "tableTo": "users",
+          "columnsFrom": [
+            "selectedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitionExampleSelections_endedById_users_id_fk": {
+          "name": "definitionExampleSelections_endedById_users_id_fk",
+          "tableFrom": "definitionExampleSelections",
+          "tableTo": "users",
+          "columnsFrom": [
+            "endedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definition_example_selections_same_definition_fk": {
+          "name": "definition_example_selections_same_definition_fk",
+          "tableFrom": "definitionExampleSelections",
+          "tableTo": "definitionExamples",
+          "columnsFrom": [
+            "exampleId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "definition_example_selections_actor_or_legacy": {
+          "name": "definition_example_selections_actor_or_legacy",
+          "value": "(\"definitionExampleSelections\".\"legacyBackfill\" AND \"definitionExampleSelections\".\"selectedById\" IS NULL)\n          OR (NOT \"definitionExampleSelections\".\"legacyBackfill\" AND \"definitionExampleSelections\".\"selectedById\" IS NOT NULL)"
+        },
+        "definition_example_selections_end_pair": {
+          "name": "definition_example_selections_end_pair",
+          "value": "(\"definitionExampleSelections\".\"endedAt\" IS NULL AND \"definitionExampleSelections\".\"endedById\" IS NULL)\n          OR (\"definitionExampleSelections\".\"endedAt\" IS NOT NULL AND \"definitionExampleSelections\".\"endedById\" IS NOT NULL)"
+        },
+        "definition_example_selections_end_ordered": {
+          "name": "definition_example_selections_end_ordered",
+          "value": "\"definitionExampleSelections\".\"endedAt\" IS NULL OR \"definitionExampleSelections\".\"endedAt\" >= \"definitionExampleSelections\".\"selectedAt\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.definitionExamples": {
+      "name": "definitionExamples",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "definitionExamples_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "exampleNumber": {
+          "name": "exampleNumber",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sourceRevisionId": {
+          "name": "sourceRevisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authorId": {
+          "name": "authorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actorKind": {
+          "name": "actorKind",
+          "type": "actor_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "withdrawnAt": {
+          "name": "withdrawnAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legacyBackfill": {
+          "name": "legacyBackfill",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "definition_examples_definition_number_unique": {
+          "name": "definition_examples_definition_number_unique",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "exampleNumber",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_examples_id_definition_unique": {
+          "name": "definition_examples_id_definition_unique",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_examples_definition_active_idx": {
+          "name": "definition_examples_definition_active_idx",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "withdrawnAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "exampleNumber",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_examples_source_revision_idx": {
+          "name": "definition_examples_source_revision_idx",
+          "columns": [
+            {
+              "expression": "sourceRevisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_examples_author_idx": {
+          "name": "definition_examples_author_idx",
+          "columns": [
+            {
+              "expression": "authorId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "definitionExamples_definitionId_definitions_id_fk": {
+          "name": "definitionExamples_definitionId_definitions_id_fk",
+          "tableFrom": "definitionExamples",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitionExamples_authorId_users_id_fk": {
+          "name": "definitionExamples_authorId_users_id_fk",
+          "tableFrom": "definitionExamples",
+          "tableTo": "users",
+          "columnsFrom": [
+            "authorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definition_examples_source_same_definition_fk": {
+          "name": "definition_examples_source_same_definition_fk",
+          "tableFrom": "definitionExamples",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "sourceRevisionId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "definition_examples_number_positive": {
+          "name": "definition_examples_number_positive",
+          "value": "\"definitionExamples\".\"exampleNumber\" > 0"
+        },
+        "definition_examples_text_content": {
+          "name": "definition_examples_text_content",
+          "value": "btrim(\"definitionExamples\".\"text\") <> '' AND char_length(\"definitionExamples\".\"text\") <= 5000"
+        },
+        "definition_examples_attribution_complete_or_legacy": {
+          "name": "definition_examples_attribution_complete_or_legacy",
+          "value": "(\"definitionExamples\".\"legacyBackfill\"\n            AND \"definitionExamples\".\"authorId\" IS NULL\n            AND \"definitionExamples\".\"actorKind\" IS NULL)\n          OR (NOT \"definitionExamples\".\"legacyBackfill\"\n            AND \"definitionExamples\".\"authorId\" IS NOT NULL\n            AND \"definitionExamples\".\"actorKind\" IS NOT NULL)"
+        },
+        "definition_examples_generation_stamp": {
+          "name": "definition_examples_generation_stamp",
+          "value": "(\"definitionExamples\".\"promptHash\" IS NULL\n            AND \"definitionExamples\".\"promptText\" IS NULL\n            AND \"definitionExamples\".\"model\" IS NULL\n            AND \"definitionExamples\".\"promptKey\" IS NULL)\n          OR (\"definitionExamples\".\"promptHash\" IS NOT NULL\n            AND \"definitionExamples\".\"promptText\" IS NOT NULL\n            AND \"definitionExamples\".\"model\" IS NOT NULL\n            AND btrim(\"definitionExamples\".\"promptHash\") <> ''\n            AND btrim(\"definitionExamples\".\"promptText\") <> ''\n            AND btrim(\"definitionExamples\".\"model\") <> ''\n            AND (\"definitionExamples\".\"promptKey\" IS NULL OR btrim(\"definitionExamples\".\"promptKey\") <> ''))"
+        },
+        "definition_examples_withdrawal_ordered": {
+          "name": "definition_examples_withdrawal_ordered",
+          "value": "\"definitionExamples\".\"withdrawnAt\" IS NULL OR \"definitionExamples\".\"withdrawnAt\" >= \"definitionExamples\".\"createdAt\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.definitionRevisions": {
+      "name": "definitionRevisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "definitionRevisions_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previousRevisionId": {
+          "name": "previousRevisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "definitionDiff": {
+          "name": "definitionDiff",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "exampleDiff": {
+          "name": "exampleDiff",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "editorId": {
+          "name": "editorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changeNote": {
+          "name": "changeNote",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legacyIncomplete": {
+          "name": "legacyIncomplete",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "source": {
+          "name": "source",
+          "type": "definition_revision_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "derivedFromRevisionId": {
+          "name": "derivedFromRevisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sourceRefinementId": {
+          "name": "sourceRefinementId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "surveyStepId": {
+          "name": "surveyStepId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "charsAdded": {
+          "name": "charsAdded",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "charsRemoved": {
+          "name": "charsRemoved",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "changeDelta": {
+          "name": "changeDelta",
+          "type": "numeric(4, 3)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "definition_revisions_definition_version_unique": {
+          "name": "definition_revisions_definition_version_unique",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_revisions_id_definition_unique": {
+          "name": "definition_revisions_id_definition_unique",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_revisions_previous_unique": {
+          "name": "definition_revisions_previous_unique",
+          "columns": [
+            {
+              "expression": "previousRevisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"definitionRevisions\".\"previousRevisionId\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_revisions_source_refinement_unique": {
+          "name": "definition_revisions_source_refinement_unique",
+          "columns": [
+            {
+              "expression": "sourceRefinementId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"definitionRevisions\".\"sourceRefinementId\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_revisions_editor_idx": {
+          "name": "definition_revisions_editor_idx",
+          "columns": [
+            {
+              "expression": "editorId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_revisions_derived_from_idx": {
+          "name": "definition_revisions_derived_from_idx",
+          "columns": [
+            {
+              "expression": "derivedFromRevisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_revisions_survey_step_idx": {
+          "name": "definition_revisions_survey_step_idx",
+          "columns": [
+            {
+              "expression": "surveyStepId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "definitionRevisions_definitionId_definitions_id_fk": {
+          "name": "definitionRevisions_definitionId_definitions_id_fk",
+          "tableFrom": "definitionRevisions",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitionRevisions_editorId_users_id_fk": {
+          "name": "definitionRevisions_editorId_users_id_fk",
+          "tableFrom": "definitionRevisions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "editorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitionRevisions_sourceRefinementId_definitionRefinements_id_fk": {
+          "name": "definitionRevisions_sourceRefinementId_definitionRefinements_id_fk",
+          "tableFrom": "definitionRevisions",
+          "tableTo": "definitionRefinements",
+          "columnsFrom": [
+            "sourceRefinementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitionRevisions_surveyStepId_surveySteps_id_fk": {
+          "name": "definitionRevisions_surveyStepId_surveySteps_id_fk",
+          "tableFrom": "definitionRevisions",
+          "tableTo": "surveySteps",
+          "columnsFrom": [
+            "surveyStepId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definition_revisions_previous_same_definition_fk": {
+          "name": "definition_revisions_previous_same_definition_fk",
+          "tableFrom": "definitionRevisions",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "previousRevisionId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definition_revisions_derived_from_fk": {
+          "name": "definition_revisions_derived_from_fk",
+          "tableFrom": "definitionRevisions",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "derivedFromRevisionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "definition_revisions_version_positive": {
+          "name": "definition_revisions_version_positive",
+          "value": "\"definitionRevisions\".\"version\" > 0"
+        },
+        "definition_revisions_predecessor_shape": {
+          "name": "definition_revisions_predecessor_shape",
+          "value": "(\"definitionRevisions\".\"version\" = 1 AND \"definitionRevisions\".\"previousRevisionId\" IS NULL)\n          OR (\"definitionRevisions\".\"version\" > 1 AND \"definitionRevisions\".\"previousRevisionId\" IS NOT NULL)"
+        },
+        "definition_revisions_nonblank_definition": {
+          "name": "definition_revisions_nonblank_definition",
+          "value": "jsonb_typeof(\"definitionRevisions\".\"definitionDiff\") = 'array'\n          AND jsonb_array_length(\"definitionRevisions\".\"definitionDiff\") > 0"
+        },
+        "definition_revisions_complete_or_legacy": {
+          "name": "definition_revisions_complete_or_legacy",
+          "value": "\"definitionRevisions\".\"legacyIncomplete\"\n          OR (\"definitionRevisions\".\"exampleDiff\" IS NOT NULL\n              AND \"definitionRevisions\".\"editorId\" IS NOT NULL\n              AND \"definitionRevisions\".\"changeNote\" IS NOT NULL)"
+        },
+        "definition_revisions_nonblank_optional_text": {
+          "name": "definition_revisions_nonblank_optional_text",
+          "value": "(\"definitionRevisions\".\"exampleDiff\" IS NULL\n          OR (jsonb_typeof(\"definitionRevisions\".\"exampleDiff\") = 'array'\n              AND jsonb_array_length(\"definitionRevisions\".\"exampleDiff\") > 0))\n          AND (\"definitionRevisions\".\"changeNote\" IS NULL OR btrim(\"definitionRevisions\".\"changeNote\") <> '')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.definitions": {
+      "name": "definitions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "definitions_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "termId": {
+          "name": "termId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "definitionNumber": {
+          "name": "definitionNumber",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authorId": {
+          "name": "authorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "definition": {
+          "name": "definition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "example": {
+          "name": "example",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refinedFromId": {
+          "name": "refinedFromId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "replacesDefinitionId": {
+          "name": "replacesDefinitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdVia": {
+          "name": "createdVia",
+          "type": "definition_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'classic'"
+        },
+        "currentRevisionId": {
+          "name": "currentRevisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nextExampleNumber": {
+          "name": "nextExampleNumber",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "score": {
+          "name": "score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "definitions_author_idx": {
+          "name": "definitions_author_idx",
+          "columns": [
+            {
+              "expression": "authorId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definitions_author_term_original_unique": {
+          "name": "definitions_author_term_original_unique",
+          "columns": [
+            {
+              "expression": "authorId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "termId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"definitions\".\"refinedFromId\" IS NULL AND \"definitions\".\"replacesDefinitionId\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definitions_current_revision_idx": {
+          "name": "definitions_current_revision_idx",
+          "columns": [
+            {
+              "expression": "currentRevisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definitions_replaces_definition_idx": {
+          "name": "definitions_replaces_definition_idx",
+          "columns": [
+            {
+              "expression": "replacesDefinitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definitions_term_number_unique": {
+          "name": "definitions_term_number_unique",
+          "columns": [
+            {
+              "expression": "termId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "definitionNumber",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "definitions_termId_terms_id_fk": {
+          "name": "definitions_termId_terms_id_fk",
+          "tableFrom": "definitions",
+          "tableTo": "terms",
+          "columnsFrom": [
+            "termId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitions_authorId_users_id_fk": {
+          "name": "definitions_authorId_users_id_fk",
+          "tableFrom": "definitions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "authorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitions_refinedFromId_definitions_id_fk": {
+          "name": "definitions_refinedFromId_definitions_id_fk",
+          "tableFrom": "definitions",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "refinedFromId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitions_replacesDefinitionId_definitions_id_fk": {
+          "name": "definitions_replacesDefinitionId_definitions_id_fk",
+          "tableFrom": "definitions",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "replacesDefinitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definitions_currentRevisionId_definitionRevisions_id_fk": {
+          "name": "definitions_currentRevisionId_definitionRevisions_id_fk",
+          "tableFrom": "definitions",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "currentRevisionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "definitions_definition_number_positive": {
+          "name": "definitions_definition_number_positive",
+          "value": "\"definitions\".\"definitionNumber\" > 0"
+        },
+        "definitions_next_example_number_positive": {
+          "name": "definitions_next_example_number_positive",
+          "value": "\"definitions\".\"nextExampleNumber\" > 0"
+        },
+        "definitions_replacement_not_self": {
+          "name": "definitions_replacement_not_self",
+          "value": "\"definitions\".\"replacesDefinitionId\" IS NULL OR \"definitions\".\"replacesDefinitionId\" <> \"definitions\".\"id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.discussionSuggestions": {
+      "name": "discussionSuggestions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "discussionSuggestions_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revisionId": {
+          "name": "revisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "comment": {
+          "name": "comment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suggestedDefinition": {
+          "name": "suggestedDefinition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suggestedExample": {
+          "name": "suggestedExample",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outputDefinitionId": {
+          "name": "outputDefinitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "acceptedAt": {
+          "name": "acceptedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "discussion_suggestions_source_idx": {
+          "name": "discussion_suggestions_source_idx",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discussion_suggestions_user_idx": {
+          "name": "discussion_suggestions_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discussion_suggestions_output_unique": {
+          "name": "discussion_suggestions_output_unique",
+          "columns": [
+            {
+              "expression": "outputDefinitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"discussionSuggestions\".\"outputDefinitionId\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "discussionSuggestions_definitionId_definitions_id_fk": {
+          "name": "discussionSuggestions_definitionId_definitions_id_fk",
+          "tableFrom": "discussionSuggestions",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "discussionSuggestions_userId_users_id_fk": {
+          "name": "discussionSuggestions_userId_users_id_fk",
+          "tableFrom": "discussionSuggestions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "discussionSuggestions_outputDefinitionId_definitions_id_fk": {
+          "name": "discussionSuggestions_outputDefinitionId_definitions_id_fk",
+          "tableFrom": "discussionSuggestions",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "outputDefinitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "discussion_suggestions_revision_same_definition_fk": {
+          "name": "discussion_suggestions_revision_same_definition_fk",
+          "tableFrom": "discussionSuggestions",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "revisionId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "discussion_suggestions_acceptance_pair": {
+          "name": "discussion_suggestions_acceptance_pair",
+          "value": "(\"discussionSuggestions\".\"acceptedAt\" IS NULL AND \"discussionSuggestions\".\"outputDefinitionId\" IS NULL)\n          OR (\"discussionSuggestions\".\"acceptedAt\" IS NOT NULL AND \"discussionSuggestions\".\"outputDefinitionId\" IS NOT NULL)"
+        },
+        "discussion_suggestions_nonblank_content": {
+          "name": "discussion_suggestions_nonblank_content",
+          "value": "btrim(\"discussionSuggestions\".\"comment\") <> ''\n          AND btrim(\"discussionSuggestions\".\"suggestedDefinition\") <> ''\n          AND btrim(\"discussionSuggestions\".\"suggestedExample\") <> ''\n          AND btrim(\"discussionSuggestions\".\"model\") <> ''\n          AND btrim(\"discussionSuggestions\".\"prompt\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.definitionEdits": {
+      "name": "definitionEdits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "definitionEdits_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "newDefinition": {
+          "name": "newDefinition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "definition": {
+          "name": "definition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "editedAt": {
+          "name": "editedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "definitionEdits_definitionId_definitions_id_fk": {
+          "name": "definitionEdits_definitionId_definitions_id_fk",
+          "tableFrom": "definitionEdits",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.emailAuthTokens": {
+      "name": "emailAuthTokens",
+      "schema": "",
+      "columns": {
+        "tokenHash": {
+          "name": "tokenHash",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allowAccountCreation": {
+          "name": "allowAccountCreation",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usedAt": {
+          "name": "usedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "email_auth_tokens_email_created_idx": {
+          "name": "email_auth_tokens_email_created_idx",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "email_auth_tokens_expires_idx": {
+          "name": "email_auth_tokens_expires_idx",
+          "columns": [
+            {
+              "expression": "expiresAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.oauthAccounts": {
+      "name": "oauthAccounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "oauthAccounts_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accessTokenEncrypted": {
+          "name": "accessTokenEncrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refreshTokenEncrypted": {
+          "name": "refreshTokenEncrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "oauth_accounts_provider_subject_unique": {
+          "name": "oauth_accounts_provider_subject_unique",
+          "columns": [
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "subject",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "oauth_accounts_user_provider_unique": {
+          "name": "oauth_accounts_user_provider_unique",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "oauth_accounts_user_idx": {
+          "name": "oauth_accounts_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "oauthAccounts_userId_users_id_fk": {
+          "name": "oauthAccounts_userId_users_id_fk",
+          "tableFrom": "oauthAccounts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.definitionRefinements": {
+      "name": "definitionRefinements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "definitionRefinements_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sourceRevisionId": {
+          "name": "sourceRevisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "round": {
+          "name": "round",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userComment": {
+          "name": "userComment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "suggestedDefinition": {
+          "name": "suggestedDefinition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "suggestedExample": {
+          "name": "suggestedExample",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "refinement_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "errorMessage": {
+          "name": "errorMessage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "suggestedAt": {
+          "name": "suggestedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decidedAt": {
+          "name": "decidedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "definition_refinements_definition_round_unique": {
+          "name": "definition_refinements_definition_round_unique",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "round",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "definition_refinements_source_revision_idx": {
+          "name": "definition_refinements_source_revision_idx",
+          "columns": [
+            {
+              "expression": "sourceRevisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "definitionRefinements_definitionId_definitions_id_fk": {
+          "name": "definitionRefinements_definitionId_definitions_id_fk",
+          "tableFrom": "definitionRefinements",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "definition_refinements_source_same_definition_fk": {
+          "name": "definition_refinements_source_same_definition_fk",
+          "tableFrom": "definitionRefinements",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "sourceRevisionId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.siteFeedback": {
+      "name": "siteFeedback",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "siteFeedback_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pagePath": {
+          "name": "pagePath",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "feedback_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "resolvedAt": {
+          "name": "resolvedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolvedByUserId": {
+          "name": "resolvedByUserId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "site_feedback_status_id_idx": {
+          "name": "site_feedback_status_id_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "site_feedback_user_idx": {
+          "name": "site_feedback_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "site_feedback_resolved_by_user_idx": {
+          "name": "site_feedback_resolved_by_user_idx",
+          "columns": [
+            {
+              "expression": "resolvedByUserId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "siteFeedback_userId_users_id_fk": {
+          "name": "siteFeedback_userId_users_id_fk",
+          "tableFrom": "siteFeedback",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "siteFeedback_resolvedByUserId_users_id_fk": {
+          "name": "siteFeedback_resolvedByUserId_users_id_fk",
+          "tableFrom": "siteFeedback",
+          "tableTo": "users",
+          "columnsFrom": [
+            "resolvedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "site_feedback_page_path_shape": {
+          "name": "site_feedback_page_path_shape",
+          "value": "char_length(\"siteFeedback\".\"pagePath\") > 0\n          AND left(\"siteFeedback\".\"pagePath\", 1) = '/'\n          AND left(\"siteFeedback\".\"pagePath\", 2) <> '//'\n          AND position(chr(92) in \"siteFeedback\".\"pagePath\") = 0\n          AND position('?' in \"siteFeedback\".\"pagePath\") = 0\n          AND position('#' in \"siteFeedback\".\"pagePath\") = 0\n          AND \"siteFeedback\".\"pagePath\" !~ '[[:cntrl:]]'"
+        },
+        "site_feedback_message_content": {
+          "name": "site_feedback_message_content",
+          "value": "btrim(\"siteFeedback\".\"message\") <> ''\n          AND char_length(\"siteFeedback\".\"message\") <= 2000"
+        },
+        "site_feedback_resolution_shape": {
+          "name": "site_feedback_resolution_shape",
+          "value": "(\"siteFeedback\".\"status\" = 'open'\n            AND \"siteFeedback\".\"resolvedAt\" IS NULL\n            AND \"siteFeedback\".\"resolvedByUserId\" IS NULL)\n          OR (\"siteFeedback\".\"status\" = 'resolved'\n            AND \"siteFeedback\".\"resolvedAt\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.statements": {
+      "name": "statements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "statements_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "key": {
+          "name": "key",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "predicate": {
+          "name": "predicate",
+          "type": "statement_predicate",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subjectTermId": {
+          "name": "subjectTermId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subjectDefinitionId": {
+          "name": "subjectDefinitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subjectConceptId": {
+          "name": "subjectConceptId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subjectCollectionId": {
+          "name": "subjectCollectionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "objectTermId": {
+          "name": "objectTermId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "objectConceptId": {
+          "name": "objectConceptId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "objectIri": {
+          "name": "objectIri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assertedById": {
+          "name": "assertedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "migratedLegacy": {
+          "name": "migratedLegacy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "retractedAt": {
+          "name": "retractedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retractedById": {
+          "name": "retractedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "statements_active_unique": {
+          "name": "statements_active_unique",
+          "columns": [
+            {
+              "expression": "predicate",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"subjectTermId\", 0)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"subjectDefinitionId\", 0)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"subjectConceptId\", 0)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"subjectCollectionId\", 0)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"objectTermId\", 0)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"objectConceptId\", 0)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"objectIri\", '')",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"statements\".\"retractedAt\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_concept_link_unique": {
+          "name": "statements_concept_link_unique",
+          "columns": [
+            {
+              "expression": "subjectConceptId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"statements\".\"retractedAt\" IS NULL AND \"statements\".\"predicate\" = 'skos:exactMatch' AND \"statements\".\"objectTermId\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_term_link_unique": {
+          "name": "statements_term_link_unique",
+          "columns": [
+            {
+              "expression": "objectTermId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"statements\".\"retractedAt\" IS NULL AND \"statements\".\"predicate\" = 'skos:exactMatch' AND \"statements\".\"objectTermId\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_subject_term_idx": {
+          "name": "statements_subject_term_idx",
+          "columns": [
+            {
+              "expression": "subjectTermId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_subject_definition_idx": {
+          "name": "statements_subject_definition_idx",
+          "columns": [
+            {
+              "expression": "subjectDefinitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_subject_concept_idx": {
+          "name": "statements_subject_concept_idx",
+          "columns": [
+            {
+              "expression": "subjectConceptId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_subject_collection_idx": {
+          "name": "statements_subject_collection_idx",
+          "columns": [
+            {
+              "expression": "subjectCollectionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_object_term_idx": {
+          "name": "statements_object_term_idx",
+          "columns": [
+            {
+              "expression": "objectTermId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_object_concept_idx": {
+          "name": "statements_object_concept_idx",
+          "columns": [
+            {
+              "expression": "objectConceptId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "statements_subjectTermId_terms_id_fk": {
+          "name": "statements_subjectTermId_terms_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "terms",
+          "columnsFrom": [
+            "subjectTermId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_subjectDefinitionId_definitions_id_fk": {
+          "name": "statements_subjectDefinitionId_definitions_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "subjectDefinitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_subjectConceptId_concepts_id_fk": {
+          "name": "statements_subjectConceptId_concepts_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "concepts",
+          "columnsFrom": [
+            "subjectConceptId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_subjectCollectionId_collections_id_fk": {
+          "name": "statements_subjectCollectionId_collections_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "collections",
+          "columnsFrom": [
+            "subjectCollectionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_objectTermId_terms_id_fk": {
+          "name": "statements_objectTermId_terms_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "terms",
+          "columnsFrom": [
+            "objectTermId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_objectConceptId_concepts_id_fk": {
+          "name": "statements_objectConceptId_concepts_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "concepts",
+          "columnsFrom": [
+            "objectConceptId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_assertedById_users_id_fk": {
+          "name": "statements_assertedById_users_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "assertedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_retractedById_users_id_fk": {
+          "name": "statements_retractedById_users_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "retractedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "statements_key_unique": {
+          "name": "statements_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "statements_one_subject": {
+          "name": "statements_one_subject",
+          "value": "num_nonnulls(\"statements\".\"subjectTermId\", \"statements\".\"subjectDefinitionId\", \"statements\".\"subjectConceptId\", \"statements\".\"subjectCollectionId\") = 1"
+        },
+        "statements_one_object": {
+          "name": "statements_one_object",
+          "value": "num_nonnulls(\"statements\".\"objectTermId\", \"statements\".\"objectConceptId\", \"statements\".\"objectIri\") = 1"
+        },
+        "statements_predicate_shape": {
+          "name": "statements_predicate_shape",
+          "value": "CASE \"statements\".\"predicate\"\n      WHEN 'dcterms:subject' THEN (\"statements\".\"subjectTermId\" IS NOT NULL OR \"statements\".\"subjectDefinitionId\" IS NOT NULL) AND \"statements\".\"objectConceptId\" IS NOT NULL\n      WHEN 'skos:member'     THEN \"statements\".\"subjectCollectionId\" IS NOT NULL AND \"statements\".\"objectTermId\" IS NOT NULL\n      WHEN 'skos:broader'    THEN (\"statements\".\"subjectTermId\" IS NOT NULL AND \"statements\".\"objectTermId\" IS NOT NULL) OR (\"statements\".\"subjectConceptId\" IS NOT NULL AND \"statements\".\"objectConceptId\" IS NOT NULL)\n      WHEN 'skos:related'    THEN (\"statements\".\"subjectTermId\" IS NOT NULL AND \"statements\".\"objectTermId\" IS NOT NULL) OR (\"statements\".\"subjectConceptId\" IS NOT NULL AND \"statements\".\"objectConceptId\" IS NOT NULL)\n      WHEN 'skos:exactMatch' THEN ((\"statements\".\"subjectTermId\" IS NOT NULL OR \"statements\".\"subjectConceptId\" IS NOT NULL) AND \"statements\".\"objectIri\" IS NOT NULL) OR (\"statements\".\"subjectConceptId\" IS NOT NULL AND \"statements\".\"objectTermId\" IS NOT NULL)\n      ELSE (\"statements\".\"subjectTermId\" IS NOT NULL OR \"statements\".\"subjectConceptId\" IS NOT NULL) AND \"statements\".\"objectIri\" IS NOT NULL\n    END"
+        },
+        "statements_object_iri_absolute": {
+          "name": "statements_object_iri_absolute",
+          "value": "\"statements\".\"objectIri\" IS NULL OR \"statements\".\"objectIri\" ~ '^https?://[^[:space:][:cntrl:]<>\"{}|^`\\\\]+$'"
+        },
+        "statements_no_self_relation": {
+          "name": "statements_no_self_relation",
+          "value": "(\"statements\".\"subjectTermId\" IS NULL OR \"statements\".\"objectTermId\" IS NULL OR \"statements\".\"subjectTermId\" <> \"statements\".\"objectTermId\")\n       AND (\"statements\".\"subjectConceptId\" IS NULL OR \"statements\".\"objectConceptId\" IS NULL OR \"statements\".\"subjectConceptId\" <> \"statements\".\"objectConceptId\")"
+        },
+        "statements_symmetric_canonical": {
+          "name": "statements_symmetric_canonical",
+          "value": "\"statements\".\"predicate\" <> 'skos:related' OR coalesce(\"statements\".\"subjectTermId\", \"statements\".\"subjectConceptId\") < coalesce(\"statements\".\"objectTermId\", \"statements\".\"objectConceptId\")"
+        },
+        "statements_asserter_or_legacy": {
+          "name": "statements_asserter_or_legacy",
+          "value": "\"statements\".\"assertedById\" IS NOT NULL OR \"statements\".\"migratedLegacy\""
+        },
+        "statements_retraction_pair": {
+          "name": "statements_retraction_pair",
+          "value": "(\"statements\".\"retractedAt\" IS NULL) = (\"statements\".\"retractedById\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.studies": {
+      "name": "studies",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "studies_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "communityId": {
+          "name": "communityId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "collectionId": {
+          "name": "collectionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "welcome": {
+          "name": "welcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opensAt": {
+          "name": "opensAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closesAt": {
+          "name": "closesAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retiredAt": {
+          "name": "retiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdById": {
+          "name": "createdById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "studies_community_idx": {
+          "name": "studies_community_idx",
+          "columns": [
+            {
+              "expression": "communityId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "studies_communityId_communities_id_fk": {
+          "name": "studies_communityId_communities_id_fk",
+          "tableFrom": "studies",
+          "tableTo": "communities",
+          "columnsFrom": [
+            "communityId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "studies_collectionId_collections_id_fk": {
+          "name": "studies_collectionId_collections_id_fk",
+          "tableFrom": "studies",
+          "tableTo": "collections",
+          "columnsFrom": [
+            "collectionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "studies_createdById_users_id_fk": {
+          "name": "studies_createdById_users_id_fk",
+          "tableFrom": "studies",
+          "tableTo": "users",
+          "columnsFrom": [
+            "createdById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "studies_slug_unique": {
+          "name": "studies_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "studies_slug_shape": {
+          "name": "studies_slug_shape",
+          "value": "\"studies\".\"slug\" ~ '^[a-z0-9][a-z0-9_-]*$'"
+        },
+        "studies_title_nonblank": {
+          "name": "studies_title_nonblank",
+          "value": "btrim(\"studies\".\"title\") <> ''"
+        },
+        "studies_window_ordered": {
+          "name": "studies_window_ordered",
+          "value": "\"studies\".\"opensAt\" IS NULL OR \"studies\".\"closesAt\" IS NULL OR \"studies\".\"closesAt\" > \"studies\".\"opensAt\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.surveyResponses": {
+      "name": "surveyResponses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "surveyResponses_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "stepId": {
+          "name": "stepId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valueText": {
+          "name": "valueText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valueScale": {
+          "name": "valueScale",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authorKind": {
+          "name": "authorKind",
+          "type": "actor_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "surveyResponses_stepId_surveySteps_id_fk": {
+          "name": "surveyResponses_stepId_surveySteps_id_fk",
+          "tableFrom": "surveyResponses",
+          "tableTo": "surveySteps",
+          "columnsFrom": [
+            "stepId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "surveyResponses_userId_users_id_fk": {
+          "name": "surveyResponses_userId_users_id_fk",
+          "tableFrom": "surveyResponses",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "survey_responses_step_user_unique": {
+          "name": "survey_responses_step_user_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "stepId",
+            "userId"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "survey_responses_human_carries_no_stamp": {
+          "name": "survey_responses_human_carries_no_stamp",
+          "value": "\"surveyResponses\".\"authorKind\" <> 'human'\n          OR (\"surveyResponses\".\"promptKey\" IS NULL AND \"surveyResponses\".\"promptHash\" IS NULL\n              AND \"surveyResponses\".\"promptText\" IS NULL AND \"surveyResponses\".\"model\" IS NULL)"
+        },
+        "survey_responses_stamp_pair": {
+          "name": "survey_responses_stamp_pair",
+          "value": "(\"surveyResponses\".\"promptHash\" IS NULL) = (\"surveyResponses\".\"promptText\" IS NULL)"
+        },
+        "survey_responses_one_value": {
+          "name": "survey_responses_one_value",
+          "value": "num_nonnulls(\"surveyResponses\".\"valueText\", \"surveyResponses\".\"valueScale\") = 1"
+        },
+        "survey_responses_scale_range": {
+          "name": "survey_responses_scale_range",
+          "value": "\"surveyResponses\".\"valueScale\" IS NULL OR \"surveyResponses\".\"valueScale\" BETWEEN 1 AND 5"
+        },
+        "survey_responses_text_nonblank": {
+          "name": "survey_responses_text_nonblank",
+          "value": "\"surveyResponses\".\"valueText\" IS NULL OR btrim(\"surveyResponses\".\"valueText\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.surveyStepCompletions": {
+      "name": "surveyStepCompletions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "surveyStepCompletions_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "stepId": {
+          "name": "stepId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completedAt": {
+          "name": "completedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "survey_step_completions_user_idx": {
+          "name": "survey_step_completions_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "surveyStepCompletions_stepId_surveySteps_id_fk": {
+          "name": "surveyStepCompletions_stepId_surveySteps_id_fk",
+          "tableFrom": "surveyStepCompletions",
+          "tableTo": "surveySteps",
+          "columnsFrom": [
+            "stepId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "surveyStepCompletions_userId_users_id_fk": {
+          "name": "surveyStepCompletions_userId_users_id_fk",
+          "tableFrom": "surveyStepCompletions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "survey_step_completions_step_user_unique": {
+          "name": "survey_step_completions_step_user_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "stepId",
+            "userId"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.surveySteps": {
+      "name": "surveySteps",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "surveySteps_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "studyId": {
+          "name": "studyId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "survey_step_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "termId": {
+          "name": "termId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "responseKind": {
+          "name": "responseKind",
+          "type": "survey_response_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "survey_steps_term_idx": {
+          "name": "survey_steps_term_idx",
+          "columns": [
+            {
+              "expression": "termId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "surveySteps_studyId_studies_id_fk": {
+          "name": "surveySteps_studyId_studies_id_fk",
+          "tableFrom": "surveySteps",
+          "tableTo": "studies",
+          "columnsFrom": [
+            "studyId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "surveySteps_termId_terms_id_fk": {
+          "name": "surveySteps_termId_terms_id_fk",
+          "tableFrom": "surveySteps",
+          "tableTo": "terms",
+          "columnsFrom": [
+            "termId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "survey_steps_study_position_unique": {
+          "name": "survey_steps_study_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "studyId",
+            "position"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "survey_steps_position_positive": {
+          "name": "survey_steps_position_positive",
+          "value": "\"surveySteps\".\"position\" > 0"
+        },
+        "survey_steps_term_by_kind": {
+          "name": "survey_steps_term_by_kind",
+          "value": "(\"surveySteps\".\"kind\" IN ('define', 'review')) = (\"surveySteps\".\"termId\" IS NOT NULL)"
+        },
+        "survey_steps_response_by_kind": {
+          "name": "survey_steps_response_by_kind",
+          "value": "(\"surveySteps\".\"kind\" = 'question') = (\"surveySteps\".\"responseKind\" IS NOT NULL)"
+        },
+        "survey_steps_prompt_by_kind": {
+          "name": "survey_steps_prompt_by_kind",
+          "value": "\"surveySteps\".\"kind\" NOT IN ('instructions', 'question')\n          OR (\"surveySteps\".\"prompt\" IS NOT NULL AND btrim(\"surveySteps\".\"prompt\") <> '')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tagSuggestions": {
+      "name": "tagSuggestions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "tagSuggestions_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "proposedById": {
+          "name": "proposedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "schemeId": {
+          "name": "schemeId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scopeNote": {
+          "name": "scopeNote",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "targetTermId": {
+          "name": "targetTermId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "targetDefinitionId": {
+          "name": "targetDefinitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewVerdict": {
+          "name": "reviewVerdict",
+          "type": "tag_review_verdict",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewReasons": {
+          "name": "reviewReasons",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewMergeConceptId": {
+          "name": "reviewMergeConceptId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptKey": {
+          "name": "promptKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptHash": {
+          "name": "promptHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promptText": {
+          "name": "promptText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewedAt": {
+          "name": "reviewedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewError": {
+          "name": "reviewError",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decision": {
+          "name": "decision",
+          "type": "tag_decision",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decisionNote": {
+          "name": "decisionNote",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decidedById": {
+          "name": "decidedById",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decidedAt": {
+          "name": "decidedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outcomeConceptId": {
+          "name": "outcomeConceptId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "tag_suggestions_proposer_idx": {
+          "name": "tag_suggestions_proposer_idx",
+          "columns": [
+            {
+              "expression": "proposedById",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tag_suggestions_pending_idx": {
+          "name": "tag_suggestions_pending_idx",
+          "columns": [
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"tagSuggestions\".\"decidedAt\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tag_suggestions_target_term_idx": {
+          "name": "tag_suggestions_target_term_idx",
+          "columns": [
+            {
+              "expression": "targetTermId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tag_suggestions_target_definition_idx": {
+          "name": "tag_suggestions_target_definition_idx",
+          "columns": [
+            {
+              "expression": "targetDefinitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tag_suggestions_outcome_unique": {
+          "name": "tag_suggestions_outcome_unique",
+          "columns": [
+            {
+              "expression": "outcomeConceptId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"tagSuggestions\".\"decision\" = 'approved'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tagSuggestions_proposedById_users_id_fk": {
+          "name": "tagSuggestions_proposedById_users_id_fk",
+          "tableFrom": "tagSuggestions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "proposedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tagSuggestions_schemeId_conceptSchemes_id_fk": {
+          "name": "tagSuggestions_schemeId_conceptSchemes_id_fk",
+          "tableFrom": "tagSuggestions",
+          "tableTo": "conceptSchemes",
+          "columnsFrom": [
+            "schemeId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tagSuggestions_targetTermId_terms_id_fk": {
+          "name": "tagSuggestions_targetTermId_terms_id_fk",
+          "tableFrom": "tagSuggestions",
+          "tableTo": "terms",
+          "columnsFrom": [
+            "targetTermId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tagSuggestions_targetDefinitionId_definitions_id_fk": {
+          "name": "tagSuggestions_targetDefinitionId_definitions_id_fk",
+          "tableFrom": "tagSuggestions",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "targetDefinitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tagSuggestions_reviewMergeConceptId_concepts_id_fk": {
+          "name": "tagSuggestions_reviewMergeConceptId_concepts_id_fk",
+          "tableFrom": "tagSuggestions",
+          "tableTo": "concepts",
+          "columnsFrom": [
+            "reviewMergeConceptId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tagSuggestions_decidedById_users_id_fk": {
+          "name": "tagSuggestions_decidedById_users_id_fk",
+          "tableFrom": "tagSuggestions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "decidedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tagSuggestions_outcomeConceptId_concepts_id_fk": {
+          "name": "tagSuggestions_outcomeConceptId_concepts_id_fk",
+          "tableFrom": "tagSuggestions",
+          "tableTo": "concepts",
+          "columnsFrom": [
+            "outcomeConceptId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "tag_suggestions_one_target": {
+          "name": "tag_suggestions_one_target",
+          "value": "num_nonnulls(\"tagSuggestions\".\"targetTermId\", \"tagSuggestions\".\"targetDefinitionId\") = 1"
+        },
+        "tag_suggestions_nonblank_content": {
+          "name": "tag_suggestions_nonblank_content",
+          "value": "btrim(\"tagSuggestions\".\"label\") <> ''\n          AND (\"tagSuggestions\".\"scopeNote\" IS NULL OR btrim(\"tagSuggestions\".\"scopeNote\") <> '')"
+        },
+        "tag_suggestions_nonblank_optional_text": {
+          "name": "tag_suggestions_nonblank_optional_text",
+          "value": "(\"tagSuggestions\".\"reviewReasons\" IS NULL OR btrim(\"tagSuggestions\".\"reviewReasons\") <> '')\n          AND (\"tagSuggestions\".\"decisionNote\" IS NULL OR btrim(\"tagSuggestions\".\"decisionNote\") <> '')\n          AND (\"tagSuggestions\".\"reviewError\" IS NULL OR btrim(\"tagSuggestions\".\"reviewError\") <> '')"
+        },
+        "tag_suggestions_review_pair": {
+          "name": "tag_suggestions_review_pair",
+          "value": "(\"tagSuggestions\".\"reviewedAt\" IS NULL\n           AND \"tagSuggestions\".\"reviewVerdict\" IS NULL\n           AND \"tagSuggestions\".\"model\" IS NULL\n           AND \"tagSuggestions\".\"promptHash\" IS NULL\n           AND \"tagSuggestions\".\"promptText\" IS NULL)\n          OR (\"tagSuggestions\".\"reviewedAt\" IS NOT NULL\n              AND \"tagSuggestions\".\"model\" IS NOT NULL AND btrim(\"tagSuggestions\".\"model\") <> ''\n              AND \"tagSuggestions\".\"promptHash\" IS NOT NULL\n              AND \"tagSuggestions\".\"promptText\" IS NOT NULL\n              AND (\"tagSuggestions\".\"reviewVerdict\" IS NOT NULL) <> (\"tagSuggestions\".\"reviewError\" IS NOT NULL))"
+        },
+        "tag_suggestions_merge_target": {
+          "name": "tag_suggestions_merge_target",
+          "value": "\"tagSuggestions\".\"reviewMergeConceptId\" IS NULL OR \"tagSuggestions\".\"reviewVerdict\" = 'merge'"
+        },
+        "tag_suggestions_decision_pair": {
+          "name": "tag_suggestions_decision_pair",
+          "value": "num_nonnulls(\"tagSuggestions\".\"decision\", \"tagSuggestions\".\"decidedById\", \"tagSuggestions\".\"decidedAt\") IN (0, 3)"
+        },
+        "tag_suggestions_outcome_pair": {
+          "name": "tag_suggestions_outcome_pair",
+          "value": "(\"tagSuggestions\".\"decision\" IS NULL AND \"tagSuggestions\".\"outcomeConceptId\" IS NULL)\n          OR (\"tagSuggestions\".\"decision\" = 'declined' AND \"tagSuggestions\".\"outcomeConceptId\" IS NULL)\n          OR (\"tagSuggestions\".\"decision\" IN ('approved', 'merged')\n              AND \"tagSuggestions\".\"outcomeConceptId\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tags": {
+      "name": "tags",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "tags_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scheme": {
+          "name": "scheme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mappingIri": {
+          "name": "mappingIri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mappingRelation": {
+          "name": "mappingRelation",
+          "type": "skos_match",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tagsToTerms": {
+      "name": "tagsToTerms",
+      "schema": "",
+      "columns": {
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tagId": {
+          "name": "tagId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tagsToTerms_definitionId_definitions_id_fk": {
+          "name": "tagsToTerms_definitionId_definitions_id_fk",
+          "tableFrom": "tagsToTerms",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tagsToTerms_tagId_tags_id_fk": {
+          "name": "tagsToTerms_tagId_tags_id_fk",
+          "tableFrom": "tagsToTerms",
+          "tableTo": "tags",
+          "columnsFrom": [
+            "tagId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "tagsToTerms_tagId_definitionId_pk": {
+          "name": "tagsToTerms_tagId_definitionId_pk",
+          "columns": [
+            "tagId",
+            "definitionId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.terms": {
+      "name": "terms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "terms_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "term": {
+          "name": "term",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nextDefinitionNumber": {
+          "name": "nextDefinitionNumber",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "terms_term_unique": {
+          "name": "terms_term_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "term"
+          ]
+        },
+        "terms_slug_unique": {
+          "name": "terms_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "terms_next_definition_number_positive": {
+          "name": "terms_next_definition_number_positive",
+          "value": "\"terms\".\"nextDefinitionNumber\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "users_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "googleId": {
+          "name": "googleId",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "orcidId": {
+          "name": "orcidId",
+          "type": "varchar(19)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "firstName": {
+          "name": "firstName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastName": {
+          "name": "lastName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "affiliation": {
+          "name": "affiliation",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "emailVerifiedAt": {
+          "name": "emailVerifiedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "isAi": {
+          "name": "isAi",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "isProfilePublic": {
+          "name": "isProfilePublic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'user'"
+        },
+        "weight": {
+          "name": "weight",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "activeCommunityId": {
+          "name": "activeCommunityId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "notifications": {
+          "name": "notifications",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "users_human_email_normalized_unique": {
+          "name": "users_human_email_normalized_unique",
+          "columns": [
+            {
+              "expression": "lower(\"email\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"users\".\"email\" IS NOT NULL AND NOT \"users\".\"isAi\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "users_activeCommunityId_communities_id_fk": {
+          "name": "users_activeCommunityId_communities_id_fk",
+          "tableFrom": "users",
+          "tableTo": "communities",
+          "columnsFrom": [
+            "activeCommunityId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_googleId_unique": {
+          "name": "users_googleId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "googleId"
+          ]
+        },
+        "users_orcidId_unique": {
+          "name": "users_orcidId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "orcidId"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.voteEvents": {
+      "name": "voteEvents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "voteEvents_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revisionId": {
+          "name": "revisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "vote_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actorKind": {
+          "name": "actorKind",
+          "type": "actor_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "communityId": {
+          "name": "communityId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "surveyStepId": {
+          "name": "surveyStepId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "backfilled": {
+          "name": "backfilled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "migratedLegacy": {
+          "name": "migratedLegacy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "vote_events_definition_revision_idx": {
+          "name": "vote_events_definition_revision_idx",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "vote_events_user_idx": {
+          "name": "vote_events_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "vote_events_survey_step_idx": {
+          "name": "vote_events_survey_step_idx",
+          "columns": [
+            {
+              "expression": "surveyStepId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "voteEvents_definitionId_definitions_id_fk": {
+          "name": "voteEvents_definitionId_definitions_id_fk",
+          "tableFrom": "voteEvents",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "voteEvents_userId_users_id_fk": {
+          "name": "voteEvents_userId_users_id_fk",
+          "tableFrom": "voteEvents",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "voteEvents_communityId_communities_id_fk": {
+          "name": "voteEvents_communityId_communities_id_fk",
+          "tableFrom": "voteEvents",
+          "tableTo": "communities",
+          "columnsFrom": [
+            "communityId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "voteEvents_surveyStepId_surveySteps_id_fk": {
+          "name": "voteEvents_surveyStepId_surveySteps_id_fk",
+          "tableFrom": "voteEvents",
+          "tableTo": "surveySteps",
+          "columnsFrom": [
+            "surveyStepId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vote_events_revision_same_definition_fk": {
+          "name": "vote_events_revision_same_definition_fk",
+          "tableFrom": "voteEvents",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "revisionId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.votes": {
+      "name": "votes",
+      "schema": "",
+      "columns": {
+        "revisionId": {
+          "name": "revisionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "definitionId": {
+          "name": "definitionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "vote_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "migratedLegacy": {
+          "name": "migratedLegacy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "communityId": {
+          "name": "communityId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "votes_definition_revision_idx": {
+          "name": "votes_definition_revision_idx",
+          "columns": [
+            {
+              "expression": "definitionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revisionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "votes_user_idx": {
+          "name": "votes_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "votes_community_idx": {
+          "name": "votes_community_idx",
+          "columns": [
+            {
+              "expression": "communityId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "votes_definitionId_definitions_id_fk": {
+          "name": "votes_definitionId_definitions_id_fk",
+          "tableFrom": "votes",
+          "tableTo": "definitions",
+          "columnsFrom": [
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "votes_userId_users_id_fk": {
+          "name": "votes_userId_users_id_fk",
+          "tableFrom": "votes",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "votes_communityId_communities_id_fk": {
+          "name": "votes_communityId_communities_id_fk",
+          "tableFrom": "votes",
+          "tableTo": "communities",
+          "columnsFrom": [
+            "communityId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "votes_revision_same_definition_fk": {
+          "name": "votes_revision_same_definition_fk",
+          "tableFrom": "votes",
+          "tableTo": "definitionRevisions",
+          "columnsFrom": [
+            "revisionId",
+            "definitionId"
+          ],
+          "columnsTo": [
+            "id",
+            "definitionId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "votes_revisionId_userId_pk": {
+          "name": "votes_revisionId_userId_pk",
+          "columns": [
+            "revisionId",
+            "userId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.actor_kind": {
+      "name": "actor_kind",
+      "schema": "public",
+      "values": [
+        "human",
+        "model",
+        "simulated"
+      ]
+    },
+    "public.ai_contribution_intent": {
+      "name": "ai_contribution_intent",
+      "schema": "public",
+      "values": [
+        "new_term",
+        "revise_definition"
+      ]
+    },
+    "public.ai_contribution_status": {
+      "name": "ai_contribution_status",
+      "schema": "public",
+      "values": [
+        "generated",
+        "accepted",
+        "discarded"
+      ]
+    },
+    "public.assertable_by": {
+      "name": "assertable_by",
+      "schema": "public",
+      "values": [
+        "curator",
+        "contributor"
+      ]
+    },
+    "public.scheme_attaches_at": {
+      "name": "scheme_attaches_at",
+      "schema": "public",
+      "values": [
+        "term",
+        "definition"
+      ]
+    },
+    "public.chat_type": {
+      "name": "chat_type",
+      "schema": "public",
+      "values": [
+        "system",
+        "user"
+      ]
+    },
+    "public.community_role": {
+      "name": "community_role",
+      "schema": "public",
+      "values": [
+        "member",
+        "steward"
+      ]
+    },
+    "public.concept_order": {
+      "name": "concept_order",
+      "schema": "public",
+      "values": [
+        "seeded",
+        "label"
+      ]
+    },
+    "public.concept_status": {
+      "name": "concept_status",
+      "schema": "public",
+      "values": [
+        "approved",
+        "retired",
+        "proposed"
+      ]
+    },
+    "public.definition_revision_source": {
+      "name": "definition_revision_source",
+      "schema": "public",
+      "values": [
+        "initial",
+        "author_edit",
+        "ai_assisted",
+        "ai_refinement",
+        "ai_generation",
+        "rollback",
+        "legacy"
+      ]
+    },
+    "public.definition_source": {
+      "name": "definition_source",
+      "schema": "public",
+      "values": [
+        "classic",
+        "interactive"
+      ]
+    },
+    "public.feedback_status": {
+      "name": "feedback_status",
+      "schema": "public",
+      "values": [
+        "open",
+        "resolved"
+      ]
+    },
+    "public.refinement_status": {
+      "name": "refinement_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "suggested",
+        "accepted",
+        "kept",
+        "superseded",
+        "failed"
+      ]
+    },
+    "public.skos_match": {
+      "name": "skos_match",
+      "schema": "public",
+      "values": [
+        "exactMatch",
+        "closeMatch",
+        "broadMatch",
+        "narrowMatch",
+        "relatedMatch"
+      ]
+    },
+    "public.statement_predicate": {
+      "name": "statement_predicate",
+      "schema": "public",
+      "values": [
+        "dcterms:subject",
+        "skos:broader",
+        "skos:related",
+        "skos:member",
+        "skos:exactMatch",
+        "skos:closeMatch",
+        "skos:broadMatch",
+        "skos:narrowMatch",
+        "skos:relatedMatch"
+      ]
+    },
+    "public.survey_response_kind": {
+      "name": "survey_response_kind",
+      "schema": "public",
+      "values": [
+        "text",
+        "scale"
+      ]
+    },
+    "public.survey_step_kind": {
+      "name": "survey_step_kind",
+      "schema": "public",
+      "values": [
+        "instructions",
+        "define",
+        "review",
+        "question"
+      ]
+    },
+    "public.tag_decision": {
+      "name": "tag_decision",
+      "schema": "public",
+      "values": [
+        "approved",
+        "merged",
+        "declined"
+      ]
+    },
+    "public.tag_review_verdict": {
+      "name": "tag_review_verdict",
+      "schema": "public",
+      "values": [
+        "approve",
+        "merge",
+        "decline"
+      ]
+    },
+    "public.user_role": {
+      "name": "user_role",
+      "schema": "public",
+      "values": [
+        "user",
+        "moderator",
+        "admin"
+      ]
+    },
+    "public.vote_type": {
+      "name": "vote_type",
+      "schema": "public",
+      "values": [
+        "up",
+        "down"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

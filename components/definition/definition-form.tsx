@@ -32,6 +32,10 @@ import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "@/lib/input-limits"
 import { definitionPath } from "@/lib/public-identifiers"
 import { loginToast } from "@/components/login-toast"
+import {
+  type MutationActivityCallbacks,
+  useMutationActivity
+} from "@/components/use-mutation-activity"
 
 function TermGuidance({
   normalizedTerm,
@@ -103,7 +107,10 @@ export const DefinitionForm = ({
   expectedInstructions,
   derivedFromRevisionId,
   replacesDefinitionId,
-  onPublished
+  onPublished,
+  onBusyChange,
+  onMutationStart,
+  onMutationEnd
 }: {
   initialTerm?: string
   // What the fields open with: the text of the candidate being revised.
@@ -120,8 +127,15 @@ export const DefinitionForm = ({
   replacesDefinitionId?: number
   // Where a publish leads when it is not the term page.
   onPublished?: (published: PublishedDefinition) => void
-}) => {
+  // Lets an enclosing action shell keep this form mounted during a request.
+  onBusyChange?: (busy: boolean) => void
+} & MutationActivityCallbacks) => {
   const router = useRouter()
+  const activity = useMutationActivity({
+    onBusyChange,
+    onMutationStart,
+    onMutationEnd
+  })
   const term = lockedTerm ?? initialTerm
   const [aiDraft, setAiDraft] = useState<{
     suggestionId: number
@@ -146,7 +160,8 @@ export const DefinitionForm = ({
         return
       }
       router.push(definitionPath(term.slug, definition.definitionNumber))
-    }
+    },
+    onSettled: activity.end
   })
 
   const { data: terms, isLoading: termsAreLoading } = trpc.terms.list.useQuery(
@@ -169,7 +184,17 @@ export const DefinitionForm = ({
   const existingTerm = existingTermByName.get(normalizedTerm)
   const isExistingTerm = normalizedTerm.length > 0 && Boolean(existingTerm)
 
-  const discardAiDraft = trpc.aiAssist.discard.useMutation()
+  const discardAiDraft = trpc.aiAssist.discard.useMutation({
+    onSuccess: (_, variables) => {
+      if (aiDraft?.suggestionId !== variables.suggestionId) return
+      setAiDraft(null)
+      form.setValue("definition", "", {
+        shouldDirty: true,
+        shouldValidate: true
+      })
+    },
+    onSettled: activity.end
+  })
   const suggestAiDraft = trpc.aiAssist.suggestNewTerm.useMutation({
     onSuccess: (suggestion, variables) => {
       setAiDraft({
@@ -185,25 +210,30 @@ export const DefinitionForm = ({
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED")
         loginToast("ask AI for a new-term definition")
-    }
+    },
+    onSettled: activity.end
   })
 
   const clearAiDraft = () => {
-    if (aiDraft && !discardAiDraft.isPending)
-      discardAiDraft.mutate({ suggestionId: aiDraft.suggestionId })
-    setAiDraft(null)
-    form.setValue("definition", "", {
-      shouldDirty: true,
-      shouldValidate: true
-    })
+    if (!aiDraft || discardAiDraft.isPending) return
+    activity.start()
+    discardAiDraft.mutate({ suggestionId: aiDraft.suggestionId })
   }
+
+  const busy =
+    activity.busy ||
+    mutation.isPending ||
+    suggestAiDraft.isPending ||
+    discardAiDraft.isPending
+  const aiDraftMatchesTerm = aiDraft?.term === normalizedTerm
 
   return (
     <Card className="py-0">
       <CardContent className="p-5 sm:p-6">
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((data) =>
+            onSubmit={form.handleSubmit((data) => {
+              activity.start()
               mutation.mutate({
                 ...data,
                 surveyStepId,
@@ -215,7 +245,7 @@ export const DefinitionForm = ({
                     ? aiDraft.suggestionId
                     : undefined
               })
-            )}
+            })}
             onChange={() => {
               if (mutation.error) mutation.reset()
             }}
@@ -234,24 +264,22 @@ export const DefinitionForm = ({
                         onValueChange={(value) => {
                           const nextTerm = value.trim().toLowerCase()
                           if (aiDraft && nextTerm !== aiDraft.term) {
-                            if (!discardAiDraft.isPending)
+                            if (
+                              !discardAiDraft.isPending &&
+                              !discardAiDraft.isError
+                            ) {
+                              activity.start()
                               discardAiDraft.mutate({
                                 suggestionId: aiDraft.suggestionId
                               })
-                            setAiDraft(null)
-                            form.setValue("definition", "", {
-                              shouldDirty: true,
-                              shouldValidate: true
-                            })
+                            }
                           }
                           field.onChange(value)
                         }}
                         options={terms ?? []}
                         placeholder="Start typing a materials science term…"
                         maxLength={TERM_MAX_LENGTH}
-                        disabled={
-                          mutation.isPending || suggestAiDraft.isPending
-                        }
+                        disabled={busy}
                       />
                     </FormControl>
                     <FormDescription aria-live="polite">
@@ -281,6 +309,7 @@ export const DefinitionForm = ({
                     <Textarea
                       className="min-h-24"
                       maxLength={DEFINITION_MAX_LENGTH}
+                      disabled={busy}
                       {...field}
                     />
                   </FormControl>
@@ -289,7 +318,7 @@ export const DefinitionForm = ({
               )}
             />
 
-            {lockedTerm === undefined && !isExistingTerm ? (
+            {lockedTerm === undefined && (!isExistingTerm || aiDraft) ? (
               <div className="space-y-3 rounded-lg border border-ai/30 bg-ai/5 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -307,11 +336,7 @@ export const DefinitionForm = ({
                       type="button"
                       size="sm"
                       variant="ghost"
-                      disabled={
-                        mutation.isPending ||
-                        suggestAiDraft.isPending ||
-                        discardAiDraft.isPending
-                      }
+                      disabled={busy}
                       onClick={clearAiDraft}
                     >
                       <XIcon aria-hidden />
@@ -321,28 +346,31 @@ export const DefinitionForm = ({
                 </div>
 
                 {aiDraft ? (
-                  <p className="text-xs text-muted-foreground" role="status">
-                    Drafted by{" "}
-                    <span className="font-mono">{aiDraft.model}</span>. You can
-                    edit it before publishing; the model will remain credited as
-                    a coauthor.
-                  </p>
+                  aiDraftMatchesTerm ? (
+                    <p className="text-xs text-muted-foreground" role="status">
+                      Drafted by{" "}
+                      <span className="font-mono">{aiDraft.model}</span>. You
+                      can edit it before publishing; the model will remain
+                      credited as a coauthor.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-destructive" role="alert">
+                      This AI draft was written for “{aiDraft.term}”. Remove it
+                      before publishing a different term.
+                    </p>
+                  )
                 ) : (
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={
-                      !normalizedTerm ||
-                      termsAreLoading ||
-                      mutation.isPending ||
-                      suggestAiDraft.isPending
-                    }
-                    onClick={() =>
+                    disabled={!normalizedTerm || termsAreLoading || busy}
+                    onClick={() => {
+                      activity.start()
                       suggestAiDraft.mutate({
                         term: termValue,
                         context: form.getValues("definition") || undefined
                       })
-                    }
+                    }}
                   >
                     <SparklesIcon aria-hidden />
                     {suggestAiDraft.isPending
@@ -351,9 +379,9 @@ export const DefinitionForm = ({
                   </Button>
                 )}
 
-                {suggestAiDraft.error ? (
+                {suggestAiDraft.error || discardAiDraft.error ? (
                   <p className="text-sm text-destructive" role="alert">
-                    {suggestAiDraft.error.message}
+                    {(suggestAiDraft.error ?? discardAiDraft.error)?.message}
                   </p>
                 ) : null}
               </div>
@@ -383,8 +411,8 @@ export const DefinitionForm = ({
               type="submit"
               size="lg"
               disabled={
-                mutation.isPending ||
-                suggestAiDraft.isPending ||
+                busy ||
+                Boolean(aiDraft && !aiDraftMatchesTerm) ||
                 (lockedTerm === undefined && termsAreLoading) ||
                 (lockedTerm === undefined && isExistingTerm)
               }

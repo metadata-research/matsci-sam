@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { PlusIcon, SparklesIcon, StarIcon, UserIcon } from "lucide-react"
 import { trpc } from "@/trpc/client"
 import { Button } from "@/components/ui/button"
@@ -19,10 +20,14 @@ type Feedback = {
 
 export function DefinitionExamples({
   definitionId,
-  sourceRevisionId
+  sourceRevisionId,
+  readOnly = false,
+  currentRevisionHref
 }: {
   definitionId: number
   sourceRevisionId: number
+  readOnly?: boolean
+  currentRevisionHref?: string
 }) {
   const [{ items, canFeature }] = trpc.examples.list.useSuspenseQuery({
     definitionId
@@ -93,14 +98,30 @@ export function DefinitionExamples({
           ) : null}
         </div>
         <p className="text-sm text-muted-foreground">
-          Examples are contributed separately. The featured example appears in
-          compact views of this definition.
+          {readOnly
+            ? "Examples belong to the definition as a whole and may have been added after this historical revision."
+            : "Examples are contributed separately. The featured example appears in compact views of this definition."}
         </p>
       </header>
 
+      {readOnly && currentRevisionHref ? (
+        <p className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground">
+          To add an example or change which example is featured, open the{" "}
+          <Link
+            href={currentRevisionHref}
+            className="font-medium text-primary underline"
+          >
+            current revision
+          </Link>
+          .
+        </p>
+      ) : null}
+
       {items.length === 0 ? (
         <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-          No examples yet — add one.
+          {readOnly
+            ? "No examples have been contributed."
+            : "No examples yet — add one."}
         </p>
       ) : (
         <ol className="overflow-hidden rounded-xl border bg-card">
@@ -134,7 +155,7 @@ export function DefinitionExamples({
                     ) : null}
                   </div>
 
-                  {canFeature && !example.isFeatured ? (
+                  {!readOnly && canFeature && !example.isFeatured ? (
                     <Button
                       type="button"
                       size="sm"
@@ -158,101 +179,110 @@ export function DefinitionExamples({
                   {example.text}
                 </p>
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    {modelAuthored ? (
-                      <SparklesIcon aria-hidden className="size-3.5 text-ai" />
-                    ) : (
-                      <UserIcon aria-hidden className="size-3.5" />
-                    )}
-                    <span>Added by</span>
-                    <PublicProfileName
-                      user={example.author}
-                      fallback={
-                        example.legacyBackfill
-                          ? "Contributor not recorded"
-                          : "Unknown contributor"
-                      }
-                      className={modelAuthored ? "text-ai" : undefined}
-                    />
-                  </span>
-                  {example.model ? (
-                    <span className="font-mono text-ai">{example.model}</span>
-                  ) : null}
-                  <span>{formatDate(example.createdAt)}</span>
-                </div>
+                {example.legacyBackfill ? (
+                  <p className="text-xs text-muted-foreground">
+                    Origin and contribution date not recorded
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      {modelAuthored ? (
+                        <SparklesIcon
+                          aria-hidden
+                          className="size-3.5 text-ai"
+                        />
+                      ) : (
+                        <UserIcon aria-hidden className="size-3.5" />
+                      )}
+                      <span>Added by</span>
+                      <PublicProfileName
+                        user={example.author}
+                        fallback="Unknown contributor"
+                        className={modelAuthored ? "text-ai" : undefined}
+                      />
+                    </span>
+                    {example.model ? (
+                      <span className="font-mono text-ai">{example.model}</span>
+                    ) : null}
+                    <span>{formatDate(example.createdAt)}</span>
+                  </div>
+                )}
               </li>
             )
           })}
         </ol>
       )}
 
-      <div aria-live="polite">
-        {feedback ? (
-          <p
-            role={feedback.kind === "error" ? "alert" : "status"}
-            className={cn(
-              "text-sm",
-              feedback.kind === "error"
-                ? "text-destructive"
-                : "text-muted-foreground"
-            )}
-          >
-            {feedback.message}
-          </p>
-        ) : null}
-      </div>
+      {!readOnly ? (
+        <>
+          <div aria-live="polite">
+            {feedback ? (
+              <p
+                role={feedback.kind === "error" ? "alert" : "status"}
+                className={cn(
+                  "text-sm",
+                  feedback.kind === "error"
+                    ? "text-destructive"
+                    : "text-muted-foreground"
+                )}
+              >
+                {feedback.message}
+              </p>
+            ) : null}
+          </div>
 
-      <form
-        className="space-y-3 rounded-xl border bg-card p-4 sm:p-5"
-        aria-busy={create.isPending}
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (!trimmed || create.isPending) return
-          create.mutate({
-            definitionId,
-            sourceRevisionId,
-            text: trimmed
-          })
-        }}
-      >
-        <div className="space-y-1">
-          <label
-            htmlFor={`new-example-${definitionId}`}
-            className="font-medium"
+          <form
+            className="space-y-3 rounded-xl border bg-card p-4 sm:p-5"
+            aria-busy={create.isPending}
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (!trimmed || create.isPending) return
+              create.mutate({
+                definitionId,
+                sourceRevisionId,
+                text: trimmed
+              })
+            }}
           >
-            Add example
-          </label>
-          <p
-            id={`new-example-help-${definitionId}`}
-            className="text-sm text-muted-foreground"
-          >
-            Show how this definition is used in a materials science context.
-          </p>
-        </div>
-        <Textarea
-          id={`new-example-${definitionId}`}
-          value={text}
-          maxLength={EXAMPLE_MAX_LENGTH}
-          disabled={create.isPending}
-          aria-describedby={`new-example-help-${definitionId}`}
-          className="min-h-24"
-          placeholder="Add an example of use"
-          onChange={(event) => {
-            setText(event.target.value)
-            if (feedback) setFeedback(null)
-          }}
-        />
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            disabled={!trimmed || create.isPending || feature.isPending}
-          >
-            <PlusIcon aria-hidden />
-            {create.isPending ? "Adding…" : "Add example"}
-          </Button>
-        </div>
-      </form>
+            <div className="space-y-1">
+              <label
+                htmlFor={`new-example-${definitionId}`}
+                className="font-medium"
+              >
+                Add example
+              </label>
+              <p
+                id={`new-example-help-${definitionId}`}
+                className="text-sm text-muted-foreground"
+              >
+                Show how this definition is used in a materials science context.
+              </p>
+            </div>
+            <Textarea
+              id={`new-example-${definitionId}`}
+              value={text}
+              maxLength={EXAMPLE_MAX_LENGTH}
+              disabled={create.isPending}
+              aria-describedby={`new-example-help-${definitionId}`}
+              className="min-h-24"
+              placeholder="Add an example of use"
+              onChange={(event) => {
+                setText(event.target.value)
+                if (feedback) setFeedback(null)
+              }}
+            />
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={!trimmed || create.isPending || feature.isPending}
+              >
+                <PlusIcon aria-hidden />
+                {create.isPending ? "Adding…" : "Add example"}
+              </Button>
+            </div>
+          </form>
+        </>
+      ) : null}
     </section>
   )
 }

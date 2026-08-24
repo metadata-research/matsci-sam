@@ -17,6 +17,10 @@ import { cn } from "@/lib/utils"
 import { SURVEY_RESPONSE_MAX_LENGTH } from "@/lib/input-limits"
 import { collectionPath, studyPath } from "@/lib/public-identifiers"
 import { scaleLabelsForPrompt } from "@/lib/study-presentation"
+import {
+  type MutationActivityCallbacks,
+  useMutationActivity
+} from "@/components/use-mutation-activity"
 
 /*
  * The step shell of a walkthrough. It opens at the step the router says the
@@ -65,11 +69,13 @@ const Dots = ({
   steps,
   position,
   reachable,
+  navigationLocked,
   onSelect
 }: {
   steps: Step[]
   position: number
   reachable: (position: number) => boolean
+  navigationLocked: boolean
   onSelect: (position: number) => void
 }) => (
   <ol className="flex flex-wrap gap-2" aria-label="Steps">
@@ -92,7 +98,7 @@ const Dots = ({
             aria-label={label}
             title={label}
             aria-current={current ? "step" : undefined}
-            disabled={!open}
+            disabled={!open || navigationLocked}
             onClick={() => onSelect(step.position)}
             className={cn(
               "block size-3.5 rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-30",
@@ -207,19 +213,22 @@ const Candidates = ({
   expectedInstructions,
   pending,
   onAccepted,
-  onPublished
+  onPublished,
+  onMutationStart,
+  onMutationEnd
 }: {
   step: Step
   expectedInstructions: string | null
   pending: boolean
   onAccepted: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
-}) => {
+} & MutationActivityCallbacks) => {
   const termId = step.termId!
   const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
   const candidates = orderCandidates(definitions)
   const [move, setMove] = useState<Move>({ kind: "choose" })
   const utils = trpc.useUtils()
+  const activity = useMutationActivity({ onMutationStart, onMutationEnd })
 
   const accept = trpc.votes.vote.useMutation({
     onSuccess: (_, { definitionId, revisionId }) => {
@@ -232,10 +241,11 @@ const Candidates = ({
     onError: (error) => {
       toast.error(error.message)
       utils.definitions.list.invalidate({ termId })
-    }
+    },
+    onSettled: activity.end
   })
 
-  const busy = pending || accept.isPending
+  const busy = pending || activity.busy || accept.isPending
 
   if (move.kind !== "choose") {
     const candidate = move.candidate
@@ -254,6 +264,8 @@ const Candidates = ({
             surveyStepId={step.id}
             expectedInstructions={expectedInstructions}
             onPublished={onPublished}
+            onMutationStart={activity.start}
+            onMutationEnd={activity.end}
           />
         ) : (
           <DefinitionForm
@@ -262,6 +274,8 @@ const Candidates = ({
             expectedInstructions={expectedInstructions}
             replacesDefinitionId={candidate.id}
             onPublished={onPublished}
+            onMutationStart={activity.start}
+            onMutationEnd={activity.end}
           />
         )}
         <Button
@@ -318,17 +332,19 @@ const Candidates = ({
                 <Button
                   size="sm"
                   disabled={busy}
-                  onClick={() =>
-                    standing
-                      ? onAccepted()
-                      : accept.mutate({
-                          definitionId: candidate.id,
-                          revisionId: candidate.revisionId,
-                          vote: "up",
-                          surveyStepId: step.id,
-                          expectedInstructions
-                        })
-                  }
+                  onClick={() => {
+                    if (standing) onAccepted()
+                    else {
+                      activity.start()
+                      accept.mutate({
+                        definitionId: candidate.id,
+                        revisionId: candidate.revisionId,
+                        vote: "up",
+                        surveyStepId: step.id,
+                        expectedInstructions
+                      })
+                    }
+                  }}
                 >
                   Accept
                 </Button>
@@ -370,7 +386,9 @@ const Position = ({
   pending,
   onAccepted,
   onPublished,
-  onContinue
+  onContinue,
+  onMutationStart,
+  onMutationEnd
 }: {
   step: Step
   expectedInstructions: string | null
@@ -378,7 +396,7 @@ const Position = ({
   onAccepted: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
   onContinue: () => void
-}) => {
+} & MutationActivityCallbacks) => {
   const settled = step.completed || step.held !== null
   return (
     <div className="space-y-6">
@@ -395,6 +413,8 @@ const Position = ({
             pending={pending}
             onAccepted={onAccepted}
             onPublished={onPublished}
+            onMutationStart={onMutationStart}
+            onMutationEnd={onMutationEnd}
           />
         )}
       </Suspense>
@@ -421,14 +441,16 @@ const ReviewList = ({
   expectedInstructions,
   readOnly,
   pending,
-  onDone
+  onDone,
+  onMutationStart,
+  onMutationEnd
 }: {
   step: Step
   expectedInstructions: string | null
   readOnly: boolean
   pending: boolean
   onDone: () => void
-}) => {
+} & MutationActivityCallbacks) => {
   const termId = step.termId!
   const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
 
@@ -470,7 +492,10 @@ const ReviewList = ({
             surveyStepId={step.id}
             expectedInstructions={expectedInstructions}
             voteReadOnly={readOnly}
+            voteDisabled={pending}
             voteReadOnlyTitle="This step is complete"
+            onMutationStart={onMutationStart}
+            onMutationEnd={onMutationEnd}
           />
           <div className="space-y-3 pl-4 sm:pl-8">
             <Suspense fallback={<Skeleton className="h-16 w-full" />}>
@@ -487,6 +512,9 @@ const ReviewList = ({
                 revisionId={definition.revisionId}
                 surveyStepId={step.id}
                 expectedInstructions={expectedInstructions}
+                disabled={pending}
+                onMutationStart={onMutationStart}
+                onMutationEnd={onMutationEnd}
               />
             )}
           </div>
@@ -503,13 +531,15 @@ const Review = ({
   step,
   expectedInstructions,
   pending,
-  onDone
+  onDone,
+  onMutationStart,
+  onMutationEnd
 }: {
   step: Step
   expectedInstructions: string | null
   pending: boolean
   onDone: () => void
-}) => (
+} & MutationActivityCallbacks) => (
   <Suspense fallback={<Skeleton className="h-32 w-full" />}>
     <ReviewList
       step={step}
@@ -517,6 +547,8 @@ const Review = ({
       readOnly={step.completed}
       pending={pending}
       onDone={onDone}
+      onMutationStart={onMutationStart}
+      onMutationEnd={onMutationEnd}
     />
   </Suspense>
 )
@@ -528,28 +560,34 @@ const SCALE = [1, 2, 3, 4, 5] as const
 const Question = ({
   step,
   expectedInstructions,
+  pending,
   onAnswered,
   onFailed,
-  onContinue
+  onContinue,
+  onMutationStart,
+  onMutationEnd
 }: {
   step: Step
   expectedInstructions: string | null
+  pending: boolean
   onAnswered: (nextPosition: number | null) => void
   onFailed: () => void
   onContinue: () => void
-}) => {
+} & MutationActivityCallbacks) => {
   const answered = step.response !== null
   const [text, setText] = useState(step.response?.valueText ?? "")
   const [scale, setScale] = useState<number | null>(
     step.response?.valueScale ?? null
   )
+  const activity = useMutationActivity({ onMutationStart, onMutationEnd })
 
   const answer = trpc.surveys.answerQuestion.useMutation({
     onSuccess: ({ nextPosition }) => onAnswered(nextPosition),
     onError: (error) => {
       toast.error(error.message)
       onFailed()
-    }
+    },
+    onSettled: activity.end
   })
 
   const ready =
@@ -561,7 +599,8 @@ const Question = ({
       className="space-y-4"
       onSubmit={(event) => {
         event.preventDefault()
-        if (!ready || answered) return
+        if (!ready || answered || pending || activity.busy) return
+        activity.start()
         answer.mutate(
           step.responseKind === "text"
             ? { stepId: step.id, expectedInstructions, valueText: text }
@@ -576,7 +615,7 @@ const Question = ({
           className="min-h-32"
           maxLength={SURVEY_RESPONSE_MAX_LENGTH}
           value={text}
-          disabled={answered}
+          disabled={answered || pending || activity.busy}
           onChange={(event) => setText(event.target.value)}
         />
       ) : (
@@ -598,7 +637,7 @@ const Question = ({
                   name={`answer-${step.id}`}
                   value={value}
                   checked={scale === value}
-                  disabled={answered}
+                  disabled={answered || pending || activity.busy}
                   onChange={() => setScale(value)}
                   className="size-4 accent-primary"
                 />
@@ -612,11 +651,14 @@ const Question = ({
         </fieldset>
       )}
       {answered ? (
-        <Button type="button" onClick={onContinue}>
+        <Button type="button" onClick={onContinue} disabled={pending}>
           Continue
         </Button>
       ) : (
-        <Button type="submit" disabled={!ready || answer.isPending}>
+        <Button
+          type="submit"
+          disabled={!ready || pending || activity.busy || answer.isPending}
+        >
           Submit
         </Button>
       )}
@@ -659,6 +701,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
   const [position, setPosition] = useState(
     walkthrough.resumePosition ?? total + 1
   )
+  const interaction = useMutationActivity()
 
   const show = (next: number) => {
     setPosition(next)
@@ -682,14 +725,18 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
     onError: (error) => {
       toast.error(error.message)
       reread()
-    }
+    },
+    onSettled: interaction.end
   })
 
   // A completed step is pressed through without a second completion.
-  const press = (step: Step) =>
-    step.completed
-      ? show(step.position + 1)
-      : complete.mutate({ stepId: step.id, expectedInstructions })
+  const press = (step: Step) => {
+    if (step.completed) show(step.position + 1)
+    else {
+      interaction.start()
+      complete.mutate({ stepId: step.id, expectedInstructions })
+    }
+  }
 
   // The step after this one reads the candidates of its term, so they are
   // fetched before the shell moves on, and the step paints without its
@@ -704,6 +751,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
   const reachable = (at: number) => at === 1 || steps[at - 2].completed
 
   const step: Step | undefined = steps[position - 1]
+  const navigationLocked = complete.isPending || interaction.busy
 
   return (
     <main className="px-4 py-8">
@@ -748,6 +796,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
               steps={steps}
               position={position}
               reachable={reachable}
+              navigationLocked={navigationLocked}
               onSelect={show}
             />
 
@@ -757,7 +806,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
               <Instructions
                 key={step.id}
                 step={step}
-                pending={complete.isPending}
+                pending={navigationLocked}
                 onContinue={() => press(step)}
               />
             ) : step.kind === "define" ? (
@@ -765,7 +814,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
                 key={step.id}
                 step={step}
                 expectedInstructions={expectedInstructions}
-                pending={complete.isPending}
+                pending={navigationLocked}
                 onAccepted={() => {
                   // The upvote is the position; the score it changed is read
                   // again, and the step completes as a press would.
@@ -783,23 +832,30 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
                   else utils.surveys.get.invalidate({ studySlug })
                 }}
                 onContinue={() => press(step)}
+                onMutationStart={interaction.start}
+                onMutationEnd={interaction.end}
               />
             ) : step.kind === "review" ? (
               <Review
                 key={step.id}
                 step={step}
                 expectedInstructions={expectedInstructions}
-                pending={complete.isPending}
+                pending={navigationLocked}
                 onDone={() => press(step)}
+                onMutationStart={interaction.start}
+                onMutationEnd={interaction.end}
               />
             ) : (
               <Question
                 key={step.id}
                 step={step}
                 expectedInstructions={expectedInstructions}
+                pending={navigationLocked}
                 onAnswered={advance}
                 onFailed={reread}
                 onContinue={() => show(step.position + 1)}
+                onMutationStart={interaction.start}
+                onMutationEnd={interaction.end}
               />
             )}
           </>

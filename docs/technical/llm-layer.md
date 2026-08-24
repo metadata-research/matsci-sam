@@ -19,16 +19,19 @@ without loading the other modules.
 prompts, and the module-private `resolvePromptKey` reads one and throws a
 clear error for an unknown key. `NewTermSystemPrompt` and
 `RevisionSuggestionSystemPrompt` are the prompts for the two canonical
-AI-assisted actions. `LLMSystemPrompt` and `RefineSystemPrompt` remain for
-legacy administrative generation and stored refinement records. The prompts
-are resolved at import, so import this module only where a prompt is needed.
+AI-assisted actions. `LLMSystemPrompt` remains for administrator-run legacy
+term generation. Historical refinement rows carry their own stored prompt text
+and model provenance; the retired refinement prompt is no longer executable.
+The prompts are resolved at import, so import this module only where a prompt
+is needed.
 
 **`stamp.ts`** holds `makeGenerationStamp(promptKey, promptText)`, which
 returns `{ promptKey, promptHash, promptText, model }`. `promptHash` covers
 edits to a prompt under an unchanged key. `newTermGenerationStamp` and
 `revisionSuggestionGenerationStamp` are written to
 `aiContributionSuggestions` before the contributor decides what to do with a
-draft. The older chat and refinement paths use the same four-part stamp.
+draft. The older chat path uses the same four-part stamp, while historical
+refinement rows retain the stamps written when that workflow was active.
 
 **`client.ts`** holds the Ollama client and
 `runLLM(messages, systemPrompt, schema)`. The schema is a Zod object passed
@@ -48,9 +51,10 @@ refers to. `buildRevisionMessages` maps chat rows into Ollama messages and
 prepends that missing context when it is needed. Public comments no longer
 write this thread or trigger a generation.
 
-**`definitions.ts`** holds the retained database-bound implementations for an
-administrator-run term generation and historical refinement rounds. They are
-not public contribution actions. The canonical public entry point is
+**`definitions.ts`** holds the retained database-bound implementation for an
+administrator-run term generation. Historical refinement rounds remain
+queryable for provenance but have no executable router or model call. The
+canonical public entry point is
 `trpc/routers/ai-assist.ts`: `suggestNewTerm` and `suggestRevision` call
 `runLLM`, persist the exact draft and generation stamp, and return an editable
 preview. `definitions.create` validates and consumes the suggestion identifier
@@ -70,6 +74,9 @@ definition to consume a suggestion only once.
 This is an architectural boundary as well as interface copy: the comments
 router performs only the comment write, replacement publication has no
 suggestion identifier, and examples use their own contribution table.
+`scripts/test-public-router-surface.ts` inspects the mounted application router
+in CI so retained historical refinement code cannot accidentally become a
+second public workflow again.
 
 **`model-identity.ts`** turns a model tag into an identity, giving a slug,
 display name, vendor, family and parameter size. It is pure, so a model that

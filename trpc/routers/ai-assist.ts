@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { z } from "zod"
 
 import {
@@ -26,6 +26,7 @@ import {
 } from "@/lib/llm/stamp"
 import { createTRPCRouter } from "../init"
 import { contributorProcedure } from "../procedures"
+import { discardAiContributionSuggestion } from "@/lib/ai-contribution-suggestions"
 
 /*
  * AI is an optional control inside a contribution action, never an action of
@@ -35,6 +36,7 @@ import { contributorProcedure } from "../procedures"
  */
 export const aiAssistRouter = createTRPCRouter({
   suggestNewTerm: contributorProcedure
+    .meta({ marksGraphs: false })
     .input(
       z.object({
         term: z.string().trim().min(1).max(TERM_MAX_LENGTH),
@@ -108,6 +110,7 @@ export const aiAssistRouter = createTRPCRouter({
     }),
 
   suggestRevision: contributorProcedure
+    .meta({ marksGraphs: false })
     .input(
       z.object({
         definitionId: z.number().int().positive(),
@@ -204,24 +207,18 @@ export const aiAssistRouter = createTRPCRouter({
     }),
 
   discard: contributorProcedure
+    .meta({ marksGraphs: false })
     .input(z.object({ suggestionId: z.number().int().positive() }))
     .mutation(async ({ ctx: { userId }, input: { suggestionId } }) => {
-      const [discarded] = await db
-        .update(aiContributionSuggestionsTable)
-        .set({ status: "discarded", decidedAt: new Date().toISOString() })
-        .where(
-          and(
-            eq(aiContributionSuggestionsTable.id, suggestionId),
-            eq(aiContributionSuggestionsTable.requestedById, userId),
-            eq(aiContributionSuggestionsTable.status, "generated")
-          )
-        )
-        .returning({ id: aiContributionSuggestionsTable.id })
+      const discarded = await discardAiContributionSuggestion({
+        suggestionId,
+        requestedById: userId
+      })
 
       if (!discarded)
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "No such pending AI suggestion"
+          message: "No such discardable AI suggestion"
         })
 
       return { ok: true }

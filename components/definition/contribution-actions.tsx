@@ -24,6 +24,7 @@ export function DefinitionContributionActions({
   revisionId: number
 }) {
   const [action, setAction] = useState<Action>("choose")
+  const [childBusy, setChildBusy] = useState(false)
 
   if (action === "revise")
     return (
@@ -32,10 +33,12 @@ export function DefinitionContributionActions({
           term={term}
           definitionId={definitionId}
           sourceRevisionId={revisionId}
+          onBusyChange={setChildBusy}
         />
         <Button
           type="button"
           variant="ghost"
+          disabled={childBusy}
           onClick={() => setAction("choose")}
         >
           <ArrowLeftIcon aria-hidden />
@@ -51,10 +54,15 @@ export function DefinitionContributionActions({
           Write a separate candidate that should supersede this one. Both remain
           available for comparison and voting.
         </p>
-        <DefinitionForm lockedTerm={term} replacesDefinitionId={definitionId} />
+        <DefinitionForm
+          lockedTerm={term}
+          replacesDefinitionId={definitionId}
+          onBusyChange={setChildBusy}
+        />
         <Button
           type="button"
           variant="ghost"
+          disabled={childBusy}
           onClick={() => setAction("choose")}
         >
           <ArrowLeftIcon aria-hidden />

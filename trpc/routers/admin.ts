@@ -179,7 +179,9 @@ export const adminRouter = createTRPCRouter({
       )
       .innerJoin(termsTable, eq(definitionsTable.termId, termsTable.id))
       .leftJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
-      .where(inArray(refinementsTable.status, ["pending", "failed"]))
+      .where(
+        inArray(refinementsTable.status, ["pending", "suggested", "failed"])
+      )
       .orderBy(desc(refinementsTable.createdAt), desc(refinementsTable.id))
   }),
   provenance: adminProcedure
@@ -226,7 +228,9 @@ export const adminRouter = createTRPCRouter({
       db
         .select({ status: refinementsTable.status })
         .from(refinementsTable)
-        .where(inArray(refinementsTable.status, ["pending", "failed"])),
+        .where(
+          inArray(refinementsTable.status, ["pending", "suggested", "failed"])
+        ),
       db
         .select({
           id: definitionRevisionsTable.id,
@@ -268,20 +272,14 @@ export const adminRouter = createTRPCRouter({
     const termThreadsWaiting = Array.from(latestTermChats.values()).filter(
       ({ role }) => role === "user"
     ).length
-    const pendingRefinements = refinementAttention.filter(
-      ({ status }) => status === "pending"
-    ).length
-    const failedRefinements = refinementAttention.filter(
-      ({ status }) => status === "failed"
-    ).length
+    const retiredRefinements = refinementAttention.length
 
     return {
       totals: { terms, definitions, people, votes },
       generationAttention: {
         termThreadsWaiting,
-        pendingRefinements,
-        failedRefinements,
-        waiting: termThreadsWaiting + pendingRefinements
+        retiredRefinements,
+        waiting: termThreadsWaiting
       },
       recentActivity
     }

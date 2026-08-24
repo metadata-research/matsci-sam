@@ -214,8 +214,7 @@
   letter-spacing: 0.1em;
 }
 
-.aiMarker,
-.suggestionReady {
+.aiMarker {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -225,8 +224,7 @@
   white-space: nowrap;
 }
 
-.aiMarker svg,
-.suggestionReady svg {
+.aiMarker svg {
   width: 0.95rem;
   height: 0.95rem;
 }
@@ -750,7 +748,6 @@
     grid-column: 1;
   }
 
-  .suggestionReady,
   .openDefinition {
     grid-column: 2;
     grid-row: 1 / span 2;

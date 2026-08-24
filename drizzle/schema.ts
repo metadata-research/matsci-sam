@@ -724,9 +724,13 @@ export const actorKindEnum = pgEnum("actor_kind", [
 
 // --- DEFINITION EXAMPLES ---
 // Examples are independent, immutable contributions under a stable definition.
-// sourceRevisionId records the exact definition text the contributor saw; the
-// composite FK proves that source belongs to this definition. Withdrawing an
-// example changes only its lifecycle and never rewrites its text or provenance.
+// For application-created rows, sourceRevisionId records the exact definition
+// text the contributor saw and createdAt records the publication time. A
+// legacyBackfill row instead retains those non-null fields only as compatibility
+// anchors: the legacy schema did not preserve its exact source, actor, or time.
+// The composite FK proves that any source anchor belongs to this definition.
+// Withdrawing an example changes only its lifecycle and never rewrites its text
+// or provenance.
 export type DefinitionExample = typeof definitionExamplesTable.$inferSelect
 export const definitionExamplesTable = pgTable(
   "definitionExamples",
@@ -738,8 +742,9 @@ export const definitionExamplesTable = pgTable(
     exampleNumber: integer().notNull(),
     sourceRevisionId: integer().notNull(),
     text: text().notNull(),
-    // Null is reserved for backfilled rows whose legacy revision did not retain
-    // an editor. Every application-created row supplies both author and kind.
+    // Legacy rows always leave actor attribution null because the older schema
+    // did not record who supplied the example independently of the definition.
+    // Every application-created row supplies both author and kind.
     authorId: integer().references(() => usersTable.id),
     actorKind: actorKindEnum(),
     // Optional generation stamp. promptKey may be null for a raw prompt, while
@@ -782,8 +787,12 @@ export const definitionExamplesTable = pgTable(
     ),
     check(
       "definition_examples_attribution_complete_or_legacy",
-      sql`${table.legacyBackfill}
-          OR (${table.authorId} IS NOT NULL AND ${table.actorKind} IS NOT NULL)`
+      sql`(${table.legacyBackfill}
+            AND ${table.authorId} IS NULL
+            AND ${table.actorKind} IS NULL)
+          OR (NOT ${table.legacyBackfill}
+            AND ${table.authorId} IS NOT NULL
+            AND ${table.actorKind} IS NOT NULL)`
     ),
     check(
       "definition_examples_generation_stamp",
@@ -835,7 +844,9 @@ export const definitionExamplesTableRelations = relations(
 
 // One interval during which an example was featured for its definition. Ending
 // a selection and inserting its successor in one transaction preserves every
-// decision while the partial unique index guarantees one active selection.
+// decision while the partial unique index guarantees one active selection. A
+// legacyBackfill interval has an unknown selector and uses selectedAt only as a
+// compatibility ordering anchor, not as an observed decision time.
 export type DefinitionExampleSelection =
   typeof definitionExampleSelectionsTable.$inferSelect
 export const definitionExampleSelectionsTable = pgTable(
@@ -860,6 +871,11 @@ export const definitionExampleSelectionsTable = pgTable(
     uniqueIndex("definition_example_selections_one_active")
       .on(table.definitionId)
       .where(sql`${table.endedAt} IS NULL`),
+    index("definition_example_selections_definition_history_idx").on(
+      table.definitionId,
+      table.selectedAt,
+      table.id
+    ),
     index("definition_example_selections_example_idx").on(table.exampleId),
     index("definition_example_selections_selected_by_idx").on(
       table.selectedById
@@ -867,7 +883,8 @@ export const definitionExampleSelectionsTable = pgTable(
     index("definition_example_selections_ended_by_idx").on(table.endedById),
     check(
       "definition_example_selections_actor_or_legacy",
-      sql`${table.legacyBackfill} OR ${table.selectedById} IS NOT NULL`
+      sql`(${table.legacyBackfill} AND ${table.selectedById} IS NULL)
+          OR (NOT ${table.legacyBackfill} AND ${table.selectedById} IS NOT NULL)`
     ),
     check(
       "definition_example_selections_end_pair",

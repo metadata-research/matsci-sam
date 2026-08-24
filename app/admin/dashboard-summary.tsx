@@ -21,7 +21,7 @@ import styles from "./admin.module.css"
 
 type GenerationAttention = {
   waiting: number
-  failedRefinements: number
+  retiredRefinements: number
 }
 
 type Status =
@@ -103,18 +103,18 @@ export function DashboardSummary({
               {generationAttention.waiting === 1 ? "job" : "jobs"} waiting
             </span>
           </li>
-          {generationAttention.failedRefinements > 0 ? (
+          {generationAttention.retiredRefinements > 0 ? (
             <li className={cn(styles.statusRow, styles.statusRowCompact)}>
               <TriangleAlertIcon
                 aria-hidden
                 className={cn(styles.statusIcon, styles.statusIconWarning)}
               />
               <span>
-                {generationAttention.failedRefinements} failed{" "}
-                {generationAttention.failedRefinements === 1
-                  ? "refinement"
-                  : "refinements"}{" "}
-                need review
+                {generationAttention.retiredRefinements} retired refinement{" "}
+                {generationAttention.retiredRefinements === 1
+                  ? "record needs"
+                  : "records need"}{" "}
+                review
               </span>
             </li>
           ) : (

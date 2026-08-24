@@ -1,29 +1,15 @@
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
-import { contributorProcedure } from "../procedures"
 import {
-  coauthorsTable,
   commentsTable,
   db,
   definitionRevisionsTable,
   definitionsTable,
-  discussionSuggestionsTable,
   termsTable,
   usersTable
 } from "@yamz/db"
 import { and, desc, eq, inArray, sql } from "drizzle-orm"
-import { TRPCError } from "@trpc/server"
-import { revalidatePath } from "next/cache"
-import { runLLM } from "@/lib/llm/client"
-import { OllamaModel } from "@/lib/llm/model"
-import { RefineSystemPrompt } from "@/lib/llm/prompts"
-import { GetModelUser } from "@/lib/crud"
-import {
-  createDefinitionWithInitialRevision,
-  diffToStringSimple
-} from "@/lib/definition-revisions"
-import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
-import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
+import { diffToStringSimple } from "@/lib/definition-revisions"
 import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
 
 /*
@@ -97,58 +83,58 @@ export const discussionRouter = createTRPCRouter({
       )
       const [revisions, comments] = definitionIds.length
         ? await Promise.all([
-          db
-            .select({
-              id: definitionRevisionsTable.id,
-              definitionId: definitionRevisionsTable.definitionId,
-              version: definitionRevisionsTable.version,
-              definitionDiff: definitionRevisionsTable.definitionDiff,
-              source: definitionRevisionsTable.source,
-              changeNote: definitionRevisionsTable.changeNote,
-              legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
-              model: definitionRevisionsTable.model,
-              createdAt: definitionRevisionsTable.createdAt,
-              editorId: usersTable.id,
-              editor: usersTable.name,
-              editorIsAi: usersTable.isAi,
-              editorProfilePublic: usersTable.isProfilePublic
-            })
-            .from(definitionRevisionsTable)
-            .leftJoin(
-              usersTable,
-              eq(usersTable.id, definitionRevisionsTable.editorId)
-            )
-            .where(
-              inArray(definitionRevisionsTable.definitionId, definitionIds)
-            ),
-          db
-            .select({
-              id: commentsTable.id,
-              definitionId: commentsTable.definitionId,
-              revisionId: commentsTable.revisionId,
-              version: definitionRevisionsTable.version,
-              message: commentsTable.message,
-              createdAt: commentsTable.createdAt,
-              migratedLegacy: commentsTable.migratedLegacy,
-              authorId: usersTable.id,
-              author: usersTable.name,
-              isAi: usersTable.isAi,
-              authorProfilePublic: usersTable.isProfilePublic
-            })
-            .from(commentsTable)
-            .innerJoin(
-              definitionRevisionsTable,
-              and(
-                eq(definitionRevisionsTable.id, commentsTable.revisionId),
-                eq(
-                  definitionRevisionsTable.definitionId,
-                  commentsTable.definitionId
+            db
+              .select({
+                id: definitionRevisionsTable.id,
+                definitionId: definitionRevisionsTable.definitionId,
+                version: definitionRevisionsTable.version,
+                definitionDiff: definitionRevisionsTable.definitionDiff,
+                source: definitionRevisionsTable.source,
+                changeNote: definitionRevisionsTable.changeNote,
+                legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
+                model: definitionRevisionsTable.model,
+                createdAt: definitionRevisionsTable.createdAt,
+                editorId: usersTable.id,
+                editor: usersTable.name,
+                editorIsAi: usersTable.isAi,
+                editorProfilePublic: usersTable.isProfilePublic
+              })
+              .from(definitionRevisionsTable)
+              .leftJoin(
+                usersTable,
+                eq(usersTable.id, definitionRevisionsTable.editorId)
+              )
+              .where(
+                inArray(definitionRevisionsTable.definitionId, definitionIds)
+              ),
+            db
+              .select({
+                id: commentsTable.id,
+                definitionId: commentsTable.definitionId,
+                revisionId: commentsTable.revisionId,
+                version: definitionRevisionsTable.version,
+                message: commentsTable.message,
+                createdAt: commentsTable.createdAt,
+                migratedLegacy: commentsTable.migratedLegacy,
+                authorId: usersTable.id,
+                author: usersTable.name,
+                isAi: usersTable.isAi,
+                authorProfilePublic: usersTable.isProfilePublic
+              })
+              .from(commentsTable)
+              .innerJoin(
+                definitionRevisionsTable,
+                and(
+                  eq(definitionRevisionsTable.id, commentsTable.revisionId),
+                  eq(
+                    definitionRevisionsTable.definitionId,
+                    commentsTable.definitionId
+                  )
                 )
               )
-            )
-            .innerJoin(usersTable, eq(usersTable.id, commentsTable.userId))
-            .where(inArray(commentsTable.definitionId, definitionIds))
-        ])
+              .innerJoin(usersTable, eq(usersTable.id, commentsTable.userId))
+              .where(inArray(commentsTable.definitionId, definitionIds))
+          ])
         : [[], []]
 
       // A term's history: its definitions and the comments on them, in the
@@ -276,217 +262,5 @@ export const discussionRouter = createTRPCRouter({
         .filter((t): t is typeof t & { def: NonNullable<typeof t.def> } =>
           Boolean(t.def)
         )
-    }),
-
-  /*
-   * Single-shot revision suggestion for the discussion page.
-   *
-   * Deliberately separate from the refinements router: that flow is a
-   * multi-round negotiation scoped to a definition's own author. Here anyone
-   * may ask for a suggestion on any current revision. Persist the exact model
-   * result before showing it so publication cannot attach AI attribution to
-   * client-altered text.
-   */
-  suggest: contributorProcedure
-    .input(
-      z.object({
-        definitionId: z.number(),
-        revisionId: z.number(),
-        comment: z.string().trim().min(1).max(COMMENT_MAX_LENGTH)
-      })
-    )
-    .mutation(
-      async ({
-        ctx: { userId },
-        input: { definitionId, revisionId, comment }
-      }) => {
-        const [original] = await db
-          .select({
-            currentRevisionId: definitionsTable.currentRevisionId,
-            term: termsTable.term,
-            definition: definitionsTable.definition,
-            example: currentFeaturedExampleText().as("example")
-          })
-          .from(definitionsTable)
-          .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-          .where(eq(definitionsTable.id, definitionId))
-
-        if (!original)
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "No such definition"
-          })
-        if (original.currentRevisionId !== revisionId)
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "A newer revision is available. Review it before requesting a suggestion."
-          })
-
-        const result = await runLLM(
-          [
-            {
-              role: "user",
-              content: `<term>\n${original.term}\n\n<definition>\n${original.definition}\n\n<example>\n${original.example}`
-            },
-            { role: "user", content: `<feedback>\n${comment}` }
-          ],
-          RefineSystemPrompt
-        )
-
-        if (!result)
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "The model returned an invalid response"
-          })
-
-        const [suggestion] = await db.transaction(async (tx) => {
-          const [source] = await tx
-            .select({ currentRevisionId: definitionsTable.currentRevisionId })
-            .from(definitionsTable)
-            .where(eq(definitionsTable.id, definitionId))
-            .for("update")
-
-          if (source?.currentRevisionId !== revisionId)
-            throw new TRPCError({
-              code: "CONFLICT",
-              message:
-                "The source definition changed while the suggestion was being generated. Request another suggestion from the current revision."
-            })
-
-          return tx
-            .insert(discussionSuggestionsTable)
-            .values({
-              definitionId,
-              revisionId,
-              userId,
-              comment: comment.trim(),
-              suggestedDefinition: result.definition,
-              suggestedExample: result.example,
-              model: OllamaModel,
-              prompt: RefineSystemPrompt
-            })
-            .returning()
-        })
-
-        return {
-          suggestionId: suggestion.id,
-          definition: suggestion.suggestedDefinition,
-          example: suggestion.suggestedExample,
-          model: suggestion.model
-        }
-      }
-    ),
-
-  /*
-   * Publish an accepted suggestion as a new definition of the same term,
-   * derived from the original and credited to the accepting user with the
-   * model as coauthor. The comment that prompted it is recorded alongside, so
-   * the rationale stays with the discussion.
-   */
-  acceptSuggestion: contributorProcedure
-    .input(z.object({ suggestionId: z.number() }))
-    .mutation(async ({ ctx: { userId }, input: { suggestionId } }) => {
-      const preview = await db.query.discussionSuggestionsTable.findFirst({
-        columns: { userId: true, model: true },
-        where: eq(discussionSuggestionsTable.id, suggestionId)
-      })
-      if (!preview || preview.userId !== userId)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "No such pending suggestion"
-        })
-
-      const modelUser = await GetModelUser(preview.model)
-
-      const created = await db.transaction(async (tx) => {
-        const [suggestion] = await tx
-          .select()
-          .from(discussionSuggestionsTable)
-          .where(eq(discussionSuggestionsTable.id, suggestionId))
-          .for("update")
-
-        if (!suggestion || suggestion.userId !== userId)
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "No such pending suggestion"
-          })
-        if (
-          suggestion.acceptedAt !== null ||
-          suggestion.outputDefinitionId !== null
-        )
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "This suggestion has already been published."
-          })
-
-        const [original] = await tx
-          .select()
-          .from(definitionsTable)
-          .where(eq(definitionsTable.id, suggestion.definitionId))
-          .for("update")
-
-        if (!original)
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "The source definition no longer exists."
-          })
-        if (original.currentRevisionId !== suggestion.revisionId)
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "The source definition changed. Request a new suggestion from the current revision."
-          })
-
-        // The message is the person's own typed feedback, so the act is
-        // human even though it published alongside a model's suggestion;
-        // the model's part is credited through coauthorship below.
-        await tx.insert(commentsTable).values({
-          definitionId: suggestion.definitionId,
-          revisionId: suggestion.revisionId,
-          userId,
-          message: suggestion.comment,
-          authorKind: "human"
-        })
-
-        const { definition: inserted } =
-          await createDefinitionWithInitialRevision(tx, {
-            termId: original.termId,
-            authorId: userId,
-            definition: suggestion.suggestedDefinition,
-            example: suggestion.suggestedExample,
-            changeNote: "Accepted an AI-assisted discussion suggestion",
-            source: "ai_refinement",
-            model: suggestion.model,
-            prompt: suggestion.prompt,
-            refinedFromId: original.id,
-            derivedFromRevisionId: suggestion.revisionId,
-            createdVia: "interactive"
-          })
-
-        await tx
-          .insert(coauthorsTable)
-          .values({ definitionId: inserted.id, userId: modelUser.id })
-
-        await tx
-          .update(discussionSuggestionsTable)
-          .set({
-            outputDefinitionId: inserted.id,
-            acceptedAt: sql`now()`
-          })
-          .where(eq(discussionSuggestionsTable.id, suggestion.id))
-
-        return inserted
-      })
-
-      revalidatePath("/discussion")
-      await revalidatePublicDefinition({
-        definitionId: created.id,
-        definitionNumber: created.definitionNumber,
-        termId: created.termId,
-        version: 1
-      })
-
-      return created
     })
 })

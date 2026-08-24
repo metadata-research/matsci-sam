@@ -15,6 +15,7 @@ import { DashboardSummary } from "./dashboard-summary"
 import styles from "./admin.module.css"
 import { Suspense } from "react"
 import { revisionPath } from "@/lib/public-identifiers"
+import { aiRevisionSources, revisionSourceLabels } from "@/lib/revision-sources"
 
 export default async function AdminOverviewPage() {
   const overviewPromise = trpc.admin.overview()
@@ -53,27 +54,17 @@ export default async function AdminOverviewPage() {
             </thead>
             <tbody>
               {overview.recentActivity.map((activity) => {
-                const isAi =
-                  activity.source === "ai_generation" ||
-                  activity.source === "ai_refinement"
+                const isAi = aiRevisionSources.has(activity.source)
                 const isRevision = activity.version > 1 && !isAi
                 const type = isAi
                   ? "AI"
                   : isRevision
                     ? "Revision"
                     : "Definition"
-                const action =
-                  activity.source === "author_edit"
-                    ? "Definition revised"
-                    : activity.source === "rollback"
-                      ? "Revision restored"
-                      : activity.source === "ai_refinement"
-                        ? "AI-assisted revision"
-                        : activity.source === "ai_generation"
-                          ? "AI-assisted definition"
-                          : "Definition contributed"
+                const action = revisionSourceLabels[activity.source]
                 const actor =
-                  activity.source === "ai_refinement"
+                  activity.source === "ai_refinement" ||
+                  activity.source === "ai_assisted"
                     ? `${activity.editorName ?? "Community member"} + ${
                         activity.model ?? "named model"
                       }`

@@ -3,6 +3,10 @@
 import { loginToast } from "@/components/login-toast"
 import { trpc } from "@/trpc/client"
 import { toast } from "sonner"
+import {
+  type MutationActivityCallbacks,
+  useMutationActivity
+} from "@/components/use-mutation-activity"
 
 /*
  * The single client path for posting a comment, shared by every surface that
@@ -16,7 +20,9 @@ export const useCreateComment = ({
   definitionId,
   surveyStepId,
   expectedInstructions,
-  onPosted
+  onPosted,
+  onMutationStart,
+  onMutationEnd
 }: {
   definitionId: number
   // The review step of a walkthrough the comment is posted inside. Sent with
@@ -26,8 +32,9 @@ export const useCreateComment = ({
   expectedInstructions?: string | null
   // Surface-specific cleanup: reset the form, refresh the route, etc.
   onPosted?: () => void
-}) => {
+} & MutationActivityCallbacks) => {
   const utils = trpc.useUtils()
+  const activity = useMutationActivity({ onMutationStart, onMutationEnd })
 
   const mutation = trpc.comments.create.useMutation({
     onSuccess: () => {
@@ -41,16 +48,21 @@ export const useCreateComment = ({
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED") loginToast("comment")
       else toast.error(error.message)
-    }
+    },
+    onSettled: activity.end
   })
 
   return {
     ...mutation,
+    isPending: activity.busy || mutation.isPending,
     mutate: (
       input: Omit<
         Parameters<typeof mutation.mutate>[0],
         "surveyStepId" | "expectedInstructions"
       >
-    ) => mutation.mutate({ ...input, surveyStepId, expectedInstructions })
+    ) => {
+      activity.start()
+      mutation.mutate({ ...input, surveyStepId, expectedInstructions })
+    }
   }
 }
