@@ -3,8 +3,8 @@
 ## Search
 
 The **Search** entry under **Vocabulary** in the navigation bar opens the
-complete Search page without requiring a query. The quick-search field in the navigation bar opens the same page with
-a query. Search covers term names, definition text, and examples of use.
+Search page. The quick-search field in the navigation bar opens the same page
+with a query. Search covers term names, definition text, and examples of use.
 
 Results are divided into **Terms** and **Definitions**. Checkboxes show or
 hide either result type. At least one remains selected. The **By** filter
@@ -26,24 +26,23 @@ insert each form.
 Search filters and the query are stored in the URL so the result view can
 be bookmarked or shared.
 
-The empty Search page does not list the whole vocabulary. Begin typing to see
-matching term suggestions and definitions, or use **Browse** to scan every
-defined term alphabetically.
+The empty Search page waits for a query. Begin typing to see matching term
+suggestions and definitions, or use **Browse** to scan every defined term
+alphabetically.
 
 ## Browse
 
 The **Browse** page lists defined terms alphabetically with the definition
 count in parentheses. A letter index stays pinned to the top of the page
 while you scroll. Browse lists every defined term when you are signed out or
-have not chosen a community. When you have chosen a community from the
-**Working in** control in the navigation bar, Browse narrows to the terms
-that community is working through, which are the terms in the collections on
-its worklist, and a **Show everything** link drops the narrowing for one
-request without changing your standing choice. See [Communities and
+have not chosen a community. Choosing a community from the **Working in**
+control narrows Browse to the terms in the collections on the worklist for that
+community. **Show everything** displays the full vocabulary for one request and
+keeps the selected community in place. See [Communities and
 scope](/docs/communities).
 
 The **Tags** page is the other way to browse. It groups terms by facet and
-definitions by topic, and lists the curated collections. See
+definitions by topic, and lists collections. See
 [Tags](/docs/tags).
 
 The **Filter these terms** field performs a direct substring filter on
@@ -51,5 +50,5 @@ the terms already displayed. Press Escape or use the clear control to
 remove that filter.
 
 A bookmarked `/terms?q=...` address applies the full search engine before
-the page loads and provides a **Show all terms** link. The ordinary
-navigation search opens `/search` instead of sending queries to Browse.
+the page loads and provides a **Show all terms** link. The navigation search
+sends queries to `/search`.

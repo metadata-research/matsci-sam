@@ -3,9 +3,9 @@
 A study joins one community to one collection and says what the members are
 asked to do with the terms. Its walkthrough is the ordered steps a participant
 works through, and an act in a step is an ordinary write with the step as its
-context. This note maps the code that stores a study, plans and gates the
-walkthrough, and records what the cohort did. What a participant sees is in
-`docs/guide/studies.md`. The design record is kept outside the repository.
+context. The implementation stores the study, plans and gates the walkthrough,
+and records participant activity. `docs/guide/studies.md` describes the
+participant interface.
 
 ## Modules
 
@@ -13,8 +13,8 @@ walkthrough, and records what the cohort did. What a participant sees is in
   pages, the pilot driver and the tests answer each question the same way,
   and the one write they share, `recordCompletion`.
 - `lib/survey-queries.ts` loads the facts the rules take and writes the
-  multi-row units. It has no `server-only` marker, because
-  `scripts/test-kos-db.ts` drives its writes under plain `tsx`.
+  multi-row units. `scripts/test-kos-db.ts` imports it under plain `tsx` to
+  exercise those writes.
 - `lib/study-queries.ts` holds the reads of a study and `agreedDefinitions`,
   and `studyState` in `lib/communities.ts` derives the state from the
   window and `retiredAt`.
@@ -46,8 +46,9 @@ Migration 0043 added `backfilled` and `migratedLegacy` to `voteEvents` and
 inserted one event for each vote that had none for its revision and user pair,
 the votes cast before migration 0040 began the event record. Each row is the
 single act its vote had been published as, with the kind the vote stands at,
-the actor kind from the account flag and the recorded time of the vote,
-flagged `backfilled`. No write path sets that flag.
+the actor kind from the account flag and the recorded time of the vote.
+Migration 0043 marks these rows `backfilled` and is the only writer of that
+flag.
 
 ## The plan
 
@@ -78,7 +79,7 @@ step and the answer of a question. `gateOf` loads those facts, and
 `actMatchesStep` says which step an act may name. A comment names the review
 step of its term. A vote names the review step whatever its kind, and the
 define step only as an upvote. A definition names the define step of its term.
-`requireStepForAct` runs `requireParticipation`, which wants a live membership
+`requireStepForAct` runs `requireParticipation`, which requires a live membership
 and an open study, then `actMatchesStep`. `requireOnePosition` runs inside the
 transaction that writes a vote or a definition in a define step. For a vote it
 checks the kind the vote will stand at, since a second cast on the same
@@ -86,9 +87,9 @@ candidate is a withdrawal. It then refuses with CONFLICT when a completion or
 an act of the caller, which `actNamesStep` reads, already names the step. One
 act per person per define step.
 
-`drizzle/invariants.sql` proves afterwards what the router checked before, in
-a block that runs only where `surveySteps` exists. It requires that the step
-of a comment, a vote event or a revision fits the act and the term, that a
+`drizzle/invariants.sql` validates the router rules against stored rows in a
+block that runs where `surveySteps` exists. It requires that the step of a
+comment, vote event, or revision fits the act and term, that a
 vote event in a define step is an upvote, that one act per person per define
 step holds, that a response and a question completion come in pairs, that a
 simulated or model answer is from an AI-flag account and a text one has its
@@ -110,31 +111,52 @@ the transaction and `requireOnePosition` inside it for a define step, and
 `comments.create` runs the same check. Its model revision hook fires on a
 comment on the current revision of a definition whose author has an `aiModels`
 row, and not on `users.isAi`, because a simulated participant is an AI-flag
-account with no model identity. A comment inside a review step schedules
-nothing, because a revision would reset the score of the draft under the
-positions taken on it. `definitions.create` with a step runs
+account with no model identity. The review-step context skips the model
+revision hook, preserving the draft and the score used for participant
+positions. `definitions.create` with a step runs
 `requireStepForAct` as a define act, and inside the transaction runs
 `requireOnePosition`, checks that `derivedFromRevisionId` is the current
 revision of a definition of the same term, writes both columns on the initial
 revision, records the completion and returns where the walkthrough resumes.
 
-## The agreed list and the pages
+## The support list
 
 `agreedDefinitions(collectionId, asOf)` returns, for each term of the
-collection, the definition with the most support and how many other candidates
-stand beside it. Support is read from the votes, not from the score column,
-which a model revision resets. Without `asOf` it is the votes on the current
-revision, up minus down. With `asOf`, the `closesAt` of a closed study, it is
-the last vote event of each person on each revision at or before that time,
-summed over the revisions, so the page of a closed study shows the outcome of
-its round. A tie goes to the earliest candidate, and nothing is written.
+collection, the definition with the most support and the number of other
+definitions for that term. The function receives a collection and an optional
+time. It evaluates every definition of each term and votes from all accounts,
+independent of study membership and step attribution.
+
+Without `asOf`, support is the current-revision upvotes minus downvotes. With a
+closing time as `asOf`, support is the last vote event of each person on each
+revision at or before that time, summed over the revisions of the definition.
+A tie goes to the earliest definition. The function computes the result on
+read and writes no outcome row.
+
+## Outcome scope
+
+The current result is a site-wide support ranking shown in the context of a
+study. The query has no study or community input, so votes from accounts
+outside the study can affect the ranking. The guide therefore describes this
+result as a site-wide support snapshot rather than study consensus.
+
+The authoritative [development plan](../../docs-internal/DEVELOPMENT-PLAN.md)
+schedules community-scoped study outcomes in Phase 8d. The
+[pilot plan](../../docs-internal/MTSR-PILOT-PLAN.md#decisions) defines the
+remaining work. Phase 8d passes the study or community into the query, scopes
+current and closing-time tallies, and adds regression tests showing that
+unrelated votes do not affect either result. The plan also records the policy
+decision still needed for standing votes and backfilled legacy vote events
+that have no community context.
+
+## The pages
 
 The study page at `/studies/<slug>` is public. It calls
-`surveys.get` for a signed-in viewer to render the resume card, renders the
-agreed list, and does not list the cohort. The run page at
-`/studies/<slug>/run` decides who may walk, a signed-in member while the study
-is open, then renders the shell, which shows one step at a time and gives each
-surface the step so what it writes names it. The community page renders
+`surveys.get` for a signed-in viewer to render the resume card and renders the
+support list for every viewer. Community pages provide the roster. The run page
+at `/studies/<slug>/run` admits a signed-in member while the study is open and
+renders one step at a time. Each write surface receives the step so the new act
+can name it. The community page renders
 `GenerateWalkthrough`, which generates or regenerates, with a checkbox for the
 closing questions, and gives way to the step count once the walkthrough is in
 use or the study is retired. `studyProgress` gives the page how many

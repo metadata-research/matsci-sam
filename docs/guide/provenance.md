@@ -15,6 +15,7 @@ source revision, contributor feedback, stored model output, prompt, named
 model, and published definition. A restored revision also links directly to
 the earlier revision it copied, independently of its chronological
 predecessor.
+
 Unaccepted Discussion previews remain unpublished audit records and are not
 included in the public graph.
 
@@ -26,13 +27,12 @@ people and the models. Select a node for its detail.
 ![The profile of a model, with its exact version and the definitions it authored](/images/docs/model-profile.png)
 
 A model that contributes is credited by name. On a term page its name opens
-the profile of the model. In the graph and the timeline a model is
-identified by the exact tag it ran under, such as gemma4:26b, and is not a
-link. The profile gives that tag, who publishes it, what the model has
-authored on its own, and the prompts it worked from. A definition the model
-only coauthored, where a person accepted its suggestion, is credited on that
-definition rather than listed on the profile. One profile covers one version
-of a model. [The provenance model](/docs/reference/provenance-model)
+the profile of the model. The graph and timeline identify the model by the
+exact tag it ran under, such as `gemma4:26b`. The profile gives that tag, the
+publisher, direct model authorship, and the prompts used for those definitions.
+Coauthored definitions credit the contributor and model on the definition.
+One profile covers one version of a model. [The provenance
+model](/docs/reference/provenance-model)
 describes what the record contains and how it is published. The timeline
 below the graph presents the same record in order.
 
@@ -44,10 +44,10 @@ Votes and comments identify the revision visible when each contribution was
 made. A later definition revision starts a new vote tally. Earlier revision
 tallies and their comments remain in the history.
 
-Each voting act is recorded as an event with the revision it used, its
-kind, up, down or withdrawn, and the time. A changed or withdrawn vote adds
-an act and removes none, so the provenance view shows the sequence, and the
-current vote of a person on a revision is the last act in it. A vote that
+Each voting act is recorded as an event with the revision it used, its kind
+(up, down, or withdrawn), and the time. A change or withdrawal appends an act,
+so the provenance view shows the sequence. The last act gives the current vote
+of a person on a revision. A vote that
 stood from before acts were recorded has one act written for it at the
 recorded time of the vote, marked as backfilled. A vote cast or a comment
 posted inside the walkthrough of a [study](/docs/studies) names that study,
@@ -57,9 +57,9 @@ Some revisions imported from the earlier pilot schema contain only the
 definition text and time. Their original examples, editors, and change notes
 were not stored. The provenance view labels these partial revisions and leaves
 unknown values empty. It associates imported comments and refinement rounds
-with the revision visible at their recorded time. It associates imported votes
-with the revision current during migration because their old timestamps do not
-establish an earlier revision.
+with the revision visible at their recorded time. MatSci-SAM associated
+imported votes with the revision current during migration because the old
+timestamps do not establish an earlier revision.
 
 [Community review and revisions](/docs/community) describes revision
 publishing, restoration, and the imported-history limits.

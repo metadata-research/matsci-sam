@@ -1,10 +1,9 @@
 # Account access
 
-MatSci-SAM keeps one contributor account for each person. Google sign-in is
-always offered and uses the verified identity Google returns. Email sign-in,
-email account creation, and ORCID each appear only where a maintainer has
-enabled them, so the sign-in page shows a different set of choices in different
-deployments.
+MatSci-SAM associates contributions with a contributor account. Google sign-in
+is always offered and uses the verified identity Google returns. Email sign-in,
+email account creation, and ORCID appear where the deployment maintainer has
+enabled them. The available sign-in choices therefore vary by deployment.
 
 ## Verified email sign-in
 
@@ -12,7 +11,7 @@ When email sign-in is available, the form on **Sign in** is for an existing
 account. Enter an email address already attached to that account. MatSci-SAM
 sends a short-lived, one-time link only when the address matches an existing
 contributor. The confirmation page does not reveal whether an address was
-found. No password is stored.
+found. Sign-in uses the one-time link in place of a password.
 
 The link returns the contributor to the same account. The public profile
 never displays the email address.
@@ -25,10 +24,10 @@ contributor. After following its one-time link, the contributor completes
 their name and public-profile choices.
 
 If you already have contributions, sign in with the same Google account you
-used before. A second account created by email can separate you from work
-already attributed to your Google-connected account. A maintainer can enable
-existing-account email sign-in without enabling new account creation, so the
-registration link may not appear in every environment.
+used before. Creating a second account by email assigns later activity to a
+separate profile. A deployment maintainer can enable existing-account email
+sign-in without enabling new account creation, so the registration link may
+not appear in every environment.
 
 A delayed or filtered message may require the contributor to request another
 link after the short waiting period.
@@ -45,8 +44,7 @@ message that the account is not authorized.
 
 An ORCID iD is a researcher identifier. A signed-in contributor can connect an
 ORCID iD from the profile editor when ORCID access is available. MatSci-SAM
-accepts the identifier only from the ORCID authorization flow. The profile
-form does not accept a typed identifier.
+accepts the identifier through the ORCID authorization flow.
 
 An ORCID iD can be connected to only one MatSci-SAM account. A connected ORCID
 iD can also be used for sign-in. An unconnected ORCID iD does not create or

@@ -1,43 +1,64 @@
 # MatCore and the vocabulary
 
-MatSci-SAM publishes three families of identified thing. They share one
-identifier grammar and appear in the same RDF documents.
+MatSci-SAM publishes terms, concepts, and MatCore elements.
 
-| Family | What it describes | Where it is identified |
-| --- | --- | --- |
-| Terms | materials science terminology | `/vocabulary/{term}` |
-| Concepts | topics and facets that classify terms | `/tags/{scheme}/{concept}` |
+| Family           | What it describes                        | Identifier pattern            |
+| ---------------- | ---------------------------------------- | ----------------------------- |
+| Terms            | materials science terminology            | `/vocabulary/{term}`          |
+| Concepts         | topics and facets that classify terms    | `/tags/{scheme}/{concept}`    |
 | MatCore elements | metadata fields for describing a dataset | `/metadata/matcore#{element}` |
 
-The first two are vocabulary. A term is a word the community defines, and a
-concept is a label used to file terms. A MatCore element is a field in a
-metadata record about a computational dataset, transcribed from Greenberg et
-al. (2025). An element is a slot a depositor fills in, and it is not a
-concept in any scheme.
+Terms and concepts form the vocabulary. A term is a materials science word or
+phrase with definitions contributed by the community. Concepts organize terms
+by topic or facet. MatCore elements are fields in metadata records for
+computational datasets
+([Greenberg et al., 2025](https://arxiv.org/abs/2502.07106v1)).
 
-## The element set
+## MatCore profiles
 
-Each element is an `rdf:Property` with an English label and comment, the key
-as printed in the source figure under `matsci:sourceKey`, and `matsci:required`
-stating whether the paper marks it required.
+Greenberg et al. present MatCore as a two-tier metadata model for computational
+materials datasets. The Minimal MatCore Metadata profile provides fields common
+to every dataset. The second tier adds fields for density functional theory
+(DFT), classical molecular dynamics, GW/BSE, machine learning, and derivative
+methods (see Figure 1). MatSci-SAM represents the Minimal and DFT profiles from
+the preliminary `arXiv:2502.07106v1` snapshot dated February 10, 2025.
 
-The two tiers of the standard are published as `matsci:MetadataProfile`
-resources. Minimal holds eighteen elements and applies to every computational
-dataset. DFT holds nine and is optional. A profile lists its elements with
-`dcterms:hasPart`, and each element names its profile with `dcterms:isPartOf`.
+The Minimal profile contains 18 elements. The 13 required elements are
+`creator`, `title`, `date`, `description`, `material`, `calculation-type`,
+`simulation-conditions`, `method`, `software-code`, `matcore-version`,
+`matcore-id`, `matcore-date`, and `license`. The five optional elements are
+`disclaimer`, `software-files`, `Source-citation`, `doi`, and `funding` (see
+Figure 3).
 
-A `dcterms:Standard` resource records what the transcription is taken from,
-`arXiv:2502.07106v1` of February 10, 2025, with its title and source URL. The
-tables are preliminary and this is not an official or current MatCore release.
+The DFT profile is the optional second tier for density functional theory. Its
+three required elements are `xc-functional`, `potential`, and `basis-set`. The
+six optional elements are `calculation-physics`, `k-points`, `k-smearing`,
+`Self-consistent-field-convergence`, `state-occupations`, and
+`relaxation-convergence` (see Figure 5).
 
-The element set is served as a named graph at `/graphs/matcore` and is
-included in `/dataset.ttl`. [MatCore metadata](/metadata/matcore) presents the
-same elements as a page, with one synthetic example record.
+## MatSci-SAM representation
 
-## Where the vocabulary supplies a value
+[MatCore metadata](/metadata/matcore) presents the 27 element definitions and
+one synthetic DFT example. The catalog preserves the source spelling of each
+key and its requirement marker. The descriptions are concise paraphrases of
+the source tables.
 
-One element draws its values from the dictionary. `material` declares the
-concept scheme as its range.
+MatSci-SAM assigns each element a normalized identifier under
+`/metadata/matcore#` and publishes it as an `rdf:Property` with an English label
+and comment. The RDF also records the source key, requirement status, and
+profile membership. The Minimal and DFT profiles are `matsci:MetadataProfile`
+resources, and a `dcterms:Standard` resource identifies the source snapshot.
+
+The MatCore element set is available as a named graph at
+[`/graphs/matcore`](/graphs/matcore) and as part of
+[`/dataset.ttl`](/dataset.ttl). These resources form the dataset-metadata layer
+alongside the materials terminology in the vocabulary.
+
+## Vocabulary and Dublin Core
+
+MatCore elements identify fields in computational dataset metadata. Vocabulary
+terms identify materials science concepts. MatSci-SAM connects the `material`
+element to the vocabulary with `rdfs:range`.
 
 ```turtle
 <…/metadata/matcore#material> a rdf:Property ;
@@ -45,43 +66,18 @@ concept scheme as its range.
   rdfs:range <…/vocabulary> .
 ```
 
-A depositor recording a material names a term from the vocabulary instead of
-writing free text. The range says where the values of the element come from.
-MatSci-SAM holds no dataset records, so no document here links a dataset to
-a term.
+This connects a MatCore material value to a community-defined term and its
+vocabulary identifier.
 
-## The Dublin Core crosswalk
+The MatSci-SAM RDF layer also maps seven general MatCore elements to Dublin
+Core.
 
-MatSci-SAM states this crosswalk. The 2025 paper places MatCore in the Dublin
-Core lineage and publishes no element-by-element mapping, so a consumer reading
-these relations is reading a claim of this project.
-
-Seven of the twenty-seven elements have a Dublin Core counterpart.
-
-| Element | Dublin Core property | Relation |
-| --- | --- | --- |
-| `creator` | `dcterms:creator` | `owl:equivalentProperty` |
-| `title` | `dcterms:title` | `owl:equivalentProperty` |
-| `date` | `dcterms:date` | `owl:equivalentProperty` |
-| `description` | `dcterms:description` | `owl:equivalentProperty` |
+| Element           | Dublin Core property            | Relation                 |
+| ----------------- | ------------------------------- | ------------------------ |
+| `creator`         | `dcterms:creator`               | `owl:equivalentProperty` |
+| `title`           | `dcterms:title`                 | `owl:equivalentProperty` |
+| `date`            | `dcterms:date`                  | `owl:equivalentProperty` |
+| `description`     | `dcterms:description`           | `owl:equivalentProperty` |
 | `source-citation` | `dcterms:bibliographicCitation` | `owl:equivalentProperty` |
-| `doi` | `dcterms:identifier` | `rdfs:subPropertyOf` |
-| `license` | `dcterms:license` | `rdfs:subPropertyOf` |
-
-A subproperty relation marks an element that narrows the Dublin Core property.
-A DOI is one kind of `dcterms:identifier`, and a MatCore license is a
-`dcterms:license` restricted to SPDX values.
-
-The other twenty elements have no counterpart, among them the nine that
-describe a density functional theory calculation, such as `xc-functional`
-and `k-points`.
-
-Each relation is stated on the element, and no triple in these documents has
-a Dublin Core property as its subject.
-
-## Types in the RDF
-
-A term is a `skos:Concept` and a MatCore element is an `rdf:Property`. These
-documents declare no OWL classes. An element is not typed
-`owl:DatatypeProperty` or `owl:ObjectProperty`, and the RDF states no datatype
-for the value of an element. The source paper gives none.
+| `doi`             | `dcterms:identifier`            | `rdfs:subPropertyOf`     |
+| `license`         | `dcterms:license`               | `rdfs:subPropertyOf`     |

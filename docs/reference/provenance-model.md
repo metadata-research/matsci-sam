@@ -1,9 +1,13 @@
 # The provenance model
 
-Every term has a provenance record, published as W3C PROV-O in Turtle at
-`/terms/{id}/provenance.ttl` and drawn as a graph and a timeline on the
-provenance page of the term. The record is derived from the same application
-records the pages are built from.
+MatSci-SAM records how people and language models create, refine, discuss, and
+select definitions. [Curation and AI](/docs/reference/curation-and-ai)
+describes the workflow and the roles within it. The provenance layer publishes
+the resulting activities, agents, entities, and derivations as W3C PROV-O.
+
+Every term has a provenance record in Turtle at
+`/terms/{id}/provenance.ttl`. The provenance page of the term presents the same
+record as a graph and a timeline.
 
 ## What the record contains
 
@@ -33,23 +37,22 @@ stood with no event of its own when the event record began was written into
 that record once, at the backfill, and is marked as backfilled. The time of
 that act is the recorded time of the vote, which for a vote cast before
 2026-07-19 is the creation time of the definition, and
-`legacyAssociationInferred` marks those. A vote cast since is published as
-each act, a change of direction and a withdrawal included.
+`legacyAssociationInferred` marks those. After vote-event recording began,
+each cast, direction change, and withdrawal is published as an act.
 
 People and models are agents. A person is a `prov:Person` and a model is a
-`prov:SoftwareAgent`. In the per-term document a vote is public as an event
-and the voter is not. A vote activity there names the revision it used and no
-agent, and on the timeline the same vote reads "A community member". The
-dataset graph names a voter only where the profile is public or the account
-is a model. Authors, editors, commenters, asserters and retractors are named
-in both, whatever the profile setting.
+`prov:SoftwareAgent`. The per-term document presents a vote under the label "A
+community member" and names the revision used. The dataset graph names the
+voter when the profile is public or the account is a model. Authors, editors,
+commenters, asserters, and retractors are named in both views under every
+profile setting.
 
 ## Assertions, vote events and studies
 
-Tagging, relations, mappings and collection membership are recorded in the
-statement ledger, which holds who asserted each statement, when, and whether
-it was retracted and by whom. The provenance graph of the dataset publishes
-each stored statement as an assertion named by its identifier,
+The statement ledger records tagging, relations, mappings, and collection
+membership, including who asserted each statement, when, and whether it was
+retracted and by whom. The provenance graph of the dataset publishes each
+stored statement as an assertion named by its identifier,
 `{subject}#statement-{key}`. The assertion is a `matsci:Assertion` and a
 `prov:Entity`. It reifies the triple it asserts with `rdf:reifies` and an
 RDF 1.2 triple term, is attributed to its asserter, and states its generation
@@ -57,16 +60,15 @@ time. A retracted assertion stays in the graph with its invalidation time and
 the retracting agent under `matsci:retractedBy`, and the triple it reifies is
 no longer in the SKOS documents. An assertion and a retraction name their
 agent whatever the profile setting, as authorship does. Derived triples in
-the SKOS export, the reverse of a symmetric relation, a narrower read from a
-broader, and a topic lifted onto a term, have no stored row and therefore no
-assertion of their own.
+the SKOS export, the reverse of a symmetric relation, a narrower relation
+derived from a broader relation, and a topic lifted onto a term, have no stored
+row and therefore no assertion of their own.
 
 A voting act is a `matsci:VoteEvent` and a `prov:Activity`. It names the
-revision it used, what it did under `matsci:voteKind`, up, down or withdrawn,
-the kind of actor under `matsci:actorKind`, and the time. A vote cast from
-the walkthrough of a study, the ordered steps the study asks its members to
-complete, and a comment posted from one, name that study under
-`matsci:study`, whether or not the agent is named. Every act is named
+revision it used, the action under `matsci:voteKind` (up, down, or withdrawn),
+the actor type under `matsci:actorKind`, and the time. A vote or comment posted
+from the ordered walkthrough of a study names that study under `matsci:study`.
+Every act is named
 `{revision}#vote-event-{id}` from the identity of its row, which is assigned
 once and never reused, so the name is permanent. A vote that stood with no
 event of its own when the event record began has its row from the backfill,
@@ -77,26 +79,22 @@ at migration and the recorded time is the creation time of the definition,
 where the voter is a model or has made their profile public. Otherwise the
 act is in the graph and the agent is not.
 
-A study is a `matsci:Study` and a `prov:Activity` with its title, the window
-it ran over, and the collection it worked through under `matsci:worklist`.
-Nothing about the community that ran it, its roster or its invitations is
-published, and no person has a resolvable IRI anywhere in the graph. A person
-is a hash node on the provenance document of the term they acted under, so an
-assertion and the revision history it concerns name one agent. The fragment
-of that node is an opaque account number, the same on every document the
-person acted on, so the acts of one account can be joined across the graph.
-The number resolves to nothing.
+A study is a `matsci:Study` and a `prov:Activity` with its title, time window,
+and collection under `matsci:worklist`. Community identities, rosters, and
+invitations remain private application data. A person is a hash node on each
+term provenance document where they acted. The node uses an opaque account
+number consistently across documents, so the graph can join acts from the same
+account. The hash node is not a resolvable profile IRI.
 
 A definition proposed in a walkthrough as an amendment of a candidate records
 the revision it started from, and its first revision states that derivation
 with `prov:wasDerivedFrom`, so an amended definition is traceable to the
 candidate it amended.
 
-The profile of a model is the resolvable identity behind its
-`prov:SoftwareAgent` in the dataset graph. An assertion a model made, a vote
-a model cast and a revision a model generated are attributed to its
-`/models/{slug}` IRI there. The per-term document identifies a model by the
-name it ran under.
+The dataset graph identifies a model as a `prov:SoftwareAgent` with a
+resolvable `/models/{slug}` IRI. Assertions, votes, and revisions produced by
+that model use the same attribution. The per-term document identifies the
+model by its runtime name.
 
 The named graphs that hold these terms are described in
 [Metadata access](/docs/metadata-access#named-graphs), and the shapes under
@@ -104,8 +102,7 @@ The named graphs that hold these terms are described in
 
 ## The two views
 
-The SKOS documents state current meaning, which definitions a term has,
-which tags it holds, which term a tag is linked to. The PROV-O document
-states how it came to be so. A tag assertion, for instance, appears in SKOS
-as `dcterms:subject` with no asserter or time, and in the provenance graph
-as the assertion, with both.
+The SKOS documents state current meaning, including definitions, tags, and
+topic-to-term links. The PROV-O document states the activity and attribution
+behind that state. A tag assertion appears in SKOS as `dcterms:subject`. The
+provenance graph presents the same assertion with its asserter and time.

@@ -1,111 +1,87 @@
 # The knowledge organization model
 
-MatSci-SAM holds two kinds of concept and one kind of relation between them.
-The dictionary is a concept scheme whose concepts are terms. The tag layer is
-a set of further concept schemes whose concepts are tags. Every relation that
-attaches, links, groups or maps these concepts is one statement in a single
-ledger.
+MatSci-SAM organizes vocabulary content through a dictionary scheme, two tag
+schemes, and collections of terms. The dictionary contains materials
+science terms. Topics classify contributed definitions, PSPP facets classify
+terms, and collections gather terms for a stated purpose. A typed statement
+ledger records these relationships.
 
-## The dictionary scheme
+## Dictionary and definitions
 
-Every term is a `skos:Concept` in the concept scheme at `/vocabulary`. The
-term name is its preferred label. Each current definition revision is an
-identified resource that the term points at with `skos:definition`.
-Competing definitions of one term are separate definitions, each with its
-own revision history.
+Every term is a `skos:Concept` in the dictionary scheme at
+[`/vocabulary`](/vocabulary). The term name is its preferred label. Each
+contributed definition has a separate identity and revision history. The term
+links to the current revision of each definition with `skos:definition`.
 
-## Tag schemes
+## Concept schemes
 
-A tag is a `skos:Concept` in a tag scheme, and the scheme says what kind of
-tag it is. Two schemes exist.
+MatSci-SAM uses tags as classification concepts. Each tag belongs to a concept
+scheme. Four scheme properties determine what the tags classify, who may assign
+them, whether a tag may link to an equivalent term, and how the tags are
+ordered.
 
-The **topics** scheme is open. A signed-in contributor creates a topic and
-attaches it to a definition they wrote. Topics attach at definition level
-only. The export lifts them onto the term as a derived statement, so a reader
-who sees only term records still finds them.
+| Scheme                 | Classifies              | Assigned by       | Link to equivalent term | Order                                          |
+| ---------------------- | ----------------------- | ----------------- | ----------------------- | ---------------------------------------------- |
+| [Topics](/tags/topics) | contributed definitions | definition author | yes                     | alphabetical by preferred label                |
+| [PSPP](/tags/pspp)     | vocabulary terms        | administrator     | no                      | Processing, Structure, Properties, Performance |
 
-The **PSPP** scheme is curated. Its four concepts, Processing, Structure,
-Properties and Performance, classify the term concept itself, and only a
-curator assigns them. Facets attach at term level only. A term may have
-several, and a facet does not claim that the classification is complete. The
-four facets follow Greenberg, J., et al. (2023), "Materials Science Ontology
-Design with an Analytico-Synthetic Facet Analysis Framework". The PSPP
-scheme is unbridgeable. No facet can be linked to a term, and the database
-refuses the statement from a curator as well as from a contributor.
+A signed-in contributor may create a topic and attach it to a definition they
+wrote. The RDF export also places that topic on the containing term as a derived
+`dcterms:subject` statement.
 
-The two levels are enforced. A topic cannot attach to a term and a facet
-cannot attach to a definition. Each scheme states four rules for itself. The
-rules are the level the concepts attach at, who may assert them, whether a
-concept here may be declared the same concept as a term, and the order
-concepts are listed in.
+Administrators assign PSPP facets directly to terms and may assign several to
+one term. Processing, Structure, Properties, and Performance follow the
+analytico-synthetic framework presented by
+[Greenberg et al. (2023)](https://doi.org/10.1007/978-3-031-39141-5_18).
 
-| Rule | Topics | PSPP |
-| --- | --- | --- |
-| Attaches at | definition | term |
-| Assertable by | contributor | curator |
-| Bridgeable | yes | no |
-| Concept order | label | seeded |
+Every tag has a preferred label and may also have alternative labels, a
+definition, and a scope note. The definition states the meaning of the concept.
+The scope note states what belongs under it in classification. The statement
+model represents broader and related relations between tags in the same scheme.
 
-A tag has a preferred label, alternative labels, an optional definition, and
-an optional scope note. The definition says what the concept means. The
-scope note says what belongs under the tag in classification, and it keeps
-the tag usable when the meaning of a linked term changes. A tag may also
-have broader and narrower tags within its own scheme, and related tags.
+## Equivalent topics and terms
+
+A topic and a vocabulary term may identify the same concept. The topic creator
+or an administrator may record a one-to-one link. The ledger stores the link
+from the topic to the term with `skos:exactMatch`, and the RDF export presents
+the link in both directions. The topic keeps its own identifier, while its page
+presents the current definitions of the linked term.
 
 ## Collections
 
-A collection is a `skos:Collection`, a named set of terms gathered for a
-purpose, such as the terms reviewed for an event. Membership is a statement, so
-a term joins or leaves a collection without its own record changing.
-Collections hold terms only and are unordered. Each collection says who may
-change its membership, the same way a concept scheme does. A collection an
-administrator creates is curator-only, and one a contributor creates accepts
-changes from anyone signed in. Whether a contributor may create a collection at
-all is a deployment setting.
+A collection is an unordered, named set of terms published as a
+`skos:Collection`. A `skos:member` statement records each member independently
+of the term record.
 
-## The statement ledger
+A membership policy governs changes to each collection. An
+administrator-created collection accepts changes from administrators. When
+contributor creation is enabled for a deployment, a contributor-created
+collection accepts membership changes from any signed-in contributor.
+Administrators manage collection retirement and restoration. Retirement
+retracts the active membership statements and retains their assertion records.
 
-Every attachment, link, grouping and mapping is one row in a statement
-ledger. A row records a subject, a predicate, an object, who asserted it,
-when, and whether and when it was retracted. While a row is active it is one
-RDF triple, and the row itself is the record of the assertion.
+## Statement ledger
 
-The predicate set is closed. It holds `dcterms:subject`, `skos:broader`,
-`skos:related`, `skos:member`, and the five SKOS mapping properties
-`exactMatch`, `closeMatch`, `broadMatch`, `narrowMatch` and `relatedMatch`.
-Each predicate accepts only certain kinds of subject and object.
+The statement ledger records each classification, hierarchy, association,
+collection membership, and mapping as a typed assertion. A row records the
+subject, predicate, object, asserting user, and assertion time. A retraction
+records the retracting user and time alongside the original assertion.
 
-| Predicate          | Subject             | Object                     |
-| ------------------ | ------------------- | -------------------------- |
-| `dcterms:subject`  | term or definition  | tag                        |
-| `skos:broader`     | term or tag         | term or tag, same kind     |
-| `skos:related`     | term or tag         | term or tag, same kind     |
-| `skos:member`      | collection          | term                       |
-| `skos:exactMatch`  | term or tag         | external IRI               |
-| `skos:exactMatch`  | tag                 | term                       |
-| other `*Match`     | term or tag         | external IRI               |
+| Purpose                   | Predicate                                                                                           | Subject            | Object                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------ |
+| Classification            | `dcterms:subject`                                                                                   | term or definition | tag                                  |
+| Hierarchy                 | `skos:broader`                                                                                      | term or tag        | resource of the same kind and scheme |
+| Association               | `skos:related`                                                                                      | term or tag        | resource of the same kind and scheme |
+| Collection membership     | `skos:member`                                                                                       | collection         | term                                 |
+| External mapping          | `skos:exactMatch`, `skos:closeMatch`, `skos:broadMatch`, `skos:narrowMatch`, or `skos:relatedMatch` | term or tag        | external IRI                         |
+| Equivalent topic and term | `skos:exactMatch`                                                                                   | topic              | term                                 |
 
-No predicate accepts provenance, source identity or metadata relationships.
+The export derives `skos:narrower` from a stored `skos:broader` assertion and
+presents `skos:related` in both directions. It also derives the term-level topic
+statement and the term-to-topic direction of an equivalence link. In each case,
+the stored assertion remains the provenance unit.
 
-Statements are retracted, never deleted. A retraction records who withdrew
-the assertion and when, and the row remains readable. The one exception is
-the administrative purge of a definition, which removes the definition and
-everything that depends on it.
-
-Some triples in the export have no row of their own. `skos:narrower` is the
-stored `skos:broader` read from the other end. `skos:related` is stored once
-and emitted in both directions. A topic on a definition is lifted onto its
-term. A tag linked to a term is named by the term in return. These derived
-triples are computed when a document is built, and they have no assertion
-record of their own.
-
-## A tag that is also a term
-
-A tag and a term can be the same concept. The ledger records this as
-`skos:exactMatch` from the tag to the term, through a typed reference rather
-than an external IRI. The link is optional.
-
-A linked tag keeps its own identifier and gains the definitions of the term.
-A tag cannot be linked to a term whose own definitions are filed under it. A
-facet cannot be linked to a term. One tag links to one term, and one term to
-one tag.
+[SKOS and metadata](/docs/reference/skos-and-metadata) describes the RDF
+documents and their conventions. [The provenance
+model](/docs/reference/provenance-model) describes the assertion records and
+their attribution.

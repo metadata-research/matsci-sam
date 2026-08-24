@@ -1,5 +1,9 @@
 import { surveyStepCompletionsTable, type db } from "@yamz/db"
 import type { StudyState } from "@/lib/communities"
+import {
+  DEFAULT_CHANGE_QUESTION,
+  DEFAULT_LIKELIHOOD_QUESTION
+} from "@/lib/study-presentation"
 
 /*
  * The rules of the survey walkthrough. Pure functions, so the router, the
@@ -36,29 +40,26 @@ export type Question = { prompt: string; responseKind: ResponseKind }
 // own: the purpose of the protocol. Plain sentences, rendered as the study
 // welcome is.
 export const DEFAULT_INSTRUCTIONS =
-  "This study is a second round on a draft terminology list. Each term has a " +
-  "draft definition and the comments the first round left on it.\n\nThe first " +
-  "steps ask you to take a position on each term: accept the candidate you " +
-  "would use as it stands, amend the one closest to it, or replace them with " +
-  "your own. Some drafts are wrong, in wording or in kind. Amending or " +
-  "replacing a draft is part of the work, and a draft nobody corrects stands. " +
-  "The next steps ask you to compare the candidates of the terms where more " +
-  "than one was proposed, voting on each and commenting where you disagree. " +
-  "Two questions about the list close the walkthrough.\n\nThe definition with " +
-  "the most support becomes the group's reference for that term. A step is " +
-  "saved when you press the button at its end, and you can leave and come " +
-  "back to the step you stopped at."
+  "This study is a second round on a terminology list. Each term may have " +
+  "candidate definitions and comments from earlier work.\n\nFor each term, " +
+  "take a position by accepting a candidate as written or, when available, " +
+  "amending the closest candidate or adding a definition. Then compare the " +
+  "candidates, vote on each, and comment where you disagree or can add " +
+  "information. Any closing questions come last.\n\nMatSci-SAM records the " +
+  "upvote used to accept a candidate, any new or amended definitions, review " +
+  "votes, comments, and question responses. Completed steps are saved between " +
+  "visits, and the walkthrough returns to the first incomplete step."
 
-// The two closing questions, about the list the group has settled: whether
-// the participant would use it, and what it lacks. Added after the review
-// steps, and left out when the steward unchecks them.
+// The two default closing questions: likelihood of use and what the participant
+// would change. Added after the review steps, and left out when the steward
+// unchecks them.
 export const DEFAULT_QUESTIONS: Question[] = [
   {
-    prompt: "Would you use this list as it stands in your work?",
+    prompt: DEFAULT_LIKELIHOOD_QUESTION,
     responseKind: "scale"
   },
   {
-    prompt: "What is missing from the list, or wrong in it?",
+    prompt: DEFAULT_CHANGE_QUESTION,
     responseKind: "text"
   }
 ]

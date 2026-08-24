@@ -339,6 +339,10 @@ jobs:
         run: |
           pnpm test:surveys
 
+      - name: Test Study Copy
+        run: |
+          pnpm test:study-copy
+
       - name: Check Migration Journal
         run: |
           pnpm test:migration-journal

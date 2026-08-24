@@ -9,6 +9,14 @@ import {
   FEEDBACK_PAGE_PATH_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "../lib/input-limits"
+import {
+  DEFAULT_LIKELIHOOD_QUESTION,
+  MOST_SUPPORTED_DEFINITIONS_HEADING,
+  scaleLabelsForPrompt,
+  studySupportDescription,
+  studyWindowExplanation,
+  studyWelcomeHeading
+} from "../lib/study-presentation"
 
 assert.equal(parseSearchAuthor(null), "all")
 assert.equal(parseSearchAuthor(""), "all")
@@ -76,5 +84,48 @@ for (const path of [
   `/${"x".repeat(FEEDBACK_PAGE_PATH_MAX_LENGTH)}`
 ])
   assert.equal(isFeedbackPagePath(path), false, path)
+
+assert.equal(studyWelcomeHeading("closed", 0), "About this study")
+assert.equal(studyWelcomeHeading("open", 7), "What to do")
+assert.equal(studyWelcomeHeading("draft", 7), "What to do")
+
+assert.equal(MOST_SUPPORTED_DEFINITIONS_HEADING, "Most supported definitions")
+assert.equal(
+  studySupportDescription(null),
+  "For each term, the candidate with the greatest site-wide net support is " +
+    "shown. Support is current-revision upvotes minus downvotes from all " +
+    "accounts, not only this study or community. A tie goes to the earlier " +
+    "candidate."
+)
+const closedSupport = studySupportDescription("Sep 17, 2025 at 12:00 AM")
+assert.match(closedSupport, /vote events recorded at or before/)
+assert.match(
+  closedSupport,
+  /candidates, their text, and the collection's terms remain current/i
+)
+assert.match(closedSupport, /not limited to this study or community/)
+assert.doesNotMatch(closedSupport, /agreed|consensus|snapshot/i)
+
+const walkthroughWindow = studyWindowExplanation(7)
+assert.match(walkthroughWindow, /only while the study is open/)
+assert.match(walkthroughWindow, /before a future opening date/)
+assert.match(walkthroughWindow, /not once the study has closed or been retired/)
+assert.doesNotMatch(walkthroughWindow, /nothing is locked/i)
+const archivalWindow = studyWindowExplanation(0)
+assert.match(archivalWindow, /record the study period/)
+assert.doesNotMatch(archivalWindow, /walkthrough/)
+
+assert.deepEqual(scaleLabelsForPrompt(DEFAULT_LIKELIHOOD_QUESTION), {
+  minimum: "Not likely",
+  maximum: "Very likely"
+})
+assert.deepEqual(scaleLabelsForPrompt(`${DEFAULT_LIKELIHOOD_QUESTION} `), {
+  minimum: "Lowest",
+  maximum: "Highest"
+})
+assert.deepEqual(scaleLabelsForPrompt("How complete is this list?"), {
+  minimum: "Lowest",
+  maximum: "Highest"
+})
 
 console.log("Interface state tests passed")

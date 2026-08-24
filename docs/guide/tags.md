@@ -1,154 +1,135 @@
 # Tags
 
-Tags group the vocabulary by subject. A tag is a concept in a tag scheme,
-and the scheme says what kind of tag it is. The pilot has two schemes.
-Topics are community tags that authors attach to their own definitions.
-Facets are curated tags that administrators attach to a term. Both kinds
-have their own pages, and both are published as `skos:Concept` resources in
-the metadata exports.
+Tags organize the vocabulary by subject. Each tag is a concept in a tag
+scheme. MatSci-SAM uses community topics on definitions and PSPP facets on
+terms. Each tag has its own page and is published as a `skos:Concept` in the
+metadata exports.
 
-![The Tags page: facet cards, topics by letter, and collections](/images/docs/tags-index.png)
+![The Tags page with facet cards, topics, and collections](/images/docs/tags-index.png)
 
 ## Topics
 
 A topic is a subject heading such as "Heat treatment" or "Electronic
 structure". Signed-in contributors create topics from **Tags**, under
-**Vocabulary** in the navigation bar, with **Add Tag**. Names are matched without regard to case or
-surrounding spaces, so a second "heat treatment" returns the existing topic.
-A topic that has been merged into another returns the topic that replaced it.
+**Vocabulary** in the navigation bar, with **Add Tag**. Name matching ignores
+case and surrounding spaces, so a second "heat treatment" returns the existing
+topic. A merged topic returns its replacement.
 
-![A definition with its topic badges and the author's pencil](/images/docs/definition-tags.png)
+![A definition with its topic badges and the author controls](/images/docs/definition-tags.png)
 
-The author of a definition attaches topics on the definition page. The pencil
-next to the tag badges opens a picker that lists every topic. A first
-selection attaches a topic, and a second removes it. Only the author can
-change the topics of a definition. A removed topic is recorded as withdrawn.
-The record of who attached it and when is kept.
+The author of a definition manages topics on the definition page. The pencil
+next to the tag badges opens the topic picker. Selecting a topic attaches it,
+and selecting it again removes it. Removal records a retraction alongside the
+original assertion and its attribution.
 
 Topics stay attached to the stable definition through later revisions. A
 topic page at `/tags/topics/{topic}` lists the definitions filed under it.
-Topics attached to any definition of a term also appear on the term itself in
-the metadata exports, so a data consumer who reads only term records still
-finds them.
+The metadata exports also publish those topics on the containing term as
+derived statements.
 
 ## Facets
 
-Facets classify the term concept, not one definition of it. The pilot has
-one facet scheme, PSPP, named for its four members. The scheme follows the
-facet analysis of Greenberg et al. (2023) and the materials paradigm it draws
-on, where processing establishes structure, structure gives rise to properties,
-and properties determine performance in service.
+Facets classify the term concept, not one definition of it. MatSci-SAM uses the
+PSPP scheme, named for Processing, Structure, Properties, and Performance. The
+scheme follows the facet analysis of
+[Greenberg et al. (2023)](https://doi.org/10.1007/978-3-031-39141-5_18), where
+processing establishes structure, structure gives rise to properties, and
+properties determine performance in service.
 
-| Facet | What it groups |
-| ----------- | -------------- |
-| Processing | Terms for how a material is made, shaped, or treated, including synthesis, forming, heat treatment, and joining |
-| Structure | Terms for the arrangement of the constituents of a material at any scale, from atomic and crystal structure through microstructure to macroscopic form |
-| Properties | Terms for the measurable characteristics that follow from structure, including mechanical, thermal, electrical, optical, and chemical behavior |
-| Performance | Terms for how a material behaves in service, under the conditions and over the time that an application imposes |
+| Facet       | What it groups                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Processing  | Terms for how a material is made, shaped, or treated, including synthesis, forming, heat treatment, and joining                                        |
+| Structure   | Terms for the arrangement of the constituents of a material at any scale, from atomic and crystal structure through microstructure to macroscopic form |
+| Properties  | Terms for measurable characteristics that follow from structure, including mechanical, thermal, electrical, optical, and chemical behavior             |
+| Performance | Terms for how a material behaves in service under the conditions and over the time imposed by an application                                           |
 
-Each facet page also states a scope note, which says what to file under the
-facet. A term for how a material behaves in service may take Properties as
-well as Performance.
+Each facet page includes a scope note that states what belongs under the facet.
+A term for behavior in service may take Properties as well as Performance.
 
 ![A term page with its facet chip under the identifier line](/images/docs/term-facets.png)
 
-Administrators assign facets from the term page. A faceted term shows its
-facets under the identifier line, and each chip opens the facet page. An
-administrator sees a pencil beside the chips that opens the list of facets,
-where a first selection attaches a facet and a second removes it. A term may
-have several facets, and a facet does not claim that the classification is
-complete.
+Administrators assign facets from the term page. The pencil beside the facet
+chips opens the list. Selecting a facet attaches it, and selecting it again
+removes it. A term may have several facets.
 
 ![A facet page listing the terms assigned to it](/images/docs/facet-page.png)
 
-A facet page at `/tags/pspp/{facet}` lists the terms it is assigned to.
-Authors cannot attach a facet to a definition, and administrators cannot
-attach a topic to a term.
+A facet page at `/tags/pspp/{facet}` lists the terms assigned to that facet.
 
-## Tags that are also terms
+## Topics that are also terms
 
-A tag and a term can be the same concept. "Corrosion" is a subject you file
-definitions under, and it is also a thing the dictionary defines. When they
-are the same, an administrator, or the contributor who created the tag, can
-say so from the tag page.
+A topic and a vocabulary term can identify the same concept. "Corrosion" can
+be a subject heading for definitions and a term in the dictionary. The
+contributor who created the topic or an administrator can link them from the
+topic page.
 
-![A tag page showing the term it is linked to](/images/docs/tag-bridge.png)
+![A tag page showing the linked term](/images/docs/tag-bridge.png)
 
-A linked tag keeps its own page and identifier and gains the definitions of
+A linked topic keeps its page and identifier and presents the definitions of
 the term. The metadata exports state the link in both directions with
-`skos:exactMatch`, so a reader who arrives at either one finds the other.
-Linking is optional and uncommon.
+`skos:exactMatch`. The link is optional and one-to-one.
 
-A facet cannot be linked to a term, and a tag cannot be linked to a term
-whose own definitions are filed under it.
+Equivalent-term links are available for topics. The link requires that the
+topic is not used to classify a definition of the target term.
 
-## Scope notes
+## Scope notes and tag changes
 
-A tag can state a scope note, a sentence saying what belongs under it, which
-is a different question from what it means. "Degradation in service, not
-surface finish" tells a contributor how to use the tag whatever the linked
-term goes on to say.
+A scope note states what belongs under a tag in classification. A definition
+states what the concept means. For example, "Degradation in service, not
+surface finish" tells a contributor how to apply the tag.
 
-A label or a scope note is edited only to correct it. A tag whose meaning
-has genuinely changed is retired and replaced, which keeps every statement
-already filed under the old tag meaning what it meant.
+Administrators can edit the definition, scope note, and alternative labels of
+a tag. A semantic replacement uses a merge, which retires the original tag,
+redirects its identifier, and moves its active statements to the replacement.
 
 ## Collections
 
-A collection is a named set of terms gathered for a purpose, published at
-`/collections/{collection}` as a `skos:Collection`. Each collection states who
-may change its membership. A collection an administrator creates stays curated,
-and only administrators change it. A deployment can open collection creation to
-contributors, and a collection created that way accepts membership changes from
-anyone signed in. Retiring and restoring are always administrator actions.
+A collection is a named set of terms gathered for a purpose. MatSci-SAM
+publishes it at `/collections/{collection}` as a `skos:Collection`. A
+membership policy controls changes. An administrator-created collection
+accepts changes from administrators. When a deployment enables contributor
+creation, a contributor-created collection accepts changes from any signed-in
+contributor. Administrators retire and restore collections.
 
-A curator creates a collection from the Collections page with **New
-collection**, which takes a title and an optional description. On the
-collection page, **Edit details** changes the title or the description, **Add a
-term** searches the vocabulary and adds one, and the control beside a member
-removes it. The address is derived from the title once and does not change when
-the title is edited. Membership is edited from the collection and not from the
-term. A term page shows the facets of that term and the topics of its
-definitions, and says nothing about which collections gather it.
+Create a collection from the Collections page with **New collection**, which
+takes a title and an optional description. On the collection page, **Edit
+details** changes the title or description, **Add a term** searches the
+vocabulary, and the control beside a member removes it. The address is derived
+from the initial title and remains fixed. Use the collection page to manage
+membership.
 
-An administrator retires a collection that has served its purpose. A retired
-collection leaves the Collections page, and its address keeps resolving so
-anything that cited it still works. The Turtle export marks it
-`owl:deprecated`. A retired collection has its membership statements
-retracted, and they stay on record as what it held. A restored collection
-comes back without its members and starts empty.
+Retirement removes a collection from the Collections index while its address
+continues to resolve. The Turtle export marks it `owl:deprecated`. Retirement
+also retracts active membership statements and retains their assertion records.
+Restoration starts with an empty membership.
 
-The [Collections](/collections) page lists them, and each collection page lists
-the terms it gathers. Anyone can browse them. When you have chosen a community
-to work in, the Collections page shows only the collections on the worklist of
-that community, with a **Show everything** link that drops the narrowing for
-one request. The Collections section of this page is never narrowed, so it can
-list more than the Collections page does. See
-[Communities and scope](/docs/communities).
+The [Collections](/collections) page and the individual collection pages are
+public. Selecting a community narrows the Collections page to the collections
+on its worklist. **Show everything** displays all collections for one request.
+The collections section of the Tags page always lists all collections, so it
+may list more than the scoped Collections page. See [Communities and
+scope](/docs/communities).
 
 ## Tag pages and identifiers
 
-The **Tags** page lists the facet schemes and their facets, then the topics
-A to Z with a letter index, then the collections. Each scheme has a page at
-`/tags/{scheme}` and each tag a page at `/tags/{scheme}/{tag}`. A scheme
-page lists the tags it holds with the number of terms filed under each. A
-facet page lists those terms, and a topic page lists the definitions filed
-under it. These paths are the tag identifiers used in the metadata exports.
-A tag keeps its path when it is merged or retired. A merged tag redirects to
-its replacement, and a retired tag without a replacement shows that it is
-retired. Older links of the form `/tags/{number}` redirect to the readable
-path. [Identifiers and citation](/docs/identifiers) describes the identifier
-grammar.
+The **Tags** page provides the facet schemes, topics, and collections. Each
+scheme has a page at `/tags/{scheme}`, and each tag has a page at
+`/tags/{scheme}/{tag}`. A scheme page lists its tags with the number of terms
+filed under each. A facet page lists terms, and a topic page lists definitions.
+
+These paths are the tag identifiers used in the metadata exports. A tag keeps
+its path when it is merged or retired. A merged tag redirects to its
+replacement, and a retired tag without a replacement displays its retired
+status. Older links of the form `/tags/{number}` redirect to the readable path.
+[Identifiers and citation](/docs/identifiers) describes the identifier grammar.
 
 ## Metadata
 
 The [knowledge organization](/docs/reference) pages describe the model behind
-tags, the SKOS it is published in, and how curation works, for readers who
-work with the metadata rather than the pages.
+tags, their SKOS representation, and the curation model for metadata consumers.
 
-Each tag scheme is a `skos:ConceptScheme`, each tag a `skos:Concept` in it,
-and each collection a `skos:Collection`. A term or a definition names its
-tags with `dcterms:subject`. Every scheme, tag and collection is available
-in one Turtle document at `/tags.ttl`, and each term record includes the
-tags it refers to.
-[Metadata access](/docs/metadata-access) lists the endpoints.
+Each tag scheme is a `skos:ConceptScheme`, each tag is a `skos:Concept` in that
+scheme, and each collection is a `skos:Collection`. A term or definition names
+its tags with `dcterms:subject`. `/tags.ttl` publishes every scheme, tag, and
+collection, and each term record includes the tags it refers to. [Metadata
+access](/docs/metadata-access) lists the endpoints.

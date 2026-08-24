@@ -1,17 +1,15 @@
 # The graph layer
 
 Postgres is the system of record. A Jena Fuseki store holds a projection of
-it as five named graphs and answers SPARQL over their union. This note maps
-the code that builds the graphs and keeps the store current, and says how to
-run a store and the validators on a development machine. What the graphs
-mean is in `docs/reference/provenance-model.md` and
-`docs/guide/metadata-access.md`. The store of a host, its install script,
-its unit and its access rules are operations material and are kept out of
-this repository.
+it as five named graphs and answers SPARQL over their union. This page
+identifies the projection code and the local store and validation procedures.
+`docs/reference/provenance-model.md` and `docs/guide/metadata-access.md`
+describe the graph semantics. Host installation, service units, and access
+rules belong to the operations documentation.
 
 ## Modules
 
-All under `lib/graph/`, each with a header comment that gives its reasons.
+The modules under `lib/graph/` divide these responsibilities.
 
 - `names.ts` holds the five graph names, their IRIs, the dataset IRI and the
   endpoint URL.
@@ -25,33 +23,30 @@ All under `lib/graph/`, each with a header comment that gives its reasons.
 
 ## The write path
 
-A write never waits for a projection and never fails because of one. The
-`baseProcedure` middleware in `trpc/init.ts` marks the graphs dirty after a
-mutation resolves, and `upsertAIDefinitionRecord` in `lib/crud.ts` does the
-same after its transaction because the generation path runs outside tRPC.
-`instrumentation.ts` at the repository root marks the store stale at boot,
-so a store that missed writes while the server was down catches up, and
-sweeps every five minutes, which retries a projection that failed in the
-running server.
+Mutations complete independently of graph projection. The `baseProcedure`
+middleware in `trpc/init.ts` marks the graphs dirty after a mutation resolves.
+`upsertAIDefinitionRecord` in `lib/crud.ts` does the same after its transaction
+because the generation path runs outside tRPC. `instrumentation.ts` marks the
+store stale at boot and sweeps every five minutes. The boot mark projects
+changes made during downtime, and the sweep retries failed projections.
 
-The flag is a fact about one process. A write made by another process is
-not seen by the server: the `close` step of `scripts/pilot/run.ts` projects
-for itself, and warns and names `pnpm graphs:project` when the store refuses
-it, and a write made with `psql` or a script reaches the store when someone
-runs `pnpm graphs:project` or at the next mark or restart of the server.
+The dirty flag is process-local. The `close` step of `scripts/pilot/run.ts`
+projects directly and reports `pnpm graphs:project` when the store rejects the
+request. Writes made with `psql` or another script reach the store through an
+explicit `pnpm graphs:project`, a later dirty mark, or a server restart.
 
-The application does not serve `/sparql`. The host forwards that path to
-the query endpoint of the store. `/graphs/{name}` and `/dataset` serve the
-documents of the last projection of the running server, and build them from
-the database on request where no projection has run.
+The host forwards `/sparql` to the query endpoint of the store.
+`/graphs/{name}` and `/dataset` serve the documents of the last projection in
+the running server. Before the first projection, those routes build their
+documents from the database on request.
 
 ## Environment
 
-| Variable                         | Meaning                                                                                                                                               |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GRAPH_PROJECTION_ENABLED`       | `true` to project. Anything else disables the projector, the boot mark and the sweep. `graphs:export` works regardless.                               |
-| `FUSEKI_DATASET_URL`             | The dataset, for example `http://127.0.0.1:3030/matsci-sam`. The Graph Store Protocol is `/data?graph=<iri>` under it and the query service `/query`. |
-| `FUSEKI_USER`, `FUSEKI_PASSWORD` | HTTP Basic credentials for the writes.                                                                                                                |
+| Variable                         | Meaning                                                                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GRAPH_PROJECTION_ENABLED`       | `true` to project. Anything else disables the projector, the boot mark and the sweep. `graphs:export` works regardless.                                                               |
+| `FUSEKI_DATASET_URL`             | The dataset, for example `http://localhost:3030/matsci-sam`. The Graph Store Protocol is `/data?graph=<iri>` under it and the query service `/query`.                                 |
+| `FUSEKI_USER`, `FUSEKI_PASSWORD` | HTTP Basic credentials for the writes.                                                                                                                                                |
 | `IDENTIFIER_BASE_URL`            | The base every graph IRI and the application namespace are minted under. A page prerendered at build time keeps the value it was built with, so a change takes effect with a release. |
 
 ## Scripts
@@ -68,11 +63,10 @@ reported and with the database, checks that every revision in the union is
 typed and linked to its definition once, and runs the paper queries, which
 must answer whenever the database holds what they ask about.
 
-`project-graphs.ts` and `test-graph-db.ts` import `dotenv/config` before
-anything else, because `lib/site.ts` reads `IDENTIFIER_BASE_URL` and
-`NEXT_PUBLIC_SITE_URL` when it loads and the database module, which loads
-`.env`, is reached later. Without that import a script on a workstation
-mints every IRI under the default site URL.
+`project-graphs.ts` and `test-graph-db.ts` import `dotenv/config` first.
+`lib/site.ts` reads `IDENTIFIER_BASE_URL` and `NEXT_PUBLIC_SITE_URL` at module
+load, before the database module loads `.env`. This import order gives scripts
+the configured identifier base.
 
 ## Running a store locally
 
@@ -100,11 +94,11 @@ up, set the four variables in `.env` and run `pnpm graphs:project` or
 
 ## Validating with Jena
 
-The shapes under `shapes/` are the published twin of
+The shapes under `shapes/` are the published SHACL counterpart of
 `drizzle/invariants.sql` and the CHECKs in `drizzle/schema.ts`, and each
 file opens with the rules it mirrors. They name the application namespace
-under the persistent identifier base, so export under it, and validate the
-merged graphs, because a term names tags the kos graph describes:
+under the persistent identifier base. Export under that base and validate the
+merged graphs because terms name tags described in the KOS graph.
 
 ```sh
 IDENTIFIER_BASE_URL=https://w3id.org/matsci-sam pnpm graphs:export graphs-export
@@ -115,12 +109,12 @@ riot --output=ttl graphs-export/vocabulary.ttl graphs-export/kos.ttl \
 shacl validate --shapes shapes/kos.shacl.ttl --data graphs-export/merged.ttl
 ```
 
-Read the report. `shacl validate` prints `sh:conforms true` or one result
-per violation, and exits 0 either way. The `rdf:reifies` value of an
+Inspect the report because `shacl validate` exits 0 for both conformance and
+violations. It prints `sh:conforms true` or one result per violation. The `rdf:reifies` value of an
 assertion is checked with `sh:nodeKind sh:TripleTerm`, which Jena 6.2.0
 enforces. A rule added to a shape needs a violation in the matching negative
-document in `scripts/test-graph.ts` and its `sh:resultMessage` in the list
-the workflow checks, so CI keeps proving that the rule itself can fail.
+document in `scripts/test-graph.ts`. Add its `sh:resultMessage` to the list
+checked by the workflow so CI exercises the failure case.
 
 ## What CI checks
 
@@ -131,12 +125,12 @@ which must conform, and against the document written to break it, which
 must report every planted violation by its message. The `db-invariants`
 job, after the ledger test, seeds the migrated database with
 `pnpm seed:ci-graph`, a fixture written through the same `lib/` write paths
-the routers and the pilot driver use: definitions by simulated accounts and
-by the model identity, a statement of every subject and object kind with a
+the routers and the pilot driver use. It includes definitions by simulated
+accounts and by the model identity, a statement of every subject and object kind with a
 retraction and a legacy row, a collection, a community, a study, votes with
 a withdrawal and one the backfill wrote, and stamped simulated comments. The
-seed refuses a database that holds a term, and the invariants are checked
-again on the result. The job then starts Fuseki from the assembler with a
+seed requires an empty term table, and the invariants are checked again on the
+result. The job then starts Fuseki from the assembler with a
 throwaway password, exports the graphs, validates them the same way, and
 runs `pnpm test:graph-db --seeded`, which requires every entity count to be
 above zero and every paper query to answer at least one row. Both jobs pin

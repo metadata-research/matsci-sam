@@ -1,9 +1,9 @@
 # Identifier policy
 
-MatSci-SAM assigns a public identifier to each thing it publishes, and keeps
-that identifier stable while the content behind it changes. This page states
-the policy. [Identifiers and citation](/docs/identifiers) in the user guide
-gives the same grammar in the form a contributor needs.
+MatSci-SAM assigns public identifiers through a shared path grammar. Resource
+paths remain stable while their descriptions change. [Identifiers and
+citation](/docs/identifiers) gives the contributor-facing version of this
+policy.
 
 ## What is identified
 
@@ -11,12 +11,12 @@ Three levels of vocabulary content have identifiers. A term is the shared
 concept. A definition is one contributed interpretation of that concept. A
 revision is one immutable state of a definition. The knowledge organization
 layer adds tag schemes, tags, collections, language models, studies, and
-individual statements.
+individual statements. The dataset, named graphs, application metadata terms,
+and MatCore elements also have identifiers.
 
-A resource identifier never exposes a database key. It combines a stable slug
-with numbers the application assigns within a scope, or a slug assigned once
-and never changed. The two hash fragments described under statements and
-acts are the exception, and neither resolves to a page of its own.
+Resource paths use stable slugs and numbers assigned within a scope. Database
+keys remain internal to those paths. Statements and acts use the fragment
+identifiers described below.
 
 ## Grammar
 
@@ -31,10 +31,13 @@ acts are the exception, and neither resolves to a page of its own.
 {base}/models/{model}                              a language model
 {base}/studies/{study}                             a study
 {base}/metadata#{term}                             an application metadata term
+{base}/metadata/matcore#{element}                  a MatCore element or profile
+{base}/graphs/{graph}                              a named graph
+{base}/dataset                                     the dataset
 ```
 
-`{base}` is the public host of the deployment. Every IRI dereferences to a
-page that describes the resource, and the metadata documents use the same
+`{base}` is the identifier base configured for the deployment. Each resource
+IRI dereferences to a description, and the metadata documents use the same
 IRIs.
 
 ## Slugs
@@ -77,12 +80,12 @@ keeps its identifier and its attributed contributions.
 
 Older addresses that contained a database identity, `/terms/{id}`,
 `/definition/{id}` and `/tags/{id}`, redirect permanently to the identifier
-in the path grammar. They are never published as canonical.
+in the path grammar. Metadata documents publish the canonical form.
 
 ## Statements and acts
 
-Each stored statement has an opaque key that is never a database row
-identity. The identifier of a statement is a hash IRI on its subject:
+Each stored statement has an opaque key independent of its database row
+identity. The identifier of a statement is a hash IRI on its subject.
 
 ```text
 {subject-IRI}#statement-{key}
@@ -91,27 +94,26 @@ identity. The identifier of a statement is a hash IRI on its subject:
 This is the resource the provenance record names when it describes who
 asserted a relation and when. The key is assigned once and never reused.
 
-Two further fragments are formed from a row identity that is never reused.
+Two further fragments are formed from row identities that are not reused.
 A voting act is `{revision-IRI}#vote-event-{id}`, and a person in a
 provenance document is `{document-IRI}#user_{id}`, the same number on each
-document the person acted on. Neither fragment resolves on its own, and the
-number of a person names no page, as [the provenance
-model](/docs/reference/provenance-model) describes.
+document the person acted on. These fragments identify nodes within the
+provenance document. [The provenance
+model](/docs/reference/provenance-model) describes their privacy treatment.
 
 ## Dynamic selectors
 
 `/vocabulary/{term}/rank/{n}` resolves to the definition that holds a rank
 when the request is made. It is a lookup, not an identifier. It redirects
-temporarily to the stable definition, and it never appears in a metadata
-document.
+temporarily to the stable definition. Metadata documents use the definition
+identifier.
 
 ## Authority
 
 The path grammar is independent of the host. The identifier base is
 configured per deployment and is the authority component of every IRI, so
-changing it changes every IRI. The base chosen for persistent identifiers is
-the w3id.org namespace `https://w3id.org/matsci-sam`, a resolver that
-redirects the path grammar to the host serving the application. Its
-registration is pending, and until the registered redirect resolves every
-deployment mints under its own origin. Identifiers minted that way resolve
-but make no promise of stability, and they should not be cited as durable.
+changing it changes every IRI. `IDENTIFIER_BASE_URL` supplies that base when
+configured, and the application origin is the fallback. A deployment that
+requires durable identifiers configures a persistent resolver before
+publishing. Identifiers minted under the application origin remain bound to
+that host.
