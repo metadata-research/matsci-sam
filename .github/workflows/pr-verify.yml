@@ -350,7 +350,12 @@ jobs:
         run: |
           pnpm test:contributions
 
+      # This one mounts the tRPC app router, and the AI-assist procedures
+      # resolve the system prompt at module load. Every other test here reads
+      # source as text, so the build was the only step that needed the key.
       - name: Test Public Contribution Router
+        env:
+          SYSTEM_PROMPT_KEY: materials-reference
         run: |
           pnpm test:router-surface
 
