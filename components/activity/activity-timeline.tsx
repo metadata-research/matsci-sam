@@ -2,12 +2,13 @@
 
 import { LineChart } from '@mui/x-charts/LineChart';
 import type { LineSeriesType } from '@mui/x-charts/models';
-import { Term, DefinitionRevision, Definition } from '@/drizzle';
+import { Term, DefinitionRevision, Definition, Comment } from '@/drizzle';
 import { useMemo } from 'react';
 
 export type TermTimelineProps = {
   tl: {
     term: Term;
+    comments: Comment[];
     revisions: DefinitionRevision[];
     definitions: Definition[];
   };
@@ -34,17 +35,24 @@ const MS_IN_DAY = 24 // hours/day
   * 60 // seconds/minute
   * 1000; // ms/minute
 
+// Used to weight the value of comments vs revisions
+// with respect to activity; how valuable is each
+// iteraction as an indicator of activity
+const COMMENT_ACTIVITY_FACTOR = 0.5; // How much each comment increases the activty score
+const REVISION_ACTIVITY_FACTOR = 2; // How much the changeDelta for a revision is multiplied by
+
 function definitionKey(definitionId: number) {
   return `def_${definitionId}`;
 }
 
-function buildDataset(revisions: DefinitionRevision[], definitions: Definition[]): {
+function buildDataset(comments: Comment[], revisions: DefinitionRevision[], definitions: Definition[]): {
   dataset: DatasetRow[];
   definitionIds: number[];
 } {
-  const definitionIds = Array.from(
-    new Set(definitions.map((r) => r.definitionNumber)),
-  ).sort((a, b) => a - b);
+  const definitionIds = new Map<number, number>;
+  for (const def of definitions) {
+    definitionIds.set(def.id, def.definitionNumber);
+  }
 
   // Map IDs to creation date
   const definitionCreations = new Map<number, number>();
@@ -56,38 +64,65 @@ function buildDataset(revisions: DefinitionRevision[], definitions: Definition[]
 
   const rowsByTime = new Map<number, DatasetRow>();
 
+  // Go through every revision and update activity accordingly
   for (const revision of revisions) {
     const time = new Date(revision.createdAt).getTime();
     const date = time - (time % MS_IN_DAY);
     if (Number.isNaN(date)) continue;
 
+    // Ensure every definition has an entry for every day
     let row = rowsByTime.get(date);
     if (!row) {
       row = { date: date };
-      for (const id of definitionIds) {
-        if ((definitionCreations.get(id) ?? 0) <= date) {
-          row[definitionKey(id)] = 0;
+      for (const [, num] of definitionIds.entries()) {
+        if ((definitionCreations.get(num) ?? 0) <= date) {
+          row[definitionKey(num)] = 0;
         } else {
-          row[definitionKey(id)] = null;
+          row[definitionKey(num)] = null;
 
         }
       }
       rowsByTime.set(date, row);
     }
 
-    for (const def of definitions) {
-      if (def.id == revision.definitionId) {
-        const key = definitionKey(def.definitionNumber);
-        row[key] = (row[key] ?? 0) + Number(revision.changeDelta ?? 0);
+    // Add up the impact
+    const key = definitionKey(definitionIds.get(revision.definitionId)!);
+    row[key] = (row[key] ?? 0) + (Number(revision.changeDelta ?? 0) * REVISION_ACTIVITY_FACTOR);
+  }
+
+  for (const comment of comments) {
+    const time = new Date(comment.createdAt).getTime();
+    const date = time - (time % MS_IN_DAY);
+    if (Number.isNaN(date)) continue;
+
+    // Ensure every definition has an entry for every day
+    let row = rowsByTime.get(date);
+    if (!row) {
+      row = { date: date };
+      for (const [, num] of definitionIds.entries()) {
+        // If the definition wasn't created set the value to null
+        // so it won't be shown on the graph
+        if ((definitionCreations.get(num) ?? 0) <= date) {
+          row[definitionKey(num)] = 0;
+        } else {
+          row[definitionKey(num)] = null;
+
+        }
       }
+      rowsByTime.set(date, row);
     }
+
+    // Update the activity on the row
+    const key = definitionKey(definitionIds.get(comment.definitionId)!);
+    row[key] = (row[key] ?? 0) + COMMENT_ACTIVITY_FACTOR;
   }
 
   const dataset = Array.from(rowsByTime.values()).sort(
     (a, b) => a.date - b.date,
   );
 
-  return { dataset, definitionIds };
+  const defs = Array.from(definitionIds.values()).sort((a, b) => a - b);
+  return { dataset, definitionIds: defs };
 }
 
 // Deterministic palette so lines keep the same color across renders/filters.
@@ -105,10 +140,10 @@ const PALETTE = [
 ];
 
 export function TermTimeline({ tl, height = 360 }: TermTimelineProps) {
-  const { term, revisions, definitions } = tl;
+  const { term, comments, revisions, definitions } = tl;
 
   const { dataset, definitionIds } = useMemo(
-    () => buildDataset(revisions, definitions),
+    () => buildDataset(comments, revisions, definitions),
     [revisions, definitions],
   );
 
@@ -173,7 +208,7 @@ export function TermTimeline({ tl, height = 360 }: TermTimelineProps) {
               }),
           },
         ]}
-      yAxis={[{ label: 'Impact' }]}
+      yAxis={[{ label: 'Activity' }]}
       series={series}
       slotProps={{
         legend: {

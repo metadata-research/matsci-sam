@@ -31,15 +31,19 @@ export default async function PublicTermActivityPage(props: {
           Activity: {activity.term.term}
         </h1>
         <p className="text-sm text-muted-foreground">
-          The history of all editing activity for definitions of this term as a line chart
-          displaying the total impact of edits over time, and a ranking of users based on the
-          proportion of new data they authored
+          The history of the definitions of this term as a line chart displaying a timeline of discussion and editing activty, and a ranking of users
+          based on their impact on the definitions of this term.
         </p>
         <AppRouterCacheProvider >
           <TermTimeline tl={activity} />
           <div style={{ display: 'flex', flexDirection: 'row' }}>
             <UsersImpact users={impact} />
-            <p style={{ paddingTop: 25, paddingLeft: 25, width: 625 }}>Every revision has an associated impact score, calculated using the percent of characters that were removed, and the percent that were added. The result is a number between 0 and 1, where 0 represents no change, and 1 represents a complete change, with none of the original data present. For example, the initial revision, when a definition is created, is assigned an impact score of 1. This ranking takes the sum of the impact scores related to this term for each user who authored a revision, and ranks the users based on what percent of all the revisions they authored.</p>
+            <p style={{ paddingTop: 25, paddingLeft: 25, width: 625 }}>
+              This ranking calculates how much impact a user has had on this term based on their comment and editing activity.
+              The impact of comments is infered based on the impact of the next edit after the comment was made.
+              As a result comments on the current version of any definition are ignored here,
+              whereas in the timeline they are represented.
+            </p>
           </div>
         </AppRouterCacheProvider >
       </section>
