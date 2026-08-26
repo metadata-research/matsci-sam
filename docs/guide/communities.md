@@ -13,23 +13,26 @@ their communities or **Everything**. MatSci-SAM stores that selection for the
 individual account across sessions. The menu also links to the selected
 community and its studies.
 
-The selection scopes the home page, [Search](/docs/search), and
-[Browse](/terms) to terms defined in that community's vocabulary. Recent
-comments, featured definitions, and personal contributions on the home page use
-the same scope. [Collections](/collections) shows the community's worklist.
-When the vocabulary has no terms, the home page names the community and links
-to its page.
+The selection scopes the home page and [Browse](/terms) to terms defined in
+that community's vocabulary. Recent comments, featured definitions, and
+personal contributions on the home page use the same scope.
+[Collections](/collections) shows the community's worklist. When the
+vocabulary has no terms, the home page names the community and links to its
+page. [Search](/docs/search) remains global so a sparse community vocabulary
+does not hide relevant concepts owned elsewhere.
 
 A collection on the worklist can also reference a term defined in MatSci-SAM
 or another community vocabulary. The community and collection pages label such
 terms as references and link to the vocabulary that defines them. References
-do not enter the community's recent activity, Search results, or Browse list.
+do not enter the community's recent activity or Browse list. Global Search can
+still find them under the vocabulary that defines them.
 
-With **Everything** selected, the home page, Search, and Browse include terms
-from every vocabulary hosted by MatSci-SAM. Contribute publishes a new term in
-the selected community vocabulary, or in the default MatSci-SAM vocabulary
-when **Everything** is selected. Discussion uses the same vocabulary scope.
-[Tags](/docs/tags) remain site-wide.
+With **Everything** selected, the home page and Browse include terms from every
+vocabulary hosted by MatSci-SAM. Search already does so in every working
+context. Contribute publishes a new term in the selected community vocabulary,
+or in the default MatSci-SAM vocabulary when **Everything** is selected.
+Discussion uses the working vocabulary scope. [Tags](/docs/tags) remain
+site-wide.
 
 **Show everything** on Browse or Collections displays the full catalog for one
 request and keeps the selected community in place. The address `?scope=all`

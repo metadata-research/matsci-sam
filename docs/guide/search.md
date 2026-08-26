@@ -5,19 +5,33 @@
 The **Search** entry under **Vocabulary** in the navigation bar opens the
 Search page. The quick-search field in the navigation bar opens the same page
 with a query. Search covers term names, definition text, and examples of use.
-With a community selected under **Working in**, Search uses only terms defined
-in that community's vocabulary. **Everything** searches every vocabulary
-hosted by MatSci-SAM.
+Search always covers every vocabulary hosted by MatSci-SAM, including while a
+community is selected under **Working in**. Each result names the vocabulary
+that defines it.
+
+Every result also says why it matched. A term-name match highlights the name;
+a definition or example match shows a short highlighted excerpt. A fuzzy
+term-name match is labelled **Similar term name** when the typed text does not
+appear literally.
 
 Results are divided into **Terms** and **Definitions**. Checkboxes show or
 hide either result type. At least one remains selected. The **By** filter
 narrows definitions by human or language-model attribution and does not apply
-to term results. Definition results show the same vote controls and comment
-counts as the term page, and comment counts open the discussion for that
-definition. When no term matches, the page offers a link to define the
-searched term in the selected vocabulary.
+to term results. Definition results contain only definitions whose own text or
+examples match, except that a matching term name includes that term's
+definitions. Definition results show the same vote controls and comment counts
+as the term page, and comment counts open the discussion for that definition.
+When no term matches, the page offers a link to define the searched term in the
+vocabulary selected under **Working in**.
 
-Two vocabularies may define the same label differently. **Everything** keeps
+The optional **PSPP facet** checkboxes narrow both term and definition results
+by term-level Processing, Structure, Properties, or Performance assignments.
+No facet is selected by default, so terms without an assignment remain in
+ordinary search results. Selecting several facets matches any of them.
+Definition-level topic tags remain available on the **Tags** page and are not
+search filters yet.
+
+Two vocabularies may define the same label differently. Global Search keeps
 those terms as separate results, and each result opens the term in its own
 vocabulary namespace.
 

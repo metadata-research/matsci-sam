@@ -21,6 +21,7 @@
     "test:example-provenance-upgrade-db": "tsx scripts/test-example-provenance-upgrade-db.ts",
     "test:definition-source-lock": "tsx scripts/test-definition-source-lock.ts",
     "test:interface": "tsx scripts/test-interface-state.ts",
+    "test:search-db": "tsx --conditions=react-server scripts/test-search-db.ts",
     "test:ollama-context": "tsx scripts/test-ollama-revision-context.ts",
     "test:communities": "tsx scripts/test-communities.ts",
     "test:curate-pilot": "tsx scripts/test-curate-pilot.ts",

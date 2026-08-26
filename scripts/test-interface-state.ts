@@ -2,6 +2,8 @@ import assert from "node:assert/strict"
 import { initialTermFromSearchParam } from "../app/add/initial-term"
 import {
   parseSearchAuthor,
+  parseSearchFacets,
+  updateSearchFacetSelection,
   updateSearchResultSelection
 } from "../app/search/search-state"
 import { isFeedbackPagePath } from "../lib/feedback-path"
@@ -17,6 +19,11 @@ import {
   studyWindowExplanation,
   studyWelcomeHeading
 } from "../lib/study-presentation"
+import {
+  parseSearchHeadline,
+  SEARCH_HIGHLIGHT_END,
+  SEARCH_HIGHLIGHT_START
+} from "../lib/search-evidence"
 
 assert.equal(parseSearchAuthor(null), "all")
 assert.equal(parseSearchAuthor(""), "all")
@@ -24,6 +31,54 @@ assert.equal(parseSearchAuthor("bogus"), "all")
 assert.equal(parseSearchAuthor("all"), "all")
 assert.equal(parseSearchAuthor("human"), "human")
 assert.equal(parseSearchAuthor("ai"), "ai")
+
+assert.deepEqual(
+  parseSearchFacets([
+    "pspp:processing",
+    "pspp:processing",
+    "topics:heat-treatment",
+    "not a facet"
+  ]),
+  ["pspp:processing", "topics:heat-treatment"]
+)
+assert.deepEqual(
+  updateSearchFacetSelection(["pspp:processing"], "pspp:structure", true),
+  ["pspp:processing", "pspp:structure"]
+)
+assert.deepEqual(
+  updateSearchFacetSelection(
+    ["pspp:processing", "pspp:structure"],
+    "pspp:processing",
+    false
+  ),
+  ["pspp:structure"]
+)
+assert.deepEqual(
+  updateSearchFacetSelection(["pspp:processing"], "invalid key", true),
+  ["pspp:processing"]
+)
+
+assert.deepEqual(parseSearchHeadline("plain evidence"), [
+  { text: "plain evidence", highlighted: false }
+])
+assert.deepEqual(
+  parseSearchHeadline(
+    `before ${SEARCH_HIGHLIGHT_START}steel${SEARCH_HIGHLIGHT_END} after`
+  ),
+  [
+    { text: "before ", highlighted: false },
+    { text: "steel", highlighted: true },
+    { text: " after", highlighted: false }
+  ]
+)
+const malformedHeadline = parseSearchHeadline(
+  `before ${SEARCH_HIGHLIGHT_START}unfinished`
+)
+assert.ok(malformedHeadline.every((part) => !part.highlighted))
+assert.equal(
+  malformedHeadline.map((part) => part.text).join(""),
+  `before ${SEARCH_HIGHLIGHT_START}unfinished`
+)
 
 assert.deepEqual(
   updateSearchResultSelection(
