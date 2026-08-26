@@ -26,25 +26,26 @@ protocol decisions and acceptance criteria.
 
 ## The curation script
 
-`pnpm curate:pilot -- --manifest <path> [--dry-run]` reconciles the database
-with the manifest by slug and prints one line per item. The manifest names its
-`operator` by email and processes four sections in order, `retire`,
-`communities`, `collections`, and `studies`. Each community has a slug, a
-title, a description and its members by email, each with a role and an
-optional `addedAt`, which may be a moment or `first-act-2025`, the earliest
-definition, comment or vote of the person in 2025. A community may also name
-the stable slugs of terms curated into its vocabulary. The script moves the
-existing term rows without copying their histories and preserves each former
-path as a permanent route alias. Each collection has a slug, a title and its
-terms. Vocabulary-qualified `{ "vocabulary": "...", "slug": "..." }`
-references are the unambiguous form; legacy term labels and the older
-`createdBefore` selector remain accepted for existing manifests. Collection
-`membership` defaults to `"additive"`, which asserts missing listed members
-and leaves every other live membership alone. `"exact"` makes an explicit
-qualified list authoritative: live `skos:member` assertions omitted from the
-list are retracted, not deleted, with the operator recorded as the retractor.
-Because omission is destructive, exact mode refuses legacy text labels and
-`createdBefore`, an empty list, and duplicate qualified routes.
+`pnpm curate:pilot -- --manifest <path> [--dry-run [--expect-no-changes]]`
+reconciles the database with the manifest by slug and prints one line per
+item. The manifest names its `operator` by email and processes four sections
+in order, `retire`, `communities`, `collections`, and `studies`. Each community
+has a slug, a title, a description and its members by email, each with a role
+and an optional `addedAt`, which may be a moment or `first-act-2025`, the
+earliest definition, comment or vote of the person in 2025. A community may
+also name the stable slugs of terms curated into its vocabulary. The script
+moves the existing term rows without copying their histories and preserves
+each former path as a permanent route alias. Each collection has a slug, a
+title and its terms. Vocabulary-qualified
+`{ "vocabulary": "...", "slug": "..." }` references are the unambiguous form;
+legacy term labels and the older `createdBefore` selector remain accepted for
+existing manifests. Collection `membership` defaults to `"additive"`, which
+asserts missing listed members and leaves every other live membership alone.
+`"exact"` makes an explicit qualified list authoritative: live `skos:member`
+assertions omitted from the list are retracted, not deleted, with the operator
+recorded as the retractor. Because omission is destructive, exact mode refuses
+legacy text labels and `createdBefore`, an empty list, and duplicate qualified
+routes.
 
 An exact membership change also refuses when a non-retired study over the
 collection already has generated walkthrough steps, or when any linked study
@@ -79,8 +80,23 @@ collections and surveys routers write it, through the `lib/` functions where
 those exist. Each report line begins with `created`, `present`, `retracted`,
 `retired` or `skipped`, followed by a note. A count line closes the report.
 `--dry-run` uses `would create`, `would retract`, and `would retire` and makes
-no database changes. A manifest in use contains private email addresses. The
-repository includes only the example manifest.
+no database changes. Add `--expect-no-changes` to make that preview a
+convergence gate: it exits nonzero when any planned durable write remains,
+including a write held by a silent plan item. The flag is valid only with
+`--dry-run`. A manifest in use contains private email addresses. The repository
+includes only the example manifest.
+
+Reviewed study copy has a separate preview and hash-bound apply:
+
+```sh
+pnpm study-copy:sync -- --manifest <path> --dry-run [--expect-no-changes]
+pnpm study-copy:sync -- --manifest <path> --apply --expect-plan <sha256>
+```
+
+The ordinary dry run displays copy drift for review. With
+`--expect-no-changes`, either a planned field change or a refusal makes the dry
+run exit nonzero. The apply mode continues to require the exact plan hash and
+does not accept the convergence flag.
 
 ## The driver
 

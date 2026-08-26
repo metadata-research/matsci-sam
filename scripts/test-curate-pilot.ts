@@ -8,6 +8,58 @@ import {
   type WalkthroughUsage
 } from "./curate-pilot-collections"
 import { loadPilotManifest } from "./curate-pilot-manifest"
+import { parseCuratePilotArgs } from "./reconciliation-cli"
+import { plannedCurationChanges } from "./reconciliation-convergence"
+
+assert.deepEqual(parseCuratePilotArgs(["--manifest", "pilot.json"]), {
+  manifest: "pilot.json",
+  dryRun: false,
+  expectNoChanges: false
+})
+assert.deepEqual(
+  parseCuratePilotArgs([
+    "--",
+    "--manifest",
+    "pilot.json",
+    "--dry-run",
+    "--expect-no-changes"
+  ]),
+  {
+    manifest: "pilot.json",
+    dryRun: true,
+    expectNoChanges: true
+  }
+)
+assert.equal(
+  parseCuratePilotArgs(["--manifest", "pilot.json", "--expect-no-changes"]),
+  null,
+  "the convergence gate is dry-run only"
+)
+
+const silentWrite = {
+  outcome: "present",
+  silent: true,
+  write: () => undefined
+}
+assert.deepEqual(
+  plannedCurationChanges([silentWrite]),
+  [silentWrite],
+  "a silent callback cannot escape the convergence gate"
+)
+assert.deepEqual(
+  plannedCurationChanges([
+    { ...silentWrite, verificationOnly: true },
+    { outcome: "present" },
+    { outcome: "skipped" }
+  ]),
+  [],
+  "transaction-only verification and no-write outcomes are converged"
+)
+assert.equal(
+  plannedCurationChanges([{ outcome: "created", silent: true }]).length,
+  1,
+  "a durable outcome remains a change even if its callback is missing"
+)
 
 const emptyUsage = (): WalkthroughUsage => ({
   completions: 0,

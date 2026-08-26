@@ -10,6 +10,66 @@ import {
   type StudyCopyUsage
 } from "../lib/study-copy-sync"
 import { loadPilotManifest } from "./curate-pilot-manifest"
+import { parseStudyCopyArgs } from "./reconciliation-cli"
+import { studyCopyConvergence } from "./reconciliation-convergence"
+
+assert.deepEqual(
+  parseStudyCopyArgs(["--manifest", "pilot.json", "--dry-run"]),
+  {
+    manifest: "pilot.json",
+    mode: "dry-run",
+    expectPlan: undefined,
+    expectNoChanges: false,
+    allowUsedInstructions: new Set()
+  },
+  "the ordinary dry-run arguments retain their existing meaning"
+)
+assert.deepEqual(
+  parseStudyCopyArgs([
+    "--manifest",
+    "pilot.json",
+    "--apply",
+    "--expect-plan",
+    "a".repeat(64),
+    "--allow-used-instructions",
+    "id4_2025"
+  ]),
+  {
+    manifest: "pilot.json",
+    mode: "apply",
+    expectPlan: "a".repeat(64),
+    expectNoChanges: false,
+    allowUsedInstructions: new Set(["id4_2025"])
+  },
+  "the hash-bound apply arguments retain their existing meaning"
+)
+assert.deepEqual(
+  parseStudyCopyArgs([
+    "--manifest",
+    "pilot.json",
+    "--dry-run",
+    "--expect-no-changes"
+  ]),
+  {
+    manifest: "pilot.json",
+    mode: "dry-run",
+    expectPlan: undefined,
+    expectNoChanges: true,
+    allowUsedInstructions: new Set()
+  }
+)
+assert.equal(
+  parseStudyCopyArgs([
+    "--manifest",
+    "pilot.json",
+    "--apply",
+    "--expect-plan",
+    "a".repeat(64),
+    "--expect-no-changes"
+  ]),
+  null,
+  "the convergence gate cannot be combined with apply"
+)
 
 const emptyUsage = (): StudyCopyUsage => ({
   completions: 0,
@@ -106,6 +166,16 @@ const settled = current({
 const noDrift = plan(settled)
 assert.equal(noDrift.changes.length, 0, "a second run is idempotent")
 assert.equal(noDrift.refusals.length, 0)
+assert.deepEqual(studyCopyConvergence([noDrift]), {
+  changeCount: 0,
+  refusalCount: 0,
+  converged: true
+})
+assert.deepEqual(studyCopyConvergence([drift]), {
+  changeCount: 3,
+  refusalCount: 0,
+  converged: false
+})
 
 const archival = plan(
   current({
@@ -132,6 +202,11 @@ const used = current({
   }
 })
 assert.match(plan(used).refusals.join("\n"), /walkthrough activity/)
+assert.deepEqual(studyCopyConvergence([plan(used)]), {
+  changeCount: 3,
+  refusalCount: 1,
+  converged: false
+})
 assert.equal(
   plan(used, true).refusals.length,
   0,

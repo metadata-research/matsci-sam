@@ -1,7 +1,7 @@
 /*
  * Curate the pilot containers from a manifest.
  *
- *   pnpm curate:pilot -- --manifest <path> [--dry-run]
+ *   pnpm curate:pilot -- --manifest <path> [--dry-run [--expect-no-changes]]
  *
  * The manifest says what the database should hold: which development
  * containers to retire, and which communities, collections and studies to
@@ -9,7 +9,9 @@
  * makes that so, by slug, and prints one line per item saying whether it
  * created the row, found it in place, retired it or skipped it. A second
  * run reports everything present and writes nothing. --dry-run prints the
- * report without writing.
+ * report without writing. --expect-no-changes turns that dry run into a
+ * convergence gate whose nonzero exit says at least one database change
+ * remains.
  *
  * Every write is the operator's act, as the pages would have recorded it:
  * the operator creates the communities and the studies, asserts the
@@ -53,27 +55,19 @@ import {
   planCollectionMembership,
   retractCollectionTerm
 } from "./curate-pilot-collections"
+import { parseCuratePilotArgs } from "./reconciliation-cli"
+import { plannedCurationChanges } from "./reconciliation-convergence"
 
 // --- The command line ---
 
 const usage = () => {
-  console.error("usage: curate-pilot.ts --manifest <path> [--dry-run]")
+  console.error(
+    "usage: curate-pilot.ts --manifest <path> [--dry-run [--expect-no-changes]]"
+  )
   process.exit(2)
 }
 
-const parseArgs = (argv: string[]) => {
-  let manifest: string | undefined
-  let dryRun = false
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]
-    if (arg === "--") continue // pnpm forwards the separator itself
-    if (arg === "--manifest") manifest = argv[++i]
-    else if (arg === "--dry-run") dryRun = true
-    else usage()
-  }
-  if (!manifest) usage()
-  return { manifest: manifest!, dryRun }
-}
+const parseArgs = (argv: string[]) => parseCuratePilotArgs(argv) ?? usage()
 
 const message = (error: unknown) =>
   error instanceof Error ? error.message : String(error)
@@ -154,6 +148,7 @@ const main = async () => {
     what: string
     note?: string
     silent?: boolean
+    verificationOnly?: boolean
     write?: (tx: Tx) => Promise<string | void>
   }
 
@@ -1062,6 +1057,7 @@ const main = async () => {
     outcome: "present",
     what: `membership lock for ${input.slug}`,
     silent: true,
+    verificationOnly: true,
     write: async (tx) => {
       const collectionId = collectionIds.get(input.slug)
       if (!collectionId)
@@ -1352,6 +1348,7 @@ const main = async () => {
       outcome: "present",
       what: `membership postcondition for ${slug}`,
       silent: true,
+      verificationOnly: true,
       write: async (tx) => {
         const collectionId = collectionIds.get(slug)
         if (!collectionId) throw new Error(`collection ${slug} was not created`)
@@ -1611,6 +1608,9 @@ const main = async () => {
     { name: "collections", items: collectionItems },
     { name: "studies", items: studyItems }
   ]
+  const remainingChanges = plannedCurationChanges(
+    sections.flatMap((section) => section.items)
+  )
   for (const section of sections) {
     if (section.items.length === 0) continue
     // Lines are printed after the transaction commits, so a failure
@@ -1653,6 +1653,15 @@ const main = async () => {
       .map((outcome) => `${verb[outcome]} ${counts[outcome]}`)
       .join(", ")
   )
+  if (args.expectNoChanges && remainingChanges.length > 0) {
+    const examples = remainingChanges
+      .slice(0, 5)
+      .map((item) => item.what)
+      .join("; ")
+    throw new Error(
+      `--expect-no-changes failed: ${remainingChanges.length} planned curation ${remainingChanges.length === 1 ? "change remains" : "changes remain"} (${examples}${remainingChanges.length > 5 ? "; ..." : ""})`
+    )
+  }
 }
 
 main()

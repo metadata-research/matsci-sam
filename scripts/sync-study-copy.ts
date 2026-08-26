@@ -2,7 +2,7 @@
  * Reconcile reviewed study copy with study rows and their snapshotted first
  * instructions steps.
  *
- *   pnpm study-copy:sync -- --manifest <path> --dry-run
+ *   pnpm study-copy:sync -- --manifest <path> --dry-run [--expect-no-changes]
  *   pnpm study-copy:sync -- --manifest <path> --apply --expect-plan <sha256>
  *
  * The dry run is the review record. Apply locks every target study and step,
@@ -21,51 +21,17 @@ import {
   type StudyCopyPlan
 } from "../lib/study-copy-sync"
 import { loadPilotManifest } from "./curate-pilot-manifest"
-
-const PLAN_HASH = /^[a-f0-9]{64}$/
-const SLUG = /^[a-z0-9][a-z0-9_-]*$/
+import { parseStudyCopyArgs } from "./reconciliation-cli"
+import { studyCopyConvergence } from "./reconciliation-convergence"
 
 const usage = (): never => {
   console.error(
-    "usage: sync-study-copy.ts --manifest <path> (--dry-run | --apply --expect-plan <sha256>) [--allow-used-instructions <slug>]..."
+    "usage: sync-study-copy.ts --manifest <path> (--dry-run [--expect-no-changes] | --apply --expect-plan <sha256>) [--allow-used-instructions <slug>]..."
   )
   process.exit(2)
 }
 
-const parseArgs = (argv: string[]) => {
-  let manifest: string | undefined
-  let mode: "dry-run" | "apply" | undefined
-  let expectPlan: string | undefined
-  const allowUsedInstructions = new Set<string>()
-
-  for (let index = 0; index < argv.length; index++) {
-    const argument = argv[index]
-    if (argument === "--") continue
-    if (argument === "--manifest") manifest = argv[++index]
-    else if (argument === "--dry-run") {
-      if (mode) usage()
-      mode = "dry-run"
-    } else if (argument === "--apply") {
-      if (mode) usage()
-      mode = "apply"
-    } else if (argument === "--expect-plan") expectPlan = argv[++index]
-    else if (argument === "--allow-used-instructions") {
-      const slug = argv[++index]
-      if (!slug || !SLUG.test(slug)) usage()
-      allowUsedInstructions.add(slug)
-    } else usage()
-  }
-
-  if (!manifest || !mode) usage()
-  if (mode === "apply" && (!expectPlan || !PLAN_HASH.test(expectPlan))) usage()
-  if (mode === "dry-run" && expectPlan !== undefined) usage()
-  return {
-    manifest: manifest!,
-    mode: mode!,
-    expectPlan,
-    allowUsedInstructions
-  }
-}
+const parseArgs = (argv: string[]) => parseStudyCopyArgs(argv) ?? usage()
 
 const message = (error: unknown) =>
   error instanceof Error ? error.message : String(error)
@@ -328,7 +294,15 @@ const main = async () => {
   const previewRefusals = preview.plans.flatMap((plan) => plan.refusals)
 
   if (args.mode === "dry-run") {
-    if (previewRefusals.length > 0) process.exitCode = 1
+    const convergence = studyCopyConvergence(preview.plans)
+    const convergenceFailed = args.expectNoChanges && !convergence.converged
+    if (previewRefusals.length > 0 || convergenceFailed) process.exitCode = 1
+    if (convergenceFailed) {
+      const findings = convergence.changeCount + convergence.refusalCount
+      console.error(
+        `--expect-no-changes failed: ${convergence.changeCount} planned copy ${convergence.changeCount === 1 ? "change" : "changes"} and ${convergence.refusalCount} ${convergence.refusalCount === 1 ? "refusal" : "refusals"} ${findings === 1 ? "remains" : "remain"}`
+      )
+    }
     return
   }
 
