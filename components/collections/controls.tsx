@@ -183,19 +183,13 @@ export const AddMember = ({
   const { mutate: setMember, isPending } =
     trpc.collections.setMember.useMutation(handlers)
 
-  const { data: results } = trpc.search.terms.useQuery(
+  const { data: results } = trpc.search.termLookup.useQuery(
     { query, limit: 10 },
     { enabled: open }
   )
 
-  // search.terms right-joins definitions, so its term columns are nullable.
-  // Drop the rows that carry no term before offering them.
   const already = new Set(memberIds)
-  const candidates = (results ?? []).flatMap((row) =>
-    row.id !== null && row.term !== null && !already.has(row.id)
-      ? [{ id: row.id, term: row.term }]
-      : []
-  )
+  const candidates = (results ?? []).filter((row) => !already.has(row.id))
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -218,13 +212,18 @@ export const AddMember = ({
               {candidates.map((term) => (
                 <CommandItem
                   key={term.id}
-                  value={term.term}
+                  value={`${term.term} ${term.vocabularyTitle}`}
                   onSelect={() => {
                     setMember({ collectionId, termId: term.id, on: true })
                     setOpen(false)
                   }}
                 >
-                  {term.term}
+                  <span className="grid gap-0.5">
+                    <span>{term.term}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Defined in {term.vocabularyTitle}
+                    </span>
+                  </span>
                 </CommandItem>
               ))}
             </CommandGroup>

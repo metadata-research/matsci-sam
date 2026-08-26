@@ -2,6 +2,7 @@
 
 import { Definition } from "@/components/definition"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,10 +13,17 @@ import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useEffect, useRef, useState } from "react"
 import { termPath } from "@/lib/public-identifiers"
+import type { SearchFacet } from "@/lib/search"
+import type {
+  SearchHighlightPart,
+  SearchMatchEvidence
+} from "@/lib/search-evidence"
 import {
   parseSearchAuthor,
+  parseSearchFacets,
   type SearchAuthor,
   type SearchResultType,
+  updateSearchFacetSelection,
   updateSearchResultSelection
 } from "./search-state"
 
@@ -58,7 +66,6 @@ const SearchPage = () => {
   const searchParams = useSearchParams()
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
-  const { data: activeCommunity } = trpc.search.context.useQuery()
 
   const [query, setQuery] = useState(searchParams.get("q") || "")
   // `types` defaults to both. The URL carries it only when it differs, so a
@@ -72,6 +79,9 @@ const SearchPage = () => {
   const [author, setAuthor] = useState<SearchAuthor>(() =>
     parseSearchAuthor(searchParams.get("author"))
   )
+  const [selectedFacets, setSelectedFacets] = useState(() =>
+    parseSearchFacets(searchParams.getAll("facet"))
+  )
 
   useEffect(() => {
     const params = new URLSearchParams()
@@ -79,10 +89,11 @@ const SearchPage = () => {
     if (showTerms !== showDefinitions)
       params.set("types", showTerms ? "terms" : "definitions")
     if (author !== "all") params.set("author", author)
+    for (const facet of selectedFacets) params.append("facet", facet)
 
     const next = params.toString() ? `/search?${params.toString()}` : "/search"
     router.replace(next, { scroll: false })
-  }, [query, showTerms, showDefinitions, author, router])
+  }, [query, showTerms, showDefinitions, author, selectedFacets, router])
 
   const hasQuery = query.trim().length > 0
 
@@ -105,15 +116,9 @@ const SearchPage = () => {
     <main className="px-4 py-8">
       <div className="mx-auto w-full max-w-4xl space-y-5">
         <h1 className="text-4xl font-bold">Search</h1>
-        {activeCommunity && (
-          <p className="text-sm text-muted-foreground">
-            Searching terms defined in the{" "}
-            <span className="font-medium text-foreground">
-              {activeCommunity.title}
-            </span>{" "}
-            vocabulary.
-          </p>
-        )}
+        <p className="text-sm text-muted-foreground">
+          Searching every hosted vocabulary.
+        </p>
 
         <div className="relative">
           <SearchIcon className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -129,7 +134,9 @@ const SearchPage = () => {
           />
         </div>
 
-        {hasQuery && showTerms && <TermSuggestions query={query} />}
+        {hasQuery && showTerms && (
+          <TermSuggestions query={query} facets={selectedFacets} />
+        )}
 
         <SearchHelp onSelect={useExample} />
 
@@ -191,10 +198,24 @@ const SearchPage = () => {
                   </>
                 )}
               </div>
+              <Separator className="my-4" />
+              <FacetFilters
+                query={query}
+                selected={selectedFacets}
+                onChange={(key, checked) =>
+                  setSelectedFacets((current) =>
+                    updateSearchFacetSelection(current, key, checked)
+                  )
+                }
+              />
             </Card>
 
             {showDefinitions ? (
-              <DefinitionsSearch query={query} author={author} />
+              <DefinitionsSearch
+                query={query}
+                author={author}
+                facets={selectedFacets}
+              />
             ) : (
               <p className="py-4 text-sm text-muted-foreground">
                 Matching terms appear above. Select Definitions to include
@@ -245,9 +266,83 @@ const SearchHelp = ({ onSelect }: { onSelect: (example: string) => void }) => (
   </div>
 )
 
-const TermSuggestions = ({ query }: { query: string }) => {
+const HighlightedText = ({ parts }: { parts: SearchHighlightPart[] }) => (
+  <>
+    {parts.map((part, index) =>
+      part.highlighted ? (
+        <mark
+          key={index}
+          className="rounded-sm bg-amber-200 px-0.5 text-inherit dark:bg-amber-500/30"
+        >
+          {part.text}
+        </mark>
+      ) : (
+        <span key={index}>{part.text}</span>
+      )
+    )}
+  </>
+)
+
+const MatchEvidence = ({
+  evidence
+}: {
+  evidence: SearchMatchEvidence | null
+}) => {
+  if (!evidence || evidence.source === "term") return null
+
+  if (evidence.source === "similar")
+    return <p className="text-xs font-medium text-primary">Similar term name</p>
+
+  return (
+    <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+      <span className="mr-1 font-semibold text-foreground">
+        Matched in {evidence.source}:
+      </span>
+      <HighlightedText parts={evidence.parts} />
+    </p>
+  )
+}
+
+const TermName = ({
+  name,
+  evidence
+}: {
+  name: string
+  evidence: SearchMatchEvidence | null
+}) =>
+  evidence?.source === "term" ? (
+    <HighlightedText parts={evidence.parts} />
+  ) : (
+    name
+  )
+
+const FacetBadges = ({ facets }: { facets: SearchFacet[] }) => {
+  if (facets.length === 0) return null
+
+  return (
+    <span className="flex flex-wrap items-center gap-1" aria-label="Facets">
+      {facets.map((facet) => (
+        <Badge
+          key={facet.key}
+          variant="secondary"
+          className="px-1.5 py-0 text-[10px] font-medium"
+        >
+          {facet.name}
+        </Badge>
+      ))}
+    </span>
+  )
+}
+
+const TermSuggestions = ({
+  query,
+  facets
+}: {
+  query: string
+  facets: string[]
+}) => {
   const { data, isLoading } = trpc.search.terms.useQuery(
-    { query, limit: 6 },
+    { query, limit: 6, facets },
     { enabled: query.trim().length > 0 }
   )
 
@@ -276,11 +371,13 @@ const TermSuggestions = ({ query }: { query: string }) => {
             >
               <span className="grid min-w-0 gap-0.5">
                 <span className="font-serif text-lg font-semibold">
-                  {term.term}
+                  <TermName name={term.term} evidence={term.matchEvidence} />
                 </span>
                 <span className="text-xs font-normal text-muted-foreground">
                   Defined in {term.vocabularyTitle}
                 </span>
+                <FacetBadges facets={term.facets} />
+                <MatchEvidence evidence={term.matchEvidence} />
               </span>
               <span className="flex shrink-0 items-center gap-2 text-sm text-primary">
                 {term.count ?? 0}{" "}
@@ -306,6 +403,55 @@ const TermSuggestions = ({ query }: { query: string }) => {
         </p>
       )}
     </section>
+  )
+}
+
+const FacetFilters = ({
+  query,
+  selected,
+  onChange
+}: {
+  query: string
+  selected: string[]
+  onChange: (key: string, checked: boolean) => void
+}) => {
+  const { data, isLoading } = trpc.search.facets.useQuery(
+    { query },
+    { enabled: query.trim().length > 0, placeholderData: (old) => old }
+  )
+
+  return (
+    <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <legend className="sr-only">PSPP facets</legend>
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        PSPP facet
+      </span>
+      {isLoading && !data ? (
+        <span className="text-sm text-muted-foreground">Loading…</span>
+      ) : (
+        data?.map((facet) => {
+          const checked = selected.includes(facet.key)
+          return (
+            <label
+              key={facet.key}
+              className="flex cursor-pointer items-center gap-1.5 text-sm"
+            >
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={checked}
+                disabled={!checked && facet.count === 0}
+                onChange={(event) => onChange(facet.key, event.target.checked)}
+              />
+              <span>{facet.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {facet.count}
+              </span>
+            </label>
+          )
+        })
+      )}
+    </fieldset>
   )
 }
 
@@ -352,13 +498,15 @@ const ResultHeading = ({
 
 const DefinitionsSearch = ({
   query,
-  author
+  author,
+  facets
 }: {
   query: string
   author: SearchAuthor
+  facets: string[]
 }) => {
   const { data, isLoading } = trpc.search.definitions.useQuery(
-    { query, limit: 10, author },
+    { query, limit: 10, author, facets },
     {
       enabled: query.trim().length > 0,
       placeholderData: (old) => old
@@ -376,11 +524,15 @@ const DefinitionsSearch = ({
       )}
       {data?.map((result) => (
         <Definition definition={result} key={result.id}>
-          <div>
-            <Label className="font-serif text-lg">{result.term}</Label>
+          <div className="space-y-1">
+            <Label className="font-serif text-lg">
+              <TermName name={result.term} evidence={result.matchEvidence} />
+            </Label>
             <p className="text-xs text-muted-foreground">
               Defined in {result.termVocabularyTitle}
             </p>
+            <FacetBadges facets={result.facets} />
+            <MatchEvidence evidence={result.matchEvidence} />
           </div>
         </Definition>
       ))}

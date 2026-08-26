@@ -101,6 +101,14 @@ jobs:
         run: |
           pnpm test:examples-db
 
+      # Proves global vocabulary scope, direct definition evidence, highlighted
+      # snippets, and PSPP facet filtering inside one rolled-back transaction.
+      - name: Test search behavior
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:search-db
+
       # Proves a lost discard response can be retried without changing the
       # original decision time or exposing another contributor's preview.
       - name: Test AI contribution discard retry

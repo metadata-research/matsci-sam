@@ -15,6 +15,25 @@ export type SearchResultSelection = {
   showDefinitions: boolean
 }
 
+const FACET_KEY = /^[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*$/
+
+export function parseSearchFacets(values: string[]): string[] {
+  return [...new Set(values.filter((value) => FACET_KEY.test(value)))].slice(
+    0,
+    20
+  )
+}
+
+export function updateSearchFacetSelection(
+  current: string[],
+  key: string,
+  checked: boolean
+): string[] {
+  if (!FACET_KEY.test(key)) return current
+  if (checked) return current.includes(key) ? current : [...current, key]
+  return current.filter((value) => value !== key)
+}
+
 export function updateSearchResultSelection(
   current: SearchResultSelection,
   type: SearchResultType,
