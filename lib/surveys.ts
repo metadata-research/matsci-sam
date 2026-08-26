@@ -43,9 +43,9 @@ export const DEFAULT_INSTRUCTIONS =
   "This study is a second round on a terminology list. Each term may have " +
   "candidate definitions, examples, and comments from earlier work.\n\n" +
   "MatSci-SAM uses five contribution actions: New term, Suggest a revision, " +
-  "Propose a replacement, Comment, and Add example. AI help, when offered, " +
-  "is an optional drafting aid inside New term or Suggest a revision; it does " +
-  "not publish automatically. A comment stays a comment, and an example stays " +
+  "Propose a replacement, Comment, and Add example. Language-model assistance, " +
+  "when offered, is an optional drafting aid inside New term or Suggest a " +
+  "revision; it does not publish automatically. A comment stays a comment, and an example stays " +
   "separate from the definition.\n\nFor each term in this study, take a " +
   "position by accepting a candidate as written, using Suggest a revision to " +
   "say what is wrong or missing, or using Propose a replacement to offer a " +

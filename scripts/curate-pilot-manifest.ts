@@ -8,8 +8,12 @@ import {
 
 const TITLE_MAX = 120
 const DESCRIPTION_MAX = 2000
+const SLUG_MAX = 200
 
-const slugSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/, "not a slug")
+const slugSchema = z
+  .string()
+  .max(SLUG_MAX)
+  .regex(/^[a-z0-9][a-z0-9_-]*$/, "not a slug")
 const emailSchema = z
   .string()
   .trim()
@@ -18,10 +22,10 @@ const emailSchema = z
   .transform((value) => value.toLowerCase())
 const titleSchema = z.string().trim().min(1).max(TITLE_MAX)
 const descriptionSchema = z.string().trim().max(DESCRIPTION_MAX).optional()
-const momentSchema = z
-  .string()
-  .trim()
-  .refine((value) => !Number.isNaN(Date.parse(value)), "not a date")
+const momentSchema = z.union([
+  z.string().trim().date(),
+  z.string().trim().datetime({ offset: true })
+])
 const commentSchema = z.string().optional()
 
 export const FIRST_ACT = "first-act-2025"
@@ -35,12 +39,25 @@ const memberSchema = z
   })
   .strict()
 
+const termReferenceSchema = z
+  .object({
+    vocabulary: slugSchema,
+    slug: slugSchema
+  })
+  .strict()
+
 const communitySchema = z
   .object({
     $comment: commentSchema,
     slug: slugSchema,
     title: titleSchema,
     description: descriptionSchema,
+    // Stable term slugs to move into this community's vocabulary. A qualified
+    // entry also fixes the expected source vocabulary once duplicate slugs
+    // exist. Omit the field when the manifest only manages the roster. The
+    // curation preserves the term row and everything that refers to it; it
+    // changes only the namespace and records the former route as an alias.
+    terms: z.array(z.union([slugSchema, termReferenceSchema])).optional(),
     members: z.array(memberSchema).default([])
   })
   .strict()
@@ -52,7 +69,10 @@ const collectionSchema = z
     title: titleSchema,
     description: descriptionSchema,
     terms: z.union([
-      z.array(z.string().trim().min(1)),
+      // Qualified stable references are authoritative. Legacy labels remain
+      // accepted for old manifests, but the curation refuses a label that
+      // resolves in more than one vocabulary.
+      z.array(z.union([z.string().trim().min(1), termReferenceSchema])),
       z.object({ createdBefore: momentSchema }).strict()
     ])
   })

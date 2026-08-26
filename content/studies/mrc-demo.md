@@ -1,4 +1,4 @@
-This MRC demonstration uses two terms from the 2025 list. It follows the study workflow in seven steps.
+This MRC demonstration reviews two terms from the MRC vocabulary in a seven-step walkthrough.
 
 For each term, choose the definition you would use. The available controls let you accept a candidate as written, amend the closest candidate, or add a definition. Then compare the candidates, vote on each, and comment where you disagree or can add information. Two questions complete the walkthrough.
 

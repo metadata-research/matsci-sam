@@ -28,6 +28,7 @@
     "test:study-editor": "tsx scripts/test-study-editor.ts",
     "test:kos": "tsx --conditions=react-server scripts/test-kos.ts",
     "test:kos-db": "tsx scripts/test-kos-db.ts",
+    "test:vocabularies-db": "tsx scripts/test-vocabularies-db.ts",
     "facets:export": "tsx scripts/export-facet-fixture.ts",
     "auth:gmail": "tsx scripts/authorize-gmail-sender.ts",
     "db:migrate": "drizzle-kit migrate",

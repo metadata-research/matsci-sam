@@ -5,20 +5,23 @@ import { Input } from "@/components/ui/input"
 import { TERM_MAX_LENGTH } from "@/lib/input-limits"
 import styles from "./home.module.css"
 
-export function DefinitionStarter({ signedIn }: { signedIn: boolean }) {
+export function DefinitionStarter({
+  signedIn,
+  vocabularyTitle
+}: {
+  signedIn: boolean
+  vocabularyTitle: string
+}) {
   return (
     <>
       <p className={styles.contributionIntro}>
-        Introduce a materials science term the vocabulary is missing. To revise,
-        replace, comment on, or add an example to an existing term, open its
-        vocabulary page.
+        Add a term and its first definition to the {vocabularyTitle} vocabulary.
+        Open an existing term to add a definition, example, or comment.
       </p>
 
       {signedIn ? (
         <form className={styles.definitionStarter} action="/add" method="get">
-          <label htmlFor="home-definition-term">
-            Start with a materials term
-          </label>
+          <label htmlFor="home-definition-term">Term</label>
           <div className={styles.definitionStarterRow}>
             <Input
               id="home-definition-term"
@@ -27,22 +30,21 @@ export function DefinitionStarter({ signedIn }: { signedIn: boolean }) {
               required
               maxLength={TERM_MAX_LENGTH}
               autoComplete="off"
-              placeholder="e.g., grain boundary"
+              placeholder="For example, grain boundary"
             />
             <Button type="submit">
               <FilePlus2Icon aria-hidden />
-              Start a new term
+              Continue
             </Button>
           </div>
           <p className={styles.contributionNote}>
-            Next, write the first definition yourself or ask AI for an editable
-            suggestion. Examples are added separately after publication.
+            Next, write the first definition or prompt a language model to draft
+            an editable suggestion.
           </p>
         </form>
       ) : (
         <p className={styles.contributionNote}>
-          Sign in first so your contribution and any later revisions can be
-          attributed to you.
+          Sign in to add a term and its first definition.
         </p>
       )}
 
@@ -58,7 +60,7 @@ export function DefinitionStarter({ signedIn }: { signedIn: boolean }) {
         <Button asChild variant="outline">
           <Link href="/terms">
             <BookOpenIcon aria-hidden />
-            Browse all terms
+            Browse terms
           </Link>
         </Button>
       </div>

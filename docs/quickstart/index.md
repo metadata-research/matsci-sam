@@ -21,9 +21,9 @@ broader class first, then what distinguishes the term from its neighbours.
 If the term already exists, open its vocabulary page and choose one of the
 actions there instead.
 
-Select **Suggest a definition with AI** to generate an editable draft. Review
-and edit the draft before publishing. The published definition is attributed
-to you and the named model.
+Select **Draft with a language model** to generate editable text. Review and
+edit the draft before publishing. The published definition is attributed to
+you and the named model.
 
 ![The New term form with its definition field and optional AI suggestion control](/images/docs/quickstart-contribute.png)
 
@@ -60,9 +60,9 @@ or start model work.
 ## Ask for a revision
 
 On a current definition, select **Suggest a revision**, explain what is wrong
-or missing, and ask AI to draft new wording. The application sends the term,
-source definition, and your feedback to the configured language model. The
-editable preview appears before anything is published. The same action is
+or missing, and prompt the configured language model to draft new wording. The
+application sends the term, source definition, and your feedback to the model.
+The editable preview appears before anything is published. The same action is
 available in the **Discussion** feed and in a study walkthrough.
 
 ![The Discussion page, with separate Suggest a revision and Comment controls](/images/docs/quickstart-revise.png)
@@ -75,7 +75,7 @@ remain discussion only.
 
 [Discussion](/docs/discussion) covers the feed, and [AI-assisted
 suggestions](/docs/ai-refinement) covers the two contribution actions that can
-request an AI draft.
+prompt a language model for a draft.
 
 ## Replace or illustrate a definition
 

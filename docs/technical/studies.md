@@ -169,7 +169,7 @@ use or the study is retired. `studyProgress` gives the page how many
 participants have finished.
 
 The `Walkthrough` component owns a counted interaction state. Vote, comment,
-definition, AI draft, discard, completion, and answer controls report their
+definition, language-model draft, discard, completion, and answer controls report their
 mutation lifecycle to this state. Step dots and movement controls remain
 disabled from the initiating action until all related writes settle. Counting
 supports sequences such as the position vote followed by step completion and

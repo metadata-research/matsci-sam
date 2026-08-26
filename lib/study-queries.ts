@@ -184,7 +184,12 @@ export const mostSupportedDefinitions = async (
   asOf?: string | null
 ) => {
   const terms = await db
-    .select({ id: termsTable.id, term: termsTable.term, slug: termsTable.slug })
+    .select({
+      id: termsTable.id,
+      term: termsTable.term,
+      slug: termsTable.slug,
+      vocabularySlug: termsTable.vocabularySlug
+    })
     .from(statementsTable)
     .innerJoin(termsTable, eq(termsTable.id, statementsTable.objectTermId))
     .where(

@@ -9,7 +9,8 @@ import {
   db,
   definitionsTable,
   statementsTable,
-  termsTable
+  termsTable,
+  vocabulariesTable
 } from "@yamz/db"
 import { and, asc, eq, exists, isNull, sql } from "drizzle-orm"
 import type { AnyPgColumn } from "drizzle-orm/pg-core"
@@ -211,10 +212,16 @@ export const collectionMembers = async (
       id: termsTable.id,
       term: termsTable.term,
       slug: termsTable.slug,
+      vocabularySlug: termsTable.vocabularySlug,
+      vocabularyTitle: vocabulariesTable.title,
       definitions: sql<number>`cast(count(${definitionsTable.id}) as int)`
     })
     .from(statementsTable)
     .innerJoin(termsTable, eq(termsTable.id, statementsTable.objectTermId))
+    .innerJoin(
+      vocabulariesTable,
+      eq(vocabulariesTable.slug, termsTable.vocabularySlug)
+    )
     .leftJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
     .where(
       and(
@@ -223,8 +230,68 @@ export const collectionMembers = async (
         isNull(statementsTable.retractedAt)
       )
     )
-    .groupBy(termsTable.id)
-    .orderBy(asc(termsTable.term))
+    .groupBy(termsTable.id, vocabulariesTable.slug)
+    .orderBy(
+      asc(sql`lower(btrim(${termsTable.term}))`),
+      asc(sql`lower(btrim(${vocabulariesTable.title}))`)
+    )
+
+export type CommunityCollectionVocabularyCount = {
+  collectionId: number
+  vocabularySlug: string
+  vocabularyTitle: string
+  terms: number
+}
+
+/*
+ * Vocabulary composition for every collection on one community's worklist.
+ * This is one batched query rather than one collectionMembers call per card on
+ * the community page. A vocabulary other than the community's own is a
+ * reference there; the page applies that relative label while this query
+ * returns the source namespace and count.
+ */
+export const communityCollectionVocabularyCounts = async (
+  communityId: number
+): Promise<CommunityCollectionVocabularyCount[]> =>
+  await db
+    .select({
+      collectionId: communityCollectionsTable.collectionId,
+      vocabularySlug: termsTable.vocabularySlug,
+      vocabularyTitle: vocabulariesTable.title,
+      terms: sql<number>`cast(count(distinct ${termsTable.id}) as int)`
+    })
+    .from(communityCollectionsTable)
+    .innerJoin(
+      statementsTable,
+      and(
+        eq(
+          statementsTable.subjectCollectionId,
+          communityCollectionsTable.collectionId
+        ),
+        eq(statementsTable.predicate, "skos:member"),
+        isNull(statementsTable.retractedAt)
+      )
+    )
+    .innerJoin(termsTable, eq(termsTable.id, statementsTable.objectTermId))
+    .innerJoin(
+      vocabulariesTable,
+      eq(vocabulariesTable.slug, termsTable.vocabularySlug)
+    )
+    .where(
+      and(
+        eq(communityCollectionsTable.communityId, communityId),
+        isNull(communityCollectionsTable.removedAt)
+      )
+    )
+    .groupBy(
+      communityCollectionsTable.collectionId,
+      termsTable.vocabularySlug,
+      vocabulariesTable.slug
+    )
+    .orderBy(
+      asc(communityCollectionsTable.collectionId),
+      asc(sql`lower(btrim(${vocabulariesTable.title}))`)
+    )
 
 export type RelatedConcept = { id: number; slug: string; label: string }
 
@@ -284,6 +351,7 @@ export type TagDrift = {
   conceptLabel: string
   schemeSlug: string
   termSlug: string
+  termVocabularySlug: string
   termLabel: string
   linkedAt: string
   filedCount: number
@@ -323,6 +391,7 @@ export const tagsWithDrift = async (): Promise<TagDrift[]> => {
       c."prefLabel"           AS "conceptLabel",
       cs.slug                 AS "schemeSlug",
       t.slug                  AS "termSlug",
+      t."vocabularySlug"      AS "termVocabularySlug",
       t.term                  AS "termLabel",
       bridge.linked_at        AS "linkedAt",
       filed.filed_count       AS "filedCount",
@@ -338,7 +407,7 @@ export const tagsWithDrift = async (): Promise<TagDrift[]> => {
     WHERE r."changeDelta" >= ${DRIFT_THRESHOLD}::numeric
       AND r."createdAt" > filed.first_filed
     GROUP BY
-      c.id, c.slug, c."prefLabel", cs.slug, t.slug, t.term,
+      c.id, c.slug, c."prefLabel", cs.slug, t.slug, t."vocabularySlug", t.term,
       bridge.linked_at, filed.filed_count
     ORDER BY max(r."changeDelta") DESC
   `)

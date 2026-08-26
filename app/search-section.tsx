@@ -81,12 +81,21 @@ export const SearchSection = ({
         data?.map((item) => (
           <Card
             onClick={() =>
-              router.push(definitionPath(item.termSlug, item.definitionNumber))
+              router.push(
+                definitionPath(
+                  item.termSlug,
+                  item.definitionNumber,
+                  item.termVocabularySlug
+                )
+              )
             }
             className="!gap-0 !p-2 cursor-pointer"
             key={item.id}
           >
             <h3 className="text-lg font-semibold">{item.term}</h3>
+            <p className="text-xs text-muted-foreground">
+              Defined in {item.termVocabularyTitle}
+            </p>
             <p>{item.definition}</p>
           </Card>
         ))}

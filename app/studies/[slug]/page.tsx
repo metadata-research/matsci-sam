@@ -225,7 +225,7 @@ export default async function StudyPage({
                   className="space-y-2 rounded-md border border-border p-4"
                 >
                   <Link
-                    href={termPath(term.slug)}
+                    href={termPath(term.slug, term.vocabularySlug)}
                     className="block text-lg font-bold font-serif"
                   >
                     {term.term}
@@ -241,7 +241,8 @@ export default async function StudyPage({
                         <Link
                           href={definitionPath(
                             term.slug,
-                            term.mostSupported.definitionNumber
+                            term.mostSupported.definitionNumber,
+                            term.vocabularySlug
                           )}
                           className="hover:underline"
                         >

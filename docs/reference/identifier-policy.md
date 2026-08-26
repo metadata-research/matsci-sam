@@ -7,12 +7,13 @@ policy.
 
 ## What is identified
 
-Three levels of vocabulary content have identifiers. A term is the shared
-concept. A definition is one contributed interpretation of that concept. A
-revision is one immutable state of a definition. The knowledge organization
-layer adds tag schemes, tags, collections, language models, studies, and
-individual statements. The dataset, named graphs, application metadata terms,
-and MatCore elements also have identifiers.
+MatSci-SAM identifies four levels of vocabulary content. A vocabulary is a SKOS
+concept scheme. A term is one concept in that scheme. A definition is one
+contributed interpretation of that concept. A revision is one immutable state
+of a definition. The knowledge organization layer adds tag schemes, tags,
+collections, language models, studies, and individual statements. The dataset,
+named graphs, application metadata terms, and MatCore elements also have
+identifiers.
 
 Resource paths use stable slugs and numbers assigned within a scope. Database
 keys remain internal to those paths. Statements and acts use the fragment
@@ -21,10 +22,14 @@ identifiers described below.
 ## Grammar
 
 ```text
-{base}/vocabulary                                  the dictionary scheme
-{base}/vocabulary/{term}                           a term
-{base}/vocabulary/{term}/definitions/{n}           a definition
-{base}/vocabulary/{term}/definitions/{n}/revisions/{v}   a revision
+{base}/vocabulary                                  the default MatSci-SAM scheme
+{base}/vocabulary/{term}                           a default-scheme term
+{base}/vocabulary/{term}/definitions/{n}           a default-scheme definition
+{base}/vocabulary/{term}/definitions/{n}/revisions/{v}   a default-scheme revision
+{base}/vocabulary/{community}                      a community scheme
+{base}/vocabulary/{community}/{term}               a community-scheme term
+{base}/vocabulary/{community}/{term}/definitions/{n}     a community-scheme definition
+{base}/vocabulary/{community}/{term}/definitions/{n}/revisions/{v}   a community-scheme revision
 {base}/tags/{scheme}                               a tag scheme
 {base}/tags/{scheme}/{tag}                         a tag
 {base}/collections/{collection}                    a collection
@@ -40,20 +45,32 @@ identifiers described below.
 IRI dereferences to a description, and the metadata documents use the same
 IRIs.
 
+The HTML representation at `/vocabulary` also lists the community schemes in
+the **Everything** catalog. The IRI continues to identify the default
+MatSci-SAM concept scheme. A term curated into a community scheme receives the
+community path as its canonical IRI. Its former path remains reserved and
+redirects permanently to the canonical term.
+
 ## Slugs
 
 A term slug is the lowercased term name with spaces written as underscores
 and hyphens retained, so a hyphen inside a term keeps its meaning.
 Diacritics are stripped and every character outside letters, digits,
 underscore and hyphen is dropped, so "density functional theory (DFT)"
-becomes `density_functional_theory_dft`. Two terms that normalize to one
-slug are told apart by a numeric suffix on the second. Tag and collection
-slugs are formed the same way from the label. A model slug is formed from
-the model tag, not from the display name, and by a rule of its own. Every
-run of characters outside letters and digits becomes a single underscore,
-hyphens included, so `claude-opus-5` is `/models/claude_opus_5` and
-`gemma4:26b` is `/models/gemma4_26b`. A scheme slug is never all digits, so
-the older numeric tag address stays unambiguous.
+becomes `density_functional_theory_dft`. A term slug is unique within its
+vocabulary. Two labels in one vocabulary that normalize to the same slug are
+told apart by a numeric suffix on the second. Two vocabularies may use the same
+label and slug for distinct concepts because the scheme path remains part of
+the identifier. Tag and collection slugs are formed the same way from the
+label. A model slug is formed from the model tag, not from the display name,
+and by a rule of its own. Every run of characters outside letters and digits
+becomes a single underscore, hyphens included, so `claude-opus-5` is
+`/models/claude_opus_5` and `gemma4:26b` is `/models/gemma4_26b`. A tag-scheme
+slug is never all digits, so the older numeric tag address stays unambiguous.
+
+A one-segment path below `/vocabulary` can identify either a default term or a
+community vocabulary. The application reserves each community slug from the
+default term namespace, so the path resolves unambiguously.
 
 A slug is assigned when the resource is first published and is identifier
 data from then on. A change to the display label does not change the slug.
@@ -80,7 +97,10 @@ keeps its identifier and its attributed contributions.
 
 Older addresses that contained a database identity, `/terms/{id}`,
 `/definition/{id}` and `/tags/{id}`, redirect permanently to the identifier
-in the path grammar. Metadata documents publish the canonical form.
+in the path grammar. Metadata documents publish the canonical form. When a
+curated migration changes a term's owning vocabulary, the former term path and
+its definition, revision, provenance, and rank suffixes remain permanent route
+aliases. An alias continues to reserve its route and cannot be reassigned.
 
 ## Statements and acts
 
@@ -103,10 +123,10 @@ model](/docs/reference/provenance-model) describes their privacy treatment.
 
 ## Dynamic selectors
 
-`/vocabulary/{term}/rank/{n}` resolves to the definition that holds a rank
-when the request is made. It is a lookup, not an identifier. It redirects
-temporarily to the stable definition. Metadata documents use the definition
-identifier.
+`/vocabulary/{term}/rank/{n}` resolves a default-scheme rank, and
+`/vocabulary/{community}/{term}/rank/{n}` does the same within a community
+scheme. Each is a lookup, not an identifier. It redirects temporarily to the
+stable definition. Metadata documents use the definition identifier.
 
 ## Authority
 

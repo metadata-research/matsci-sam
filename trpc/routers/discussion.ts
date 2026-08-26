@@ -6,11 +6,14 @@ import {
   definitionRevisionsTable,
   definitionsTable,
   termsTable,
-  usersTable
+  usersTable,
+  vocabulariesTable
 } from "@yamz/db"
 import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import { diffToStringSimple } from "@/lib/definition-revisions"
 import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
+import { activeCommunityFor } from "@/lib/community-queries"
+import { vocabularyTermScope } from "@/lib/search"
 
 /*
  * Feed for the /discussion page: the most-recent terms, each paired with the
@@ -18,22 +21,37 @@ import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
  *
  * The feed keeps a consistent discussion target for each term: its model draft
  * when one exists, otherwise its highest-supported definition. Commenting is a
- * comment-only act; requesting an AI revision remains an explicit action.
+ * comment-only act; requesting a language-model revision draft remains an
+ * explicit action.
  */
 export const discussionRouter = createTRPCRouter({
   recent: baseProcedure
     .input(z.object({ limit: z.number().min(1).max(50).default(8) }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ ctx: { userId }, input }) => {
       const limit = input?.limit ?? 8
+      const activeCommunity = userId
+        ? await activeCommunityFor(db, userId)
+        : null
 
       const terms = await db
         .select({
           id: termsTable.id,
           term: termsTable.term,
           slug: termsTable.slug,
+          vocabularySlug: termsTable.vocabularySlug,
+          vocabularyTitle: vocabulariesTable.title,
           createdAt: termsTable.createdAt
         })
         .from(termsTable)
+        .innerJoin(
+          vocabulariesTable,
+          eq(vocabulariesTable.slug, termsTable.vocabularySlug)
+        )
+        .where(
+          activeCommunity
+            ? vocabularyTermScope(activeCommunity.vocabularySlug)
+            : undefined
+        )
         .orderBy(desc(termsTable.createdAt))
         .limit(limit)
 

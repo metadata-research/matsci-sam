@@ -129,7 +129,8 @@ export default async function ConceptPage({
           predicate: statementsTable.predicate,
           iri: statementsTable.objectIri,
           termSlug: termsTable.slug,
-          termLabel: termsTable.term
+          termLabel: termsTable.term,
+          termVocabularySlug: termsTable.vocabularySlug
         })
         .from(statementsTable)
         .leftJoin(termsTable, eq(termsTable.id, statementsTable.objectTermId))
@@ -144,7 +145,8 @@ export default async function ConceptPage({
         .select({
           id: termsTable.id,
           term: termsTable.term,
-          slug: termsTable.slug
+          slug: termsTable.slug,
+          vocabularySlug: termsTable.vocabularySlug
         })
         .from(statementsTable)
         .innerJoin(termsTable, eq(termsTable.id, statementsTable.subjectTermId))
@@ -219,11 +221,11 @@ export default async function ConceptPage({
       {/* The bridge, if this tag is also a term of the vocabulary. Rendered
           before the external mappings because it is the same concept rather
           than a correspondence to another vocabulary. */}
-      {bridge && bridge.termSlug && (
+      {bridge && bridge.termSlug && bridge.termVocabularySlug && (
         <p className="text-sm text-muted-foreground">
           Also a term in this vocabulary:{" "}
           <Link
-            href={termPath(bridge.termSlug)}
+            href={termPath(bridge.termSlug, bridge.termVocabularySlug)}
             className="font-serif text-base text-primary"
           >
             {bridge.termLabel}
@@ -293,7 +295,7 @@ export default async function ConceptPage({
             {facetTerms.map((t) => (
               <li key={t.id}>
                 <Link
-                  href={termPath(t.slug)}
+                  href={termPath(t.slug, t.vocabularySlug)}
                   className="inline-block rounded-md border px-3 py-1 font-serif text-sm hover:text-primary"
                 >
                   {t.term}
@@ -315,7 +317,11 @@ export default async function ConceptPage({
           {taggedDefinitions.map(({ definition, term }) => (
             <Link
               key={definition.id}
-              href={definitionPath(term.slug, definition.definitionNumber)}
+              href={definitionPath(
+                term.slug,
+                definition.definitionNumber,
+                term.vocabularySlug
+              )}
             >
               <Card className="!p-2">
                 <h3 className="font-serif text-lg font-semibold">

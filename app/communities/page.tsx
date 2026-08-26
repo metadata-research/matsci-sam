@@ -14,10 +14,10 @@ export const metadata: Metadata = {
 }
 
 /*
- * The communities index. A community is people, a collection is terms, and a
- * community owns nothing in the vocabulary: what it has is collections it is
- * working through. Retired communities are listed for an administrator only,
- * and their addresses resolve for everyone.
+ * The communities index. A community is people and owns a vocabulary
+ * namespace. Its collections are independent worklists that can include local
+ * or referenced terms. Retired communities are listed for an administrator
+ * only, and their addresses resolve for everyone.
  *
  * Nothing here is published as RDF, so there is no IRI on this page and no
  * community appears in any Turtle document.

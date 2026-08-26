@@ -55,6 +55,7 @@ const stepColumns = {
 export type StepWithTerm = Step & {
   term: string | null
   termSlug: string | null
+  termVocabularySlug: string | null
 }
 
 // The steps of a study in position order.
@@ -66,7 +67,8 @@ export const stepsOfStudy = async (
     .select({
       ...stepColumns,
       term: termsTable.term,
-      termSlug: termsTable.slug
+      termSlug: termsTable.slug,
+      termVocabularySlug: termsTable.vocabularySlug
     })
     .from(surveyStepsTable)
     .leftJoin(termsTable, eq(termsTable.id, surveyStepsTable.termId))

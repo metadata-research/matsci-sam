@@ -14,6 +14,7 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { DiffOp } from "diff-match-patch-ts"
 import { and, asc, eq, isNull, sql } from "drizzle-orm"
+import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
 
 const main = async () => {
   if (!process.env.DATABASE_URL) {
@@ -38,6 +39,7 @@ const main = async () => {
     surveyStepsTable,
     termsTable,
     usersTable,
+    vocabulariesTable,
     voteEventsTable,
     votesTable
   } = await import("../drizzle")
@@ -140,7 +142,11 @@ const main = async () => {
   const expectInvariant = (outcome: Outcome, text: string, label: string) => {
     assert.ok(!outcome.ok, `${label}: expected the invariant to raise`)
     if (outcome.ok) return
-    assert.equal(outcome.code, "P0001", `${label}: SQLSTATE (${outcome.message})`)
+    assert.equal(
+      outcome.code,
+      "P0001",
+      `${label}: SQLSTATE (${outcome.message})`
+    )
     assert.ok(
       outcome.message.includes(text),
       `${label}: raised "${outcome.message}", wanted "${text}"`
@@ -194,9 +200,21 @@ const main = async () => {
       const [termA, termB, termC] = await tx
         .insert(termsTable)
         .values([
-          { term: `kos test a ${stamp}`, slug: `kos_test_a_${stamp}` },
-          { term: `kos test b ${stamp}`, slug: `kos_test_b_${stamp}` },
-          { term: `kos test c ${stamp}`, slug: `kos_test_c_${stamp}` }
+          {
+            vocabularySlug: DEFAULT_VOCABULARY_SLUG,
+            term: `kos test a ${stamp}`,
+            slug: `kos_test_a_${stamp}`
+          },
+          {
+            vocabularySlug: DEFAULT_VOCABULARY_SLUG,
+            term: `kos test b ${stamp}`,
+            slug: `kos_test_b_${stamp}`
+          },
+          {
+            vocabularySlug: DEFAULT_VOCABULARY_SLUG,
+            term: `kos test c ${stamp}`,
+            slug: `kos_test_c_${stamp}`
+          }
         ])
         .returning({ id: termsTable.id })
       assert.ok(termA.id < termB.id && termB.id < termC.id)
@@ -1063,7 +1081,11 @@ const main = async () => {
               eq(votesTable.userId, aiUser.id)
             )
           )
-        assert.notEqual(recast.createdAt, legacyTime, "the recast has its own time")
+        assert.notEqual(
+          recast.createdAt,
+          legacyTime,
+          "the recast has its own time"
+        )
         await runInvariants(sp)
         throw new Unwind("backfill probe unwound")
       })
@@ -1079,10 +1101,17 @@ const main = async () => {
       // membership episode opens at the now() of this transaction, which is
       // also when every completion below is stamped, so the release-time
       // rule that a completion falls inside an episode holds on the fixture.
+      const communitySlug = `kos-test-${stamp}`
+      await tx.insert(vocabulariesTable).values({
+        slug: communitySlug,
+        title: `KOS test community ${stamp}`,
+        createdById: user.id
+      })
       const [community] = await tx
         .insert(communitiesTable)
         .values({
-          slug: `kos-test-${stamp}`,
+          slug: communitySlug,
+          vocabularySlug: communitySlug,
           title: `KOS test community ${stamp}`,
           createdById: user.id
         })
@@ -1116,7 +1145,8 @@ const main = async () => {
       })
       const probeStep = (
         values: Partial<typeof surveyStepsTable.$inferInsert>
-      ) => attempt(tx, (sp) => sp.insert(surveyStepsTable).values(stepRow(values)))
+      ) =>
+        attempt(tx, (sp) => sp.insert(surveyStepsTable).values(stepRow(values)))
 
       expectRejected(
         await probeStep({ position: 0 }),
@@ -1160,7 +1190,11 @@ const main = async () => {
         "blank instructions"
       )
       expectRejected(
-        await probeStep({ kind: "question", prompt: null, responseKind: "scale" }),
+        await probeStep({
+          kind: "question",
+          prompt: null,
+          responseKind: "scale"
+        }),
         "23514",
         "survey_steps_prompt_by_kind",
         "question without its text"
@@ -1175,7 +1209,9 @@ const main = async () => {
         "survey_steps_study_position_unique",
         "two steps at one position"
       )
-      await tx.delete(surveyStepsTable).where(eq(surveyStepsTable.studyId, study.id))
+      await tx
+        .delete(surveyStepsTable)
+        .where(eq(surveyStepsTable.studyId, study.id))
 
       // --- The walkthrough as the application writes it, through the same
       // lib/ helpers the router and the pilot driver call ---
@@ -1220,7 +1256,10 @@ const main = async () => {
 
       // Nothing has started: the steps may be replaced, and replacing them
       // again keeps the count and renumbers from 1.
-      assert.equal(mayRegenerateSteps(await completionCountOfStudy(tx, study.id)), true)
+      assert.equal(
+        mayRegenerateSteps(await completionCountOfStudy(tx, study.id)),
+        true
+      )
       const located = await stepWithStudy(tx, defineA.id)
       assert.equal(located?.study.id, study.id)
       assert.equal(located?.study.communityId, community.id)
@@ -1228,9 +1267,14 @@ const main = async () => {
 
       // Instructions complete on the press. A second press is not an error
       // and records nothing new.
-      assert.ok(await recordCompletion(tx, { stepId: instructions.id, userId: user.id }))
+      assert.ok(
+        await recordCompletion(tx, { stepId: instructions.id, userId: user.id })
+      )
       assert.equal(
-        await recordCompletion(tx, { stepId: instructions.id, userId: user.id }),
+        await recordCompletion(tx, {
+          stepId: instructions.id,
+          userId: user.id
+        }),
         null,
         "a completion recorded twice stands once"
       )
@@ -1523,7 +1567,10 @@ const main = async () => {
       )
       assert.equal(mine.steps[1].term, `kos test a ${stamp}`)
       assert.equal(mine.steps[0].term, null)
-      assert.deepEqual(mine.steps[5].response, { valueText: null, valueScale: 4 })
+      assert.deepEqual(mine.steps[5].response, {
+        valueText: null,
+        valueScale: 4
+      })
       assert.equal(mine.steps[6].response, null)
 
       // Public study, private progress: a signed-out viewer sees the steps
@@ -1532,7 +1579,15 @@ const main = async () => {
       assert.equal(anyone.steps.length, 7)
       assert.equal(anyone.resumePosition, 1)
       assert.deepEqual(anyone.completedStepIds, [])
-      assert.ok(anyone.steps.every((step) => !step.completed && !step.hasPosition && step.held === null && step.response === null))
+      assert.ok(
+        anyone.steps.every(
+          (step) =>
+            !step.completed &&
+            !step.hasPosition &&
+            step.held === null &&
+            step.response === null
+        )
+      )
 
       const progress = await studyProgress(tx, study.id)
       assert.ok(progress)

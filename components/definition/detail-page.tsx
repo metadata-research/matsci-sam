@@ -33,7 +33,8 @@ import {
   definitionPath,
   definitionUri,
   revisionPath,
-  revisionUri
+  revisionUri,
+  termPath
 } from "@/lib/public-identifiers"
 
 export async function DefinitionDetailPage({
@@ -54,15 +55,21 @@ export async function DefinitionDetailPage({
 
   const stableDefinitionPath = definitionPath(
     definition.termSlug,
-    definition.definitionNumber
+    definition.definitionNumber,
+    definition.termVocabularySlug
   )
   const displayedResourceUri =
     version === undefined
-      ? definitionUri(definition.termSlug, definition.definitionNumber)
+      ? definitionUri(
+          definition.termSlug,
+          definition.definitionNumber,
+          definition.termVocabularySlug
+        )
       : revisionUri(
           definition.termSlug,
           definition.definitionNumber,
-          definition.version
+          definition.version,
+          definition.termVocabularySlug
         )
 
   await trpc.votes.get.prefetch({
@@ -82,7 +89,7 @@ export async function DefinitionDetailPage({
         <div className="mx-auto w-full max-w-4xl space-y-8">
           <Link
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
-            href={`/vocabulary/${definition.termSlug}`}
+            href={termPath(definition.termSlug, definition.termVocabularySlug)}
           >
             <ArrowLeftIcon className="size-4" aria-hidden />
             Other definitions for {definition.term}
@@ -267,7 +274,8 @@ export async function DefinitionDetailPage({
                         className="flex items-center gap-1.5 text-primary hover:underline"
                         href={definitionPath(
                           definition.termSlug,
-                          definition.refinedFromDefinitionNumber
+                          definition.refinedFromDefinitionNumber,
+                          definition.termVocabularySlug
                         )}
                       >
                         <ArrowLeftIcon className="size-3.5" aria-hidden />
@@ -279,7 +287,8 @@ export async function DefinitionDetailPage({
                         className="flex items-center gap-1.5 text-primary hover:underline"
                         href={definitionPath(
                           definition.termSlug,
-                          definition.refinedVersionDefinitionNumber
+                          definition.refinedVersionDefinitionNumber,
+                          definition.termVocabularySlug
                         )}
                       >
                         <SparklesIcon
@@ -294,7 +303,8 @@ export async function DefinitionDetailPage({
                         className="flex items-center gap-1.5 text-primary hover:underline"
                         href={definitionPath(
                           definition.termSlug,
-                          definition.replacesDefinitionNumber
+                          definition.replacesDefinitionNumber,
+                          definition.termVocabularySlug
                         )}
                       >
                         <ReplaceIcon className="size-3.5" aria-hidden />
@@ -309,7 +319,8 @@ export async function DefinitionDetailPage({
                           className="flex items-center gap-1.5 text-primary hover:underline"
                           href={definitionPath(
                             definition.termSlug,
-                            definitionNumber
+                            definitionNumber,
+                            definition.termVocabularySlug
                           )}
                         >
                           <ReplaceIcon className="size-3.5" aria-hidden />
@@ -386,7 +397,8 @@ export async function DefinitionDetailPage({
                           href={revisionPath(
                             definition.termSlug,
                             definition.definitionNumber,
-                            revision.version
+                            revision.version,
+                            definition.termVocabularySlug
                           )}
                           className="font-semibold text-primary hover:underline"
                         >

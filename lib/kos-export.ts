@@ -74,7 +74,12 @@ export type KosStatement = {
 
 // Terms referenced by any loaded statement, so relations and collection
 // members can be written as term IRIs without another lookup.
-export type KosTerm = { id: number; term: string; slug: string }
+export type KosTerm = {
+  id: number
+  term: string
+  slug: string
+  vocabularySlug: string
+}
 
 export type KosData = {
   schemes: KosScheme[]
@@ -170,7 +175,13 @@ export class KosView {
 
   termRef(id: number): TermRef | null {
     const t = this.termById.get(id)
-    return t ? { id, uri: termUri(t.slug), label: t.term } : null
+    return t
+      ? {
+          id,
+          uri: termUri(t.slug, t.vocabularySlug),
+          label: t.term
+        }
+      : null
   }
 
   // Concepts of a scheme with no active in-scheme skos:broader and not

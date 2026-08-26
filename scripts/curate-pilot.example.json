@@ -2,17 +2,23 @@
   "$comment": "The shape of a curation manifest for pnpm curate:pilot -- --manifest <path>. A real manifest names people by email, so it is private and is not in the repository. Every $comment is ignored.",
   "operator": "steward@example.invalid",
   "retire": {
-    "$comment": "Set retiredAt on each row found by slug. A slug that is not found is reported and skipped. A retired row keeps its slug, so a study below may not reuse one retired here.",
+    "$comment": "Set retiredAt on each row found by slug. Retiring a community retires its same-slug vocabulary in the same transaction. A slug that is not found is reported and skipped. A retired row keeps its slug, so a study below may not reuse one retired here.",
     "communities": ["zhang_lab"],
     "studies": ["walkthrough_check"],
     "collections": ["id4-demo"]
   },
   "communities": [
     {
-      "$comment": "Created by slug when absent. Each member is added by email when they have no live episode; an existing member is left as they are. addedAt is now when absent, a date or a date-time with its offset, or first-act-2025, the person's earliest definition, comment or vote of 2025.",
+      "$comment": "Created by slug when absent. terms is optional; each stable term slug listed there moves the existing term and its complete history into this community's same-slug vocabulary, while its former route becomes an alias. Each member is added by email when they have no live episode; an existing member is left as they are. addedAt is now when absent, a date or a date-time with its offset, or first-act-2025, the person's earliest definition, comment or vote of 2025.",
       "slug": "mrc",
       "title": "Metadata Research Center",
       "description": "The research group running the pilot.",
+      "terms": [
+        { "vocabulary": "matsci-sam", "slug": "martensite" },
+        { "vocabulary": "matsci-sam", "slug": "sintering" },
+        { "vocabulary": "matsci-sam", "slug": "fatigue" },
+        { "vocabulary": "matsci-sam", "slug": "annealing" }
+      ],
       "members": [
         { "email": "steward@example.invalid", "role": "steward" },
         { "email": "member@example.invalid", "role": "member" },
@@ -22,25 +28,37 @@
           "addedAt": "first-act-2025"
         }
       ]
+    },
+    {
+      "$comment": "A second community can own a disjoint historical corpus. The term slugs identify existing rows; this operation never clones their definitions or activity.",
+      "slug": "id4",
+      "title": "ID4",
+      "description": "The community represented by the historical study record.",
+      "terms": ["melt", "alloy"],
+      "members": [{ "email": "steward@example.invalid", "role": "steward" }]
     }
   ],
   "collections": [
     {
-      "$comment": "Created by slug when absent, curated. Each term is asserted as a member when it is not one already. terms is a list of term texts, matched case-insensitively, or every term created before a date.",
+      "$comment": "Created by slug when absent, curated. Each term is asserted as a member when it is not one already. Prefer { vocabulary, slug } stable references. A legacy text label is still matched case-insensitively when it is unique across all vocabularies; an ambiguous label is refused. The createdBefore selector remains available for old manifests.",
       "slug": "mrc_pilot_terms",
       "title": "MRC pilot terms",
       "description": "The four terms the pilot walks.",
       "terms": [
-        "band gap",
-        "phase diagram",
-        "activation energy",
-        "density functional theory (dft)"
+        { "vocabulary": "mrc", "slug": "martensite" },
+        { "vocabulary": "mrc", "slug": "sintering" },
+        { "vocabulary": "mrc", "slug": "fatigue" },
+        { "vocabulary": "mrc", "slug": "annealing" }
       ]
     },
     {
+      "$comment": "New manifests should freeze historical sets as qualified routes. Older manifests using { createdBefore } still parse unchanged, but that selector intentionally spans the whole catalog.",
       "slug": "id4_2025_terms",
       "title": "ID4 terms, 2025",
-      "terms": { "createdBefore": "2026-01-01" }
+      "terms": [
+        { "vocabulary": "id4", "slug": "melt" },
+        { "vocabulary": "id4", "slug": "alloy" }
+      ]
     }
   ],
   "studies": [
@@ -58,7 +76,7 @@
       "$comment": "A study over its past window records what happened then: it is created closed, with no walkthrough.",
       "slug": "id4_2025",
       "contentKey": "id4-2025",
-      "community": "mrc",
+      "community": "id4",
       "collection": "id4_2025_terms",
       "opensAt": "2025-07-25T00:00:00-04:00",
       "closesAt": "2025-09-17T23:59:59-04:00",

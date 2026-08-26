@@ -13,11 +13,13 @@
  *
  * Every write is the operator's act, as the pages would have recorded it:
  * the operator creates the communities and the studies, asserts the
- * collection memberships and adds the members. Nothing is removed or
- * changed. An existing member keeps their episode and their role, an
- * existing study keeps its window, and a retired row keeps its slug. The
- * writes follow the routers (communities, collections, surveys) row for
- * row, through the lib/ functions where those exist.
+ * collection memberships and adds the members. Retirements preserve their
+ * rows, and term ownership moves preserve each term id and its history while
+ * a permanent alias keeps every former public route working. An existing
+ * member keeps their episode and role, an existing study keeps its window,
+ * and a retired row keeps its slug. The writes follow the routers
+ * (communities, collections, surveys) row for row, through the lib/ functions
+ * where those exist.
  *
  * The manifest is resolved in full before the first write, so a manifest
  * that names an account that cannot be found, a term that does not exist,
@@ -83,13 +85,14 @@ const window = (study: { opensAt: string | null; closesAt: string | null }) =>
 // One line of the report, and the write behind it when there is one. The
 // write may return a note that replaces the planned one, which is how the
 // walkthrough reports the steps it wrote rather than the steps it expected.
-type Outcome = "created" | "present" | "retired" | "skipped"
+type Outcome = "created" | "moved" | "present" | "retired" | "skipped"
 
 const main = async () => {
   const args = parseArgs(process.argv.slice(2))
   const manifest: PilotManifest = loadPilotManifest(args.manifest)
 
   const {
+    aiContributionSuggestionsTable,
     collectionsTable,
     commentsTable,
     communitiesTable,
@@ -99,8 +102,11 @@ const main = async () => {
     definitionsTable,
     statementsTable,
     studiesTable,
+    termRouteAliasesTable,
     termsTable,
     usersTable,
+    vocabularyRootRoutesTable,
+    vocabulariesTable,
     voteEventsTable,
     votesTable
   } = await import("../drizzle")
@@ -240,6 +246,67 @@ const main = async () => {
   const studies = new Map(
     (await db.select().from(studiesTable)).map((row) => [row.slug, row])
   )
+  const vocabularies = new Map(
+    (await db.select().from(vocabulariesTable)).map((row) => [row.slug, row])
+  )
+  const catalogTerms = await db
+    .select({
+      id: termsTable.id,
+      term: termsTable.term,
+      slug: termsTable.slug,
+      vocabularySlug: termsTable.vocabularySlug,
+      createdAt: termsTable.createdAt
+    })
+    .from(termsTable)
+  const routeAliases = await db
+    .select({
+      vocabularySlug: termRouteAliasesTable.vocabularySlug,
+      termSlug: termRouteAliasesTable.termSlug,
+      termId: termRouteAliasesTable.termId
+    })
+    .from(termRouteAliasesTable)
+  const vocabularyRootRoutes = new Map(
+    (
+      await db
+        .select({
+          slug: vocabularyRootRoutesTable.slug,
+          ownerKind: vocabularyRootRoutesTable.ownerKind
+        })
+        .from(vocabularyRootRoutesTable)
+    ).map((route) => [route.slug, route.ownerKind])
+  )
+
+  const routeKey = (vocabulary: string, slug: string) =>
+    `${vocabulary}\u0000${slug}`
+  const normalizedLabel = (label: string) => label.trim().toLowerCase()
+  const termsById = new Map(catalogTerms.map((term) => [term.id, term]))
+  const termsByRoute = new Map(
+    catalogTerms.map((term) => [routeKey(term.vocabularySlug, term.slug), term])
+  )
+  const termsBySlug = new Map<string, typeof catalogTerms>()
+  const termsByLabel = new Map<string, typeof catalogTerms>()
+  for (const term of catalogTerms) {
+    const bySlug = termsBySlug.get(term.slug) ?? []
+    bySlug.push(term)
+    termsBySlug.set(term.slug, bySlug)
+    const label = normalizedLabel(term.term)
+    const byLabel = termsByLabel.get(label) ?? []
+    byLabel.push(term)
+    termsByLabel.set(label, byLabel)
+  }
+  const aliasesByRoute = new Map(
+    routeAliases.map((alias) => [
+      routeKey(alias.vocabularySlug, alias.termSlug),
+      alias
+    ])
+  )
+
+  // Community ownership changes are planned before any collection is
+  // resolved. A collection may therefore use the final qualified route even
+  // when this same manifest is what moves the term there.
+  const plannedVocabularyByTermId = new Map<number, string>()
+  const finalVocabularyOf = (term: (typeof catalogTerms)[number]) =>
+    plannedVocabularyByTermId.get(term.id) ?? term.vocabularySlug
 
   // Ids by slug, for the rows that exist now and for the rows the earlier
   // sections create before a later one refers to them.
@@ -318,26 +385,71 @@ const main = async () => {
 
   for (const slug of manifest.retire.communities) {
     const row = communities.get(slug)
+    const vocabulary = vocabularies.get(slug)
     const what = `community ${slug}`
-    if (!row) retireItems.push({ outcome: "skipped", what, note: "not found" })
-    else if (row.retiredAt)
+    if (!row && !vocabulary)
+      retireItems.push({ outcome: "skipped", what, note: "not found" })
+    else if (!row)
+      refuse(
+        `vocabulary ${slug} exists without its same-slug community; refusing to retire an orphaned namespace`
+      )
+    else if (!vocabulary)
+      refuse(
+        `community ${slug} has no same-slug vocabulary; repair the namespace before retiring it`
+      )
+    else if (row.vocabularySlug !== slug)
+      refuse(
+        `community ${slug} names vocabulary ${row.vocabularySlug}, not its required same-slug vocabulary`
+      )
+    else if (vocabulary.isDefault)
+      refuse(`community ${slug} cannot own the default vocabulary`)
+    else if (
+      row.retiredAt &&
+      vocabulary.retiredAt &&
+      row.retiredAt !== vocabulary.retiredAt
+    )
+      refuse(
+        `community ${slug} and vocabulary ${slug} have different retirement timestamps; repair that lifecycle mismatch before curation`
+      )
+    else if (row.retiredAt && vocabulary.retiredAt)
       retireItems.push({
         outcome: "present",
         what,
-        note: `retired ${day(row.retiredAt)}`
+        note: `community and vocabulary retired ${day(row.retiredAt)}`
       })
     else
       retireItems.push({
         outcome: "retired",
         what,
+        note: "community and same-slug vocabulary",
         write: async (tx) => {
           // As communities.retire: the roster and the worklist stay, and
           // every pointer into the community is cleared, because a scope
-          // nobody can select must not persist.
-          await tx
-            .update(communitiesTable)
-            .set({ retiredAt: sql`now()` })
-            .where(eq(communitiesTable.id, row.id))
+          // nobody can select must not persist. Its vocabulary retires in the
+          // same transaction so the people container and term namespace can
+          // never disagree about lifecycle.
+          const pairedRetiredAt =
+            row.retiredAt ?? vocabulary.retiredAt ?? sql`now()`
+          if (!row.retiredAt)
+            await tx
+              .update(communitiesTable)
+              .set({ retiredAt: pairedRetiredAt })
+              .where(
+                and(
+                  eq(communitiesTable.id, row.id),
+                  isNull(communitiesTable.retiredAt)
+                )
+              )
+          if (!vocabulary.retiredAt)
+            await tx
+              .update(vocabulariesTable)
+              .set({ retiredAt: pairedRetiredAt })
+              .where(
+                and(
+                  eq(vocabulariesTable.slug, slug),
+                  isNull(vocabulariesTable.retiredAt)
+                )
+              )
           await tx
             .update(usersTable)
             .set({ activeCommunityId: null })
@@ -384,6 +496,10 @@ const main = async () => {
   // --- Communities ---
 
   const communityItems: Item[] = []
+  const ownershipPlans: {
+    term: (typeof catalogTerms)[number]
+    targetVocabulary: string
+  }[] = []
   const seenCommunities = new Set<string>()
 
   for (const community of manifest.communities) {
@@ -399,10 +515,28 @@ const main = async () => {
       )
 
     const existing = communities.get(slug) ?? null
+    const existingVocabulary = vocabularies.get(slug) ?? null
     if (existing?.retiredAt)
       refuse(
         `community ${slug} is retired; restore it through the interface or choose another slug`
       )
+    if (existing && existing.vocabularySlug !== slug)
+      refuse(
+        `community ${slug} names vocabulary ${existing.vocabularySlug}, not its required same-slug vocabulary`
+      )
+    if (existing && !existingVocabulary)
+      refuse(`community ${slug} has no same-slug vocabulary`)
+    if (!existing && existingVocabulary)
+      refuse(
+        `vocabulary ${slug} already exists without a community; refusing to adopt that namespace`
+      )
+    if (!existing && !existingVocabulary && vocabularyRootRoutes.has(slug))
+      refuse(
+        `community ${slug} collides with the ${vocabularyRootRoutes.get(slug)} root route at /vocabulary/${slug}`
+      )
+    if (existingVocabulary?.retiredAt) refuse(`vocabulary ${slug} is retired`)
+    if (existingVocabulary?.isDefault)
+      refuse(`community ${slug} cannot own the default vocabulary`)
 
     if (existing)
       communityItems.push({ outcome: "present", what: `community ${slug}` })
@@ -414,19 +548,166 @@ const main = async () => {
         note: `"${community.title}"`,
         write: async (tx) => {
           // As communities.create, with the slug the manifest gives rather
-          // than one minted from the title.
-          const [created] = await tx
-            .insert(communitiesTable)
+          // than one minted from the title. ON CONFLICT makes simultaneous
+          // runs converge on the same pair; the readback refuses a different
+          // or retired row rather than silently adopting it.
+          await tx
+            .insert(vocabulariesTable)
             .values({
               slug,
               title: community.title,
               description: community.description || null,
               createdById: operator.id
             })
-            .returning({ id: communitiesTable.id })
-          communityIds.set(slug, created.id)
+            .onConflictDoNothing({ target: vocabulariesTable.slug })
+          const [currentVocabulary] = await tx
+            .select({
+              isDefault: vocabulariesTable.isDefault,
+              retiredAt: vocabulariesTable.retiredAt
+            })
+            .from(vocabulariesTable)
+            .where(eq(vocabulariesTable.slug, slug))
+            .limit(1)
+          if (
+            !currentVocabulary ||
+            currentVocabulary.isDefault ||
+            currentVocabulary.retiredAt
+          )
+            throw new Error(
+              `vocabulary ${slug} was concurrently claimed or retired`
+            )
+          const [createdCommunity] = await tx
+            .insert(communitiesTable)
+            .values({
+              slug,
+              vocabularySlug: slug,
+              title: community.title,
+              description: community.description || null,
+              createdById: operator.id
+            })
+            .onConflictDoNothing({ target: communitiesTable.slug })
+            .returning({
+              id: communitiesTable.id,
+              vocabularySlug: communitiesTable.vocabularySlug,
+              retiredAt: communitiesTable.retiredAt
+            })
+          const [currentCommunity] = createdCommunity
+            ? [createdCommunity]
+            : await tx
+                .select({
+                  id: communitiesTable.id,
+                  vocabularySlug: communitiesTable.vocabularySlug,
+                  retiredAt: communitiesTable.retiredAt
+                })
+                .from(communitiesTable)
+                .where(eq(communitiesTable.slug, slug))
+                .limit(1)
+          if (
+            !currentCommunity ||
+            currentCommunity.vocabularySlug !== slug ||
+            currentCommunity.retiredAt
+          )
+            throw new Error(
+              `community ${slug} was concurrently claimed by another namespace`
+            )
+          communityIds.set(slug, currentCommunity.id)
         }
       })
+    }
+
+    // A community may claim existing terms by stable slug. A qualified entry
+    // identifies its current source vocabulary and remains deterministic after
+    // duplicate slugs appear elsewhere. Bare slugs stay convenient while they
+    // resolve to exactly one live term in the catalog.
+    const seenOwnedTerms = new Set<string>()
+    const ownershipReferences = [...(community.terms ?? [])].sort((a, b) => {
+      const aSlug = typeof a === "string" ? a : a.slug
+      const bSlug = typeof b === "string" ? b : b.slug
+      const bySlug = aSlug.localeCompare(bSlug)
+      if (bySlug) return bySlug
+      const aVocabulary = typeof a === "string" ? "" : a.vocabulary
+      const bVocabulary = typeof b === "string" ? "" : b.vocabulary
+      return aVocabulary.localeCompare(bVocabulary)
+    })
+    for (const reference of ownershipReferences) {
+      const termSlug =
+        typeof reference === "string" ? reference : reference.slug
+      const requestedSourceVocabulary =
+        typeof reference === "string" ? null : reference.vocabulary
+      const referenceKey = `${requestedSourceVocabulary ?? "*"}/${termSlug}`
+      if (seenOwnedTerms.has(referenceKey)) {
+        refuse(
+          `term reference ${referenceKey} is listed twice for community ${slug}`
+        )
+        continue
+      }
+      seenOwnedTerms.add(referenceKey)
+
+      const atTarget = termsByRoute.get(routeKey(slug, termSlug))
+      let term: (typeof catalogTerms)[number] | undefined
+      if (atTarget) {
+        if (requestedSourceVocabulary && requestedSourceVocabulary !== slug) {
+          const formerRoute = aliasesByRoute.get(
+            routeKey(requestedSourceVocabulary, termSlug)
+          )
+          if (!formerRoute || formerRoute.termId !== atTarget.id) {
+            refuse(
+              `term ${slug}/${termSlug} exists, but ${requestedSourceVocabulary}/${termSlug} is not its former route`
+            )
+            continue
+          }
+        }
+        term = atTarget
+      } else if (requestedSourceVocabulary) {
+        term = termsByRoute.get(routeKey(requestedSourceVocabulary, termSlug))
+        if (!term) {
+          const alias = aliasesByRoute.get(
+            routeKey(requestedSourceVocabulary, termSlug)
+          )
+          refuse(
+            alias
+              ? `source ${requestedSourceVocabulary}/${termSlug} is an alias, not the term's current canonical route`
+              : `no term ${requestedSourceVocabulary}/${termSlug} for community ${slug}`
+          )
+          continue
+        }
+      } else {
+        const candidates = termsBySlug.get(termSlug) ?? []
+        if (candidates.length === 0) {
+          refuse(`no term with stable slug ${termSlug} for community ${slug}`)
+          continue
+        }
+        if (candidates.length > 1) {
+          refuse(
+            `term slug ${termSlug} resolves in ${candidates
+              .map((candidate) => candidate.vocabularySlug)
+              .sort()
+              .join(", ")}; use { vocabulary, slug } for ownership by ${slug}`
+          )
+          continue
+        }
+        term = candidates[0]
+      }
+
+      const claimedBy = plannedVocabularyByTermId.get(term.id)
+      if (claimedBy && claimedBy !== slug) {
+        refuse(
+          `term ${term.vocabularySlug}/${term.slug} is claimed by both ${claimedBy} and ${slug}`
+        )
+        continue
+      }
+      if (ownershipPlans.some((plan) => plan.term.id === term.id)) {
+        refuse(
+          `term #${term.id} is listed more than once for community ${slug}`
+        )
+        continue
+      }
+      if (!admin && term.vocabularySlug !== slug)
+        refuse(
+          `moving term ${term.vocabularySlug}/${term.slug} into ${slug} is a curator's act`
+        )
+      plannedVocabularyByTermId.set(term.id, slug)
+      ownershipPlans.push({ term, targetVocabulary: slug })
     }
 
     // Every episode of the community, live or closed: a new episode dated
@@ -532,6 +813,207 @@ const main = async () => {
     }
   }
 
+  // Validate the complete final assignment rather than checking destinations
+  // in manifest order. This permits a connected set to move together, while
+  // still refusing duplicate routes, duplicate normalized labels, or a move
+  // onto a permanent old-route alias.
+  const finalTermsByRoute = new Map<string, (typeof catalogTerms)[number]>()
+  const finalTermsByLabel = new Map<string, (typeof catalogTerms)[number]>()
+  for (const term of catalogTerms) {
+    const vocabulary = finalVocabularyOf(term)
+    if (
+      vocabulary !== "matsci-sam" &&
+      ["definitions", "provenance", "rank"].includes(term.slug)
+    )
+      refuse(
+        `ownership plan puts reserved route segment ${term.slug} inside vocabulary ${vocabulary}`
+      )
+    const route = routeKey(vocabulary, term.slug)
+    const routeConflict = finalTermsByRoute.get(route)
+    if (routeConflict && routeConflict.id !== term.id)
+      refuse(
+        `ownership plan puts terms #${routeConflict.id} and #${term.id} at ${vocabulary}/${term.slug}`
+      )
+    else finalTermsByRoute.set(route, term)
+
+    const label = routeKey(vocabulary, normalizedLabel(term.term))
+    const labelConflict = finalTermsByLabel.get(label)
+    if (labelConflict && labelConflict.id !== term.id)
+      refuse(
+        `ownership plan puts "${labelConflict.term}" and "${term.term}" in vocabulary ${vocabulary}`
+      )
+    else finalTermsByLabel.set(label, term)
+  }
+
+  const plannedAliasRoutes = new Map<string, number>()
+  for (const plan of ownershipPlans) {
+    if (plan.term.vocabularySlug === plan.targetVocabulary) continue
+    const destination = routeKey(plan.targetVocabulary, plan.term.slug)
+    if (aliasesByRoute.has(destination))
+      refuse(
+        `route ${plan.targetVocabulary}/${plan.term.slug} is a permanent term alias and cannot become canonical again`
+      )
+    const oldRoute = routeKey(plan.term.vocabularySlug, plan.term.slug)
+    const previous = plannedAliasRoutes.get(oldRoute)
+    if (previous && previous !== plan.term.id)
+      refuse(
+        `former route ${plan.term.vocabularySlug}/${plan.term.slug} is reused`
+      )
+    plannedAliasRoutes.set(oldRoute, plan.term.id)
+  }
+  for (const [oldRoute, termId] of plannedAliasRoutes) {
+    const finalTerm = finalTermsByRoute.get(oldRoute)
+    if (finalTerm && finalTerm.id !== termId) {
+      const [vocabulary, termSlug] = oldRoute.split("\u0000")
+      refuse(
+        `moving term #${termId} reserves former route ${vocabulary}/${termSlug}, which term #${finalTerm.id} would reuse`
+      )
+    }
+  }
+
+  const movedTermIds = new Set(
+    ownershipPlans
+      .filter((plan) => plan.term.vocabularySlug !== plan.targetVocabulary)
+      .map((plan) => plan.term.id)
+  )
+  if (movedTermIds.size) {
+    const generatedSuggestions = await db
+      .select({
+        id: aiContributionSuggestionsTable.id,
+        vocabularySlug: aiContributionSuggestionsTable.vocabularySlug,
+        termId: definitionsTable.termId
+      })
+      .from(aiContributionSuggestionsTable)
+      .innerJoin(
+        definitionsTable,
+        eq(aiContributionSuggestionsTable.definitionId, definitionsTable.id)
+      )
+      .where(eq(aiContributionSuggestionsTable.status, "generated"))
+    for (const suggestion of generatedSuggestions)
+      if (movedTermIds.has(suggestion.termId))
+        refuse(
+          `generated language-model suggestion #${suggestion.id} targets term #${suggestion.termId} in ${suggestion.vocabularySlug}; accept or discard it before moving the term`
+        )
+  }
+
+  // Refuse before the first write when an ownership plan would strand an
+  // active term hierarchy/relation across vocabularies. The database repeats
+  // this as a deferred constraint at commit; doing it here preserves the
+  // curation command's all-preflight-errors-before-any-write contract.
+  if (ownershipPlans.length) {
+    const termRelations = await db
+      .select({
+        id: statementsTable.id,
+        predicate: statementsTable.predicate,
+        subjectTermId: statementsTable.subjectTermId,
+        objectTermId: statementsTable.objectTermId
+      })
+      .from(statementsTable)
+      .where(
+        and(
+          isNull(statementsTable.retractedAt),
+          sql`${statementsTable.predicate} IN ('skos:broader', 'skos:related')`
+        )
+      )
+    for (const relation of termRelations) {
+      if (!relation.subjectTermId || !relation.objectTermId) continue
+      const subject = termsById.get(relation.subjectTermId)
+      const object = termsById.get(relation.objectTermId)
+      if (!subject || !object) continue
+      const subjectVocabulary = finalVocabularyOf(subject)
+      const objectVocabulary = finalVocabularyOf(object)
+      if (subjectVocabulary !== objectVocabulary)
+        refuse(
+          `term relation #${relation.id} (${relation.predicate}) would cross ${subjectVocabulary} and ${objectVocabulary}`
+        )
+    }
+  }
+
+  // Acquire term locks in one stable order, independently of manifest order.
+  // All moves share the community transaction, so every final assignment and
+  // its legacy alias becomes visible atomically.
+  for (const plan of [...ownershipPlans].sort(
+    (a, b) => a.term.id - b.term.id
+  )) {
+    const { term, targetVocabulary } = plan
+    const sourceVocabulary = term.vocabularySlug
+    if (sourceVocabulary === targetVocabulary) {
+      communityItems.push({
+        outcome: "present",
+        what: `term ${targetVocabulary}/${term.slug}`,
+        note: `"${term.term}"`
+      })
+      continue
+    }
+    communityItems.push({
+      outcome: "moved",
+      what: `term ${sourceVocabulary}/${term.slug} to ${targetVocabulary}/${term.slug}`,
+      note: `"${term.term}", preserving term #${term.id}`,
+      write: async (tx) => {
+        const locked = await tx.execute(sql`
+          SELECT "vocabularySlug"
+          FROM ${termsTable}
+          WHERE "id" = ${term.id}
+          FOR UPDATE
+        `)
+        const currentVocabulary = (
+          locked.rows[0] as { vocabularySlug?: unknown } | undefined
+        )?.vocabularySlug
+        if (
+          currentVocabulary !== sourceVocabulary &&
+          currentVocabulary !== targetVocabulary
+        )
+          throw new Error(
+            `term #${term.id} moved from ${sourceVocabulary} to ${String(currentVocabulary)} after preflight`
+          )
+
+        if (currentVocabulary === sourceVocabulary) {
+          const [moved] = await tx
+            .update(termsTable)
+            .set({ vocabularySlug: targetVocabulary })
+            .where(
+              and(
+                eq(termsTable.id, term.id),
+                eq(termsTable.vocabularySlug, sourceVocabulary)
+              )
+            )
+            .returning({ id: termsTable.id })
+          if (!moved)
+            throw new Error(
+              `term #${term.id} changed ownership after it was locked`
+            )
+        }
+
+        // The alias follows the update in this same transaction. A deferred
+        // guard refuses commit if a former route is missing; readback refuses
+        // an alias that a concurrent transaction assigned to another term.
+        await tx
+          .insert(termRouteAliasesTable)
+          .values({
+            vocabularySlug: sourceVocabulary,
+            termSlug: term.slug,
+            termId: term.id,
+            createdById: operator.id
+          })
+          .onConflictDoNothing()
+        const [alias] = await tx
+          .select({ termId: termRouteAliasesTable.termId })
+          .from(termRouteAliasesTable)
+          .where(
+            and(
+              eq(termRouteAliasesTable.vocabularySlug, sourceVocabulary),
+              eq(termRouteAliasesTable.termSlug, term.slug)
+            )
+          )
+          .limit(1)
+        if (!alias || alias.termId !== term.id)
+          throw new Error(
+            `former route ${sourceVocabulary}/${term.slug} is claimed by another term`
+          )
+      }
+    })
+  }
+
   // --- Collections ---
 
   const collectionItems: Item[] = []
@@ -592,41 +1074,65 @@ const main = async () => {
         `collection ${slug} is curated, and ${manifest.operator} is not a curator`
       )
 
-    // The terms, by exact text, case-insensitive, or every term created
-    // before the date. A term the manifest names and the vocabulary lacks
-    // is a refusal: the curation does not coin terms.
-    const wanted: { id: number; term: string }[] = []
+    // Qualified references use the final vocabulary route planned above.
+    // Legacy text labels remain compatible only while exactly one term in the
+    // catalog has that normalized label. A term the manifest names and the
+    // vocabulary lacks is a refusal: the curation does not coin terms.
+    const wanted: (typeof catalogTerms)[number][] = []
+    const addWanted = (term: (typeof catalogTerms)[number]) => {
+      if (!wanted.some((found) => found.id === term.id)) wanted.push(term)
+    }
     if (Array.isArray(collection.terms)) {
-      for (const text of collection.terms) {
-        const [term] = await db
-          .select({ id: termsTable.id, term: termsTable.term })
-          .from(termsTable)
-          .where(
-            sql`lower(btrim(${termsTable.term})) = ${text.trim().toLowerCase()}`
+      for (const reference of collection.terms) {
+        if (typeof reference !== "string") {
+          const term = finalTermsByRoute.get(
+            routeKey(reference.vocabulary, reference.slug)
           )
-          .limit(1)
-        if (!term) {
-          refuse(`no term "${text}" for collection ${slug}`)
+          if (!term)
+            refuse(
+              `no term ${reference.vocabulary}/${reference.slug} for collection ${slug}`
+            )
+          else addWanted(term)
           continue
         }
-        if (!wanted.some((found) => found.id === term.id)) wanted.push(term)
+
+        const matches = termsByLabel.get(normalizedLabel(reference)) ?? []
+        if (matches.length === 0) {
+          refuse(`no term "${reference}" for collection ${slug}`)
+          continue
+        }
+        if (matches.length > 1) {
+          refuse(
+            `term label "${reference}" for collection ${slug} is ambiguous across ${matches
+              .map((term) => `${finalVocabularyOf(term)}/${term.slug}`)
+              .sort()
+              .join(", ")}; use { vocabulary, slug }`
+          )
+          continue
+        }
+        addWanted(matches[0])
       }
     } else {
       const before = collection.terms.createdBefore
-      wanted.push(
-        ...(await db
-          .select({ id: termsTable.id, term: termsTable.term })
-          .from(termsTable)
-          .where(lt(termsTable.createdAt, before))
-          .orderBy(asc(termsTable.term)))
-      )
+      for (const term of await db
+        .select({
+          id: termsTable.id,
+          term: termsTable.term,
+          slug: termsTable.slug,
+          vocabularySlug: termsTable.vocabularySlug,
+          createdAt: termsTable.createdAt
+        })
+        .from(termsTable)
+        .where(lt(termsTable.createdAt, before))
+        .orderBy(asc(termsTable.term)))
+        addWanted(term)
       if (wanted.length === 0)
         refuse(`no term was created before ${before}, for collection ${slug}`)
     }
 
     const live = existing ? await liveTermIds(existing.id) : new Set<number>()
     for (const term of wanted) {
-      const what = `term "${term.term}" in ${slug}`
+      const what = `term "${term.term}" (${finalVocabularyOf(term)}/${term.slug}) in ${slug}`
       if (live.has(term.id)) collectionItems.push({ outcome: "present", what })
       else
         collectionItems.push({
@@ -865,12 +1371,14 @@ const main = async () => {
 
   const counts: Record<Outcome, number> = {
     created: 0,
+    moved: 0,
     present: 0,
     retired: 0,
     skipped: 0
   }
   const verb: Record<Outcome, string> = {
     created: args.dryRun ? "would create" : "created",
+    moved: args.dryRun ? "would move" : "moved",
     present: "present",
     retired: args.dryRun ? "would retire" : "retired",
     skipped: "skipped"

@@ -77,6 +77,7 @@ export default async function ModelPage({
         definitionNumber: definitionsTable.definitionNumber,
         term: termsTable.term,
         termSlug: termsTable.slug,
+        termVocabularySlug: termsTable.vocabularySlug,
         createdAt: definitionsTable.createdAt
       })
       .from(definitionsTable)
@@ -159,7 +160,8 @@ export default async function ModelPage({
                   <Link
                     href={definitionPath(
                       definition.termSlug,
-                      definition.definitionNumber
+                      definition.definitionNumber,
+                      definition.termVocabularySlug
                     )}
                     className="flex items-baseline justify-between gap-2 rounded-lg border bg-card px-4 py-3 hover:border-primary"
                   >

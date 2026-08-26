@@ -141,6 +141,7 @@ export const adminRouter = createTRPCRouter({
         id: termsTable.id,
         term: termsTable.term,
         slug: termsTable.slug,
+        vocabularySlug: termsTable.vocabularySlug,
         pending: sql<boolean>`${chatsQ.role} = 'user'`.as("pending"),
         definitions: defCountsQ.total,
         aiDefinitions: defCountsQ.ai,
@@ -170,6 +171,7 @@ export const adminRouter = createTRPCRouter({
         createdAt: refinementsTable.createdAt,
         term: termsTable.term,
         termSlug: termsTable.slug,
+        termVocabularySlug: termsTable.vocabularySlug,
         authorName: usersTable.name
       })
       .from(refinementsTable)
@@ -243,6 +245,7 @@ export const adminRouter = createTRPCRouter({
           termId: termsTable.id,
           term: termsTable.term,
           slug: termsTable.slug,
+          vocabularySlug: termsTable.vocabularySlug,
           editorName: usersTable.name,
           editorIsAi: usersTable.isAi
         })

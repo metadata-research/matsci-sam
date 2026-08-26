@@ -29,15 +29,19 @@ protocol decisions and acceptance criteria.
 `pnpm curate:pilot -- --manifest <path> [--dry-run]` reconciles the database
 with the manifest by slug and prints one line per item. The manifest names its
 `operator` by email and processes four sections in order, `retire`,
-`communities`, `collections`, and `studies`. Each community
-has a slug, a title, a description and its members by email, each with a role
-and an optional `addedAt`, which may be a moment or `first-act-2025`, the
-earliest definition, comment or vote of the person in 2025. Each collection
-has a slug, a title and its terms, either term texts or the terms created
-before a date. Each study names its community and collection by slug, and has
-a title, a welcome, the window, and a `walkthrough`, null for none,
-`"default"` for the two closing questions, or a list of questions. A
-`$comment` anywhere is ignored.
+`communities`, `collections`, and `studies`. Each community has a slug, a
+title, a description and its members by email, each with a role and an
+optional `addedAt`, which may be a moment or `first-act-2025`, the earliest
+definition, comment or vote of the person in 2025. A community may also name
+the stable slugs of terms curated into its vocabulary. The script moves the
+existing term rows without copying their histories and preserves each former
+path as a permanent route alias. Each collection has a slug, a title and its
+terms. Vocabulary-qualified `{ "vocabulary": "...", "slug": "..." }`
+references are the unambiguous form; legacy term labels and the older
+`createdBefore` selector remain accepted for existing manifests. Each study
+names its community and collection by slug, and has a title, a welcome, the
+window, and a `walkthrough`, null for none, `"default"` for the two closing
+questions, or a list of questions. A `$comment` anywhere is ignored.
 
 The script resolves the complete manifest before the first write. Missing
 accounts or terms, conflicting slug shapes, an operator without standing, and
@@ -47,10 +51,11 @@ next run finds those rows present.
 
 The run is idempotent by slug. A repeated run reports existing items as
 `present`. Existing members keep their episode and role, studies keep their
-window, and retired rows keep their slug. The script writes a walkthrough while
-the study has no steps. It uses `lockStudy`, `completionCountOfStudy`,
-`replaceSteps`, and `planSteps`, matching `generateSteps`. Closed studies and
-empty collections receive no walkthrough.
+window, and retired rows keep their slug. Retiring a community also retires its
+same-slug vocabulary; neither public route is reused. The script writes a
+walkthrough while the study has no steps. It uses `lockStudy`,
+`completionCountOfStudy`, `replaceSteps`, and `planSteps`, matching
+`generateSteps`. Closed studies and empty collections receive no walkthrough.
 
 Each write is the act of the operator, row for row as the communities,
 collections and surveys routers write it, through the `lib/` functions where

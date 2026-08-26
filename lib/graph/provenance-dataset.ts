@@ -74,7 +74,11 @@ export type GraphUser = {
 // The aiModels row of a user that is a model. Its slug is the agent IRI.
 export type GraphModel = { userId: number; slug: string; tag: string }
 
-export type GraphTerm = { id: number; slug: string }
+export type GraphTerm = {
+  id: number
+  slug: string
+  vocabularySlug: string
+}
 export type GraphDefinition = {
   id: number
   termId: number
@@ -250,8 +254,8 @@ export class ProvenanceDatasetView {
     return s
   }
 
-  termSlugOfDefinition(definitionId: number) {
-    return this.term(this.definition(definitionId).termId).slug
+  termOfDefinition(definitionId: number) {
+    return this.term(this.definition(definitionId).termId)
   }
 
   studyIri(id: number) {
@@ -261,18 +265,26 @@ export class ProvenanceDatasetView {
   // The node of a comment in the per-term body of its term, which is where
   // the dataset blocks add to what that body says about it.
   commentIri(row: WalkthroughCommentRow) {
-    return `${termUri(this.termSlugOfDefinition(row.definitionId))}/provenance#comment_${row.id}`
+    const term = this.termOfDefinition(row.definitionId)
+    return `${termUri(term.slug, term.vocabularySlug)}/provenance#comment_${row.id}`
   }
 
   definitionIri(id: number) {
     const d = this.definition(id)
-    return definitionUri(this.term(d.termId).slug, d.definitionNumber)
+    const term = this.term(d.termId)
+    return definitionUri(term.slug, d.definitionNumber, term.vocabularySlug)
   }
 
   revisionIri(id: number) {
     const r = this.revision(id)
     const d = this.definition(r.definitionId)
-    return revisionUri(this.term(d.termId).slug, d.definitionNumber, r.version)
+    const term = this.term(d.termId)
+    return revisionUri(
+      term.slug,
+      d.definitionNumber,
+      r.version,
+      term.vocabularySlug
+    )
   }
 
   collectionIri(id: number) {
@@ -284,8 +296,10 @@ export class ProvenanceDatasetView {
   subjectIri(row: StatementEnds) {
     const subject = subjectOf(row)
     switch (subject.kind) {
-      case "term":
-        return termUri(this.term(subject.id).slug)
+      case "term": {
+        const term = this.term(subject.id)
+        return termUri(term.slug, term.vocabularySlug)
+      }
       case "definition":
         return this.definitionIri(subject.id)
       case "concept": {
@@ -300,8 +314,10 @@ export class ProvenanceDatasetView {
   objectIri(row: StatementEnds) {
     const object = objectOf(row)
     switch (object.kind) {
-      case "term":
-        return termUri(this.term(object.id).slug)
+      case "term": {
+        const term = this.term(object.id)
+        return termUri(term.slug, term.vocabularySlug)
+      }
       case "concept": {
         const c = this.concept(object.id)
         return conceptUri(c.schemeSlug, c.slug)
@@ -314,11 +330,10 @@ export class ProvenanceDatasetView {
   // The term a statement is filed under, when its subject is one or belongs
   // to one. A concept or collection subject has no term, and its agents are
   // hash nodes on the subject itself.
-  private subjectTermSlug(row: StatementEnds): string | null {
+  private subjectTerm(row: StatementEnds): GraphTerm | null {
     const subject = subjectOf(row)
-    if (subject.kind === "term") return this.term(subject.id).slug
-    if (subject.kind === "definition")
-      return this.termSlugOfDefinition(subject.id)
+    if (subject.kind === "term") return this.term(subject.id)
+    if (subject.kind === "definition") return this.termOfDefinition(subject.id)
     return null
   }
 
@@ -331,7 +346,7 @@ export class ProvenanceDatasetView {
    * mistake; the loader reads every referenced account) is a person labelled
    * by number, which is what the per-term body would show too.
    */
-  agent(userId: number, scope: { termSlug: string } | { subjectIri: string }) {
+  agent(userId: number, scope: { term: GraphTerm } | { subjectIri: string }) {
     const model = this.modelByUserId.get(userId)
     if (model)
       return {
@@ -341,8 +356,8 @@ export class ProvenanceDatasetView {
       }
     const user = this.userById.get(userId)
     const base =
-      "termSlug" in scope
-        ? `${termUri(scope.termSlug)}/provenance#`
+      "term" in scope
+        ? `${termUri(scope.term.slug, scope.term.vocabularySlug)}/provenance#`
         : `${scope.subjectIri}#`
     return {
       iri: `${base}user_${userId}`,
@@ -354,17 +369,17 @@ export class ProvenanceDatasetView {
   }
 
   assertionAgent(row: AssertionRow, userId: number): AgentRef {
-    const termSlug = this.subjectTermSlug(row)
+    const term = this.subjectTerm(row)
     return this.agent(
       userId,
-      termSlug !== null ? { termSlug } : { subjectIri: this.subjectIri(row) }
+      term !== null ? { term } : { subjectIri: this.subjectIri(row) }
     )
   }
 
   voteAgent(act: VoteAct): AgentRef {
     const revision = this.revision(act.revisionId)
     return this.agent(act.userId, {
-      termSlug: this.termSlugOfDefinition(revision.definitionId)
+      term: this.termOfDefinition(revision.definitionId)
     })
   }
 
@@ -562,7 +577,13 @@ export const loadProvenanceDatasetData =
       walkthroughComments,
       studies
     ] = await Promise.all([
-      db.select({ id: termsTable.id, slug: termsTable.slug }).from(termsTable),
+      db
+        .select({
+          id: termsTable.id,
+          slug: termsTable.slug,
+          vocabularySlug: termsTable.vocabularySlug
+        })
+        .from(termsTable),
       db
         .select({
           id: definitionsTable.id,

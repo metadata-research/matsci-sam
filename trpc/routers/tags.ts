@@ -11,7 +11,8 @@ import {
   db,
   definitionsTable,
   statementsTable,
-  termsTable
+  termsTable,
+  vocabulariesTable
 } from "@yamz/db"
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
@@ -192,21 +193,27 @@ export const tagsRouter = createTRPCRouter({
         return null
       }
 
-      // A term with the same normalized label is very likely the same
-      // concept, so the caller can offer to bridge the two. Reported, never
-      // asserted: only a person decides that they are the same.
-      const matchedTerm = async (conceptId: number) => {
-        if (await hasBridge(conceptId)) return null
-        const [term] = await db
+      // Terms with the same normalized label may be distinct concepts in
+      // different vocabularies. Report every candidate with its source so a
+      // person can choose deliberately; the application never links one on
+      // its own.
+      const matchedTerms = async (conceptId: number) => {
+        if (await hasBridge(conceptId)) return []
+        return db
           .select({
             id: termsTable.id,
             term: termsTable.term,
-            slug: termsTable.slug
+            slug: termsTable.slug,
+            vocabularySlug: termsTable.vocabularySlug,
+            vocabularyTitle: vocabulariesTable.title
           })
           .from(termsTable)
+          .innerJoin(
+            vocabulariesTable,
+            eq(vocabulariesTable.slug, termsTable.vocabularySlug)
+          )
           .where(sql`lower(btrim(${termsTable.term})) = ${normalized}`)
-          .limit(1)
-        return term ?? null
+          .orderBy(asc(vocabulariesTable.title), asc(termsTable.id))
       }
 
       const existing = await findExisting()
@@ -217,7 +224,7 @@ export const tagsRouter = createTRPCRouter({
           slug: existing.slug,
           schemeSlug: scheme.slug,
           created: false,
-          matchedTerm: await matchedTerm(existing.id)
+          matchedTerms: await matchedTerms(existing.id)
         }
 
       const taken = new Set(
@@ -263,14 +270,14 @@ export const tagsRouter = createTRPCRouter({
         ...created,
         schemeSlug: scheme.slug,
         created: true,
-        matchedTerm: await matchedTerm(created.id)
+        matchedTerms: await matchedTerms(created.id)
       }
     }),
 
   /*
    * The bridge: assert that this tag and this term are the same concept.
    * A curator may link any open tag; the contributor who created a topic may
-   * link that topic. A term is not owned, so nobody else has standing.
+   * link that topic. The term keeps the identity of its source vocabulary.
    */
   setLink: authenticatedProcedure
     .input(
@@ -308,7 +315,11 @@ export const tagsRouter = createTRPCRouter({
         })
 
       const [term] = await db
-        .select({ id: termsTable.id, slug: termsTable.slug })
+        .select({
+          id: termsTable.id,
+          slug: termsTable.slug,
+          vocabularySlug: termsTable.vocabularySlug
+        })
         .from(termsTable)
         .where(eq(termsTable.id, termId))
         .limit(1)
@@ -383,7 +394,7 @@ export const tagsRouter = createTRPCRouter({
       })
 
       revalidateConcept(concept.schemeSlug, concept.slug)
-      revalidatePath(termPath(term.slug))
+      revalidatePath(termPath(term.slug, term.vocabularySlug))
 
       return { ok: true, on }
     }),
@@ -791,7 +802,11 @@ export const tagsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx: { userId }, input: { termId, conceptId, on } }) => {
       const [term] = await db
-        .select({ id: termsTable.id, slug: termsTable.slug })
+        .select({
+          id: termsTable.id,
+          slug: termsTable.slug,
+          vocabularySlug: termsTable.vocabularySlug
+        })
         .from(termsTable)
         .where(eq(termsTable.id, termId))
         .limit(1)
@@ -850,7 +865,7 @@ export const tagsRouter = createTRPCRouter({
       })
 
       revalidateConcept(concept.schemeSlug, concept.slug)
-      revalidatePath(termPath(term.slug))
+      revalidatePath(termPath(term.slug, term.vocabularySlug))
 
       return { ok: true, on }
     })

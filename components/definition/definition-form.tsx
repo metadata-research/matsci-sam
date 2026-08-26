@@ -30,7 +30,7 @@ import { DefineTerm, DefineTermSchema } from "@/lib/schemas/terms"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "@/lib/input-limits"
-import { definitionPath } from "@/lib/public-identifiers"
+import { definitionPath, termPath } from "@/lib/public-identifiers"
 import { loginToast } from "@/components/login-toast"
 import {
   type MutationActivityCallbacks,
@@ -39,20 +39,26 @@ import {
 
 function TermGuidance({
   normalizedTerm,
-  isExisting,
   isLoading,
-  existingSlug
+  existingTerm,
+  otherMatches,
+  targetVocabulary
 }: {
   normalizedTerm: string
-  isExisting: boolean
   isLoading: boolean
-  existingSlug?: string
+  existingTerm?: {
+    slug: string
+    vocabularySlug: string
+    vocabularyTitle: string
+  }
+  otherMatches: { vocabularySlug: string; vocabularyTitle: string }[]
+  targetVocabulary?: { slug: string; title: string }
 }) {
   if (!normalizedTerm) return <>Enter a new vocabulary term.</>
 
   if (isLoading) return <>Checking the vocabulary…</>
 
-  if (isExisting)
+  if (existingTerm)
     return (
       <span className="inline-flex items-start gap-1.5">
         <CircleCheckIcon
@@ -60,19 +66,31 @@ function TermGuidance({
           aria-hidden
         />
         <span>
-          This term already exists.{" "}
-          {existingSlug ? (
-            <Link
-              href={"/vocabulary/" + existingSlug}
-              className="font-medium text-primary underline"
-            >
-              Open it
-            </Link>
-          ) : (
-            "Open it"
-          )}{" "}
+          This term already exists in {existingTerm.vocabularyTitle}.{" "}
+          <Link
+            href={termPath(existingTerm.slug, existingTerm.vocabularySlug)}
+            className="font-medium text-primary underline"
+          >
+            Open it
+          </Link>{" "}
           to suggest a revision, propose a replacement, comment, or add an
           example.
+        </span>
+      </span>
+    )
+
+  if (otherMatches.length > 0 && targetVocabulary)
+    return (
+      <span className="inline-flex items-start gap-1.5">
+        <PlusCircleIcon
+          className="mt-0.5 size-3.5 shrink-0 text-primary"
+          aria-hidden
+        />
+        <span>
+          This label exists in{" "}
+          {otherMatches.map((match) => match.vocabularyTitle).join(", ")}. A
+          term published here will be a separate concept in{" "}
+          {targetVocabulary.title}.
         </span>
       </span>
     )
@@ -83,8 +101,8 @@ function TermGuidance({
         className="mt-0.5 size-3.5 shrink-0 text-primary"
         aria-hidden
       />
-      New term — publishing creates a vocabulary concept and stable public
-      identifier.
+      New term. Publishing creates a concept in{" "}
+      {targetVocabulary?.title ?? "the selected vocabulary"}.
     </span>
   )
 }
@@ -159,29 +177,48 @@ export const DefinitionForm = ({
         onPublished(published)
         return
       }
-      router.push(definitionPath(term.slug, definition.definitionNumber))
+      router.push(
+        definitionPath(
+          term.slug,
+          definition.definitionNumber,
+          term.vocabularySlug
+        )
+      )
     },
     onSettled: activity.end
   })
 
-  const { data: terms, isLoading: termsAreLoading } = trpc.terms.list.useQuery(
-    undefined,
-    { enabled: lockedTerm === undefined }
-  )
+  const { data: vocabularyContext, isLoading: termsAreLoading } =
+    trpc.terms.list.useQuery(undefined, { enabled: lockedTerm === undefined })
+  const terms = vocabularyContext?.terms
+  const targetVocabulary = vocabularyContext?.targetVocabulary
   const termValue = useWatch({
     control: form.control,
     name: "term",
     defaultValue: term
   })
   const normalizedTerm = termValue.trim().toLowerCase()
-  const existingTermByName = useMemo(
+  const matchingTerms = useMemo(
     () =>
-      new Map(
-        (terms ?? []).map((term) => [term.value.trim().toLowerCase(), term])
+      (terms ?? []).filter(
+        (term) => term.value.trim().toLowerCase() === normalizedTerm
       ),
-    [terms]
+    [terms, normalizedTerm]
   )
-  const existingTerm = existingTermByName.get(normalizedTerm)
+  const existingTerm = matchingTerms.find(
+    (term) => term.vocabularySlug === targetVocabulary?.slug
+  )
+  const otherMatches = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          matchingTerms
+            .filter((term) => term.vocabularySlug !== targetVocabulary?.slug)
+            .map((term) => [term.vocabularySlug, term])
+        ).values()
+      ),
+    [matchingTerms, targetVocabulary?.slug]
+  )
   const isExistingTerm = normalizedTerm.length > 0 && Boolean(existingTerm)
 
   const discardAiDraft = trpc.aiAssist.discard.useMutation({
@@ -209,7 +246,7 @@ export const DefinitionForm = ({
     },
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED")
-        loginToast("ask AI for a new-term definition")
+        loginToast("prompt a language model to draft a new-term definition")
     },
     onSettled: activity.end
   })
@@ -277,6 +314,15 @@ export const DefinitionForm = ({
                           field.onChange(value)
                         }}
                         options={terms ?? []}
+                        searchKeys={["vocabularyTitle"]}
+                        renderFn={(option) => (
+                          <span className="flex w-full items-baseline justify-between gap-3">
+                            <span>{option.value}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {option.vocabularyTitle}
+                            </span>
+                          </span>
+                        )}
                         placeholder="Start typing a materials science term…"
                         maxLength={TERM_MAX_LENGTH}
                         disabled={busy}
@@ -285,9 +331,10 @@ export const DefinitionForm = ({
                     <FormDescription aria-live="polite">
                       <TermGuidance
                         normalizedTerm={normalizedTerm}
-                        isExisting={isExistingTerm}
                         isLoading={termsAreLoading}
-                        existingSlug={existingTerm?.slug}
+                        existingTerm={existingTerm}
+                        otherMatches={otherMatches}
+                        targetVocabulary={targetVocabulary}
                       />
                     </FormDescription>
                     <FormMessage />
@@ -324,11 +371,12 @@ export const DefinitionForm = ({
                   <div className="space-y-1">
                     <p className="flex items-center gap-1.5 font-medium text-ai">
                       <SparklesIcon className="size-4" aria-hidden />
-                      Optional AI assistance
+                      Optional language model assistance
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Ask for an editable definition draft. Nothing is published
-                      until you review and submit it.
+                      Prompt the configured language model for an editable
+                      definition draft. Nothing is published until you review
+                      and submit it.
                     </p>
                   </div>
                   {aiDraft ? (
@@ -340,7 +388,7 @@ export const DefinitionForm = ({
                       onClick={clearAiDraft}
                     >
                       <XIcon aria-hidden />
-                      Remove AI draft
+                      Remove model draft
                     </Button>
                   ) : null}
                 </div>
@@ -355,8 +403,8 @@ export const DefinitionForm = ({
                     </p>
                   ) : (
                     <p className="text-xs text-destructive" role="alert">
-                      This AI draft was written for “{aiDraft.term}”. Remove it
-                      before publishing a different term.
+                      This model draft was written for “{aiDraft.term}”. Remove
+                      it before publishing a different term.
                     </p>
                   )
                 ) : (
@@ -375,7 +423,7 @@ export const DefinitionForm = ({
                     <SparklesIcon aria-hidden />
                     {suggestAiDraft.isPending
                       ? "Drafting…"
-                      : "Suggest a definition with AI"}
+                      : "Draft with a language model"}
                   </Button>
                 )}
 

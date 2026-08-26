@@ -189,7 +189,11 @@ const HeldPosition = ({ step }: { step: Step }) => {
           : "You accepted this candidate."}
       </p>
       <Definition
-        definition={{ ...held, termSlug: step.termSlug! }}
+        definition={{
+          ...held,
+          termSlug: step.termSlug!,
+          termVocabularySlug: step.termVocabularySlug!
+        }}
         voteReadOnly
         voteReadOnlyTitle="Your position on this term is recorded"
       />
@@ -310,7 +314,11 @@ const Candidates = ({
             )}
             {index === 1 && draftFirst && <Eyebrow>Proposed so far</Eyebrow>}
             <Definition
-              definition={{ ...candidate, termSlug: step.termSlug! }}
+              definition={{
+                ...candidate,
+                termSlug: step.termSlug!,
+                termVocabularySlug: step.termVocabularySlug!
+              }}
               voteReadOnly
               voteReadOnlyTitle="Accept a candidate to vote for it"
             />
@@ -464,7 +472,11 @@ const ReviewList = ({
               stands with the support it has.
             </p>
             <Definition
-              definition={{ ...definitions[0], termSlug: step.termSlug! }}
+              definition={{
+                ...definitions[0],
+                termSlug: step.termSlug!,
+                termVocabularySlug: step.termVocabularySlug!
+              }}
               voteReadOnly
               voteReadOnlyTitle="The only candidate is not compared"
             />
@@ -486,7 +498,11 @@ const ReviewList = ({
       {definitions.map((definition, index) => (
         <div key={definition.id} className="space-y-3">
           <Definition
-            definition={{ ...definition, termSlug: step.termSlug! }}
+            definition={{
+              ...definition,
+              termSlug: step.termSlug!,
+              termVocabularySlug: step.termVocabularySlug!
+            }}
             // As on the term page: the leading candidate is marked.
             isDefault={index === 0}
             surveyStepId={step.id}

@@ -48,7 +48,10 @@ export const provenanceBodyTurtle = (
   prov: Provenance,
   { vocabularyTriples = true }: ProvenanceBodyOptions = {}
 ) => {
-  const base = `${termUri(prov.term.slug)}/provenance#`
+  const base = `${termUri(
+    prov.term.slug,
+    prov.term.vocabularySlug
+  )}/provenance#`
   const nodeById = new Map(prov.graph.nodes.map((node) => [node.id, node]))
   const node = (id: string) => {
     const graphNode = nodeById.get(id)
@@ -87,7 +90,7 @@ export const provenanceBodyTurtle = (
           ? ", matsci:DefinitionRevision"
           : isExplicitStableDefinition && vocabularyTriples
             ? ", matsci:Definition"
-          : ""
+            : ""
       }`,
       `rdfs:label ${lit(n.label)}`
     ]

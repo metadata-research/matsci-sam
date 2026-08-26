@@ -49,6 +49,7 @@ export type InvitationView = {
 const communityColumns = {
   id: communitiesTable.id,
   slug: communitiesTable.slug,
+  vocabularySlug: communitiesTable.vocabularySlug,
   title: communitiesTable.title,
   description: communitiesTable.description,
   retiredAt: communitiesTable.retiredAt
@@ -190,6 +191,7 @@ export const activeCommunityFor = async (
     .select({
       id: communitiesTable.id,
       slug: communitiesTable.slug,
+      vocabularySlug: communitiesTable.vocabularySlug,
       title: communitiesTable.title
     })
     .from(usersTable)
@@ -224,6 +226,7 @@ export const myCommunities = cache(async (userId: number) =>
     .select({
       id: communitiesTable.id,
       slug: communitiesTable.slug,
+      vocabularySlug: communitiesTable.vocabularySlug,
       title: communitiesTable.title,
       role: communityMembersTable.role
     })
@@ -257,6 +260,7 @@ export const communitiesWithCounts = async ({
     .select({
       id: communitiesTable.id,
       slug: communitiesTable.slug,
+      vocabularySlug: communitiesTable.vocabularySlug,
       title: communitiesTable.title,
       description: communitiesTable.description,
       retiredAt: communitiesTable.retiredAt,
@@ -287,6 +291,7 @@ export const communityBySlug = async (slug: string) => {
     .select({
       id: communitiesTable.id,
       slug: communitiesTable.slug,
+      vocabularySlug: communitiesTable.vocabularySlug,
       title: communitiesTable.title,
       description: communitiesTable.description,
       retiredAt: communitiesTable.retiredAt,

@@ -66,7 +66,11 @@ export default async function JobPage(props: {
           </Link>
           {aiDefinition && (
             <Link
-              href={definitionPath(term.slug, aiDefinition.definitionNumber)}
+              href={definitionPath(
+                term.slug,
+                aiDefinition.definitionNumber,
+                term.vocabularySlug
+              )}
               className="flex items-center text-primary mb-2"
             >
               <ExternalLinkIcon aria-hidden className="mr-2 size-4" />

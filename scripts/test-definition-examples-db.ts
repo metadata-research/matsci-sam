@@ -6,6 +6,7 @@
 
 import assert from "node:assert/strict"
 import { and, asc, eq, isNull, sql } from "drizzle-orm"
+import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
 
 class Rollback extends Error {}
 
@@ -42,6 +43,7 @@ const main = async () => {
       const [term] = await tx
         .insert(termsTable)
         .values({
+          vocabularySlug: DEFAULT_VOCABULARY_SLUG,
           term: `definition example test ${stamp}`,
           slug: `definition_example_test_${stamp}`
         })

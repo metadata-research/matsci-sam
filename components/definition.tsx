@@ -13,7 +13,7 @@ import {
 import { Badge } from "./ui/badge"
 import { definitionStatus, type DefinitionStatus } from "@/lib/status"
 import { PublicProfileName } from "./public-profile-name"
-import { definitionPath } from "@/lib/public-identifiers"
+import { definitionPath, termPath } from "@/lib/public-identifiers"
 import type { MutationActivityCallbacks } from "@/components/use-mutation-activity"
 
 // Shared by the definition cards and the single-definition page so both use
@@ -47,7 +47,7 @@ export const Term = ({
 }: {
   term: TermType & { count?: number | null }
 }) => (
-  <Link href={`/vocabulary/${term.slug}`} className="block">
+  <Link href={termPath(term.slug, term.vocabularySlug)} className="block">
     <Card className="flex-row justify-between p-4 transition-colors hover:bg-secondary/50">
       <h1 className="text-lg font-bold font-serif">{term.term}</h1>
       {term.count && (
@@ -83,6 +83,7 @@ export const Definition = ({
     revisionId: number
     version: number
     termSlug: string
+    termVocabularySlug: string
   }
   // The term's leading definition: highest voted, newest breaking ties. Callers
   // decide -- this component does not rank, it only marks. Left false when a
@@ -133,7 +134,11 @@ export const Definition = ({
     )}
     <section className="min-w-0 flex-1 space-y-2">
       <Link
-        href={definitionPath(definition.termSlug, definition.definitionNumber)}
+        href={definitionPath(
+          definition.termSlug,
+          definition.definitionNumber,
+          definition.termVocabularySlug
+        )}
         className="block space-y-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {children}
@@ -197,8 +202,11 @@ export const Definition = ({
         {typeof definition.comments === "number" && (
           <Link
             href={
-              definitionPath(definition.termSlug, definition.definitionNumber) +
-              "#discussion"
+              definitionPath(
+                definition.termSlug,
+                definition.definitionNumber,
+                definition.termVocabularySlug
+              ) + "#discussion"
             }
             className={`flex items-center gap-1 hover:underline ${
               definition.comments > 0 ? "text-primary" : ""

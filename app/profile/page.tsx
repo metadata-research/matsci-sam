@@ -25,7 +25,7 @@ import {
 import { db, definitionsTable, termsTable } from "@yamz/db"
 import { studiesOfViewer } from "@/lib/study-queries"
 import { studyState } from "@/lib/communities"
-import { studyPath } from "@/lib/public-identifiers"
+import { studyPath, termPath } from "@/lib/public-identifiers"
 import { walkthroughProgress } from "@/components/studies/progress"
 
 export const metadata: Metadata = { title: `Profile | ${SITE_NAME}` }
@@ -48,6 +48,7 @@ export default async function ProfilePage() {
       id: termsTable.id,
       term: termsTable.term,
       slug: termsTable.slug,
+      vocabularySlug: termsTable.vocabularySlug,
       definitions: sql<number>`cast(count(${definitionsTable.id}) as int)`
     })
     .from(definitionsTable)
@@ -214,7 +215,7 @@ export default async function ProfilePage() {
                 {authoredTerms.map((term) => (
                   <li key={term.id}>
                     <Link
-                      href={`/vocabulary/${term.slug}`}
+                      href={termPath(term.slug, term.vocabularySlug)}
                       className="flex items-baseline justify-between gap-4 rounded-md px-2 py-3 hover:bg-accent"
                     >
                       <span className="font-serif text-lg">{term.term}</span>

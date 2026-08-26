@@ -7,10 +7,12 @@ import { useRef, useState } from "react"
 
 export const DefinitionList = ({
   termId,
-  termSlug
+  termSlug,
+  termVocabularySlug
 }: {
   termId: number
   termSlug: string
+  termVocabularySlug: string
 }) => {
   const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
 
@@ -39,7 +41,7 @@ export const DefinitionList = ({
         // Wrapper carries the FLIP key; the Definition itself is a link.
         <div key={definition.id} data-flip-key={definition.id}>
           <Definition
-            definition={{ ...definition, termSlug }}
+            definition={{ ...definition, termSlug, termVocabularySlug }}
             // Only marked when more than one definition exists -- with a single
             // one, "default" distinguishes nothing.
             isDefault={i === 0 && ordered.length > 1}

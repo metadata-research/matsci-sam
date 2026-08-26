@@ -19,7 +19,7 @@ candidate names the definition it is intended to supersede. A restored
 revision links directly to the earlier revision it copied, independently of
 its chronological predecessor.
 
-Discarded AI drafts remain unpublished records and are not vocabulary
+Discarded language-model drafts remain unpublished records and are not vocabulary
 definitions.
 
 The graph uses the W3C PROV-O vocabulary. The nodes include entities such as

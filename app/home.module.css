@@ -27,15 +27,15 @@
   text-wrap: balance;
 }
 
-/* A deck, not body copy: it shares the headline's full width and the fluid
-   size is tuned so its two balanced lines nearly fill the shell, keeping the
-   block flush with the page's left axis without a ragged right end. */
+/* A deck, not body copy: it shares the headline's full width. Normal wrapping
+   lets each line use the available shell instead of forcing two short,
+   artificially balanced lines. */
 .heroLead {
   margin-top: 1.35rem;
   color: var(--muted-foreground);
   font-size: clamp(1.05rem, 1.7vw, 1.5rem);
   line-height: 1.5;
-  text-wrap: balance;
+  text-wrap: wrap;
 }
 
 .heroPanels {
@@ -51,6 +51,30 @@
   color: var(--muted-foreground);
   font-size: 0.875rem;
   line-height: 1.6;
+}
+
+.scopeNotice {
+  width: fit-content;
+  margin-top: 1.25rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--card) 80%, var(--accent));
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.scopeNotice a {
+  color: var(--foreground);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 0.2em;
+}
+
+.scopeNotice + .heroPanels {
+  margin-top: 1.25rem;
 }
 
 .projectLine a,
@@ -561,6 +585,18 @@
   font-family: var(--font-plex-serif);
   font-size: 1rem;
   font-weight: 600;
+}
+
+.termIdentity {
+  display: grid;
+  min-width: 0;
+  gap: 0.08rem;
+}
+
+.termIdentity small {
+  color: var(--muted-foreground);
+  font-size: 0.67rem;
+  font-weight: 400;
 }
 
 .termActivity time {

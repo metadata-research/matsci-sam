@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { initialTermFromSearchParam } from "./initial-term"
 import { AddTermPageContent } from "./page-content"
+import { getActiveCommunity } from "@/lib/community-queries"
 
 export default async function AddTermPage({
   searchParams
@@ -12,12 +13,18 @@ export default async function AddTermPage({
   searchParams: Promise<{ term?: string | string[] }>
 }) {
   await auth()
-  await trpc.terms.list.prefetch(undefined)
-  const { term } = await searchParams
+  const [activeCommunity, { term }] = await Promise.all([
+    getActiveCommunity(),
+    searchParams,
+    trpc.terms.list.prefetch(undefined)
+  ])
 
   return (
     <HydrateClient>
-      <AddTermPageContent initialTerm={initialTermFromSearchParam(term)} />
+      <AddTermPageContent
+        initialTerm={initialTermFromSearchParam(term)}
+        vocabularyTitle={activeCommunity?.title ?? SITE_NAME}
+      />
     </HydrateClient>
   )
 }

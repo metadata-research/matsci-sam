@@ -66,8 +66,8 @@ export default function AboutPage() {
 
           <ol className={styles.workflow}>
             <WorkflowStep icon={<FilePlus2Icon />} number="1" title="New term">
-              Add a missing term and its first definition. AI can optionally
-              suggest an editable draft.
+              Add a missing term and its first definition. Optionally, prompt a
+              language model for an editable draft.
             </WorkflowStep>
             <WorkflowStep
               icon={<MessageSquareTextIcon />}

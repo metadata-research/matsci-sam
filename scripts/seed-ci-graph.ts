@@ -34,6 +34,7 @@
 import "dotenv/config"
 import assert from "node:assert/strict"
 import { and, count, eq, inArray, sql } from "drizzle-orm"
+import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
 import registry from "../lib/prompts.json"
 
 // lib/llm/stamp.ts resolves the system prompt when it loads, so the stamp
@@ -71,6 +72,7 @@ const main = async () => {
     studiesTable,
     termsTable,
     usersTable,
+    vocabulariesTable,
     voteEventsTable,
     votesTable
   } = await import("../drizzle")
@@ -110,7 +112,10 @@ const main = async () => {
     .select({ id: conceptsTable.id, slug: conceptsTable.slug })
     .from(conceptsTable)
     .where(
-      and(eq(conceptsTable.schemeId, pspp.id), eq(conceptsTable.slug, "structure"))
+      and(
+        eq(conceptsTable.schemeId, pspp.id),
+        eq(conceptsTable.slug, "structure")
+      )
     )
   assert.ok(structure, "the structure facet of migration 0029")
 
@@ -144,6 +149,7 @@ const main = async () => {
     .insert(termsTable)
     .values(
       ["martensite", "austenite", "band gap"].map((term) => ({
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG,
         term,
         slug: slugify(term)
       }))
@@ -233,7 +239,8 @@ const main = async () => {
           schemeId: topics.id,
           slug: slugify("Steel"),
           prefLabel: "Steel",
-          scopeNote: "Use for definitions that only hold for iron-carbon alloys.",
+          scopeNote:
+            "Use for definitions that only hold for iron-carbon alloys.",
           createdById: first.id
         },
         {
@@ -260,10 +267,18 @@ const main = async () => {
     // them. Membership is rows of its own and reaches no graph; the
     // simulated accounts work in the community, so a vote below resolves
     // its context through activeCommunityFor the way the router does.
+    const communitySlug = slugify("CI graph fixture community")
+    await tx.insert(vocabulariesTable).values({
+      slug: communitySlug,
+      title: "CI graph fixture community",
+      description: "The vocabulary namespace of the simulated cohort.",
+      createdById: first.id
+    })
     const [community] = await tx
       .insert(communitiesTable)
       .values({
-        slug: slugify("CI graph fixture community"),
+        slug: communitySlug,
+        vocabularySlug: communitySlug,
         title: "CI graph fixture community",
         description: "The simulated cohort of the seeded study.",
         createdById: first.id

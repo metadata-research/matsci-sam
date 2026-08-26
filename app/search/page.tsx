@@ -11,6 +11,7 @@ import { ArrowRight, BookOpen, SearchIcon } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useEffect, useRef, useState } from "react"
+import { termPath } from "@/lib/public-identifiers"
 import {
   parseSearchAuthor,
   type SearchAuthor,
@@ -57,6 +58,7 @@ const SearchPage = () => {
   const searchParams = useSearchParams()
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const { data: activeCommunity } = trpc.search.context.useQuery()
 
   const [query, setQuery] = useState(searchParams.get("q") || "")
   // `types` defaults to both. The URL carries it only when it differs, so a
@@ -103,6 +105,15 @@ const SearchPage = () => {
     <main className="px-4 py-8">
       <div className="mx-auto w-full max-w-4xl space-y-5">
         <h1 className="text-4xl font-bold">Search</h1>
+        {activeCommunity && (
+          <p className="text-sm text-muted-foreground">
+            Searching terms defined in the{" "}
+            <span className="font-medium text-foreground">
+              {activeCommunity.title}
+            </span>{" "}
+            vocabulary.
+          </p>
+        )}
 
         <div className="relative">
           <SearchIcon className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -193,9 +204,7 @@ const SearchPage = () => {
           </>
         ) : (
           <div className="py-6 text-center">
-            <p className="text-xl font-semibold">
-              Find a materials term
-            </p>
+            <p className="text-xl font-semibold">Find a materials term</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Start typing to see matching terms and definitions.
             </p>
@@ -262,11 +271,16 @@ const TermSuggestions = ({ query }: { query: string }) => {
           {data.map((term) => (
             <Link
               key={term.id}
-              href={`/vocabulary/${term.slug}`}
+              href={termPath(term.slug, term.vocabularySlug)}
               className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-secondary/50 focus-visible:bg-secondary/50 focus-visible:outline-none"
             >
-              <span className="font-serif text-lg font-semibold">
-                {term.term}
+              <span className="grid min-w-0 gap-0.5">
+                <span className="font-serif text-lg font-semibold">
+                  {term.term}
+                </span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  Defined in {term.vocabularyTitle}
+                </span>
               </span>
               <span className="flex shrink-0 items-center gap-2 text-sm text-primary">
                 {term.count ?? 0}{" "}
@@ -354,9 +368,7 @@ const DefinitionsSearch = ({
   return (
     <section className="space-y-2">
       <ResultHeading count={data?.length}>Definitions</ResultHeading>
-      {isLoading && (
-        <p className="text-sm text-muted-foreground">Searching…</p>
-      )}
+      {isLoading && <p className="text-sm text-muted-foreground">Searching…</p>}
       {data?.length === 0 && (
         <p className="text-sm text-muted-foreground">
           No matching definitions.
@@ -364,7 +376,12 @@ const DefinitionsSearch = ({
       )}
       {data?.map((result) => (
         <Definition definition={result} key={result.id}>
-          <Label className="font-serif text-lg">{result.term}</Label>
+          <div>
+            <Label className="font-serif text-lg">{result.term}</Label>
+            <p className="text-xs text-muted-foreground">
+              Defined in {result.termVocabularyTitle}
+            </p>
+          </div>
         </Definition>
       ))}
     </section>

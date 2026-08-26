@@ -1,4 +1,4 @@
-This MRC pilot uses four terms from the 2025 list to rehearse the workflow before the second ID4 study.
+This MRC pilot reviews four terms from the MRC vocabulary in an 11-step walkthrough.
 
 For each term, choose the definition you would use. The available controls let you accept a candidate as written, amend the closest candidate, or add a definition. Then compare the candidates, vote on each, and comment where you disagree or can add information. Two questions complete the walkthrough.
 

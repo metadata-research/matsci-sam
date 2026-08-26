@@ -10,7 +10,9 @@ import {
   commentsTable,
   coauthorsTable,
   definitionRevisionsTable,
-  aiContributionSuggestionsTable
+  aiContributionSuggestionsTable,
+  surveyStepsTable,
+  vocabulariesTable
 } from "@yamz/db"
 import { and, desc, eq, getTableColumns, like, sql } from "drizzle-orm"
 import { slugify, uniqueSlug } from "@/lib/slug"
@@ -48,6 +50,8 @@ import {
 import { GetModelUser } from "@/lib/crud"
 import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
 import { lockDefinitionRevisionSource } from "@/lib/definition-source"
+import { activeCommunityFor } from "@/lib/community-queries"
+import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 
 // Compatibility projection for compact definition views while examples have
 // their own endpoint: expose the active featured contribution under the old
@@ -109,12 +113,23 @@ export const definitionsRouter = createTRPCRouter({
       // Model identity creation performs its own transaction, so resolve it
       // before the publication transaction. The row is locked and rechecked
       // below before any attribution is accepted.
-      const suggestionPreview = input.aiSuggestionId
-        ? await db.query.aiContributionSuggestionsTable.findFirst({
-            columns: { requestedById: true, model: true, status: true },
-            where: eq(aiContributionSuggestionsTable.id, input.aiSuggestionId)
-          })
-        : null
+      const [suggestionPreview, activeCommunity] = await Promise.all([
+        input.aiSuggestionId
+          ? db.query.aiContributionSuggestionsTable.findFirst({
+              columns: {
+                intent: true,
+                requestedById: true,
+                vocabularySlug: true,
+                model: true,
+                status: true
+              },
+              where: eq(aiContributionSuggestionsTable.id, input.aiSuggestionId)
+            })
+          : Promise.resolve(null),
+        activeCommunityFor(db, authorId)
+      ])
+      const contributionVocabularySlug =
+        activeCommunity?.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG
       if (
         input.aiSuggestionId &&
         (!suggestionPreview ||
@@ -124,6 +139,15 @@ export const definitionsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "No such pending AI suggestion"
+        })
+      if (
+        suggestionPreview?.intent === "new_term" &&
+        suggestionPreview.vocabularySlug !== contributionVocabularySlug
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The contribution vocabulary changed. Request a new language model draft in the current vocabulary."
         })
       const modelUser = suggestionPreview
         ? await GetModelUser(suggestionPreview.model)
@@ -135,11 +159,11 @@ export const definitionsRouter = createTRPCRouter({
       // vocabulary cannot be the one the step is for.
       let walkthroughStep = null
       if (input.surveyStepId !== undefined) {
-        const existingTerm = await db.query.termsTable.findFirst({
-          columns: { id: true },
-          where: eq(termsTable.term, term)
+        const step = await db.query.surveyStepsTable.findFirst({
+          columns: { termId: true },
+          where: eq(surveyStepsTable.id, input.surveyStepId)
         })
-        if (!existingTerm)
+        if (!step?.termId)
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "That step is not for this act"
@@ -147,7 +171,7 @@ export const definitionsRouter = createTRPCRouter({
         walkthroughStep = await requireStepForAct(
           input.surveyStepId,
           authorId,
-          { kind: "define", termId: existingTerm.id }
+          { kind: "define", termId: step.termId }
         )
       }
 
@@ -194,6 +218,15 @@ export const definitionsRouter = createTRPCRouter({
               code: "BAD_REQUEST",
               message: "That AI suggestion was generated for a different term"
             })
+          if (
+            aiSuggestion?.intent === "new_term" &&
+            aiSuggestion.vocabularySlug !== contributionVocabularySlug
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The contribution vocabulary changed. Request a new language model draft in the current vocabulary."
+            })
           if (aiSuggestion?.intent === "new_term") {
             if (
               input.derivedFromRevisionId !== undefined ||
@@ -226,16 +259,65 @@ export const definitionsRouter = createTRPCRouter({
               : input.derivedFromRevisionId
           const isRevision = derivedFromRevisionId !== undefined
           const isReplacement = input.replacesDefinitionId !== undefined
-          const isNewTerm = !isRevision && !isReplacement
+          const isNewTerm =
+            !isRevision && !isReplacement && lockedWalkthroughStep === null
 
-          let dbTerm = await tx.query.termsTable.findFirst({
-            where: eq(termsTable.term, term)
-          })
+          const source = isRevision
+            ? await lockDefinitionRevisionSource(tx, derivedFromRevisionId)
+            : null
+          if (isRevision && !source)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "A revision must target an existing term"
+            })
+          if (
+            aiSuggestion?.intent === "revise_definition" &&
+            source &&
+            aiSuggestion.vocabularySlug !== source.vocabularySlug
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "That language model draft belongs to another vocabulary"
+            })
+
+          const replacementTarget = isReplacement
+            ? await tx.query.definitionsTable.findFirst({
+                columns: { id: true, termId: true },
+                where: eq(definitionsTable.id, input.replacesDefinitionId!)
+              })
+            : null
+          if (isReplacement && !replacementTarget)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "A replacement must target an existing term"
+            })
+
+          const targetedTermId =
+            source?.termId ??
+            replacementTarget?.termId ??
+            lockedWalkthroughStep?.step.termId ??
+            null
+          let dbTerm = targetedTermId
+            ? await tx.query.termsTable.findFirst({
+                where: eq(termsTable.id, targetedTermId)
+              })
+            : await tx.query.termsTable.findFirst({
+                where: and(
+                  eq(termsTable.vocabularySlug, contributionVocabularySlug),
+                  sql`lower(btrim(${termsTable.term})) = ${term}`
+                )
+              })
+
+          if (dbTerm && dbTerm.term.trim().toLowerCase() !== term)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "That contribution names a different term"
+            })
           if (dbTerm && isNewTerm)
             throw new TRPCError({
               code: "CONFLICT",
               message:
-                "That term is already in the vocabulary. Open it to suggest a revision or propose a replacement."
+                "That term is already in this vocabulary. Open it to suggest a revision or propose a replacement."
             })
           if (!dbTerm && !isNewTerm)
             throw new TRPCError({
@@ -245,20 +327,39 @@ export const definitionsRouter = createTRPCRouter({
           if (!dbTerm) {
             // First time this term has been defined, so create it -- with its
             // public slug. Distinct terms can normalize to the same slug
-            // ("Band Gap" vs "band gap"), so check what is taken and let
+            // (for example, "C" and "C++"), so check what is taken and let
             // uniqueSlug() number the collision the way OED numbers homographs.
             // Read inside the transaction so a concurrent insert cannot slip a
             // colliding slug in between; the unique index is the backstop.
             const conflicting = await tx
               .select({ slug: termsTable.slug })
               .from(termsTable)
-              .where(like(termsTable.slug, `${slugify(term)}%`))
+              .where(
+                and(
+                  eq(termsTable.vocabularySlug, contributionVocabularySlug),
+                  like(termsTable.slug, `${slugify(term)}%`)
+                )
+              )
+
+            const reserved = new Set(conflicting.map((row) => row.slug))
+            if (contributionVocabularySlug === DEFAULT_VOCABULARY_SLUG) {
+              const vocabularySlugs = await tx
+                .select({ slug: vocabulariesTable.slug })
+                .from(vocabulariesTable)
+                .where(eq(vocabulariesTable.isDefault, false))
+              for (const row of vocabularySlugs) reserved.add(row.slug)
+            } else {
+              reserved.add("definitions")
+              reserved.add("provenance")
+              reserved.add("rank")
+            }
 
             const [insertedTerm] = await tx
               .insert(termsTable)
               .values({
                 term,
-                slug: uniqueSlug(term, new Set(conflicting.map((c) => c.slug)))
+                vocabularySlug: contributionVocabularySlug,
+                slug: uniqueSlug(term, reserved)
               })
               .returning()
 
@@ -278,10 +379,6 @@ export const definitionsRouter = createTRPCRouter({
           // on. Neither is recorded as the source of a definition it was not.
           let sourceDefinitionId: number | null = null
           if (derivedFromRevisionId !== undefined) {
-            const source = await lockDefinitionRevisionSource(
-              tx,
-              derivedFromRevisionId
-            )
             if (!source || source.termId !== dbTerm.id)
               throw new TRPCError({
                 code: "BAD_REQUEST",
@@ -306,12 +403,6 @@ export const definitionsRouter = createTRPCRouter({
           }
 
           if (input.replacesDefinitionId !== undefined) {
-            const replacementTarget = await tx.query.definitionsTable.findFirst(
-              {
-                columns: { id: true, termId: true },
-                where: eq(definitionsTable.id, input.replacesDefinitionId)
-              }
-            )
             if (!replacementTarget || replacementTarget.termId !== dbTerm.id)
               throw new TRPCError({
                 code: "BAD_REQUEST",
@@ -595,7 +686,8 @@ export const definitionsRouter = createTRPCRouter({
             modelSlug: aiModelsTable.slug
           },
           term: termsTable.term,
-          termSlug: termsTable.slug
+          termSlug: termsTable.slug,
+          termVocabularySlug: termsTable.vocabularySlug
         })
         .from(definitionsTable)
         .where(eq(definitionsTable.id, definitionId))

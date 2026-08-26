@@ -21,6 +21,7 @@ import {
   definitionsTable,
   termsTable,
   usersTable,
+  vocabulariesTable,
   votesTable
 } from "@yamz/db"
 import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm"
@@ -29,12 +30,18 @@ import { votesRouter } from "./votes"
 // Match/order machinery shared with the Browse page; see lib/search.ts for
 // the full design rationale (FTS + trigram + tiers, index-backed via a
 // term-id UNION).
-import { searchMatch, searchOrder, searchOrderGrouped } from "@/lib/search"
+import {
+  searchMatch,
+  searchOrder,
+  searchOrderGrouped,
+  vocabularyTermScope
+} from "@/lib/search"
 import {
   SEARCH_QUERY_MAX_LENGTH,
   SEARCH_RESULT_MAX_LIMIT
 } from "@/lib/input-limits"
 import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
+import { activeCommunityFor } from "@/lib/community-queries"
 
 const searchQuerySchema = z.string().trim().max(SEARCH_QUERY_MAX_LENGTH)
 const searchLimitSchema = z
@@ -73,34 +80,52 @@ export const appRouter = createTRPCRouter({
     return { ok: true }
   }),
   search: {
+    context: baseProcedure.query(async ({ ctx: { userId } }) =>
+      userId ? activeCommunityFor(db, userId) : null
+    ),
     terms: baseProcedure
       .input(
         z
           .object({ query: searchQuerySchema, limit: searchLimitSchema })
           .optional()
       )
-      .query(async ({ input }) => {
+      .query(async ({ ctx: { userId }, input }) => {
         const { query, limit } = input || { query: "", limit: 10 }
+        const activeCommunity = userId
+          ? await activeCommunityFor(db, userId)
+          : null
 
         const results = await db
           .select({
             ...getTableColumns(termsTable),
+            vocabularyTitle: vocabulariesTable.title,
             count: sql<number>`cast(count(*) as int)`
               .mapWith(Number)
               .as("count")
           })
           .from(termsTable)
-          .rightJoin(
+          .innerJoin(
             definitionsTable,
             eq(termsTable.id, definitionsTable.termId)
+          )
+          .innerJoin(
+            vocabulariesTable,
+            eq(vocabulariesTable.slug, termsTable.vocabularySlug)
           )
           // An empty query is a browse, not a search: websearch_to_tsquery("")
           // matches nothing, so skip the predicate entirely and list terms
           // alphabetically. The homepage and the unfiltered /terms page both
           // rely on this.
-          .where(query.trim() ? searchMatch(query) : undefined)
+          .where(
+            and(
+              query.trim() ? searchMatch(query) : undefined,
+              activeCommunity
+                ? vocabularyTermScope(activeCommunity.vocabularySlug)
+                : undefined
+            )
+          )
           .limit(limit)
-          .groupBy(termsTable.id)
+          .groupBy(termsTable.id, vocabulariesTable.slug)
           .orderBy(
             ...(query.trim()
               ? [...searchOrderGrouped(query), asc(termsTable.term)]
@@ -128,6 +153,9 @@ export const appRouter = createTRPCRouter({
           limit: 10,
           author: "all" as const
         }
+        const activeCommunity = userId
+          ? await activeCommunityFor(db, userId)
+          : null
 
         // Comment count and viewer vote mirror definitions.list, so the same
         // Definition card offers the same options here as on a term page.
@@ -143,6 +171,8 @@ export const appRouter = createTRPCRouter({
             authorModelSlug: aiModelsTable.slug,
             term: termsTable.term,
             termSlug: termsTable.slug,
+            termVocabularySlug: termsTable.vocabularySlug,
+            termVocabularyTitle: vocabulariesTable.title,
             comments:
               sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
                 .mapWith(Number)
@@ -157,6 +187,10 @@ export const appRouter = createTRPCRouter({
             eq(termsTable.id, definitionsTable.termId)
           )
           .innerJoin(
+            vocabulariesTable,
+            eq(vocabulariesTable.slug, termsTable.vocabularySlug)
+          )
+          .innerJoin(
             definitionRevisionsTable,
             eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
           )
@@ -167,6 +201,9 @@ export const appRouter = createTRPCRouter({
           .where(
             and(
               query.trim() ? searchMatch(query) : undefined,
+              activeCommunity
+                ? vocabularyTermScope(activeCommunity.vocabularySlug)
+                : undefined,
               author === "all"
                 ? undefined
                 : eq(usersTable.isAi, author === "ai")
@@ -196,8 +233,11 @@ export const appRouter = createTRPCRouter({
           .object({ query: searchQuerySchema, limit: searchLimitSchema })
           .optional()
       )
-      .query(async ({ input }) => {
+      .query(async ({ ctx: { userId }, input }) => {
         const { query, limit } = input || { query: "", limit: 10 }
+        const activeCommunity = userId
+          ? await activeCommunityFor(db, userId)
+          : null
 
         const results = await db
           .select()
@@ -207,7 +247,14 @@ export const appRouter = createTRPCRouter({
             eq(termsTable.id, definitionsTable.termId)
           )
           // Empty query keeps the newest-first browse the homepage prefetches.
-          .where(query.trim() ? searchMatch(query) : undefined)
+          .where(
+            and(
+              query.trim() ? searchMatch(query) : undefined,
+              activeCommunity
+                ? vocabularyTermScope(activeCommunity.vocabularySlug)
+                : undefined
+            )
+          )
           .limit(limit)
           .orderBy(
             ...(query.trim()

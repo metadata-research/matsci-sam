@@ -69,6 +69,7 @@ const main = async () => {
   const { TTL_PREFIXES } = await import("../lib/kos-export")
   type KosData = import("../lib/kos-export").KosData
   const {
+    DEFAULT_VOCABULARY_SLUG,
     applicationMetadataUri,
     collectionUri,
     conceptUri,
@@ -78,7 +79,8 @@ const main = async () => {
     revisionUri,
     statementUri,
     studyUri,
-    termUri
+    termUri,
+    vocabularyUri
   } = await import("../lib/public-identifiers")
   const { SITE_URL } = await import("../lib/site")
 
@@ -140,7 +142,8 @@ const main = async () => {
   const tripleKeys = (quads: Quad[]) =>
     new Set(
       quads.map(
-        (q) => `${termKey(q.subject)} ${termKey(q.predicate)} ${termKey(q.object)}`
+        (q) =>
+          `${termKey(q.subject)} ${termKey(q.predicate)} ${termKey(q.object)}`
       )
     )
 
@@ -229,12 +232,31 @@ const main = async () => {
     ],
     models: [{ userId: 3, slug: "gemma4-26b", tag: "gemma4:26b" }],
     terms: [
-      { id: 1, slug: "martensite" },
-      { id: 2, slug: "austenite" },
-      { id: 3, slug: "band_gap" },
+      {
+        id: 1,
+        slug: "martensite",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      },
+      {
+        id: 2,
+        slug: "austenite",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      },
+      {
+        id: 3,
+        slug: "band_gap",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      },
       // With band_gap, a pair a locale collation and code-point order sort
       // differently ("_" against "/"), so the agent order is pinned.
-      { id: 4, slug: "band" }
+      {
+        id: 4,
+        slug: "band",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      },
+      // The same slug as term 1 in a community-owned vocabulary. Its
+      // assertion below proves that graph identifiers retain the owner.
+      { id: 5, slug: "martensite", vocabularySlug: "zhang_lab" }
     ],
     definitions: [
       { id: 10, termId: 1, definitionNumber: 1 },
@@ -325,6 +347,11 @@ const main = async () => {
         createdAt: "2026-03-11 10:00:00+00",
         retractedAt: "2026-04-03 12:00:00+00",
         retractedById: 1
+      }),
+      assertion(12, "dcterms:subject", {
+        subjectTermId: 5,
+        objectConceptId: 1,
+        createdAt: "2026-03-12 10:00:00+00"
       })
     ],
     voteEvents: [
@@ -480,8 +507,11 @@ const main = async () => {
 
   const martensite = termUri("martensite")
   const austenite = termUri("austenite")
-  const personUnder = (slug: string, id: number) =>
-    `${termUri(slug)}/provenance#user_${id}`
+  const personUnder = (
+    slug: string,
+    id: number,
+    vocabularySlug = DEFAULT_VOCABULARY_SLUG
+  ) => `${termUri(slug, vocabularySlug)}/provenance#user_${id}`
   const quadOf = (q: Quad) => {
     const inner = loose(q.object)
     assert.equal(inner.termType, "Quad", "rdf:reifies takes a triple term")
@@ -599,6 +629,17 @@ const main = async () => {
     steel,
     "http://www.w3.org/2004/02/skos/core#exactMatch",
     EMMO
+  ])
+
+  const communityMartensite = termUri("martensite", "zhang_lab")
+  const a12 = statementUri(communityMartensite, "k12")
+  assert.deepEqual(reified(a12), [
+    communityMartensite,
+    `${DCT}subject`,
+    conceptUri("pspp", "processing")
+  ])
+  assert.deepEqual(values(dataset, a12, `${PROV}wasAttributedTo`), [
+    personUnder("martensite", 1, "zhang_lab")
   ])
 
   const assertionSubjects = [...subjects(dataset)].filter((s) =>
@@ -765,10 +806,7 @@ const main = async () => {
   assert.deepEqual(values(dataset, comment7, matsci("study")), [s1])
   assert.deepEqual(values(dataset, comment9, matsci("study")), [s2])
   // The one triple the body cannot state, and nothing the body states.
-  assert.equal(
-    dataset.filter((q) => q.subject.value === comment7).length,
-    1
-  )
+  assert.equal(dataset.filter((q) => q.subject.value === comment7).length, 1)
   assert.ok(!subjects(dataset).has(`${martensite}/provenance#comment_8`))
   // A study the view does not know fails as an unknown revision does.
   assert.throws(
@@ -833,7 +871,9 @@ const main = async () => {
   )
 
   // The single-block emitters agree with the document.
-  assert.ok(datasetBlocks.includes(assertionBlockTurtle(view, data.assertions[4])))
+  assert.ok(
+    datasetBlocks.includes(assertionBlockTurtle(view, data.assertions[4]))
+  )
   assert.ok(datasetBlocks.includes(voteEventBlockTurtle(view, acts[8])))
   assert.ok(
     datasetBlocks.includes(
@@ -870,7 +910,12 @@ const main = async () => {
   const rev2 = revisionUri("martensite", 1, 2)
   const def1 = definitionUri("martensite", 1)
   const prov: Provenance = {
-    term: { id: 1, term: "martensite", slug: "martensite" },
+    term: {
+      id: 1,
+      term: "martensite",
+      slug: "martensite",
+      vocabularySlug: DEFAULT_VOCABULARY_SLUG
+    },
     events: [],
     graph: {
       nodes: [
@@ -1003,8 +1048,7 @@ const main = async () => {
           id: "ai_contribution_suggestion_42",
           label: "Accepted revision AI suggestion",
           type: "entity",
-          detail:
-            'A hard phase with a "body-centred" tetragonal lattice.',
+          detail: 'A hard phase with a "body-centred" tetragonal lattice.',
           meta: {
             intent: "revise_definition",
             termText: "martensite",
@@ -1352,7 +1396,10 @@ const main = async () => {
   assert.deepEqual(values(inGraph, rev1, `${PROV}wasAttributedTo`), [
     modelUri("gemma4-26b")
   ])
-  assert.equal(view.assertionAgent(data.assertions[1], 3).iri, modelUri("gemma4-26b"))
+  assert.equal(
+    view.assertionAgent(data.assertions[1], 3).iri,
+    modelUri("gemma4-26b")
+  )
 
   // An accepted canonical AI suggestion remains distinguishable from the
   // published revision. The generation uses its exact request inputs,
@@ -1406,10 +1453,21 @@ const main = async () => {
   assert.deepEqual(values(inGraph, aiSuggestion, `${PROV}wasDerivedFrom`), [
     rev1
   ])
-  assert.ok(values(inGraph, rev2, `${PROV}wasDerivedFrom`).includes(aiSuggestion))
-  assert.equal(values(inGraph, aiSuggestion, matsci("sourceRevisionId")).length, 0)
-  assert.equal(values(inGraph, aiSuggestion, matsci("outputDefinitionId")).length, 0)
-  assert.equal(values(inGraph, aiSuggestion, matsci("outputRevisionId")).length, 0)
+  assert.ok(
+    values(inGraph, rev2, `${PROV}wasDerivedFrom`).includes(aiSuggestion)
+  )
+  assert.equal(
+    values(inGraph, aiSuggestion, matsci("sourceRevisionId")).length,
+    0
+  )
+  assert.equal(
+    values(inGraph, aiSuggestion, matsci("outputDefinitionId")).length,
+    0
+  )
+  assert.equal(
+    values(inGraph, aiSuggestion, matsci("outputRevisionId")).length,
+    0
+  )
 
   // Examples and feature decisions are document-scoped blank nodes: their
   // immutable content, source revision, contributor and interval survive,
@@ -1428,9 +1486,7 @@ const main = async () => {
   const publishExample = blankNodeNamed("Publish example")
   const featureExample = blankNodeNamed("Feature example 1")
   const featuredExample = blankNodeNamed("Featured example 1")
-  const endFeatureExample = blankNodeNamed(
-    "End featured status for example 1"
-  )
+  const endFeatureExample = blankNodeNamed("End featured status for example 1")
   const def2 = definitionUri("martensite", 2)
 
   assertTypes(inGraph, example, [`${PROV}Entity`])
@@ -1444,19 +1500,19 @@ const main = async () => {
   assert.deepEqual(values(inGraph, example, `${PROV}wasGeneratedBy`), [
     publishExample
   ])
-  assert.deepEqual(values(inGraph, publishExample, `${PROV}used`).sort(), [
-    def1,
-    rev1
-  ].sort())
+  assert.deepEqual(
+    values(inGraph, publishExample, `${PROV}used`).sort(),
+    [def1, rev1].sort()
+  )
   assert.deepEqual(
     values(inGraph, publishExample, `${PROV}wasAssociatedWith`),
     [personUnder("martensite", 1)]
   )
 
-  assert.deepEqual(values(inGraph, featureExample, `${PROV}used`).sort(), [
-    def1,
-    example
-  ].sort())
+  assert.deepEqual(
+    values(inGraph, featureExample, `${PROV}used`).sort(),
+    [def1, example].sort()
+  )
   assert.deepEqual(
     values(inGraph, featureExample, `${PROV}wasAssociatedWith`),
     [personUnder("martensite", 1)]
@@ -1473,26 +1529,30 @@ const main = async () => {
   assert.deepEqual(values(inGraph, featuredExample, matsci("endedAt")), [
     "2026-01-06T00:00:00.000Z"
   ])
-  assert.deepEqual(values(inGraph, endFeatureExample, `${PROV}used`).sort(), [
-    def1,
-    featuredExample
-  ].sort())
+  assert.deepEqual(
+    values(inGraph, endFeatureExample, `${PROV}used`).sort(),
+    [def1, featuredExample].sort()
+  )
   assert.deepEqual(
     values(inGraph, endFeatureExample, `${PROV}wasAssociatedWith`),
     [personUnder("martensite", 1)]
   )
-  assert.deepEqual(
-    values(inGraph, def2, matsci("proposesReplacementFor")),
-    [def1]
-  )
+  assert.deepEqual(values(inGraph, def2, matsci("proposesReplacementFor")), [
+    def1
+  ])
   assert.equal(values(inGraph, def2, `${PROV}wasDerivedFrom`).length, 0)
   assert.ok(!bodyInGraph.includes("definitionExamples"))
   assert.ok(!bodyInGraph.includes("definitionExampleSelections"))
   // A comment states its actor kind as a literal, the spelling the vote
   // events use, and the persona it is associated with is a software agent.
   // The body states no study; that triple is the dataset blocks' to add.
-  assert.deepEqual(values(inGraph, comment7, matsci("actorKind")), ["simulated"])
-  assert.deepEqual(values(inGraph, comment7, matsci("legacyAssociationInferred")), ["no"])
+  assert.deepEqual(values(inGraph, comment7, matsci("actorKind")), [
+    "simulated"
+  ])
+  assert.deepEqual(
+    values(inGraph, comment7, matsci("legacyAssociationInferred")),
+    ["no"]
+  )
   assert.deepEqual(values(inGraph, comment7, `${PROV}wasAssociatedWith`), [
     personUnder("martensite", 4)
   ])
@@ -1503,10 +1563,7 @@ const main = async () => {
   // current revision, and that revision's specializationOf, to the
   // vocabulary graph, keeps them for the non-current revision, which no
   // other graph describes, and keeps the revision chain.
-  assertTypes(alone, rev2, [
-    `${PROV}Entity`,
-    matsci("DefinitionRevision")
-  ])
+  assertTypes(alone, rev2, [`${PROV}Entity`, matsci("DefinitionRevision")])
   assertTypes(alone, def1, [`${PROV}Entity`, matsci("Definition")])
   assert.deepEqual(values(alone, rev2, `${PROV}specializationOf`), [def1])
   assertTypes(inGraph, rev2, [`${PROV}Entity`])
@@ -1530,9 +1587,7 @@ const main = async () => {
     )
   const aloneNamed = tripleKeys(namedResourceQuads(alone))
   const inGraphNamed = tripleKeys(namedResourceQuads(inGraph))
-  const omitted = [...aloneNamed].filter(
-    (k) => !inGraphNamed.has(k)
-  )
+  const omitted = [...aloneNamed].filter((k) => !inGraphNamed.has(k))
   assert.equal(omitted.length, 3, `omitted: ${omitted}`)
   assert.ok(
     omitted.every(
@@ -1542,10 +1597,7 @@ const main = async () => {
         k.includes(`${PROV}specializationOf`)
     )
   )
-  assert.equal(
-    [...inGraphNamed].filter((k) => !aloneNamed.has(k)).length,
-    0
-  )
+  assert.equal([...inGraphNamed].filter((k) => !aloneNamed.has(k)).length, 0)
 
   // --- The four content graphs from fixtures, and their disjointness ---
 
@@ -1644,9 +1696,24 @@ const main = async () => {
         objectIri: ends.objectIri
       })),
     terms: [
-      { id: 1, term: "martensite", slug: "martensite" },
-      { id: 2, term: "austenite", slug: "austenite" },
-      { id: 3, term: "band gap", slug: "band_gap" }
+      {
+        id: 1,
+        term: "martensite",
+        slug: "martensite",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      },
+      {
+        id: 2,
+        term: "austenite",
+        slug: "austenite",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      },
+      {
+        id: 3,
+        term: "band gap",
+        slug: "band_gap",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      }
     ]
   }
   const records = assembleTermSkos(
@@ -1656,12 +1723,14 @@ const main = async () => {
           id: 1,
           term: "martensite",
           slug: "martensite",
+          vocabularySlug: DEFAULT_VOCABULARY_SLUG,
           createdAt: "2026-01-02 03:04:05"
         },
         {
           id: 2,
           term: "austenite",
           slug: "austenite",
+          vocabularySlug: DEFAULT_VOCABULARY_SLUG,
           createdAt: "2026-01-02 03:04:05"
         },
         // Related to martensite by the ledger fixture, so it is in the
@@ -1670,6 +1739,7 @@ const main = async () => {
           id: 3,
           term: "band gap",
           slug: "band_gap",
+          vocabularySlug: DEFAULT_VOCABULARY_SLUG,
           createdAt: "2026-01-02 03:04:05"
         }
       ],
@@ -1685,7 +1755,9 @@ const main = async () => {
               'A hard phase with a "body-centred" tetragonal lattice.'
             ]
           ] satisfies Diff[],
-          revisionExample: [[DiffOp.Insert, "Quenched steel."]] satisfies Diff[],
+          revisionExample: [
+            [DiffOp.Insert, "Quenched steel."]
+          ] satisfies Diff[],
           legacyExample: "",
           revisionVersion: 2,
           revisionCreatedAt: "2026-01-03T00:00:00.000Z",
@@ -1716,7 +1788,26 @@ const main = async () => {
     },
     kos
   )
-  const document = { kos, records }
+  const document = {
+    kos,
+    records,
+    vocabularies: [
+      {
+        slug: DEFAULT_VOCABULARY_SLUG,
+        title: "MatSci-SAM",
+        description: "The original MatSci-SAM vocabulary.",
+        isDefault: true,
+        retiredAt: null
+      },
+      {
+        slug: "zhang_lab",
+        title: "Zhang Lab",
+        description: null,
+        isDefault: false,
+        retiredAt: null
+      }
+    ]
+  }
 
   const projectedAt = "2026-08-22T12:00:00.000Z"
   const content = {
@@ -1736,10 +1827,16 @@ const main = async () => {
   ) as Record<(typeof names.CONTENT_GRAPH_NAMES)[number], number>
   for (const name of names.CONTENT_GRAPH_NAMES)
     assert.ok(counts[name] > 0, `${name} graph is not empty`)
+  assert.ok(
+    subjects(parsed.vocabulary).has(vocabularyUri("zhang_lab")),
+    "an empty community vocabulary still has a scheme resource"
+  )
   // The count is of distinct triples, as a store holds them.
   assert.equal(counts.provenance, tripleKeys(parsed.provenance).size)
   assert.equal(
-    countTriples(TTL_PREFIXES + "<http://x/s> <http://x/p> <http://x/o> , <http://x/o> .\n"),
+    countTriples(
+      TTL_PREFIXES + "<http://x/s> <http://x/p> <http://x/o> , <http://x/o> .\n"
+    ),
     1
   )
 
@@ -1820,10 +1917,7 @@ const main = async () => {
   const metaTtl = metaGraphTurtle({ projectedAt, counts })
   const meta = parse(metaTtl, "meta graph")
   const total = names.CONTENT_GRAPH_NAMES.reduce((n, g) => n + counts[g], 0)
-  assertTypes(meta, names.datasetIri, [
-    `${VOID}Dataset`,
-    `${SD}Dataset`
-  ])
+  assertTypes(meta, names.datasetIri, [`${VOID}Dataset`, `${SD}Dataset`])
   assert.deepEqual(values(meta, names.datasetIri, `${VOID}triples`), [
     String(total)
   ])
@@ -1855,7 +1949,9 @@ const main = async () => {
     assertTypes(meta, iri, [`${VOID}Dataset`, `${SD}NamedGraph`])
     assert.deepEqual(values(meta, iri, `${SD}name`), [iri])
     assert.deepEqual(values(meta, iri, `${RDFS}label`), [name])
-    assert.deepEqual(values(meta, iri, `${VOID}triples`), [String(counts[name])])
+    assert.deepEqual(values(meta, iri, `${VOID}triples`), [
+      String(counts[name])
+    ])
     assert.deepEqual(values(meta, iri, `${VOID}dataDump`), [iri])
     assert.deepEqual(values(meta, iri, `${VOID}inDataset`), [names.datasetIri])
     assert.equal(values(meta, iri, `${DCT}description`).length, 1)
@@ -1956,7 +2052,10 @@ const main = async () => {
       `<${comment7}> matsci:actorKind "simulated" ;\n` +
       `  matsci:study <${rev100}> .\n`
     parse(negativeProvenance, "negative-provenance")
-    writeFileSync(join(exportDir, "negative-provenance.ttl"), negativeProvenance)
+    writeFileSync(
+      join(exportDir, "negative-provenance.ttl"),
+      negativeProvenance
+    )
     console.log(`Fixture documents written to ${exportDir}`)
   }
 

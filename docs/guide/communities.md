@@ -1,9 +1,10 @@
 # Communities and scope
 
 A community is a named group of people, such as a lab, specialty, or review
-panel. It organizes a roster, a worklist of collections, and studies. Terms
-remain in the shared vocabulary. Community pages are application routes, while
-the linked-data exports omit community identities, rosters, and invitations.
+panel. It owns a vocabulary and organizes a roster, a worklist of collections,
+and studies. A community vocabulary is a SKOS concept scheme at
+`/vocabulary/{community}`. Community pages are application routes, while the
+linked-data exports omit community rosters and invitations.
 
 ## Working in a community
 
@@ -12,17 +13,36 @@ their communities or **Everything**. MatSci-SAM stores that selection for the
 individual account across sessions. The menu also links to the selected
 community and its studies.
 
-The selection scopes two pages. [Browse](/terms) shows terms in the collections
-on the worklist, and [Collections](/collections) shows those collections.
-[Search](/docs/search), Discussion, [Tags](/docs/tags), and Contribute continue
-to use the full vocabulary.
+The selection scopes the home page, [Search](/docs/search), and
+[Browse](/terms) to terms defined in that community's vocabulary. Recent
+comments, featured definitions, and personal contributions on the home page use
+the same scope. [Collections](/collections) shows the community's worklist.
+When the vocabulary has no terms, the home page names the community and links
+to its page.
 
-**Show everything** on Browse or Collections displays the full result for one
+A collection on the worklist can also reference a term defined in MatSci-SAM
+or another community vocabulary. The community and collection pages label such
+terms as references and link to the vocabulary that defines them. References
+do not enter the community's recent activity, Search results, or Browse list.
+
+With **Everything** selected, the home page, Search, and Browse include terms
+from every vocabulary hosted by MatSci-SAM. Contribute publishes a new term in
+the selected community vocabulary, or in the default MatSci-SAM vocabulary
+when **Everything** is selected. Discussion uses the same vocabulary scope.
+[Tags](/docs/tags) remain site-wide.
+
+**Show everything** on Browse or Collections displays the full catalog for one
 request and keeps the selected community in place. The address `?scope=all`
 provides the same view.
 
 The selection returns to **Everything** when you leave the community, a
 steward removes you, or an administrator retires the community.
+
+Each vocabulary ranks its own candidate definitions. Rank 1 is that
+vocabulary's current canonical definition for the term; a same-label term in
+another vocabulary has an independent set of candidates, votes, and rankings.
+Definition and revision identifiers remain available when a publication needs
+to pin the wording used at a particular time.
 
 ## Studies
 
@@ -30,7 +50,8 @@ A study asks the members of a community to work through a collection of terms
 under shared instructions and an optional time window. The public study page at
 `/studies/{study}` presents the title, instructions, dates, collection, and
 progress. An invitation opens on that page. Accepting it adds the participant
-to the community, which makes the worklist available through Browse and
+to the community and adds it to the participant's **Working in** choices.
+Selecting it shows the community vocabulary in Browse and its worklist in
 Collections.
 
 [Studies](/docs/studies) covers the walkthrough, the position taken on each
@@ -67,11 +88,12 @@ invitation for a person who still needs an account. Search results contain
 names and public affiliations. A steward can remove members. Administrators
 appoint and remove stewards.
 
-**Terms in view.** Add an existing collection or create one from the community
-page to place it on the worklist. Browse and Collections use that worklist for
-every member who selects the community. Terms enter the worklist through
-collection membership. A collection assigned to an active study appears with
-that study.
+**Terms in view.** Terms created while the community is selected belong to its
+vocabulary. Add an existing collection or create one from the community page to
+place it on the worklist. A collection may contain local terms and references
+to terms from other vocabularies. Collection membership does not change which
+vocabulary defines a term. A collection assigned to an active study appears
+with that study.
 
 **Studies.** Start a study with a title, collection, instructions, and optional
 dates. You can select an existing collection or create one in the same form.

@@ -2,6 +2,225 @@
 
 DO $validation$
 BEGIN
+  IF to_regclass('public.vocabularies') IS NOT NULL THEN
+    -- The legacy root namespace has exactly one owner. Its stable slug keeps
+    -- every identifier published before community vocabularies unchanged.
+    IF (SELECT count(*) FROM "vocabularies" WHERE "isDefault") <> 1
+       OR NOT EXISTS (
+         SELECT 1 FROM "vocabularies"
+         WHERE "slug" = 'matsci-sam' AND "isDefault"
+       ) THEN
+      RAISE EXCEPTION 'default MatSci-SAM vocabulary is missing or ambiguous';
+    END IF;
+
+    -- A community owns the vocabulary at its own slug. Existing collection
+    -- memberships may reference concepts elsewhere and do not affect this.
+    IF EXISTS (
+      SELECT 1
+      FROM "communities" c
+      JOIN "vocabularies" v ON v."slug" = c."vocabularySlug"
+      WHERE c."vocabularySlug" <> c."slug"
+         OR v."isDefault"
+         OR c."retiredAt" IS DISTINCT FROM v."retiredAt"
+    ) THEN
+      RAISE EXCEPTION 'community vocabulary identity or lifecycle mismatch';
+    END IF;
+
+    -- The one-segment route is shared by default terms and community
+    -- vocabularies. No slug may make that public identifier ambiguous.
+    IF EXISTS (
+      SELECT 1
+      FROM "terms" t
+      JOIN "vocabularies" v ON v."slug" = t."slug"
+      WHERE t."vocabularySlug" = 'matsci-sam' AND NOT v."isDefault"
+    ) THEN
+      RAISE EXCEPTION 'default term route collides with a vocabulary route';
+    END IF;
+
+    IF to_regclass('public."vocabularyRootRoutes"') IS NOT NULL THEN
+      -- The allocation table makes the shared root namespace safe under
+      -- concurrent writes. It must be an exact projection of canonical root
+      -- terms, permanent aliases from the default vocabulary, and community
+      -- vocabularies. Keep the pre-0050 form usable during migration rehearsal.
+      IF to_regclass('public."termRouteAliases"') IS NOT NULL THEN
+        IF EXISTS (
+          SELECT "slug", "ownerKind"
+          FROM (
+            SELECT "slug", 'default_term'::text AS "ownerKind"
+            FROM "terms"
+            WHERE "vocabularySlug" = 'matsci-sam'
+            UNION ALL
+            SELECT "termSlug", 'default_alias'::text AS "ownerKind"
+            FROM "termRouteAliases"
+            WHERE "vocabularySlug" = 'matsci-sam'
+            UNION ALL
+            SELECT "slug", 'vocabulary'::text AS "ownerKind"
+            FROM "vocabularies"
+            WHERE NOT "isDefault"
+          ) expected("slug", "ownerKind")
+          EXCEPT
+          SELECT "slug", "ownerKind" FROM "vocabularyRootRoutes"
+        ) OR EXISTS (
+          SELECT "slug", "ownerKind" FROM "vocabularyRootRoutes"
+          EXCEPT
+          SELECT "slug", "ownerKind"
+          FROM (
+            SELECT "slug", 'default_term'::text AS "ownerKind"
+            FROM "terms"
+            WHERE "vocabularySlug" = 'matsci-sam'
+            UNION ALL
+            SELECT "termSlug", 'default_alias'::text AS "ownerKind"
+            FROM "termRouteAliases"
+            WHERE "vocabularySlug" = 'matsci-sam'
+            UNION ALL
+            SELECT "slug", 'vocabulary'::text AS "ownerKind"
+            FROM "vocabularies"
+            WHERE NOT "isDefault"
+          ) expected("slug", "ownerKind")
+        ) THEN
+          RAISE EXCEPTION 'vocabulary root route allocation mismatch';
+        END IF;
+      ELSE
+        IF EXISTS (
+          SELECT "slug", "ownerKind"
+          FROM (
+            SELECT "slug", 'default_term'::text AS "ownerKind"
+            FROM "terms"
+            WHERE "vocabularySlug" = 'matsci-sam'
+            UNION ALL
+            SELECT "slug", 'vocabulary'::text AS "ownerKind"
+            FROM "vocabularies"
+            WHERE NOT "isDefault"
+          ) expected
+          EXCEPT
+          SELECT "slug", "ownerKind" FROM "vocabularyRootRoutes"
+        ) OR EXISTS (
+          SELECT "slug", "ownerKind" FROM "vocabularyRootRoutes"
+          EXCEPT
+          SELECT "slug", "ownerKind"
+          FROM (
+            SELECT "slug", 'default_term'::text AS "ownerKind"
+            FROM "terms"
+            WHERE "vocabularySlug" = 'matsci-sam'
+            UNION ALL
+            SELECT "slug", 'vocabulary'::text AS "ownerKind"
+            FROM "vocabularies"
+            WHERE NOT "isDefault"
+          ) expected
+        ) THEN
+          RAISE EXCEPTION 'vocabulary root route allocation mismatch';
+        END IF;
+      END IF;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM "terms"
+      WHERE "vocabularySlug" <> 'matsci-sam'
+        AND "slug" IN ('definitions', 'provenance', 'rank')
+    ) THEN
+      RAISE EXCEPTION 'community term slug collides with a static route';
+    END IF;
+
+    IF to_regclass('public."termRouteAliases"') IS NOT NULL THEN
+      IF EXISTS (
+        SELECT 1
+        FROM "termRouteAliases" alias
+        JOIN "terms" canonical
+          ON canonical."vocabularySlug" = alias."vocabularySlug"
+         AND canonical."slug" = alias."termSlug"
+      ) THEN
+        RAISE EXCEPTION 'term alias route collides with a canonical term route';
+      END IF;
+
+      IF EXISTS (
+        SELECT 1
+        FROM "termRouteAliases" alias
+        JOIN "terms" target ON target.id = alias."termId"
+        WHERE target."vocabularySlug" = alias."vocabularySlug"
+          AND target."slug" = alias."termSlug"
+      ) THEN
+        RAISE EXCEPTION 'term alias repeats its target canonical route';
+      END IF;
+
+      IF EXISTS (
+        SELECT 1
+        FROM "termRouteAliases"
+        WHERE "vocabularySlug" <> 'matsci-sam'
+          AND "termSlug" IN ('definitions', 'provenance', 'rank')
+      ) THEN
+        RAISE EXCEPTION 'community term alias collides with a static route';
+      END IF;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'aiContributionSuggestions'
+        AND column_name = 'vocabularySlug'
+    ) THEN
+      -- A persisted model draft stays attached to the namespace it was
+      -- requested for. A historical accepted/discarded suggestion remains
+      -- valid after its term moves when a permanent alias proves that the
+      -- original vocabulary route belonged to the same term.
+      IF to_regclass('public."termRouteAliases"') IS NOT NULL THEN
+        IF EXISTS (
+          SELECT 1
+          FROM "aiContributionSuggestions" suggestion
+          LEFT JOIN "definitions" target
+            ON target.id = suggestion."definitionId"
+          LEFT JOIN "terms" target_term ON target_term.id = target."termId"
+          LEFT JOIN "definitions" output
+            ON output.id = suggestion."outputDefinitionId"
+          LEFT JOIN "terms" output_term ON output_term.id = output."termId"
+          WHERE (
+              target_term."vocabularySlug" IS NOT NULL
+              AND target_term."vocabularySlug" <> suggestion."vocabularySlug"
+              AND (
+                suggestion.status = 'generated'
+                OR NOT EXISTS (
+                  SELECT 1
+                  FROM "termRouteAliases" alias
+                  WHERE alias."vocabularySlug" = suggestion."vocabularySlug"
+                    AND alias."termId" = target_term.id
+                )
+              )
+            )
+            OR (
+              output_term."vocabularySlug" IS NOT NULL
+              AND output_term."vocabularySlug" <> suggestion."vocabularySlug"
+              AND (
+                suggestion.status = 'generated'
+                OR NOT EXISTS (
+                  SELECT 1
+                  FROM "termRouteAliases" alias
+                  WHERE alias."vocabularySlug" = suggestion."vocabularySlug"
+                    AND alias."termId" = output_term.id
+                )
+              )
+            )
+        ) THEN
+          RAISE EXCEPTION 'language model draft vocabulary mismatch';
+        END IF;
+      ELSIF EXISTS (
+          SELECT 1
+          FROM "aiContributionSuggestions" suggestion
+          LEFT JOIN "definitions" target
+            ON target.id = suggestion."definitionId"
+          LEFT JOIN "terms" target_term ON target_term.id = target."termId"
+          LEFT JOIN "definitions" output
+            ON output.id = suggestion."outputDefinitionId"
+          LEFT JOIN "terms" output_term ON output_term.id = output."termId"
+          WHERE (target_term."vocabularySlug" IS NOT NULL
+                 AND target_term."vocabularySlug" <> suggestion."vocabularySlug")
+             OR (output_term."vocabularySlug" IS NOT NULL
+                 AND output_term."vocabularySlug" <> suggestion."vocabularySlug")
+        ) THEN
+          RAISE EXCEPTION 'language model draft vocabulary mismatch';
+      END IF;
+    END IF;
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM "definitions"
@@ -258,6 +477,20 @@ BEGIN
         AND a."schemeId" <> b."schemeId"
     ) THEN
       RAISE EXCEPTION 'concept relation crosses concept schemes';
+    END IF;
+
+    -- The term hierarchy is local to one vocabulary for the same reason.
+    -- Cross-vocabulary connections are mappings or collection references.
+    IF EXISTS (
+      SELECT 1
+      FROM "statements" s
+      JOIN "terms" a ON a.id = s."subjectTermId"
+      JOIN "terms" b ON b.id = s."objectTermId"
+      WHERE s."retractedAt" IS NULL
+        AND s.predicate IN ('skos:broader', 'skos:related')
+        AND a."vocabularySlug" <> b."vocabularySlug"
+    ) THEN
+      RAISE EXCEPTION 'term relation crosses vocabularies';
     END IF;
 
     -- A concept attaches at the level its scheme states, and at no other.

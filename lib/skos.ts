@@ -10,16 +10,18 @@ import {
   definitionsTable,
   statementsTable,
   termsTable,
-  usersTable
+  usersTable,
+  vocabulariesTable
 } from "@yamz/db"
-import { asc, eq, inArray, isNull, ne } from "drizzle-orm"
+import { asc, desc, eq, inArray, isNull, ne } from "drizzle-orm"
 import { SITE_NAME, SITE_URL } from "./site"
 import { definitionStatus } from "./status"
 import {
+  DEFAULT_VOCABULARY_SLUG,
   definitionUri,
   revisionUri,
-  schemeUri,
-  termUri
+  termUri,
+  vocabularyUri
 } from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
 import {
@@ -63,6 +65,7 @@ export type TermSkos = {
   id: number
   uri: string
   slug: string
+  vocabularySlug: string
   prefLabel: string
   created: string
   definitions: {
@@ -134,7 +137,8 @@ export const loadKos = async (): Promise<KosData> => {
         .select({
           id: termsTable.id,
           term: termsTable.term,
-          slug: termsTable.slug
+          slug: termsTable.slug,
+          vocabularySlug: termsTable.vocabularySlug
         })
         .from(termsTable)
         .where(inArray(termsTable.id, termIds))
@@ -152,7 +156,13 @@ export const loadKos = async (): Promise<KosData> => {
   }
 }
 
-type TermRow = { id: number; term: string; slug: string; createdAt: string }
+type TermRow = {
+  id: number
+  term: string
+  slug: string
+  vocabularySlug: string
+  createdAt: string
+}
 type DefinitionRow = {
   id: number
   termId: number
@@ -235,11 +245,20 @@ export const assembleTermSkos = (
 
         return {
           id: d.id,
-          uri: definitionUri(term.slug, d.definitionNumber),
+          uri: definitionUri(
+            term.slug,
+            d.definitionNumber,
+            term.vocabularySlug
+          ),
           definitionNumber: d.definitionNumber,
           created: d.definitionCreatedAt,
           currentRevision: {
-            uri: revisionUri(term.slug, d.definitionNumber, d.revisionVersion),
+            uri: revisionUri(
+              term.slug,
+              d.definitionNumber,
+              d.revisionVersion,
+              term.vocabularySlug
+            ),
             version: d.revisionVersion,
             text: diffToStringSimple(d.revisionDefinition),
             examples,
@@ -267,8 +286,9 @@ export const assembleTermSkos = (
 
     return {
       id: term.id,
-      uri: termUri(term.slug),
+      uri: termUri(term.slug, term.vocabularySlug),
       slug: term.slug,
+      vocabularySlug: term.vocabularySlug,
       prefLabel: term.term,
       created: term.createdAt.slice(0, 10),
       definitions,
@@ -295,6 +315,7 @@ export const buildTermsSkos = async (
       id: termsTable.id,
       term: termsTable.term,
       slug: termsTable.slug,
+      vocabularySlug: termsTable.vocabularySlug,
       createdAt: termsTable.createdAt
     })
     .from(termsTable)
@@ -387,7 +408,7 @@ const conceptTurtle = (skos: TermSkos) => {
 
   const termPairs = [
     "a skos:Concept",
-    `skos:inScheme <${schemeUri}>`,
+    `skos:inScheme <${vocabularyUri(skos.vocabularySlug)}>`,
     `skos:prefLabel ${en(skos.prefLabel)}`,
     ...skos.definitions.map(
       (d) => `skos:definition <${d.currentRevision.uri}>`
@@ -449,12 +470,36 @@ export const termTurtle = (skos: TermSkos, kos: KosData) => {
   )
 }
 
-export type SchemeDocument = { kos: KosData; records: TermSkos[] }
+export type VocabularyScheme = {
+  slug: string
+  title: string
+  description: string | null
+  isDefault: boolean
+  retiredAt: string | null
+}
+
+export type SchemeDocument = {
+  kos: KosData
+  records: TermSkos[]
+  vocabularies: VocabularyScheme[]
+}
 
 export const loadSchemeDocument = async (): Promise<SchemeDocument> => {
-  const kos = await loadKos()
+  const [kos, vocabularies] = await Promise.all([
+    loadKos(),
+    db
+      .select({
+        slug: vocabulariesTable.slug,
+        title: vocabulariesTable.title,
+        description: vocabulariesTable.description,
+        isDefault: vocabulariesTable.isDefault,
+        retiredAt: vocabulariesTable.retiredAt
+      })
+      .from(vocabulariesTable)
+      .orderBy(desc(vocabulariesTable.isDefault), asc(vocabulariesTable.slug))
+  ])
   const records = await buildTermsSkos(kos)
-  return { kos, records }
+  return { kos, records, vocabularies }
 }
 
 // The dictionary alone, without prefixes: the scheme block, then every term
@@ -462,17 +507,32 @@ export const loadSchemeDocument = async (): Promise<SchemeDocument> => {
 // graph of the graph layer (lib/graph/documents.ts), and one of the two
 // halves of /vocabulary.ttl. The knowledge-organization blocks are the other
 // half and are the `kos` graph, so the two never state a triple twice.
-export const renderVocabularyTurtle = ({ records }: SchemeDocument) => {
-  const scheme = turtleBlock(schemeUri, [
-    "a skos:ConceptScheme",
-    `dcterms:title ${en(`${SITE_NAME} vocabulary`)}`,
-    `dcterms:description ${en(
-      "Community definitions of materials science terminology, curated with human-in-the-loop AI by the Metadata Research Center, Drexel University."
-    )}`,
-    `dcterms:publisher ${lit("Metadata Research Center, Drexel University")}`
-  ])
+export const renderVocabularyTurtle = ({
+  records,
+  vocabularies
+}: SchemeDocument) => {
+  const schemes = vocabularies.map((vocabulary) => {
+    const pairs = [
+      "a skos:ConceptScheme",
+      `dcterms:title ${en(
+        vocabulary.isDefault ? `${SITE_NAME} vocabulary` : vocabulary.title
+      )}`,
+      ...(vocabulary.isDefault
+        ? [
+            `dcterms:description ${en(
+              "Community definitions of materials science terminology, curated with human-in-the-loop AI by the Metadata Research Center, Drexel University."
+            )}`
+          ]
+        : vocabulary.description
+          ? [`dcterms:description ${en(vocabulary.description)}`]
+          : []),
+      `dcterms:publisher ${lit("Metadata Research Center, Drexel University")}`,
+      ...(vocabulary.retiredAt ? ["owl:deprecated true"] : [])
+    ]
+    return turtleBlock(vocabularyUri(vocabulary.slug), pairs)
+  })
 
-  return scheme + "\n" + records.map(conceptTurtle).join("\n")
+  return [...schemes, ...records.map(conceptTurtle)].join("\n")
 }
 
 // The whole dictionary as one document: the scheme, every term concept, then
@@ -515,7 +575,7 @@ export const termJsonLd = (skos: TermSkos, kos: KosData) => {
     "@context": JSONLD_CONTEXT,
     "@id": skos.uri,
     "@type": "skos:Concept",
-    "skos:inScheme": idRef(schemeUri),
+    "skos:inScheme": idRef(vocabularyUri(skos.vocabularySlug)),
     "skos:prefLabel": { "@value": skos.prefLabel, "@language": "en" },
     "skos:definition": skos.definitions.map((d) => {
       const revision = d.currentRevision
@@ -592,18 +652,23 @@ export const termJsonLd = (skos: TermSkos, kos: KosData) => {
 // schema.org DefinedTerm for page heads: what crawlers and reference
 // managers read. The top-scored definition stands in as the description.
 export const definedTermJsonLd = (
-  term: { id: number; term: string; slug: string },
+  term: {
+    id: number
+    term: string
+    slug: string
+    vocabularySlug?: string
+  },
   description: string | undefined
 ) => ({
   "@context": "https://schema.org",
   "@type": "DefinedTerm",
-  "@id": termUri(term.slug),
+  "@id": termUri(term.slug, term.vocabularySlug),
   name: term.term,
   ...(description ? { description } : {}),
-  url: termUri(term.slug),
+  url: termUri(term.slug, term.vocabularySlug),
   inDefinedTermSet: {
     "@type": "DefinedTermSet",
-    "@id": schemeUri,
+    "@id": vocabularyUri(term.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG),
     name: SITE_NAME,
     url: SITE_URL
   }
@@ -615,19 +680,20 @@ export const definedTermJsonLd = (
 // skos:broader term statement (see termIdsWithActiveBroader): a term under
 // another term is not a top concept.
 export const conceptSchemeJsonLd = (
-  topTerms: { term: string; slug: string }[]
+  topTerms: { term: string; slug: string }[],
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
 ) => ({
   "@context": {
     skos: "http://www.w3.org/2004/02/skos/core#",
     dcterms: "http://purl.org/dc/terms/"
   },
-  "@id": schemeUri,
+  "@id": vocabularyUri(vocabularySlug),
   "@type": "skos:ConceptScheme",
   "dcterms:title": SITE_NAME,
   "dcterms:description":
     "A community-built controlled vocabulary for materials science metadata.",
   "skos:hasTopConcept": topTerms.map(({ term, slug }) => ({
-    "@id": termUri(slug),
+    "@id": termUri(slug, vocabularySlug),
     "@type": "skos:Concept",
     "skos:prefLabel": { "@value": term, "@language": "en" }
   }))
