@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import {
@@ -27,6 +27,8 @@ import {
 import { createTRPCRouter } from "../init"
 import { contributorProcedure } from "../procedures"
 import { discardAiContributionSuggestion } from "@/lib/ai-contribution-suggestions"
+import { activeCommunityFor } from "@/lib/community-queries"
+import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 
 /*
  * AI is an optional control inside a contribution action, never an action of
@@ -47,16 +49,22 @@ export const aiAssistRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx: { userId }, input }) => {
       const term = input.term.trim().toLowerCase()
+      const activeCommunity = await activeCommunityFor(db, userId)
+      const vocabularySlug =
+        activeCommunity?.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG
       const existing = await db.query.termsTable.findFirst({
         columns: { id: true, slug: true },
-        where: eq(termsTable.term, term)
+        where: and(
+          eq(termsTable.vocabularySlug, vocabularySlug),
+          sql`lower(btrim(${termsTable.term})) = ${term}`
+        )
       })
 
       if (existing)
         throw new TRPCError({
           code: "CONFLICT",
           message:
-            "That term is already in the vocabulary. Open it to suggest a revision or propose a replacement."
+            "That term is already in this vocabulary. Open it to suggest a revision or propose a replacement."
         })
 
       const result = await runLLM(
@@ -92,6 +100,7 @@ export const aiAssistRouter = createTRPCRouter({
         .values({
           intent: "new_term",
           requestedById: userId,
+          vocabularySlug,
           termText: term,
           inputDefinition: input.context?.trim() || null,
           suggestedDefinition,
@@ -124,6 +133,7 @@ export const aiAssistRouter = createTRPCRouter({
           definitionId: definitionsTable.id,
           currentRevisionId: definitionsTable.currentRevisionId,
           term: termsTable.term,
+          vocabularySlug: termsTable.vocabularySlug,
           definition: definitionsTable.definition
         })
         .from(definitionsTable)
@@ -183,6 +193,7 @@ export const aiAssistRouter = createTRPCRouter({
           .values({
             intent: "revise_definition",
             requestedById: userId,
+            vocabularySlug: source.vocabularySlug,
             termText: source.term,
             definitionId: source.definitionId,
             sourceRevisionId: input.sourceRevisionId,

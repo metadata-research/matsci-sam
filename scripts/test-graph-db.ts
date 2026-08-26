@@ -66,8 +66,9 @@ const main = async () => {
   } = await import("../drizzle")
   const { CONTENT_GRAPH_NAMES, graphIri } = await import("../lib/graph/names")
   const { projectGraphs } = await import("../lib/graph/projector")
-  const { applicationMetadataNamespaceUri, identifierBaseUrl, schemeUri } =
-    await import("../lib/public-identifiers")
+  const { applicationMetadataNamespaceUri, identifierBaseUrl } = await import(
+    "../lib/public-identifiers"
+  )
 
   // --- The store ---
 
@@ -151,7 +152,7 @@ const main = async () => {
     terms: await countOf(
       inGraph(
         "vocabulary",
-        `?term a <http://www.w3.org/2004/02/skos/core#Concept> ; <http://www.w3.org/2004/02/skos/core#inScheme> <${schemeUri}>`
+        `?term a <http://www.w3.org/2004/02/skos/core#Concept> ; <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme . ?scheme a <http://www.w3.org/2004/02/skos/core#ConceptScheme>`
       )
     ),
     definitions: await countOf(
@@ -174,7 +175,7 @@ const main = async () => {
   // union: the vocabulary graph states it for the current revision and the
   // provenance graph for the others ---
 
-  const revisionPattern = `${identifierBaseUrl}/vocabulary/[^/]+/definitions/[0-9]+/revisions/[0-9]+$`
+  const revisionPattern = `${identifierBaseUrl}/vocabulary/([^/]+/)?[^/]+/definitions/[0-9]+/revisions/[0-9]+$`
   const revisions = await countOf(
     `SELECT (COUNT(DISTINCT ?r) AS ?n) WHERE { ?r ?p ?o . FILTER (REGEX(STR(?r), ${JSON.stringify(revisionPattern)})) }`
   )

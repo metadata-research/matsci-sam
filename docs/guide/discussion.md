@@ -17,9 +17,9 @@ contributing."
 ## Suggest a revision
 
 Under **Suggest a revision**, enter feedback about the displayed definition and
-select **Draft revision with AI**. The application sends the term, exact source
-definition, and your feedback to the configured language model. The returned
-definition appears as an editable preview on the same card.
+select **Draft revision with a language model**. The application sends the
+term, exact source definition, and your feedback to the configured language
+model. The returned definition appears as an editable preview on the same card.
 
 Before the preview is returned, the application stores the exact source
 revision, feedback, model, prompt, and suggested definition.

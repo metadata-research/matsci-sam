@@ -16,6 +16,7 @@ import {
   TableRow
 } from "@/components/ui/table"
 import { trpc } from "@/trpc/client"
+import { termPath } from "@/lib/public-identifiers"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,7 +49,7 @@ const vocabularyColumns: ColumnDef<Job>[] = [
           {row.original.term}
         </Link>
         <Link
-          href={`/vocabulary/${row.original.slug}`}
+          href={termPath(row.original.slug, row.original.vocabularySlug)}
           aria-label={`Open public record for ${row.original.term}`}
           className="text-muted-foreground hover:text-primary"
         >
@@ -92,7 +93,7 @@ const vocabularyColumns: ColumnDef<Job>[] = [
     cell: ({ row }) =>
       row.original.comments > 0 ? (
         <Link
-          href={`/vocabulary/${row.original.slug}`}
+          href={termPath(row.original.slug, row.original.vocabularySlug)}
           aria-label={`${row.original.comments} ${
             row.original.comments === 1 ? "comment" : "comments"
           } on ${row.original.term}`}

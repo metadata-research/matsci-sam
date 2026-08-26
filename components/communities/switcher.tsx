@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { trpc } from "@/trpc/client"
 import {
@@ -19,9 +18,9 @@ import {
  * communities", "I have not chosen" and "I chose everything" all have to look
  * the same on screen and all mean the unscoped view.
  *
- * A success toast is a deliberate departure from the collection controls,
- * which use none. Switching scope changes pages the viewer may not be looking
- * at, so a refresh on its own would give them nothing to see.
+ * Switching reloads the current route after the preference is saved. The
+ * active vocabulary affects both the root layout and page-level server
+ * queries, so a full navigation keeps those two surfaces in lockstep.
  */
 export const CommunitySwitcher = ({
   active,
@@ -30,13 +29,8 @@ export const CommunitySwitcher = ({
   active: { id: number } | null
   memberships: { id: number; title: string }[]
 }) => {
-  const router = useRouter()
-
   const { mutate: setActive } = trpc.communities.setActive.useMutation({
-    onSuccess: ({ title }) => {
-      toast.success(title ? `Now working in ${title}` : "Now showing everything")
-      router.refresh()
-    },
+    onSuccess: () => window.location.reload(),
     onError: (error) => toast.error(error.message)
   })
 

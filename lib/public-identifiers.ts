@@ -19,11 +19,24 @@ const slugSegment = (slug: string, label = "Term slug") => {
 const absoluteIdentifier = (path: string) => `${identifierBaseUrl}${path}`
 
 export const schemePath = "/vocabulary"
+export const DEFAULT_VOCABULARY_SLUG = "matsci-sam"
 
-export const termPath = (slug: string) => `${schemePath}/${slugSegment(slug)}`
+export const vocabularyPath = (vocabularySlug: string) =>
+  vocabularySlug === DEFAULT_VOCABULARY_SLUG
+    ? schemePath
+    : `${schemePath}/${slugSegment(vocabularySlug, "Vocabulary slug")}`
 
-export const definitionPath = (slug: string, definitionNumber: number) =>
-  `${termPath(slug)}/definitions/${positiveIntegerSegment(
+export const termPath = (
+  slug: string,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) => `${vocabularyPath(vocabularySlug)}/${slugSegment(slug)}`
+
+export const definitionPath = (
+  slug: string,
+  definitionNumber: number,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) =>
+  `${termPath(slug, vocabularySlug)}/definitions/${positiveIntegerSegment(
     definitionNumber,
     "Definition number"
   )}`
@@ -31,27 +44,44 @@ export const definitionPath = (slug: string, definitionNumber: number) =>
 export const revisionPath = (
   slug: string,
   definitionNumber: number,
-  version: number
+  version: number,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
 ) =>
-  `${definitionPath(slug, definitionNumber)}/revisions/${positiveIntegerSegment(
-    version,
-    "Revision version"
-  )}`
+  `${definitionPath(slug, definitionNumber, vocabularySlug)}/revisions/${positiveIntegerSegment(version, "Revision version")}`
 
-export const rankPath = (slug: string, rank: number) =>
-  `${termPath(slug)}/rank/${positiveIntegerSegment(rank, "Rank")}`
+export const rankPath = (
+  slug: string,
+  rank: number,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) =>
+  `${termPath(slug, vocabularySlug)}/rank/${positiveIntegerSegment(rank, "Rank")}`
 
 export const schemeUri = absoluteIdentifier(schemePath)
-export const termUri = (slug: string) => absoluteIdentifier(termPath(slug))
-export const definitionUri = (slug: string, definitionNumber: number) =>
-  absoluteIdentifier(definitionPath(slug, definitionNumber))
+export const vocabularyUri = (vocabularySlug: string) =>
+  absoluteIdentifier(vocabularyPath(vocabularySlug))
+export const termUri = (
+  slug: string,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) => absoluteIdentifier(termPath(slug, vocabularySlug))
+export const definitionUri = (
+  slug: string,
+  definitionNumber: number,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) => absoluteIdentifier(definitionPath(slug, definitionNumber, vocabularySlug))
 export const revisionUri = (
   slug: string,
   definitionNumber: number,
-  version: number
-) => absoluteIdentifier(revisionPath(slug, definitionNumber, version))
-export const rankUri = (slug: string, rank: number) =>
-  absoluteIdentifier(rankPath(slug, rank))
+  version: number,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) =>
+  absoluteIdentifier(
+    revisionPath(slug, definitionNumber, version, vocabularySlug)
+  )
+export const rankUri = (
+  slug: string,
+  rank: number,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) => absoluteIdentifier(rankPath(slug, rank, vocabularySlug))
 
 /*
  * Knowledge-organization identifiers: concept schemes other than the

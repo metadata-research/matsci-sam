@@ -27,7 +27,16 @@ export default async function LegacyDefinitionPage({
 
   permanentRedirect(
     version
-      ? revisionPath(definition.termSlug, definition.definitionNumber, version)
-      : definitionPath(definition.termSlug, definition.definitionNumber)
+      ? revisionPath(
+          definition.termSlug,
+          definition.definitionNumber,
+          version,
+          definition.termVocabularySlug
+        )
+      : definitionPath(
+          definition.termSlug,
+          definition.definitionNumber,
+          definition.termVocabularySlug
+        )
   )
 }

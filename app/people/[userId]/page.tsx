@@ -17,6 +17,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { SITE_NAME } from "@/lib/site"
+import { termPath } from "@/lib/public-identifiers"
 
 // Visibility and profile fields change through the owner edit form. Never
 // retain a published or unpublished profile response in the full-route cache.
@@ -90,6 +91,7 @@ export default async function PublicProfilePage({
       id: termsTable.id,
       term: termsTable.term,
       slug: termsTable.slug,
+      vocabularySlug: termsTable.vocabularySlug,
       definitions: sql<number>`cast(count(${definitionsTable.id}) as int)`
     })
     .from(definitionsTable)
@@ -161,7 +163,7 @@ export default async function PublicProfilePage({
                 {authoredTerms.map((term) => (
                   <li key={term.id}>
                     <Link
-                      href={`/vocabulary/${term.slug}`}
+                      href={termPath(term.slug, term.vocabularySlug)}
                       className="flex items-baseline justify-between gap-4 rounded-md px-2 py-3 hover:bg-accent"
                     >
                       <span className="font-serif text-lg">{term.term}</span>

@@ -9,9 +9,9 @@ protocol decisions and acceptance criteria.
 
 ## Modules
 
-- `scripts/curate-pilot.ts` is the curation script, with the Zod schema of
-  the manifest at its top, and `scripts/curate-pilot.example.json` shows
-  the shape.
+- `scripts/curate-pilot.ts` is the curation script,
+  `scripts/curate-pilot-manifest.ts` holds its Zod manifest schema, and
+  `scripts/curate-pilot.example.json` shows the shape.
 - `scripts/pilot/config.ts` parses the arguments and holds `slugs`, the
   seed and the generators, the state directory, the operator address, the
   base URL and `requireEnv`.
@@ -29,15 +29,36 @@ protocol decisions and acceptance criteria.
 `pnpm curate:pilot -- --manifest <path> [--dry-run]` reconciles the database
 with the manifest by slug and prints one line per item. The manifest names its
 `operator` by email and processes four sections in order, `retire`,
-`communities`, `collections`, and `studies`. Each community
-has a slug, a title, a description and its members by email, each with a role
-and an optional `addedAt`, which may be a moment or `first-act-2025`, the
-earliest definition, comment or vote of the person in 2025. Each collection
-has a slug, a title and its terms, either term texts or the terms created
-before a date. Each study names its community and collection by slug, and has
-a title, a welcome, the window, and a `walkthrough`, null for none,
-`"default"` for the two closing questions, or a list of questions. A
-`$comment` anywhere is ignored.
+`communities`, `collections`, and `studies`. Each community has a slug, a
+title, a description and its members by email, each with a role and an
+optional `addedAt`, which may be a moment or `first-act-2025`, the earliest
+definition, comment or vote of the person in 2025. A community may also name
+the stable slugs of terms curated into its vocabulary. The script moves the
+existing term rows without copying their histories and preserves each former
+path as a permanent route alias. Each collection has a slug, a title and its
+terms. Vocabulary-qualified `{ "vocabulary": "...", "slug": "..." }`
+references are the unambiguous form; legacy term labels and the older
+`createdBefore` selector remain accepted for existing manifests. Collection
+`membership` defaults to `"additive"`, which asserts missing listed members
+and leaves every other live membership alone. `"exact"` makes an explicit
+qualified list authoritative: live `skos:member` assertions omitted from the
+list are retracted, not deleted, with the operator recorded as the retractor.
+Because omission is destructive, exact mode refuses legacy text labels and
+`createdBefore`, an empty list, and duplicate qualified routes.
+
+An exact membership change also refuses when a non-retired study over the
+collection already has generated walkthrough steps, or when any linked study
+has participant activity. An idempotent exact run with no membership change is
+allowed. The transaction locks linked studies in the same order as step
+generation and uses the shared collection-membership lock used by interactive
+edits, then re-reads the steps and authoritative live membership before it
+writes. A concurrent edit or generation therefore lands before the check or
+waits for the reconciled state; it cannot make an accepted plan stale.
+
+Each study names its community and collection by slug, and has a title, a
+welcome, the window, and a `walkthrough`, null for none, `"default"` for the
+two closing questions, or a list of questions. A `$comment` anywhere is
+ignored.
 
 The script resolves the complete manifest before the first write. Missing
 accounts or terms, conflicting slug shapes, an operator without standing, and
@@ -47,18 +68,19 @@ next run finds those rows present.
 
 The run is idempotent by slug. A repeated run reports existing items as
 `present`. Existing members keep their episode and role, studies keep their
-window, and retired rows keep their slug. The script writes a walkthrough while
-the study has no steps. It uses `lockStudy`, `completionCountOfStudy`,
-`replaceSteps`, and `planSteps`, matching `generateSteps`. Closed studies and
-empty collections receive no walkthrough.
+window, and retired rows keep their slug. Retiring a community also retires its
+same-slug vocabulary; neither public route is reused. The script writes a
+walkthrough while the study has no steps. It uses `lockStudy`,
+`completionCountOfStudy`, `replaceSteps`, and `planSteps`, matching
+`generateSteps`. Closed studies and empty collections receive no walkthrough.
 
 Each write is the act of the operator, row for row as the communities,
 collections and surveys routers write it, through the `lib/` functions where
-those exist. Each report line begins with `created`, `present`, `retired` or
-`skipped`, followed by a note. A count line closes the report. `--dry-run` prints
-the report with `would create` and `would retire` and makes no database
-changes. A manifest in use contains private email addresses. The repository
-includes only the example manifest.
+those exist. Each report line begins with `created`, `present`, `retracted`,
+`retired` or `skipped`, followed by a note. A count line closes the report.
+`--dry-run` uses `would create`, `would retract`, and `would retire` and makes
+no database changes. A manifest in use contains private email addresses. The
+repository includes only the example manifest.
 
 ## The driver
 

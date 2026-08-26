@@ -9,9 +9,15 @@ import { formatDate } from "@/lib/date"
 import { ChevronRightIcon, SparklesIcon } from "lucide-react"
 import Link from "next/link"
 import { PublicProfileName } from "@/components/public-profile-name"
-import { definitionPath, revisionPath } from "@/lib/public-identifiers"
+import {
+  definitionPath,
+  revisionPath,
+  termPath,
+  vocabularyPath
+} from "@/lib/public-identifiers"
 
 import { revisionSourceLabels } from "@/lib/revision-sources"
+import { getActiveCommunity } from "@/lib/community-queries"
 
 export const metadata: Metadata = {
   title: `Discussion | ${SITE_NAME}`,
@@ -22,10 +28,14 @@ export const metadata: Metadata = {
 /*
  * Lightweight discussion feed: the most-recent terms, each with the definition
  * under discussion and two explicit actions. A revision request gets an
- * editable AI draft; a comment is stored as-is and never triggers model work.
+ * editable language-model draft; a comment is stored as-is and never triggers
+ * model work.
  */
 export default async function DiscussionPage() {
-  const items = await trpc.discussion.recent({ limit: 8 })
+  const [items, activeCommunity] = await Promise.all([
+    trpc.discussion.recent({ limit: 8 }),
+    getActiveCommunity()
+  ])
 
   return (
     <main className="px-4 py-8">
@@ -36,14 +46,26 @@ export default async function DiscussionPage() {
             Suggest a revision by explaining what is wrong, or post a comment
             without changing the definition.
           </p>
+          {activeCommunity && (
+            <p className="text-sm text-muted-foreground">
+              Showing discussion for terms defined in the{" "}
+              <Link
+                href={vocabularyPath(activeCommunity.vocabularySlug)}
+                className="font-medium text-primary underline underline-offset-4"
+              >
+                {activeCommunity.title}
+              </Link>{" "}
+              vocabulary.
+            </p>
+          )}
         </div>
 
         <div className="space-y-4">
           {items.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Nothing to discuss yet —{" "}
+              Nothing to discuss yet.{" "}
               <Link href="/add" className="text-primary underline">
-                add the first definition
+                add a term
               </Link>
               .
             </p>
@@ -51,16 +73,26 @@ export default async function DiscussionPage() {
           {items.map((item) => (
             <Card key={item.id} className="p-4 gap-3">
               <div className="flex items-baseline justify-between gap-4">
-                <Link
-                  href={`/vocabulary/${item.slug}`}
-                  className="text-2xl font-semibold font-serif hover:underline"
-                >
-                  {item.term}
-                </Link>
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <Link
+                    href={termPath(item.slug, item.vocabularySlug)}
+                    className="text-2xl font-semibold font-serif hover:underline"
+                  >
+                    {item.term}
+                  </Link>
+                  {!activeCommunity && (
+                    <Badge variant="outline">
+                      Defined in {item.vocabularyTitle}
+                    </Badge>
+                  )}
+                </div>
                 <Link
                   href={
-                    definitionPath(item.slug, item.def.definitionNumber) +
-                    "#discussion"
+                    definitionPath(
+                      item.slug,
+                      item.def.definitionNumber,
+                      item.vocabularySlug
+                    ) + "#discussion"
                   }
                   className="text-sm text-muted-foreground shrink-0 hover:text-primary"
                 >
@@ -121,7 +153,8 @@ export default async function DiscussionPage() {
                             href={revisionPath(
                               item.slug,
                               event.definitionNumber,
-                              event.version
+                              event.version,
+                              item.vocabularySlug
                             )}
                             className={
                               event.kind === "comment"

@@ -7,6 +7,7 @@
 
 import assert from "node:assert/strict"
 import { eq, sql } from "drizzle-orm"
+import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
 
 const OBSERVE_BLOCK_MS = 200
 const OPERATION_TIMEOUT_MS = 8_000
@@ -92,6 +93,7 @@ const main = async () => {
       const [term] = await tx
         .insert(termsTable)
         .values({
+          vocabularySlug: DEFAULT_VOCABULARY_SLUG,
           term: `definition source lock test ${stamp}`,
           slug: `definition_source_lock_test_${stamp}`
         })

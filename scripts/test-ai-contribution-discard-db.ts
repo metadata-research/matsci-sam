@@ -5,6 +5,7 @@
 
 import assert from "node:assert/strict"
 import { eq, inArray } from "drizzle-orm"
+import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
 
 const main = async () => {
   if (!process.env.DATABASE_URL) {
@@ -43,6 +44,7 @@ const main = async () => {
           {
             intent: "new_term",
             requestedById: owner.id,
+            vocabularySlug: DEFAULT_VOCABULARY_SLUG,
             termText: `discard retry test ${stamp}`,
             suggestedDefinition:
               "A generated preview whose discard response is retried.",
@@ -54,6 +56,7 @@ const main = async () => {
           {
             intent: "new_term",
             requestedById: owner.id,
+            vocabularySlug: DEFAULT_VOCABULARY_SLUG,
             termText: `discard ownership test ${stamp}`,
             suggestedDefinition:
               "A live preview that another contributor cannot discard.",

@@ -1,32 +1,54 @@
 # Identifiers and citation
 
-MatSci-SAM assigns public identifiers to terms, contributed definitions, and
-immutable revisions. Readable slugs and stored numbers form the public paths,
-while database primary keys remain internal.
+MatSci-SAM assigns public identifiers to vocabulary schemes, terms,
+contributed definitions, and immutable revisions. Readable slugs and stored
+numbers form the public paths, while database primary keys remain internal.
 
 ## Identifier paths
 
-Vocabulary content uses three canonical path forms.
+The default MatSci-SAM vocabulary uses these paths:
 
 ```text
+/vocabulary
 /vocabulary/{term-slug}
 /vocabulary/{term-slug}/definitions/{definition-number}
 /vocabulary/{term-slug}/definitions/{definition-number}/revisions/{revision-number}
 ```
 
-Martensite can therefore have these resources:
+`/vocabulary` identifies the default MatSci-SAM concept scheme. Its page also
+lists the community vocabularies in the **Everything** catalog. Terms curated
+into a community vocabulary use that community's canonical path. A previous
+term path remains a permanent compatibility alias when ownership changes.
+
+Each community owns another concept scheme. Its terms add the community slug
+to the path:
 
 ```text
-/vocabulary/martensite
-/vocabulary/martensite/definitions/1
-/vocabulary/martensite/definitions/1/revisions/1
-/vocabulary/martensite/definitions/2
-/vocabulary/martensite/definitions/2/revisions/1
+/vocabulary/{community-slug}
+/vocabulary/{community-slug}/{term-slug}
+/vocabulary/{community-slug}/{term-slug}/definitions/{definition-number}
+/vocabulary/{community-slug}/{term-slug}/definitions/{definition-number}/revisions/{revision-number}
 ```
 
-The term path identifies the shared concept. A definition path identifies one
-contributed interpretation as it develops and displays its current revision.
-A revision path identifies one immutable state of that definition.
+Microstructure in the default scheme can therefore have these resources:
+
+```text
+/vocabulary/microstructure
+/vocabulary/microstructure/definitions/1
+/vocabulary/microstructure/definitions/1/revisions/1
+/vocabulary/microstructure/definitions/2
+/vocabulary/microstructure/definitions/2/revisions/1
+```
+
+The term path identifies one concept in one vocabulary. A definition path
+identifies one contributed interpretation as it develops and displays its
+current revision. A revision path identifies one immutable state of that
+definition.
+
+Two vocabularies may use the same label for distinct concepts. For example,
+`/vocabulary/id4/band_gap` and
+`/vocabulary/{another-community}/band_gap` have separate term, definition, and
+revision IRIs.
 
 The interface labels the last two resources with both coordinates, such as
 `Definition 2 · revision 1`. Competing definitions can both have revision 1
@@ -41,10 +63,11 @@ name, writes spaces as underscores, and retains hyphens. Characters outside
 For example, _density functional theory (DFT)_ receives the slug
 `density_functional_theory_dft`.
 
-Different labels can produce the same normalized slug. The first term receives
-the base slug. A later collision receives a suffix such as `_2`, followed by
-`_3` when needed. This suffix resolves a slug collision. It does not express a
-rank.
+Different labels can produce the same normalized slug. Within one vocabulary,
+the first term receives the base slug. A later collision receives a suffix such
+as `_2`, followed by `_3` when needed. This suffix resolves a slug collision.
+It does not express a rank. Another vocabulary may use the same slug because
+its scheme path keeps the concepts distinct.
 
 The assigned slug remains identifier data even if the preferred display label
 changes.
@@ -53,16 +76,22 @@ changes.
 
 Each competing definition receives a positive number within its term. The
 application assigns these numbers in creation order and stores them. A score,
-page position, author, or AI status leaves the number unchanged.
+page position, author, or language-model attribution leaves the number
+unchanged.
 
 Each immutable revision receives a positive number within its definition.
 A published edit or restoration increments the revision number while
-retaining the definition number. AI involvement is recorded through
-attribution and provenance, not through the identifier.
+retaining the definition number. Language-model involvement is recorded
+through attribution and provenance, not through the identifier.
 
 Numeric legacy routes such as `/definition/{legacy-id}` remain compatibility
 aliases. They redirect permanently to the canonical term-scoped path. New
 links and metadata use the canonical path.
+
+A curated vocabulary move follows the same rule. The former term path and its
+definition, revision, provenance, and rank paths redirect to the canonical
+path in the owning vocabulary. The alias reserves the former route so it
+cannot later identify another term or vocabulary.
 
 ## Tags, facets and collections
 
@@ -93,22 +122,24 @@ path.
 
 ## Live rank lookup
 
-A term also has a dynamic rank lookup:
+A term also has a dynamic rank lookup. The default and community forms are:
 
 ```text
 /vocabulary/{term-slug}/rank/{rank}
+/vocabulary/{community-slug}/{term-slug}/rank/{rank}
 ```
 
-For example, `/vocabulary/martensite/rank/1` redirects temporarily to the
+For example, `/vocabulary/microstructure/rank/1` redirects temporarily to the
 definition that holds first place when the request is evaluated. Voting can
 change that target. A rank path is a lookup, not a persistent identifier. Use
 the definition or revision IRI for citation and storage.
 
 ## Citation
 
-Use the term IRI when citing the shared concept. Use a definition IRI when the
-citation concerns the contribution as it develops. Use the exact revision IRI
-for a quotation or reproducible analysis.
+Use the term IRI when citing the concept as defined in one vocabulary. The
+scheme in its path distinguishes same-label concepts. Use a definition IRI
+when the citation concerns the contribution as it develops. Use the exact
+revision IRI for a quotation or reproducible analysis.
 
 A minimal exact citation has this form:
 
@@ -119,7 +150,8 @@ because the hostname depends on the deployment.
 
 ## Machine-readable forms
 
-Every term is a `skos:Concept` in the concept scheme at `/vocabulary`. SKOS
+Every term is a `skos:Concept` in its owning concept scheme. The default scheme
+is `/vocabulary`; community schemes use `/vocabulary/{community-slug}`. SKOS
 records identify current definition revisions as related resources. Those
 resources associate the text with all active examples of use, creators, date,
 status, and revision number. PROV-O records use the same definition and
@@ -127,7 +159,9 @@ revision IRIs for the revision chain and derivation history.
 
 Tags are `skos:Concept` resources in their own schemes at `/tags/{scheme}`,
 and a term or definition points at them with `dcterms:subject`. Collections
-are `skos:Collection` resources at `/collections/{collection}`.
+are `skos:Collection` resources at `/collections/{collection}`. A collection
+may reference terms from several vocabularies without changing their scheme
+IRIs.
 
 The [Metadata access](/docs/metadata-access) guide lists the Turtle and JSON-LD
 endpoints.

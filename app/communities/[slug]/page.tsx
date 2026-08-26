@@ -10,7 +10,11 @@ import {
   communityWorklist,
   membershipIn
 } from "@/lib/community-queries"
-import { collectionsWithCounts } from "@/lib/kos-queries"
+import {
+  collectionsWithCounts,
+  communityCollectionVocabularyCounts,
+  type CommunityCollectionVocabularyCount
+} from "@/lib/kos-queries"
 import { studiesOfCommunity } from "@/lib/study-queries"
 import { getCurrentUser } from "@/lib/current-user"
 import {
@@ -25,7 +29,8 @@ import {
 import {
   collectionPath,
   communitiesIndexPath,
-  studyPath
+  studyPath,
+  vocabularyPath
 } from "@/lib/public-identifiers"
 import { formatDate } from "@/lib/date"
 import { trpc } from "@/trpc/server"
@@ -78,8 +83,14 @@ export default async function CommunityPage({
   const user = await getCurrentUser()
   const membership = user ? await membershipIn(community.id, user.id) : null
 
-  const [roster, worklist, studies, invitations, allCollections] =
-    await Promise.all([
+  const [
+    roster,
+    worklist,
+    studies,
+    invitations,
+    allCollections,
+    vocabularyCounts
+  ] = await Promise.all([
     communityRoster(community.id),
     communityWorklist(community.id),
     studiesOfCommunity(community.id),
@@ -88,7 +99,8 @@ export default async function CommunityPage({
       : Promise.resolve([]),
     mayRunCommunity(user ?? null, membership)
       ? collectionsWithCounts()
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    communityCollectionVocabularyCounts(community.id)
   ])
 
   const runs = mayRunCommunity(user ?? null, membership) && !community.retiredAt
@@ -108,6 +120,15 @@ export default async function CommunityPage({
   // A collection a live study is running against is shown under that study, so
   // it is not repeated here under a second heading.
   const loose = worklist.filter((row) => row.studySlug === null)
+  const vocabularyCountsByCollection = new Map<
+    number,
+    CommunityCollectionVocabularyCount[]
+  >()
+  for (const row of vocabularyCounts) {
+    const current = vocabularyCountsByCollection.get(row.collectionId)
+    if (current) current.push(row)
+    else vocabularyCountsByCollection.set(row.collectionId, [row])
+  }
 
   return (
     <main className="px-4 py-8">
@@ -121,9 +142,14 @@ export default async function CommunityPage({
             <p className="text-muted-foreground">{community.description}</p>
           )}
           <p className="text-sm text-muted-foreground">
-            A community is people. A collection is terms. A study asks these
-            people to work through one of those collections and says what to do
-            with it.
+            <Link
+              href={vocabularyPath(community.vocabularySlug)}
+              className="text-primary underline underline-offset-4"
+            >
+              Browse this community&apos;s vocabulary
+            </Link>
+            . Its worklists can also include references to terms defined in
+            other vocabularies.
           </p>
           {community.retiredAt && (
             <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
@@ -206,9 +232,16 @@ export default async function CommunityPage({
                           >
                             {study.collectionTitle}
                           </Link>{" "}
-                          ({study.terms}{" "}
-                          {study.terms === 1 ? "term" : "terms"})
+                          ({study.terms} {study.terms === 1 ? "term" : "terms"})
                         </span>
+                        <VocabularyReferenceSummary
+                          rows={
+                            vocabularyCountsByCollection.get(
+                              study.collectionId
+                            ) ?? []
+                          }
+                          localVocabularySlug={community.vocabularySlug}
+                        />
                       </span>
                       <span className="text-xs text-muted-foreground shrink-0">
                         {studyState(study)}
@@ -258,8 +291,8 @@ export default async function CommunityPage({
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Collections these people see on Browse that no study is running
-            against.
+            Worklist collections that no study is currently using. They may
+            contain local terms or references to other vocabularies.
           </p>
           {loose.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -276,13 +309,25 @@ export default async function CommunityPage({
                   key={collection.id}
                   className="flex items-center justify-between gap-2 rounded-md border border-border p-3"
                 >
-                  {/* A sibling of the link, never nested inside it. */}
-                  <Link
-                    href={collectionPath(collection.slug)}
-                    className="text-primary"
-                  >
-                    {collection.title}
-                  </Link>
+                  <div className="min-w-0 space-y-1">
+                    {/* A sibling of the controls, never wrapped around them. */}
+                    <Link
+                      href={collectionPath(collection.slug)}
+                      className="text-primary"
+                    >
+                      {collection.title}
+                    </Link>
+                    <span className="block text-xs text-muted-foreground">
+                      {collection.terms}{" "}
+                      {collection.terms === 1 ? "term" : "terms"}
+                    </span>
+                    <VocabularyReferenceSummary
+                      rows={
+                        vocabularyCountsByCollection.get(collection.id) ?? []
+                      }
+                      localVocabularySlug={community.vocabularySlug}
+                    />
+                  </div>
                   <span className="flex items-center gap-2">
                     {collection.retiredAt && (
                       <span className="text-xs text-muted-foreground">
@@ -395,7 +440,9 @@ export default async function CommunityPage({
                       className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3"
                     >
                       <span className="space-y-1">
-                        <span className="block text-sm">{invitation.email}</span>
+                        <span className="block text-sm">
+                          {invitation.email}
+                        </span>
                         <span className="block text-xs text-muted-foreground">
                           {outcome === "live"
                             ? `expires ${formatDate(invitation.expiresAt)}`
@@ -432,5 +479,35 @@ export default async function CommunityPage({
         )}
       </section>
     </main>
+  )
+}
+
+function VocabularyReferenceSummary({
+  rows,
+  localVocabularySlug
+}: {
+  rows: CommunityCollectionVocabularyCount[]
+  localVocabularySlug: string
+}) {
+  const references = rows.filter(
+    (row) => row.vocabularySlug !== localVocabularySlug
+  )
+  if (references.length === 0) return null
+
+  return (
+    <span className="block text-xs text-muted-foreground">
+      <span className="font-medium text-foreground">References:</span>{" "}
+      {references.map((reference, index) => (
+        <span key={reference.vocabularySlug}>
+          {index > 0 && ", "}
+          <Link
+            href={vocabularyPath(reference.vocabularySlug)}
+            className="underline underline-offset-2 hover:text-primary"
+          >
+            {reference.vocabularyTitle} ({reference.terms})
+          </Link>
+        </span>
+      ))}
+    </span>
   )
 }

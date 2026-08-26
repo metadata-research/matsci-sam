@@ -9,7 +9,9 @@ import {
   collectionsTable,
   studiesTable,
   db,
-  usersTable
+  termsTable,
+  usersTable,
+  vocabulariesTable
 } from "@yamz/db"
 import { and, eq, isNull, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
@@ -45,11 +47,11 @@ import {
 /*
  * Communities: a named group of people, and what they are working through.
  *
- * A community is people. A collection is terms. Neither owns the other, and a
- * community owns nothing in the vocabulary at all. Membership is a row here
- * rather than a statement in the ledger, because the ledger publishes every
- * non-retracted row it holds and lab affiliation is not a disclosure this
- * project has made.
+ * A community is people and owns one vocabulary namespace. Collections remain
+ * independent worklists: they may contain locally defined terms or references
+ * to concepts in another vocabulary. Membership is a row here rather than a
+ * statement in the ledger, because the ledger publishes every non-retracted
+ * row it holds and lab affiliation is not a disclosure this project has made.
  *
  * An administrator owns the community record. A steward runs the roster, the
  * worklist and the invitations of the one community they steward. The rules
@@ -65,6 +67,7 @@ const loadCommunity = async (id: number) => {
     .select({
       id: communitiesTable.id,
       slug: communitiesTable.slug,
+      vocabularySlug: communitiesTable.vocabularySlug,
       title: communitiesTable.title,
       retiredAt: communitiesTable.retiredAt
     })
@@ -161,31 +164,53 @@ export const communitiesRouter = createTRPCRouter({
     .mutation(async ({ ctx: { userId }, input: { title, description } }) => {
       await requireAdmin(userId, "Only a curator can create a community")
 
-      const taken = await db
-        .select({ slug: communitiesTable.slug })
-        .from(communitiesTable)
+      const [vocabularySlugs, rootTermSlugs] = await Promise.all([
+        db.select({ slug: vocabulariesTable.slug }).from(vocabulariesTable),
+        db
+          .select({ slug: termsTable.slug })
+          .from(termsTable)
+          .innerJoin(
+            vocabulariesTable,
+            and(
+              eq(vocabulariesTable.slug, termsTable.vocabularySlug),
+              eq(vocabulariesTable.isDefault, true)
+            )
+          )
+      ])
       // The third argument is not optional here. uniqueSlug returns
       // slugify(term) || fallback, and the default fallback is "term", so a
       // title that slugifies to nothing would otherwise mint a community at
       // /communities/term.
       const slug = uniqueSlug(
         title,
-        new Set(taken.map((row) => row.slug)),
+        new Set([...vocabularySlugs, ...rootTermSlugs].map((row) => row.slug)),
         "community"
       )
 
-      const [created] = await db
-        .insert(communitiesTable)
-        .values({
+      const created = await db.transaction(async (tx) => {
+        await tx.insert(vocabulariesTable).values({
           slug,
           title,
           description: description || null,
           createdById: userId
         })
-        .returning({
-          id: communitiesTable.id,
-          slug: communitiesTable.slug
-        })
+
+        const [community] = await tx
+          .insert(communitiesTable)
+          .values({
+            slug,
+            vocabularySlug: slug,
+            title,
+            description: description || null,
+            createdById: userId
+          })
+          .returning({
+            id: communitiesTable.id,
+            slug: communitiesTable.slug
+          })
+
+        return community
+      })
 
       revalidatePath(communitiesIndexPath)
 
@@ -210,15 +235,27 @@ export const communitiesRouter = createTRPCRouter({
 
         // The slug is not derived again. The address stays put when the title
         // it came from changes.
-        await db
-          .update(communitiesTable)
-          .set({
-            ...(title === undefined ? {} : { title }),
-            ...(description === undefined
-              ? {}
-              : { description: description || null })
-          })
-          .where(eq(communitiesTable.id, communityId))
+        await db.transaction(async (tx) => {
+          await tx
+            .update(communitiesTable)
+            .set({
+              ...(title === undefined ? {} : { title }),
+              ...(description === undefined
+                ? {}
+                : { description: description || null })
+            })
+            .where(eq(communitiesTable.id, communityId))
+
+          await tx
+            .update(vocabulariesTable)
+            .set({
+              ...(title === undefined ? {} : { title }),
+              ...(description === undefined
+                ? {}
+                : { description: description || null })
+            })
+            .where(eq(vocabulariesTable.slug, community.vocabularySlug))
+        })
 
         revalidatePath(communitiesIndexPath)
         revalidatePath(communityPath(community.slug))
@@ -513,6 +550,11 @@ export const communitiesRouter = createTRPCRouter({
           .where(eq(communitiesTable.id, communityId))
 
         await tx
+          .update(vocabulariesTable)
+          .set({ retiredAt: sql`now()` })
+          .where(eq(vocabulariesTable.slug, community.vocabularySlug))
+
+        await tx
           .update(usersTable)
           .set({ activeCommunityId: null })
           .where(eq(usersTable.activeCommunityId, communityId))
@@ -536,10 +578,16 @@ export const communitiesRouter = createTRPCRouter({
 
       // Symmetric, because retiring left the roster alone. The community comes
       // back with its people and there is no asymmetry to explain.
-      await db
-        .update(communitiesTable)
-        .set({ retiredAt: null })
-        .where(eq(communitiesTable.id, communityId))
+      await db.transaction(async (tx) => {
+        await tx
+          .update(communitiesTable)
+          .set({ retiredAt: null })
+          .where(eq(communitiesTable.id, communityId))
+        await tx
+          .update(vocabulariesTable)
+          .set({ retiredAt: null })
+          .where(eq(vocabulariesTable.slug, community.vocabularySlug))
+      })
 
       revalidatePath(communitiesIndexPath)
       revalidatePath(communityPath(community.slug))

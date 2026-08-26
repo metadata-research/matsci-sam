@@ -77,7 +77,8 @@ export function RevisionSuggestionForm({
       router.push(
         definitionPath(
           published.term.slug,
-          published.definition.definitionNumber
+          published.definition.definitionNumber,
+          published.term.vocabularySlug
         )
       )
     },
@@ -109,8 +110,9 @@ export function RevisionSuggestionForm({
             Suggest a revision
           </p>
           <p className="text-sm text-muted-foreground">
-            Explain what is wrong or missing. AI will draft a revision for you
-            to review and edit before anything is published.
+            Explain what is wrong or missing, then prompt the configured
+            language model for an editable revision draft. Nothing is published
+            until you review and submit it.
           </p>
         </div>
 
@@ -211,7 +213,9 @@ export function RevisionSuggestionForm({
             }}
           >
             <SparklesIcon aria-hidden />
-            {suggest.isPending ? "Drafting…" : "Draft revision with AI"}
+            {suggest.isPending
+              ? "Drafting…"
+              : "Draft revision with a language model"}
           </Button>
         )}
 

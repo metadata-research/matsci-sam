@@ -2,16 +2,17 @@
 
 MatSci-SAM publishes terms, concepts, and MatCore elements.
 
-| Family           | What it describes                        | Identifier pattern            |
-| ---------------- | ---------------------------------------- | ----------------------------- |
-| Terms            | materials science terminology            | `/vocabulary/{term}`          |
-| Concepts         | topics and facets that classify terms    | `/tags/{scheme}/{concept}`    |
-| MatCore elements | metadata fields for describing a dataset | `/metadata/matcore#{element}` |
+| Family           | What it describes                        | Identifier pattern                                       |
+| ---------------- | ---------------------------------------- | -------------------------------------------------------- |
+| Terms            | materials science terminology            | `/vocabulary/{term}` or `/vocabulary/{community}/{term}` |
+| Concepts         | topics and facets that classify terms    | `/tags/{scheme}/{concept}`                               |
+| MatCore elements | metadata fields for describing a dataset | `/metadata/matcore#{element}`                            |
 
 Terms and concepts form the vocabulary. A term is a materials science word or
-phrase with definitions contributed by the community. Concepts organize terms
-by topic or facet. MatCore elements are fields in metadata records for
-computational datasets
+phrase with definitions contributed in the default MatSci-SAM scheme or a
+community-owned scheme. The same label may identify distinct concepts in two
+schemes. Classification concepts organize terms by topic or facet. MatCore
+elements are fields in metadata records for computational datasets
 ([Greenberg et al., 2025](https://arxiv.org/abs/2502.07106v1)).
 
 ## MatCore profiles
@@ -66,8 +67,9 @@ element to the vocabulary with `rdfs:range`.
   rdfs:range <…/vocabulary> .
 ```
 
-This connects a MatCore material value to a community-defined term and its
-vocabulary identifier.
+This range names the default MatSci-SAM concept scheme at `/vocabulary`.
+Community vocabularies have separate scheme IRIs at
+`/vocabulary/{community}`.
 
 The MatSci-SAM RDF layer also maps seven general MatCore elements to Dublin
 Core.

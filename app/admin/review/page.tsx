@@ -150,7 +150,8 @@ function LegacyRefinementRecords({
                     <Link
                       href={definitionPath(
                         refinement.termSlug,
-                        refinement.definitionNumber
+                        refinement.definitionNumber,
+                        refinement.termVocabularySlug
                       )}
                       className={styles.textLink}
                     >

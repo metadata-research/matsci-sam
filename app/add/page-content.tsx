@@ -1,9 +1,11 @@
 import { DefineTermForm } from "./form"
 
 export function AddTermPageContent({
-  initialTerm = ""
+  initialTerm = "",
+  vocabularyTitle
 }: {
   initialTerm?: string
+  vocabularyTitle: string
 }) {
   return (
     <main className="flex-1 px-4 py-8 sm:py-10">
@@ -13,10 +15,9 @@ export function AddTermPageContent({
             Add a new term
           </h1>
           <p className="leading-7 text-muted-foreground">
-            Contribute a new materials science term and its first definition.
-            You can write it yourself or ask AI for an editable suggestion.
-            After publishing, examples can be added separately so a definition
-            can collect more than one.
+            Add a term and its first definition to the {vocabularyTitle}{" "}
+            vocabulary. Write the definition or prompt a language model for an
+            editable draft.
           </p>
         </section>
         <DefineTermForm initialTerm={initialTerm} />

@@ -31,7 +31,9 @@ import {
   tagsIndexPath,
   tagsIndexUri,
   termPath,
-  termUri
+  termUri,
+  vocabularyPath,
+  vocabularyUri
 } from "../lib/public-identifiers"
 import { SITE_URL, resolveIdentifierBase } from "../lib/site"
 
@@ -65,8 +67,20 @@ const base = resolveIdentifierBase(process.env.IDENTIFIER_BASE_URL, SITE_URL)
 
 assert.equal(schemePath, "/vocabulary")
 assert.equal(schemeUri, `${base}/vocabulary`)
+assert.equal(vocabularyPath("matsci-sam"), "/vocabulary")
+assert.equal(vocabularyUri("matsci-sam"), `${base}/vocabulary`)
+assert.equal(vocabularyPath("zhang_lab"), "/vocabulary/zhang_lab")
+assert.equal(vocabularyUri("zhang_lab"), `${base}/vocabulary/zhang_lab`)
 assert.equal(termPath("martensite"), "/vocabulary/martensite")
 assert.equal(termUri("martensite"), `${base}/vocabulary/martensite`)
+assert.equal(
+  termPath("martensite", "zhang_lab"),
+  "/vocabulary/zhang_lab/martensite"
+)
+assert.equal(
+  termUri("martensite", "zhang_lab"),
+  `${base}/vocabulary/zhang_lab/martensite`
+)
 assert.equal(
   definitionPath("martensite", 2),
   "/vocabulary/martensite/definitions/2"
@@ -76,6 +90,10 @@ assert.equal(
   `${base}/vocabulary/martensite/definitions/2`
 )
 assert.equal(
+  definitionPath("martensite", 2, "zhang_lab"),
+  "/vocabulary/zhang_lab/martensite/definitions/2"
+)
+assert.equal(
   revisionPath("martensite", 2, 3),
   "/vocabulary/martensite/definitions/2/revisions/3"
 )
@@ -83,8 +101,16 @@ assert.equal(
   revisionUri("martensite", 2, 3),
   `${base}/vocabulary/martensite/definitions/2/revisions/3`
 )
+assert.equal(
+  revisionPath("martensite", 2, 3, "zhang_lab"),
+  "/vocabulary/zhang_lab/martensite/definitions/2/revisions/3"
+)
 assert.equal(rankPath("martensite", 4), "/vocabulary/martensite/rank/4")
 assert.equal(rankUri("martensite", 4), `${base}/vocabulary/martensite/rank/4`)
+assert.equal(
+  rankPath("martensite", 4, "zhang_lab"),
+  "/vocabulary/zhang_lab/martensite/rank/4"
+)
 assert.equal(termPath("high-entropy_alloy"), "/vocabulary/high-entropy_alloy")
 assert.equal(applicationMetadataNamespaceUri, `${base}/metadata#`)
 assert.equal(
@@ -135,6 +161,7 @@ for (const invalid of [0, -1, 1.2, Number.NaN])
 assert.throws(() => revisionPath("martensite", 1, 0), RangeError)
 assert.throws(() => rankPath("martensite", 0), RangeError)
 assert.throws(() => termPath(""), RangeError)
+assert.throws(() => vocabularyPath(""), RangeError)
 assert.throws(() => applicationMetadataUri(""), RangeError)
 
 assert.equal(communitiesIndexPath, "/communities")

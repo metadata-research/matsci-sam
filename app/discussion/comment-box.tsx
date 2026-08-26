@@ -3,7 +3,7 @@ import { TermCommentBox } from "@/components/term/comment-box"
 
 /*
  * The discussion feed exposes two canonical actions side by side. Revision
- * feedback asks for an editable AI draft; Comment stores exactly what the
+ * feedback prompts a language model for an editable draft; Comment stores what
  * contributor writes and has no model side effect.
  */
 export const DiscussionCommentBox = ({

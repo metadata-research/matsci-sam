@@ -423,7 +423,7 @@ export const buildTermProvenance = async (
     id: termNode,
     label: term.term,
     type: "term",
-    publicResource: { uri: termUri(term.slug) },
+    publicResource: { uri: termUri(term.slug, term.vocabularySlug) },
     meta: { created: term.createdAt }
   })
   events.push({
@@ -490,7 +490,7 @@ export const buildTermProvenance = async (
     definitionExamples.map((example) => [example.id, example])
   )
   const blankNodeScope = createHash("sha256")
-    .update(term.slug)
+    .update(`${term.vocabularySlug}/${term.slug}`)
     .digest("hex")
     .slice(0, 16)
   const stableDefinitionNodeId = (definitionNumber: number) =>
@@ -511,12 +511,17 @@ export const buildTermProvenance = async (
       label: `Definition ${definition.definitionNumber}`,
       type: "entity",
       publicResource: {
-        uri: definitionUri(term.slug, definition.definitionNumber),
+        uri: definitionUri(
+          term.slug,
+          definition.definitionNumber,
+          term.vocabularySlug
+        ),
         ...(replacementTarget
           ? {
               proposesReplacementFor: definitionUri(
                 term.slug,
-                replacementTarget.definitionNumber
+                replacementTarget.definitionNumber,
+                term.vocabularySlug
               )
             }
           : {})
@@ -626,7 +631,8 @@ export const buildTermProvenance = async (
       const isCurrent = definition.currentRevisionId === revision.id
       const stableDefinitionUri = definitionUri(
         term.slug,
-        definition.definitionNumber
+        definition.definitionNumber,
+        term.vocabularySlug
       )
       const previousRevision =
         revision.previousRevisionId === null
@@ -666,7 +672,8 @@ export const buildTermProvenance = async (
           uri: revisionUri(
             term.slug,
             definition.definitionNumber,
-            revision.version
+            revision.version,
+            term.vocabularySlug
           ),
           specializationOf: stableDefinitionUri,
           ...(previousRevision
@@ -674,7 +681,8 @@ export const buildTermProvenance = async (
                 wasRevisionOf: revisionUri(
                   term.slug,
                   definition.definitionNumber,
-                  previousRevision.version
+                  previousRevision.version,
+                  term.vocabularySlug
                 )
               }
             : {})
@@ -1756,7 +1764,12 @@ export const buildTermProvenance = async (
   return {
     // slug carried so the RDF serialization can build the concept IRI, which
     // is slug-based (lib/skos.ts termUri)
-    term: { id: term.id, term: term.term, slug: term.slug },
+    term: {
+      id: term.id,
+      term: term.term,
+      slug: term.slug,
+      vocabularySlug: term.vocabularySlug
+    },
     events,
     graph: { nodes, edges }
   }

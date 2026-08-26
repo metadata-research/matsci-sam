@@ -5,7 +5,7 @@ import {
   statementsTable,
   termsTable
 } from "@yamz/db"
-import { desc, sql } from "drizzle-orm"
+import { desc, eq, sql } from "drizzle-orm"
 import { currentFeaturedExampleText } from "./definition-example-queries"
 
 /*
@@ -128,13 +128,18 @@ export const searchOrderGrouped = (query: string) => [
 ]
 
 /*
- * Terms that a community is working through, by way of the collections on its
- * worklist. A separate exported predicate that has to be called explicitly, so
- * no existing call site is narrowed by accident: /search and the search
- * procedures stay unscoped on purpose, because narrowing a search is how a
- * person concludes a term is missing and enters a duplicate.
+ * Terms owned by one vocabulary namespace. The active-community homepage and
+ * Browse view use this boundary; a collection can still reference terms from
+ * other namespaces without making them local.
  */
-export const communityTermScope = (communityId: number) =>
+export const vocabularyTermScope = (vocabularySlug: string) =>
+  eq(termsTable.vocabularySlug, vocabularySlug)
+
+/*
+ * Terms referenced by the collections on a community's worklist. This is a
+ * worklist relation, not ownership and not a SKOS equivalence assertion.
+ */
+export const communityReferenceScope = (communityId: number) =>
   sql`${termsTable.id} in (
     select ${statementsTable.objectTermId}
     from ${statementsTable}

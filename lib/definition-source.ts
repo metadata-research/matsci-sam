@@ -1,4 +1,9 @@
-import { db, definitionRevisionsTable, definitionsTable } from "@yamz/db"
+import {
+  db,
+  definitionRevisionsTable,
+  definitionsTable,
+  termsTable
+} from "@yamz/db"
 import { eq } from "drizzle-orm"
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -17,6 +22,7 @@ export async function lockDefinitionRevisionSource(
     .select({
       definitionId: definitionsTable.id,
       termId: definitionsTable.termId,
+      vocabularySlug: termsTable.vocabularySlug,
       currentRevisionId: definitionsTable.currentRevisionId
     })
     .from(definitionRevisionsTable)
@@ -24,6 +30,7 @@ export async function lockDefinitionRevisionSource(
       definitionsTable,
       eq(definitionsTable.id, definitionRevisionsTable.definitionId)
     )
+    .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
     .where(eq(definitionRevisionsTable.id, revisionId))
     .limit(1)
     .for("share", { of: definitionsTable })

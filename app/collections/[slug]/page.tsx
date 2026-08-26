@@ -5,6 +5,7 @@ import { collectionsTable, db } from "@yamz/db"
 import { eq } from "drizzle-orm"
 import { SITE_NAME } from "@/lib/site"
 import { collectionMembers } from "@/lib/kos-queries"
+import { getActiveCommunity } from "@/lib/community-queries"
 import {
   collectionUri,
   collectionsIndexPath,
@@ -18,6 +19,7 @@ import {
   RemoveMember,
   RetireCollection
 } from "@/components/collections/controls"
+import { Badge } from "@/components/ui/badge"
 
 /*
  * /collections/<slug>: the skos:Collection IRI. Lists the terms the curator
@@ -51,11 +53,13 @@ export default async function CollectionPage({
   const collection = await loadCollection(slug)
   if (!collection) notFound()
 
-  const members = await collectionMembers(collection.id)
-
   // Affordances only. The router checks the same rules, and retiring binds a
   // curator whatever the collection says about membership.
-  const user = await getCurrentUser()
+  const [members, user, activeCommunity] = await Promise.all([
+    collectionMembers(collection.id),
+    getCurrentUser(),
+    getActiveCommunity()
+  ])
   const retired = collection.retiredAt !== null
   const mayEdit = !retired && mayAssertIn(collection, user ?? null)
   const isCurator = user?.role === "admin"
@@ -119,37 +123,66 @@ export default async function CollectionPage({
             This collection has no terms.
           </p>
         ) : (
-          <ul className="space-y-2">
-            {members.map((member) => (
-              // The remove control sits beside the link rather than inside it:
-              // a button nested in an anchor is not a valid target.
-              <li
-                key={member.id}
-                className="flex items-center gap-1 rounded-lg border bg-card pr-2 hover:border-primary"
-              >
-                <Link
-                  href={termPath(member.slug)}
-                  className="flex flex-1 items-baseline justify-between gap-2 px-4 py-3"
-                >
-                  <span className="font-serif font-semibold">
-                    {member.term}
-                  </span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {member.definitions === 1
-                      ? "1 definition"
-                      : `${member.definitions} definitions`}
-                  </span>
-                </Link>
-                {mayEdit && (
-                  <RemoveMember
-                    collectionId={collection.id}
-                    termId={member.id}
-                    term={member.term}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Collections can include terms from more than one vocabulary. The
+              labels below show where each term is defined.
+              {activeCommunity ? (
+                <>
+                  {" "}
+                  With {activeCommunity.title} selected, terms defined elsewhere
+                  are marked as references.
+                </>
+              ) : null}
+            </p>
+            <ul className="space-y-2">
+              {members.map((member) => {
+                const isReference =
+                  activeCommunity !== null &&
+                  member.vocabularySlug !== activeCommunity.vocabularySlug
+
+                return (
+                  // The remove control sits beside the link rather than inside
+                  // it: a button nested in an anchor is not a valid target.
+                  <li
+                    key={member.id}
+                    className="flex items-center gap-1 rounded-lg border bg-card pr-2 hover:border-primary"
+                  >
+                    <Link
+                      href={termPath(member.slug, member.vocabularySlug)}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-3"
+                    >
+                      <span className="min-w-0 space-y-1.5">
+                        <span className="block font-serif font-semibold">
+                          {member.term}
+                        </span>
+                        <span className="flex flex-wrap gap-1.5">
+                          {isReference ? (
+                            <Badge variant="secondary">Reference</Badge>
+                          ) : null}
+                          <Badge variant="outline">
+                            Defined in {member.vocabularyTitle}
+                          </Badge>
+                        </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {member.definitions === 1
+                          ? "1 definition"
+                          : `${member.definitions} definitions`}
+                      </span>
+                    </Link>
+                    {mayEdit && (
+                      <RemoveMember
+                        collectionId={collection.id}
+                        termId={member.id}
+                        term={member.term}
+                      />
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
         )}
       </section>
     </main>

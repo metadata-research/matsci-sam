@@ -102,7 +102,8 @@ export default async function AdminAuditPage() {
                         href={revisionPath(
                           activity.slug,
                           activity.definitionNumber,
-                          activity.version
+                          activity.version,
+                          activity.vocabularySlug
                         )}
                         className={styles.textLink}
                       >

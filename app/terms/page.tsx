@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
 export const metadata: Metadata = { title: `Browse Terms | ${SITE_NAME}` }
-import { db, definitionsTable, termsTable } from "@yamz/db"
+import { db, definitionsTable, termsTable, vocabulariesTable } from "@yamz/db"
 import { and, asc, eq, sql } from "drizzle-orm"
-import { communityTermScope, searchMatch } from "@/lib/search"
+import { searchMatch, vocabularyTermScope } from "@/lib/search"
 import { getActiveCommunity } from "@/lib/community-queries"
 import Link from "next/link"
 import { BrowseList } from "./browse-list"
@@ -14,7 +14,7 @@ import { BrowseList } from "./browse-list"
 export const dynamic = "force-dynamic"
 
 export default async function TermsPage({
-  searchParams,
+  searchParams
 }: {
   searchParams: Promise<{ q?: string; scope?: string }>
 }) {
@@ -27,20 +27,26 @@ export default async function TermsPage({
       term: termsTable.term,
       id: termsTable.id,
       slug: termsTable.slug,
+      vocabularySlug: termsTable.vocabularySlug,
+      vocabularyTitle: vocabulariesTable.title,
       count: sql<number>`cast(count(*) as int)`
     })
     .from(definitionsTable)
-    .leftJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
+    .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
+    .innerJoin(
+      vocabulariesTable,
+      eq(vocabulariesTable.slug, termsTable.vocabularySlug)
+    )
     // Same engine as /search (FTS + trigram + stemming); the alphabetical
     // letter-group layout keeps its own ordering, so only the filter changes
     .where(
       and(
         q?.trim() ? searchMatch(q) : undefined,
-        active ? communityTermScope(active.id) : undefined
+        active ? vocabularyTermScope(active.vocabularySlug) : undefined
       )
     )
-    .orderBy(asc(termsTable.term))
-    .groupBy(termsTable.term, termsTable.id)
+    .orderBy(asc(termsTable.term), asc(vocabulariesTable.title))
+    .groupBy(termsTable.term, termsTable.id, vocabulariesTable.title)
 
   return (
     <main className="px-4 py-8">
@@ -53,11 +59,11 @@ export default async function TermsPage({
         {active && (
           <p className="text-sm text-muted-foreground mb-6 flex flex-wrap items-center gap-2">
             <span>
-              Showing what{" "}
+              Showing terms defined in the{" "}
               <span className="font-medium text-foreground">
                 {active.title}
               </span>{" "}
-              is working through
+              vocabulary
             </span>
             <Link
               href={
@@ -92,14 +98,18 @@ export default async function TermsPage({
           </p>
         )}
 
-        {active && terms.length === 0 ? (
+        {terms.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {q?.trim()
-              ? `No term ${active.title} is working through matches "${q.trim()}".`
-              : `${active.title} is not working through any terms yet. The collections on its worklist may be empty or retired.`}
+            {active
+              ? q?.trim()
+                ? `No term in the ${active.title} vocabulary matches "${q.trim()}".`
+                : `No terms have been published in the ${active.title} vocabulary yet.`
+              : q?.trim()
+                ? `No term matches "${q.trim()}".`
+                : "No terms have been published yet."}
           </p>
         ) : (
-          <BrowseList terms={terms} />
+          <BrowseList terms={terms} showVocabulary={!active} />
         )}
       </section>
     </main>

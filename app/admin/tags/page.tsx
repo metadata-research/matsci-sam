@@ -63,7 +63,7 @@ export default async function AdminTagsPage() {
                     <td className={styles.activityTerm}>{row.conceptLabel}</td>
                     <td className={styles.activityTerm}>
                       <Link
-                        href={termPath(row.termSlug)}
+                        href={termPath(row.termSlug, row.termVocabularySlug)}
                         className={styles.textLink}
                       >
                         {row.termLabel}

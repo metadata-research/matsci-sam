@@ -1,14 +1,17 @@
 "use client"
 
 import { Input } from "@/components/ui/input"
+import { termPath } from "@/lib/public-identifiers"
 import { SearchIcon, XIcon } from "lucide-react"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 
 export type BrowseTerm = {
-  id: number | null
-  term: string | null
-  slug: string | null
+  id: number
+  term: string
+  slug: string
+  vocabularySlug: string
+  vocabularyTitle: string
   count: number
 }
 
@@ -32,7 +35,13 @@ const groupByLetter = (terms: BrowseTerm[]) => {
   })
 }
 
-export const BrowseList = ({ terms }: { terms: BrowseTerm[] }) => {
+export const BrowseList = ({
+  terms,
+  showVocabulary
+}: {
+  terms: BrowseTerm[]
+  showVocabulary: boolean
+}) => {
   const [filter, setFilter] = useState("")
 
   const query = filter.trim().toLowerCase()
@@ -44,7 +53,11 @@ export const BrowseList = ({ terms }: { terms: BrowseTerm[] }) => {
   const filtered = useMemo(
     () =>
       query
-        ? terms.filter((t) => t.term?.toLowerCase().includes(query))
+        ? terms.filter(
+            (t) =>
+              t.term.toLowerCase().includes(query) ||
+              t.vocabularyTitle.toLowerCase().includes(query)
+          )
         : terms,
     [terms, query]
   )
@@ -113,27 +126,43 @@ export const BrowseList = ({ terms }: { terms: BrowseTerm[] }) => {
 
       <div className="space-y-10">
         {sorted.map(([letter, items]) => (
-          <section key={letter} id={`letter-${letter}`} className="scroll-mt-16">
+          <section
+            key={letter}
+            id={`letter-${letter}`}
+            className="scroll-mt-16"
+          >
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-2xl font-semibold text-primary">
-                {letter}
-              </h2>
+              <h2 className="text-2xl font-semibold text-primary">{letter}</h2>
               <div className="h-px flex-1 bg-border" />
             </div>
             <ul>
-              {items.map(({ term, count, id, slug }) => (
-                <li key={id}>
-                  <Link
-                    href={`/vocabulary/${slug}`}
-                    className="flex items-baseline gap-2 rounded-md px-3 py-2 hover:bg-accent transition-colors"
-                  >
-                    <span className="font-serif text-lg">{term}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({count})
-                    </span>
-                  </Link>
-                </li>
-              ))}
+              {items.map(
+                ({
+                  term,
+                  count,
+                  id,
+                  slug,
+                  vocabularySlug,
+                  vocabularyTitle
+                }) => (
+                  <li key={id}>
+                    <Link
+                      href={termPath(slug, vocabularySlug)}
+                      className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md px-3 py-2 hover:bg-accent transition-colors"
+                    >
+                      <span className="font-serif text-lg">{term}</span>
+                      <span className="text-sm text-muted-foreground">
+                        ({count})
+                      </span>
+                      {showVocabulary && (
+                        <span className="basis-full text-xs text-muted-foreground">
+                          Defined in {vocabularyTitle}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                )
+              )}
             </ul>
           </section>
         ))}

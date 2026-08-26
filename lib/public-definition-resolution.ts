@@ -8,6 +8,7 @@ import {
 } from "@yamz/db"
 import { and, desc, eq } from "drizzle-orm"
 import { cache } from "react"
+import { DEFAULT_VOCABULARY_SLUG } from "./public-identifiers"
 
 export function parsePositivePublicNumber(value: string) {
   if (!/^[1-9]\d*$/.test(value)) return null
@@ -20,19 +21,25 @@ export function parsePositivePublicNumber(value: string) {
  * used by application services.
  */
 export const findDefinitionByPublicNumber = cache(
-  async (termSlug: string, definitionNumber: number) => {
+  async (
+    termSlug: string,
+    definitionNumber: number,
+    vocabularySlug = DEFAULT_VOCABULARY_SLUG
+  ) => {
     const [definition] = await db
       .select({
         id: definitionsTable.id,
         definitionNumber: definitionsTable.definitionNumber,
         term: termsTable.term,
-        termSlug: termsTable.slug
+        termSlug: termsTable.slug,
+        termVocabularySlug: termsTable.vocabularySlug
       })
       .from(definitionsTable)
       .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
       .where(
         and(
           eq(termsTable.slug, termSlug),
+          eq(termsTable.vocabularySlug, vocabularySlug),
           eq(definitionsTable.definitionNumber, definitionNumber)
         )
       )
@@ -43,13 +50,19 @@ export const findDefinitionByPublicNumber = cache(
 )
 
 export const findDefinitionRevisionByPublicNumber = cache(
-  async (termSlug: string, definitionNumber: number, version: number) => {
+  async (
+    termSlug: string,
+    definitionNumber: number,
+    version: number,
+    vocabularySlug = DEFAULT_VOCABULARY_SLUG
+  ) => {
     const [definition] = await db
       .select({
         id: definitionsTable.id,
         definitionNumber: definitionsTable.definitionNumber,
         term: termsTable.term,
         termSlug: termsTable.slug,
+        termVocabularySlug: termsTable.vocabularySlug,
         version: definitionRevisionsTable.version
       })
       .from(definitionsTable)
@@ -61,6 +74,7 @@ export const findDefinitionRevisionByPublicNumber = cache(
       .where(
         and(
           eq(termsTable.slug, termSlug),
+          eq(termsTable.vocabularySlug, vocabularySlug),
           eq(definitionsTable.definitionNumber, definitionNumber),
           eq(definitionRevisionsTable.version, version)
         )
@@ -82,7 +96,8 @@ export const findDefinitionPublicIdentity = cache(
         id: definitionsTable.id,
         definitionNumber: definitionsTable.definitionNumber,
         term: termsTable.term,
-        termSlug: termsTable.slug
+        termSlug: termsTable.slug,
+        termVocabularySlug: termsTable.vocabularySlug
       })
       .from(definitionsTable)
       .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
@@ -98,17 +113,27 @@ export const findDefinitionPublicIdentity = cache(
  * matches definitions.list and the term page: score first, newest second, and
  * the higher permanent definition number for the rare equal-timestamp tie.
  */
-export async function findDefinitionAtRank(termSlug: string, rank: number) {
+export async function findDefinitionAtRank(
+  termSlug: string,
+  rank: number,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) {
   const [definition] = await db
     .select({
       id: definitionsTable.id,
       definitionNumber: definitionsTable.definitionNumber,
       term: termsTable.term,
-      termSlug: termsTable.slug
+      termSlug: termsTable.slug,
+      termVocabularySlug: termsTable.vocabularySlug
     })
     .from(definitionsTable)
     .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-    .where(eq(termsTable.slug, termSlug))
+    .where(
+      and(
+        eq(termsTable.slug, termSlug),
+        eq(termsTable.vocabularySlug, vocabularySlug)
+      )
+    )
     .orderBy(
       desc(definitionsTable.score),
       desc(definitionsTable.createdAt),

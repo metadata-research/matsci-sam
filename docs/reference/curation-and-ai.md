@@ -9,9 +9,11 @@ attribution and provenance.
 ## Contributor and administrator roles
 
 Contributors create terms and definitions and may add separately attributed
-examples of use. They may create topics and attach them to definitions they
-wrote. A contributor who created a topic may link it to an equivalent
-vocabulary term when the scheme permits the link.
+examples of use. A term created with a community selected belongs to that
+community's vocabulary; a term created with **Everything** selected belongs to
+the default MatSci-SAM vocabulary. Contributors may create topics and attach
+them to definitions they wrote. A contributor who created a topic may link it
+to an equivalent vocabulary term when the scheme permits the link.
 
 Administrators assign facets to terms and manage tags. They may edit a tag
 definition, scope note, and alternative labels, link bridgeable tags to
@@ -24,8 +26,10 @@ contributor-created collection accepts changes from any signed-in contributor.
 A deployment setting controls contributor collection creation and is disabled
 by default.
 
-Terms belong to the shared vocabulary. Contributors manage topics on
-definitions they wrote, and administrators manage facets on terms.
+Terms belong to one vocabulary scheme. The same label may identify distinct
+concepts in different schemes. A collection may reference a term from another
+scheme without changing where that term is defined. Contributors manage topics
+on definitions they wrote, and administrators manage facets on terms.
 
 Every assertion made through the application records who made it and when. A
 retraction preserves the original assertion and records who withdrew it and
@@ -53,7 +57,7 @@ Each definition revision records the size of its change. The Tag drift report
 lists linked tags whose term definitions changed by at least 25 percent after
 classification statements were first filed under them.
 
-## Contribution actions and AI
+## Contribution actions and language-model drafting
 
 MatSci-SAM uses five contribution actions. An action has the same meaning and
 records the same kind of contribution wherever it appears on a vocabulary
@@ -69,14 +73,15 @@ page, in Discussion, or in a study.
 - **Add example** attaches a separately attributed usage example to one
   definition.
 
-The application calls the configured model only inside **New term** and
-**Suggest a revision**. The call is optional for a new term. For a revision,
-the contributor first states what is wrong or missing. The application sends
+Language-model drafting is available only inside **New term** and **Suggest a
+revision**. **Draft with a language model** generates editable text for a new
+term. For a revision, the contributor first states what is wrong or missing,
+then selects **Draft revision with a language model**. The application sends
 that critique with the exact source definition and returns an editable draft.
-Both calls are drafting controls within a contribution action. They do not form
-a separate publication workflow. Publishing either draft attributes the
-definition to the contributor and the named model. A suggested revision remains
-separately voteable and leaves its source unchanged.
+Both are drafting controls within an existing contribution action. Publishing
+either draft attributes the definition to the contributor and the named model.
+A suggested revision remains separately voteable and leaves its source
+unchanged.
 
 Comments, replacement proposals, and examples do not trigger model work.
 Examples have their own immutable contribution records, so one definition can
@@ -107,9 +112,9 @@ A community may conduct a study over a collection of terms with an ordered
 walkthrough. The pilot protocol asks each participant to take one position on
 each term by accepting a candidate, suggesting a revision, or proposing a
 replacement. Acceptance records an upvote. A suggested revision uses the
-shared critique-driven AI action and creates a definition whose first revision
-names the source revision. A replacement names the stable definition it is
-intended to supersede.
+critique-driven language-model drafting control and creates a definition whose
+first revision names the source revision. A replacement names the stable
+definition it is intended to supersede.
 
 Votes, comments, and definitions created through the walkthrough name the
 study step that prompted them. Step completions and closing answers form

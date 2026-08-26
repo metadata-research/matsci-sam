@@ -49,11 +49,13 @@ const main = async () => {
     conceptSchemeJsonLd
   } = await import("../lib/skos")
   const {
+    DEFAULT_VOCABULARY_SLUG,
     conceptSchemeUri,
     conceptUri,
     collectionUri,
     identifierBaseUrl,
-    termUri
+    termUri,
+    vocabularyUri
   } = await import("../lib/public-identifiers")
 
   // --- Predicate registry: hand-copied domain/range table (plan §5) ---
@@ -392,9 +394,24 @@ const main = async () => {
       statement(12, "skos:member", { subjectCollectionId: 1, objectTermId: 2 })
     ],
     terms: [
-      { id: 1, term: "martensite", slug: "martensite" },
-      { id: 2, term: "austenite", slug: "austenite" },
-      { id: 3, term: "band gap", slug: "band_gap" }
+      {
+        id: 1,
+        term: "martensite",
+        slug: "martensite",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      },
+      {
+        id: 2,
+        term: "austenite",
+        slug: "austenite",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      },
+      {
+        id: 3,
+        term: "band gap",
+        slug: "band_gap",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG
+      }
     ]
   }
 
@@ -404,6 +421,7 @@ const main = async () => {
         id: 1,
         term: "martensite",
         slug: "martensite",
+        vocabularySlug: DEFAULT_VOCABULARY_SLUG,
         createdAt: "2026-01-02 03:04:05"
       }
     ],
@@ -451,6 +469,7 @@ const main = async () => {
 
   const [skos] = assembleTermSkos(rows, kos)
   assert.equal(skos.uri, termUri("martensite"))
+  assert.equal(skos.vocabularySlug, DEFAULT_VOCABULARY_SLUG)
   assert.deepEqual(
     skos.facets.map((c) => c.slug),
     ["processing"]
@@ -575,16 +594,25 @@ const main = async () => {
   // Whole-vocabulary document. The graph layer projects its two halves as
   // separate named graphs; their concatenation is the route document, byte
   // for byte.
+  const vocabularies = [
+    {
+      slug: DEFAULT_VOCABULARY_SLUG,
+      title: "MatSci-SAM",
+      description: "The original MatSci-SAM vocabulary.",
+      isDefault: true,
+      retiredAt: null
+    }
+  ]
   assert.equal(
-    renderSchemeTurtle({ kos, records: [skos] }),
+    renderSchemeTurtle({ kos, records: [skos], vocabularies }),
     TTL_PREFIXES +
-      renderVocabularyTurtle({ kos, records: [skos] }) +
+      renderVocabularyTurtle({ kos, records: [skos], vocabularies }) +
       "\n" +
       kosBlocksTurtle(new KosView(kos)),
     "vocabulary.ttl is the vocabulary graph followed by the kos graph"
   )
   const schemeQuads = parse(
-    renderSchemeTurtle({ kos, records: [skos] }),
+    renderSchemeTurtle({ kos, records: [skos], vocabularies }),
     "renderSchemeTurtle"
   )
   const conceptSubjects = countOccurrences(
@@ -736,6 +764,70 @@ const main = async () => {
   const scheme = conceptSchemeJsonLd([{ term: "austenite", slug: "austenite" }])
   assert.equal(scheme["skos:hasTopConcept"].length, 1)
 
+  // A community term may reuse a default-vocabulary slug without reusing its
+  // identifier. Every representation carries the owning vocabulary through
+  // the term, definition and revision coordinates.
+  const communityVocabularySlug = "zhang_lab"
+  const [communitySkos] = assembleTermSkos(
+    {
+      terms: [
+        {
+          id: 4,
+          term: "martensite",
+          slug: "martensite",
+          vocabularySlug: communityVocabularySlug,
+          createdAt: "2026-03-01 00:00:00"
+        }
+      ],
+      definitions: [
+        {
+          ...rows.definitions[0],
+          id: 40,
+          termId: 4,
+          definitionNumber: 1,
+          revisionVersion: 1
+        }
+      ],
+      coauthors: []
+    },
+    { ...kos, statements: [] }
+  )
+  const communityTermIri = termUri("martensite", communityVocabularySlug)
+  assert.equal(communitySkos.uri, communityTermIri)
+  assert.equal(
+    communitySkos.definitions[0].uri,
+    `${communityTermIri}/definitions/1`
+  )
+  assert.equal(
+    communitySkos.definitions[0].currentRevision.uri,
+    `${communityTermIri}/definitions/1/revisions/1`
+  )
+  const communityTermQuads = parse(
+    termTurtle(communitySkos, { ...kos, statements: [] }),
+    "community termTurtle"
+  )
+  assert.deepEqual(
+    objectsOf(communityTermQuads, communityTermIri, `${SKOS}inScheme`),
+    [vocabularyUri(communityVocabularySlug)]
+  )
+  const communityJsonLd = termJsonLd(communitySkos, {
+    ...kos,
+    statements: []
+  }) as Record<string, unknown>
+  assert.equal(communityJsonLd["@id"], communityTermIri)
+  assert.deepEqual(communityJsonLd["skos:inScheme"], {
+    "@id": vocabularyUri(communityVocabularySlug)
+  })
+  const communityScheme = conceptSchemeJsonLd(
+    [{ term: "martensite", slug: "martensite" }],
+    communityVocabularySlug
+  )
+  assert.equal(communityScheme["@id"], vocabularyUri(communityVocabularySlug))
+  assert.equal(
+    communityScheme["skos:hasTopConcept"][0]["@id"],
+    communityTermIri
+  )
+
   // A retired collection keeps its IRI, is marked deprecated, and lists no
   // members, because retiring retracts them.
   const retiredCollectionTtl = kosTurtle(kos)
@@ -795,7 +887,7 @@ const main = async () => {
   const {
     matCoreElementUri: elementUri,
     matCoreNamespaceUri: matCoreNs,
-    schemeUri: vocabularyUri
+    schemeUri: defaultVocabularyUri
   } = await import("../lib/public-identifiers")
 
   const { TTL_PREFIXES: prefixes } = await import("../lib/kos-export")
@@ -853,7 +945,7 @@ const main = async () => {
   )
   assert.equal(range.length, 1)
   assert.equal(range[0].subject.value, elementUri("material"))
-  assert.equal(range[0].object.value, vocabularyUri)
+  assert.equal(range[0].object.value, defaultVocabularyUri)
 
   console.log("KOS ledger tests passed")
 }

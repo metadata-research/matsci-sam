@@ -119,7 +119,7 @@ export const CreateCommunity = () => {
     >
       <Input
         autoFocus
-        placeholder="Name, for example Zhang Lab"
+        placeholder="Name, for example Materials Data Group"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
       />

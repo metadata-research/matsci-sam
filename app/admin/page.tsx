@@ -95,7 +95,8 @@ export default async function AdminOverviewPage() {
                         href={revisionPath(
                           activity.slug,
                           activity.definitionNumber,
-                          activity.version
+                          activity.version,
+                          activity.vocabularySlug
                         )}
                         className={styles.activityTerm}
                       >

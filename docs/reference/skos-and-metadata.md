@@ -10,11 +10,11 @@ provides project-specific classes and properties.
 
 | Document                             | Content                                                                                     |
 | ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `/vocabulary.ttl`                    | The dictionary scheme, all terms, and all content from `/tags.ttl`                          |
+| `/vocabulary.ttl`                    | All hosted vocabulary schemes and terms, plus all content from `/tags.ttl`                  |
 | `/tags.ttl`                          | The tag schemes, tags, hierarchy, mappings and collections                                  |
 | `/terms/{id}/skos.ttl` and `.jsonld` | One term, with the tags it refers to and their schemes                                      |
 | `/terms/{id}/provenance.ttl`         | The PROV-O record of one term                                                               |
-| `/graphs/vocabulary`                 | The dictionary scheme, every term, its definitions and their revisions, as a named graph    |
+| `/graphs/vocabulary`                 | Every hosted vocabulary scheme and term, with definitions and revisions, as a named graph   |
 | `/graphs/kos`                        | The tag schemes, tags, hierarchy, mappings and collections, as a named graph                |
 | `/graphs/provenance`                 | The PROV-O record of every term, with the assertions of the ledger, voting acts and studies |
 | `/graphs/matcore`                    | The MatCore element set and its crosswalk, as a named graph                                 |
@@ -24,17 +24,17 @@ The four content graphs are pairwise disjoint. [Metadata
 access](/docs/metadata-access#named-graphs)
 describes them and the SPARQL endpoint over their union.
 
-Every document describes each concept once. A term document includes the tags
-it refers to and their schemes. `/tags.ttl` and `/vocabulary.ttl` enumerate the
-top concepts of each tag scheme. Term documents provide the scheme description
-without that enumeration. The JSON-LD form lists the same secondary nodes under
-`@included`.
+Every document describes each concept once. A term document identifies its
+owning vocabulary with `skos:inScheme` and includes the tags it refers to and
+their schemes. `/tags.ttl` and `/vocabulary.ttl` enumerate the top concepts of
+each tag scheme. Term documents provide the scheme description without that
+enumeration. The JSON-LD form lists the same secondary nodes under `@included`.
 
 ## Classes and properties
 
 | Resource              | Class                       | Properties                                                                                                                                                                        |
 | --------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The dictionary        | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `dcterms:publisher`                                                                                                                       |
+| A hosted vocabulary   | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `dcterms:publisher`                                                                                                                       |
 | A term                | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `skos:definition`, `dcterms:subject`, `dcterms:contributor`, `dcterms:created`, `skos:broader`, `skos:narrower`, `skos:related`, `skos:*Match` |
 | A tag scheme          | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `skos:hasTopConcept`                                                                                                                      |
 | A tag                 | `skos:Concept`              | `skos:inScheme`, `skos:topConceptOf`, `skos:prefLabel`, `skos:altLabel`, `skos:definition`, `skos:scopeNote`, `skos:broader`, `skos:narrower`, `skos:related`, `skos:*Match`      |
@@ -48,19 +48,23 @@ are listed in [Metadata access](/docs/metadata-access).
 
 ## Conventions
 
-A term or a definition names its tags with `dcterms:subject`. The object is
-the tag IRI. `skos:inScheme` identifies whether it belongs to a facet or topic
-scheme. A facet appears on the term. A topic
-appears on the definition that holds it and, as a derived statement, on the
-term.
+A term names its owning vocabulary with `skos:inScheme`. The default
+MatSci-SAM scheme is `/vocabulary`; a community scheme is
+`/vocabulary/{community}`. Same-label terms in different schemes remain
+separate concepts with separate IRIs and definitions.
+
+A term or a definition names its tags with `dcterms:subject`. The object is the
+tag IRI. A tag's `skos:inScheme` identifies its facet or topic scheme. A facet
+appears on the term. A topic appears on the definition that holds it and, as a
+derived statement, on the term.
 
 Top concepts follow the SKOS convention. A concept with no broader concept in
 its scheme is a top concept. Each tag scheme lists its top concepts with
 `skos:hasTopConcept` in `/tags.ttl` and `/vocabulary.ttl`, and each top tag
-states `skos:topConceptOf`. The JSON-LD embedded in the `/vocabulary` page
-enumerates the top terms of the dictionary. Term records express hierarchy
-through `skos:broader` and `skos:narrower`. Top-concept enumeration includes
-active tags.
+states `skos:topConceptOf`. The JSON-LD embedded in each vocabulary scheme page
+enumerates the top terms of that scheme. Term records express hierarchy through
+`skos:broader` and `skos:narrower` within their vocabulary. Top-concept
+enumeration includes active tags.
 
 A retired tag keeps its IRI and is marked `owl:deprecated true`. A tag that
 was merged into another also points at its replacement with
@@ -74,6 +78,12 @@ or `skos:relatedMatch` is an absolute IRI in another vocabulary, such as a
 class in EMMO, PMDco, CHAMEO, or QUDT. SKOS entails that the object is a
 concept. An external mapping uses an IRI outside the identifier base. Relations
 within MatSci-SAM use typed references.
+
+A collection may use `skos:member` to reference a term from any hosted
+vocabulary. That membership leaves the term's `skos:inScheme` unchanged and
+does not imply a SKOS mapping. A future link to MatSci-ONT or another external
+vocabulary uses a separate mapping statement with the appropriate `skos:*Match`
+predicate.
 
 A topic that identifies the same concept as a term states `skos:exactMatch` to
 the term IRI, and the term states it in return. The ledger records the term as
