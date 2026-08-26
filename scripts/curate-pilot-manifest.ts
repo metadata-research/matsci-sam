@@ -68,6 +68,10 @@ const collectionSchema = z
     slug: slugSchema,
     title: titleSchema,
     description: descriptionSchema,
+    // Additive preserves the behavior of every existing manifest. Exact is
+    // intentionally limited to stable qualified routes because omitting a
+    // term retracts its live membership assertion.
+    membership: z.enum(["additive", "exact"]).default("additive"),
     terms: z.union([
       // Qualified stable references are authoritative. Legacy labels remain
       // accepted for old manifests, but the curation refuses a label that
@@ -77,6 +81,42 @@ const collectionSchema = z
     ])
   })
   .strict()
+  .superRefine((collection, context) => {
+    if (collection.membership !== "exact") return
+    if (
+      !Array.isArray(collection.terms) ||
+      collection.terms.some((term) => typeof term === "string")
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["terms"],
+        message:
+          "exact membership requires an explicit list of { vocabulary, slug } references"
+      })
+      return
+    }
+    if (collection.terms.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["terms"],
+        message: "exact membership requires at least one qualified term"
+      })
+      return
+    }
+
+    const seen = new Set<string>()
+    collection.terms.forEach((term, index) => {
+      if (typeof term === "string") return
+      const route = `${term.vocabulary}/${term.slug}`
+      if (seen.has(route))
+        context.addIssue({
+          code: "custom",
+          path: ["terms", index],
+          message: `duplicate qualified term route ${route}`
+        })
+      seen.add(route)
+    })
+  })
 
 const questionSchema = z
   .object({

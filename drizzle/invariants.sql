@@ -493,6 +493,24 @@ BEGIN
       RAISE EXCEPTION 'term relation crosses vocabularies';
     END IF;
 
+    -- Retirement preserves a collection and its membership history, but no
+    -- assertion remains current for a container that is no longer active.
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'collections' AND column_name = 'retiredAt'
+    ) THEN
+      IF EXISTS (
+        SELECT 1
+        FROM "statements" s
+        JOIN "collections" c ON c.id = s."subjectCollectionId"
+        WHERE s.predicate = 'skos:member'
+          AND s."retractedAt" IS NULL
+          AND c."retiredAt" IS NOT NULL
+      ) THEN
+        RAISE EXCEPTION 'retired collection has active membership';
+      END IF;
+    END IF;
+
     -- A concept attaches at the level its scheme states, and at no other.
     -- 0034 replaced the `curated` boolean with explicit policy columns, so the
     -- same rule is expressed against whichever shape the database has. As

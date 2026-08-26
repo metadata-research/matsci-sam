@@ -76,6 +76,14 @@ jobs:
         run: |
           pnpm db:invariants
 
+      # Exercises vocabulary ownership, route aliases, and exact collection
+      # membership retraction against the fully migrated schema.
+      - name: Test vocabulary and collection database behavior
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:vocabularies-db
+
       # Exercises the knowledge-organization ledger's CHECKs, indexes and the
       # definition purge inside one rolled-back transaction. It needs the
       # migrated database, which is why it lives here and not in verify.
@@ -386,6 +394,10 @@ jobs:
       - name: Test Community Rules
         run: |
           pnpm test:communities
+
+      - name: Test Pilot Curation
+        run: |
+          pnpm test:curate-pilot
 
       - name: Test Survey Rules
         run: |

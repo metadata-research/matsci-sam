@@ -40,10 +40,11 @@
   ],
   "collections": [
     {
-      "$comment": "Created by slug when absent, curated. Each term is asserted as a member when it is not one already. Prefer { vocabulary, slug } stable references. A legacy text label is still matched case-insensitively when it is unique across all vocabularies; an ambiguous label is refused. The createdBefore selector remains available for old manifests.",
+      "$comment": "Created by slug when absent, curated. membership defaults to additive for backward compatibility. exact makes this nonempty qualified list authoritative: omitted live memberships are retracted with operator provenance, unless a non-retired study already has generated steps or any study has participant activity. exact requires unique { vocabulary, slug } references; legacy labels and createdBefore remain additive-only.",
       "slug": "mrc_pilot_terms",
       "title": "MRC pilot terms",
       "description": "The four terms the pilot walks.",
+      "membership": "exact",
       "terms": [
         { "vocabulary": "mrc", "slug": "martensite" },
         { "vocabulary": "mrc", "slug": "sintering" },
@@ -52,9 +53,10 @@
       ]
     },
     {
-      "$comment": "New manifests should freeze historical sets as qualified routes. Older manifests using { createdBefore } still parse unchanged, but that selector intentionally spans the whole catalog.",
+      "$comment": "New manifests should freeze historical sets as qualified routes. Exact mode makes that frozen set authoritative. Older manifests using { createdBefore } still parse unchanged in the default additive mode, but that selector intentionally spans the whole catalog and is refused with exact.",
       "slug": "id4_2025_terms",
       "title": "ID4 terms, 2025",
+      "membership": "exact",
       "terms": [
         { "vocabulary": "id4", "slug": "melt" },
         { "vocabulary": "id4", "slug": "alloy" }

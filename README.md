@@ -52,7 +52,8 @@ isolated or seeded database. They include `pnpm test:kos-db`,
 `pnpm test:graph-db`, `pnpm test:examples-db`,
 `pnpm test:ai-contribution-discard-db`,
 `pnpm test:example-provenance-upgrade-db`,
-`pnpm test:definition-source-lock`, and `pnpm db:invariants`.
+`pnpm test:definition-source-lock`, `pnpm test:vocabularies-db`, and
+`pnpm db:invariants`.
 
 ## Contributing
 

@@ -39,10 +39,20 @@
 import "dotenv/config"
 import { and, asc, eq, isNull, lt, sql } from "drizzle-orm"
 import {
+  lockCollectionMembershipRow,
+  reserveCollectionMembership,
+  reservePilotCuration
+} from "../lib/collection-membership-lock"
+import {
   FIRST_ACT,
   loadPilotManifest,
   type PilotManifest
 } from "./curate-pilot-manifest"
+import {
+  exactMembershipChangeRefusal,
+  planCollectionMembership,
+  retractCollectionTerm
+} from "./curate-pilot-collections"
 
 // --- The command line ---
 
@@ -85,7 +95,13 @@ const window = (study: { opensAt: string | null; closesAt: string | null }) =>
 // One line of the report, and the write behind it when there is one. The
 // write may return a note that replaces the planned one, which is how the
 // walkthrough reports the steps it wrote rather than the steps it expected.
-type Outcome = "created" | "moved" | "present" | "retired" | "skipped"
+type Outcome =
+  | "created"
+  | "moved"
+  | "present"
+  | "retracted"
+  | "retired"
+  | "skipped"
 
 const main = async () => {
   const args = parseArgs(process.argv.slice(2))
@@ -123,14 +139,21 @@ const main = async () => {
   const { DEFAULT_QUESTIONS, mayRegenerateSteps, planSteps } = await import(
     "../lib/surveys"
   )
-  const { completionCountOfStudy, lockStudy, replaceSteps, stepsOfStudy } =
-    await import("../lib/survey-queries")
+  const {
+    completionCountOfStudy,
+    lockStudy,
+    replaceSteps,
+    stepsOfStudy,
+    walkthroughUsageOfStudy
+  } = await import("../lib/survey-queries")
 
   type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+  type Executor = typeof db | Tx
   type Item = {
     outcome: Outcome
     what: string
     note?: string
+    silent?: boolean
     write?: (tx: Tx) => Promise<string | void>
   }
 
@@ -320,21 +343,29 @@ const main = async () => {
     [...studies.values()].map((row) => [row.slug, row.id])
   )
 
-  // The terms a collection holds: its active skos:member statements.
-  const liveTermIds = async (collectionId: number) =>
+  // The terms a collection holds: its active skos:member statements. Exact
+  // reconciliation also needs the assertion ids so it can retract, not
+  // delete, the rows it supersedes.
+  const liveMembershipRows = (executor: Executor, collectionId: number) =>
+    executor
+      .select({
+        statementId: statementsTable.id,
+        termId: statementsTable.objectTermId
+      })
+      .from(statementsTable)
+      .where(
+        and(
+          eq(statementsTable.predicate, "skos:member"),
+          eq(statementsTable.subjectCollectionId, collectionId),
+          isNull(statementsTable.retractedAt)
+        )
+      )
+
+  const liveTermIds = async (collectionId: number, executor: Executor = db) =>
     new Set(
-      (
-        await db
-          .select({ termId: statementsTable.objectTermId })
-          .from(statementsTable)
-          .where(
-            and(
-              eq(statementsTable.predicate, "skos:member"),
-              eq(statementsTable.subjectCollectionId, collectionId),
-              isNull(statementsTable.retractedAt)
-            )
-          )
-      ).map((row) => row.termId!)
+      (await liveMembershipRows(executor, collectionId)).map(
+        (row) => row.termId!
+      )
     )
 
   const retiring = {
@@ -1022,6 +1053,99 @@ const main = async () => {
   // step count a dry run reports.
   const termCounts = new Map<string, number>()
 
+  const collectionMembershipGuard = (input: {
+    slug: string
+    expectedLive: Set<number>
+    exact: boolean
+    hasChanges: boolean
+  }): Item => ({
+    outcome: "present",
+    what: `membership lock for ${input.slug}`,
+    silent: true,
+    write: async (tx) => {
+      const collectionId = collectionIds.get(input.slug)
+      if (!collectionId)
+        throw new Error(`collection ${input.slug} was not created`)
+
+      await reserveCollectionMembership(tx, collectionId)
+
+      const lockedStudies = new Map<
+        number,
+        { id: number; slug: string; retiredAt: string | null }
+      >()
+      const lockLinkedStudies = async () => {
+        const linked = await tx
+          .select({
+            id: studiesTable.id,
+            slug: studiesTable.slug,
+            retiredAt: studiesTable.retiredAt
+          })
+          .from(studiesTable)
+          .where(eq(studiesTable.collectionId, collectionId))
+          .orderBy(asc(studiesTable.id))
+          .for("update")
+        for (const study of linked) lockedStudies.set(study.id, study)
+      }
+
+      // Lock every linked study directly, in id order, before the collection.
+      // Do not call lockStudy here: it interleaves each study lock with its
+      // community and collection parents, which can invert the order used by
+      // concurrent study creation when one collection serves two communities.
+      // Never try to lock a newly discovered study after holding the
+      // collection, either. Generation could already hold that study while
+      // waiting for this collection. The collection row blocks a later study
+      // insert through its foreign-key lock; a study committed in the gap is
+      // detected below and makes this section retry from preflight.
+      if (input.exact && input.hasChanges) await lockLinkedStudies()
+      const lockedCollection = await lockCollectionMembershipRow(
+        tx,
+        collectionId
+      )
+      if (!lockedCollection)
+        throw new Error(`collection ${input.slug} disappeared while locking it`)
+      if (lockedCollection.retiredAt)
+        throw new Error(`collection ${input.slug} was retired after preflight`)
+      if (input.exact && input.hasChanges) {
+        const linkedAfterCollectionLock = await tx
+          .select({ id: studiesTable.id })
+          .from(studiesTable)
+          .where(eq(studiesTable.collectionId, collectionId))
+          .orderBy(asc(studiesTable.id))
+        const phantom = linkedAfterCollectionLock.find(
+          ({ id }) => !lockedStudies.has(id)
+        )
+        if (phantom)
+          throw new Error(
+            `study #${phantom.id} was linked to collection ${input.slug} while it was being locked; rerun the curation`
+          )
+      }
+
+      const currentLive = await liveTermIds(collectionId, tx)
+      if (
+        currentLive.size !== input.expectedLive.size ||
+        [...currentLive].some((termId) => !input.expectedLive.has(termId))
+      )
+        throw new Error(
+          `collection ${input.slug} membership changed after preflight; rerun the curation`
+        )
+
+      for (const study of lockedStudies.values()) {
+        const steps = await stepsOfStudy(tx, study.id)
+        const usage = await walkthroughUsageOfStudy(tx, study.id)
+        const why = exactMembershipChangeRefusal(input.hasChanges, {
+          slug: study.slug,
+          retiredAt: study.retiredAt,
+          stepCount: steps.length,
+          usage
+        })
+        if (why)
+          throw new Error(
+            `exact membership for collection ${input.slug} cannot change: ${why}`
+          )
+      }
+    }
+  })
+
   for (const collection of manifest.collections) {
     const { slug } = collection
     if (seenCollections.has(slug)) {
@@ -1130,7 +1254,77 @@ const main = async () => {
         refuse(`no term was created before ${before}, for collection ${slug}`)
     }
 
-    const live = existing ? await liveTermIds(existing.id) : new Set<number>()
+    const liveRows = existing ? await liveMembershipRows(db, existing.id) : []
+    const live = new Set(liveRows.map((row) => row.termId!))
+    const wantedTermIds = new Set(wanted.map((term) => term.id))
+    const delta = planCollectionMembership(
+      live,
+      wantedTermIds,
+      collection.membership
+    )
+    const changes = delta.add.length + delta.retract.length
+
+    if (collection.membership === "exact" && changes > 0 && existing) {
+      for (const study of [...studies.values()]
+        .filter((row) => row.collectionId === existing.id)
+        .sort((a, b) => a.id - b.id)) {
+        const steps = await stepsOfStudy(db, study.id)
+        const usage = await walkthroughUsageOfStudy(db, study.id)
+        const why = exactMembershipChangeRefusal(true, {
+          slug: study.slug,
+          // Retirement is the first curation section. A study explicitly
+          // retired by this manifest is no longer live when collections run;
+          // participant activity still refuses independently.
+          retiredAt: retiring.studies.has(study.slug)
+            ? "planned-retirement"
+            : study.retiredAt,
+          stepCount: steps.length,
+          usage
+        })
+        if (why)
+          refuse(
+            `exact membership for collection ${slug} cannot change: ${why}`
+          )
+      }
+    }
+
+    collectionItems.push(
+      collectionMembershipGuard({
+        slug,
+        expectedLive: live,
+        exact: collection.membership === "exact",
+        hasChanges: changes > 0
+      })
+    )
+
+    for (const termId of delta.retract) {
+      const term = termsById.get(termId)
+      const membership = liveRows.find((row) => row.termId === termId)
+      if (!term || !membership) {
+        refuse(
+          `collection ${slug} has an active membership for missing term #${termId}`
+        )
+        continue
+      }
+      collectionItems.push({
+        outcome: "retracted",
+        what: `term "${term.term}" (${finalVocabularyOf(term)}/${term.slug}) from ${slug}`,
+        note: "preserving membership history",
+        write: async (tx) => {
+          const retracted = await retractCollectionTerm(tx, {
+            statementId: membership.statementId,
+            collectionId: collectionIds.get(slug)!,
+            termId,
+            operatorId: operator.id
+          })
+          if (!retracted)
+            throw new Error(
+              `term #${termId} membership in ${slug} changed after it was locked`
+            )
+        }
+      })
+    }
+
     for (const term of wanted) {
       const what = `term "${term.term}" (${finalVocabularyOf(term)}/${term.slug}) in ${slug}`
       if (live.has(term.id)) collectionItems.push({ outcome: "present", what })
@@ -1154,9 +1348,32 @@ const main = async () => {
           }
         })
     }
+    collectionItems.push({
+      outcome: "present",
+      what: `membership postcondition for ${slug}`,
+      silent: true,
+      write: async (tx) => {
+        const collectionId = collectionIds.get(slug)
+        if (!collectionId) throw new Error(`collection ${slug} was not created`)
+        const finalLive = await liveTermIds(collectionId, tx)
+        const missing = [...wantedTermIds].filter(
+          (termId) => !finalLive.has(termId)
+        )
+        const extras =
+          collection.membership === "exact"
+            ? [...finalLive].filter((termId) => !wantedTermIds.has(termId))
+            : []
+        if (missing.length || extras.length)
+          throw new Error(
+            `collection ${slug} membership postcondition failed (${missing.length} missing, ${extras.length} extra); the section was rolled back`
+          )
+      }
+    })
     termCounts.set(
       slug,
-      live.size + wanted.filter((term) => !live.has(term.id)).length
+      collection.membership === "exact"
+        ? wanted.length
+        : live.size + delta.add.length
     )
   }
 
@@ -1373,6 +1590,7 @@ const main = async () => {
     created: 0,
     moved: 0,
     present: 0,
+    retracted: 0,
     retired: 0,
     skipped: 0
   }
@@ -1380,6 +1598,7 @@ const main = async () => {
     created: args.dryRun ? "would create" : "created",
     moved: args.dryRun ? "would move" : "moved",
     present: "present",
+    retracted: args.dryRun ? "would retract" : "retracted",
     retired: args.dryRun ? "would retire" : "retired",
     skipped: "skipped"
   }
@@ -1401,12 +1620,24 @@ const main = async () => {
       counts[item.outcome] += 1
       lines.push(render(item, note ?? item.note))
     }
-    if (args.dryRun) for (const item of section.items) record(item)
+    if (args.dryRun)
+      for (const item of section.items) {
+        if (!item.silent) record(item)
+      }
     else
       try {
         await db.transaction(async (tx) => {
-          for (const item of section.items)
-            record(item, item.write ? await item.write(tx) : undefined)
+          // Every mutating section takes the same lock before any row or
+          // per-collection lock. Separate curation processes may resume
+          // section by section, but they cannot deadlock by interleaving the
+          // different lock families used by retirements, ownership moves,
+          // exact membership and walkthrough generation.
+          if (section.items.some((item) => item.write))
+            await reservePilotCuration(tx)
+          for (const item of section.items) {
+            const note = item.write ? await item.write(tx) : undefined
+            if (!item.silent) record(item, note)
+          }
         })
       } catch (error) {
         console.error(

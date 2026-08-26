@@ -23,6 +23,7 @@
     "test:interface": "tsx scripts/test-interface-state.ts",
     "test:ollama-context": "tsx scripts/test-ollama-revision-context.ts",
     "test:communities": "tsx scripts/test-communities.ts",
+    "test:curate-pilot": "tsx scripts/test-curate-pilot.ts",
     "test:surveys": "tsx scripts/test-surveys.ts",
     "test:study-copy": "tsx scripts/test-study-copy.ts",
     "test:study-editor": "tsx scripts/test-study-editor.ts",

@@ -9,6 +9,10 @@ import { GetUser } from "@/lib/crud"
 import { mayAssertIn, mayCreateCollection } from "@/lib/kos"
 import { uniqueSlug } from "@/lib/slug"
 import { collectionPath, collectionsIndexPath } from "@/lib/public-identifiers"
+import {
+  lockCollectionMembershipRow,
+  reserveCollectionMembership
+} from "@/lib/collection-membership-lock"
 
 /*
  * Collections: a named set of terms, gathered for a purpose.
@@ -179,6 +183,22 @@ export const collectionsRouter = createTRPCRouter({
           })
 
         await db.transaction(async (tx) => {
+          await reserveCollectionMembership(tx, collectionId)
+          const lockedCollection = await lockCollectionMembershipRow(
+            tx,
+            collectionId
+          )
+          if (!lockedCollection)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "This collection doesn't exist"
+            })
+          if (lockedCollection.retiredAt)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This collection has been retired"
+            })
+
           const [active] = await tx
             .select({ id: statementsTable.id })
             .from(statementsTable)
@@ -202,11 +222,23 @@ export const collectionsRouter = createTRPCRouter({
                 assertedById: userId
               })
               .onConflictDoNothing()
-          else if (!on && active)
-            await tx
+          else if (!on && active) {
+            const [retracted] = await tx
               .update(statementsTable)
               .set({ retractedAt: sql`now()`, retractedById: userId })
-              .where(eq(statementsTable.id, active.id))
+              .where(
+                and(
+                  eq(statementsTable.id, active.id),
+                  isNull(statementsTable.retractedAt)
+                )
+              )
+              .returning({ id: statementsTable.id })
+            if (!retracted)
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: "The collection membership changed. Try again."
+              })
+          }
         })
 
         revalidatePath(collectionsIndexPath)
