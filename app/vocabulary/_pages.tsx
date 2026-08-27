@@ -11,6 +11,7 @@ import {
 } from "@/lib/skos"
 import {
   termPath,
+  termActivityPath,
   termUri,
   vocabularyPath,
   vocabularyUri
@@ -19,7 +20,7 @@ import { SITE_NAME } from "@/lib/site"
 import { HydrateClient, trpc } from "@/trpc/server"
 import { db, definitionsTable } from "@yamz/db"
 import { desc, eq } from "drizzle-orm"
-import { NetworkIcon } from "lucide-react"
+import { ActivityIcon, NetworkIcon } from "lucide-react"
 import Link from "next/link"
 import { Suspense } from "react"
 import {
@@ -301,9 +302,16 @@ export async function VocabularyTermPage({
               <Badge variant="outline">Retired</Badge>
             ) : null}
           </div>
-          <div className="mb-1 flex items-center justify-between gap-4">
+          <div className="mb-1 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="font-serif text-4xl font-bold">{term.term}</h1>
-            <div className="flex shrink-0 items-center gap-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Link
+                href={termActivityPath(term.slug, term.vocabularySlug)}
+                className="flex items-center gap-1 text-primary"
+              >
+                <ActivityIcon className="size-4" aria-hidden /> Changes &amp;
+                activity
+              </Link>
               <Link
                 href={"/terms/" + term.id + "/provenance"}
                 className="flex items-center gap-1 text-primary"
