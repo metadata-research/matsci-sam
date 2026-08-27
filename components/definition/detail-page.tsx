@@ -36,6 +36,7 @@ import {
   revisionUri,
   termPath
 } from "@/lib/public-identifiers"
+import { RevisionDiff } from "@/components/definition/revision-diff"
 
 export async function DefinitionDetailPage({
   definitionId,
@@ -333,6 +334,8 @@ export async function DefinitionDetailPage({
               </footer>
             </article>
           </Card>
+
+          <RevisionDiff comparison={definition.comparison} />
 
           {definition.isCurrentRevision && (
             <section

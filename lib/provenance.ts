@@ -26,6 +26,10 @@ import {
 } from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
 import {
+  buildStoredRevisionComparison,
+  type DefinitionComparisonView
+} from "./definition-comparison"
+import {
   acceptedAiSuggestionsForOutputs,
   acceptedLegacyDiscussionSuggestionsForOutputs
 } from "./ai-contribution-provenance"
@@ -69,6 +73,7 @@ export type ProvNode = {
   // shown in the node details panel
   detail?: string
   meta?: Record<string, string | number | null>
+  comparison?: DefinitionComparisonView
 }
 
 export type ProvEdge = {
@@ -664,6 +669,41 @@ export const buildTermProvenance = async (
       if (revision.sourceRefinementId !== null)
         meta.sourceRefinementId = revision.sourceRefinementId
 
+      const comparisonSource =
+        previousRevision ??
+        (revision.derivedFromRevisionId === null
+          ? null
+          : (revisionById.get(revision.derivedFromRevisionId) ?? null))
+      const comparisonSourceDefinition = comparisonSource
+        ? definitionById.get(comparisonSource.definitionId)
+        : null
+      const comparison = buildStoredRevisionComparison({
+        basis: previousRevision
+          ? "previous"
+          : comparisonSource
+            ? "derived-source"
+            : "initial",
+        before:
+          comparisonSource && comparisonSourceDefinition
+            ? {
+                definitionNumber: comparisonSourceDefinition.definitionNumber,
+                version: comparisonSource.version,
+                termSlug: term.slug,
+                vocabularySlug: term.vocabularySlug,
+                definitionDiff: comparisonSource.definitionDiff,
+                legacyIncomplete: comparisonSource.legacyIncomplete
+              }
+            : null,
+        after: {
+          definitionNumber: definition.definitionNumber,
+          version: revision.version,
+          termSlug: term.slug,
+          vocabularySlug: term.vocabularySlug,
+          definitionDiff: revision.definitionDiff,
+          legacyIncomplete: revision.legacyIncomplete
+        }
+      })
+
       addNode({
         id,
         label: `${revisionLabel(revision)}${isCurrent ? " (current)" : ""}`,
@@ -688,7 +728,8 @@ export const buildTermProvenance = async (
             : {})
         },
         detail: diffToStringSimple(revision.definitionDiff),
-        meta
+        meta,
+        comparison
       })
 
       if (revision.previousRevisionId === null)

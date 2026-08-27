@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:revisions": "tsx scripts/test-definition-revisions.ts",
+    "test:comparison": "tsx scripts/test-definition-comparison.ts",
     "test:identifiers": "tsx scripts/test-public-identifiers.ts",
     "test:auth": "tsx scripts/test-auth-plumbing.ts",
     "test:contributions": "tsx scripts/test-contribution-actions.ts",

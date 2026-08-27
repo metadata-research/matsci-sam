@@ -1,5 +1,4 @@
-import { DiffMatchPatch, DiffOp } from "diff-match-patch-ts"
-import type { Diff } from "diff-match-patch-ts"
+import { DiffOp } from "diff-match-patch-ts"
 import {
   db,
   definitionRevisionsTable,
@@ -12,6 +11,13 @@ import {
   exampleActorKindForUser,
   exampleStampFromLegacyGeneration
 } from "./definition-examples"
+import { createTextDiff, revisionDiffMetrics } from "./definition-comparison"
+
+export {
+  createTextDiff,
+  diffToStringSimple,
+  revisionDiffMetrics
+} from "./definition-comparison"
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -70,53 +76,6 @@ export interface CreateDefinitionWithInitialRevisionInput {
   // walkthrough. Written on the initial revision only, which is the act the
   // step asked for; later revisions are edits.
   surveyStepId?: number | null
-}
-
-export function diffToStringSimple(diff: Diff[]) {
-  let value = ""
-  for (const [operation, text] of diff) {
-    if (operation === DiffOp.Insert || operation === DiffOp.Equal) value += text
-  }
-  return value
-}
-
-export function createTextDiff(previous: string, next: string): Diff[] {
-  const diff = new DiffMatchPatch().diff_main(previous, next)
-
-  // diff-match-patch emits either no operations for two empty strings or only
-  // deletions when text becomes empty. Persist an explicit empty equality so
-  // the database can always reconstruct the target value from equal/insert
-  // operations, while retaining deletions for accurate change metrics.
-  return diff.some(([operation]) => operation !== DiffOp.Delete)
-    ? diff
-    : [...diff, [DiffOp.Equal, next]]
-}
-
-export function revisionDiffMetrics(diffs: Diff[][]) {
-  let charsAdded = 0
-  let charsRemoved = 0
-  let unchanged = 0
-
-  for (const diff of diffs.flat()) {
-    if (diff[0] === DiffOp.Delete) charsRemoved += diff[1].length
-    else if (diff[0] === DiffOp.Insert) charsAdded += diff[1].length
-    else unchanged += diff[1].length
-  }
-
-  const previousLength = unchanged + charsRemoved
-  const nextLength = unchanged + charsAdded
-  const removalShare =
-    previousLength === 0
-      ? Number(charsAdded > 0)
-      : charsRemoved / previousLength
-  const additionShare =
-    nextLength === 0 ? Number(charsRemoved > 0) : charsAdded / nextLength
-
-  return {
-    charsAdded,
-    charsRemoved,
-    changeDelta: ((removalShare + additionShare) / 2).toFixed(3)
-  }
 }
 
 /**

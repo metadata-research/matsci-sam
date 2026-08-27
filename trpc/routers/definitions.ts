@@ -52,6 +52,7 @@ import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
 import { lockDefinitionRevisionSource } from "@/lib/definition-source"
 import { activeCommunityFor } from "@/lib/community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
+import { loadDefinitionRevisionComparison } from "@/lib/definition-revision-comparison"
 
 // Compatibility projection for compact definition views while examples have
 // their own endpoint: expose the active featured contribution under the old
@@ -702,6 +703,8 @@ export const definitionsRouter = createTRPCRouter({
         .select({
           id: definitionRevisionsTable.id,
           version: definitionRevisionsTable.version,
+          previousRevisionId: definitionRevisionsTable.previousRevisionId,
+          derivedFromRevisionId: definitionRevisionsTable.derivedFromRevisionId,
           definitionDiff: definitionRevisionsTable.definitionDiff,
           exampleDiff: definitionRevisionsTable.exampleDiff,
           changeNote: definitionRevisionsTable.changeNote,
@@ -746,8 +749,21 @@ export const definitionsRouter = createTRPCRouter({
             : "Definition has no current revision"
         })
 
-      const vote = userId
-        ? await db.query.votesTable.findFirst({
+      const selectedDefinitionText = diffToStringSimple(
+        selectedRevision.definitionDiff
+      )
+      const comparisonPromise = loadDefinitionRevisionComparison({
+        definition: {
+          definitionNumber: def.definitionNumber,
+          termSlug: def.termSlug,
+          vocabularySlug: def.termVocabularySlug
+        },
+        selectedRevision,
+        revisions
+      })
+
+      const votePromise = userId
+        ? db.query.votesTable.findFirst({
             columns: { kind: true },
             where: and(
               eq(votesTable.userId, userId),
@@ -757,8 +773,8 @@ export const definitionsRouter = createTRPCRouter({
         : null
 
       // Additional authors (the model, for accepted AI refinements)
-      const coauthors = selectedRevision.model
-        ? await db
+      const coauthorsPromise = selectedRevision.model
+        ? db
             .select({
               id: usersTable.id,
               name: usersTable.name,
@@ -779,41 +795,51 @@ export const definitionsRouter = createTRPCRouter({
       // Public identities for both sides of the accepted-refinement lineage.
       // Internal row IDs remain relationship keys only and are not exposed in
       // the links rendered by the definition page.
-      const [refinedFrom, refinedVersion, replaces, replacements] =
-        await Promise.all([
-          def.refinedFromId === null
-            ? null
-            : db.query.definitionsTable.findFirst({
-                columns: { definitionNumber: true },
-                where: eq(definitionsTable.id, def.refinedFromId)
-              }),
-          def.authorId === null
-            ? null
-            : db.query.definitionsTable.findFirst({
-                columns: { id: true, definitionNumber: true },
-                where: and(
-                  eq(definitionsTable.refinedFromId, def.id),
-                  eq(definitionsTable.authorId, def.authorId),
-                  sql`exists (
+      const [
+        comparison,
+        vote,
+        coauthors,
+        refinedFrom,
+        refinedVersion,
+        replaces,
+        replacements
+      ] = await Promise.all([
+        comparisonPromise,
+        votePromise,
+        coauthorsPromise,
+        def.refinedFromId === null
+          ? null
+          : db.query.definitionsTable.findFirst({
+              columns: { definitionNumber: true },
+              where: eq(definitionsTable.id, def.refinedFromId)
+            }),
+        def.authorId === null
+          ? null
+          : db.query.definitionsTable.findFirst({
+              columns: { id: true, definitionNumber: true },
+              where: and(
+                eq(definitionsTable.refinedFromId, def.id),
+                eq(definitionsTable.authorId, def.authorId),
+                sql`exists (
                   select 1
                   from ${definitionRevisionsTable} artifact_revision
                   where artifact_revision."definitionId" = ${definitionsTable.id}
                     and artifact_revision."sourceRefinementId" is not null
                 )`
-                )
-              }),
-          def.replacesDefinitionId === null
-            ? null
-            : db.query.definitionsTable.findFirst({
-                columns: { definitionNumber: true },
-                where: eq(definitionsTable.id, def.replacesDefinitionId)
-              }),
-          db.query.definitionsTable.findMany({
-            columns: { definitionNumber: true },
-            where: eq(definitionsTable.replacesDefinitionId, def.id),
-            orderBy: definitionsTable.definitionNumber
-          })
-        ])
+              )
+            }),
+        def.replacesDefinitionId === null
+          ? null
+          : db.query.definitionsTable.findFirst({
+              columns: { definitionNumber: true },
+              where: eq(definitionsTable.id, def.replacesDefinitionId)
+            }),
+        db.query.definitionsTable.findMany({
+          columns: { definitionNumber: true },
+          where: eq(definitionsTable.replacesDefinitionId, def.id),
+          orderBy: definitionsTable.definitionNumber
+        })
+      ])
 
       const currentVersion =
         revisions.find((revision) => revision.id === def.currentRevisionId)
@@ -821,7 +847,7 @@ export const definitionsRouter = createTRPCRouter({
 
       return {
         ...def,
-        definition: diffToStringSimple(selectedRevision.definitionDiff),
+        definition: selectedDefinitionText,
         example:
           selectedRevision.id === def.currentRevisionId
             ? def.example
@@ -840,6 +866,7 @@ export const definitionsRouter = createTRPCRouter({
         changeNote: selectedRevision.changeNote,
         legacyIncomplete: selectedRevision.legacyIncomplete,
         editor: selectedRevision.editor,
+        comparison,
         revisions: revisions.map((revision) => ({
           ...revision,
           // Examples have their own append-only history. Restoring a legacy

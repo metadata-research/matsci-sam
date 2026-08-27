@@ -23,6 +23,7 @@ import type { ProvEdge, ProvNode } from "@/lib/provenance"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProvDetail } from "./detail"
 import { PublicProfileName } from "@/components/public-profile-name"
+import { RevisionDiff } from "@/components/definition/revision-diff"
 
 // Visual language borrowed from OntExtract's PROV-O graph. Fills come from
 // the --prov-* variables in globals.css so the graph follows the theme
@@ -304,7 +305,15 @@ export const ProvenanceGraph = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-1">
-            {selected.detail && <ProvDetail text={selected.detail} />}
+            {selected.comparison ? (
+              <RevisionDiff
+                comparison={selected.comparison}
+                headingLevel="h3"
+                id={`provenance-${selected.id}-comparison`}
+              />
+            ) : selected.detail ? (
+              <ProvDetail text={selected.detail} />
+            ) : null}
             {selected.meta &&
               Object.entries(selected.meta).map(([k, v]) => (
                 <p key={k} className="text-muted-foreground">
