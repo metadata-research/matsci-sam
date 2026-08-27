@@ -139,7 +139,7 @@ export const updateStudyDetails = async (input: StudyUpdate) => {
         throw new TRPCError({
           code: "CONFLICT",
           message:
-            "The schedule is locked because this walkthrough has recorded activity."
+            "The schedule is locked because this study has recorded activity."
         })
       if (
         input.instructions !== undefined &&

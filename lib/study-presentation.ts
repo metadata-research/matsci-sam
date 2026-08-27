@@ -37,7 +37,7 @@ export const studyWelcomeHeading = (
 
 export const studyWindowExplanation = (steps: number) =>
   (steps > 0
-    ? "Community members can use the walkthrough only while the study is open. "
+    ? "Community members can take part only while the study is open. "
     : "These dates record the study period. ") +
   "A valid study invitation can be accepted while the study is open or before " +
   "a future opening date, but not once the study has closed or been retired."

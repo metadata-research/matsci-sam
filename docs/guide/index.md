@@ -16,7 +16,7 @@ history. The pages below provide detailed instructions for each feature.
 - [Communities and scope](/docs/communities) explains named groups of people,
   invitations, and how a selected community narrows Browse and Collections to
   its worklist.
-- [Studies](/docs/studies) covers a study a community runs, its walkthrough,
+- [Studies](/docs/studies) covers a study a community runs, its activity,
   taking a position on a term, and the resulting definition list.
 - [Adding a term](/docs/adding-terms) covers the five contribution actions and
   the Contribute page.

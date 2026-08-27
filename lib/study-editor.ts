@@ -109,7 +109,7 @@ export const instructionEditability = ({
   if (activity > 0)
     return {
       editable: false,
-      reason: `Instructions are locked because this walkthrough has ${activity} recorded activity ${activity === 1 ? "item" : "items"}.`,
+      reason: `Instructions are locked because this study has ${activity} recorded activity ${activity === 1 ? "item" : "items"}.`,
       activity
     }
 
@@ -120,7 +120,7 @@ export const instructionEditability = ({
     return {
       editable: false,
       reason:
-        "Instructions are locked because the walkthrough must have exactly one instructions step at position 1.",
+        "Instructions are locked because the study activity must have exactly one instructions step at position 1.",
       activity
     }
 

@@ -24,6 +24,7 @@ import {
   SEARCH_HIGHLIGHT_END,
   SEARCH_HIGHLIGHT_START
 } from "../lib/search-evidence"
+import { studyActivityActionLabel } from "../components/studies/progress"
 
 assert.equal(parseSearchAuthor(null), "all")
 assert.equal(parseSearchAuthor(""), "all")
@@ -143,6 +144,12 @@ for (const path of [
 assert.equal(studyWelcomeHeading("closed", 0), "About this study")
 assert.equal(studyWelcomeHeading("open", 7), "What to do")
 assert.equal(studyWelcomeHeading("draft", 7), "What to do")
+assert.equal(studyActivityActionLabel(0, 1, 11), "Begin study")
+assert.equal(
+  studyActivityActionLabel(5, 6, 11),
+  "Continue study (step 6 of 11)"
+)
+assert.equal(studyActivityActionLabel(11, null, 11), null)
 
 assert.equal(MOST_SUPPORTED_DEFINITIONS_HEADING, "Most supported definitions")
 assert.equal(

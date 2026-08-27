@@ -24,6 +24,7 @@ import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PublicProfileName } from "@/components/public-profile-name"
+import { studyActivityActionLabel } from "@/components/studies/progress"
 import { DEFAULT_INSTRUCTIONS } from "@/lib/surveys"
 
 // Shared by generateMetadata and the body, so the page runs one query.
@@ -46,6 +47,21 @@ const STATE_LABEL = {
   closed: "Closed",
   retired: "Retired"
 } as const
+
+const StudyActivityButton = ({
+  slug,
+  label
+}: {
+  slug: string
+  label: string
+}) => (
+  <Button
+    asChild
+    className="bg-red-600 text-white shadow-xs hover:bg-red-700 focus-visible:ring-red-600/30 dark:bg-red-600 dark:hover:bg-red-700"
+  >
+    <Link href={studyRunPath(slug)}>{label}</Link>
+  </Button>
+)
 
 /*
  * A study, as its participants read it. This is the address that goes in a
@@ -93,6 +109,13 @@ export default async function StudyPage({
   )
   const participantInstructions =
     study.welcome ?? (study.steps > 0 ? DEFAULT_INSTRUCTIONS : null)
+  const activityActionLabel = walks
+    ? studyActivityActionLabel(
+        walks.completedStepIds.length,
+        walks.resumePosition,
+        walks.steps.length
+      )
+    : null
 
   return (
     <main className="px-4 py-8">
@@ -119,31 +142,27 @@ export default async function StudyPage({
         {walks && (
           <section className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-4">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Walkthrough
+              Study activity
             </div>
-            {walks.completedStepIds.length === 0 ? (
+            {activityActionLabel ? (
               <>
-                <p className="text-sm">
-                  {walks.steps.length} steps. Your place is kept between visits.
-                </p>
-                <Button asChild>
-                  <Link href={studyRunPath(study.slug)}>
-                    Start the walkthrough
-                  </Link>
-                </Button>
+                {walks.completedStepIds.length === 0 && (
+                  <p className="text-sm">
+                    {walks.steps.length} steps. Your place is kept between
+                    visits.
+                  </p>
+                )}
+                <StudyActivityButton
+                  slug={study.slug}
+                  label={activityActionLabel}
+                />
               </>
-            ) : walks.resumePosition !== null ? (
-              <Button asChild>
-                <Link href={studyRunPath(study.slug)}>
-                  Continue (step {walks.resumePosition} of {walks.steps.length})
-                </Link>
-              </Button>
             ) : (
               <>
-                <p className="text-sm">You have finished the walkthrough.</p>
+                <p className="text-sm">You have finished the study activity.</p>
                 <Button asChild variant="outline">
                   <Link href={studyRunPath(study.slug)}>
-                    Open the walkthrough
+                    Review completed study
                   </Link>
                 </Button>
               </>
@@ -158,7 +177,7 @@ export default async function StudyPage({
         {!walks && state === "open" && study.steps > 0 && !user && (
           <section className="space-y-3 rounded-md border border-border p-4">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Walkthrough
+              Study activity
             </div>
             <p className="text-sm">
               {study.steps} steps. Sign in to take part. Your place is kept
@@ -177,7 +196,7 @@ export default async function StudyPage({
           walkthrough !== null &&
           walkthrough.membership === null && (
             <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
-              The walkthrough is for members of {study.communityTitle}. An
+              The study activity is for members of {study.communityTitle}. An
               invitation from the community is the way in.
             </p>
           )}
@@ -196,13 +215,15 @@ export default async function StudyPage({
             </h2>
             {/* Plain text, split on blank lines. Nothing typed here becomes
                 markup, which is why the column is not markdown. */}
-            {participantInstructions
-              .split(/\n\s*\n/)
-              .map((paragraph, index) => (
-                <p key={index} className="whitespace-pre-line">
-                  {paragraph}
-                </p>
-              ))}
+            <ol className="list-decimal space-y-3 pl-5">
+              {participantInstructions
+                .split(/\n\s*\n/)
+                .map((instruction, index) => (
+                  <li key={index} className="whitespace-pre-line pl-1">
+                    {instruction}
+                  </li>
+                ))}
+            </ol>
           </section>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -295,6 +316,15 @@ export default async function StudyPage({
               {studyWindowExplanation(study.steps)}
             </p>
           </section>
+        )}
+
+        {activityActionLabel && (
+          <div className="border-t border-border pt-6">
+            <StudyActivityButton
+              slug={study.slug}
+              label={activityActionLabel}
+            />
+          </div>
         )}
       </section>
     </main>

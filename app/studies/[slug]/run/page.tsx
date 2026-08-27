@@ -27,7 +27,9 @@ export async function generateMetadata({
   const study = await loadStudy(slug)
 
   return {
-    title: study ? `Walkthrough of ${study.title} | ${SITE_NAME}` : SITE_NAME
+    title: study
+      ? `Study activity for ${study.title} | ${SITE_NAME}`
+      : SITE_NAME
   }
 }
 
@@ -60,7 +62,7 @@ const Notice = ({
         <CardContent className="space-y-4">
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Walkthrough
+              Study activity
             </div>
             <h1 className="text-2xl font-bold">{title}</h1>
           </div>
@@ -97,8 +99,8 @@ export default async function RunPage({
     return (
       <Notice title={study.title}>
         <p className="text-sm text-muted-foreground">
-          The walkthrough is for members of {study.communityTitle}. Sign in to
-          take part.
+          The study activity is for members of {study.communityTitle}. Sign in
+          to take part.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button asChild>

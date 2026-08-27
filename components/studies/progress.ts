@@ -21,3 +21,14 @@ export const walkthroughProgress = (study: Row): string | null => {
   if (study.saved > 0) return `${study.saved} of ${study.steps} steps saved`
   return studyState(study) === "open" ? "Not started" : null
 }
+
+export const studyActivityActionLabel = (
+  completedSteps: number,
+  resumePosition: number | null,
+  totalSteps: number
+): string | null => {
+  if (completedSteps === 0) return "Begin study"
+  if (resumePosition !== null)
+    return `Continue study (step ${resumePosition} of ${totalSteps})`
+  return null
+}

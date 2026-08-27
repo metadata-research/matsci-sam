@@ -57,7 +57,7 @@ to the community and adds it to the participant's **Working in** choices.
 Selecting it shows the community vocabulary in Browse and its worklist in
 Collections.
 
-[Studies](/docs/studies) covers the walkthrough, the position taken on each
+[Studies](/docs/studies) covers the study activity, the position taken on each
 term, and the resulting definition list.
 
 ## Joining
@@ -102,8 +102,8 @@ with that study.
 dates. You can select an existing collection or create one in the same form.
 The collection is added to the worklist. The instructions appear on invitation
 and study pages. The dates state the expected window. After the closing time,
-the study stops accepting invitations and walkthrough actions. [Studies](/docs/studies)
-describes walkthrough generation and participation.
+the study stops accepting invitations and study actions. [Studies](/docs/studies)
+describes preparing the study steps and participating.
 
 **Per-person invitations.** Enter an address, then copy the link or have it
 emailed. The page displays the link once because the database stores only its

@@ -53,8 +53,8 @@ export const DEFAULT_INSTRUCTIONS =
   "Comment where you disagree or can add information. Any closing questions " +
   "come last.\n\nMatSci-SAM records the upvote used to accept a candidate, " +
   "revision and replacement proposals, review votes, comments, and question " +
-  "responses. Completed steps are saved between visits, and the walkthrough " +
-  "returns to the first incomplete step."
+  "responses. Completed steps are saved between visits, and the study " +
+  "activity returns to the first incomplete step."
 
 // The two default closing questions: likelihood of use and what the participant
 // would change. Added after the review steps, and left out when the steward

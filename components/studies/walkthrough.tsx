@@ -777,7 +777,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
             <Link href={studyPath(study.slug)}>{study.title}</Link>
           </div>
           {total === 0 ? (
-            <h1 className="text-3xl font-bold">Walkthrough</h1>
+            <h1 className="text-3xl font-bold">Study activity</h1>
           ) : step ? (
             <>
               <h1 className="text-3xl font-bold">
@@ -800,7 +800,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
         {total === 0 ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              This study has no walkthrough yet.
+              The study steps have not been prepared yet.
             </p>
             <Button asChild variant="outline">
               <Link href={studyPath(study.slug)}>Open the study</Link>

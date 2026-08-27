@@ -961,7 +961,7 @@ export const GenerateWalkthrough = ({
       ...handlers,
       onSuccess: (result) => {
         toast.success(
-          `Walkthrough of ${result.steps} ${result.steps === 1 ? "step" : "steps"}`
+          `${result.steps} study ${result.steps === 1 ? "step is" : "steps are"} ready`
         )
         handlers.onSuccess()
       }
@@ -990,7 +990,7 @@ export const GenerateWalkthrough = ({
       }}
     >
       <Button type="submit" size="sm" variant="outline" disabled={isPending}>
-        {steps > 0 ? "Regenerate" : "Generate the walkthrough"}
+        {steps > 0 ? "Regenerate study steps" : "Generate study steps"}
       </Button>
       <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <input
