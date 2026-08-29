@@ -1,5 +1,4 @@
-import { DiffMatchPatch, DiffOp } from "diff-match-patch-ts"
-import type { Diff } from "diff-match-patch-ts"
+import { DiffOp } from "diff-match-patch-ts"
 import {
   db,
   definitionRevisionsTable,
@@ -12,6 +11,13 @@ import {
   exampleActorKindForUser,
   exampleStampFromLegacyGeneration
 } from "./definition-examples"
+import { createTextDiff, revisionDiffMetrics } from "./definition-comparison"
+
+export {
+  createTextDiff,
+  diffToStringSimple,
+  revisionDiffMetrics
+} from "./definition-comparison"
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -53,6 +59,9 @@ export interface CreateDefinitionWithInitialRevisionInput {
   termId: number
   authorId: number
   definition: string
+  // Optional authoring convenience for a separately attributed example. It
+  // is deliberately excluded from the legacy scalar and revision diff.
+  initialExample?: string | null
   example: string
   changeNote: string
   source: Extract<
@@ -72,53 +81,6 @@ export interface CreateDefinitionWithInitialRevisionInput {
   surveyStepId?: number | null
 }
 
-export function diffToStringSimple(diff: Diff[]) {
-  let value = ""
-  for (const [operation, text] of diff) {
-    if (operation === DiffOp.Insert || operation === DiffOp.Equal) value += text
-  }
-  return value
-}
-
-export function createTextDiff(previous: string, next: string): Diff[] {
-  const diff = new DiffMatchPatch().diff_main(previous, next)
-
-  // diff-match-patch emits either no operations for two empty strings or only
-  // deletions when text becomes empty. Persist an explicit empty equality so
-  // the database can always reconstruct the target value from equal/insert
-  // operations, while retaining deletions for accurate change metrics.
-  return diff.some(([operation]) => operation !== DiffOp.Delete)
-    ? diff
-    : [...diff, [DiffOp.Equal, next]]
-}
-
-export function revisionDiffMetrics(diffs: Diff[][]) {
-  let charsAdded = 0
-  let charsRemoved = 0
-  let unchanged = 0
-
-  for (const diff of diffs.flat()) {
-    if (diff[0] === DiffOp.Delete) charsRemoved += diff[1].length
-    else if (diff[0] === DiffOp.Insert) charsAdded += diff[1].length
-    else unchanged += diff[1].length
-  }
-
-  const previousLength = unchanged + charsRemoved
-  const nextLength = unchanged + charsAdded
-  const removalShare =
-    previousLength === 0
-      ? Number(charsAdded > 0)
-      : charsRemoved / previousLength
-  const additionShare =
-    nextLength === 0 ? Number(charsRemoved > 0) : charsAdded / nextLength
-
-  return {
-    charsAdded,
-    charsRemoved,
-    changeDelta: ((removalShare + additionShare) / 2).toFixed(3)
-  }
-}
-
 /**
  * Create a stable definition identity and its complete first revision in one
  * transaction. The database validates at commit that no definition can remain
@@ -128,6 +90,12 @@ export async function createDefinitionWithInitialRevision(
   tx: DatabaseTransaction,
   input: CreateDefinitionWithInitialRevisionInput
 ) {
+  const initialExample = input.initialExample?.trim() ?? ""
+  if (initialExample && input.example.trim())
+    throw new Error(
+      "An independent initial example cannot also use the legacy example field"
+    )
+
   // Incrementing the term-owned counter both allocates the number and takes a
   // row lock until this transaction commits. Concurrent contributions for the
   // same term therefore receive different permanent numbers. A failed
@@ -187,15 +155,20 @@ export async function createDefinitionWithInitialRevision(
     .where(eq(definitionsTable.id, insertedDefinition.id))
     .returning()
 
-  if (input.example.trim()) {
+  const exampleText = initialExample || input.example
+  if (exampleText.trim()) {
     const actorKind = await exampleActorKindForUser(tx, input.authorId)
     await createDefinitionExample(tx, {
       definitionId: definition.id,
       sourceRevisionId: revision.id,
-      text: input.example,
+      text: exampleText,
       authorId: input.authorId,
       actorKind,
-      generation: exampleStampFromLegacyGeneration(input.model, input.prompt)
+      // A contributor-entered initial example is not generated or rewritten
+      // by the model that may have drafted the definition.
+      generation: initialExample
+        ? undefined
+        : exampleStampFromLegacyGeneration(input.model, input.prompt)
     })
   }
 

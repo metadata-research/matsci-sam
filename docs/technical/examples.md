@@ -46,6 +46,14 @@ creates the first featured interval when the definition has no active
 selection. The lock serializes concurrent number allocation and first-example
 selection.
 
+`definitions.create` may accept an optional contributor-written first example
+for a new term or replacement proposal. It passes that text to
+`createDefinitionWithInitialRevision`, which creates the definition and first
+revision, then calls `createDefinitionExample` before the surrounding
+transaction commits. The definition's legacy scalar and revision example diff
+remain empty. If a language model drafted the definition, its generation stamp
+does not transfer to the human-written example.
+
 `selectDefinitionExample` uses the same definition lock. It confirms that the
 example is active and belongs to the definition, ends the active interval, and
 inserts the replacement interval. Selecting the featured example again returns

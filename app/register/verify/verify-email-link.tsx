@@ -24,6 +24,7 @@ export function VerifyEmailLink() {
     const verify = async () => {
       const hash = new URLSearchParams(window.location.hash.slice(1))
       const token = hash.get("token")
+      const returnTo = hash.get("returnTo")
       window.history.replaceState(null, "", window.location.pathname)
 
       if (!token) throw new Error("This sign-in link is invalid.")
@@ -32,7 +33,7 @@ export function VerifyEmailLink() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, returnTo }),
         signal: controller.signal
       })
 
@@ -70,9 +71,7 @@ export function VerifyEmailLink() {
     <main className="px-4 py-12">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">
-            Verifying your email
-          </CardTitle>
+          <CardTitle className="text-2xl">Verifying your email</CardTitle>
           <CardDescription>
             The link is being checked and will sign you in automatically.
           </CardDescription>

@@ -2,6 +2,7 @@ import { db, emailAuthTokensTable, usersTable } from "@yamz/db"
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm"
 import { hashEmailAuthToken, isEmailAuthEnabled } from "@/lib/email-auth"
 import { getSession } from "@/lib/session"
+import { normalizeAuthReturnTo, profileCompletionPath } from "@/lib/auth-return"
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
 
@@ -9,9 +10,14 @@ export const POST = async (request: Request) => {
   if (!isEmailAuthEnabled()) return new Response("Not found", { status: 404 })
 
   let token = ""
+  let returnTo: string | null = null
   try {
-    const body = (await request.json()) as { token?: unknown }
+    const body = (await request.json()) as {
+      token?: unknown
+      returnTo?: unknown
+    }
     token = typeof body.token === "string" ? body.token : ""
+    returnTo = normalizeAuthReturnTo(body.returnTo)
   } catch {
     // The response below intentionally treats malformed and invalid tokens the
     // same way.
@@ -25,7 +31,7 @@ export const POST = async (request: Request) => {
       }
     )
 
-  const tokenHash = hashEmailAuthToken(token)
+  const tokenHash = hashEmailAuthToken(token, returnTo)
   const now = new Date().toISOString()
   const result = await db.transaction(async (tx) => {
     const [claimed] = await tx
@@ -123,6 +129,8 @@ export const POST = async (request: Request) => {
   await session.save()
 
   return Response.json({
-    redirectTo: result.needsProfile ? "/profile/edit?welcome=1" : "/profile"
+    redirectTo: result.needsProfile
+      ? profileCompletionPath(returnTo)
+      : (returnTo ?? "/profile")
   })
 }

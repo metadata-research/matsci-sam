@@ -27,7 +27,9 @@ export async function generateMetadata({
   const study = await loadStudy(slug)
 
   return {
-    title: study ? `Walkthrough of ${study.title} | ${SITE_NAME}` : SITE_NAME
+    title: study
+      ? `Study activity for ${study.title} | ${SITE_NAME}`
+      : SITE_NAME
   }
 }
 
@@ -60,7 +62,7 @@ const Notice = ({
         <CardContent className="space-y-4">
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Walkthrough
+              Study activity
             </div>
             <h1 className="text-2xl font-bold">{title}</h1>
           </div>
@@ -97,8 +99,8 @@ export default async function RunPage({
     return (
       <Notice title={study.title}>
         <p className="text-sm text-muted-foreground">
-          The walkthrough is for members of {study.communityTitle}. Sign in to
-          take part.
+          The study activity is for members of {study.communityTitle}. Sign in
+          to take part.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
@@ -125,6 +127,27 @@ export default async function RunPage({
         </Button>
       </Notice>
     )
+
+  // A participant who finished keeps their consolidated record after the
+  // study closes: the shell opens on the finished view, and every step it
+  // can reach is complete, which the walkthrough renders read-only.
+  if (state === "closed") {
+    await trpc.surveys.get.prefetch({ studySlug: slug })
+    const walkthrough = prefetched<RouterOutput["surveys"]["get"]>(
+      ["surveys", "get"],
+      { studySlug: slug }
+    )
+    if (
+      walkthrough !== undefined &&
+      walkthrough.steps.length > 0 &&
+      walkthrough.completedStepIds.length === walkthrough.steps.length
+    )
+      return (
+        <HydrateClient>
+          <Walkthrough studySlug={slug} />
+        </HydrateClient>
+      )
+  }
 
   if (state !== "open")
     return (

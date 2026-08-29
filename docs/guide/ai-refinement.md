@@ -16,8 +16,11 @@ publish using the suggestion, the resulting definition credits you and the
 named model. Select **Remove model draft** to discard it and continue without the
 suggestion.
 
-Examples are never bundled into a language-model draft. Add them separately from the
-published definition page.
+The model drafts only the definition. You may write an optional first example
+in the same contribution form, but the application does not send it to the
+model. Publishing records it as a separately attributed example linked to the
+new definition's first revision. More examples can be added from the published
+definition page.
 
 ## Suggest a revision to a definition
 
@@ -47,7 +50,7 @@ published. If it changes, review the latest wording and request a new draft.
   definition or prompts a language model.
 - Use **Propose a replacement** to write a different human-authored candidate
   that should supersede the current one. This action does not prompt a language
-  model.
+  model. Its optional first example is also written by the contributor.
 - Use **Add example** to contribute an example of use. Examples have their own
   attribution and do not change the definition revision or its votes.
 

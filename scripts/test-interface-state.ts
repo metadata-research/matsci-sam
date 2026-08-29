@@ -13,17 +13,20 @@ import {
 } from "../lib/input-limits"
 import {
   DEFAULT_LIKELIHOOD_QUESTION,
-  MOST_SUPPORTED_DEFINITIONS_HEADING,
+  positionAcceptanceExplanation,
   scaleLabelsForPrompt,
-  studySupportDescription,
-  studyWindowExplanation,
-  studyWelcomeHeading
+  studyWindowExplanation
 } from "../lib/study-presentation"
 import {
   parseSearchHeadline,
   SEARCH_HIGHLIGHT_END,
   SEARCH_HIGHLIGHT_START
 } from "../lib/search-evidence"
+import { studyActivityActionLabel } from "../components/studies/progress"
+import {
+  invitationOutcomeLabel,
+  invitationRedeemedByLabel
+} from "../lib/invitation-presentation"
 
 assert.equal(parseSearchAuthor(null), "all")
 assert.equal(parseSearchAuthor(""), "all")
@@ -140,26 +143,12 @@ for (const path of [
 ])
   assert.equal(isFeedbackPagePath(path), false, path)
 
-assert.equal(studyWelcomeHeading("closed", 0), "About this study")
-assert.equal(studyWelcomeHeading("open", 7), "What to do")
-assert.equal(studyWelcomeHeading("draft", 7), "What to do")
-
-assert.equal(MOST_SUPPORTED_DEFINITIONS_HEADING, "Most supported definitions")
+assert.equal(studyActivityActionLabel(0, 1, 11), "Begin study")
 assert.equal(
-  studySupportDescription(null),
-  "For each term, the candidate with the greatest site-wide net support is " +
-    "shown. Support is current-revision upvotes minus downvotes from all " +
-    "accounts, not only this study or community. A tie goes to the earlier " +
-    "candidate."
+  studyActivityActionLabel(5, 6, 11),
+  "Continue study (step 6 of 11)"
 )
-const closedSupport = studySupportDescription("Sep 17, 2025 at 12:00 AM")
-assert.match(closedSupport, /vote events recorded at or before/)
-assert.match(
-  closedSupport,
-  /candidates, their text, and the collection's terms remain current/i
-)
-assert.match(closedSupport, /not limited to this study or community/)
-assert.doesNotMatch(closedSupport, /agreed|consensus|snapshot/i)
+assert.equal(studyActivityActionLabel(11, null, 11), null)
 
 const walkthroughWindow = studyWindowExplanation(7)
 assert.match(walkthroughWindow, /only while the study is open/)
@@ -182,5 +171,48 @@ assert.deepEqual(scaleLabelsForPrompt("How complete is this list?"), {
   minimum: "Lowest",
   maximum: "Highest"
 })
+
+assert.equal(
+  positionAcceptanceExplanation(null),
+  "Accepting records the candidate as your position and adds your upvote."
+)
+assert.equal(
+  positionAcceptanceExplanation("up"),
+  "You already upvoted this candidate. Accept will use that vote as your position."
+)
+assert.equal(
+  positionAcceptanceExplanation("down"),
+  "You previously downvoted this candidate. Accept will change it to an upvote."
+)
+
+assert.equal(invitationOutcomeLabel("live"), "Pending")
+assert.equal(invitationOutcomeLabel("redeemed"), "Accepted")
+assert.equal(invitationOutcomeLabel("expired"), "Expired")
+assert.equal(invitationOutcomeLabel("revoked"), "Revoked")
+assert.equal(
+  invitationRedeemedByLabel({
+    intendedEmail: "invited@example.test",
+    name: "Jane Scientist",
+    email: "jane@example.test"
+  }),
+  "Jane Scientist (jane@example.test)"
+)
+assert.equal(
+  invitationRedeemedByLabel({
+    intendedEmail: "JANE@example.test",
+    name: "Jane Scientist",
+    email: "jane@example.test"
+  }),
+  "Jane Scientist",
+  "the account address is not repeated when it matches the intended recipient"
+)
+assert.equal(
+  invitationRedeemedByLabel({
+    intendedEmail: "invited@example.test",
+    name: null,
+    email: null
+  }),
+  "a signed-in participant"
+)
 
 console.log("Interface state tests passed")

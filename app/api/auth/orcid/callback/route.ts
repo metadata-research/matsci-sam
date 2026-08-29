@@ -10,6 +10,7 @@ import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
 import { getSession } from "@/lib/session"
 import { revalidatePath } from "next/cache"
 import { NextRequest, NextResponse } from "next/server"
+import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
 
 const redirectTo = (request: NextRequest, path: string) =>
   NextResponse.redirect(new URL(path, request.url))
@@ -27,12 +28,14 @@ export const GET = async (request: NextRequest) => {
       status: 400
     })
 
+  const returnTo = normalizeAuthReturnTo(pending.returnTo)
+
   if (request.nextUrl.searchParams.has("error"))
     return redirectTo(
       request,
       pending.intent === "connect"
         ? "/profile?orcid=cancelled"
-        : "/?orcid=cancelled"
+        : (returnTo ?? "/?orcid=cancelled")
     )
 
   let tokens
@@ -66,7 +69,10 @@ export const GET = async (request: NextRequest) => {
   const userId = await findOrcidAccountUserId(tokens.orcidId)
   if (!userId) {
     if (isEmailAccountCreationEnabled())
-      return redirectTo(request, "/register?source=orcid")
+      return redirectTo(
+        request,
+        authPathWithReturnTo("/register?source=orcid", returnTo)
+      )
     return new Response(
       "This ORCID iD is not connected to an account. Sign in with Google first, then connect ORCID from your profile.",
       { status: 403 }
@@ -76,5 +82,5 @@ export const GET = async (request: NextRequest) => {
   await connectOrcidAccount({ userId, tokens })
   session.id = userId
   await session.save()
-  return redirectTo(request, "/profile")
+  return redirectTo(request, returnTo ?? "/profile")
 }

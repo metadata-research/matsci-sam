@@ -99,8 +99,8 @@ export function DefinitionExamples({
         </div>
         <p className="text-sm text-muted-foreground">
           {readOnly
-            ? "Examples belong to the definition as a whole and may have been added after this historical revision."
-            : "Examples are contributed separately. The featured example appears in compact views of this definition."}
+            ? "These examples support the definition as a whole and may have been added after this historical revision."
+            : "Examples support the definition while retaining their own contributor credit. One may be featured in summaries."}
         </p>
       </header>
 

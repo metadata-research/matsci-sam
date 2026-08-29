@@ -30,6 +30,7 @@ import {
   statementUri,
   tagsIndexPath,
   tagsIndexUri,
+  termActivityPath,
   termPath,
   termUri,
   vocabularyPath,
@@ -80,6 +81,11 @@ assert.equal(
 assert.equal(
   termUri("martensite", "zhang_lab"),
   `${base}/vocabulary/zhang_lab/martensite`
+)
+assert.equal(termActivityPath("martensite"), "/vocabulary/martensite/activity")
+assert.equal(
+  termActivityPath("martensite", "zhang_lab"),
+  "/vocabulary/zhang_lab/martensite/activity"
 )
 assert.equal(
   definitionPath("martensite", 2),
@@ -160,6 +166,7 @@ for (const invalid of [0, -1, 1.2, Number.NaN])
 
 assert.throws(() => revisionPath("martensite", 1, 0), RangeError)
 assert.throws(() => rankPath("martensite", 0), RangeError)
+assert.throws(() => termActivityPath(""), RangeError)
 assert.throws(() => termPath(""), RangeError)
 assert.throws(() => vocabularyPath(""), RangeError)
 assert.throws(() => applicationMetadataUri(""), RangeError)

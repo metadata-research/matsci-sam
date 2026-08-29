@@ -1,5 +1,9 @@
 import { z } from "zod"
-import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "@/lib/input-limits"
+import {
+  DEFINITION_MAX_LENGTH,
+  EXAMPLE_MAX_LENGTH,
+  TERM_MAX_LENGTH
+} from "@/lib/input-limits"
 
 export type DefineTerm = z.infer<typeof DefineTermSchema>
 export const DefineTermSchema = z.object({
@@ -8,5 +12,6 @@ export const DefineTermSchema = z.object({
     .string()
     .trim()
     .min(1, "You must give a definition")
-    .max(DEFINITION_MAX_LENGTH)
+    .max(DEFINITION_MAX_LENGTH),
+  initialExample: z.string().trim().max(EXAMPLE_MAX_LENGTH).optional()
 })

@@ -16,16 +16,20 @@ import {
 } from "@/lib/dev-auth"
 import { getSession } from "@/lib/session"
 import { notFound, redirect } from "next/navigation"
+import { normalizeAuthReturnTo } from "@/lib/auth-return"
 
 type Props = {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; returnTo?: string }>
 }
 
 export default async function DevLoginPage({ searchParams }: Props) {
   if (!isDevAuthEnabled()) notFound()
 
+  const { error, returnTo: requestedReturnTo } = await searchParams
+  const returnTo = normalizeAuthReturnTo(requestedReturnTo)
+
   const session = await getSession()
-  if (session.id) redirect("/profile")
+  if (session.id) redirect(returnTo ?? "/profile")
 
   let users: DevAuthUser[]
   try {
@@ -34,12 +38,12 @@ export default async function DevLoginPage({ searchParams }: Props) {
     users = []
   }
 
-  const { error } = await searchParams
-  const errorMessage = error === "invalid"
-    ? "The selected user or shared password was not recognized."
-    : error === "configuration" || users.length === 0
-      ? "Development login has not been configured on this server."
-      : null
+  const errorMessage =
+    error === "invalid"
+      ? "The selected user or shared password was not recognized."
+      : error === "configuration" || users.length === 0
+        ? "Development login has not been configured on this server."
+        : null
 
   return (
     <main className="px-4 py-12">
@@ -47,11 +51,14 @@ export default async function DevLoginPage({ searchParams }: Props) {
         <CardHeader>
           <CardTitle className="text-2xl">Development login</CardTitle>
           <CardDescription>
-            Choose your identity and enter the shared development password.
-            Your contributions will be attributed to the selected account.
+            Choose your identity and enter the shared development password. Your
+            contributions will be attributed to the selected account.
           </CardDescription>
         </CardHeader>
         <form action="/api/auth/dev-login" method="post">
+          {returnTo ? (
+            <input type="hidden" name="returnTo" value={returnTo} />
+          ) : null}
           <CardContent className="space-y-4">
             {errorMessage ? (
               <p className="text-sm text-destructive" role="alert">
@@ -68,7 +75,9 @@ export default async function DevLoginPage({ searchParams }: Props) {
                 defaultValue=""
                 className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px] disabled:opacity-50"
               >
-                <option value="" disabled>Select your name</option>
+                <option value="" disabled>
+                  Select your name
+                </option>
                 {users.map((user) => (
                   <option value={user.username} key={user.username}>
                     {user.name}
@@ -89,7 +98,11 @@ export default async function DevLoginPage({ searchParams }: Props) {
             </div>
           </CardContent>
           <CardFooter className="pt-6">
-            <Button type="submit" className="w-full" disabled={users.length === 0}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={users.length === 0}
+            >
               Log in
             </Button>
           </CardFooter>

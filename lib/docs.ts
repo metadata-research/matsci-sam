@@ -58,7 +58,8 @@ const SECTIONS: Record<DocSection, SectionConfig> = {
       "tags",
       "provenance",
       "metadata-access",
-      "identifiers"
+      "identifiers",
+      "administration"
     ]
   },
   reference: {

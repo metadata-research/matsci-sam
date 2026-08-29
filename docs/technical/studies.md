@@ -15,6 +15,8 @@ participant interface.
 - `lib/survey-queries.ts` loads the facts the rules take and writes the
   multi-row units. `scripts/test-kos-db.ts` imports it under plain `tsx` to
   exercise those writes.
+- `lib/survey-positions.ts` completes a Position step with its exact
+  definition revision and implements Accept without vote-toggle semantics.
 - `lib/study-queries.ts` holds the reads of a study and `agreedDefinitions`,
   and `studyState` in `lib/communities.ts` derives the state from the
   window and `retiredAt`.
@@ -30,7 +32,7 @@ participant interface.
 
 A `studies` row has a slug minted once, the community, the collection, a
 title, a plain-text `welcome`, the optional window and `retiredAt`. Migration
-0041 added the three survey tables. `surveySteps` holds the steps of a study,
+0041 added the first three survey tables. `surveySteps` holds the steps of a study,
 with a one-based `position` unique per study, a `kind` from `instructions`,
 `define`, `review` and `question`, and a `termId`, a `prompt` and a
 `responseKind` that a CHECK requires or forbids by kind.
@@ -45,6 +47,13 @@ stamp off a human answer. `surveyStepId` on `voteEvents`, `comments` and
 0018, and the define step sets it when a participant publishes a suggested
 revision. A replacement proposal uses `definitions.replacesDefinitionId` to
 name the stable candidate it is intended to supersede.
+
+Migration 0051 added `surveyStepPositions`. Its primary key is the step and
+person, and it records whether the exact definition revision was accepted or
+proposed. A composite foreign key ties it to the completion, and another proves
+that the revision belongs to the definition. Progress and target are separate:
+an exceptional administrative purge deletes the target row with the
+definition, while the completion continues to record that the step was done.
 
 Migration 0043 added `backfilled` and `migratedLegacy` to `voteEvents` and
 inserted one event for each vote that had none for its revision and user pair,
@@ -72,22 +81,29 @@ only be added to, which `surveys.addQuestionStep` does at any time.
 A define step asks for a position on its term. As `stepsWithPosition` and
 `hasPosition` read it, a person holds one when an upvote event of theirs names
 the step, when an initial revision of theirs names the step, or when they have
-a standing upvote on the current revision of a definition of the term. The
-third satisfies the gate without being an act of the step, since the vote path
-toggles, and `positionsOf` does not report it as held, so the shell shows the
-candidates and Accept records the completion against it. `stepGate` passes
-instructions and review on the press and requires the position of a define
-step and the answer of a question. `gateOf` loads those facts, and
-`completeStep` refuses with PRECONDITION_FAILED.
+a standing upvote on the current revision of a definition of the term.
+`positionsOf` reads the explicit target first and uses step-scoped vote and
+revision acts only as a legacy fallback.
+
+`surveys.acceptPosition` is the participant Accept path. Under one definition
+lock, no vote becomes an upvote, a downvote changes to an upvote, and an
+existing upvote remains unchanged. `recordPositionCompletion` then writes the
+exact accepted revision and completion in the same transaction. This avoids
+the general vote control's toggle behavior and removes the former gap between a
+vote request and a completion request. `stepGate` remains the shared rule for
+legacy recovery and service reads. `completeStep` presses instructions and
+review normally and can recover a step-scoped position act written by the
+former two-request client.
 
 `actMatchesStep` says which step an act may name. A comment names the review
 step of its term. A vote names the review step whatever its kind, and the
 define step only as an upvote. A definition names the define step of its term.
 `requireStepForAct` runs `requireParticipation`, which requires a live membership
 and an open study, then `actMatchesStep`. `requireOnePosition` runs inside the
-transaction that writes a vote or a definition in a define step. For a vote it
-checks the kind the vote will stand at, since a second cast on the same
-candidate is a withdrawal. It then refuses with CONFLICT when a completion or
+transaction that writes a vote, acceptance, or definition in a define step.
+For a general vote it checks the kind the vote will stand at, since a second
+cast on the same candidate is a withdrawal. For Accept it preserves a matching
+upvote. It refuses with CONFLICT when a completion or
 an act of the caller, which `actNamesStep` reads, already names the step. One
 act per person per define step.
 
@@ -97,16 +113,19 @@ comment, vote event, or revision fits the act and term, that a
 vote event in a define step is an upvote, that one act per person per define
 step holds, that a response and a question completion come in pairs, that a
 simulated or model answer is from an AI-flag account and a text one has its
-stamp, and that positions run from 1 without gaps.
+stamp, and that positions run from 1 without gaps. For an explicit Position
+target it also checks the define-step term, transaction timestamp, accepting
+upvote or participant-authored initial proposal.
 
 ## The writes
 
 `recordCompletion` inserts one completion, does nothing on conflict and
 returns null the second time. It takes an executor, so the act a step asks for
-and its completion share a transaction. `definitions.create` records the
-completion with the definition and `recordResponse` with the answer. A vote
-records none, and the shell presses the define step through `completeStep`
-once the position is held. `recordResponse` inserts the answer with its
+and its completion share a transaction. `recordPositionCompletion` adds the
+exact accepted or proposed revision. `definitions.create` records a proposed
+position with the new definition, `surveys.acceptPosition` records an accepted
+position with its vote, and `recordResponse` records the completion with the
+answer. `recordResponse` inserts the answer with its
 `authorKind` and optional stamp, then the completion, and
 `surveys.answerQuestion` turns the unique pair into CONFLICT.
 
@@ -123,9 +142,9 @@ AI suggestion. For **Propose a replacement**, it checks that
 completion with the newly published candidate and returns where the walkthrough
 resumes.
 
-## The support list
+## Support-ranking query
 
-`agreedDefinitions(collectionId, asOf)` returns, for each term of the
+`mostSupportedDefinitions(collectionId, asOf)` returns, for each term of the
 collection, the definition with the most support and the number of other
 definitions for that term. The function receives a collection and an optional
 time. It evaluates every definition of each term and votes from all accounts,
@@ -137,12 +156,11 @@ revision at or before that time, summed over the revisions of the definition.
 A tie goes to the earliest definition. The function computes the result on
 read and writes no outcome row.
 
-## Outcome scope
+## Ranking scope
 
-The current result is a site-wide support ranking shown in the context of a
-study. The query has no study or community input, so votes from accounts
-outside the study can affect the ranking. The guide therefore describes this
-result as a site-wide support snapshot rather than study consensus.
+The query produces a site-wide support ranking. It has no study or community
+input, so votes from accounts outside a study can affect the ranking. The
+public study page does not render it as a study outcome or consensus.
 
 The authoritative [development plan](../../docs-internal/DEVELOPMENT-PLAN.md)
 schedules community-scoped study outcomes in Phase 8d. The
@@ -156,23 +174,24 @@ that have no community context.
 ## The pages
 
 The study page at `/studies/<slug>` is public. It calls
-`surveys.get` for a signed-in viewer to render the resume card and renders the
-support list for every viewer. Community pages provide the roster. The run page
-at `/studies/<slug>/run` admits a signed-in member while the study is open and
-renders one step at a time. A define step offers **Accept**, the shared
+`surveys.get` for a signed-in viewer to render the resume card. Community pages
+provide the roster. The run page at `/studies/<slug>/run` admits a signed-in
+member while the study is open and renders the instructions and subsequent
+activity one step at a time. A define step offers **Accept**, the shared
 critique-driven **Suggest a revision** action, and **Propose a replacement**.
-Each write surface receives the step so the new act can name it. The community
+It shows support and the viewer's existing vote as static context rather than
+disabled voting buttons. Vote controls appear in Review. Each write surface
+receives the step so the new act can name it. The community
 page renders
 `GenerateWalkthrough`, which generates or regenerates, with a checkbox for the
 closing questions, and gives way to the step count once the walkthrough is in
 use or the study is retired. `studyProgress` gives the page how many
 participants have finished.
 
-The `Walkthrough` component owns a counted interaction state. Vote, comment,
+The `Walkthrough` component owns a counted interaction state. Accept, vote, comment,
 definition, language-model draft, discard, completion, and answer controls report their
 mutation lifecycle to this state. Step dots and movement controls remain
 disabled from the initiating action until all related writes settle. Counting
-supports sequences such as the position vote followed by step completion and
 also supports overlapping child writes.
 
 ## Tests and what CI checks
@@ -184,7 +203,9 @@ of `actMatchesStep` and `mayParticipate`. The `verify` job of `pr-verify.yml`
 runs it. `pnpm test:kos-db` probes each CHECK on `surveySteps` in a savepoint
 of its rolled-back transaction, writes a walkthrough through `replaceSteps`,
 acts that name its steps and answers through `recordResponse`, and reads them
-back through `walkthroughOf` and `gateOf`. The `db-invariants` job applies the
+back through `walkthroughOf` and `gateOf`. It exercises Accept with no vote,
+an upvote, and a downvote, along with the Position foreign keys, purge behavior,
+and release invariants. The `db-invariants` job applies the
 migrations, runs `pnpm db:invariants` and this test, seeds the database with
 `pnpm seed:ci-graph`, whose fixture includes a study, and runs the invariants
 again on the result.

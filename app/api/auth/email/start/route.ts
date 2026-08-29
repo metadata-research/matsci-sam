@@ -12,6 +12,7 @@ import {
   isEmailAuthEnabled
 } from "@/lib/email-auth"
 import { sendEmailSignInLink } from "@/lib/email"
+import { normalizeAuthReturnTo } from "@/lib/auth-return"
 
 const genericRedirect = () =>
   NextResponse.redirect(new URL("/register/check-email", getAuthSiteUrl()), 303)
@@ -29,6 +30,7 @@ export const POST = async (request: NextRequest) => {
   if (!parsed.success || !parsedIntent.success) return genericRedirect()
 
   const email = parsed.data
+  const returnTo = normalizeAuthReturnTo(form.get("returnTo"))
   const allowAccountCreation = parsedIntent.data === "create"
   if (allowAccountCreation && !isEmailAccountCreationEnabled())
     return genericRedirect()
@@ -39,7 +41,7 @@ export const POST = async (request: NextRequest) => {
     .where(lt(emailAuthTokensTable.expiresAt, now))
 
   const token = createEmailAuthToken()
-  const tokenHash = hashEmailAuthToken(token)
+  const tokenHash = hashEmailAuthToken(token, returnTo)
 
   const issued = await db.transaction(async (tx) => {
     // Serialize requests for the same normalized address. Without this lock,
@@ -98,7 +100,7 @@ export const POST = async (request: NextRequest) => {
 
   after(async () => {
     try {
-      await sendEmailSignInLink({ email, token })
+      await sendEmailSignInLink({ email, token, returnTo })
     } catch {
       await db
         .delete(emailAuthTokensTable)

@@ -9,7 +9,7 @@ import {
   studyWindowError
 } from "@/lib/study-editor"
 import { lockStudy, walkthroughUsageOfStudy } from "@/lib/survey-queries"
-import { DEFAULT_INSTRUCTIONS } from "@/lib/surveys"
+import { DEFAULT_INSTRUCTIONS, isDefaultInstructions } from "@/lib/surveys"
 
 export type ExpectedStudyState = {
   title: string
@@ -133,13 +133,15 @@ export const updateStudyDetails = async (input: StudyUpdate) => {
       instructionPromptChanged =
         input.instructions !== undefined &&
         instructionStep !== undefined &&
-        instructionStep.prompt !== (nextWelcome ?? DEFAULT_INSTRUCTIONS)
+        (nextWelcome === null
+          ? !isDefaultInstructions(instructionStep.prompt)
+          : instructionStep.prompt !== nextWelcome)
 
       if (windowChanged && editability.activity > 0)
         throw new TRPCError({
           code: "CONFLICT",
           message:
-            "The schedule is locked because this walkthrough has recorded activity."
+            "The schedule is locked because this study has recorded activity."
         })
       if (
         input.instructions !== undefined &&

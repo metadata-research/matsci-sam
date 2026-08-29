@@ -5,6 +5,7 @@ import {
 } from "@/lib/apis/orcid"
 import { getSession } from "@/lib/session"
 import { NextRequest, NextResponse } from "next/server"
+import { normalizeAuthReturnTo } from "@/lib/auth-return"
 
 export const GET = async (request: NextRequest) => {
   if (!isOrcidAuthEnabled()) return new Response("Not found", { status: 404 })
@@ -14,6 +15,9 @@ export const GET = async (request: NextRequest) => {
       ? "connect"
       : "login"
   const session = await getSession()
+  const returnTo = normalizeAuthReturnTo(
+    request.nextUrl.searchParams.get("returnTo")
+  )
   if (intent === "connect" && !session.id)
     return new Response("Sign in before connecting an ORCID iD.", {
       status: 401
@@ -23,7 +27,8 @@ export const GET = async (request: NextRequest) => {
   session.orcidOAuth = {
     ...authorization.state,
     intent,
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    ...(returnTo ? { returnTo } : {})
   }
   await session.save()
 

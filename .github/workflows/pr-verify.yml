@@ -132,6 +132,17 @@ jobs:
         run: |
           pnpm test:definition-source-lock
 
+      # Proves a retried identical Accept converges instead of conflicting,
+      # and that a position recorded behind a purge-orphaned completion
+      # carries a recordedAt its accepting vote event precedes, as the
+      # invariants require. The fixture is removed before the graph seed,
+      # which refuses a database that holds a term.
+      - name: Test survey position recording
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:positions-db
+
       # A migrated database holds no term, statement, vote or study, so the
       # graph steps below had nothing to check: the shapes saw no assertion,
       # vote event or study, and the paper queries answered no rows. The
@@ -151,6 +162,16 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
         run: |
           pnpm db:invariants
+
+      # Reads the fixture's busiest term and proves the activity DTO carries
+      # no participant identifiers or survey prompts, and that every stored
+      # diff reconstructs its before and after text. Skips on an empty
+      # database, which is why it runs after the seed.
+      - name: Test term activity data layer
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:activity-db
 
       # The graph layer against the seeded database and a live store: the
       # export is validated with the Jena CLI and the shapes, which now have
@@ -418,6 +439,14 @@ jobs:
       - name: Test Study Editor
         run: |
           pnpm test:study-editor
+
+      - name: Test Revision Comparisons
+        run: |
+          pnpm test:comparison
+
+      - name: Test Activity Timeline
+        run: |
+          pnpm test:activity-timeline
 
       - name: Check Migration Journal
         run: |

@@ -21,13 +21,20 @@ import {
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
 import { SITE_NAME } from "@/lib/site"
 import { getCurrentUser } from "@/lib/current-user"
+import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
 
 export const metadata: Metadata = { title: `Sign in | ${SITE_NAME}` }
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams
+}: {
+  searchParams: Promise<{ returnTo?: string }>
+}) {
+  const { returnTo: requestedReturnTo } = await searchParams
+  const returnTo = normalizeAuthReturnTo(requestedReturnTo)
   // Someone already signed in has nothing to do here, and on a host with
   // email account creation this page would offer them a second account.
-  if (await getCurrentUser()) redirect("/profile")
+  if (await getCurrentUser()) redirect(returnTo ?? "/profile")
 
   const devEnabled = isDevAuthEnabled()
   const emailEnabled = isEmailAuthEnabled()
@@ -38,20 +45,25 @@ export default async function LoginPage() {
     <main className="px-4 py-12">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">
-            Sign in to {SITE_NAME}
-          </CardTitle>
+          <CardTitle className="text-2xl">Sign in to {SITE_NAME}</CardTitle>
           <CardDescription>
             Continue with an identity already connected to your account.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <Button asChild variant="outline" className="w-full">
-            <a href="/api/auth/google">Continue with Google</a>
+            <a href={authPathWithReturnTo("/api/auth/google", returnTo)}>
+              Continue with Google
+            </a>
           </Button>
           {orcidEnabled ? (
             <Button asChild variant="outline" className="w-full">
-              <a href="/api/auth/orcid?intent=login">
+              <a
+                href={authPathWithReturnTo(
+                  "/api/auth/orcid?intent=login",
+                  returnTo
+                )}
+              >
                 <Image
                   src="/orcid-id.svg"
                   alt=""
@@ -76,6 +88,9 @@ export default async function LoginPage() {
                 className="space-y-4"
               >
                 <input type="hidden" name="intent" value="sign-in" />
+                {returnTo ? (
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email address</Label>
                   <div className="relative">
@@ -102,7 +117,10 @@ export default async function LoginPage() {
               {emailAccountCreationEnabled ? (
                 <p className="text-center text-sm text-muted-foreground">
                   New here?{" "}
-                  <Link href="/register" className="text-primary underline">
+                  <Link
+                    href={authPathWithReturnTo("/register", returnTo)}
+                    className="text-primary underline"
+                  >
                     Create an account by email
                   </Link>
                 </p>
@@ -117,7 +135,9 @@ export default async function LoginPage() {
                 <span className="h-px flex-1 bg-border" />
               </div>
               <Button asChild variant="ghost" className="w-full">
-                <Link href="/dev-login">Use development sign-in</Link>
+                <Link href={authPathWithReturnTo("/dev-login", returnTo)}>
+                  Use development sign-in
+                </Link>
               </Button>
             </>
           ) : null}

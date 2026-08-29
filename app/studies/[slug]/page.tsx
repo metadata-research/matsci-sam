@@ -2,29 +2,24 @@ import { cache } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
+import { db } from "@yamz/db"
 import { SITE_NAME } from "@/lib/site"
-import { mostSupportedDefinitions, studyBySlug } from "@/lib/study-queries"
+import { studyBySlug } from "@/lib/study-queries"
+import { instructionPromptOfStudy } from "@/lib/survey-queries"
 import { studyState } from "@/lib/communities"
 import { getCurrentUser } from "@/lib/current-user"
 import {
   collectionPath,
   communityPath,
-  definitionPath,
-  studyRunPath,
-  termPath
+  studyRunPath
 } from "@/lib/public-identifiers"
-import { formatDate, formatDateTime } from "@/lib/date"
-import {
-  MOST_SUPPORTED_DEFINITIONS_HEADING,
-  studySupportDescription,
-  studyWindowExplanation,
-  studyWelcomeHeading
-} from "@/lib/study-presentation"
+import { formatDate } from "@/lib/date"
+import { studyWindowExplanation } from "@/lib/study-presentation"
 import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { PublicProfileName } from "@/components/public-profile-name"
-import { DEFAULT_INSTRUCTIONS } from "@/lib/surveys"
+import { studyActivityActionLabel } from "@/components/studies/progress"
+import { StudyActionButton } from "@/components/studies/action-button"
 
 // Shared by generateMetadata and the body, so the page runs one query.
 const loadStudy = cache(async (slug: string) => studyBySlug(slug))
@@ -50,7 +45,8 @@ const STATE_LABEL = {
 /*
  * A study, as its participants read it. This is the address that goes in a
  * reminder email, so it stays public and stays put: the instructions have to
- * be reachable a week after the invitation link was spent.
+ * be reachable a week after the invitation link was spent, and after the
+ * study closes. The activity presents the same instructions as step 1.
  *
  * The cohort is not listed here. Who is in a community is visible to its
  * members and to administrators, and routing round that rule through a study
@@ -71,29 +67,34 @@ export default async function StudyPage({
   // signed-out viewer has no progress to resume, so nothing is read.
   const user = await getCurrentUser()
   const walkthrough = user ? await trpc.surveys.get({ studySlug: slug }) : null
+  // The activity card while the study is open, and the consolidated record
+  // of a participant who finished after it closes.
+  const finished =
+    walkthrough !== null &&
+    walkthrough.steps.length > 0 &&
+    walkthrough.completedStepIds.length === walkthrough.steps.length
   const walks =
     walkthrough !== null &&
     walkthrough.membership !== null &&
-    state === "open" &&
-    walkthrough.steps.length > 0
+    walkthrough.steps.length > 0 &&
+    (state === "open" || (state === "closed" && finished))
       ? walkthrough
       : null
 
-  // The most-supported definition of each term, for any study with terms. A
-  // closed study time-bounds support counts at closesAt; candidate text and
-  // collection membership remain current.
-  const supportClosesAt =
-    state === "closed" && study.closesAt ? study.closesAt : null
-  const supportList = await mostSupportedDefinitions(
-    study.collectionId,
-    supportClosesAt
-  )
-  const supportDescription = studySupportDescription(
-    supportClosesAt ? formatDateTime(supportClosesAt) : null
-  )
+  // The participant-visible instructions: the locked step-1 prompt where the
+  // steps exist, which is the exact text participants were shown, and the
+  // welcome text of a study whose steps are not generated yet.
   const participantInstructions =
-    study.welcome ?? (study.steps > 0 ? DEFAULT_INSTRUCTIONS : null)
+    (study.steps > 0 ? await instructionPromptOfStudy(db, study.id) : null) ??
+    study.welcome
 
+  const activityActionLabel = walks
+    ? studyActivityActionLabel(
+        walks.completedStepIds.length,
+        walks.resumePosition,
+        walks.steps.length
+      )
+    : null
   return (
     <main className="px-4 py-8">
       <section className="max-w-3xl w-full mx-auto space-y-6">
@@ -119,31 +120,26 @@ export default async function StudyPage({
         {walks && (
           <section className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-4">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Walkthrough
+              Study activity
             </div>
-            {walks.completedStepIds.length === 0 ? (
+            {activityActionLabel ? (
               <>
-                <p className="text-sm">
-                  {walks.steps.length} steps. Your place is kept between visits.
-                </p>
-                <Button asChild>
-                  <Link href={studyRunPath(study.slug)}>
-                    Start the walkthrough
-                  </Link>
-                </Button>
+                {walks.completedStepIds.length === 0 && (
+                  <p className="text-sm">
+                    {walks.steps.length} steps. Your place is kept between
+                    visits.
+                  </p>
+                )}
+                <StudyActionButton href={studyRunPath(study.slug)}>
+                  {activityActionLabel}
+                </StudyActionButton>
               </>
-            ) : walks.resumePosition !== null ? (
-              <Button asChild>
-                <Link href={studyRunPath(study.slug)}>
-                  Continue (step {walks.resumePosition} of {walks.steps.length})
-                </Link>
-              </Button>
             ) : (
               <>
-                <p className="text-sm">You have finished the walkthrough.</p>
+                <p className="text-sm">You have finished the study activity.</p>
                 <Button asChild variant="outline">
                   <Link href={studyRunPath(study.slug)}>
-                    Open the walkthrough
+                    Review completed study
                   </Link>
                 </Button>
               </>
@@ -158,7 +154,7 @@ export default async function StudyPage({
         {!walks && state === "open" && study.steps > 0 && !user && (
           <section className="space-y-3 rounded-md border border-border p-4">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Walkthrough
+              Study activity
             </div>
             <p className="text-sm">
               {study.steps} steps. Sign in to take part. Your place is kept
@@ -177,7 +173,7 @@ export default async function StudyPage({
           walkthrough !== null &&
           walkthrough.membership === null && (
             <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
-              The walkthrough is for members of {study.communityTitle}. An
+              The study activity is for members of {study.communityTitle}. An
               invitation from the community is the way in.
             </p>
           )}
@@ -189,10 +185,12 @@ export default async function StudyPage({
           </p>
         )}
 
-        {participantInstructions ? (
+        {participantInstructions && (
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">
-              {studyWelcomeHeading(state, study.steps)}
+              {state === "closed" && study.steps === 0
+                ? "About this study"
+                : "What to do"}
             </h2>
             {/* Plain text, split on blank lines. Nothing typed here becomes
                 markup, which is why the column is not markdown. */}
@@ -203,71 +201,6 @@ export default async function StudyPage({
                   {paragraph}
                 </p>
               ))}
-          </section>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No instructions have been written for this study yet.
-          </p>
-        )}
-
-        {supportList.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xl font-semibold">
-              {MOST_SUPPORTED_DEFINITIONS_HEADING}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {supportDescription}
-            </p>
-            <ol className="space-y-3">
-              {supportList.map((term) => (
-                <li
-                  key={term.id}
-                  className="space-y-2 rounded-md border border-border p-4"
-                >
-                  <Link
-                    href={termPath(term.slug, term.vocabularySlug)}
-                    className="block text-lg font-bold font-serif"
-                  >
-                    {term.term}
-                  </Link>
-                  {term.mostSupported ? (
-                    <>
-                      <p>{term.mostSupported.definition}</p>
-                      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                        <PublicProfileName
-                          user={term.mostSupported.author}
-                          fallback="Unknown contributor"
-                        />
-                        <Link
-                          href={definitionPath(
-                            term.slug,
-                            term.mostSupported.definitionNumber,
-                            term.vocabularySlug
-                          )}
-                          className="hover:underline"
-                        >
-                          Definition {term.mostSupported.definitionNumber}
-                        </Link>
-                        <span>
-                          Site-wide net support {term.mostSupported.support}
-                        </span>
-                        <span>
-                          {term.alternatives === 0
-                            ? "No alternative"
-                            : term.alternatives === 1
-                              ? "1 alternative"
-                              : `${term.alternatives} alternatives`}
-                        </span>
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No candidate yet.
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ol>
           </section>
         )}
 
@@ -295,6 +228,14 @@ export default async function StudyPage({
               {studyWindowExplanation(study.steps)}
             </p>
           </section>
+        )}
+
+        {activityActionLabel && (
+          <div className="border-t border-border pt-6">
+            <StudyActionButton href={studyRunPath(study.slug)}>
+              {activityActionLabel}
+            </StudyActionButton>
+          </div>
         )}
       </section>
     </main>

@@ -279,7 +279,7 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
               >
                 Times are entered and displayed in UTC.
                 {study.activity > 0 &&
-                  " The schedule is locked after walkthrough activity."}
+                  " The schedule is locked after study activity."}
                 {retired && " Restore this study before changing its schedule."}
                 {!retired &&
                   study.parentRetired &&
@@ -340,7 +340,7 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
               <div className={styles.studyNotice} role="status">
                 <ShieldAlertIcon aria-hidden />
                 <p>
-                  The study page and walkthrough currently have different
+                  The study page and study activity currently have different
                   instructions.
                   {canEditInstructions
                     ? " Saving this block will bring them back into sync."
@@ -429,11 +429,11 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
               </dd>
             </div>
             <div>
-              <dt>Walkthrough</dt>
+              <dt>Study steps</dt>
               <dd>
                 {study.steps === 0 ? (
                   <Link href={`/communities/${study.communitySlug}`}>
-                    Not generated — open community controls
+                    Not prepared — open community controls
                   </Link>
                 ) : (
                   `${study.steps} ${study.steps === 1 ? "step" : "steps"}`

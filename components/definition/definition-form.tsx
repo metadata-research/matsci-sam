@@ -29,7 +29,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { DefineTerm, DefineTermSchema } from "@/lib/schemas/terms"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
-import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "@/lib/input-limits"
+import {
+  DEFINITION_MAX_LENGTH,
+  EXAMPLE_MAX_LENGTH,
+  TERM_MAX_LENGTH
+} from "@/lib/input-limits"
 import { definitionPath, termPath } from "@/lib/public-identifiers"
 import { loginToast } from "@/components/login-toast"
 import {
@@ -114,8 +118,9 @@ export type PublishedDefinition = RouterOutput["definitions"]["create"]
  * walkthrough. On /add the contributor picks the term. In the walkthrough
  * the step fixes the term. A suggested revision opens with the text of the
  * candidate it derives from; a proposed replacement opens empty. /add
- * navigates to the published definition, while the walkthrough advances.
- * Examples are separate contributions and are added after publication.
+ * navigates to the published definition, while the walkthrough advances. A
+ * new term or replacement may publish an independently attributed first
+ * example in the same action.
  */
 export const DefinitionForm = ({
   initialTerm = "",
@@ -155,6 +160,9 @@ export const DefinitionForm = ({
     onMutationEnd
   })
   const term = lockedTerm ?? initialTerm
+  const acceptsInitialExample =
+    derivedFromRevisionId === undefined &&
+    (lockedTerm === undefined || replacesDefinitionId !== undefined)
   const [aiDraft, setAiDraft] = useState<{
     suggestionId: number
     definition: string
@@ -166,7 +174,8 @@ export const DefinitionForm = ({
     resolver: zodResolver(DefineTermSchema),
     defaultValues: {
       term,
-      definition: initialDefinition
+      definition: initialDefinition,
+      initialExample: ""
     }
   })
 
@@ -433,6 +442,35 @@ export const DefinitionForm = ({
                   </p>
                 ) : null}
               </div>
+            ) : null}
+
+            {acceptsInitialExample ? (
+              <FormField
+                control={form.control}
+                name="initialExample"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Example of use (optional)</FormLabel>
+                    <FormDescription>
+                      Show how this definition is used in a materials science
+                      context. The example is recorded as a separate
+                      contribution credited to you.
+                      {lockedTerm === undefined
+                        ? " Language-model drafting affects only the definition."
+                        : " It remains separate from the definition's revision history and votes."}
+                    </FormDescription>
+                    <FormControl>
+                      <Textarea
+                        className="min-h-20"
+                        maxLength={EXAMPLE_MAX_LENGTH}
+                        disabled={busy}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             ) : null}
 
             {mutation.error ? (

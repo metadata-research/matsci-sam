@@ -53,10 +53,32 @@ const main = async () => {
           termId: term.id,
           authorId: author.id,
           definition: "A fixture definition for testing multiple examples.",
+          initialExample: "  First independent example.  ",
           example: "",
           changeNote: "fixture",
-          source: "initial"
+          source: "ai_assisted",
+          model: "definition-draft-model",
+          prompt: "Draft only the definition."
         })
+
+      const [initialExample] = await tx
+        .select()
+        .from(definitionExamplesTable)
+        .where(eq(definitionExamplesTable.definitionId, definition.id))
+      assert.ok(initialExample)
+      assert.equal(definition.example, "", "legacy example mirror stays empty")
+      assert.equal(initialExample.exampleNumber, 1)
+      assert.equal(initialExample.sourceRevisionId, revision.id)
+      assert.equal(initialExample.text, "First independent example.")
+      assert.equal(initialExample.authorId, author.id)
+      assert.equal(initialExample.actorKind, "human")
+      assert.equal(
+        initialExample.model,
+        null,
+        "the definition model is not attributed to the author's example"
+      )
+      assert.equal(initialExample.promptHash, null)
+      assert.equal(initialExample.promptText, null)
 
       await assert.rejects(
         createDefinitionExample(tx, {
@@ -69,13 +91,6 @@ const main = async () => {
         DefinitionExampleStaleRevisionError
       )
 
-      const first = await createDefinitionExample(tx, {
-        definitionId: definition.id,
-        sourceRevisionId: revision.id,
-        text: "  First independent example.  ",
-        authorId: author.id,
-        actorKind: "human"
-      })
       const second = await createDefinitionExample(tx, {
         definitionId: definition.id,
         sourceRevisionId: revision.id,
@@ -84,9 +99,6 @@ const main = async () => {
         actorKind: "human"
       })
 
-      assert.equal(first.example.exampleNumber, 1)
-      assert.equal(first.example.text, "First independent example.")
-      assert.equal(first.isFeatured, true)
       assert.equal(second.example.exampleNumber, 2)
       assert.equal(second.isFeatured, false)
 
@@ -106,7 +118,7 @@ const main = async () => {
           sourceRevisionId
         })),
         [
-          { id: first.example.id, number: 1, sourceRevisionId: revision.id },
+          { id: initialExample.id, number: 1, sourceRevisionId: revision.id },
           { id: second.example.id, number: 2, sourceRevisionId: revision.id }
         ]
       )
@@ -132,7 +144,7 @@ const main = async () => {
         .where(eq(definitionExampleSelectionsTable.definitionId, definition.id))
         .orderBy(asc(definitionExampleSelectionsTable.id))
       assert.equal(selections.length, 2, "idempotent selection appends no row")
-      assert.equal(selections[0].exampleId, first.example.id)
+      assert.equal(selections[0].exampleId, initialExample.id)
       assert.ok(selections[0].endedAt)
       assert.equal(selections[0].endedById, author.id)
       assert.equal(selections[1].exampleId, second.example.id)
@@ -169,7 +181,7 @@ const main = async () => {
           await savepoint
             .update(definitionExamplesTable)
             .set({ text: "Rewritten example." })
-            .where(eq(definitionExamplesTable.id, first.example.id))
+            .where(eq(definitionExamplesTable.id, initialExample.id))
         })
       } catch (error) {
         const cause = (error as { cause?: unknown }).cause ?? error
@@ -185,7 +197,7 @@ const main = async () => {
           await savepoint
             .update(definitionExamplesTable)
             .set({ authorId: null, actorKind: null })
-            .where(eq(definitionExamplesTable.id, first.example.id))
+            .where(eq(definitionExamplesTable.id, initialExample.id))
         })
       } catch (error) {
         const cause = (error as { cause?: unknown }).cause ?? error
@@ -226,7 +238,7 @@ const main = async () => {
             .update(definitionExampleSelectionsTable)
             .set({ endedAt: "2099-01-01T00:00:00.000Z" })
             .where(
-              eq(definitionExampleSelectionsTable.exampleId, first.example.id)
+              eq(definitionExampleSelectionsTable.exampleId, initialExample.id)
             )
         })
       } catch (error) {
@@ -269,7 +281,7 @@ const main = async () => {
         await tx.transaction(async (savepoint) => {
           await savepoint.insert(definitionExampleSelectionsTable).values({
             definitionId: definition.id,
-            exampleId: first.example.id,
+            exampleId: initialExample.id,
             selectedById: author.id,
             selectedAt: "2026-01-01T00:00:00.000Z",
             endedAt: "2026-01-01T00:00:00.000Z",

@@ -143,7 +143,7 @@ The provenance graph adds terms for recorded acts.
 | `actorKind`                 | The actor type, `human`, `model`, or `simulated`                                |
 | `Study`                     | A study over a collection of terms, published as an activity                    |
 | `worklist`                  | The collection used by a study                                                  |
-| `study`                     | The study associated with an act made from its walkthrough                      |
+| `study`                     | The study associated with an act made during its activity                       |
 | `legacyAssociationInferred` | Marks an imported vote whose revision association was inferred during migration |
 | `backfilled`                | Marks the event created for a standing vote when vote-event recording began     |
 

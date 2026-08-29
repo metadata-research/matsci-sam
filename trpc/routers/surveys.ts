@@ -1,11 +1,12 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import {
   db,
   definitionsTable,
   surveyStepCompletionsTable,
+  surveyStepPositionsTable,
   votesTable
 } from "@yamz/db"
 import { baseProcedure, createTRPCRouter } from "../init"
@@ -33,12 +34,20 @@ import {
   instructionPromptOfStudy,
   lockStudy,
   nextPositionFor,
+  positionsOf,
   recordResponse,
   replaceSteps,
   stepWithStudy,
   studyProgress,
   walkthroughOf
 } from "@/lib/survey-queries"
+import {
+  acceptPositionCandidate,
+  recordPositionCompletion,
+  SurveyPositionConflictError,
+  SurveyPositionTargetError
+} from "@/lib/survey-positions"
+import { StaleRevisionError, VoteTargetMissingError } from "@/lib/participation"
 import {
   SURVEY_PROMPT_MAX_LENGTH,
   SURVEY_RESPONSE_MAX_LENGTH
@@ -223,24 +232,49 @@ export const requireStepForDefinitionAct = async (
  * For a vote or a definition inside a define step, in the transaction that
  * writes it: a participant takes one position per define step, so an act
  * of the caller already naming the step refuses a second, and so does the
- * completion of the step, which a standing upvote is recorded against with
- * no act of its own. For a vote, the act is the kind the vote will stand
- * at: a cast on a candidate the caller already upvoted is a withdrawal, and
- * a withdrawal names no define step. The definition row is held first, as
- * castVote holds it, so the standing vote read here is the one castVote
- * toggles on.
+ * completion of the step. For an ordinary vote, the act is the kind the vote
+ * will stand at: a cast on a candidate the caller already upvoted is a
+ * withdrawal, and a withdrawal names no define step. Accept is different:
+ * it preserves an existing upvote instead of toggling it off. The definition
+ * row is held first, as castVote holds it, so either path sees one vote state.
  */
 export const requireOnePosition = async (
   tx: DatabaseTransaction,
   step: Step,
   userId: number,
-  vote?: { definitionId: number; revisionId: number; vote: "up" | "down" }
+  vote?: {
+    definitionId: number
+    revisionId: number
+    vote: "up" | "down"
+    preserveMatchingVote?: boolean
+  }
 ) => {
+  let voteState: {
+    standingVote: "up" | "down" | null
+    score: number
+  } | null = null
   if (vote) {
     if (step.termId === null) throw notForThisAct()
-    await tx.execute(
-      sql`SELECT id FROM ${definitionsTable} WHERE id = ${vote.definitionId} FOR UPDATE`
-    )
+    const [target] = await tx
+      .select({
+        termId: definitionsTable.termId,
+        currentRevisionId: definitionsTable.currentRevisionId,
+        score: definitionsTable.score
+      })
+      .from(definitionsTable)
+      .where(eq(definitionsTable.id, vote.definitionId))
+      .for("update")
+    if (!target)
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Definition doesn't exist"
+      })
+    if (target.termId !== step.termId) throw notForThisAct()
+    if (target.currentRevisionId !== vote.revisionId)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "A newer revision is available. Review it before voting again."
+      })
     const standing = await tx.query.votesTable.findFirst({
       columns: { kind: true },
       where: and(
@@ -248,11 +282,18 @@ export const requireOnePosition = async (
         eq(votesTable.revisionId, vote.revisionId)
       )
     })
-    const kind = standing?.kind === vote.vote ? null : vote.vote
+    const kind =
+      vote.preserveMatchingVote || standing?.kind !== vote.vote
+        ? vote.vote
+        : null
     if (
       !actMatchesStep({ kind: "vote", termId: step.termId, vote: kind }, step)
     )
       throw notForThisAct()
+    voteState = {
+      standingVote: standing?.kind ?? null,
+      score: target.score
+    }
   }
   const [completion] = await tx
     .select({ id: surveyStepCompletionsTable.id })
@@ -269,6 +310,7 @@ export const requireOnePosition = async (
       code: "CONFLICT",
       message: "Your position on this term is recorded"
     })
+  return voteState
 }
 
 export const surveysRouter = createTRPCRouter({
@@ -450,9 +492,114 @@ export const surveysRouter = createTRPCRouter({
     ),
 
   /*
-   * Press through a step. Instructions and review complete on the press; a
-   * define step requires the caller's position on the term, and a question
-   * its answer, which answerQuestion records with the completion.
+   * Accept one exact candidate as the participant's position. Unlike the
+   * general vote toggle, Accept preserves an upvote already on the candidate;
+   * no vote becomes up and a downvote changes to up. The vote state, explicit
+   * position record and step completion commit together.
+   */
+  acceptPosition: contributorProcedure
+    .input(
+      z.object({
+        stepId: z.number().int(),
+        definitionId: z.number().int().positive(),
+        revisionId: z.number().int().positive(),
+        expectedInstructions: expectedInstructionsSchema
+      })
+    )
+    .mutation(
+      async ({
+        ctx: { userId },
+        input: { stepId, definitionId, revisionId, expectedInstructions }
+      }) => {
+        const preview = await requireStepForDefinitionAct(stepId, userId, {
+          kind: "vote",
+          definitionId,
+          vote: "up"
+        })
+        if (preview.step.kind !== "define") throw notForThisAct()
+
+        try {
+          return await db.transaction(async (tx) => {
+            const { step, study } = await lockParticipation(
+              tx,
+              stepId,
+              preview.study.id,
+              userId,
+              expectedInstructions
+            )
+            if (step.kind !== "define") throw notForThisAct()
+
+            // A retry of the same target converges: an Accept whose response
+            // was lost already recorded this exact position, so answer as the
+            // first attempt did instead of reporting a conflict. A different
+            // target, or a legacy completion with no position row to compare,
+            // is a real conflict, reported by requireOnePosition below.
+            const recorded = await tx.query.surveyStepPositionsTable.findFirst({
+              where: and(
+                eq(surveyStepPositionsTable.stepId, step.id),
+                eq(surveyStepPositionsTable.userId, userId)
+              )
+            })
+            if (
+              recorded &&
+              recorded.kind === "accepted" &&
+              recorded.definitionId === definitionId &&
+              recorded.revisionId === revisionId
+            ) {
+              const target = await tx.query.definitionsTable.findFirst({
+                columns: { score: true },
+                where: eq(definitionsTable.id, definitionId)
+              })
+              return {
+                ok: true,
+                score: target?.score ?? 0,
+                nextPosition: await nextPositionFor(tx, study.id, userId)
+              }
+            }
+
+            const voteState = await requireOnePosition(tx, step, userId, {
+              definitionId,
+              revisionId,
+              vote: "up",
+              preserveMatchingVote: true
+            })
+            if (!voteState) throw notForThisAct()
+
+            const accepted = await acceptPositionCandidate(tx, {
+              stepId: step.id,
+              termId: step.termId!,
+              userId,
+              definitionId,
+              revisionId,
+              actorKind: "human",
+              communityId: study.communityId
+            })
+            return {
+              ok: true,
+              score: accepted.score,
+              nextPosition: await nextPositionFor(tx, study.id, userId)
+            }
+          })
+        } catch (error) {
+          if (error instanceof SurveyPositionConflictError)
+            throw new TRPCError({ code: "CONFLICT", message: error.message })
+          if (error instanceof SurveyPositionTargetError)
+            throw new TRPCError({ code: "BAD_REQUEST", message: error.message })
+          if (error instanceof VoteTargetMissingError)
+            throw new TRPCError({ code: "NOT_FOUND", message: error.message })
+          if (error instanceof StaleRevisionError)
+            throw new TRPCError({ code: "CONFLICT", message: error.message })
+          if (sqlState(error) === "23503") throw regeneratedConflict()
+          throw error
+        }
+      }
+    ),
+
+  /*
+   * Press through a step. Instructions and review complete on the press, and
+   * a question requires its existing answer. Accept and definition publication
+   * own new Position completion, while this endpoint can finish a position act
+   * written by the former two-request client.
    * Completing twice is not an error. Returns where the caller resumes.
    * The order of the steps is a rule of the shell, not of the router: any
    * completion whose gate passes is recorded.
@@ -481,13 +628,46 @@ export const surveysRouter = createTRPCRouter({
               userId,
               expectedInstructions
             )
-            const gate = await gateOf(tx, step, userId)
-            if (!gate.ok)
-              throw new TRPCError({
-                code: "PRECONDITION_FAILED",
-                message: gate.reason
-              })
-            await recordCompletion(tx, { stepId: step.id, userId })
+            if (step.kind === "define") {
+              const [existing] = await tx
+                .select({ id: surveyStepCompletionsTable.id })
+                .from(surveyStepCompletionsTable)
+                .where(
+                  and(
+                    eq(surveyStepCompletionsTable.stepId, step.id),
+                    eq(surveyStepCompletionsTable.userId, userId)
+                  )
+                )
+                .limit(1)
+              if (!existing) {
+                // Recover the former two-request client path after its vote
+                // or proposal succeeded but before it recorded completion.
+                const held = (await positionsOf(tx, [step.id], userId)).get(
+                  step.id
+                )
+                if (!held)
+                  throw new TRPCError({
+                    code: "PRECONDITION_FAILED",
+                    message:
+                      "Choose Accept, Suggest a revision, or Propose a replacement to record this position."
+                  })
+                await recordPositionCompletion(tx, {
+                  stepId: step.id,
+                  userId,
+                  kind: held.kind,
+                  definitionId: held.definitionId,
+                  revisionId: held.revisionId
+                })
+              }
+            } else {
+              const gate = await gateOf(tx, step, userId)
+              if (!gate.ok)
+                throw new TRPCError({
+                  code: "PRECONDITION_FAILED",
+                  message: gate.reason
+                })
+              await recordCompletion(tx, { stepId: step.id, userId })
+            }
             return nextPositionFor(tx, study.id, userId)
           })
           return { ok: true, nextPosition }

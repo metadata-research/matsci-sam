@@ -1,7 +1,7 @@
 import type { Definition as DefinitionType, Term as TermType } from "@yamz/db"
 import Link from "next/link"
 import { Card } from "./ui/card"
-import { TermVotes } from "./term/votes"
+import { TermVotes, TermVoteSummary } from "./term/votes"
 import { formatDate } from "@/lib/date"
 import { ReactNode } from "react"
 import {
@@ -15,14 +15,9 @@ import { definitionStatus, type DefinitionStatus } from "@/lib/status"
 import { PublicProfileName } from "./public-profile-name"
 import { definitionPath, termPath } from "@/lib/public-identifiers"
 import type { MutationActivityCallbacks } from "@/components/use-mutation-activity"
+import { DefinitionContent, Eyebrow } from "@/components/definition/display"
 
-// Shared by the definition cards and the single-definition page so both use
-// one label treatment.
-export const Eyebrow = ({ children }: { children: ReactNode }) => (
-  <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-    {children}
-  </div>
-)
+export { DefinitionContent, Eyebrow }
 
 // Community lifecycle chip, derived from votes (lib/status.ts). Quiet by
 // design: one word, gaining color only as a definition earns standing.
@@ -67,6 +62,7 @@ export const Definition = ({
   expectedInstructions,
   voteReadOnly = false,
   voteDisabled = false,
+  voteDisplay = "controls",
   voteReadOnlyTitle,
   onMutationStart,
   onMutationEnd,
@@ -103,6 +99,8 @@ export const Definition = ({
   // Temporarily disable votes while a surrounding workflow transition owns
   // the step. Unlike read-only, this does not describe persisted state.
   voteDisabled?: boolean
+  // Position steps need support as context, not disabled voting controls.
+  voteDisplay?: "controls" | "summary"
   voteReadOnlyTitle?: string
   children?: ReactNode
 } & MutationActivityCallbacks) => (
@@ -117,21 +115,24 @@ export const Definition = ({
         : "hover:bg-secondary/50"
     }`}
   >
-    {definition.vote !== undefined && (
-      <TermVotes
-        initial={{ score: definition.score, vote: definition.vote }}
-        definitionId={definition.id}
-        revisionId={definition.revisionId}
-        onScoreChange={onScoreChange}
-        surveyStepId={surveyStepId}
-        expectedInstructions={expectedInstructions}
-        readOnly={voteReadOnly}
-        disabled={voteDisabled}
-        readOnlyTitle={voteReadOnlyTitle}
-        onMutationStart={onMutationStart}
-        onMutationEnd={onMutationEnd}
-      />
-    )}
+    {definition.vote !== undefined &&
+      (voteDisplay === "summary" ? (
+        <TermVoteSummary score={definition.score} vote={definition.vote} />
+      ) : (
+        <TermVotes
+          initial={{ score: definition.score, vote: definition.vote }}
+          definitionId={definition.id}
+          revisionId={definition.revisionId}
+          onScoreChange={onScoreChange}
+          surveyStepId={surveyStepId}
+          expectedInstructions={expectedInstructions}
+          readOnly={voteReadOnly}
+          disabled={voteDisabled}
+          readOnlyTitle={voteReadOnlyTitle}
+          onMutationStart={onMutationStart}
+          onMutationEnd={onMutationEnd}
+        />
+      ))}
     <section className="min-w-0 flex-1 space-y-2">
       <Link
         href={definitionPath(
@@ -141,17 +142,9 @@ export const Definition = ({
         )}
         className="block space-y-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {children}
-        <div>
-          <Eyebrow>Definition</Eyebrow>
-          <p>{definition.definition}</p>
-        </div>
-        {definition.example?.trim() ? (
-          <div>
-            <Eyebrow>Featured example</Eyebrow>
-            <p className="text-muted-foreground">{definition.example}</p>
-          </div>
-        ) : null}
+        <DefinitionContent definition={definition}>
+          {children}
+        </DefinitionContent>
       </Link>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-sm text-muted-foreground">
         {definition.isAi ? (

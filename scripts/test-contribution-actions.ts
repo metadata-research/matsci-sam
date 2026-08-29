@@ -20,9 +20,13 @@ const procedure = (
   return routerSource.slice(start, end)
 }
 
-// New term collects a term and definition only. Examples are independent
-// contributions made after publication.
-assert.deepEqual(Object.keys(DefineTermSchema.shape), ["term", "definition"])
+// New term may collect a first example for authoring convenience, while the
+// publication path still creates it as an independent contribution.
+assert.deepEqual(Object.keys(DefineTermSchema.shape), [
+  "term",
+  "definition",
+  "initialExample"
+])
 
 const definitionsSource = source("trpc/routers/definitions.ts")
 const createDefinition = procedure(
@@ -35,6 +39,7 @@ assert.doesNotMatch(createDefinition, /\binteractive\s*:/)
 assert.match(createDefinition, /derivedFromRevisionId/)
 assert.match(createDefinition, /replacesDefinitionId/)
 assert.match(createDefinition, /aiSuggestionId/)
+assert.match(createDefinition, /initialExample:\s*input\.initialExample/)
 assert.match(createDefinition, /cannot be both a revision and a replacement/i)
 
 // AI endpoints create editable previews for the two assisted actions. They do
@@ -92,11 +97,21 @@ const commentBox = source("components/term/comment-box.tsx")
 const examples = source("components/definition/examples.tsx")
 
 assert.match(definitionForm, /Publish new term/)
+assert.match(definitionForm, /Example of use \(optional\)/)
+assert.match(
+  definitionForm,
+  /Language-model drafting affects only the definition/
+)
+assert.match(
+  definitionForm,
+  /separate from the definition's revision history and votes/
+)
 assert.match(definitionActions, /Suggest a revision/)
 assert.match(definitionActions, /Propose a replacement/)
 assert.match(revisionForm, /Explain what is wrong or missing/)
 assert.match(commentBox, /Comment/)
 assert.match(examples, /Add example/)
+assert.doesNotMatch(revisionForm, /initialExample/)
 
 // Default participant guidance and the contributor guide name the same
 // actions; the former "amend" and automatic-comparison workflows stay gone.

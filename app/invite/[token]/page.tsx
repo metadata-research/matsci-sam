@@ -1,13 +1,24 @@
 import Link from "next/link"
 import type { Metadata } from "next"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AcceptInvitation } from "@/components/communities/accept-invitation"
+import { StudyActionButton } from "@/components/studies/action-button"
 import { getCurrentUser } from "@/lib/current-user"
 import { invitationForToken, isMemberOf } from "@/lib/community-queries"
-import { communityPath, studyPath } from "@/lib/public-identifiers"
+import { communityPath, invitePath, studyPath } from "@/lib/public-identifiers"
 import { SITE_NAME } from "@/lib/site"
-import { INVITATION_LIFETIME_DAYS } from "@/lib/communities"
+import {
+  INVITATION_LIFETIME_DAYS,
+  studyAcceptsParticipants
+} from "@/lib/communities"
+import { authPathWithReturnTo } from "@/lib/auth-return"
 
 export const metadata: Metadata = {
   title: `Invitation | ${SITE_NAME}`,
@@ -31,6 +42,7 @@ export default async function InvitePage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
+  const returnTo = invitePath(token)
   const invitation = await invitationForToken(token)
 
   // A replaced, rotated or withdrawn link resolves to nothing. There is no
@@ -41,7 +53,9 @@ export default async function InvitePage({
       <main className="px-4 py-12">
         <Card className="mx-auto max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl">This link no longer works</CardTitle>
+            <CardTitle className="text-2xl">
+              This link no longer works
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -61,6 +75,9 @@ export default async function InvitePage({
   const alreadyIn = user ? await isMemberOf(community.id, user.id) : false
 
   const dead = DEAD[outcome]
+  // A live link to a study that closed or was retired: the router would
+  // refuse the accept, so the page says why instead of offering it.
+  const studyEnded = study !== null && !studyAcceptsParticipants(study)
 
   return (
     <main className="px-4 py-12">
@@ -71,14 +88,14 @@ export default async function InvitePage({
           </CardTitle>
           <CardDescription>
             {study
-              ? `${community.title} has asked you to take part on ${SITE_NAME}.`
+              ? `${community.title} has asked you to take part in a study on ${SITE_NAME}.`
               : kind === "open"
                 ? `You have been given a link to join ${community.title} on ${SITE_NAME}.`
                 : `You have been invited to join ${community.title} on ${SITE_NAME}.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {community.description && (
+          {community.description && !study && (
             <p className="text-sm text-muted-foreground">
               {community.description}
             </p>
@@ -110,7 +127,7 @@ export default async function InvitePage({
             </p>
           )}
 
-          {!community.retiredAt && !alreadyIn && !DEAD[outcome] && (
+          {!community.retiredAt && !alreadyIn && !DEAD[outcome] && !studyEnded && (
             <p className="text-sm text-muted-foreground">
               Accepting puts you in {community.title} and shows you the terms it
               is working through. It does not change what anyone else sees, it
@@ -123,27 +140,25 @@ export default async function InvitePage({
               This community has been retired, so there is nothing to join.
             </p>
           ) : alreadyIn ? (
-            <>
-              {/* Belonging already is not the same as having spent the link.
-                  A member may be holding someone else's invitation, which is
-                  still live for the person it was sent to. */}
-              <p className="text-sm text-muted-foreground">
-                {outcome === "redeemed"
-                  ? `You are already in ${community.title}, and this invitation has been used.`
-                  : `You are already in ${community.title}, so there is nothing to accept.`}
-              </p>
+            study ? (
+              <StudyActionButton href={studyPath(study.slug)}>
+                Start
+              </StudyActionButton>
+            ) : (
               <Button asChild>
-                <Link
-                  href={
-                    study ? studyPath(study.slug) : communityPath(community.slug)
-                  }
-                >
-                  {study ? "Open the study" : `Open ${community.title}`}
+                <Link href={communityPath(community.slug)}>
+                  Open {community.title}
                 </Link>
               </Button>
-            </>
+            )
           ) : dead ? (
             <p className="text-sm text-muted-foreground">{dead}</p>
+          ) : studyEnded ? (
+            <p className="text-sm text-muted-foreground">
+              {study?.retiredAt
+                ? "This study has been retired, so the invitation can no longer be accepted."
+                : "This study has closed, so the invitation can no longer be accepted."}
+            </p>
           ) : user ? (
             <>
               <AcceptInvitation token={token} />
@@ -152,15 +167,19 @@ export default async function InvitePage({
             <>
               <p className="text-sm text-muted-foreground">
                 Sign in to accept{email ? `, or create an account first` : ""}.
-                Come back to this link afterwards and the invitation will still
-                be here.
+                After sign-in and any required profile setup, you will return to
+                this invitation.
               </p>
               <div className="flex gap-2">
                 <Button asChild>
-                  <Link href="/login">Sign in</Link>
+                  <Link href={authPathWithReturnTo("/login", returnTo)}>
+                    Sign in
+                  </Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link href="/register">Create an account</Link>
+                  <Link href={authPathWithReturnTo("/register", returnTo)}>
+                    Create an account
+                  </Link>
                 </Button>
               </div>
             </>

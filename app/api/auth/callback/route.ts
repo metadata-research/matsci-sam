@@ -10,6 +10,7 @@ import { getSession } from "@/lib/session"
 import { redirect } from "next/navigation"
 import { NextRequest } from "next/server"
 import { and, eq, sql } from "drizzle-orm"
+import { normalizeAuthReturnTo, profileCompletionPath } from "@/lib/auth-return"
 
 const stateMatches = (submitted: string, expected: string) => {
   const submittedBuffer = Buffer.from(submitted)
@@ -24,8 +25,10 @@ export const GET = async (req: NextRequest) => {
   const session = await getSession()
   const submittedState = req.nextUrl.searchParams.get("state")
   const expectedState = session.googleOAuthState
+  const returnTo = normalizeAuthReturnTo(session.authReturnTo)
 
   delete session.googleOAuthState
+  delete session.authReturnTo
   await session.save()
 
   if (
@@ -103,6 +106,7 @@ export const GET = async (req: NextRequest) => {
       "That email is already associated with another Google account"
     )
 
+  const isNewAccount = !user
   if (user) {
     const [updated] = await db
       .update(usersTable)
@@ -140,5 +144,8 @@ export const GET = async (req: NextRequest) => {
   session.id = user!.id
   await session.save()
 
-  redirect("/profile")
+  const needsProfile = isNewAccount || !user!.firstName || !user!.lastName
+  redirect(
+    needsProfile ? profileCompletionPath(returnTo) : (returnTo ?? "/profile")
+  )
 }

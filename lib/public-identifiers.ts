@@ -31,6 +31,13 @@ export const termPath = (
   vocabularySlug = DEFAULT_VOCABULARY_SLUG
 ) => `${vocabularyPath(vocabularySlug)}/${slugSegment(slug)}`
 
+// An application view of recorded changes around a concept. It deliberately
+// has no matching URI builder: the activity page is not a published entity.
+export const termActivityPath = (
+  slug: string,
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+) => `${termPath(slug, vocabularySlug)}/activity`
+
 export const definitionPath = (
   slug: string,
   definitionNumber: number,

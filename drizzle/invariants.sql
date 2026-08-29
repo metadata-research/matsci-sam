@@ -117,7 +117,7 @@ BEGIN
       SELECT 1
       FROM "terms"
       WHERE "vocabularySlug" <> 'matsci-sam'
-        AND "slug" IN ('definitions', 'provenance', 'rank')
+        AND "slug" IN ('activity', 'definitions', 'provenance', 'rank')
     ) THEN
       RAISE EXCEPTION 'community term slug collides with a static route';
     END IF;
@@ -147,7 +147,7 @@ BEGIN
         SELECT 1
         FROM "termRouteAliases"
         WHERE "vocabularySlug" <> 'matsci-sam'
-          AND "termSlug" IN ('definitions', 'provenance', 'rank')
+          AND "termSlug" IN ('activity', 'definitions', 'provenance', 'rank')
       ) THEN
         RAISE EXCEPTION 'community term alias collides with a static route';
       END IF;
@@ -1034,6 +1034,75 @@ BEGIN
          OR s."termId" IS DISTINCT FROM d."termId"
     ) THEN
       RAISE EXCEPTION 'revision step is not a define step on the term of its definition, or the revision is not the first';
+    END IF;
+
+    -- The explicit Position target (migration 0051) names one exact revision
+    -- of a candidate for the term of a define step. Shape-detected separately
+    -- so this invariant file still runs against a pre-0051 restore.
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_name = 'surveyStepPositions'
+    ) THEN
+      IF EXISTS (
+        SELECT 1
+        FROM "surveyStepPositions" p
+        JOIN "surveySteps" s ON s.id = p."stepId"
+        JOIN "definitions" d ON d.id = p."definitionId"
+        WHERE s.kind <> 'define'
+           OR s."termId" IS DISTINCT FROM d."termId"
+      ) THEN
+        RAISE EXCEPTION 'survey position is not on the term of a define step';
+      END IF;
+
+      -- New positions are recorded with their completion in one transaction;
+      -- conservative migration and legacy recovery carry the completion time
+      -- onto the retained target. Either way, the two rows describe one act.
+      IF EXISTS (
+        SELECT 1
+        FROM "surveyStepPositions" p
+        JOIN "surveyStepCompletions" c
+          ON c."stepId" = p."stepId" AND c."userId" = p."userId"
+        WHERE p."recordedAt" <> c."completedAt"
+      ) THEN
+        RAISE EXCEPTION 'survey position and completion were not recorded together';
+      END IF;
+
+      -- Acceptance preserves or creates an upvote. It therefore has an
+      -- accepting event on that exact revision no later than the position,
+      -- even when that event predates and is not scoped to the study.
+      IF EXISTS (
+        SELECT 1
+        FROM "surveyStepPositions" p
+        WHERE p.kind = 'accepted'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM "voteEvents" e
+            WHERE e."definitionId" = p."definitionId"
+              AND e."revisionId" = p."revisionId"
+              AND e."userId" = p."userId"
+              AND e.kind = 'up'
+              AND e."createdAt" <= p."recordedAt"
+          )
+      ) THEN
+        RAISE EXCEPTION 'accepted survey position has no preceding upvote';
+      END IF;
+
+      -- A proposed position is the participant's first revision written in
+      -- this same step, not a later edit or another person's contribution.
+      IF EXISTS (
+        SELECT 1
+        FROM "surveyStepPositions" p
+        JOIN "definitionRevisions" r
+          ON r.id = p."revisionId" AND r."definitionId" = p."definitionId"
+        WHERE p.kind = 'proposed'
+          AND (r.version <> 1
+            OR r."surveyStepId" IS DISTINCT FROM p."stepId"
+            OR r."editorId" IS DISTINCT FROM p."userId"
+            OR r."createdAt" > p."recordedAt")
+      ) THEN
+        RAISE EXCEPTION 'proposed survey position is not its participant initial revision in the step';
+      END IF;
     END IF;
 
     -- A response answers a question step in the form the step asked for,

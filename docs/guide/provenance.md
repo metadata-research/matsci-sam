@@ -56,7 +56,7 @@ Each voting act is recorded as an event with the revision it used, its kind
 so the provenance view shows the sequence. The last act gives the current vote
 of a person on a revision. A standing vote from before event recording began
 has one backfilled act at the recorded time of the vote. A vote cast or a
-comment posted inside the walkthrough of a [study](/docs/studies) names that
+comment posted inside the activity of a [study](/docs/studies) names that
 study, so the dataset graph states under which study the act was taken.
 
 Some revisions imported from the earlier pilot schema contain only the

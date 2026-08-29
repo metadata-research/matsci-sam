@@ -849,7 +849,7 @@ const main = async () => {
     const vocabulary = finalVocabularyOf(term)
     if (
       vocabulary !== "matsci-sam" &&
-      ["definitions", "provenance", "rank"].includes(term.slug)
+      ["activity", "definitions", "provenance", "rank"].includes(term.slug)
     )
       refuse(
         `ownership plan puts reserved route segment ${term.slug} inside vocabulary ${vocabulary}`

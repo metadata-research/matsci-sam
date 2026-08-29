@@ -35,14 +35,18 @@ import { lockDefinitionRevisionSource } from "../../lib/definition-source"
 import { DefinitionOutput, runLLM } from "../../lib/llm/client"
 import { castVote, insertComment } from "../../lib/participation"
 import {
-  hasPosition,
   instructionPromptOfStudy,
   lockStudy,
+  positionsOf,
   recordResponse,
   responseOf,
   stepWithStudy
 } from "../../lib/survey-queries"
 import { recordCompletion } from "../../lib/surveys"
+import {
+  acceptPositionCandidate,
+  recordPositionCompletion
+} from "../../lib/survey-positions"
 import { studyState } from "../../lib/communities"
 import type { PilotStep, Walkthrough } from "./db"
 import type { PilotTerm } from "./terms"
@@ -191,26 +195,31 @@ export const decidePosition = async (
 }
 
 /*
- * Whether the persona already holds a position on a define step, read
+ * Whether the persona already has an exact position on a define step, read
  * before the persona is asked: a unit re-run without its manifest, from a
- * fresh state directory or on another machine, takes no second decision
- * and asks the model nothing. The completion is recorded again, which is
- * not an error.
+ * fresh state directory or on another machine, takes no second decision and
+ * asks the model nothing. A standing vote alone is not treated as that exact
+ * record; the persona still chooses which candidate is its position.
  */
 export const holdsPosition = async (personaUserId: number, step: StepRef) => {
-  if (!(await hasPosition(db, step.id, personaUserId))) return false
+  const held = (await positionsOf(db, [step.id], personaUserId)).get(step.id)
+  if (!held) return false
   await db.transaction(async (tx) => {
     await lockPilotStep(tx, step)
-    await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+    await recordPositionCompletion(tx, {
+      stepId: step.id,
+      userId: personaUserId,
+      kind: held.kind,
+      definitionId: held.definitionId,
+      revisionId: held.revisionId
+    })
   })
   return true
 }
 
 /*
- * Accept the draft: an upvote naming the define step, which is the
- * position, and the completion of the step in the same transaction, as the
- * position step completes after the vote. A position already held stands,
- * and only the completion is recorded again, which is not an error.
+ * Accept the draft: preserve or add its upvote and record the exact candidate
+ * with completion in the same transaction. A position already held stands.
  */
 export const acceptAct = async (
   personaUserId: number,
@@ -218,27 +227,36 @@ export const acceptAct = async (
   communityId: number,
   step: StepRef
 ) => {
-  if (await hasPosition(db, step.id, personaUserId)) {
+  const held = (await positionsOf(db, [step.id], personaUserId)).get(step.id)
+  if (held) {
     await db.transaction(async (tx) => {
       await lockPilotStep(tx, step)
-      await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+      await recordPositionCompletion(tx, {
+        stepId: step.id,
+        userId: personaUserId,
+        kind: held.kind,
+        definitionId: held.definitionId,
+        revisionId: held.revisionId
+      })
     })
     return { skipped: true as const }
   }
-  if (!draft.currentRevisionId)
+  const revisionId = draft.currentRevisionId
+  if (!revisionId)
     throw new Error(`No current revision to accept on definition ${draft.id}`)
   await db.transaction(async (tx) => {
-    await lockPilotStep(tx, step)
-    await castVote(tx, {
+    const locked = await lockPilotStep(tx, step)
+    if (locked.step.kind !== "define" || locked.step.termId === null)
+      throw new Error(`Step ${step.id} is not a Position step`)
+    await acceptPositionCandidate(tx, {
+      stepId: step.id,
+      termId: locked.step.termId,
       definitionId: draft.id,
-      revisionId: draft.currentRevisionId!,
+      revisionId,
       userId: personaUserId,
-      vote: "up",
       actorKind: "simulated",
-      communityId,
-      surveyStepId: step.id
+      communityId
     })
-    await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
   })
   return { skipped: false as const }
 }
@@ -261,10 +279,17 @@ export const amendAct = async (
   draft: Draft,
   step: StepRef
 ) => {
-  if (await hasPosition(db, step.id, personaUserId)) {
+  const held = (await positionsOf(db, [step.id], personaUserId)).get(step.id)
+  if (held) {
     await db.transaction(async (tx) => {
       await lockPilotStep(tx, step)
-      await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+      await recordPositionCompletion(tx, {
+        stepId: step.id,
+        userId: personaUserId,
+        kind: held.kind,
+        definitionId: held.definitionId,
+        revisionId: held.revisionId
+      })
     })
     return { skipped: true as const }
   }
@@ -319,7 +344,13 @@ export const amendAct = async (
       derivedFromRevisionId: sourceRevisionId,
       surveyStepId: step.id
     })
-    await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
+    await recordPositionCompletion(tx, {
+      stepId: step.id,
+      userId: personaUserId,
+      kind: "proposed",
+      definitionId: created.definition.id,
+      revisionId: created.revision.id
+    })
     return created
   })
   return { skipped: false as const, definitionId: written.definition.id }

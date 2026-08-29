@@ -18,6 +18,7 @@ import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
 import { GetUser } from "@/lib/crud"
 import { createOneTimeToken, hashOneTimeToken } from "@/lib/auth-tokens"
+import { formatDate } from "@/lib/date"
 import { EmailAddressSchema } from "@/lib/email-auth"
 import { sendCommunityInvitation } from "@/lib/email"
 import {
@@ -36,6 +37,7 @@ import { setStudyRetired, updateStudyDetails } from "@/lib/study-update"
 import { lockMembershipIn } from "@/lib/community-queries"
 import { lockStudy } from "@/lib/survey-queries"
 import {
+  collectionPath,
   collectionsIndexPath,
   communitiesIndexPath,
   communityPath,
@@ -520,6 +522,7 @@ export const communitiesRouter = createTRPCRouter({
 
         revalidatePath(communitiesIndexPath)
         revalidatePath(communityPath(community.slug))
+        revalidatePath(collectionPath(collection.slug))
         // The worklist decides what a scoped Browse shows.
         revalidatePath("/terms")
 
@@ -638,7 +641,10 @@ export const communitiesRouter = createTRPCRouter({
             studyId: studyId ?? null,
             expiresAt: invitationExpiry().toISOString()
           })
-          .returning({ id: communityInvitationsTable.id })
+          .returning({
+            id: communityInvitationsTable.id,
+            expiresAt: communityInvitationsTable.expiresAt
+          })
 
         const link = invitePath(token)
         // Sending happens here or not at all. The digest is all that survives,
@@ -656,11 +662,16 @@ export const communitiesRouter = createTRPCRouter({
         }
 
         revalidatePath(communityPath(community.slug))
+        if (studyId !== undefined) revalidatePath(`/admin/studies/${studyId}`)
 
         return {
           id: created.id,
           link,
           sent: send,
+          expiresAt: created.expiresAt,
+          // Formatted here so the creation panel shows the same date as the
+          // server-rendered invitation lists, whatever the viewer's timezone.
+          expiresLabel: formatDate(created.expiresAt),
           expiresInDays: INVITATION_LIFETIME_DAYS
         }
       }
@@ -681,6 +692,7 @@ export const communitiesRouter = createTRPCRouter({
           id: communityInvitationsTable.id,
           communityId: communityInvitationsTable.communityId,
           email: communityInvitationsTable.email,
+          studyId: communityInvitationsTable.studyId,
           tokenHash: communityInvitationsTable.tokenHash
         })
         .from(communityInvitationsTable)
@@ -750,6 +762,8 @@ export const communitiesRouter = createTRPCRouter({
       }
 
       revalidatePath(communityPath(community.slug))
+      if (invitation.studyId)
+        revalidatePath(`/admin/studies/${invitation.studyId}`)
 
       return {
         id: invitationId,
@@ -765,7 +779,8 @@ export const communitiesRouter = createTRPCRouter({
       const [invitation] = await db
         .select({
           id: communityInvitationsTable.id,
-          communityId: communityInvitationsTable.communityId
+          communityId: communityInvitationsTable.communityId,
+          studyId: communityInvitationsTable.studyId
         })
         .from(communityInvitationsTable)
         .where(eq(communityInvitationsTable.id, invitationId))
@@ -813,6 +828,8 @@ export const communitiesRouter = createTRPCRouter({
       })
 
       revalidatePath(communityPath(community.slug))
+      if (invitation.studyId)
+        revalidatePath(`/admin/studies/${invitation.studyId}`)
 
       return { ok: true }
     }),
