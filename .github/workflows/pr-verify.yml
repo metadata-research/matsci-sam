@@ -50,9 +50,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No explicit version: the packageManager field in package.json is the
+      # single pnpm authority, with runtime-versions.env mirroring it for hosts.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.34.5
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -262,9 +262,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No explicit version: the packageManager field in package.json is the
+      # single pnpm authority, with runtime-versions.env mirroring it for hosts.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.34.5
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -349,9 +349,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No explicit version: the packageManager field in package.json is the
+      # single pnpm authority, with runtime-versions.env mirroring it for hosts.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.34.5
 
       - name: Install Node
         uses: actions/setup-node@v4
