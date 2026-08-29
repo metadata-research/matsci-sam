@@ -59,6 +59,9 @@ export interface CreateDefinitionWithInitialRevisionInput {
   termId: number
   authorId: number
   definition: string
+  // Optional authoring convenience for a separately attributed example. It
+  // is deliberately excluded from the legacy scalar and revision diff.
+  initialExample?: string | null
   example: string
   changeNote: string
   source: Extract<
@@ -87,6 +90,12 @@ export async function createDefinitionWithInitialRevision(
   tx: DatabaseTransaction,
   input: CreateDefinitionWithInitialRevisionInput
 ) {
+  const initialExample = input.initialExample?.trim() ?? ""
+  if (initialExample && input.example.trim())
+    throw new Error(
+      "An independent initial example cannot also use the legacy example field"
+    )
+
   // Incrementing the term-owned counter both allocates the number and takes a
   // row lock until this transaction commits. Concurrent contributions for the
   // same term therefore receive different permanent numbers. A failed
@@ -146,15 +155,20 @@ export async function createDefinitionWithInitialRevision(
     .where(eq(definitionsTable.id, insertedDefinition.id))
     .returning()
 
-  if (input.example.trim()) {
+  const exampleText = initialExample || input.example
+  if (exampleText.trim()) {
     const actorKind = await exampleActorKindForUser(tx, input.authorId)
     await createDefinitionExample(tx, {
       definitionId: definition.id,
       sourceRevisionId: revision.id,
-      text: input.example,
+      text: exampleText,
       authorId: input.authorId,
       actorKind,
-      generation: exampleStampFromLegacyGeneration(input.model, input.prompt)
+      // A contributor-entered initial example is not generated or rewritten
+      // by the model that may have drafted the definition.
+      generation: initialExample
+        ? undefined
+        : exampleStampFromLegacyGeneration(input.model, input.prompt)
     })
   }
 

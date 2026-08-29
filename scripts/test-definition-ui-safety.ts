@@ -61,10 +61,13 @@ assert.match(
 assert.match(definitionForm, /suggestAiDraft\.error \|\| discardAiDraft\.error/)
 assert.match(definitionForm, /activity\.start\(\)[\s\S]*discardAiDraft\.mutate/)
 assert.match(definitionForm, /onSettled: activity\.end/)
+assert.match(definitionForm, /name="initialExample"/)
+assert.match(definitionForm, /separate[\s\S]*contribution credited to you/)
 
 const revisionForm = source(
   "components/definition/revision-suggestion-form.tsx"
 )
+assert.doesNotMatch(revisionForm, /initialExample/)
 const clearRevisionDraft = section(
   revisionForm,
   "const clearDraft =",

@@ -34,6 +34,7 @@ import {
 import {
   CHANGE_NOTE_MAX_LENGTH,
   DEFINITION_MAX_LENGTH,
+  EXAMPLE_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
@@ -74,6 +75,9 @@ export const definitionsRouter = createTRPCRouter({
             .trim()
             .min(1, "You must give a definition")
             .max(DEFINITION_MAX_LENGTH),
+          // Authoring convenience only: this becomes an independently
+          // attributed example row, not part of the definition revision.
+          initialExample: z.string().trim().max(EXAMPLE_MAX_LENGTH).optional(),
           // The define step of a walkthrough the definition is written inside.
           surveyStepId: z.number().int().optional(),
           expectedInstructions: expectedInstructionsSchema.optional(),
@@ -96,6 +100,14 @@ export const definitionsRouter = createTRPCRouter({
           {
             message:
               "A contribution cannot be both a revision and a replacement"
+          }
+        )
+        .refine(
+          ({ initialExample, derivedFromRevisionId }) =>
+            !initialExample || derivedFromRevisionId === undefined,
+          {
+            message:
+              "An initial example can accompany a new term or replacement, not a suggested revision"
           }
         )
     )
@@ -263,6 +275,13 @@ export const definitionsRouter = createTRPCRouter({
           const isNewTerm =
             !isRevision && !isReplacement && lockedWalkthroughStep === null
 
+          if (input.initialExample && !isNewTerm && !isReplacement)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "An initial example can accompany a new term or replacement only"
+            })
+
           const source = isRevision
             ? await lockDefinitionRevisionSource(tx, derivedFromRevisionId)
             : null
@@ -420,6 +439,7 @@ export const definitionsRouter = createTRPCRouter({
               // non-null column and revision shape valid while the normalized
               // example records become canonical.
               example: "",
+              initialExample: input.initialExample,
               changeNote: isRevision
                 ? aiSuggestion
                   ? "AI-assisted suggested revision"

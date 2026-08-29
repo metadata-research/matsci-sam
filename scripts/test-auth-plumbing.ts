@@ -17,7 +17,11 @@ import {
   createEmailAuthLinkFragment,
   hashEmailAuthToken
 } from "../lib/email-auth-token"
-import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "../lib/input-limits"
+import {
+  DEFINITION_MAX_LENGTH,
+  EXAMPLE_MAX_LENGTH,
+  TERM_MAX_LENGTH
+} from "../lib/input-limits"
 import { isValidOrcidId, normalizeOrcidId } from "../lib/orcid"
 import { DefineTermSchema } from "../lib/schemas/terms"
 
@@ -169,18 +173,26 @@ assert.doesNotMatch(
 
 const validTerm = {
   term: "t".repeat(TERM_MAX_LENGTH),
-  definition: "d".repeat(DEFINITION_MAX_LENGTH)
+  definition: "d".repeat(DEFINITION_MAX_LENGTH),
+  initialExample: "e".repeat(EXAMPLE_MAX_LENGTH)
 }
 assert.equal(DefineTermSchema.safeParse(validTerm).success, true)
 assert.deepEqual(
   Object.keys(DefineTermSchema.shape),
-  ["term", "definition"],
-  "publishing a new term does not bundle an example contribution"
+  ["term", "definition", "initialExample"],
+  "a first example can share the form while retaining independent storage"
 )
 assert.equal(
   DefineTermSchema.safeParse({
     ...validTerm,
     term: `${validTerm.term}t`
+  }).success,
+  false
+)
+assert.equal(
+  DefineTermSchema.safeParse({
+    ...validTerm,
+    initialExample: `${validTerm.initialExample}e`
   }).success,
   false
 )
