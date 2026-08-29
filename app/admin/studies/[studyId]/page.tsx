@@ -3,14 +3,18 @@ import { notFound, redirect } from "next/navigation"
 import { ArrowLeftIcon, ExternalLinkIcon } from "lucide-react"
 import { AdminPageHeader } from "../../page-header"
 import styles from "../../admin.module.css"
-import { adminStudyById } from "@/lib/admin-study-queries"
+import {
+  adminInvitationsOfStudy,
+  adminStudyById
+} from "@/lib/admin-study-queries"
 import { instructionEditability } from "@/lib/study-editor"
-import { studyState } from "@/lib/communities"
+import { studyAcceptsParticipants, studyState } from "@/lib/communities"
 import { DEFAULT_INSTRUCTIONS } from "@/lib/surveys"
 import { studyBySlug as referenceStudyBySlug } from "@/lib/published-studies"
 import { studyPath } from "@/lib/public-identifiers"
 import { Button } from "@/components/ui/button"
 import { StudyEditor } from "../study-editor"
+import { StudyInvitations } from "../study-invitations"
 
 export const metadata = {
   title: "Edit study"
@@ -39,7 +43,10 @@ export default async function AdminStudyPage({
     notFound()
   }
 
-  const study = await adminStudyById(id)
+  const [study, invitations] = await Promise.all([
+    adminStudyById(id),
+    adminInvitationsOfStudy(id)
+  ])
   if (!study) notFound()
 
   const editability = instructionEditability({
@@ -79,6 +86,16 @@ export default async function AdminStudyPage({
             </Link>
           </Button>
         }
+      />
+
+      <StudyInvitations
+        study={{
+          id: study.id,
+          title: study.title,
+          communityId: study.communityId
+        }}
+        acceptingParticipants={studyAcceptsParticipants(study)}
+        invitations={invitations}
       />
 
       <StudyEditor

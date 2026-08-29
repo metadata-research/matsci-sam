@@ -918,6 +918,10 @@
   align-items: start;
 }
 
+.studyInvitationPanel {
+  margin-bottom: 1.25rem;
+}
+
 .studyEditorMain,
 .studyEditorSidebar {
   display: grid;

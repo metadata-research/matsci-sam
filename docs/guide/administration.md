@@ -71,9 +71,15 @@ that community.
 - **Generate study steps** creates an instruction step, one position and one
   review step for each term, and optionally the two default closing questions.
   Steps can be regenerated until a participant begins.
-- **Invite a participant** on the public study page creates an invitation fixed
-  to that study. The community page provides the same invitation control with
-  a study selector when several studies are available.
+- **Invite a participant** on the administrative study page creates an
+  invitation fixed to that study. An email address is required for both
+  delivery choices because it records the intended participant; **Create link
+  for this person** leaves delivery to the administrator, while **Create and
+  send email** sends it through the application. The study page lists created
+  invitations with their delivery method, status, dates, and redeemed account,
+  when available. Pending invitations can be reissued or revoked, but their raw
+  links cannot be displayed again. The community page provides the same
+  invitation control with a study selector when several studies are available.
 - The community page reports generated steps and how many participating
   members have finished. The public study page presents the same instructions,
   the activity entry point, and the consolidated record after completion.
@@ -86,17 +92,17 @@ definition list.
 The **Administration** item in the account menu opens `/admin`. Only a site
 administrator can enter this area.
 
-| Area           | Functions                                                                                                             |
-| -------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Overview       | Review totals, recent publication activity, generation work needing attention, and service status                     |
-| Review         | Run pending administrator-requested term generation and inspect retained records from the retired refinement workflow |
-| Feedback       | Read page-specific feedback and mark an item resolved or reopen it                                                    |
-| Vocabulary     | Find terms, compare definition, AI, and comment activity, and open public or provenance records                       |
-| Tags           | Review meaning drift; tag pages provide concept editing and merging, while term pages provide PSPP facet assignment   |
-| People         | Search and filter accounts and change the site role; role changes take effect immediately                             |
-| Studies        | Create a study; edit its title, instructions, and schedule; inspect activity; and retire or restore it                |
-| AI & services  | Review authentication and integration readiness, test configured services, and inspect the active prompt registry     |
-| Audit & safety | Review recorded publication evidence and recent revision events                                                       |
+| Area           | Functions                                                                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview       | Review totals, recent publication activity, generation work needing attention, and service status                                      |
+| Review         | Run pending administrator-requested term generation and inspect retained records from the retired refinement workflow                  |
+| Feedback       | Read page-specific feedback and mark an item resolved or reopen it                                                                     |
+| Vocabulary     | Find terms, compare definition, AI, and comment activity, and open public or provenance records                                        |
+| Tags           | Review meaning drift; tag pages provide concept editing and merging, while term pages provide PSPP facet assignment                    |
+| People         | Search and filter accounts and change the site role; role changes take effect immediately                                              |
+| Studies        | Create a study; manage participant invitations; edit its title, instructions, and schedule; inspect activity; and retire or restore it |
+| AI & services  | Review authentication and integration readiness, test configured services, and inspect the active prompt registry                      |
+| Audit & safety | Review recorded publication evidence and recent revision events                                                                        |
 
 The site-wide study editor locks instructions and schedule changes when
 recorded participant activity makes those changes unsafe. Retiring a study

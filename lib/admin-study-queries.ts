@@ -4,6 +4,7 @@ import {
   collectionsTable,
   commentsTable,
   communitiesTable,
+  communityInvitationsTable,
   db,
   definitionRevisionsTable,
   studiesTable,
@@ -137,6 +138,34 @@ export const adminStudyById = async (id: number) => {
   return { ...study, steps, usage }
 }
 
+// Invitation tokens are intentionally absent: only their digests survive
+// creation, and an administrator can replace a pending link rather than read
+// it back. The redeemed account is included so the intended cohort can be
+// reconciled with the people who actually arrived.
+export const adminInvitationsOfStudy = (studyId: number) =>
+  db
+    .select({
+      id: communityInvitationsTable.id,
+      email: communityInvitationsTable.email,
+      sentAt: communityInvitationsTable.sentAt,
+      expiresAt: communityInvitationsTable.expiresAt,
+      revokedAt: communityInvitationsTable.revokedAt,
+      redeemedAt: communityInvitationsTable.redeemedAt,
+      createdAt: communityInvitationsTable.createdAt,
+      redeemedByName: usersTable.name,
+      redeemedByEmail: usersTable.email
+    })
+    .from(communityInvitationsTable)
+    .leftJoin(
+      usersTable,
+      eq(usersTable.id, communityInvitationsTable.redeemedById)
+    )
+    .where(eq(communityInvitationsTable.studyId, studyId))
+    .orderBy(
+      desc(communityInvitationsTable.createdAt),
+      desc(communityInvitationsTable.id)
+    )
+
 export type AdminStudyListItem = Awaited<
   ReturnType<typeof listAdminStudies>
 >[number]
@@ -144,3 +173,6 @@ export type AdminStudyDetail = NonNullable<
   Awaited<ReturnType<typeof adminStudyById>>
 >
 export type AdminStudyOptions = Awaited<ReturnType<typeof adminStudyOptions>>
+export type AdminStudyInvitation = Awaited<
+  ReturnType<typeof adminInvitationsOfStudy>
+>[number]

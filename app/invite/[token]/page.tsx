@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AcceptInvitation } from "@/components/communities/accept-invitation"
+import { StudyActionButton } from "@/components/studies/action-button"
 import { getCurrentUser } from "@/lib/current-user"
 import { invitationForToken, isMemberOf } from "@/lib/community-queries"
 import { communityPath, invitePath, studyPath } from "@/lib/public-identifiers"
@@ -81,14 +82,14 @@ export default async function InvitePage({
           </CardTitle>
           <CardDescription>
             {study
-              ? `${community.title} has asked you to take part on ${SITE_NAME}.`
+              ? `${community.title} has asked you to take part in a study on ${SITE_NAME}.`
               : kind === "open"
                 ? `You have been given a link to join ${community.title} on ${SITE_NAME}.`
                 : `You have been invited to join ${community.title} on ${SITE_NAME}.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {community.description && (
+          {community.description && !study && (
             <p className="text-sm text-muted-foreground">
               {community.description}
             </p>
@@ -133,27 +134,17 @@ export default async function InvitePage({
               This community has been retired, so there is nothing to join.
             </p>
           ) : alreadyIn ? (
-            <>
-              {/* Belonging already is not the same as having spent the link.
-                  A member may be holding someone else's invitation, which is
-                  still live for the person it was sent to. */}
-              <p className="text-sm text-muted-foreground">
-                {outcome === "redeemed"
-                  ? `You are already in ${community.title}, and this invitation has been used.`
-                  : `You are already in ${community.title}, so there is nothing to accept.`}
-              </p>
+            study ? (
+              <StudyActionButton href={studyPath(study.slug)}>
+                Start
+              </StudyActionButton>
+            ) : (
               <Button asChild>
-                <Link
-                  href={
-                    study
-                      ? studyPath(study.slug)
-                      : communityPath(community.slug)
-                  }
-                >
-                  {study ? "Open the study" : `Open ${community.title}`}
+                <Link href={communityPath(community.slug)}>
+                  Open {community.title}
                 </Link>
               </Button>
-            </>
+            )
           ) : dead ? (
             <p className="text-sm text-muted-foreground">{dead}</p>
           ) : user ? (

@@ -52,6 +52,12 @@ const useRefreshingMutation = () => {
   }
 }
 
+const INVITATION_DATE = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+})
+
 // A link is shown once and cannot be read back, so copying it is the whole
 // point of the control that displays it.
 const CopyableLink = ({ link, note }: { link: string; note: string }) => {
@@ -491,23 +497,33 @@ export const InvitePerson = ({
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState("")
-  const [link, setLink] = useState<string | null>(null)
+  const [createdInvitation, setCreatedInvitation] = useState<{
+    email: string
+    link: string
+    sent: boolean
+    expiresAt: string
+  } | null>(null)
   // Null means an invitation to the community itself rather than to a study.
   const [studyId, setStudyId] = useState<number | null>(
     study?.id ?? (studies.length === 1 ? studies[0].id : null)
   )
 
   const { mutate: invite, isPending } = trpc.communities.invite.useMutation({
-    onSuccess: (created) => {
+    onSuccess: (created, variables) => {
       setEmail("")
-      setLink(created.link)
+      setCreatedInvitation({
+        email: variables.email.trim(),
+        link: created.link,
+        sent: created.sent,
+        expiresAt: created.expiresAt
+      })
       toast.success(created.sent ? "Invitation sent" : "Invitation created")
       router.refresh()
     },
     onError: (error) => toast.error(error.message)
   })
 
-  if (!open && !link)
+  if (!open && !createdInvitation)
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <PlusIcon className="size-4 mr-1" />
@@ -517,11 +533,23 @@ export const InvitePerson = ({
 
   return (
     <div className="space-y-2">
-      {link && (
-        <CopyableLink
-          link={link}
-          note="Copy this now. Only a digest is stored, so it cannot be shown again. If it goes astray, reissue the invitation to get a new one."
-        />
+      {createdInvitation && (
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <p className="text-sm font-medium">
+            Invitation created for {createdInvitation.email}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {createdInvitation.sent
+              ? "Email sent."
+              : "Link only—no email was sent."}{" "}
+            Expires{" "}
+            {INVITATION_DATE.format(new Date(createdInvitation.expiresAt))}.
+          </p>
+          <CopyableLink
+            link={createdInvitation.link}
+            note="Copy this now. Only a digest is stored, so it cannot be shown again. If it goes astray, reissue the invitation to get a new one."
+          />
+        </div>
       )}
       {open && (
         <form
@@ -537,17 +565,38 @@ export const InvitePerson = ({
               })
           }}
         >
-          <Input
-            autoFocus
-            type="email"
-            aria-label="Email address"
-            placeholder="their@address"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
+          <div className="space-y-1.5">
+            <label
+              htmlFor={`invitation-email-${communityId}-${study?.id ?? "community"}`}
+              className="text-sm font-medium"
+            >
+              {study
+                ? "Participant email (required)"
+                : "Email address (required)"}
+            </label>
+            <Input
+              id={`invitation-email-${communityId}-${study?.id ?? "community"}`}
+              autoFocus
+              required
+              type="email"
+              placeholder="their@address"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              aria-describedby={
+                study
+                  ? `invitation-email-help-${communityId}-${study.id}`
+                  : undefined
+              }
+            />
+          </div>
           {study ? (
-            <p className="text-xs text-muted-foreground">
-              This link opens {study.title} and joins the participant to its
+            <p
+              id={`invitation-email-help-${communityId}-${study.id}`}
+              className="text-xs text-muted-foreground"
+            >
+              This records who the one-person invitation is intended for. Create
+              a link to deliver it yourself, or create and send an email. The
+              invitation opens {study.title} and joins the participant to its
               community when accepted.
             </p>
           ) : null}
@@ -580,7 +629,7 @@ export const InvitePerson = ({
               size="sm"
               disabled={isPending || !email.trim()}
             >
-              Create a link
+              {study ? "Create link for this person" : "Create a link"}
             </Button>
             <Button
               type="button"
@@ -596,7 +645,7 @@ export const InvitePerson = ({
                 })
               }
             >
-              Create and email it
+              {study ? "Create and send email" : "Create and email it"}
             </Button>
             <Button
               type="button"
@@ -604,7 +653,7 @@ export const InvitePerson = ({
               variant="ghost"
               onClick={() => {
                 setOpen(false)
-                setLink(null)
+                setCreatedInvitation(null)
               }}
             >
               Done

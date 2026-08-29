@@ -640,7 +640,10 @@ export const communitiesRouter = createTRPCRouter({
             studyId: studyId ?? null,
             expiresAt: invitationExpiry().toISOString()
           })
-          .returning({ id: communityInvitationsTable.id })
+          .returning({
+            id: communityInvitationsTable.id,
+            expiresAt: communityInvitationsTable.expiresAt
+          })
 
         const link = invitePath(token)
         // Sending happens here or not at all. The digest is all that survives,
@@ -658,11 +661,13 @@ export const communitiesRouter = createTRPCRouter({
         }
 
         revalidatePath(communityPath(community.slug))
+        if (studyId !== undefined) revalidatePath(`/admin/studies/${studyId}`)
 
         return {
           id: created.id,
           link,
           sent: send,
+          expiresAt: created.expiresAt,
           expiresInDays: INVITATION_LIFETIME_DAYS
         }
       }
@@ -683,6 +688,7 @@ export const communitiesRouter = createTRPCRouter({
           id: communityInvitationsTable.id,
           communityId: communityInvitationsTable.communityId,
           email: communityInvitationsTable.email,
+          studyId: communityInvitationsTable.studyId,
           tokenHash: communityInvitationsTable.tokenHash
         })
         .from(communityInvitationsTable)
@@ -752,6 +758,8 @@ export const communitiesRouter = createTRPCRouter({
       }
 
       revalidatePath(communityPath(community.slug))
+      if (invitation.studyId)
+        revalidatePath(`/admin/studies/${invitation.studyId}`)
 
       return {
         id: invitationId,
@@ -767,7 +775,8 @@ export const communitiesRouter = createTRPCRouter({
       const [invitation] = await db
         .select({
           id: communityInvitationsTable.id,
-          communityId: communityInvitationsTable.communityId
+          communityId: communityInvitationsTable.communityId,
+          studyId: communityInvitationsTable.studyId
         })
         .from(communityInvitationsTable)
         .where(eq(communityInvitationsTable.id, invitationId))
@@ -815,6 +824,8 @@ export const communitiesRouter = createTRPCRouter({
       })
 
       revalidatePath(communityPath(community.slug))
+      if (invitation.studyId)
+        revalidatePath(`/admin/studies/${invitation.studyId}`)
 
       return { ok: true }
     }),
