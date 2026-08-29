@@ -8,6 +8,15 @@ import {
   oneTimeTokenExpiry
 } from "../lib/auth-tokens"
 import { EmailAuthIntentSchema } from "../lib/email-auth-intent"
+import {
+  authPathWithReturnTo,
+  normalizeAuthReturnTo,
+  profileCompletionPath
+} from "../lib/auth-return"
+import {
+  createEmailAuthLinkFragment,
+  hashEmailAuthToken
+} from "../lib/email-auth-token"
 import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "../lib/input-limits"
 import { isValidOrcidId, normalizeOrcidId } from "../lib/orcid"
 import { DefineTermSchema } from "../lib/schemas/terms"
@@ -64,6 +73,56 @@ assert.equal(EmailAuthIntentSchema.safeParse("sign-in").success, true)
 assert.equal(EmailAuthIntentSchema.safeParse("create").success, true)
 assert.equal(EmailAuthIntentSchema.safeParse("register").success, false)
 
+const invitationReturnTo = `/invite/${"a".repeat(43)}`
+assert.equal(normalizeAuthReturnTo(invitationReturnTo), invitationReturnTo)
+assert.equal(normalizeAuthReturnTo("/invite/too-short"), null)
+assert.equal(normalizeAuthReturnTo("/profile"), null)
+assert.equal(normalizeAuthReturnTo("//example.org/invite/"), null)
+assert.equal(normalizeAuthReturnTo("https://example.org/invite/token"), null)
+assert.equal(
+  authPathWithReturnTo("/login", invitationReturnTo),
+  `/login?returnTo=${encodeURIComponent(invitationReturnTo)}`
+)
+assert.equal(
+  authPathWithReturnTo("/api/auth/orcid?intent=login", invitationReturnTo),
+  `/api/auth/orcid?intent=login&returnTo=${encodeURIComponent(invitationReturnTo)}`
+)
+assert.equal(
+  profileCompletionPath(invitationReturnTo),
+  `/profile/edit?welcome=1&returnTo=${encodeURIComponent(invitationReturnTo)}`
+)
+
+const emailToken = createOneTimeToken()
+const otherInvitationReturnTo = `/invite/${"b".repeat(43)}`
+assert.equal(
+  hashEmailAuthToken(emailToken),
+  hashOneTimeToken(emailToken),
+  "ordinary links retain their token-only digest"
+)
+assert.notEqual(
+  hashEmailAuthToken(emailToken, invitationReturnTo),
+  hashEmailAuthToken(emailToken),
+  "an invitation continuation is bound to the email token digest"
+)
+assert.notEqual(
+  hashEmailAuthToken(emailToken, invitationReturnTo),
+  hashEmailAuthToken(emailToken, otherInvitationReturnTo),
+  "changing the invitation changes the email token digest"
+)
+
+const emailLinkParameters = new URLSearchParams(
+  createEmailAuthLinkFragment(emailToken, invitationReturnTo)
+)
+assert.equal(emailLinkParameters.get("token"), emailToken)
+assert.equal(emailLinkParameters.get("returnTo"), invitationReturnTo)
+assert.equal(
+  new URLSearchParams(createEmailAuthLinkFragment(emailToken, "/profile")).get(
+    "returnTo"
+  ),
+  null,
+  "non-invitation continuations are not carried in email links"
+)
+
 const loginPage = readFileSync(resolve("app/login/page.tsx"), "utf8")
 const registrationPage = readFileSync(resolve("app/register/page.tsx"), "utf8")
 const emailStartRoute = readFileSync(
@@ -73,6 +132,15 @@ const emailStartRoute = readFileSync(
 const emailVerifyRoute = readFileSync(
   resolve("app/api/auth/email/verify/route.ts"),
   "utf8"
+)
+const emailVerifyClient = readFileSync(
+  resolve("app/register/verify/verify-email-link.tsx"),
+  "utf8"
+)
+const schemaSource = readFileSync(resolve("drizzle/schema.ts"), "utf8")
+const emailAuthTokenSchema = schemaSource.slice(
+  schemaSource.indexOf("export const emailAuthTokensTable"),
+  schemaSource.indexOf("export const usersTableRelations")
 )
 assert.match(loginPage, /name="intent" value="sign-in"/)
 assert.match(registrationPage, /name="intent" value="create"/)
@@ -84,6 +152,19 @@ assert.match(
 assert.match(
   emailVerifyRoute,
   /else if \(claimed\.allowAccountCreation\)[\s\S]*insert\(usersTable\)/
+)
+assert.match(emailStartRoute, /hashEmailAuthToken\(token, returnTo\)/)
+assert.match(
+  emailStartRoute,
+  /sendEmailSignInLink\(\{ email, token, returnTo \}\)/
+)
+assert.match(emailVerifyRoute, /hashEmailAuthToken\(token, returnTo\)/)
+assert.doesNotMatch(emailVerifyRoute, /emailAuthTokensTable\.returnTo/)
+assert.match(emailVerifyClient, /JSON\.stringify\(\{ token, returnTo \}\)/)
+assert.doesNotMatch(
+  emailAuthTokenSchema,
+  /\breturnTo\s*:/,
+  "raw invitation continuations must not be persisted with email tokens"
 )
 
 const validTerm = {

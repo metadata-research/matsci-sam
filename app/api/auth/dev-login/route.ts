@@ -4,6 +4,7 @@ import { getDevAuthUsers, isDevAuthEnabled } from "@/lib/dev-auth"
 import { getSession } from "@/lib/session"
 import { eq, sql } from "drizzle-orm"
 import { NextRequest } from "next/server"
+import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
 
 const sameSecret = (submitted: string, expected: string) => {
   const submittedDigest = createHash("sha256").update(submitted).digest()
@@ -11,10 +12,12 @@ const sameSecret = (submitted: string, expected: string) => {
   return timingSafeEqual(submittedDigest, expectedDigest)
 }
 
-const loginRedirect = (error: string) =>
+const loginRedirect = (error: string, returnTo: string | null = null) =>
   new Response(null, {
     status: 303,
-    headers: { Location: `/dev-login?error=${error}` }
+    headers: {
+      Location: authPathWithReturnTo(`/dev-login?error=${error}`, returnTo)
+    }
   })
 
 export const POST = async (request: NextRequest) => {
@@ -31,6 +34,7 @@ export const POST = async (request: NextRequest) => {
   }
 
   const form = await request.formData()
+  const returnTo = normalizeAuthReturnTo(form.get("returnTo"))
   const username = String(form.get("username") ?? "")
     .trim()
     .toLowerCase()
@@ -40,7 +44,7 @@ export const POST = async (request: NextRequest) => {
   )
 
   if (!configuredUser || !sameSecret(password, expectedPassword))
-    return loginRedirect("invalid")
+    return loginRedirect("invalid", returnTo)
 
   const [firstName, ...lastNameParts] = configuredUser.name.split(/\s+/)
   const lastName = lastNameParts.join(" ") || null
@@ -80,6 +84,6 @@ export const POST = async (request: NextRequest) => {
 
   return new Response(null, {
     status: 303,
-    headers: { Location: "/profile" }
+    headers: { Location: returnTo ?? "/profile" }
   })
 }

@@ -4,7 +4,11 @@ import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
 import { mostSupportedDefinitions, studyBySlug } from "@/lib/study-queries"
-import { studyState } from "@/lib/communities"
+import {
+  mayRunStudy,
+  studyAcceptsParticipants,
+  studyState
+} from "@/lib/communities"
 import { getCurrentUser } from "@/lib/current-user"
 import {
   collectionPath,
@@ -25,6 +29,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PublicProfileName } from "@/components/public-profile-name"
 import { studyActivityActionLabel } from "@/components/studies/progress"
+import { InvitePerson } from "@/components/communities/controls"
 import { DEFAULT_INSTRUCTIONS } from "@/lib/surveys"
 
 // Shared by generateMetadata and the body, so the page runs one query.
@@ -116,6 +121,10 @@ export default async function StudyPage({
         walks.steps.length
       )
     : null
+  const canInvite =
+    user !== null &&
+    mayRunStudy(user, walkthrough?.membership ?? null) &&
+    studyAcceptsParticipants(study)
 
   return (
     <main className="px-4 py-8">
@@ -138,6 +147,22 @@ export default async function StudyPage({
             </span>
           </div>
         </div>
+
+        {canInvite ? (
+          <section className="space-y-3 rounded-md border border-border p-4">
+            <div className="space-y-1">
+              <h2 className="font-semibold">Participant invitations</h2>
+              <p className="text-sm text-muted-foreground">
+                Create a one-person link that opens these instructions. The
+                participant signs in or creates an account before accepting.
+              </p>
+            </div>
+            <InvitePerson
+              communityId={study.communityId}
+              study={{ id: study.id, title: study.title }}
+            />
+          </section>
+        ) : null}
 
         {walks && (
           <section className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-4">

@@ -55,7 +55,8 @@ const useRefreshingMutation = () => {
 // A link is shown once and cannot be read back, so copying it is the whole
 // point of the control that displays it.
 const CopyableLink = ({ link, note }: { link: string; note: string }) => {
-  const href = typeof window === "undefined" ? link : `${location.origin}${link}`
+  const href =
+    typeof window === "undefined" ? link : `${location.origin}${link}`
 
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
@@ -114,7 +115,8 @@ export const CreateCommunity = () => {
       className="space-y-2 rounded-md border border-border p-3"
       onSubmit={(event) => {
         event.preventDefault()
-        if (title.trim()) create({ title, description: description || undefined })
+        if (title.trim())
+          create({ title, description: description || undefined })
       }}
     >
       <Input
@@ -260,16 +262,15 @@ export const AddPerson = ({ communityId }: { communityId: number }) => {
   const { mutate: setMember, isPending } =
     trpc.communities.setMember.useMutation(handlers)
 
-  const { data: results, isFetching } =
-    trpc.communities.searchPeople.useQuery(
-      { communityId, query },
-      {
-        enabled: open && query.trim().length >= 2,
-        // Hold the previous rows while the next query runs, so the list does
-        // not flash empty between keystrokes and read as "nobody matches".
-        placeholderData: (previous) => previous
-      }
-    )
+  const { data: results, isFetching } = trpc.communities.searchPeople.useQuery(
+    { communityId, query },
+    {
+      enabled: open && query.trim().length >= 2,
+      // Hold the previous rows while the next query runs, so the list does
+      // not flash empty between keystrokes and read as "nobody matches".
+      placeholderData: (previous) => previous
+    }
+  )
 
   const candidates = results ?? []
 
@@ -468,9 +469,7 @@ export const RemoveCollection = ({
       size="sm"
       aria-label={`Remove ${title} from the worklist`}
       disabled={isPending}
-      onClick={() =>
-        setCollection({ communityId, collectionId, on: false })
-      }
+      onClick={() => setCollection({ communityId, collectionId, on: false })}
     >
       <XIcon className="size-4" />
     </Button>
@@ -479,10 +478,15 @@ export const RemoveCollection = ({
 
 export const InvitePerson = ({
   communityId,
-  studies = []
+  studies = [],
+  study
 }: {
   communityId: number
   studies?: { id: number; title: string }[]
+  // On a study page the destination is fixed. The community page instead
+  // supplies a menu of studies and keeps a plain community invitation as an
+  // option.
+  study?: { id: number; title: string }
 }) => {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -490,7 +494,7 @@ export const InvitePerson = ({
   const [link, setLink] = useState<string | null>(null)
   // Null means an invitation to the community itself rather than to a study.
   const [studyId, setStudyId] = useState<number | null>(
-    studies.length === 1 ? studies[0].id : null
+    study?.id ?? (studies.length === 1 ? studies[0].id : null)
   )
 
   const { mutate: invite, isPending } = trpc.communities.invite.useMutation({
@@ -507,7 +511,7 @@ export const InvitePerson = ({
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <PlusIcon className="size-4 mr-1" />
-        Invite someone
+        {study ? "Invite a participant" : "Invite someone"}
       </Button>
     )
 
@@ -541,7 +545,13 @@ export const InvitePerson = ({
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
-          {studies.length > 0 && (
+          {study ? (
+            <p className="text-xs text-muted-foreground">
+              This link opens {study.title} and joins the participant to its
+              community when accepted.
+            </p>
+          ) : null}
+          {!study && studies.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button type="button" variant="outline" size="sm">
@@ -565,7 +575,11 @@ export const InvitePerson = ({
             </DropdownMenu>
           )}
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" size="sm" disabled={isPending || !email.trim()}>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isPending || !email.trim()}
+            >
               Create a link
             </Button>
             <Button

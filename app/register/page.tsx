@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
 import { SITE_NAME } from "@/lib/site"
+import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
 
 export const metadata: Metadata = {
   title: `Create an account | ${SITE_NAME}`
@@ -21,10 +22,11 @@ export const metadata: Metadata = {
 export default async function RegisterPage({
   searchParams
 }: {
-  searchParams: Promise<{ source?: string }>
+  searchParams: Promise<{ source?: string; returnTo?: string }>
 }) {
   if (!isEmailAccountCreationEnabled()) notFound()
-  const { source } = await searchParams
+  const { source, returnTo: requestedReturnTo } = await searchParams
+  const returnTo = normalizeAuthReturnTo(requestedReturnTo)
 
   return (
     <main className="px-4 py-12">
@@ -60,6 +62,9 @@ export default async function RegisterPage({
             className="space-y-4"
           >
             <input type="hidden" name="intent" value="create" />
+            {returnTo ? (
+              <input type="hidden" name="returnTo" value={returnTo} />
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="registration-email">Email address</Label>
               <Input
@@ -78,7 +83,10 @@ export default async function RegisterPage({
           </form>
           <p className="text-center text-sm text-muted-foreground">
             Prefer your existing identity?{" "}
-            <a href="/api/auth/google" className="text-primary underline">
+            <a
+              href={authPathWithReturnTo("/api/auth/google", returnTo)}
+              className="text-primary underline"
+            >
               Continue with Google
             </a>
           </p>

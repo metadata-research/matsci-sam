@@ -1,12 +1,9 @@
 import "server-only"
 
 import { z } from "zod"
-import {
-  createOneTimeToken,
-  hashOneTimeToken,
-  oneTimeTokenExpiry
-} from "@/lib/auth-tokens"
+import { createOneTimeToken, oneTimeTokenExpiry } from "@/lib/auth-tokens"
 export { EmailAuthIntentSchema } from "@/lib/email-auth-intent"
+export { hashEmailAuthToken } from "@/lib/email-auth-token"
 
 export const EmailAddressSchema = z
   .string()
@@ -40,8 +37,6 @@ export const getAuthSiteUrl = () => {
 }
 
 export const createEmailAuthToken = createOneTimeToken
-
-export const hashEmailAuthToken = hashOneTimeToken
 
 export const getEmailAuthTokenLifetimeMinutes = () => {
   const raw = process.env.EMAIL_AUTH_TOKEN_TTL_MINUTES?.trim() || "15"

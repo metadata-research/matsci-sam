@@ -1,13 +1,20 @@
 import Link from "next/link"
 import type { Metadata } from "next"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AcceptInvitation } from "@/components/communities/accept-invitation"
 import { getCurrentUser } from "@/lib/current-user"
 import { invitationForToken, isMemberOf } from "@/lib/community-queries"
-import { communityPath, studyPath } from "@/lib/public-identifiers"
+import { communityPath, invitePath, studyPath } from "@/lib/public-identifiers"
 import { SITE_NAME } from "@/lib/site"
 import { INVITATION_LIFETIME_DAYS } from "@/lib/communities"
+import { authPathWithReturnTo } from "@/lib/auth-return"
 
 export const metadata: Metadata = {
   title: `Invitation | ${SITE_NAME}`,
@@ -31,6 +38,7 @@ export default async function InvitePage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
+  const returnTo = invitePath(token)
   const invitation = await invitationForToken(token)
 
   // A replaced, rotated or withdrawn link resolves to nothing. There is no
@@ -41,7 +49,9 @@ export default async function InvitePage({
       <main className="px-4 py-12">
         <Card className="mx-auto max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl">This link no longer works</CardTitle>
+            <CardTitle className="text-2xl">
+              This link no longer works
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -135,7 +145,9 @@ export default async function InvitePage({
               <Button asChild>
                 <Link
                   href={
-                    study ? studyPath(study.slug) : communityPath(community.slug)
+                    study
+                      ? studyPath(study.slug)
+                      : communityPath(community.slug)
                   }
                 >
                   {study ? "Open the study" : `Open ${community.title}`}
@@ -152,15 +164,19 @@ export default async function InvitePage({
             <>
               <p className="text-sm text-muted-foreground">
                 Sign in to accept{email ? `, or create an account first` : ""}.
-                Come back to this link afterwards and the invitation will still
-                be here.
+                After sign-in and any required profile setup, you will return to
+                this invitation.
               </p>
               <div className="flex gap-2">
                 <Button asChild>
-                  <Link href="/login">Sign in</Link>
+                  <Link href={authPathWithReturnTo("/login", returnTo)}>
+                    Sign in
+                  </Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link href="/register">Create an account</Link>
+                  <Link href={authPathWithReturnTo("/register", returnTo)}>
+                    Create an account
+                  </Link>
                 </Button>
               </div>
             </>

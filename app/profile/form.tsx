@@ -21,7 +21,13 @@ import { Switch } from "@/components/ui/switch"
 import { EditProfile, EditProfileSchema } from "@/lib/schemas/profile"
 import { trpc } from "@/trpc/client"
 
-export const EditProfileForm = ({ defaults }: { defaults: User }) => {
+export const EditProfileForm = ({
+  defaults,
+  returnTo = null
+}: {
+  defaults: User
+  returnTo?: string | null
+}) => {
   const router = useRouter()
   const form = useForm<EditProfile>({
     resolver: zodResolver(EditProfileSchema),
@@ -36,7 +42,7 @@ export const EditProfileForm = ({ defaults }: { defaults: User }) => {
   const { mutate, isPending } = trpc.user.edit.useMutation({
     onSuccess: () => {
       toast.success("Profile updated.")
-      router.push("/profile")
+      router.push(returnTo ?? "/profile")
       router.refresh()
     },
     onError: () => toast.error("The profile could not be updated.")

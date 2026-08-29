@@ -3,6 +3,7 @@ import "server-only"
 import nodemailer, { type Transporter } from "nodemailer"
 import { google, type gmail_v1 } from "googleapis"
 import { getAuthSiteUrl } from "@/lib/email-auth"
+import { createEmailAuthLinkFragment } from "@/lib/email-auth-token"
 import { SITE_NAME } from "@/lib/site"
 import { invitePath } from "@/lib/public-identifiers"
 
@@ -113,15 +114,18 @@ const sendEmail = async (message: EmailMessage) => {
 
 export const sendEmailSignInLink = async ({
   email,
-  token
+  token,
+  returnTo
 }: {
   email: string
   token: string
+  returnTo?: string | null
 }) => {
   const url = new URL("/register/verify", getAuthSiteUrl())
   // The fragment is not sent in the browser's HTTP request or included in
   // ordinary access logs. The verification page posts it to the API.
-  url.hash = new URLSearchParams({ token }).toString()
+  url.hash = createEmailAuthLinkFragment(token, returnTo)
+  const htmlUrl = url.href.replaceAll("&", "&amp;")
 
   await sendEmail({
     from: requiredEmailSetting("EMAIL_AUTH_FROM"),
@@ -137,7 +141,7 @@ export const sendEmailSignInLink = async ({
     ].join("\n"),
     html: [
       `<p>Use this one-time link to sign in to ${SITE_NAME}:</p>`,
-      `<p><a href="${url.href}">Continue to ${SITE_NAME}</a></p>`,
+      `<p><a href="${htmlUrl}">Continue to ${SITE_NAME}</a></p>`,
       "<p>The link expires shortly and can be used only once.</p>",
       "<p>If you did not request it, you can ignore this message.</p>"
     ].join("")
