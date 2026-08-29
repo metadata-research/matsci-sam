@@ -13,6 +13,7 @@ import { TermCommentBox } from "@/components/term/comment-box"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { CompletedStudySummary } from "@/components/studies/completed-study-summary"
 import { cn } from "@/lib/utils"
 import { SURVEY_RESPONSE_MAX_LENGTH } from "@/lib/input-limits"
 import { collectionPath, studyPath } from "@/lib/public-identifiers"
@@ -682,22 +683,32 @@ const Question = ({
   )
 }
 
-const Finished = ({ study }: { study: Walkthrough["study"] }) => (
-  <div className="space-y-4">
-    <p className="text-muted-foreground">
-      Thank you. Your work here is recorded with the study, and the steps above
-      stay open to read. The study page shows the candidate with the greatest
-      site-wide support for each term.
-    </p>
-    <div className="flex flex-wrap gap-2">
-      <Button asChild>
-        <Link href={studyPath(study.slug)}>Open the study</Link>
-      </Button>
-      <Button asChild variant="outline">
-        <Link href={collectionPath(study.collectionSlug)}>
-          Browse the terms
-        </Link>
-      </Button>
+const Finished = ({
+  study,
+  steps,
+  onSelect
+}: {
+  study: Walkthrough["study"]
+  steps: Step[]
+  onSelect: (position: number) => void
+}) => (
+  <div className="space-y-8">
+    <CompletedStudySummary steps={steps} onSelect={onSelect} />
+    <div className="space-y-4 border-t pt-6">
+      <p className="text-muted-foreground">
+        Thank you. Your work here is recorded with the study. The study page
+        shows the candidate with the greatest site-wide support for each term.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild>
+          <Link href={studyPath(study.slug)}>Open the study</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={collectionPath(study.collectionSlug)}>
+            Browse the terms
+          </Link>
+        </Button>
+      </div>
     </div>
   </div>
 )
@@ -817,7 +828,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
             />
 
             {step === undefined ? (
-              <Finished study={study} />
+              <Finished study={study} steps={steps} onSelect={show} />
             ) : step.kind === "instructions" ? (
               <Instructions
                 key={step.id}

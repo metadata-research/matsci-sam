@@ -1550,13 +1550,23 @@ const main = async () => {
       assert.equal(mine.steps[1].hasPosition, true, "define A: a definition")
       assert.deepEqual(
         mine.steps[1].held,
-        { kind: "proposed", definitionId: defA.id },
+        {
+          kind: "proposed",
+          definitionId: defA.id,
+          definitionNumber: defA.definitionNumber,
+          revisionVersion: revA.version
+        },
         "the definition written inside the step is the position"
       )
       assert.equal(mine.steps[2].hasPosition, true, "define B: an upvote")
       assert.deepEqual(
         mine.steps[2].held,
-        { kind: "accepted", definitionId: defB.id },
+        {
+          kind: "accepted",
+          definitionId: defB.id,
+          definitionNumber: defB.definitionNumber,
+          revisionVersion: revB.version
+        },
         "the candidate upvoted inside the step is the position"
       )
       assert.ok(
@@ -1572,6 +1582,33 @@ const main = async () => {
         valueScale: 4
       })
       assert.equal(mine.steps[6].response, null)
+      assert.deepEqual(
+        mine.steps[3].reviewRecord,
+        { votes: [], comments: [] },
+        "a review without acts has an empty record"
+      )
+      assert.deepEqual(mine.steps[4].reviewRecord, {
+        votes: [
+          {
+            kind: "down",
+            definitionNumber: defB.definitionNumber,
+            revisionVersion: revB.version
+          }
+        ],
+        comments: [
+          {
+            message: "a comment posted inside a review step",
+            definitionNumber: defB.definitionNumber,
+            revisionVersion: revB.version
+          }
+        ]
+      })
+      assert.ok(
+        mine.steps
+          .filter((step) => step.kind !== "review")
+          .every((step) => step.reviewRecord === null),
+        "only review steps expose a review record"
+      )
 
       // Public study, private progress: a signed-out viewer sees the steps
       // and nothing of anyone's progress.
@@ -1585,7 +1622,8 @@ const main = async () => {
             !step.completed &&
             !step.hasPosition &&
             step.held === null &&
-            step.response === null
+            step.response === null &&
+            step.reviewRecord === null
         )
       )
 
