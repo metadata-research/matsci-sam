@@ -3,3 +3,8 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+# pnpm 11 reads overrides here; the package.json "pnpm" field is ignored.
+overrides:
+  postcss: 8.5.22
+  sharp: 0.35.3
+  'yaml@1': 1.10.3
