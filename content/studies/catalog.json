@@ -20,6 +20,10 @@
     {
       "key": "mrc-pilot-demo",
       "title": "MRC pilot, demonstration"
+    },
+    {
+      "key": "new-materials-workflow-rehearsal",
+      "title": "New Materials workflow rehearsal"
     }
   ]
 }
