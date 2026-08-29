@@ -36,6 +36,7 @@ const main = async () => {
     studiesTable,
     surveyResponsesTable,
     surveyStepCompletionsTable,
+    surveyStepPositionsTable,
     surveyStepsTable,
     termsTable,
     usersTable,
@@ -53,6 +54,7 @@ const main = async () => {
     gateOf,
     hasPosition,
     nextPositionFor,
+    positionsOf,
     recordResponse,
     replaceSteps,
     responseOf,
@@ -62,6 +64,9 @@ const main = async () => {
   } = await import("../lib/survey-queries")
   const { createDefinitionWithInitialRevision } = await import(
     "../lib/definition-revisions"
+  )
+  const { acceptPositionCandidate, recordPositionCompletion } = await import(
+    "../lib/survey-positions"
   )
   const { deleteDefinitionRows } = await import("../lib/definition-purge")
   const { PREDICATE_VALUES, predicateAccepts } = await import("../lib/kos")
@@ -1306,7 +1311,102 @@ const main = async () => {
         false,
         "another account's definition is not the caller's position"
       )
-      await recordCompletion(tx, { stepId: defineA.id, userId: user.id })
+      await recordPositionCompletion(tx, {
+        stepId: defineA.id,
+        userId: user.id,
+        kind: "proposed",
+        definitionId: defA.id,
+        revisionId: revA.id
+      })
+
+      // Accept is one atomic position write in each possible standing-vote
+      // state. The savepoints leave defineB incomplete for the resumption
+      // assertions below.
+      const voteEventCount = async (sp: Tx) => {
+        const [row] = await sp
+          .select({ count: sql<number>`count(*)::int`.mapWith(Number) })
+          .from(voteEventsTable)
+          .where(
+            and(
+              eq(voteEventsTable.definitionId, defB.id),
+              eq(voteEventsTable.revisionId, revB.id),
+              eq(voteEventsTable.userId, user.id)
+            )
+          )
+        return row.count
+      }
+      const definitionScore = async (sp: Tx) =>
+        (
+          await sp
+            .select({ score: definitionsTable.score })
+            .from(definitionsTable)
+            .where(eq(definitionsTable.id, defB.id))
+        )[0].score
+      const acceptInSavepoint = (sp: Tx) =>
+        acceptPositionCandidate(sp, {
+          stepId: defineB.id,
+          termId: termB.id,
+          userId: user.id,
+          definitionId: defB.id,
+          revisionId: revB.id,
+          actorKind: "human",
+          communityId: community.id
+        })
+
+      await within(tx, async (sp) => {
+        const scoreBefore = await definitionScore(sp)
+        const accepted = await acceptInSavepoint(sp)
+        assert.equal(accepted.standingVote, null)
+        assert.equal(accepted.score, scoreBefore + 1)
+        assert.equal(
+          (await positionsOf(sp, [defineB.id], user.id)).get(defineB.id)
+            ?.definitionId,
+          defB.id
+        )
+        await runInvariants(sp)
+      })
+
+      await within(tx, async (sp) => {
+        await castVote(sp, {
+          definitionId: defB.id,
+          revisionId: revB.id,
+          userId: user.id,
+          vote: "up",
+          actorKind: "human",
+          communityId: community.id,
+          surveyStepId: null
+        })
+        const [scoreBefore, eventsBefore] = await Promise.all([
+          definitionScore(sp),
+          voteEventCount(sp)
+        ])
+        const accepted = await acceptInSavepoint(sp)
+        assert.equal(accepted.standingVote, "up")
+        assert.equal(accepted.score, scoreBefore)
+        assert.equal(await voteEventCount(sp), eventsBefore)
+        await runInvariants(sp)
+      })
+
+      await within(tx, async (sp) => {
+        await castVote(sp, {
+          definitionId: defB.id,
+          revisionId: revB.id,
+          userId: user.id,
+          vote: "down",
+          actorKind: "human",
+          communityId: community.id,
+          surveyStepId: null
+        })
+        const [scoreBefore, eventsBefore] = await Promise.all([
+          definitionScore(sp),
+          voteEventCount(sp)
+        ])
+        const accepted = await acceptInSavepoint(sp)
+        assert.equal(accepted.standingVote, "down")
+        assert.equal(accepted.score, scoreBefore + 2)
+        assert.equal(await voteEventCount(sp), eventsBefore + 1)
+        await runInvariants(sp)
+      })
 
       // The define step of termB, taken by accepting a candidate: an upvote
       // naming the step. The position is held without the completion, which
@@ -1329,6 +1429,23 @@ const main = async () => {
         await attempt(tx, runInvariants),
         "a vote event inside the define step of its term"
       )
+      await within(tx, async (sp) => {
+        const completion = await recordCompletion(sp, {
+          stepId: defineB.id,
+          userId: user.id
+        })
+        assert.ok(completion)
+        const recovered = await recordPositionCompletion(sp, {
+          stepId: defineB.id,
+          userId: user.id,
+          kind: "accepted",
+          definitionId: defB.id,
+          revisionId: revB.id
+        })
+        assert.equal(recovered.completion.id, completion.id)
+        assert.equal(recovered.position.recordedAt, completion.completedAt)
+        await runInvariants(sp)
+      })
 
       // A standing upvote on the current revision of a definition of the
       // term is a position on its define step: the gate reads it, and the
@@ -1553,6 +1670,7 @@ const main = async () => {
         {
           kind: "proposed",
           definitionId: defA.id,
+          revisionId: revA.id,
           definitionNumber: defA.definitionNumber,
           revisionVersion: revA.version
         },
@@ -1564,6 +1682,7 @@ const main = async () => {
         {
           kind: "accepted",
           definitionId: defB.id,
+          revisionId: revB.id,
           definitionNumber: defB.definitionNumber,
           revisionVersion: revB.version
         },
@@ -1731,6 +1850,80 @@ const main = async () => {
         "survey_step_completions_step_user_unique",
         "a step completed twice"
       )
+      expectRejected(
+        await attempt(tx, (sp) =>
+          sp.insert(surveyStepPositionsTable).values({
+            stepId: defineA.id,
+            userId: user.id,
+            kind: "proposed",
+            definitionId: defA.id,
+            revisionId: revA.id
+          })
+        ),
+        "23505",
+        "survey_step_positions_step_user_pk",
+        "a second candidate for one Position step"
+      )
+      expectRejected(
+        await attempt(tx, (sp) =>
+          sp.insert(surveyStepPositionsTable).values({
+            stepId: defineB.id,
+            userId: user.id,
+            kind: "accepted",
+            definitionId: defB.id,
+            revisionId: revB.id
+          })
+        ),
+        "23503",
+        "survey_step_positions_completion_fk",
+        "a position without its completion"
+      )
+      expectRejected(
+        await attempt(tx, async (sp) => {
+          await sp
+            .delete(surveyStepPositionsTable)
+            .where(
+              and(
+                eq(surveyStepPositionsTable.stepId, defineA.id),
+                eq(surveyStepPositionsTable.userId, user.id)
+              )
+            )
+          await sp.insert(surveyStepPositionsTable).values({
+            stepId: defineA.id,
+            userId: user.id,
+            kind: "proposed",
+            definitionId: defA.id,
+            revisionId: revB.id
+          })
+        }),
+        "23503",
+        "survey_step_positions_revision_definition_fk",
+        "a position whose revision belongs to another definition"
+      )
+
+      // An exceptional definition purge removes the exact target but keeps
+      // durable study progress, which is why these are separate tables.
+      await within(tx, async (sp) => {
+        await deleteDefinitionRows(sp, defA.id)
+        assert.ok(
+          await sp.query.surveyStepCompletionsTable.findFirst({
+            where: and(
+              eq(surveyStepCompletionsTable.stepId, defineA.id),
+              eq(surveyStepCompletionsTable.userId, user.id)
+            )
+          })
+        )
+        assert.equal(
+          await sp.query.surveyStepPositionsTable.findFirst({
+            where: and(
+              eq(surveyStepPositionsTable.stepId, defineA.id),
+              eq(surveyStepPositionsTable.userId, user.id)
+            )
+          }),
+          undefined
+        )
+        await runInvariants(sp)
+      })
 
       // The backstop behind mayRegenerateSteps: a step an act refers to
       // cannot be deleted. Three foreign keys could answer and their order is
@@ -1745,6 +1938,93 @@ const main = async () => {
 
       // --- The release-time invariants, each shown to raise on a planted
       // violation, then passing on the fixture ---
+
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp
+            .insert(surveyStepCompletionsTable)
+            .values({ stepId: reviewA.id, userId: user.id })
+          await sp.insert(surveyStepPositionsTable).values({
+            stepId: reviewA.id,
+            userId: user.id,
+            kind: "accepted",
+            definitionId: defB.id,
+            revisionId: revB.id
+          })
+          await runInvariants(sp)
+        }),
+        "survey position is not on the term of a define step",
+        "position target attached to a review step"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp
+            .update(surveyStepPositionsTable)
+            .set({
+              recordedAt: sql`${surveyStepPositionsTable.recordedAt} + interval '1 second'`
+            })
+            .where(
+              and(
+                eq(surveyStepPositionsTable.stepId, defineA.id),
+                eq(surveyStepPositionsTable.userId, user.id)
+              )
+            )
+          await runInvariants(sp)
+        }),
+        "survey position and completion were not recorded together",
+        "position added after its completion"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp
+            .update(surveyStepPositionsTable)
+            .set({ kind: "accepted" })
+            .where(
+              and(
+                eq(surveyStepPositionsTable.stepId, defineA.id),
+                eq(surveyStepPositionsTable.userId, user.id)
+              )
+            )
+          await runInvariants(sp)
+        }),
+        "accepted survey position has no preceding upvote",
+        "accepted position without an upvote on its exact revision"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          const [later] = await sp
+            .insert(definitionRevisionsTable)
+            .values({
+              definitionId: defA.id,
+              version: 2,
+              previousRevisionId: revA.id,
+              definitionDiff: [
+                [
+                  DiffOp.Equal,
+                  "A fixture definition written inside a define step."
+                ]
+              ],
+              exampleDiff: [[DiffOp.Equal, "Rolled back at the end."]],
+              editorId: user.id,
+              changeNote: "later edit is not the proposed position",
+              source: "author_edit",
+              changeDelta: "0.000"
+            })
+            .returning({ id: definitionRevisionsTable.id })
+          await sp
+            .update(surveyStepPositionsTable)
+            .set({ revisionId: later.id })
+            .where(
+              and(
+                eq(surveyStepPositionsTable.stepId, defineA.id),
+                eq(surveyStepPositionsTable.userId, user.id)
+              )
+            )
+          await runInvariants(sp)
+        }),
+        "proposed survey position is not its participant initial revision in the step",
+        "proposed position attached to a later edit"
+      )
 
       expectInvariant(
         await attempt(tx, async (sp) => {

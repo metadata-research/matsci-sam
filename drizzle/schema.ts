@@ -2134,6 +2134,11 @@ export const surveyResponseKindEnum = pgEnum("survey_response_kind", [
   "scale"
 ])
 
+export const surveyPositionKindEnum = pgEnum("survey_position_kind", [
+  "accepted",
+  "proposed"
+])
+
 export type SurveyStep = typeof surveyStepsTable.$inferSelect
 export const surveyStepsTable = pgTable(
   "surveySteps",
@@ -2205,6 +2210,55 @@ export const surveyStepCompletionsTable = pgTable(
   (t) => [
     unique("survey_step_completions_step_user_unique").on(t.stepId, t.userId),
     index("survey_step_completions_user_idx").on(t.userId)
+  ]
+)
+
+// The exact candidate selected in a Position step. This is deliberately a
+// separate row from completion: completion is durable progress, while the
+// exceptional administrative purge of a definition removes the contribution
+// and this link to it without erasing that the participant completed the step.
+// The composite foreign keys prove that the position belongs to both its
+// completion and the exact revision of its stable definition.
+export type SurveyStepPosition = typeof surveyStepPositionsTable.$inferSelect
+export const surveyStepPositionsTable = pgTable(
+  "surveyStepPositions",
+  {
+    stepId: integer()
+      .references(() => surveyStepsTable.id)
+      .notNull(),
+    userId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    kind: surveyPositionKindEnum().notNull(),
+    definitionId: integer().notNull(),
+    revisionId: integer().notNull(),
+    recordedAt: timestamp({ mode: "string", withTimezone: true })
+      .default(sql`now()`)
+      .notNull()
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.stepId, t.userId],
+      name: "survey_step_positions_step_user_pk"
+    }),
+    foreignKey({
+      columns: [t.stepId, t.userId],
+      foreignColumns: [
+        surveyStepCompletionsTable.stepId,
+        surveyStepCompletionsTable.userId
+      ],
+      name: "survey_step_positions_completion_fk"
+    }),
+    foreignKey({
+      columns: [t.revisionId, t.definitionId],
+      foreignColumns: [
+        definitionRevisionsTable.id,
+        definitionRevisionsTable.definitionId
+      ],
+      name: "survey_step_positions_revision_definition_fk"
+    }),
+    index("survey_step_positions_user_idx").on(t.userId),
+    index("survey_step_positions_definition_idx").on(t.definitionId)
   ]
 )
 

@@ -38,7 +38,7 @@ import {
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
-import { recordCompletion } from "@/lib/surveys"
+import { recordPositionCompletion } from "@/lib/survey-positions"
 import { nextPositionFor } from "@/lib/survey-queries"
 import {
   expectedInstructionsSchema,
@@ -430,7 +430,7 @@ export const definitionsRouter = createTRPCRouter({
               })
           }
 
-          const { definition: insertedDefinition } =
+          const { definition: insertedDefinition, revision: insertedRevision } =
             await createDefinitionWithInitialRevision(tx, {
               termId: dbTerm.id,
               authorId,
@@ -485,9 +485,12 @@ export const definitionsRouter = createTRPCRouter({
           if (lockedWalkthroughStep) {
             // The define step completes with the definition it asked for, in
             // the transaction that writes it.
-            await recordCompletion(tx, {
+            await recordPositionCompletion(tx, {
               stepId: lockedWalkthroughStep.step.id,
-              userId: authorId
+              userId: authorId,
+              kind: "proposed",
+              definitionId: insertedDefinition.id,
+              revisionId: insertedRevision.id
             })
             walkthrough = {
               completedStepId: lockedWalkthroughStep.step.id,

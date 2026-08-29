@@ -11,6 +11,7 @@ import {
   editsTable,
   refinementsTable,
   statementsTable,
+  surveyStepPositionsTable,
   tagsToDefinitions,
   voteEventsTable,
   votesTable
@@ -55,6 +56,12 @@ export const deleteDefinitionRows = async (
   await tx.delete(commentsTable).where(eq(commentsTable.definitionId, id))
 
   await tx.delete(votesTable).where(eq(votesTable.definitionId, id))
+
+  // A Position step keeps its completion after an exceptional purge, but
+  // the exact-candidate link cannot outlive the contribution it names.
+  await tx
+    .delete(surveyStepPositionsTable)
+    .where(eq(surveyStepPositionsTable.definitionId, id))
 
   // The vote events of the definition are the one part of the append-only
   // act record a purge deletes: they name revisions that are about to go.

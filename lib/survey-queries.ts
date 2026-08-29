@@ -10,6 +10,7 @@ import {
   studiesTable,
   surveyResponsesTable,
   surveyStepCompletionsTable,
+  surveyStepPositionsTable,
   surveyStepsTable,
   termsTable,
   usersTable,
@@ -290,17 +291,17 @@ export const walkthroughUsageOfStudy = async (
 }
 
 /*
- * The position a person holds on a define step as an act naming the step:
- * the candidate they accepted with an upvote event naming it, or the
- * definition they published with an initial revision naming it. The
- * earliest act is the position. Null when no act of theirs names the step,
- * which is also the case when the gate is satisfied by a standing upvote
- * (stepsWithPosition): a standing vote is not reported as held, so the
- * shell shows the candidates and Accept records the completion against it.
+ * The exact candidate a person selected in a Position step. New completions
+ * have an explicit surveyStepPositions row, including acceptance through a
+ * vote that predated the study. The act-derived reads remain as a legacy
+ * fallback for records written before that table existed. Explicit records
+ * always win; an administrative definition purge removes one while leaving
+ * the completion itself intact.
  */
 export type Position = {
   kind: "accepted" | "proposed"
   definitionId: number
+  revisionId: number
   definitionNumber: number
   revisionVersion: number
 }
@@ -311,11 +312,42 @@ export const positionsOf = async (
   userId: number
 ): Promise<Map<number, Position>> => {
   if (stepIds.length === 0) return new Map()
-  const [accepted, proposed] = await Promise.all([
+  const [recorded, accepted, proposed] = await Promise.all([
+    executor
+      .select({
+        stepId: surveyStepPositionsTable.stepId,
+        kind: surveyStepPositionsTable.kind,
+        definitionId: surveyStepPositionsTable.definitionId,
+        revisionId: surveyStepPositionsTable.revisionId,
+        definitionNumber: definitionsTable.definitionNumber,
+        revisionVersion: definitionRevisionsTable.version
+      })
+      .from(surveyStepPositionsTable)
+      .innerJoin(
+        definitionsTable,
+        eq(definitionsTable.id, surveyStepPositionsTable.definitionId)
+      )
+      .innerJoin(
+        definitionRevisionsTable,
+        and(
+          eq(definitionRevisionsTable.id, surveyStepPositionsTable.revisionId),
+          eq(
+            definitionRevisionsTable.definitionId,
+            surveyStepPositionsTable.definitionId
+          )
+        )
+      )
+      .where(
+        and(
+          inArray(surveyStepPositionsTable.stepId, stepIds),
+          eq(surveyStepPositionsTable.userId, userId)
+        )
+      ),
     executor
       .select({
         stepId: voteEventsTable.surveyStepId,
         definitionId: voteEventsTable.definitionId,
+        revisionId: voteEventsTable.revisionId,
         definitionNumber: definitionsTable.definitionNumber,
         revisionVersion: definitionRevisionsTable.version,
         createdAt: voteEventsTable.createdAt
@@ -347,6 +379,7 @@ export const positionsOf = async (
       .select({
         stepId: definitionRevisionsTable.surveyStepId,
         definitionId: definitionRevisionsTable.definitionId,
+        revisionId: definitionRevisionsTable.id,
         definitionNumber: definitionsTable.definitionNumber,
         revisionVersion: definitionRevisionsTable.version,
         createdAt: definitionRevisionsTable.createdAt
@@ -372,6 +405,7 @@ export const positionsOf = async (
     row: {
       stepId: number | null
       definitionId: number
+      revisionId: number
       definitionNumber: number
       revisionVersion: number
       createdAt: string
@@ -383,6 +417,7 @@ export const positionsOf = async (
     positions.set(row.stepId, {
       kind,
       definitionId: row.definitionId,
+      revisionId: row.revisionId,
       definitionNumber: row.definitionNumber,
       revisionVersion: row.revisionVersion,
       createdAt: row.createdAt
@@ -390,14 +425,32 @@ export const positionsOf = async (
   }
   for (const row of accepted) consider("accepted", row)
   for (const row of proposed) consider("proposed", row)
-  return new Map(
+  const legacy = new Map(
     [...positions].map(
-      ([stepId, { kind, definitionId, definitionNumber, revisionVersion }]) => [
+      ([
         stepId,
-        { kind, definitionId, definitionNumber, revisionVersion }
+        { kind, definitionId, revisionId, definitionNumber, revisionVersion }
+      ]) => [
+        stepId,
+        {
+          kind,
+          definitionId,
+          revisionId,
+          definitionNumber,
+          revisionVersion
+        }
       ]
     )
   )
+  for (const row of recorded)
+    legacy.set(row.stepId, {
+      kind: row.kind,
+      definitionId: row.definitionId,
+      revisionId: row.revisionId,
+      definitionNumber: row.definitionNumber,
+      revisionVersion: row.revisionVersion
+    })
+  return legacy
 }
 
 export type ReviewRecord = {
