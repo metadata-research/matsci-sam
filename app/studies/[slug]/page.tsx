@@ -2,8 +2,10 @@ import { cache } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
+import { db } from "@yamz/db"
 import { SITE_NAME } from "@/lib/site"
 import { studyBySlug } from "@/lib/study-queries"
+import { instructionPromptOfStudy } from "@/lib/survey-queries"
 import { studyState } from "@/lib/communities"
 import { getCurrentUser } from "@/lib/current-user"
 import {
@@ -42,8 +44,9 @@ const STATE_LABEL = {
 
 /*
  * A study, as its participants read it. This is the address that goes in a
- * reminder email, so it stays public and stays put. It provides context and
- * entry to the activity; the activity presents its instructions as step 1.
+ * reminder email, so it stays public and stays put: the instructions have to
+ * be reachable a week after the invitation link was spent, and after the
+ * study closes. The activity presents the same instructions as step 1.
  *
  * The cohort is not listed here. Who is in a community is visible to its
  * members and to administrators, and routing round that rule through a study
@@ -64,13 +67,26 @@ export default async function StudyPage({
   // signed-out viewer has no progress to resume, so nothing is read.
   const user = await getCurrentUser()
   const walkthrough = user ? await trpc.surveys.get({ studySlug: slug }) : null
+  // The activity card while the study is open, and the consolidated record
+  // of a participant who finished after it closes.
+  const finished =
+    walkthrough !== null &&
+    walkthrough.steps.length > 0 &&
+    walkthrough.completedStepIds.length === walkthrough.steps.length
   const walks =
     walkthrough !== null &&
     walkthrough.membership !== null &&
-    state === "open" &&
-    walkthrough.steps.length > 0
+    walkthrough.steps.length > 0 &&
+    (state === "open" || (state === "closed" && finished))
       ? walkthrough
       : null
+
+  // The participant-visible instructions: the locked step-1 prompt where the
+  // steps exist, which is the exact text participants were shown, and the
+  // welcome text of a study whose steps are not generated yet.
+  const participantInstructions =
+    (study.steps > 0 ? await instructionPromptOfStudy(db, study.id) : null) ??
+    study.welcome
 
   const activityActionLabel = walks
     ? studyActivityActionLabel(
@@ -167,6 +183,25 @@ export default async function StudyPage({
             This study has been retired. Its address still resolves, and what
             the cohort contributed is still in the vocabulary.
           </p>
+        )}
+
+        {participantInstructions && (
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold">
+              {state === "closed" && study.steps === 0
+                ? "About this study"
+                : "What to do"}
+            </h2>
+            {/* Plain text, split on blank lines. Nothing typed here becomes
+                markup, which is why the column is not markdown. */}
+            {participantInstructions
+              .split(/\n\s*\n/)
+              .map((paragraph, index) => (
+                <p key={index} className="whitespace-pre-line">
+                  {paragraph}
+                </p>
+              ))}
+          </section>
         )}
 
         <section className="space-y-2">

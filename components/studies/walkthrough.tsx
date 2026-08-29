@@ -221,6 +221,7 @@ const Candidates = ({
   pending,
   onAccepted,
   onPublished,
+  onFailed,
   onMutationStart,
   onMutationEnd
 }: {
@@ -229,6 +230,7 @@ const Candidates = ({
   pending: boolean
   onAccepted: (nextPosition: number | null) => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
+  onFailed: () => void
 } & MutationActivityCallbacks) => {
   const termId = step.termId!
   const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
@@ -246,6 +248,10 @@ const Candidates = ({
     onError: (error) => {
       toast.error(error.message)
       utils.definitions.list.invalidate({ termId })
+      // A refusal means the step the shell holds is behind the record — the
+      // position was recorded in another tab, or the instructions changed —
+      // so the walkthrough is read again rather than re-offering Accept.
+      onFailed()
     },
     onSettled: activity.end
   })
@@ -416,6 +422,7 @@ const Position = ({
   pending,
   onAccepted,
   onPublished,
+  onFailed,
   onContinue,
   onMutationStart,
   onMutationEnd
@@ -425,6 +432,7 @@ const Position = ({
   pending: boolean
   onAccepted: (nextPosition: number | null) => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
+  onFailed: () => void
   onContinue: () => void
 } & MutationActivityCallbacks) => {
   const settled = step.completed || step.held !== null
@@ -443,6 +451,7 @@ const Position = ({
             pending={pending}
             onAccepted={onAccepted}
             onPublished={onPublished}
+            onFailed={onFailed}
             onMutationStart={onMutationStart}
             onMutationEnd={onMutationEnd}
           />
@@ -876,6 +885,7 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
                     advance(published.walkthrough.nextPosition)
                   else utils.surveys.get.invalidate({ studySlug })
                 }}
+                onFailed={reread}
                 onContinue={() => press(step)}
                 onMutationStart={interaction.start}
                 onMutationEnd={interaction.end}

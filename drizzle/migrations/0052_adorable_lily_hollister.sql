@@ -1,0 +1,4 @@
+ALTER TABLE "termRouteAliases" DROP CONSTRAINT "termRouteAliases_community_slug_not_route_keyword";--> statement-breakpoint
+ALTER TABLE "terms" DROP CONSTRAINT "terms_community_slug_not_route_keyword";--> statement-breakpoint
+ALTER TABLE "termRouteAliases" ADD CONSTRAINT "termRouteAliases_community_slug_not_route_keyword" CHECK ("termRouteAliases"."vocabularySlug" = 'matsci-sam' OR "termRouteAliases"."termSlug" NOT IN ('activity', 'definitions', 'provenance', 'rank'));--> statement-breakpoint
+ALTER TABLE "terms" ADD CONSTRAINT "terms_community_slug_not_route_keyword" CHECK ("terms"."vocabularySlug" = 'matsci-sam' OR "terms"."slug" NOT IN ('activity', 'definitions', 'provenance', 'rank'));

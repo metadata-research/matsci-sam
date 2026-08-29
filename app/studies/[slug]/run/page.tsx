@@ -128,6 +128,27 @@ export default async function RunPage({
       </Notice>
     )
 
+  // A participant who finished keeps their consolidated record after the
+  // study closes: the shell opens on the finished view, and every step it
+  // can reach is complete, which the walkthrough renders read-only.
+  if (state === "closed") {
+    await trpc.surveys.get.prefetch({ studySlug: slug })
+    const walkthrough = prefetched<RouterOutput["surveys"]["get"]>(
+      ["surveys", "get"],
+      { studySlug: slug }
+    )
+    if (
+      walkthrough !== undefined &&
+      walkthrough.steps.length > 0 &&
+      walkthrough.completedStepIds.length === walkthrough.steps.length
+    )
+      return (
+        <HydrateClient>
+          <Walkthrough studySlug={slug} />
+        </HydrateClient>
+      )
+  }
+
   if (state !== "open")
     return (
       <Notice title={study.title}>

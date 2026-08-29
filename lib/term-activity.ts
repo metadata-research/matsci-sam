@@ -190,11 +190,19 @@ export function buildTermActivity(
 
   const events = [...revisionEvents, ...commentEvents, ...voteEvents].sort(
     (a, b) => {
-      const time = a.at.localeCompare(b.at)
+      // Codepoint order, not localeCompare: the stored timestamps share one
+      // format apart from optional fractional seconds, and ICU collation
+      // puts '.' and '+' in an order that ranks a fractional timestamp
+      // before the whole second it follows. Codepoint-wise '+' < '.', so a
+      // backfilled whole-second event stays ahead of the same second's
+      // fractional events.
+      const time = a.at < b.at ? -1 : a.at > b.at ? 1 : 0
       if (time !== 0) return time
       const kind = eventKindOrder[a.kind] - eventKindOrder[b.kind]
       if (kind !== 0) return kind
-      return a.key.localeCompare(b.key)
+      // Numeric collation keeps version and index tiebreaks in order past
+      // nine: 'revision-2-9' before 'revision-2-10'.
+      return a.key.localeCompare(b.key, "en", { numeric: true })
     }
   )
 

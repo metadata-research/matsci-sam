@@ -9,7 +9,7 @@ import {
 } from "@/lib/admin-study-queries"
 import { instructionEditability } from "@/lib/study-editor"
 import { studyAcceptsParticipants, studyState } from "@/lib/communities"
-import { DEFAULT_INSTRUCTIONS } from "@/lib/surveys"
+import { DEFAULT_INSTRUCTIONS, isDefaultInstructions } from "@/lib/surveys"
 import { studyBySlug as referenceStudyBySlug } from "@/lib/published-studies"
 import { studyPath } from "@/lib/public-identifiers"
 import { Button } from "@/components/ui/button"
@@ -57,9 +57,11 @@ export default async function AdminStudyPage({
     (step) => step.kind === "instructions" && step.position === 1
   )
   const effectiveInstructions = study.welcome ?? instructionsStep?.prompt ?? ""
-  const expectedPrompt = study.welcome ?? DEFAULT_INSTRUCTIONS
   const hasCopyDrift =
-    study.steps.length > 0 && instructionsStep?.prompt !== expectedPrompt
+    study.steps.length > 0 &&
+    (study.welcome === null
+      ? !isDefaultInstructions(instructionsStep?.prompt)
+      : instructionsStep?.prompt !== study.welcome)
   const state = studyState(study)
   const parentRetired = Boolean(
     study.communityRetiredAt || study.collectionRetiredAt

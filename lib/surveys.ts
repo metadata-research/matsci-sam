@@ -56,6 +56,35 @@ export const DEFAULT_INSTRUCTIONS =
   "responses. Completed steps are saved between visits, and the study " +
   "activity returns to the first incomplete step."
 
+/*
+ * Earlier wordings of the default text. A study created with no welcome text
+ * persists the default of its day as the step-1 prompt, so a rewording above
+ * must not make an untouched study read as drifted or edited: comparisons go
+ * through isDefaultInstructions, and a legacy prompt is left in place — it is
+ * the text its participants were shown and locked against.
+ */
+const LEGACY_DEFAULT_INSTRUCTIONS = [
+  "This study is a second round on a terminology list. Each term may have " +
+    "candidate definitions, examples, and comments from earlier work.\n\n" +
+    "MatSci-SAM uses five contribution actions: New term, Suggest a revision, " +
+    "Propose a replacement, Comment, and Add example. Language-model assistance, " +
+    "when offered, is an optional drafting aid inside New term or Suggest a " +
+    "revision; it does not publish automatically. A comment stays a comment, and an example stays " +
+    "separate from the definition.\n\nFor each term in this study, take a " +
+    "position by accepting a candidate as written, using Suggest a revision to " +
+    "say what is wrong or missing, or using Propose a replacement to offer a " +
+    "different candidate. Then compare the candidates, vote on each, and use " +
+    "Comment where you disagree or can add information. Any closing questions " +
+    "come last.\n\nMatSci-SAM records the upvote used to accept a candidate, " +
+    "revision and replacement proposals, review votes, comments, and question " +
+    "responses. Completed steps are saved between visits, and the walkthrough " +
+    "returns to the first incomplete step."
+]
+
+export const isDefaultInstructions = (prompt: string | null | undefined) =>
+  prompt === DEFAULT_INSTRUCTIONS ||
+  LEGACY_DEFAULT_INSTRUCTIONS.includes(prompt ?? "")
+
 // The two default closing questions: likelihood of use and what the participant
 // would change. Added after the review steps, and left out when the steward
 // unchecks them.

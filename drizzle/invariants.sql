@@ -117,7 +117,7 @@ BEGIN
       SELECT 1
       FROM "terms"
       WHERE "vocabularySlug" <> 'matsci-sam'
-        AND "slug" IN ('definitions', 'provenance', 'rank')
+        AND "slug" IN ('activity', 'definitions', 'provenance', 'rank')
     ) THEN
       RAISE EXCEPTION 'community term slug collides with a static route';
     END IF;
@@ -147,7 +147,7 @@ BEGIN
         SELECT 1
         FROM "termRouteAliases"
         WHERE "vocabularySlug" <> 'matsci-sam'
-          AND "termSlug" IN ('definitions', 'provenance', 'rank')
+          AND "termSlug" IN ('activity', 'definitions', 'provenance', 'rank')
       ) THEN
         RAISE EXCEPTION 'community term alias collides with a static route';
       END IF;

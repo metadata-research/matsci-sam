@@ -14,7 +14,10 @@ import { getCurrentUser } from "@/lib/current-user"
 import { invitationForToken, isMemberOf } from "@/lib/community-queries"
 import { communityPath, invitePath, studyPath } from "@/lib/public-identifiers"
 import { SITE_NAME } from "@/lib/site"
-import { INVITATION_LIFETIME_DAYS } from "@/lib/communities"
+import {
+  INVITATION_LIFETIME_DAYS,
+  studyAcceptsParticipants
+} from "@/lib/communities"
 import { authPathWithReturnTo } from "@/lib/auth-return"
 
 export const metadata: Metadata = {
@@ -72,6 +75,9 @@ export default async function InvitePage({
   const alreadyIn = user ? await isMemberOf(community.id, user.id) : false
 
   const dead = DEAD[outcome]
+  // A live link to a study that closed or was retired: the router would
+  // refuse the accept, so the page says why instead of offering it.
+  const studyEnded = study !== null && !studyAcceptsParticipants(study)
 
   return (
     <main className="px-4 py-12">
@@ -121,7 +127,7 @@ export default async function InvitePage({
             </p>
           )}
 
-          {!community.retiredAt && !alreadyIn && !DEAD[outcome] && (
+          {!community.retiredAt && !alreadyIn && !DEAD[outcome] && !studyEnded && (
             <p className="text-sm text-muted-foreground">
               Accepting puts you in {community.title} and shows you the terms it
               is working through. It does not change what anyone else sees, it
@@ -147,6 +153,12 @@ export default async function InvitePage({
             )
           ) : dead ? (
             <p className="text-sm text-muted-foreground">{dead}</p>
+          ) : studyEnded ? (
+            <p className="text-sm text-muted-foreground">
+              {study?.retiredAt
+                ? "This study has been retired, so the invitation can no longer be accepted."
+                : "This study has closed, so the invitation can no longer be accepted."}
+            </p>
           ) : user ? (
             <>
               <AcceptInvitation token={token} />

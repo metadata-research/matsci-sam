@@ -491,6 +491,40 @@ export const buildTermProvenance = async (
   const revisionById = new Map(
     revisions.map((revision) => [revision.id, revision])
   )
+  // A suggested revision can derive from a revision of another term, which
+  // this term-scoped graph does not hold. Those sources are fetched with
+  // their own term routes so the node keeps its derived-source comparison,
+  // as the activity page shows it, instead of reading as an initial
+  // publication of its full text.
+  const missingDerivedIds = Array.from(
+    new Set(
+      revisions
+        .map((revision) => revision.derivedFromRevisionId)
+        .filter((id): id is number => id !== null && !revisionById.has(id))
+    )
+  )
+  const externalSourceById = new Map(
+    (missingDerivedIds.length
+      ? await db
+          .select({
+            id: definitionRevisionsTable.id,
+            version: definitionRevisionsTable.version,
+            definitionDiff: definitionRevisionsTable.definitionDiff,
+            legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
+            definitionNumber: definitionsTable.definitionNumber,
+            termSlug: termsTable.slug,
+            vocabularySlug: termsTable.vocabularySlug
+          })
+          .from(definitionRevisionsTable)
+          .innerJoin(
+            definitionsTable,
+            eq(definitionsTable.id, definitionRevisionsTable.definitionId)
+          )
+          .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
+          .where(inArray(definitionRevisionsTable.id, missingDerivedIds))
+      : []
+    ).map((source) => [source.id, source] as const)
+  )
   const exampleById = new Map(
     definitionExamples.map((example) => [example.id, example])
   )
@@ -677,10 +711,16 @@ export const buildTermProvenance = async (
       const comparisonSourceDefinition = comparisonSource
         ? definitionById.get(comparisonSource.definitionId)
         : null
+      const externalSource =
+        previousRevision ||
+        comparisonSource ||
+        revision.derivedFromRevisionId === null
+          ? null
+          : (externalSourceById.get(revision.derivedFromRevisionId) ?? null)
       const comparison = buildStoredRevisionComparison({
         basis: previousRevision
           ? "previous"
-          : comparisonSource
+          : comparisonSource || externalSource
             ? "derived-source"
             : "initial",
         before:
@@ -693,7 +733,16 @@ export const buildTermProvenance = async (
                 definitionDiff: comparisonSource.definitionDiff,
                 legacyIncomplete: comparisonSource.legacyIncomplete
               }
-            : null,
+            : externalSource
+              ? {
+                  definitionNumber: externalSource.definitionNumber,
+                  version: externalSource.version,
+                  termSlug: externalSource.termSlug,
+                  vocabularySlug: externalSource.vocabularySlug,
+                  definitionDiff: externalSource.definitionDiff,
+                  legacyIncomplete: externalSource.legacyIncomplete
+                }
+              : null,
         after: {
           definitionNumber: definition.definitionNumber,
           version: revision.version,

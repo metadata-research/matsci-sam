@@ -63,9 +63,20 @@ export const recordPositionCompletion = async (
     }))
   if (!completion) throw new Error("Position completion was not recorded")
 
+  // The position carries its completion's time only when the completion is
+  // written here. Behind a pre-existing targetless completion — a record
+  // from before this table, or one whose position an administrative purge
+  // removed — the act selecting the candidate happens now, and a recordedAt
+  // copied from the old completion would predate that act's event, which the
+  // invariants refuse. The column default is the same transaction now() the
+  // event rows carry.
   const [inserted] = await tx
     .insert(surveyStepPositionsTable)
-    .values({ ...input, recordedAt: completion.completedAt })
+    .values(
+      insertedCompletion
+        ? { ...input, recordedAt: insertedCompletion.completedAt }
+        : input
+    )
     .onConflictDoNothing()
     .returning()
 

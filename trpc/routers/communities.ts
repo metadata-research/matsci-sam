@@ -18,6 +18,7 @@ import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
 import { GetUser } from "@/lib/crud"
 import { createOneTimeToken, hashOneTimeToken } from "@/lib/auth-tokens"
+import { formatDate } from "@/lib/date"
 import { EmailAddressSchema } from "@/lib/email-auth"
 import { sendCommunityInvitation } from "@/lib/email"
 import {
@@ -668,6 +669,9 @@ export const communitiesRouter = createTRPCRouter({
           link,
           sent: send,
           expiresAt: created.expiresAt,
+          // Formatted here so the creation panel shows the same date as the
+          // server-rendered invitation lists, whatever the viewer's timezone.
+          expiresLabel: formatDate(created.expiresAt),
           expiresInDays: INVITATION_LIFETIME_DAYS
         }
       }

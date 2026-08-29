@@ -52,12 +52,6 @@ const useRefreshingMutation = () => {
   }
 }
 
-const INVITATION_DATE = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric"
-})
-
 // A link is shown once and cannot be read back, so copying it is the whole
 // point of the control that displays it.
 const CopyableLink = ({ link, note }: { link: string; note: string }) => {
@@ -501,7 +495,7 @@ export const InvitePerson = ({
     email: string
     link: string
     sent: boolean
-    expiresAt: string
+    expiresLabel: string
   } | null>(null)
   // Null means an invitation to the community itself rather than to a study.
   const [studyId, setStudyId] = useState<number | null>(
@@ -515,7 +509,7 @@ export const InvitePerson = ({
         email: variables.email.trim(),
         link: created.link,
         sent: created.sent,
-        expiresAt: created.expiresAt
+        expiresLabel: created.expiresLabel
       })
       toast.success(created.sent ? "Invitation sent" : "Invitation created")
       router.refresh()
@@ -542,8 +536,7 @@ export const InvitePerson = ({
             {createdInvitation.sent
               ? "Email sent."
               : "Link only—no email was sent."}{" "}
-            Expires{" "}
-            {INVITATION_DATE.format(new Date(createdInvitation.expiresAt))}.
+            Expires {createdInvitation.expiresLabel}.
           </p>
           <CopyableLink
             link={createdInvitation.link}

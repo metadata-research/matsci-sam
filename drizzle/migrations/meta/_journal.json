@@ -365,6 +365,13 @@
       "when": 1788020252582,
       "tag": "0051_fine_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1788041923851,
+      "tag": "0052_adorable_lily_hollister",
+      "breakpoints": true
     }
   ]
 }

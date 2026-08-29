@@ -368,7 +368,7 @@ export const termsTable = pgTable(
     // them out of community vocabularies makes every canonical URL resolvable.
     check(
       "terms_community_slug_not_route_keyword",
-      sql`${table.vocabularySlug} = 'matsci-sam' OR ${table.slug} NOT IN ('definitions', 'provenance', 'rank')`
+      sql`${table.vocabularySlug} = 'matsci-sam' OR ${table.slug} NOT IN ('activity', 'definitions', 'provenance', 'rank')`
     ),
     check(
       "terms_next_definition_number_positive",
@@ -420,7 +420,7 @@ export const termRouteAliasesTable = pgTable(
     ),
     check(
       "termRouteAliases_community_slug_not_route_keyword",
-      sql`${table.vocabularySlug} = 'matsci-sam' OR ${table.termSlug} NOT IN ('definitions', 'provenance', 'rank')`
+      sql`${table.vocabularySlug} = 'matsci-sam' OR ${table.termSlug} NOT IN ('activity', 'definitions', 'provenance', 'rank')`
     )
   ]
 )

@@ -6,6 +6,7 @@ import {
   db,
   definitionsTable,
   surveyStepCompletionsTable,
+  surveyStepPositionsTable,
   votesTable
 } from "@yamz/db"
 import { baseProcedure, createTRPCRouter } from "../init"
@@ -527,6 +528,34 @@ export const surveysRouter = createTRPCRouter({
               expectedInstructions
             )
             if (step.kind !== "define") throw notForThisAct()
+
+            // A retry of the same target converges: an Accept whose response
+            // was lost already recorded this exact position, so answer as the
+            // first attempt did instead of reporting a conflict. A different
+            // target, or a legacy completion with no position row to compare,
+            // is a real conflict, reported by requireOnePosition below.
+            const recorded = await tx.query.surveyStepPositionsTable.findFirst({
+              where: and(
+                eq(surveyStepPositionsTable.stepId, step.id),
+                eq(surveyStepPositionsTable.userId, userId)
+              )
+            })
+            if (
+              recorded &&
+              recorded.kind === "accepted" &&
+              recorded.definitionId === definitionId &&
+              recorded.revisionId === revisionId
+            ) {
+              const target = await tx.query.definitionsTable.findFirst({
+                columns: { score: true },
+                where: eq(definitionsTable.id, definitionId)
+              })
+              return {
+                ok: true,
+                score: target?.score ?? 0,
+                nextPosition: await nextPositionFor(tx, study.id, userId)
+              }
+            }
 
             const voteState = await requireOnePosition(tx, step, userId, {
               definitionId,

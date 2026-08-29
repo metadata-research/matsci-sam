@@ -44,8 +44,13 @@ export default async function EditProfilePage({
             {isWelcome ? "Finish your profile" : "Edit profile"}
           </h1>
           <p className="text-muted-foreground">
+            {/* An ordinary signup lands here too, with no invitation to
+                return to, so the copy branches on returnTo as the back-link
+                does. */}
             {isWelcome
-              ? "Add your name before taking part so your study contributions have the right attribution. After saving, you will return to the invitation."
+              ? returnTo
+                ? "Add your name before taking part so your study contributions have the right attribution. After saving, you will return to the invitation."
+                : "Add your name so your contributions have the right attribution. After saving, you will continue to your profile."
               : "Update the name and affiliation shown with your contributions. You can also choose whether those details and your authored terms appear together on a public profile. Authentication manages your email address and linked identities."}
           </p>
         </section>

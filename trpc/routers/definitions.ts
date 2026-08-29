@@ -369,6 +369,7 @@ export const definitionsRouter = createTRPCRouter({
                 .where(eq(vocabulariesTable.isDefault, false))
               for (const row of vocabularySlugs) reserved.add(row.slug)
             } else {
+              reserved.add("activity")
               reserved.add("definitions")
               reserved.add("provenance")
               reserved.add("rank")
@@ -890,8 +891,23 @@ export const definitionsRouter = createTRPCRouter({
         legacyIncomplete: selectedRevision.legacyIncomplete,
         editor: selectedRevision.editor,
         comparison,
+        // Listed rather than spread: previousRevisionId and
+        // derivedFromRevisionId in the select feed the server-side comparison
+        // and stay out of the response, because internal row IDs remain
+        // relationship keys only, as the lineage queries above require.
         revisions: revisions.map((revision) => ({
-          ...revision,
+          id: revision.id,
+          version: revision.version,
+          definitionDiff: revision.definitionDiff,
+          exampleDiff: revision.exampleDiff,
+          changeNote: revision.changeNote,
+          source: revision.source,
+          model: revision.model,
+          prompt: revision.prompt,
+          createdAt: revision.createdAt,
+          legacyIncomplete: revision.legacyIncomplete,
+          editor: revision.editor,
+          score: revision.score,
           // Examples have their own append-only history. Restoring a legacy
           // revision whose only difference was its embedded example would be
           // a no-op, so do not offer that action in the definition history.

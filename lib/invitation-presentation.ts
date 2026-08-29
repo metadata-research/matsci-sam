@@ -19,7 +19,11 @@ export const invitationRedeemedByLabel = ({
   name: string | null
   email: string | null
 }) => {
-  if (name && email && email.toLowerCase() !== intendedEmail.toLowerCase())
-    return `${name} (${email})`
-  return name ?? email ?? "a signed-in participant"
+  // Email and Google signups create accounts whose name is an empty string
+  // until a profile is saved, so blank means absent here — the label falls
+  // to the address, which also keeps a mismatched address visible.
+  const displayName = name?.trim() || null
+  if (displayName && email && email.toLowerCase() !== intendedEmail.toLowerCase())
+    return `${displayName} (${email})`
+  return displayName ?? email ?? "a signed-in participant"
 }
