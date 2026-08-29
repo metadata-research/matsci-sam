@@ -5,20 +5,29 @@ import { collectionsTable, db } from "@yamz/db"
 import { eq } from "drizzle-orm"
 import { SITE_NAME } from "@/lib/site"
 import { collectionMembers } from "@/lib/kos-queries"
-import { getActiveCommunity } from "@/lib/community-queries"
+import {
+  communityWorklistsForCollection,
+  getActiveCommunity
+} from "@/lib/community-queries"
 import {
   collectionUri,
   collectionsIndexPath,
+  communityPath,
   termPath
 } from "@/lib/public-identifiers"
 import { getCurrentUser } from "@/lib/current-user"
 import { mayAssertIn } from "@/lib/kos"
+import { mayRunCommunity } from "@/lib/communities"
 import {
   AddMember,
   EditCollection,
   RemoveMember,
   RetireCollection
 } from "@/components/collections/controls"
+import {
+  AddCollectionToCommunity,
+  RemoveCollectionFromCommunity
+} from "@/components/collections/community-worklists"
 import { Badge } from "@/components/ui/badge"
 
 /*
@@ -55,14 +64,32 @@ export default async function CollectionPage({
 
   // Affordances only. The router checks the same rules, and retiring binds a
   // curator whatever the collection says about membership.
-  const [members, user, activeCommunity] = await Promise.all([
-    collectionMembers(collection.id),
-    getCurrentUser(),
-    getActiveCommunity()
-  ])
+  const userPromise = getCurrentUser()
+  const [members, user, activeCommunity, communityWorklists] =
+    await Promise.all([
+      collectionMembers(collection.id),
+      userPromise,
+      getActiveCommunity(),
+      userPromise.then((viewer) =>
+        communityWorklistsForCollection(collection.id, viewer?.id ?? null)
+      )
+    ])
   const retired = collection.retiredAt !== null
   const mayEdit = !retired && mayAssertIn(collection, user ?? null)
   const isCurator = user?.role === "admin"
+  const mayRun = (community: (typeof communityWorklists)[number]) =>
+    community.retiredAt === null &&
+    mayRunCommunity(
+      user ?? null,
+      community.role === null ? null : { role: community.role }
+    )
+  const linkedCommunities = communityWorklists.filter(
+    (community) => community.onWorklist
+  )
+  const addableCommunities = communityWorklists.filter(
+    (community) => !community.onWorklist && mayRun(community)
+  )
+  const mayRunAnyCommunity = communityWorklists.some(mayRun)
 
   return (
     <main className="px-4 py-8">
@@ -117,6 +144,55 @@ export default async function CollectionPage({
             )}
           </div>
         )}
+
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-semibold">Community worklists</h2>
+            {!retired && mayRunAnyCommunity ? (
+              <AddCollectionToCommunity
+                collectionId={collection.id}
+                communities={addableCommunities}
+              />
+            ) : null}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            A community that adds this collection can include its terms in the
+            community view and use the collection to run a study.
+          </p>
+          {linkedCommunities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No community is using this collection yet.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {linkedCommunities.map((community) => (
+                <li
+                  key={community.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border p-3"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Link
+                      href={communityPath(community.slug)}
+                      className="truncate text-primary"
+                    >
+                      {community.title}
+                    </Link>
+                    {community.retiredAt ? (
+                      <Badge variant="outline">Retired</Badge>
+                    ) : null}
+                  </span>
+                  {mayRun(community) ? (
+                    <RemoveCollectionFromCommunity
+                      collectionId={collection.id}
+                      communityId={community.id}
+                      communityTitle={community.title}
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         {members.length === 0 ? (
           <p className="text-sm text-muted-foreground">

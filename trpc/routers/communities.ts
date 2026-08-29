@@ -36,6 +36,7 @@ import { setStudyRetired, updateStudyDetails } from "@/lib/study-update"
 import { lockMembershipIn } from "@/lib/community-queries"
 import { lockStudy } from "@/lib/survey-queries"
 import {
+  collectionPath,
   collectionsIndexPath,
   communitiesIndexPath,
   communityPath,
@@ -520,6 +521,7 @@ export const communitiesRouter = createTRPCRouter({
 
         revalidatePath(communitiesIndexPath)
         revalidatePath(communityPath(community.slug))
+        revalidatePath(collectionPath(collection.slug))
         // The worklist decides what a scoped Browse shows.
         revalidatePath("/terms")
 

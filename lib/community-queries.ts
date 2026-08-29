@@ -286,6 +286,48 @@ export const communitiesWithCounts = async ({
     .groupBy(communitiesTable.id)
     .orderBy(asc(sql`lower(btrim(${communitiesTable.title}))`))
 
+/*
+ * The inverse of communityWorklist: every community in which one collection
+ * could appear, whether it is there now, and the viewer's standing there. The
+ * collection page uses the full list to show existing use and to offer only
+ * communities the viewer may run. Retired communities remain visible because
+ * retirement preserves their worklists, but the page never offers them as a
+ * destination.
+ */
+export const communityWorklistsForCollection = async (
+  collectionId: number,
+  viewerId: number | null
+) =>
+  db
+    .select({
+      id: communitiesTable.id,
+      slug: communitiesTable.slug,
+      title: communitiesTable.title,
+      retiredAt: communitiesTable.retiredAt,
+      role: communityMembersTable.role,
+      onWorklist: sql<boolean>`${communityCollectionsTable.id} is not null`
+    })
+    .from(communitiesTable)
+    .leftJoin(
+      communityCollectionsTable,
+      and(
+        eq(communityCollectionsTable.communityId, communitiesTable.id),
+        eq(communityCollectionsTable.collectionId, collectionId),
+        isNull(communityCollectionsTable.removedAt)
+      )
+    )
+    .leftJoin(
+      communityMembersTable,
+      viewerId === null
+        ? sql`false`
+        : and(
+            eq(communityMembersTable.communityId, communitiesTable.id),
+            eq(communityMembersTable.userId, viewerId),
+            isNull(communityMembersTable.removedAt)
+          )
+    )
+    .orderBy(asc(sql`lower(btrim(${communitiesTable.title}))`))
+
 export const communityBySlug = async (slug: string) => {
   const [row] = await db
     .select({
