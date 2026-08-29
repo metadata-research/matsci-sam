@@ -62,7 +62,9 @@ an independent score.
 
 A published revision starts with a score of zero. Votes on earlier revisions
 remain with those revisions. Historical revisions are read-only, and voting is
-available on the current revision.
+available on the current revision. A vote evaluates that revision's definition
+text. Any featured example shown beside it is supporting context and retains
+its own contribution history.
 
 ## Definition order
 
@@ -133,6 +135,12 @@ Examples are independent contributions to a particular definition. Any
 contributor can use **Add example**, and a definition can keep more than one.
 Each example added through the application records the definition revision
 visible when it was added, its contributor, and its publication time.
+
+A contributor may provide the first example while publishing a new term or a
+replacement proposal. The application creates the definition revision and
+example in one transaction, but stores and attributes them as distinct
+contributions. Language-model definition drafting does not receive or rewrite
+that example.
 
 The first example is featured automatically. The definition author or a
 moderator can feature a different one. Compact definition cards show that

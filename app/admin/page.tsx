@@ -16,6 +16,7 @@ import styles from "./admin.module.css"
 import { Suspense } from "react"
 import { revisionPath } from "@/lib/public-identifiers"
 import { aiRevisionSources, revisionSourceLabels } from "@/lib/revision-sources"
+import { Button } from "@/components/ui/button"
 
 export default async function AdminOverviewPage() {
   const overviewPromise = trpc.admin.overview()
@@ -27,6 +28,14 @@ export default async function AdminOverviewPage() {
       <AdminPageHeader
         title="Administration"
         description="Manage vocabulary content, people, and connected services."
+        actions={
+          <Button asChild variant="outline">
+            <Link href="/docs/administration">
+              <BookOpenIcon aria-hidden />
+              Administration guide
+            </Link>
+          </Button>
+        }
       />
 
       <Suspense fallback={<DashboardSummaryLoading />}>

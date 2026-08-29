@@ -21,7 +21,10 @@ never displays the email address.
 When account creation is also available, the sign-in page links to a separate
 **Create an account by email** form. That form is intended for a new
 contributor. After following its one-time link, the contributor completes
-their name and public-profile choices.
+their name and public-profile choices. When account creation began from a study
+invitation, the one-time link retains that invitation across browsers or
+devices. Saving the required profile returns the contributor to the invitation
+so they can accept it and begin the study.
 
 If you already have contributions, sign in with the same Google account you
 used before. Creating a second account by email assigns later activity to a
@@ -38,7 +41,8 @@ Google sign-in confirms the email address through Google. A deployment either
 accepts any Google account or accepts only addresses a maintainer has listed.
 An address that already has an account here always signs in. An address that is
 neither listed nor known is refused after the round trip to Google, with the
-message that the account is not authorized.
+message that the account is not authorized. A newly created Google account
+confirms its participant profile before returning to a pending invitation.
 
 ## ORCID
 

@@ -37,6 +37,12 @@ history. The pages below provide detailed instructions for each feature.
 - [Identifiers and citation](/docs/identifiers) explains term, definition, and
   revision IRIs, readable slugs, rank lookups, and identifier persistence.
 
+## Administration
+
+- [Administration and stewardship](/docs/administration) lists community
+  steward controls separately from site-administrator functions and identifies
+  where each control appears.
+
 ## Knowledge organization
 
 The [knowledge organization](/docs/reference) pages are for readers who work

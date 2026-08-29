@@ -63,13 +63,15 @@ term, and the resulting definition list.
 ## Joining
 
 You join through an invitation link addressed to you or through an open link
-shared with a group. Open the link, sign in or create an account, return to the
-invitation, and select **Accept and join**.
+shared with a group. Open the link and sign in or create an account. The sign-in
+and required profile setup return you to the invitation; then select **Accept
+and join**.
 
 The invitation token supplies the credential, so a per-person invitation also
 works after sign-in with a different address. A per-person invitation lasts
-fourteen days. A steward can reissue a lapsed invitation. The invitation page
-reports whether a link has been used, withdrawn, or replaced.
+fourteen days. A steward can reissue a live invitation or create a new one
+after expiration. The invitation page reports whether a link has been used,
+withdrawn, or replaced.
 
 See [Account access](/docs/account-access) for the available sign-in methods.
 You can leave a community from its page.
@@ -81,46 +83,13 @@ count. Community membership remains private application data, and the profile
 visibility setting continues to govern public names and affiliations.
 [Community review and revisions](/docs/community) describes that setting.
 
-<details>
-<summary>Running a community</summary>
+## Stewardship and administration
 
-A steward manages one community. Administrators can manage every community.
+A steward manages the roster, worklist, invitations, and studies of an assigned
+community. Administrators can run every community and additionally create,
+rename, retire, and restore communities and appoint their stewards.
 
-**People.** Search by name to add someone with an existing account. Use an
-invitation for a person who still needs an account. Search results contain
-names and public affiliations. A steward can remove members. Administrators
-appoint and remove stewards.
-
-**Terms in view.** Terms created while the community is selected belong to its
-vocabulary. Add an existing collection or create one from the community page to
-place it on the worklist. A collection may contain local terms and references
-to terms from other vocabularies. Collection membership does not change which
-vocabulary defines a term. A collection assigned to an active study appears
-with that study.
-
-**Studies.** Start a study with a title, collection, instructions, and optional
-dates. You can select an existing collection or create one in the same form.
-The collection is added to the worklist. The instructions appear on invitation
-and study pages. The dates state the expected window. After the closing time,
-the study stops accepting invitations and study actions. [Studies](/docs/studies)
-describes preparing the study steps and participating.
-
-**Per-person invitations.** Enter an address, then copy the link or have it
-emailed. The page displays the link once because the database stores only its
-digest. Reissuing creates a new link and invalidates the previous one. A
-steward can revoke an invitation before acceptance.
-
-**The open join link.** This link admits any signed-in person who opens it. The
-community page displays it again when needed. Replacing the link invalidates
-every earlier copy.
-
-</details>
-
-## Community administration
-
-Administrators create, rename, retire, and restore communities and appoint
-their stewards. Steward authority is limited to the roster, worklist,
-invitations, and studies of the assigned community.
-
+[Administration and stewardship](/docs/administration) lists these controls by
+role, including the collection-page worklist control and the invitation paths.
 The address of a community remains the same after a rename. Retirement keeps
 the address, membership history, and worklist available for restoration.
