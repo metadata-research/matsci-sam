@@ -34,6 +34,43 @@ interface Props extends MutationActivityCallbacks {
   expectedInstructions?: string | null
 }
 
+// Read-only support context for surfaces where voting is not the task. It
+// deliberately has no arrow-shaped controls, so a Position step cannot look
+// like a broken voting surface while still showing community support and the
+// viewer's existing vote.
+export const TermVoteSummary = ({
+  score,
+  vote
+}: {
+  score: number
+  vote: "up" | "down" | null
+}) => {
+  const personalVote =
+    vote === "up" ? "Your upvote" : vote === "down" ? "Your downvote" : null
+
+  return (
+    <Card
+      aria-label={`Support score ${score}${personalVote ? `. ${personalVote}` : ""}`}
+      className="h-min min-w-16 items-center gap-0.5 bg-muted/30 px-2 py-3 text-center"
+    >
+      <span className="text-lg font-bold leading-none">{score}</span>
+      <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+        Support
+      </span>
+      {personalVote && (
+        <span
+          className={cn(
+            "mt-1 text-[0.65rem] font-medium",
+            vote === "up" ? "text-primary" : "text-destructive"
+          )}
+        >
+          {personalVote}
+        </span>
+      )}
+    </Card>
+  )
+}
+
 export const TermVotes = ({
   definitionId,
   revisionId,

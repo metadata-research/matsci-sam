@@ -49,20 +49,10 @@ const PositionRecord = ({ step }: { step: Step }) => {
       </p>
     )
 
-  if (step.hasPosition)
-    return (
-      <div className="space-y-1">
-        <p>Confirmed a position using an upvote already on record.</p>
-        <p className="text-sm text-muted-foreground">
-          This completion does not identify which previously upvoted candidate
-          was selected.
-        </p>
-      </div>
-    )
-
   return (
     <p className="text-muted-foreground">
-      No position action is attached to this step.
+      This Position step is complete, but its candidate record is unavailable.
+      This can occur for an earlier completion or a candidate that was removed.
     </p>
   )
 }

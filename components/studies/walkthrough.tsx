@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Definition, Eyebrow } from "@/components/definition"
+import { DefinitionReference } from "@/components/definition/display"
 import { DefinitionForm } from "@/components/definition/definition-form"
 import { RevisionSuggestionForm } from "@/components/definition/revision-suggestion-form"
 import { TermComments } from "@/components/term/comments"
@@ -17,7 +18,10 @@ import { CompletedStudySummary } from "@/components/studies/completed-study-summ
 import { cn } from "@/lib/utils"
 import { SURVEY_RESPONSE_MAX_LENGTH } from "@/lib/input-limits"
 import { collectionPath, studyPath } from "@/lib/public-identifiers"
-import { scaleLabelsForPrompt } from "@/lib/study-presentation"
+import {
+  positionAcceptanceExplanation,
+  scaleLabelsForPrompt
+} from "@/lib/study-presentation"
 import {
   type MutationActivityCallbacks,
   useMutationActivity
@@ -32,12 +36,11 @@ import {
  * in, and the router decides whether the step is done.
  *
  * A define step is labelled Position and shows the candidates of the term,
- * the draft first, and three explicit moves. Accepting a candidate is an upvote
- * that names the step, or, on a candidate the viewer already upvoted, the
- * completion recorded against that standing vote; suggesting a revision
- * opens the form with a candidate's text and names its revision as the source;
- * proposing a replacement opens the form empty. A review step compares the
- * candidates where there is more than one.
+ * the draft first, and three explicit moves. Accepting atomically retains the
+ * selected candidate, preserves or adds its upvote, and completes the step;
+ * suggesting a revision opens the form with a candidate's text and names its
+ * revision as the source; proposing a replacement opens the form empty. A
+ * review step compares the candidates where there is more than one.
  *
  * A completed step stays readable from the dots, without its controls: its
  * completion stands. A step is reachable once the step before it is
@@ -55,7 +58,7 @@ const KIND_LABEL: Record<Step["kind"], string> = {
   question: "Question"
 }
 
-// Plain text, split on blank lines, as the study page renders the welcome.
+// Instructions are plain text, split on blank lines.
 const Paragraphs = ({ text }: { text: string }) => (
   <>
     {text.split(/\n\s*\n/).map((paragraph, index) => (
@@ -158,10 +161,10 @@ const orderCandidates = (definitions: Candidate[]) => {
 }
 
 /*
- * The candidate a position names, as a record: the act of the viewer naming
- * the step or, on a completed step with none, the candidate their standing
- * upvote stands on. The vote rail keeps the score with its buttons
- * disabled, because the position is taken.
+ * The exact candidate a position names, as a record. A legacy completion or
+ * a purged contribution may have no surviving target; it is not inferred from
+ * a different standing vote. Support remains visible as noninteractive
+ * context, while voting itself belongs to Review.
  */
 const HeldPosition = ({ step }: { step: Step }) => {
   const [definitions] = trpc.definitions.list.useSuspenseQuery({
@@ -171,14 +174,14 @@ const HeldPosition = ({ step }: { step: Step }) => {
     ? definitions.find(
         (definition) => definition.id === step.held?.definitionId
       )
-    : definitions.find((definition) => definition.vote === "up")
+    : undefined
 
   if (!held)
     return (
       <p className="text-sm text-muted-foreground">
         {step.held
           ? "The candidate you took a position on is no longer in the vocabulary."
-          : "Your position on this term is recorded."}
+          : "Your position is recorded, but this earlier completion does not identify the candidate."}
       </p>
     )
 
@@ -186,8 +189,8 @@ const HeldPosition = ({ step }: { step: Step }) => {
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
         {step.held?.kind === "proposed"
-          ? "You proposed this candidate."
-          : "You accepted this candidate."}
+          ? "You proposed this candidate. Voting is available in the Review step."
+          : "You accepted this candidate. Voting is available in the Review step."}
       </p>
       <Definition
         definition={{
@@ -195,8 +198,7 @@ const HeldPosition = ({ step }: { step: Step }) => {
           termSlug: step.termSlug!,
           termVocabularySlug: step.termVocabularySlug!
         }}
-        voteReadOnly
-        voteReadOnlyTitle="Your position on this term is recorded"
+        voteDisplay="summary"
       />
     </div>
   )
@@ -208,10 +210,10 @@ type Move =
   | { kind: "replace"; candidate: Candidate }
 
 /*
- * The candidates of the term and the three moves. Accepting is an upvote that
- * names the step. A suggested revision and a proposed replacement publish
- * separate candidates through the shared definition form, which records the
- * completion with the definition.
+ * The candidates of the term and the three moves. Accepting records the exact
+ * candidate and its upvote. A suggested revision and a proposed replacement
+ * publish separate candidates through the shared definition form, which
+ * records the completion with the definition.
  */
 const Candidates = ({
   step,
@@ -225,7 +227,7 @@ const Candidates = ({
   step: Step
   expectedInstructions: string | null
   pending: boolean
-  onAccepted: () => void
+  onAccepted: (nextPosition: number | null) => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
 } & MutationActivityCallbacks) => {
   const termId = step.termId!
@@ -235,13 +237,11 @@ const Candidates = ({
   const utils = trpc.useUtils()
   const activity = useMutationActivity({ onMutationStart, onMutationEnd })
 
-  const accept = trpc.votes.vote.useMutation({
-    onSuccess: (_, { definitionId, revisionId }) => {
-      // The rail of the accepted card reads votes.get, which was primed from
-      // the list and is read again here, or it would show the score as it
-      // was before the upvote.
+  const accept = trpc.surveys.acceptPosition.useMutation({
+    onSuccess: ({ nextPosition }, { definitionId, revisionId }) => {
       utils.votes.get.invalidate({ definitionId, revisionId })
-      onAccepted()
+      utils.definitions.list.invalidate({ termId })
+      onAccepted(nextPosition)
     },
     onError: (error) => {
       toast.error(error.message)
@@ -251,45 +251,86 @@ const Candidates = ({
   })
 
   const busy = pending || activity.busy || accept.isPending
+  const acceptCandidate = (candidate: Candidate) => {
+    if (busy) return
+    activity.start()
+    accept.mutate({
+      stepId: step.id,
+      definitionId: candidate.id,
+      revisionId: candidate.revisionId,
+      expectedInstructions
+    })
+  }
 
   if (move.kind !== "choose") {
     const candidate = move.candidate
     return (
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          {move.kind === "revise"
-            ? `Suggesting a revision to Definition ${candidate.definitionNumber}. Publishing creates a separate candidate derived from it; the source remains available for comparison and voting.`
-            : "Proposing a replacement creates a separate candidate for this term. Existing candidates remain available for comparison and voting."}
-        </p>
         {move.kind === "revise" ? (
-          <RevisionSuggestionForm
-            term={step.term!}
-            definitionId={candidate.id}
-            sourceRevisionId={candidate.revisionId}
-            surveyStepId={step.id}
-            expectedInstructions={expectedInstructions}
-            onPublished={onPublished}
-            onMutationStart={activity.start}
-            onMutationEnd={activity.end}
-          />
+          <>
+            <DefinitionReference definition={candidate} />
+            <p className="text-sm text-muted-foreground">
+              If this candidate works as written, accept it below.{" "}
+              {positionAcceptanceExplanation(candidate.vote)} You can add a
+              public comment when you review this term.
+            </p>
+            <RevisionSuggestionForm
+              term={step.term!}
+              definitionId={candidate.id}
+              sourceRevisionId={candidate.revisionId}
+              surveyStepId={step.id}
+              expectedInstructions={expectedInstructions}
+              renderInitialActions={(formBusy) => (
+                <>
+                  <Button
+                    type="button"
+                    disabled={busy || formBusy}
+                    onClick={() => acceptCandidate(candidate)}
+                  >
+                    Accept this candidate
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={busy || formBusy}
+                    onClick={() => setMove({ kind: "choose" })}
+                  >
+                    Back to the candidates
+                  </Button>
+                </>
+              )}
+              onPublished={onPublished}
+              onMutationStart={activity.start}
+              onMutationEnd={activity.end}
+            />
+          </>
         ) : (
-          <DefinitionForm
-            lockedTerm={step.term!}
-            surveyStepId={step.id}
-            expectedInstructions={expectedInstructions}
-            replacesDefinitionId={candidate.id}
-            onPublished={onPublished}
-            onMutationStart={activity.start}
-            onMutationEnd={activity.end}
-          />
+          <>
+            <p className="text-sm text-muted-foreground">
+              Proposing a replacement creates a separate candidate for this
+              term. Existing candidates remain available for comparison and
+              voting.
+            </p>
+            <DefinitionForm
+              lockedTerm={step.term!}
+              surveyStepId={step.id}
+              expectedInstructions={expectedInstructions}
+              replacesDefinitionId={candidate.id}
+              onPublished={onPublished}
+              onMutationStart={activity.start}
+              onMutationEnd={activity.end}
+            />
+          </>
         )}
-        <Button
-          variant="ghost"
-          onClick={() => setMove({ kind: "choose" })}
-          disabled={busy}
-        >
-          Back to the candidates
-        </Button>
+        {move.kind === "replace" ? (
+          <Button
+            variant="ghost"
+            onClick={() => setMove({ kind: "choose" })}
+            disabled={busy}
+          >
+            Back to the candidates
+          </Button>
+        ) : null}
       </div>
     )
   }
@@ -304,10 +345,6 @@ const Candidates = ({
         </p>
       )}
       {candidates.map((candidate, index) => {
-        // A standing upvote on the current text is the position already:
-        // the vote path toggles, so Accept records the step against it and
-        // casts nothing. Said under the candidate, where the button is.
-        const standing = candidate.vote === "up"
         return (
           <div key={candidate.id} className="space-y-3">
             {index === 0 && (
@@ -320,8 +357,7 @@ const Candidates = ({
                 termSlug: step.termSlug!,
                 termVocabularySlug: step.termVocabularySlug!
               }}
-              voteReadOnly
-              voteReadOnlyTitle="Accept a candidate to vote for it"
+              voteDisplay="summary"
             />
             <div className="space-y-3 pl-4 sm:pl-8">
               <Suspense fallback={<Skeleton className="h-16 w-full" />}>
@@ -331,29 +367,14 @@ const Candidates = ({
                   readOnly
                 />
               </Suspense>
-              {standing && (
-                <p className="text-sm text-muted-foreground">
-                  Your upvote on this candidate stands. Accept records it as
-                  your position.
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                {positionAcceptanceExplanation(candidate.vote)}
+              </p>
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   disabled={busy}
-                  onClick={() => {
-                    if (standing) onAccepted()
-                    else {
-                      activity.start()
-                      accept.mutate({
-                        definitionId: candidate.id,
-                        revisionId: candidate.revisionId,
-                        vote: "up",
-                        surveyStepId: step.id,
-                        expectedInstructions
-                      })
-                    }
-                  }}
+                  onClick={() => acceptCandidate(candidate)}
                 >
                   Accept
                 </Button>
@@ -402,7 +423,7 @@ const Position = ({
   step: Step
   expectedInstructions: string | null
   pending: boolean
-  onAccepted: () => void
+  onAccepted: (nextPosition: number | null) => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
   onContinue: () => void
 } & MutationActivityCallbacks) => {
@@ -696,8 +717,8 @@ const Finished = ({
     <CompletedStudySummary steps={steps} onSelect={onSelect} />
     <div className="space-y-4 border-t pt-6">
       <p className="text-muted-foreground">
-        Thank you. Your work here is recorded with the study. The study page
-        shows the candidate with the greatest site-wide support for each term.
+        Thank you. Your contributions are recorded with the study. You can
+        review them above or browse the terms in the collection.
       </p>
       <div className="flex flex-wrap gap-2">
         <Button asChild>
@@ -842,12 +863,9 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
                 step={step}
                 expectedInstructions={expectedInstructions}
                 pending={navigationLocked}
-                onAccepted={() => {
-                  // The upvote is the position; the score it changed is read
-                  // again, and the step completes as a press would.
-                  utils.definitions.list.invalidate({ termId: step.termId! })
+                onAccepted={(nextPosition) => {
                   prefetchNext(step)
-                  press(step)
+                  advance(nextPosition)
                 }}
                 onPublished={(published) => {
                   utils.definitions.list.invalidate({ termId: step.termId! })

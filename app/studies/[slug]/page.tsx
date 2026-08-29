@@ -3,34 +3,21 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
-import { mostSupportedDefinitions, studyBySlug } from "@/lib/study-queries"
-import {
-  mayRunStudy,
-  studyAcceptsParticipants,
-  studyState
-} from "@/lib/communities"
+import { studyBySlug } from "@/lib/study-queries"
+import { studyState } from "@/lib/communities"
 import { getCurrentUser } from "@/lib/current-user"
 import {
   collectionPath,
   communityPath,
-  definitionPath,
-  studyRunPath,
-  termPath
+  studyRunPath
 } from "@/lib/public-identifiers"
-import { formatDate, formatDateTime } from "@/lib/date"
-import {
-  MOST_SUPPORTED_DEFINITIONS_HEADING,
-  studySupportDescription,
-  studyWindowExplanation,
-  studyWelcomeHeading
-} from "@/lib/study-presentation"
+import { formatDate } from "@/lib/date"
+import { studyWindowExplanation } from "@/lib/study-presentation"
 import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { PublicProfileName } from "@/components/public-profile-name"
 import { studyActivityActionLabel } from "@/components/studies/progress"
-import { InvitePerson } from "@/components/communities/controls"
-import { DEFAULT_INSTRUCTIONS } from "@/lib/surveys"
+import { StudyActionButton } from "@/components/studies/action-button"
 
 // Shared by generateMetadata and the body, so the page runs one query.
 const loadStudy = cache(async (slug: string) => studyBySlug(slug))
@@ -53,25 +40,10 @@ const STATE_LABEL = {
   retired: "Retired"
 } as const
 
-const StudyActivityButton = ({
-  slug,
-  label
-}: {
-  slug: string
-  label: string
-}) => (
-  <Button
-    asChild
-    className="bg-red-600 text-white shadow-xs hover:bg-red-700 focus-visible:ring-red-600/30 dark:bg-red-600 dark:hover:bg-red-700"
-  >
-    <Link href={studyRunPath(slug)}>{label}</Link>
-  </Button>
-)
-
 /*
  * A study, as its participants read it. This is the address that goes in a
- * reminder email, so it stays public and stays put: the instructions have to
- * be reachable a week after the invitation link was spent.
+ * reminder email, so it stays public and stays put. It provides context and
+ * entry to the activity; the activity presents its instructions as step 1.
  *
  * The cohort is not listed here. Who is in a community is visible to its
  * members and to administrators, and routing round that rule through a study
@@ -100,20 +72,6 @@ export default async function StudyPage({
       ? walkthrough
       : null
 
-  // The most-supported definition of each term, for any study with terms. A
-  // closed study time-bounds support counts at closesAt; candidate text and
-  // collection membership remain current.
-  const supportClosesAt =
-    state === "closed" && study.closesAt ? study.closesAt : null
-  const supportList = await mostSupportedDefinitions(
-    study.collectionId,
-    supportClosesAt
-  )
-  const supportDescription = studySupportDescription(
-    supportClosesAt ? formatDateTime(supportClosesAt) : null
-  )
-  const participantInstructions =
-    study.welcome ?? (study.steps > 0 ? DEFAULT_INSTRUCTIONS : null)
   const activityActionLabel = walks
     ? studyActivityActionLabel(
         walks.completedStepIds.length,
@@ -121,11 +79,6 @@ export default async function StudyPage({
         walks.steps.length
       )
     : null
-  const canInvite =
-    user !== null &&
-    mayRunStudy(user, walkthrough?.membership ?? null) &&
-    studyAcceptsParticipants(study)
-
   return (
     <main className="px-4 py-8">
       <section className="max-w-3xl w-full mx-auto space-y-6">
@@ -148,22 +101,6 @@ export default async function StudyPage({
           </div>
         </div>
 
-        {canInvite ? (
-          <section className="space-y-3 rounded-md border border-border p-4">
-            <div className="space-y-1">
-              <h2 className="font-semibold">Participant invitations</h2>
-              <p className="text-sm text-muted-foreground">
-                Create a one-person link that opens these instructions. The
-                participant signs in or creates an account before accepting.
-              </p>
-            </div>
-            <InvitePerson
-              communityId={study.communityId}
-              study={{ id: study.id, title: study.title }}
-            />
-          </section>
-        ) : null}
-
         {walks && (
           <section className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-4">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -177,10 +114,9 @@ export default async function StudyPage({
                     visits.
                   </p>
                 )}
-                <StudyActivityButton
-                  slug={study.slug}
-                  label={activityActionLabel}
-                />
+                <StudyActionButton href={studyRunPath(study.slug)}>
+                  {activityActionLabel}
+                </StudyActionButton>
               </>
             ) : (
               <>
@@ -233,90 +169,6 @@ export default async function StudyPage({
           </p>
         )}
 
-        {participantInstructions ? (
-          <section className="space-y-3">
-            <h2 className="text-xl font-semibold">
-              {studyWelcomeHeading(state, study.steps)}
-            </h2>
-            {/* Plain text, split on blank lines. Nothing typed here becomes
-                markup, which is why the column is not markdown. */}
-            <ol className="list-decimal space-y-3 pl-5">
-              {participantInstructions
-                .split(/\n\s*\n/)
-                .map((instruction, index) => (
-                  <li key={index} className="whitespace-pre-line pl-1">
-                    {instruction}
-                  </li>
-                ))}
-            </ol>
-          </section>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No instructions have been written for this study yet.
-          </p>
-        )}
-
-        {supportList.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xl font-semibold">
-              {MOST_SUPPORTED_DEFINITIONS_HEADING}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {supportDescription}
-            </p>
-            <ol className="space-y-3">
-              {supportList.map((term) => (
-                <li
-                  key={term.id}
-                  className="space-y-2 rounded-md border border-border p-4"
-                >
-                  <Link
-                    href={termPath(term.slug, term.vocabularySlug)}
-                    className="block text-lg font-bold font-serif"
-                  >
-                    {term.term}
-                  </Link>
-                  {term.mostSupported ? (
-                    <>
-                      <p>{term.mostSupported.definition}</p>
-                      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                        <PublicProfileName
-                          user={term.mostSupported.author}
-                          fallback="Unknown contributor"
-                        />
-                        <Link
-                          href={definitionPath(
-                            term.slug,
-                            term.mostSupported.definitionNumber,
-                            term.vocabularySlug
-                          )}
-                          className="hover:underline"
-                        >
-                          Definition {term.mostSupported.definitionNumber}
-                        </Link>
-                        <span>
-                          Site-wide net support {term.mostSupported.support}
-                        </span>
-                        <span>
-                          {term.alternatives === 0
-                            ? "No alternative"
-                            : term.alternatives === 1
-                              ? "1 alternative"
-                              : `${term.alternatives} alternatives`}
-                        </span>
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No candidate yet.
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </section>
-        )}
-
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">The terms</h2>
           <p className="text-sm text-muted-foreground">
@@ -345,10 +197,9 @@ export default async function StudyPage({
 
         {activityActionLabel && (
           <div className="border-t border-border pt-6">
-            <StudyActivityButton
-              slug={study.slug}
-              label={activityActionLabel}
-            />
+            <StudyActionButton href={studyRunPath(study.slug)}>
+              {activityActionLabel}
+            </StudyActionButton>
           </div>
         )}
       </section>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { useRouter } from "next/navigation"
 import { CircleAlertIcon, SendIcon, SparklesIcon, XIcon } from "lucide-react"
 
@@ -31,6 +31,7 @@ export function RevisionSuggestionForm({
   sourceRevisionId,
   surveyStepId,
   expectedInstructions,
+  renderInitialActions,
   onPublished,
   onBusyChange,
   onMutationStart,
@@ -41,6 +42,9 @@ export function RevisionSuggestionForm({
   sourceRevisionId: number
   surveyStepId?: number
   expectedInstructions?: string | null
+  // Context-specific alternatives while no model draft exists. Once a draft
+  // exists, the form replaces them with publishing and discard actions.
+  renderInitialActions?: (disabled: boolean) => ReactNode
   onPublished?: (published: PublishedDefinition) => void
   onBusyChange?: (busy: boolean) => void
 } & MutationActivityCallbacks) {
@@ -199,24 +203,27 @@ export function RevisionSuggestionForm({
             </div>
           </>
         ) : (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || !critique}
-            onClick={() => {
-              activity.start()
-              suggest.mutate({
-                definitionId,
-                sourceRevisionId,
-                feedback: critique
-              })
-            }}
-          >
-            <SparklesIcon aria-hidden />
-            {suggest.isPending
-              ? "Drafting…"
-              : "Draft revision with a language model"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || !critique}
+              onClick={() => {
+                activity.start()
+                suggest.mutate({
+                  definitionId,
+                  sourceRevisionId,
+                  feedback: critique
+                })
+              }}
+            >
+              <SparklesIcon aria-hidden />
+              {suggest.isPending
+                ? "Drafting…"
+                : "Draft revision with a language model"}
+            </Button>
+            {renderInitialActions?.(busy)}
+          </div>
         )}
 
         {error ? (

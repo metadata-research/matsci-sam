@@ -92,6 +92,26 @@ assert.match(
   /const navigationLocked = complete\.isPending \|\| interaction\.busy/
 )
 assert.match(walkthrough, /disabled={!open \|\| navigationLocked}/)
+const candidates = section(
+  walkthrough,
+  "const Candidates =",
+  "const Position ="
+)
+assert.match(candidates, /trpc\.surveys\.acceptPosition\.useMutation/)
+assert.doesNotMatch(candidates, /trpc\.votes\.vote/)
+assert.match(candidates, /voteDisplay="summary"/)
+assert.match(candidates, /activity\.start\(\)[\s\S]*accept\.mutate/)
+assert.match(candidates, /onSettled: activity\.end/)
+const votes = source("components/term/votes.tsx")
+const supportSummary = section(
+  votes,
+  "export const TermVoteSummary",
+  "export const TermVotes"
+)
+assert.match(supportSummary, /Support/)
+assert.match(supportSummary, /Your upvote/)
+assert.match(supportSummary, /Your downvote/)
+assert.doesNotMatch(supportSummary, /<Button/)
 assert.match(
   section(walkthrough, "const ReviewList =", "const Review ="),
   /voteDisabled={pending}[\s\S]*disabled={pending}[\s\S]*onMutationStart={onMutationStart}[\s\S]*onMutationEnd={onMutationEnd}/

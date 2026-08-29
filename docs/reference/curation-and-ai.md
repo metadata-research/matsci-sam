@@ -120,12 +120,10 @@ Votes, comments, and definitions created through the walkthrough name the
 study step that prompted them. Step completions and closing answers form
 separate attributed records.
 
-The study page selects the highest-supported definition of each term and labels
-it **Agreed so far** or **Agreed**. While the study is open, support is the
-site-wide total of upvotes minus downvotes on the current revision. A tie goes
-to the earlier definition. After the study closes, the calculation uses the
-last vote event from each account on each revision at or before the closing
-time. Study-step links identify the activity produced through the walkthrough.
+The study overview does not select or display a consensus definition. Votes
+cast during the activity continue to affect support on the ordinary definition
+pages, while study-step links identify the activity produced through the
+walkthrough.
 
 A membership episode records the period from the addition of a person to a
 community through removal. A member may act in a study while that episode and
