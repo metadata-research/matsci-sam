@@ -31,9 +31,11 @@ a steward of that community and for a site administrator.
 
 - **Add a person** searches existing accounts by name. Results expose public
   affiliation only when the account owner published it.
-- **Invite someone** creates a one-person invitation. Enter an address, then
-  copy the link or select **Create and email it**. The raw link is displayed
-  only when it is created because the database retains only its digest.
+- **Invite someone** creates a one-person invitation to join the community.
+  An invitation to take part in a study is a separate workflow, created
+  beside the study it belongs to. Enter an address, then copy the link or
+  select **Create and email it**. The raw link is displayed only when it is
+  created because the database retains only its digest.
 - **Reissue** replaces a live invitation with a new link and makes the previous
   link unusable. **Revoke** stops an unaccepted invitation. Create a new
   invitation after an earlier one expires.
@@ -71,15 +73,18 @@ that community.
 - **Generate study steps** creates an instruction step, one position and one
   review step for each term, and optionally the two default closing questions.
   Steps can be regenerated until a participant begins.
-- **Invite a participant** on the administrative study page creates an
-  invitation fixed to that study. An email address is required for both
-  delivery choices because it records the intended participant; **Create link
-  for this person** leaves delivery to the administrator, while **Create and
+- **Invite a participant** creates an invitation fixed to one study. It
+  appears on the administrative study page and beside each study on the
+  community page, and is a separate workflow from inviting someone to join
+  the community: its email and invitation page lead with the study, and an
+  existing community member accepts it like anyone else, which records that
+  the person asked arrived. An email address is required for both delivery
+  choices because it records the intended participant; **Create link for
+  this person** leaves delivery to the administrator, while **Create and
   send email** sends it through the application. The study page lists created
   invitations with their delivery method, status, dates, and redeemed account,
   when available. Pending invitations can be reissued or revoked, but their raw
-  links cannot be displayed again. The community page provides the same
-  invitation control with a study selector when several studies are available.
+  links cannot be displayed again.
 - The community page reports generated steps and how many participating
   members have finished. The public study page presents the same instructions,
   the activity entry point, and the consolidated record after completion.

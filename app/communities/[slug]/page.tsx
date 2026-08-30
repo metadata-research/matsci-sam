@@ -20,6 +20,7 @@ import { getCurrentUser } from "@/lib/current-user"
 import {
   invitationOutcome,
   mayManageCommunity,
+  studyAcceptsParticipants,
   studyState,
   mayRunCommunity,
   maySetCommunityMember,
@@ -249,14 +250,25 @@ export default async function CommunityPage({
                     </div>
                     {walkthrough && (
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
-                        <GenerateWalkthrough
-                          studyId={study.id}
-                          steps={walkthrough.total}
-                          inUse={walkthrough.steps.some(
-                            (step) => step.completions > 0
+                        <span className="flex flex-wrap items-center gap-2">
+                          <GenerateWalkthrough
+                            studyId={study.id}
+                            steps={walkthrough.total}
+                            inUse={walkthrough.steps.some(
+                              (step) => step.completions > 0
+                            )}
+                            retired={study.retiredAt !== null}
+                          />
+                          {/* The participant invitation lives beside its
+                              study; the Invitations section below is for
+                              joining the community itself. */}
+                          {studyAcceptsParticipants(study) && (
+                            <InvitePerson
+                              communityId={community.id}
+                              study={{ id: study.id, title: study.title }}
+                            />
                           )}
-                          retired={study.retiredAt !== null}
-                        />
+                        </span>
                         {walkthrough.total > 0 && (
                           <span className="text-xs text-muted-foreground">
                             {walkthrough.finished} of {participants}{" "}
@@ -422,13 +434,10 @@ export default async function CommunityPage({
               An invitation admits whoever opens the link and signs in, once. It
               is not tied to the address it was sent to, so someone whose
               institutional and personal addresses differ is not stranded.
+              Inviting someone here joins them to the community; a participant
+              invitation to a study is created beside that study above.
             </p>
-            <InvitePerson
-              communityId={community.id}
-              studies={studies
-                .filter((study) => studyState(study) !== "closed")
-                .map((study) => ({ id: study.id, title: study.title }))}
-            />
+            <InvitePerson communityId={community.id} />
 
             {invitations.length > 0 && (
               <ul className="space-y-2">
@@ -450,6 +459,9 @@ export default async function CommunityPage({
                               ? "used"
                               : outcome}
                           {invitation.sentAt ? ", emailed" : ", link only"}
+                          {invitation.studyId
+                            ? `, opens ${invitation.studyTitle ?? "a study"}`
+                            : ", community"}
                         </span>
                       </span>
                       <InvitationActions

@@ -135,6 +135,7 @@ const requireStudy = async (studyId: number) => {
     .select({
       id: studiesTable.id,
       slug: studiesTable.slug,
+      title: studiesTable.title,
       communityId: studiesTable.communityId
     })
     .from(studiesTable)
@@ -621,6 +622,8 @@ export const communitiesRouter = createTRPCRouter({
       }) => {
         const community = await requireRunner(communityId, userId)
 
+        // The email leads with the study when the invitation carries one.
+        let studyTitle: string | null = null
         if (studyId !== undefined) {
           const study = await requireStudy(studyId)
           if (study.communityId !== communityId)
@@ -628,6 +631,7 @@ export const communitiesRouter = createTRPCRouter({
               code: "BAD_REQUEST",
               message: "That study belongs to another community"
             })
+          studyTitle = study.title
         }
 
         const token = createOneTimeToken()
@@ -653,7 +657,8 @@ export const communitiesRouter = createTRPCRouter({
           await sendCommunityInvitation({
             email,
             token,
-            communityTitle: community.title
+            communityTitle: community.title,
+            studyTitle
           })
           await db
             .update(communityInvitationsTable)
@@ -753,7 +758,10 @@ export const communitiesRouter = createTRPCRouter({
         await sendCommunityInvitation({
           email: invitation.email,
           token,
-          communityTitle: community.title
+          communityTitle: community.title,
+          studyTitle: invitation.studyId
+            ? (await requireStudy(invitation.studyId)).title
+            : null
         })
         await db
           .update(communityInvitationsTable)

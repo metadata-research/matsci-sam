@@ -1,5 +1,59 @@
 import type { InvitationOutcome } from "@/lib/communities"
 
+const escapeHtml = (text: string) =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+/*
+ * The invitation email, built as a pure function so the wording is testable.
+ * A study invitation leads with the study: the recipient may already be in
+ * the community, and the invite page routes an existing member straight to
+ * the study, so the community appears as the asker and not as the thing
+ * being joined. A community invitation keeps the join wording.
+ */
+export const communityInvitationMessage = ({
+  communityTitle,
+  studyTitle,
+  url,
+  siteName
+}: {
+  communityTitle: string
+  studyTitle: string | null
+  url: string
+  siteName: string
+}) => {
+  const invitationLine = studyTitle
+    ? `${communityTitle} has asked you to take part in the study ${studyTitle} on ${siteName}.`
+    : `You have been invited to join ${communityTitle} on ${siteName}.`
+  const membershipNote = studyTitle
+    ? `Accepting opens the study. It also joins you to ${communityTitle} if you are not already in it.`
+    : null
+
+  return {
+    subject: studyTitle
+      ? `You have been asked to take part in ${studyTitle}`
+      : `You have been invited to join ${communityTitle}`,
+    text: [
+      invitationLine,
+      "",
+      url,
+      "",
+      "Open the link and sign in, then choose whether to accept.",
+      "If you do not have an account yet, you can create one first and then",
+      "return to this link.",
+      ...(membershipNote ? ["", membershipNote] : []),
+      "",
+      "If you were not expecting this, you can ignore this message."
+    ].join("\n"),
+    html: [
+      `<p>${escapeHtml(invitationLine)}</p>`,
+      `<p><a href="${url}">Open the invitation</a></p>`,
+      "<p>Open the link and sign in, then choose whether to accept. If you do not have an account yet, you can create one first and then return to this link.</p>",
+      ...(membershipNote ? [`<p>${escapeHtml(membershipNote)}</p>`] : []),
+      "<p>If you were not expecting this, you can ignore this message.</p>"
+    ].join("")
+  }
+}
+
 const OUTCOME_LABEL: Record<InvitationOutcome, string> = {
   live: "Pending",
   redeemed: "Accepted",

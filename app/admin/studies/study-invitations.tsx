@@ -1,3 +1,4 @@
+import Link from "next/link"
 import {
   InvitationActions,
   InvitePerson
@@ -61,7 +62,15 @@ export function StudyInvitations({
           <p className={styles.studyPanelDescription}>
             {acceptingParticipants
               ? "Create and track one-person invitations to this study. Participants sign in or create an account before accepting."
-              : "This study is not accepting new participants. Its invitation history remains available below."}
+              : "This study is not accepting new participants. Its invitation history remains available below."}{" "}
+            The community roster is managed under{" "}
+            <Link
+              className={styles.textLink}
+              href={`/admin/communities/${study.communityId}`}
+            >
+              Communities
+            </Link>
+            .
           </p>
         </div>
       </div>

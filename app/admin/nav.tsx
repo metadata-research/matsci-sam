@@ -12,7 +12,8 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   TagsIcon,
-  UsersIcon
+  UsersIcon,
+  UsersRoundIcon
 } from "lucide-react"
 import styles from "./admin.module.css"
 
@@ -52,6 +53,12 @@ const SECTIONS = [
     label: "People",
     icon: UsersIcon,
     matches: ["/admin/users"]
+  },
+  {
+    href: "/admin/communities",
+    label: "Communities",
+    icon: UsersRoundIcon,
+    matches: ["/admin/communities"]
   },
   {
     href: "/admin/studies",

@@ -24,6 +24,7 @@ import {
 } from "../lib/search-evidence"
 import { studyActivityActionLabel } from "../components/studies/progress"
 import {
+  communityInvitationMessage,
   invitationOutcomeLabel,
   invitationRedeemedByLabel
 } from "../lib/invitation-presentation"
@@ -213,6 +214,56 @@ assert.equal(
     email: null
   }),
   "a signed-in participant"
+)
+
+// The invitation email leads with the study when the invitation carries one,
+// because the recipient may already be in the community. A community
+// invitation keeps the join wording.
+const studyMessage = communityInvitationMessage({
+  communityTitle: "Metadata Research Center",
+  studyTitle: "New Materials workflow rehearsal",
+  url: "https://example.test/invite/token",
+  siteName: "MatSci-SAM"
+})
+assert.equal(
+  studyMessage.subject,
+  "You have been asked to take part in New Materials workflow rehearsal"
+)
+assert.match(
+  studyMessage.text,
+  /Metadata Research Center has asked you to take part in the study New Materials workflow rehearsal on MatSci-SAM\./
+)
+assert.match(
+  studyMessage.text,
+  /joins you to Metadata Research Center if you are not already in it/
+)
+assert.doesNotMatch(studyMessage.text, /You have been invited to join/)
+
+const communityMessage = communityInvitationMessage({
+  communityTitle: "Metadata Research Center",
+  studyTitle: null,
+  url: "https://example.test/invite/token",
+  siteName: "MatSci-SAM"
+})
+assert.equal(
+  communityMessage.subject,
+  "You have been invited to join Metadata Research Center"
+)
+assert.match(
+  communityMessage.text,
+  /You have been invited to join Metadata Research Center on MatSci-SAM\./
+)
+assert.doesNotMatch(communityMessage.text, /take part in the study/)
+
+// Titles are contributor text, so the HTML body escapes them.
+assert.match(
+  communityInvitationMessage({
+    communityTitle: "Alloys <careful> & co",
+    studyTitle: null,
+    url: "https://example.test/invite/token",
+    siteName: "MatSci-SAM"
+  }).html,
+  /Alloys &lt;careful&gt; &amp; co/
 )
 
 console.log("Interface state tests passed")

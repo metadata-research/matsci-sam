@@ -476,16 +476,18 @@ export const RemoveCollection = ({
   )
 }
 
+/*
+ * Two deliberately separate invitation workflows share this control. With a
+ * study it creates a participant invitation for that exact study, and
+ * without one it creates a plain community invitation. There is no selector
+ * between them: a study invitation is created beside its study, and a
+ * community invitation beside the roster.
+ */
 export const InvitePerson = ({
   communityId,
-  studies = [],
   study
 }: {
   communityId: number
-  studies?: { id: number; title: string }[]
-  // On a study page the destination is fixed. The community page instead
-  // supplies a menu of studies and keeps a plain community invitation as an
-  // option.
   study?: { id: number; title: string }
 }) => {
   const router = useRouter()
@@ -497,10 +499,6 @@ export const InvitePerson = ({
     sent: boolean
     expiresLabel: string
   } | null>(null)
-  // Null means an invitation to the community itself rather than to a study.
-  const [studyId, setStudyId] = useState<number | null>(
-    study?.id ?? (studies.length === 1 ? studies[0].id : null)
-  )
 
   const { mutate: invite, isPending } = trpc.communities.invite.useMutation({
     onSuccess: (created, variables) => {
@@ -554,7 +552,7 @@ export const InvitePerson = ({
                 communityId,
                 email,
                 send: false,
-                studyId: studyId ?? undefined
+                studyId: study?.id
               })
           }}
         >
@@ -575,47 +573,17 @@ export const InvitePerson = ({
               placeholder="their@address"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              aria-describedby={
-                study
-                  ? `invitation-email-help-${communityId}-${study.id}`
-                  : undefined
-              }
+              aria-describedby={`invitation-email-help-${communityId}-${study?.id ?? "community"}`}
             />
           </div>
-          {study ? (
-            <p
-              id={`invitation-email-help-${communityId}-${study.id}`}
-              className="text-xs text-muted-foreground"
-            >
-              This records who the one-person invitation is intended for. Create
-              a link to deliver it yourself, or create and send an email. The
-              invitation opens {study.title} and joins the participant to its
-              community when accepted.
-            </p>
-          ) : null}
-          {!study && studies.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  {studies.find((study) => study.id === studyId)?.title ??
-                    "Invite to the community"}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onSelect={() => setStudyId(null)}>
-                  Invite to the community
-                </DropdownMenuItem>
-                {studies.map((study) => (
-                  <DropdownMenuItem
-                    key={study.id}
-                    onSelect={() => setStudyId(study.id)}
-                  >
-                    {study.title}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <p
+            id={`invitation-email-help-${communityId}-${study?.id ?? "community"}`}
+            className="text-xs text-muted-foreground"
+          >
+            {study
+              ? `This records who the one-person invitation is intended for. Create a link to deliver it yourself, or create and send an email. The invitation opens ${study.title}, and joins the participant to the community first if they are not already in it.`
+              : "This records who the one-person invitation is intended for. Accepting it joins the person to this community."}
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="submit"
@@ -634,7 +602,7 @@ export const InvitePerson = ({
                   communityId,
                   email,
                   send: true,
-                  studyId: studyId ?? undefined
+                  studyId: study?.id
                 })
               }
             >
