@@ -254,6 +254,9 @@ export default async function AdminCommunityPage({
                       <InvitationActions
                         invitationId={invitation.id}
                         live={outcome === "live"}
+                        deletable={
+                          outcome === "revoked" || outcome === "expired"
+                        }
                       />
                     </li>
                   )

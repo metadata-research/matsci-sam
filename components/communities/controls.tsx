@@ -628,10 +628,14 @@ export const InvitePerson = ({
 
 export const InvitationActions = ({
   invitationId,
-  live
+  live,
+  deletable = false
 }: {
   invitationId: number
   live: boolean
+  // A revoked or expired record nobody redeemed may be deleted; a redeemed
+  // one records that its person arrived and carries no action at all.
+  deletable?: boolean
 }) => {
   const router = useRouter()
   const [link, setLink] = useState<string | null>(null)
@@ -639,6 +643,8 @@ export const InvitationActions = ({
 
   const { mutate: revoke, isPending: revoking } =
     trpc.communities.revokeInvitation.useMutation(handlers)
+  const { mutate: remove, isPending: removing } =
+    trpc.communities.deleteInvitation.useMutation(handlers)
   const { mutate: reissue, isPending: reissuing } =
     trpc.communities.reissueInvitation.useMutation({
       onSuccess: (result) => {
@@ -672,6 +678,17 @@ export const InvitationActions = ({
           >
             <XIcon className="size-4 mr-1" />
             Revoke
+          </Button>
+        )}
+        {deletable && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={removing}
+            onClick={() => remove({ invitationId })}
+          >
+            <TrashIcon className="size-4 mr-1" />
+            Delete record
           </Button>
         )}
       </div>
