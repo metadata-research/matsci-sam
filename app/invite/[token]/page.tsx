@@ -127,11 +127,14 @@ export default async function InvitePage({
             </p>
           )}
 
+          {/* The two workflows explain themselves differently: a study
+              invitation is about taking part, and joining the community is
+              incidental to it. */}
           {!community.retiredAt && !alreadyIn && !DEAD[outcome] && !studyEnded && (
             <p className="text-sm text-muted-foreground">
-              Accepting puts you in {community.title} and shows you the terms it
-              is working through. It does not change what anyone else sees, it
-              publishes nothing about you, and you can leave at any time.
+              {study
+                ? `Accepting opens the study. It also adds you to ${community.title}, which shows you the terms the study works through. It publishes nothing about you, and you can leave at any time.`
+                : `Accepting puts you in ${community.title} and shows you the terms it is working through. It does not change what anyone else sees, it publishes nothing about you, and you can leave at any time.`}
             </p>
           )}
 
@@ -141,9 +144,21 @@ export default async function InvitePage({
             </p>
           ) : alreadyIn ? (
             study ? (
-              <StudyActionButton href={studyPath(study.slug)}>
-                Start
-              </StudyActionButton>
+              !dead && !studyEnded ? (
+                // A member still accepts a live study invitation: accepting
+                // consumes it, which records that the person asked arrived.
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    You are already in {community.title}. Accepting records
+                    this invitation and opens the study.
+                  </p>
+                  <AcceptInvitation token={token} forStudy />
+                </>
+              ) : (
+                <StudyActionButton href={studyPath(study.slug)}>
+                  Start
+                </StudyActionButton>
+              )
             ) : (
               <Button asChild>
                 <Link href={communityPath(community.slug)}>
@@ -161,7 +176,7 @@ export default async function InvitePage({
             </p>
           ) : user ? (
             <>
-              <AcceptInvitation token={token} />
+              <AcceptInvitation token={token} forStudy={study !== null} />
             </>
           ) : (
             <>

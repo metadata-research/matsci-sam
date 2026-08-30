@@ -6,6 +6,7 @@ import { getAuthSiteUrl } from "@/lib/email-auth"
 import { createEmailAuthLinkFragment } from "@/lib/email-auth-token"
 import { SITE_NAME } from "@/lib/site"
 import { invitePath } from "@/lib/public-identifiers"
+import { communityInvitationMessage } from "@/lib/invitation-presentation"
 
 type EmailMessage = {
   from: string
@@ -163,34 +164,29 @@ export const sendEmailSignInLink = async ({
 export const sendCommunityInvitation = async ({
   email,
   token,
-  communityTitle
+  communityTitle,
+  studyTitle = null
 }: {
   email: string
   token: string
   communityTitle: string
+  // Set for a study invitation, whose email leads with the study rather
+  // than with joining the community the recipient may already be in.
+  studyTitle?: string | null
 }) => {
   const url = new URL(invitePath(token), getAuthSiteUrl())
+  const message = communityInvitationMessage({
+    communityTitle,
+    studyTitle,
+    url: url.href,
+    siteName: SITE_NAME
+  })
 
   await sendEmail({
     from: requiredEmailSetting("EMAIL_AUTH_FROM"),
     to: email,
-    subject: `You have been invited to join ${communityTitle}`,
-    text: [
-      `You have been invited to join ${communityTitle} on ${SITE_NAME}.`,
-      "",
-      url.href,
-      "",
-      "Open the link and sign in, then choose whether to accept.",
-      "If you do not have an account yet, you can create one first and then",
-      "return to this link.",
-      "",
-      "If you were not expecting this, you can ignore this message."
-    ].join("\n"),
-    html: [
-      `<p>You have been invited to join ${communityTitle} on ${SITE_NAME}.</p>`,
-      `<p><a href="${url.href}">Open the invitation</a></p>`,
-      "<p>Open the link and sign in, then choose whether to accept. If you do not have an account yet, you can create one first and then return to this link.</p>",
-      "<p>If you were not expecting this, you can ignore this message.</p>"
-    ].join("")
+    subject: message.subject,
+    text: message.text,
+    html: message.html
   })
 }

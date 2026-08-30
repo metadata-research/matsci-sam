@@ -449,7 +449,8 @@ export const communityWorklist = async (communityId: number) =>
     )
     .orderBy(asc(sql`lower(btrim(${collectionsTable.title}))`))
 
-// Invitations, newest first. No token and no digest leaves this function.
+// Invitations, newest first, each labeled with the study it opens when it is
+// a participant invitation. No token and no digest leaves this function.
 export const communityInvitations = async (communityId: number) =>
   db
     .select({
@@ -459,8 +460,14 @@ export const communityInvitations = async (communityId: number) =>
       expiresAt: communityInvitationsTable.expiresAt,
       revokedAt: communityInvitationsTable.revokedAt,
       redeemedAt: communityInvitationsTable.redeemedAt,
-      createdAt: communityInvitationsTable.createdAt
+      createdAt: communityInvitationsTable.createdAt,
+      studyId: communityInvitationsTable.studyId,
+      studyTitle: studiesTable.title
     })
     .from(communityInvitationsTable)
+    .leftJoin(
+      studiesTable,
+      eq(studiesTable.id, communityInvitationsTable.studyId)
+    )
     .where(eq(communityInvitationsTable.communityId, communityId))
     .orderBy(desc(communityInvitationsTable.createdAt))
