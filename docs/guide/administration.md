@@ -38,7 +38,9 @@ a steward of that community and for a site administrator.
   created because the database retains only its digest.
 - **Reissue** replaces a live invitation with a new link and makes the previous
   link unusable. **Revoke** stops an unaccepted invitation. Create a new
-  invitation after an earlier one expires.
+  invitation after an earlier one expires. **Delete record** removes a revoked
+  or expired invitation nobody redeemed; an accepted invitation stays as the
+  record that its person arrived.
 - **Open join link** creates one reusable link for a group. Replacing or
   turning it off invalidates earlier copies.
 - A steward can remove ordinary members but cannot appoint or remove another

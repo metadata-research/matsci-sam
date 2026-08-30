@@ -134,6 +134,9 @@ export function StudyInvitations({
                     <InvitationActions
                       invitationId={invitation.id}
                       live={outcome === "live"}
+                      deletable={
+                        outcome === "revoked" || outcome === "expired"
+                      }
                     />
                   </li>
                 )

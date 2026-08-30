@@ -843,6 +843,77 @@ export const communitiesRouter = createTRPCRouter({
     }),
 
   /*
+   * Remove a dead invitation record. Only a revoked or expired invitation
+   * that nobody redeemed can go: an accepted one is the record that the
+   * person asked arrived, and a live one must be revoked first so deletion
+   * is never the way a working link is silently killed.
+   */
+  deleteInvitation: authenticatedProcedure
+    .input(z.object({ invitationId: z.number().int() }))
+    .mutation(async ({ ctx: { userId }, input: { invitationId } }) => {
+      const [invitation] = await db
+        .select({
+          id: communityInvitationsTable.id,
+          communityId: communityInvitationsTable.communityId,
+          studyId: communityInvitationsTable.studyId
+        })
+        .from(communityInvitationsTable)
+        .where(eq(communityInvitationsTable.id, invitationId))
+        .limit(1)
+      if (!invitation)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This invitation doesn't exist"
+        })
+
+      const community = await requireRunner(invitation.communityId, userId)
+
+      await db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({
+            redeemedAt: communityInvitationsTable.redeemedAt,
+            revokedAt: communityInvitationsTable.revokedAt,
+            expiresAt: communityInvitationsTable.expiresAt
+          })
+          .from(communityInvitationsTable)
+          .where(eq(communityInvitationsTable.id, invitationId))
+          .limit(1)
+          .for("update")
+        if (!current)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "This invitation doesn't exist"
+          })
+        if (current.redeemedAt)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "An accepted invitation records that its person arrived, so it stays"
+          })
+        if (!current.revokedAt && new Date(current.expiresAt) > new Date())
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Revoke this invitation before deleting its record"
+          })
+
+        await tx
+          .delete(communityInvitationsTable)
+          .where(
+            and(
+              eq(communityInvitationsTable.id, invitationId),
+              isNull(communityInvitationsTable.redeemedAt)
+            )
+          )
+      })
+
+      revalidatePath(communityPath(community.slug))
+      if (invitation.studyId)
+        revalidatePath(`/admin/studies/${invitation.studyId}`)
+
+      return { ok: true }
+    }),
+
+  /*
    * The shareable join link. Unlike an invitation it is stored readable, so it
    * can be re-read and pasted, and it admits whoever holds it. Turning it off
    * is setting it to null, and rotating it is minting a new one, which is the
