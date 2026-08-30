@@ -57,7 +57,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24.18.0
+          node-version: 24.20.0
           cache: pnpm
 
       - name: Install Dependencies
@@ -269,7 +269,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24.18.0
+          node-version: 24.20.0
           cache: pnpm
 
       - name: Install Dependencies
@@ -356,7 +356,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24.18.0
+          node-version: 24.20.0
           cache: pnpm
 
       - name: Install Dependencies
