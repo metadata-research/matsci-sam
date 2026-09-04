@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { AcceptInvitation } from "@/components/communities/accept-invitation"
 import { StudyActionButton } from "@/components/studies/action-button"
+import { StudyInstructionContent } from "@/components/studies/instruction-content"
 import { getCurrentUser } from "@/lib/current-user"
 import { invitationForToken, isMemberOf } from "@/lib/community-queries"
 import { communityPath, invitePath, studyPath } from "@/lib/public-identifiers"
@@ -100,12 +101,6 @@ export default async function InvitePage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {community.description && !study && alreadyIn && (
-            <p className="text-sm text-muted-foreground">
-              {community.description}
-            </p>
-          )}
-
           {/* What you are being asked to do comes before anything about
               mechanics, and before anyone is asked to sign in for it. */}
           {study?.welcome && (
@@ -113,11 +108,10 @@ export default async function InvitePage({
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 What to do
               </p>
-              {study.welcome.split(/\n\s*\n/).map((paragraph, index) => (
-                <p key={index} className="whitespace-pre-line text-sm">
-                  {paragraph}
-                </p>
-              ))}
+              <StudyInstructionContent
+                text={study.welcome}
+                className="text-sm"
+              />
             </div>
           )}
 

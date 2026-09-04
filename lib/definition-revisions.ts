@@ -76,8 +76,8 @@ export interface CreateDefinitionWithInitialRevisionInput {
   sourceRefinementId?: number | null
   createdVia?: (typeof definitionsTable.$inferInsert)["createdVia"]
   // The define step this definition answers, when it was published from a
-  // walkthrough. Written on the initial revision only, which is the act the
-  // step asked for; later revisions are edits.
+  // walkthrough. Written on the stable definition and its initial revision,
+  // which is the act the step asked for; later revisions are edits.
   surveyStepId?: number | null
 }
 
@@ -124,6 +124,9 @@ export async function createDefinitionWithInitialRevision(
       prompt: input.prompt ?? null,
       refinedFromId: input.refinedFromId ?? null,
       replacesDefinitionId: input.replacesDefinitionId ?? null,
+      // Derive this only from the trusted creation helper input. The initial
+      // revision below stores the same value as the provenance-bearing act.
+      creationSurveyStepId: input.surveyStepId ?? null,
       createdVia: input.createdVia ?? "classic"
     })
     .returning()

@@ -1,5 +1,7 @@
-This MRC pilot reviews four terms from the MRC vocabulary in 11 steps.
+This pilot presents four terms from the MRC vocabulary. We want to pick up where earlier vocabulary work left off.
 
-Each term takes two steps. The Position step lists every candidate definition of the term, and you may choose any of them. Accept records the candidate you would use as written. Suggest a revision amends the closest candidate. Propose a replacement adds a definition of your own. The Review step lists the same candidates with voting and comments. Vote on each, and comment where you disagree or can add information. Two questions complete the activity.
+1. For each term, choose the definition closest to what you think is right.
+2. Accept it as written or suggest a revision. If none is close enough, propose a new definition. If you do not know a term well enough to choose, skip it.
+3. Then review the definitions, vote on each, and comment if useful.
 
-MatSci-SAM records the upvote used to accept a candidate, any revised or replacement definitions, review votes, comments, and question responses. Completed steps are saved between visits.
+After the terms, answer two short questions.

@@ -1259,6 +1259,58 @@ const main = async () => {
       assert.equal(scaleQuestion.responseKind, "scale")
       assert.equal(textQuestion.responseKind, "text")
 
+      // An explicit no-opinion choice is completed progress for both halves
+      // of one term, without becoming a Position or any vocabulary act.
+      await within(tx, async (sp) => {
+        const [skipUser] = await sp
+          .insert(usersTable)
+          .values({ name: `KOS skip test ${stamp}` })
+          .returning({ id: usersTable.id })
+        await sp.insert(communityMembersTable).values({
+          communityId: community.id,
+          userId: skipUser.id,
+          addedById: user.id
+        })
+        await recordCompletion(sp, {
+          stepId: instructions.id,
+          userId: skipUser.id
+        })
+        await sp.insert(surveyStepCompletionsTable).values([
+          {
+            stepId: defineA.id,
+            userId: skipUser.id,
+            outcome: "skipped"
+          },
+          {
+            stepId: reviewA.id,
+            userId: skipUser.id,
+            outcome: "skipped"
+          }
+        ])
+
+        const skippedWalk = await walkthroughOf(sp, study.id, skipUser.id)
+        assert.equal(skippedWalk.resumePosition, defineB.position)
+        assert.equal(skippedWalk.steps[1].completionOutcome, "skipped")
+        assert.equal(skippedWalk.steps[3].completionOutcome, "skipped")
+        assert.equal(skippedWalk.steps[1].completed, true)
+        assert.equal(skippedWalk.steps[3].completed, true)
+        assert.equal(skippedWalk.steps[1].hasPosition, false)
+        assert.equal(skippedWalk.steps[1].held, null)
+        assert.equal((await positionsOf(sp, [defineA.id], skipUser.id)).size, 0)
+        assert.equal(await actNamesStep(sp, defineA.id, skipUser.id), false)
+        assert.equal(await actNamesStep(sp, reviewA.id, skipUser.id), false)
+
+        const skippedProgress = await studyProgress(sp, study.id)
+        const skipParticipant = skippedProgress?.participants.find(
+          (participant) => participant.userId === skipUser.id
+        )
+        assert.equal(skipParticipant?.completed, 3)
+        assert.equal(skipParticipant?.skipped, 2)
+        assert.equal(skippedProgress?.steps[1].skips, 1)
+        assert.equal(skippedProgress?.steps[3].skips, 1)
+        await runInvariants(sp)
+      })
+
       // Nothing has started: the steps may be replaced, and replacing them
       // again keeps the count and renumbers from 1.
       assert.equal(
@@ -1269,6 +1321,60 @@ const main = async () => {
       assert.equal(located?.study.id, study.id)
       assert.equal(located?.study.communityId, community.id)
       assert.equal(located?.step.kind, "define")
+
+      // A term-level Position proposal is independent of every displayed
+      // candidate. It therefore has no fabricated revision or replacement
+      // target. The trusted creation step distinguishes it from an ordinary
+      // original, while the ordinary one-per-author/term guard stays intact.
+      await within(tx, async (sp) => {
+        await createDefinitionWithInitialRevision(sp, {
+          termId: termA.id,
+          authorId: user.id,
+          definition: "An ordinary original outside the walkthrough.",
+          example: "Rolled back with the savepoint.",
+          changeNote: "fixture",
+          source: "initial"
+        })
+        expectRejected(
+          await attempt(sp, (nested) =>
+            createDefinitionWithInitialRevision(nested, {
+              termId: termA.id,
+              authorId: user.id,
+              definition: "A second ordinary original is still refused.",
+              example: "Rolled back with the nested savepoint.",
+              changeNote: "fixture",
+              source: "initial"
+            })
+          ),
+          "23505",
+          "definitions_author_term_original_unique",
+          "two ordinary originals by one author for one term"
+        )
+
+        const { definition: proposal, revision: proposalRevision } =
+          await createDefinitionWithInitialRevision(sp, {
+            termId: termA.id,
+            authorId: user.id,
+            definition: "An independent definition proposed in Position.",
+            initialExample: "A separately attributed Position example.",
+            example: "",
+            changeNote: "New definition proposed in a study",
+            source: "initial",
+            surveyStepId: defineA.id
+          })
+        assert.equal(proposal.refinedFromId, null)
+        assert.equal(proposal.replacesDefinitionId, null)
+        assert.equal(proposal.creationSurveyStepId, defineA.id)
+        assert.equal(proposalRevision.surveyStepId, defineA.id)
+        await recordPositionCompletion(sp, {
+          stepId: defineA.id,
+          userId: user.id,
+          kind: "proposed",
+          definitionId: proposal.id,
+          revisionId: proposalRevision.id
+        })
+        await runInvariants(sp)
+      })
 
       // Instructions complete on the press. A second press is not an error
       // and records nothing new.
@@ -1304,6 +1410,11 @@ const main = async () => {
           surveyStepId: defineA.id
         })
       assert.equal(revA.surveyStepId, defineA.id, "revision names its step")
+      assert.equal(
+        defA.creationSurveyStepId,
+        defineA.id,
+        "stable definition repeats its trusted creation step"
+      )
       assert.equal(revA.version, 1)
       assert.equal(await hasPosition(tx, defineA.id, user.id), true)
       assert.equal(
@@ -1664,6 +1775,10 @@ const main = async () => {
         mine.steps.map((step) => step.completed),
         [true, true, false, false, true, true, false]
       )
+      assert.deepEqual(
+        mine.steps.map((step) => step.completionOutcome),
+        ["completed", "completed", null, null, "completed", "completed", null]
+      )
       assert.equal(mine.steps[1].hasPosition, true, "define A: a definition")
       assert.deepEqual(
         mine.steps[1].held,
@@ -1739,6 +1854,7 @@ const main = async () => {
         anyone.steps.every(
           (step) =>
             !step.completed &&
+            step.completionOutcome === null &&
             !step.hasPosition &&
             step.held === null &&
             step.response === null &&
@@ -1751,13 +1867,22 @@ const main = async () => {
       assert.equal(progress.total, 7)
       assert.equal(progress.finished, 0)
       assert.deepEqual(
-        progress.participants.map((p) => [p.userId, p.completed, p.total]),
-        [[user.id, 4, 7]],
+        progress.participants.map((p) => [
+          p.userId,
+          p.completed,
+          p.skipped,
+          p.total
+        ]),
+        [[user.id, 4, 0, 7]],
         "the one live member, four of seven"
       )
       assert.deepEqual(
         progress.steps.map((step) => step.completions),
         [1, 1, 0, 0, 1, 1, 0]
+      )
+      assert.deepEqual(
+        progress.steps.map((step) => step.skips),
+        [0, 0, 0, 0, 0, 0, 0]
       )
 
       // A question appended after a start lengthens the list, not anyone's
@@ -1938,6 +2063,124 @@ const main = async () => {
 
       // --- The release-time invariants, each shown to raise on a planted
       // violation, then passing on the fixture ---
+
+      const addSkipProbeParticipant = async (sp: Tx, label: string) => {
+        const [participant] = await sp
+          .insert(usersTable)
+          .values({ name: `KOS skip ${label} ${stamp}` })
+          .returning({ id: usersTable.id })
+        await sp.insert(communityMembersTable).values({
+          communityId: community.id,
+          userId: participant.id,
+          addedById: user.id
+        })
+        return participant
+      }
+      const insertTermSkip = (sp: Tx, participantId: number) =>
+        sp.insert(surveyStepCompletionsTable).values([
+          {
+            stepId: defineA.id,
+            userId: participantId,
+            outcome: "skipped"
+          },
+          {
+            stepId: reviewA.id,
+            userId: participantId,
+            outcome: "skipped"
+          }
+        ])
+
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          const participant = await addSkipProbeParticipant(sp, "wrong kind")
+          await sp.insert(surveyStepCompletionsTable).values({
+            stepId: instructions.id,
+            userId: participant.id,
+            outcome: "skipped"
+          })
+          await runInvariants(sp)
+        }),
+        "skipped completion is not a Position or Review step",
+        "instructions cannot carry a skipped outcome"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          const participant = await addSkipProbeParticipant(sp, "unpaired")
+          await sp.insert(surveyStepCompletionsTable).values({
+            stepId: defineA.id,
+            userId: participant.id,
+            outcome: "skipped"
+          })
+          await runInvariants(sp)
+        }),
+        "term skip does not pair its Position and Review completions",
+        "a term skip cannot leave its Review unpaired"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          const participant = await addSkipProbeParticipant(sp, "with act")
+          await insertTermSkip(sp, participant.id)
+          await sp.insert(commentsTable).values({
+            definitionId: defA.id,
+            revisionId: revA.id,
+            userId: participant.id,
+            message: "A skipped Review cannot acquire this comment.",
+            authorKind: "human",
+            surveyStepId: reviewA.id
+          })
+          await runInvariants(sp)
+        }),
+        "skipped completion has a vote, revision or comment act",
+        "a skipped Review cannot carry a comment"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          const participant = await addSkipProbeParticipant(sp, "with target")
+          await castVote(sp, {
+            definitionId: defA.id,
+            revisionId: revA.id,
+            userId: participant.id,
+            vote: "up",
+            actorKind: "human",
+            communityId: community.id,
+            surveyStepId: null
+          })
+          await insertTermSkip(sp, participant.id)
+          await sp.insert(surveyStepPositionsTable).values({
+            stepId: defineA.id,
+            userId: participant.id,
+            kind: "accepted",
+            definitionId: defA.id,
+            revisionId: revA.id
+          })
+          await runInvariants(sp)
+        }),
+        "survey position belongs to a skipped completion",
+        "a skipped Position cannot name a definition"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          const participant = await addSkipProbeParticipant(
+            sp,
+            "different times"
+          )
+          await insertTermSkip(sp, participant.id)
+          await sp
+            .update(surveyStepCompletionsTable)
+            .set({
+              completedAt: sql`${surveyStepCompletionsTable.completedAt} + interval '1 second'`
+            })
+            .where(
+              and(
+                eq(surveyStepCompletionsTable.stepId, reviewA.id),
+                eq(surveyStepCompletionsTable.userId, participant.id)
+              )
+            )
+          await runInvariants(sp)
+        }),
+        "term skip does not pair its Position and Review completions",
+        "a term skip is recorded atomically"
+      )
 
       expectInvariant(
         await attempt(tx, async (sp) => {
@@ -2199,6 +2442,17 @@ const main = async () => {
         }),
         "revision step is not a define step on the term of its definition",
         "definition of another term inside the define step"
+      )
+      expectInvariant(
+        await attempt(tx, async (sp) => {
+          await sp
+            .update(definitionsTable)
+            .set({ creationSurveyStepId: defineB.id })
+            .where(eq(definitionsTable.id, defA.id))
+          await runInvariants(sp)
+        }),
+        "definition creation step differs from its first revision step",
+        "stable definition creation step drifted from its initial revision"
       )
       expectInvariant(
         await attempt(tx, async (sp) => {

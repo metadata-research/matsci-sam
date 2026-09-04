@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { initialTermFromSearchParam } from "../app/add/initial-term"
 import {
   parseSearchAuthor,
@@ -29,6 +31,28 @@ import {
   invitationOutcomeLabel,
   invitationRedeemedByLabel
 } from "../lib/invitation-presentation"
+import { parseStudyInstructions } from "../lib/study-instructions"
+
+assert.deepEqual(
+  parseStudyInstructions(
+    "Short introduction.\n\n1. Choose the closest definition.\n2. Accept or revise it.\n3. Propose a new one if needed.\n\nOne closing sentence."
+  ),
+  [
+    { kind: "paragraph", text: "Short introduction." },
+    {
+      kind: "steps",
+      items: [
+        "Choose the closest definition.",
+        "Accept or revise it.",
+        "Propose a new one if needed."
+      ]
+    },
+    { kind: "paragraph", text: "One closing sentence." }
+  ]
+)
+assert.deepEqual(parseStudyInstructions("1. One sentence, not a list."), [
+  { kind: "paragraph", text: "1. One sentence, not a list." }
+])
 
 assert.equal(parseSearchAuthor(null), "all")
 assert.equal(parseSearchAuthor(""), "all")
@@ -176,15 +200,15 @@ assert.deepEqual(scaleLabelsForPrompt("How complete is this list?"), {
 
 assert.equal(
   positionAcceptanceExplanation(null),
-  "Accepting records the candidate as your position and adds your upvote."
+  "Accepting records this definition as your position and adds your upvote."
 )
 assert.equal(
   positionAcceptanceExplanation("up"),
-  "You already upvoted this candidate. Accept will use that vote as your position."
+  "You already upvoted this definition. Accept will use that vote as your position."
 )
 assert.equal(
   positionAcceptanceExplanation("down"),
-  "You previously downvoted this candidate. Accept will change it to an upvote."
+  "You previously downvoted this definition. Accept will change it to an upvote."
 )
 
 assert.equal(invitationOutcomeLabel("live"), "Pending")
@@ -284,6 +308,28 @@ assert.deepEqual(
       "You are already a member of the NSF Institute for Data-Driven Dynamical Design (ID4) Vocabulary Community."
   }
 )
+
+const communityPage = readFileSync(
+  resolve("app/communities/[slug]/page.tsx"),
+  "utf8"
+)
+assert.match(
+  communityPage,
+  /\{\(runs \|\| loose\.length > 0\) && \(/,
+  "plain members must not see an empty additional-collections section"
+)
+assert.match(
+  communityPage,
+  /row\.studySlug === null && \(runs \|\| row\.retiredAt === null\)/,
+  "plain members must not see retired additional collections"
+)
+assert.match(
+  communityPage,
+  /collection\.retiredAt === null &&\s*!onWorklist\.has\(collection\.id\)/,
+  "stewards must not be offered a retired collection to add"
+)
+assert.match(communityPage, />Additional collections<\/h2>/)
+assert.doesNotMatch(communityPage, /Other terms in view/)
 
 // Titles are contributor text, so the HTML body escapes them.
 assert.match(

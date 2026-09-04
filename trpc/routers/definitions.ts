@@ -110,6 +110,14 @@ export const definitionsRouter = createTRPCRouter({
               "An initial example can accompany a new term or replacement, not a suggested revision"
           }
         )
+        .refine(
+          ({ surveyStepId, replacesDefinitionId }) =>
+            surveyStepId === undefined || replacesDefinitionId === undefined,
+          {
+            message:
+              "A Position step cannot publish a replacement of one definition. Propose a new definition for the term instead."
+          }
+        )
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
       if (
@@ -272,14 +280,25 @@ export const definitionsRouter = createTRPCRouter({
               : input.derivedFromRevisionId
           const isRevision = derivedFromRevisionId !== undefined
           const isReplacement = input.replacesDefinitionId !== undefined
+          // A Position step may publish a term-level candidate when none of
+          // the existing definitions is close enough. It deliberately has no
+          // fabricated revision or replacement target; the trusted step is its
+          // creation context and the proposed position names the new revision.
+          const isStudyProposal =
+            lockedWalkthroughStep !== null && !isRevision && !isReplacement
           const isNewTerm =
             !isRevision && !isReplacement && lockedWalkthroughStep === null
 
-          if (input.initialExample && !isNewTerm && !isReplacement)
+          if (
+            input.initialExample &&
+            !isNewTerm &&
+            !isReplacement &&
+            !isStudyProposal
+          )
             throw new TRPCError({
               code: "BAD_REQUEST",
               message:
-                "An initial example can accompany a new term or replacement only"
+                "An initial example can accompany a new term, replacement, or new study definition only"
             })
 
           const source = isRevision
@@ -447,9 +466,11 @@ export const definitionsRouter = createTRPCRouter({
                   : "Suggested revision of a candidate"
                 : isReplacement
                   ? "Replacement proposal"
-                  : aiSuggestion
-                    ? "AI-assisted new-term contribution"
-                    : "Initial contribution",
+                  : isStudyProposal
+                    ? "New definition proposed in a study"
+                    : aiSuggestion
+                      ? "AI-assisted new-term contribution"
+                      : "Initial contribution",
               source: aiSuggestion ? "ai_assisted" : "initial",
               model: aiSuggestion?.model ?? null,
               prompt: aiSuggestion?.promptText ?? null,

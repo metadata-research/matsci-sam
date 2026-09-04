@@ -14,6 +14,7 @@ const main = async () => {
     actMatchesStep,
     mayParticipate,
     mayRegenerateSteps,
+    isDefaultInstructions,
     planSteps,
     resumePosition,
     stepGate
@@ -56,6 +57,12 @@ const main = async () => {
     /grain boundary/,
     "a review step names its term"
   )
+  assert.match(
+    plan[3].prompt ?? "",
+    /Compare the definitions of band gap/,
+    "a review step uses the same participant-facing name as Position"
+  )
+  assert.doesNotMatch(plan[3].prompt ?? "", /candidate/i)
   assert.equal(plan[5].prompt, DEFAULT_QUESTIONS[0].prompt)
   assert.equal(plan[5].responseKind, "scale")
   assert.equal(plan[6].responseKind, "text")
@@ -105,14 +112,57 @@ const main = async () => {
   assert.ok(DEFAULT_INSTRUCTIONS.trim().length > 0)
   assert.match(DEFAULT_INSTRUCTIONS, /second round/)
   assert.match(DEFAULT_INSTRUCTIONS, /position/)
+  assert.match(
+    DEFAULT_INSTRUCTIONS,
+    /If you do not know a term well enough to choose, skip it\./
+  )
+  assert.match(DEFAULT_INSTRUCTIONS, /Outside a study/)
+  assert.match(DEFAULT_INSTRUCTIONS, /whole-term alternative/)
+  assert.doesNotMatch(DEFAULT_INSTRUCTIONS, /candidate/i)
   assert.doesNotMatch(
     DEFAULT_INSTRUCTIONS,
     /agreed|group's reference|nobody corrects|drafts are wrong/i
   )
-  assert.match(
+  assert.match(plan[1].prompt ?? "", /closest to what you think is right/i)
+  assert.match(plan[1].prompt ?? "", /accept it as written/i)
+  assert.match(plan[1].prompt ?? "", /suggest a revision/i)
+  assert.match(plan[1].prompt ?? "", /propose a new definition/i)
+  assert.match(plan[1].prompt ?? "", /do not know the term.*skip it/i)
+  assert.doesNotMatch(
     plan[1].prompt ?? "",
-    /accept|amend/i,
-    "a define step asks for a position"
+    /as it stands|propose a replacement/i,
+    "a define prompt uses the clarified Position choices"
+  )
+  assert.equal(
+    isDefaultInstructions(
+      DEFAULT_INSTRUCTIONS.replace(
+        " If you do not know a term well enough to choose, skip it.",
+        ""
+      )
+    ),
+    true,
+    "the persisted default immediately before Skip remains recognized"
+  )
+  assert.equal(
+    isDefaultInstructions(
+      "This study is a second round on a terminology list. Each term may have " +
+        "candidate definitions, examples, and comments from earlier work.\n\n" +
+        "MatSci-SAM uses five contribution actions: New term, Suggest a revision, " +
+        "Propose a replacement, Comment, and Add example. Language-model assistance, " +
+        "when offered, is an optional drafting aid inside New term or Suggest a " +
+        "revision; it does not publish automatically. A comment stays a comment, and an example stays " +
+        "separate from the definition.\n\nFor each term in this study, take a " +
+        "position by accepting a candidate as written, using Suggest a revision to " +
+        "say what is wrong or missing, or using Propose a replacement to offer a " +
+        "different candidate. Then compare the candidates, vote on each, and use " +
+        "Comment where you disagree or can add information. Any closing questions " +
+        "come last.\n\nMatSci-SAM records the upvote used to accept a candidate, " +
+        "revision and replacement proposals, review votes, comments, and question " +
+        "responses. Completed steps are saved between visits, and the study " +
+        "activity returns to the first incomplete step."
+    ),
+    true,
+    "the previous persisted default remains recognized"
   )
 
   // --- Resumption is the lowest position without a completion ---

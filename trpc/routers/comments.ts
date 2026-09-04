@@ -14,6 +14,7 @@ import { CommentRevisionMissingError, insertComment } from "@/lib/participation"
 import {
   expectedInstructionsSchema,
   lockParticipation,
+  requireIncompleteStepForAct,
   requireStepForDefinitionAct
 } from "./surveys"
 
@@ -71,14 +72,16 @@ export const commentsRouter = createTRPCRouter({
               })
 
         const insertedComment = await db.transaction(async (tx) => {
-          if (walkthrough && surveyStepId !== undefined)
-            await lockParticipation(
+          if (walkthrough && surveyStepId !== undefined) {
+            const locked = await lockParticipation(
               tx,
               surveyStepId,
               walkthrough.study.id,
               userId,
               expectedInstructions!
             )
+            await requireIncompleteStepForAct(tx, locked.step.id, userId)
+          }
           let written
           try {
             // A session comment is a human act; the table CHECK refuses a

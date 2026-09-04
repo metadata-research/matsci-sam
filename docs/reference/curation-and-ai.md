@@ -59,9 +59,8 @@ classification statements were first filed under them.
 
 ## Contribution actions and language-model drafting
 
-MatSci-SAM uses five contribution actions. An action has the same meaning and
-records the same kind of contribution wherever it appears on a vocabulary
-page, in Discussion, or in a study.
+MatSci-SAM uses five general vocabulary contribution actions. Each action has
+the same meaning wherever it appears on a vocabulary page or in Discussion.
 
 - **New term** creates a vocabulary term and its first definition.
 - **Suggest a revision** creates a separate candidate derived from an exact
@@ -72,6 +71,13 @@ page, in Discussion, or in a study.
   vocabulary content.
 - **Add example** attaches a separately attributed usage example to one
   definition.
+
+A study Position step reuses **Suggest a revision**, but also has two
+study-specific choices. **Accept** records one earlier definition as the
+participant's position. **Propose a new definition** records an initial
+definition against the step without naming one earlier definition as a
+replacement target. The target-specific **Propose a replacement** action
+remains available from a particular definition outside the Position step.
 
 Language-model drafting is available only inside **New term** and **Suggest a
 revision**. **Draft with a language model** generates editable text for a new
@@ -110,11 +116,12 @@ generation stamp without a source revision.
 
 A community may conduct a study over a collection of terms with an ordered
 walkthrough. The pilot protocol asks each participant to take one position on
-each term by accepting a candidate, suggesting a revision, or proposing a
-replacement. Acceptance records an upvote. A suggested revision uses the
-critique-driven language-model drafting control and creates a definition whose
-first revision names the source revision. A replacement names the stable
-definition it is intended to supersede.
+each term by accepting an earlier definition, suggesting a revision to the
+closest one, or proposing a new definition when none is close enough.
+Acceptance records an upvote. A suggested revision uses the critique-driven
+language-model drafting control and creates a definition whose first revision
+names the source revision. A new definition names the Position step but has no
+derivation or replacement target.
 
 Votes, comments, and definitions created through the walkthrough name the
 study step that prompted them. Step completions and closing answers form

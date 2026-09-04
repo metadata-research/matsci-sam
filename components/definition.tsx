@@ -57,6 +57,7 @@ export const Term = ({
 export const Definition = ({
   definition,
   isDefault = false,
+  showStatus = true,
   onScoreChange,
   surveyStepId,
   expectedInstructions,
@@ -85,6 +86,9 @@ export const Definition = ({
   // decide -- this component does not rank, it only marks. Left false when a
   // term has just one definition, where "default" would distinguish nothing.
   isDefault?: boolean
+  // Position steps present lifecycle-neutral options for a participant's
+  // choice. Other definition surfaces keep the support-derived status chip.
+  showStatus?: boolean
   // Reports this definition's live score up so a parent list can re-sort when a
   // vote changes the ranking. Optional -- standalone uses (search, homepage)
   // ignore it.
@@ -191,7 +195,7 @@ export const Definition = ({
           Definition {definition.definitionNumber} · revision{" "}
           {definition.version}
         </span>
-        <StatusChip score={definition.score} />
+        {showStatus && <StatusChip score={definition.score} />}
         {typeof definition.comments === "number" && (
           <Link
             href={

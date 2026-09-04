@@ -41,6 +41,53 @@ assert.match(createDefinition, /replacesDefinitionId/)
 assert.match(createDefinition, /aiSuggestionId/)
 assert.match(createDefinition, /initialExample:\s*input\.initialExample/)
 assert.match(createDefinition, /cannot be both a revision and a replacement/i)
+assert.match(
+  createDefinition,
+  /surveyStepId === undefined \|\| replacesDefinitionId === undefined/,
+  "a Position submission cannot publish a target-bound replacement"
+)
+assert.match(
+  createDefinition,
+  /A Position step cannot publish a replacement of one definition\. Propose a new definition for the term instead\./,
+  "a stale Position client gets a clear rejection"
+)
+assert.match(
+  createDefinition,
+  /const isStudyProposal\s*=\s*lockedWalkthroughStep !== null\s*&&\s*!isRevision\s*&&\s*!isReplacement/,
+  "a Position proposal is an independent term-level candidate"
+)
+assert.match(
+  createDefinition,
+  /input\.initialExample\s*&&\s*!isNewTerm\s*&&\s*!isReplacement\s*&&\s*!isStudyProposal/,
+  "an independent Position proposal may include its optional example"
+)
+assert.match(
+  createDefinition,
+  /An initial example can accompany a new term, replacement, or new study definition only/,
+  "the invalid-example message names every supported contribution path"
+)
+assert.match(
+  createDefinition,
+  /changeNote:[\s\S]*isStudyProposal[\s\S]*New definition proposed in a study/,
+  "an independent Position proposal is described as study-created"
+)
+assert.match(
+  createDefinition,
+  /surveyStepId:\s*input\.surveyStepId \?\? null/,
+  "the validated walkthrough step reaches the trusted creation helper"
+)
+
+const revisionHelper = source("lib/definition-revisions.ts")
+assert.match(
+  revisionHelper,
+  /creationSurveyStepId:\s*input\.surveyStepId \?\? null/,
+  "the stable definition derives its creation step from helper context"
+)
+assert.match(
+  revisionHelper,
+  /surveyStepId:\s*input\.surveyStepId \?\? null/,
+  "the initial revision carries the same creation step"
+)
 
 // AI endpoints create editable previews for the two assisted actions. They do
 // not publish definitions, examples, replacements, or comments themselves.

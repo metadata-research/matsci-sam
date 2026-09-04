@@ -14,6 +14,7 @@ import { toast } from "sonner"
 import { trpc } from "@/trpc/client"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { StudyInstructionContent } from "@/components/studies/instruction-content"
 import {
   Dialog,
   DialogContent,
@@ -141,26 +142,6 @@ const useUnsavedDraftGuard = (hasDraftChanges: boolean) => {
       document.removeEventListener("click", protectLinkNavigation, true)
     }
   }, [hasDraftChanges])
-}
-
-const ParagraphPreview = ({ text }: { text: string }) => {
-  const paragraphs = text
-    .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-
-  if (paragraphs.length === 0)
-    return (
-      <p className={styles.studyPreviewEmpty}>Nothing has been written yet.</p>
-    )
-
-  return (
-    <div className={styles.studyPreviewParagraphs}>
-      {paragraphs.map((paragraph, index) => (
-        <p key={index}>{paragraph}</p>
-      ))}
-    </div>
-  )
 }
 
 export function StudyEditor({ study }: { study: StudyEditorModel }) {
@@ -328,7 +309,8 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
             <div>
               <h2 className={styles.panelTitle}>Instructions</h2>
               <p className={styles.studyPanelDescription}>
-                One plain-text block, shown to participants in paragraphs.
+                Plain text, shown to participants as paragraphs and numbered
+                steps.
               </p>
             </div>
             <span className={styles.studyCharacterCount}>
@@ -380,12 +362,21 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
                   aria-describedby="instructions-hint"
                 />
                 <p id="instructions-hint" className={styles.studyFieldHint}>
-                  Plain text only. Leave a blank line between paragraphs.
+                  Plain text only. Leave a blank line between paragraphs. Keep
+                  numbered steps on consecutive lines.
                 </p>
               </TabsContent>
               <TabsContent value="preview">
                 <div className={styles.studyPreview}>
-                  <ParagraphPreview text={previewText} />
+                  <StudyInstructionContent
+                    text={previewText}
+                    className={styles.studyPreviewParagraphs}
+                    empty={
+                      <p className={styles.studyPreviewEmpty}>
+                        Nothing has been written yet.
+                      </p>
+                    }
+                  />
                 </div>
               </TabsContent>
             </Tabs>

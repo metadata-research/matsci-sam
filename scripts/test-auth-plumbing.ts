@@ -212,6 +212,11 @@ assert.match(invitationPage, /Continue to accept this invitation\./)
 assert.match(invitationPage, /authPathWithReturnTo\("\/login", returnTo\)/)
 assert.doesNotMatch(
   invitationPage,
+  /community\.description\s*&&\s*!study/,
+  "community invitations must not repeat the separate community description"
+)
+assert.doesNotMatch(
+  invitationPage,
   /authPathWithReturnTo\("\/register", returnTo\)/,
   "the invitation must not offer a registration route that may be disabled"
 )

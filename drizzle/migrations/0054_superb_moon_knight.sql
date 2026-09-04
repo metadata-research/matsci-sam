@@ -1,0 +1,2 @@
+CREATE TYPE "public"."survey_step_completion_outcome" AS ENUM('completed', 'skipped');--> statement-breakpoint
+ALTER TABLE "surveyStepCompletions" ADD COLUMN "outcome" "survey_step_completion_outcome" DEFAULT 'completed' NOT NULL;

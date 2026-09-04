@@ -89,7 +89,7 @@ const walkthrough = source("components/studies/walkthrough.tsx")
 assert.match(walkthrough, /const interaction = useMutationActivity\(\)/)
 assert.match(
   walkthrough,
-  /const navigationLocked = complete\.isPending \|\| interaction\.busy/
+  /const navigationLocked =[\s\S]*complete\.isPending \|\| skip\.isPending \|\| interaction\.busy/
 )
 assert.match(walkthrough, /disabled={!open \|\| navigationLocked}/)
 const candidates = section(
@@ -100,8 +100,121 @@ const candidates = section(
 assert.match(candidates, /trpc\.surveys\.acceptPosition\.useMutation/)
 assert.doesNotMatch(candidates, /trpc\.votes\.vote/)
 assert.match(candidates, /voteDisplay="summary"/)
+assert.match(candidates, /Definitions from earlier work/)
+assert.match(candidates, /Option \{index \+ 1\} of \{candidates\.length\}/)
+assert.match(candidates, /showStatus={false}/)
+assert.doesNotMatch(candidates, />Draft</)
+assert.doesNotMatch(candidates, /Proposed so far/)
+assert.match(candidates, /Accept as written/)
+assert.match(candidates, /Suggest a revision/)
+assert.match(candidates, /None is close enough\?/)
+assert.match(candidates, /Propose a new definition/)
+assert.doesNotMatch(candidates, /Propose a replacement/)
+assert.doesNotMatch(candidates, /replacesDefinitionId=/)
 assert.match(candidates, /activity\.start\(\)[\s\S]*accept\.mutate/)
 assert.match(candidates, /onSettled: activity\.end/)
+
+// Skipping is one term-level alternative in the unfinished Position choice
+// state. It is not repeated on each definition and is hidden while a revision
+// or new-definition form replaces that choice state.
+const skipTermChoice = section(
+  candidates,
+  '<section aria-labelledby="skip-term-heading">',
+  '<section className="space-y-5" aria-labelledby="earlier-definitions">'
+)
+assert.equal(
+  skipTermChoice.match(/<DialogTrigger asChild>/g)?.length,
+  1,
+  "the Position choice state has one skip trigger"
+)
+assert.match(skipTermChoice, /Don’t know this term well enough to choose\?/)
+assert.match(skipTermChoice, /record no opinion and move to the next term/)
+assert.match(
+  skipTermChoice,
+  /<DialogTitle>Skip \{step\.term\}\?<\/DialogTitle>/
+)
+assert.match(
+  skipTermChoice,
+  /You won’t be asked to choose or review a definition for this[\s\S]*term\./
+)
+assert.match(skipTermChoice, /Go back/)
+assert.match(skipTermChoice, /onClick=\{onSkip\}[\s\S]*Skip this term/)
+const candidateList = section(
+  candidates,
+  '<section className="space-y-5" aria-labelledby="earlier-definitions">',
+  "<Separator />"
+)
+assert.doesNotMatch(candidateList, /Skip this term|onSkip/)
+assert.ok(
+  candidates.indexOf('if (move.kind === "revise")') <
+    candidates.indexOf('aria-labelledby="skip-term-heading"'),
+  "the revision form returns before the skip choice is rendered"
+)
+assert.ok(
+  candidates.indexOf('if (move.kind === "propose")') <
+    candidates.indexOf('aria-labelledby="skip-term-heading"'),
+  "the new-definition form returns before the skip choice is rendered"
+)
+
+const position = section(walkthrough, "const Position =", "const ReviewList =")
+assert.match(
+  position,
+  /const settled = step\.completed \|\| step\.held !== null/
+)
+assert.match(
+  position,
+  /settled \? \([\s\S]*<HeldPosition step=\{step\} \/>[\s\S]*\) : \([\s\S]*<Candidates[\s\S]*onSkip=\{onSkip\}/
+)
+
+const dots = section(walkthrough, "const Dots =", "const Instructions =")
+assert.match(
+  dots,
+  /step\.completionOutcome === "skipped"[\s\S]*\? "skipped"[\s\S]*aria-label=\{label\}/
+)
+assert.match(dots, /<span aria-hidden="true">−<\/span>/)
+
+const skipMutation = section(
+  walkthrough,
+  "const skip = trpc.surveys.skipTerm.useMutation",
+  "// A completed step"
+)
+assert.match(
+  skipMutation,
+  /onSuccess: \(\{ nextPosition \}\) => advance\(nextPosition\)/
+)
+assert.match(skipMutation, /onSettled: interaction\.end/)
+assert.match(
+  walkthrough,
+  /const navigationLocked =[\s\S]*complete\.isPending \|\| skip\.isPending \|\| interaction\.busy/
+)
+assert.match(
+  walkthrough,
+  /onSkip=\{\(\) => \{[\s\S]*interaction\.start\(\)[\s\S]*skip\.mutate\(\{ stepId: step\.id, expectedInstructions \}\)/
+)
+
+const heldPosition = section(walkthrough, "const HeldPosition =", "type Move =")
+assert.match(heldPosition, /step\.completionOutcome === "skipped"/)
+assert.match(heldPosition, /Skipped this term\. No position was recorded\./)
+
+const review = section(walkthrough, "const Review =", "const SCALE =")
+assert.match(review, /step\.completionOutcome === "skipped"/)
+assert.match(
+  review,
+  /Skipped with this term\. No vote or comment was recorded\./
+)
+assert.doesNotMatch(review, /Skip this term|onSkip|skipTerm/)
+
+const completedStudySummary = source(
+  "components/studies/completed-study-summary.tsx"
+)
+assert.match(
+  completedStudySummary,
+  /completionOutcome === "skipped"[\s\S]*Skipped this term\. No position was recorded\./
+)
+assert.match(
+  completedStudySummary,
+  /completionOutcome === "skipped"[\s\S]*Skipped with this term\. No vote or comment was recorded\./
+)
 const votes = source("components/term/votes.tsx")
 const supportSummary = section(
   votes,

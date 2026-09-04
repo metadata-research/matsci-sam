@@ -18,8 +18,8 @@ git switch -c feature/short-description upstream/dev
 Local setup:
 
 ```bash
-nvm use                        # Node 24.18.0, recorded in .nvmrc
-corepack enable                # pnpm 10.34.5
+nvm use                        # Node 24.20.0, recorded in .nvmrc
+corepack enable                # pnpm 11.24.0 from package.json
 pnpm install --frozen-lockfile
 cp .env.example .env           # local values only
 pnpm db:migrate
