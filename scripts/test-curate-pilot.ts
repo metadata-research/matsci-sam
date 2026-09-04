@@ -7,6 +7,14 @@ import {
   planCollectionMembership,
   type WalkthroughUsage
 } from "./curate-pilot-collections"
+import {
+  communityMetadataChangeNote,
+  communityMetadataUpdateRefusal,
+  normalizeCommunityMetadata,
+  planCommunityMetadata,
+  samePairedCommunityMetadata,
+  type PairedCommunityMetadata
+} from "./curate-pilot-community-metadata"
 import { loadPilotManifest } from "./curate-pilot-manifest"
 import { parseCuratePilotArgs } from "./reconciliation-cli"
 import { plannedCurationChanges } from "./reconciliation-convergence"
@@ -59,6 +67,179 @@ assert.equal(
   plannedCurationChanges([{ outcome: "created", silent: true }]).length,
   1,
   "a durable outcome remains a change even if its callback is missing"
+)
+assert.equal(
+  plannedCurationChanges([{ outcome: "updated" }]).length,
+  1,
+  "metadata updates remain inside the convergence gate"
+)
+
+const desiredCommunityMetadata = normalizeCommunityMetadata({
+  title: "ID4",
+  description: "The NSF Institute for Data-Driven Dynamical Design."
+})
+const staleCommunityMetadata: PairedCommunityMetadata = {
+  community: {
+    title: "Former ID4 title",
+    description: "An obsolete community description."
+  },
+  vocabulary: {
+    title: "ID4 vocabulary",
+    description: "An obsolete vocabulary description."
+  }
+}
+assert.deepEqual(
+  planCommunityMetadata(
+    "preserve",
+    staleCommunityMetadata,
+    desiredCommunityMetadata
+  ),
+  [],
+  "preserve remains the compatibility default even when stored copy differs"
+)
+const exactMetadataChanges = planCommunityMetadata(
+  "exact",
+  staleCommunityMetadata,
+  desiredCommunityMetadata
+)
+assert.deepEqual(exactMetadataChanges, [
+  {
+    target: "community",
+    field: "title",
+    before: "Former ID4 title",
+    after: "ID4"
+  },
+  {
+    target: "community",
+    field: "description",
+    before: "An obsolete community description.",
+    after: "The NSF Institute for Data-Driven Dynamical Design."
+  },
+  {
+    target: "vocabulary",
+    field: "title",
+    before: "ID4 vocabulary",
+    after: "ID4"
+  },
+  {
+    target: "vocabulary",
+    field: "description",
+    before: "An obsolete vocabulary description.",
+    after: "The NSF Institute for Data-Driven Dynamical Design."
+  }
+])
+assert.equal(
+  communityMetadataChangeNote(exactMetadataChanges),
+  'community title "Former ID4 title" -> "ID4", community description "An obsolete community description." -> "The NSF Institute for Data-Driven Dynamical Design.", vocabulary title "ID4 vocabulary" -> "ID4", vocabulary description "An obsolete vocabulary description." -> "The NSF Institute for Data-Driven Dynamical Design."'
+)
+const convergedCommunityMetadata: PairedCommunityMetadata = {
+  community: { ...desiredCommunityMetadata },
+  vocabulary: { ...desiredCommunityMetadata }
+}
+assert.deepEqual(
+  planCommunityMetadata(
+    "exact",
+    convergedCommunityMetadata,
+    desiredCommunityMetadata
+  ),
+  [],
+  "a second exact run is converged"
+)
+assert.deepEqual(
+  planCommunityMetadata(
+    "exact",
+    {
+      community: staleCommunityMetadata.community,
+      vocabulary: convergedCommunityMetadata.vocabulary
+    },
+    desiredCommunityMetadata
+  ),
+  [
+    {
+      target: "community",
+      field: "title",
+      before: "Former ID4 title",
+      after: "ID4"
+    },
+    {
+      target: "community",
+      field: "description",
+      before: "An obsolete community description.",
+      after: "The NSF Institute for Data-Driven Dynamical Design."
+    }
+  ],
+  "community-only drift is planned independently"
+)
+assert.deepEqual(
+  planCommunityMetadata(
+    "exact",
+    {
+      community: convergedCommunityMetadata.community,
+      vocabulary: staleCommunityMetadata.vocabulary
+    },
+    desiredCommunityMetadata
+  ),
+  [
+    {
+      target: "vocabulary",
+      field: "title",
+      before: "ID4 vocabulary",
+      after: "ID4"
+    },
+    {
+      target: "vocabulary",
+      field: "description",
+      before: "An obsolete vocabulary description.",
+      after: "The NSF Institute for Data-Driven Dynamical Design."
+    }
+  ],
+  "vocabulary-only drift is planned independently"
+)
+assert.equal(
+  communityMetadataUpdateRefusal({
+    slug: "id4",
+    isAdmin: false,
+    changes: exactMetadataChanges
+  }),
+  "updating community id4 metadata is a curator's act"
+)
+assert.equal(
+  communityMetadataUpdateRefusal({
+    slug: "id4",
+    isAdmin: true,
+    changes: exactMetadataChanges
+  }),
+  null,
+  "an administrator may apply exact metadata drift"
+)
+assert.equal(
+  communityMetadataUpdateRefusal({
+    slug: "id4",
+    isAdmin: false,
+    changes: []
+  }),
+  null,
+  "a steward may verify an already converged exact manifest"
+)
+assert.equal(
+  samePairedCommunityMetadata(
+    convergedCommunityMetadata,
+    convergedCommunityMetadata
+  ),
+  true
+)
+assert.equal(
+  samePairedCommunityMetadata(
+    convergedCommunityMetadata,
+    staleCommunityMetadata
+  ),
+  false,
+  "locked metadata drift is detectable before apply"
+)
+assert.deepEqual(
+  normalizeCommunityMetadata({ title: "Empty", description: "" }),
+  { title: "Empty", description: null },
+  "an explicit empty description clears both nullable columns"
 )
 
 const emptyUsage = (): WalkthroughUsage => ({
@@ -135,8 +316,84 @@ const writeManifest = (name: string, collection: Record<string, unknown>) => {
   )
   return path
 }
+const writeCommunityManifest = (
+  name: string,
+  community: Record<string, unknown>
+) => {
+  const path = join(directory, name)
+  writeFileSync(
+    path,
+    JSON.stringify({
+      operator: "operator@example.invalid",
+      communities: [community]
+    })
+  )
+  return path
+}
 
 try {
+  const preservedCommunity = loadPilotManifest(
+    writeCommunityManifest("community-preserve.json", {
+      slug: "legacy_community",
+      title: "Legacy community"
+    }),
+    directory
+  )
+  assert.equal(preservedCommunity.communities[0].metadata, "preserve")
+  assert.equal(preservedCommunity.communities[0].description, undefined)
+
+  const exactCommunity = loadPilotManifest(
+    writeCommunityManifest("community-exact.json", {
+      slug: "id4",
+      title: "ID4",
+      description: "The NSF Institute for Data-Driven Dynamical Design.",
+      metadata: "exact"
+    }),
+    directory
+  )
+  assert.equal(exactCommunity.communities[0].metadata, "exact")
+  assert.equal(
+    exactCommunity.communities[0].description,
+    "The NSF Institute for Data-Driven Dynamical Design."
+  )
+
+  const clearedCommunity = loadPilotManifest(
+    writeCommunityManifest("community-exact-clear.json", {
+      slug: "empty_description",
+      title: "Empty description",
+      description: "",
+      metadata: "exact"
+    }),
+    directory
+  )
+  assert.equal(clearedCommunity.communities[0].description, "")
+
+  assert.throws(
+    () =>
+      loadPilotManifest(
+        writeCommunityManifest("community-exact-missing-description.json", {
+          slug: "unsafe_metadata",
+          title: "Unsafe metadata",
+          metadata: "exact"
+        }),
+        directory
+      ),
+    /exact metadata requires an explicit description/
+  )
+  assert.throws(
+    () =>
+      loadPilotManifest(
+        writeCommunityManifest("community-unknown-metadata.json", {
+          slug: "unknown_metadata",
+          title: "Unknown metadata",
+          description: "Description",
+          metadata: "replace"
+        }),
+        directory
+      ),
+    /Invalid enum value|Invalid option/
+  )
+
   const additive = loadPilotManifest(
     writeManifest("additive.json", {
       slug: "legacy_terms",
@@ -229,5 +486,15 @@ try {
 } finally {
   rmSync(directory, { recursive: true, force: true })
 }
+
+const exampleManifest = loadPilotManifest(
+  join(process.cwd(), "scripts/curate-pilot.example.json")
+)
+assert.equal(exampleManifest.communities[0].metadata, "exact")
+assert.equal(
+  exampleManifest.communities[1].metadata,
+  "preserve",
+  "the checked-in example demonstrates backward-compatible omission"
+)
 
 console.log("Pilot curation tests passed")

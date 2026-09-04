@@ -9,10 +9,11 @@
   },
   "communities": [
     {
-      "$comment": "Created by slug when absent. terms is optional; each stable term slug listed there moves the existing term and its complete history into this community's same-slug vocabulary, while its former route becomes an alias. Each member is added by email when they have no live episode; an existing member is left as they are. addedAt is now when absent, a date or a date-time with its offset, or first-act-2025, the person's earliest definition, comment or vote of 2025.",
+      "$comment": "Created by slug when absent. metadata defaults to preserve, which leaves an existing community's title and description alone. metadata exact requires description and makes title and description authoritative for both the community and its same-slug vocabulary; use an empty description to clear both nullable fields. terms is optional; each stable term slug listed there moves the existing term and its complete history into this community's same-slug vocabulary, while its former route becomes an alias. Each member is added by email when they have no live episode; an existing member is left as they are. addedAt is now when absent, a date or a date-time with its offset, or first-act-2025, the person's earliest definition, comment or vote of 2025.",
       "slug": "mrc",
       "title": "Metadata Research Center",
       "description": "The research group running the pilot.",
+      "metadata": "exact",
       "terms": [
         { "vocabulary": "matsci-sam", "slug": "martensite" },
         { "vocabulary": "matsci-sam", "slug": "sintering" },
@@ -30,7 +31,7 @@
       ]
     },
     {
-      "$comment": "A second community can own a disjoint historical corpus. The term slugs identify existing rows; this operation never clones their definitions or activity.",
+      "$comment": "A second community can own a disjoint historical corpus. metadata is omitted, so an existing community and vocabulary preserve their current title and description. The term slugs identify existing rows; this operation never clones their definitions or activity.",
       "slug": "id4",
       "title": "ID4",
       "description": "The community represented by the historical study record.",

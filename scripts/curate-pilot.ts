@@ -7,9 +7,9 @@
  * containers to retire, and which communities, collections and studies to
  * have, with their rosters, their terms and their walkthroughs. The script
  * makes that so, by slug, and prints one line per item saying whether it
- * created the row, found it in place, retired it or skipped it. A second
- * run reports everything present and writes nothing. --dry-run prints the
- * report without writing. --expect-no-changes turns that dry run into a
+ * created or updated the row, found it in place, retired it or skipped it. A
+ * second run reports everything present and writes nothing. --dry-run prints
+ * the report without writing. --expect-no-changes turns that dry run into a
  * convergence gate whose nonzero exit says at least one database change
  * remains.
  *
@@ -55,6 +55,15 @@ import {
   planCollectionMembership,
   retractCollectionTerm
 } from "./curate-pilot-collections"
+import {
+  communityMetadataChangeNote,
+  communityMetadataUpdateRefusal,
+  normalizeCommunityMetadata,
+  planCommunityMetadata,
+  samePairedCommunityMetadata,
+  type CommunityMetadata,
+  type PairedCommunityMetadata
+} from "./curate-pilot-community-metadata"
 import { parseCuratePilotArgs } from "./reconciliation-cli"
 import { plannedCurationChanges } from "./reconciliation-convergence"
 
@@ -96,6 +105,7 @@ type Outcome =
   | "retracted"
   | "retired"
   | "skipped"
+  | "updated"
 
 const main = async () => {
   const args = parseArgs(process.argv.slice(2))
@@ -528,8 +538,128 @@ const main = async () => {
   }[] = []
   const seenCommunities = new Set<string>()
 
+  const metadataOf = (row: {
+    title: string
+    description: string | null
+  }): CommunityMetadata => ({
+    title: row.title,
+    description: row.description
+  })
+
+  const pairedMetadataOf = (
+    community: { title: string; description: string | null },
+    vocabulary: { title: string; description: string | null }
+  ): PairedCommunityMetadata => ({
+    community: metadataOf(community),
+    vocabulary: metadataOf(vocabulary)
+  })
+
+  // Lock in the same community -> vocabulary order as the interactive update
+  // route. Exact metadata is one logical record even though its public and
+  // vocabulary representations live in two tables.
+  const lockCommunityMetadata = async (
+    tx: Tx,
+    input: { id: number; slug: string }
+  ) => {
+    const [currentCommunity] = await tx
+      .select({
+        id: communitiesTable.id,
+        slug: communitiesTable.slug,
+        vocabularySlug: communitiesTable.vocabularySlug,
+        title: communitiesTable.title,
+        description: communitiesTable.description,
+        retiredAt: communitiesTable.retiredAt
+      })
+      .from(communitiesTable)
+      .where(eq(communitiesTable.id, input.id))
+      .limit(1)
+      .for("update")
+    if (!currentCommunity || currentCommunity.slug !== input.slug)
+      throw new Error(`community ${input.slug} changed or disappeared`)
+    if (currentCommunity.vocabularySlug !== input.slug)
+      throw new Error(
+        `community ${input.slug} now names vocabulary ${currentCommunity.vocabularySlug}`
+      )
+    if (currentCommunity.retiredAt)
+      throw new Error(`community ${input.slug} has been retired`)
+
+    const [currentVocabulary] = await tx
+      .select({
+        slug: vocabulariesTable.slug,
+        title: vocabulariesTable.title,
+        description: vocabulariesTable.description,
+        isDefault: vocabulariesTable.isDefault,
+        retiredAt: vocabulariesTable.retiredAt
+      })
+      .from(vocabulariesTable)
+      .where(eq(vocabulariesTable.slug, input.slug))
+      .limit(1)
+      .for("update")
+    if (!currentVocabulary)
+      throw new Error(`community ${input.slug} has no paired vocabulary`)
+    if (currentVocabulary.isDefault)
+      throw new Error(`community ${input.slug} owns the default vocabulary`)
+    if (currentVocabulary.retiredAt)
+      throw new Error(`vocabulary ${input.slug} has been retired`)
+
+    return pairedMetadataOf(currentCommunity, currentVocabulary)
+  }
+
+  const synchronizeCommunityMetadata = async (
+    tx: Tx,
+    input: { id: number; slug: string; desired: CommunityMetadata }
+  ) => {
+    const [updatedCommunity] = await tx
+      .update(communitiesTable)
+      .set(input.desired)
+      .where(
+        and(
+          eq(communitiesTable.id, input.id),
+          eq(communitiesTable.slug, input.slug),
+          eq(communitiesTable.vocabularySlug, input.slug),
+          isNull(communitiesTable.retiredAt)
+        )
+      )
+      .returning({ id: communitiesTable.id })
+    if (!updatedCommunity)
+      throw new Error(`community ${input.slug} changed before metadata update`)
+
+    const [updatedVocabulary] = await tx
+      .update(vocabulariesTable)
+      .set(input.desired)
+      .where(
+        and(
+          eq(vocabulariesTable.slug, input.slug),
+          eq(vocabulariesTable.isDefault, false),
+          isNull(vocabulariesTable.retiredAt)
+        )
+      )
+      .returning({ slug: vocabulariesTable.slug })
+    if (!updatedVocabulary)
+      throw new Error(`vocabulary ${input.slug} changed before metadata update`)
+  }
+
+  const verifyCommunityMetadataPreflight = async (
+    tx: Tx,
+    input: {
+      id: number
+      slug: string
+      expected: PairedCommunityMetadata
+    }
+  ) => {
+    const lockedMetadata = await lockCommunityMetadata(tx, input)
+    if (!samePairedCommunityMetadata(lockedMetadata, input.expected))
+      throw new Error(
+        `community ${input.slug} metadata changed after preflight; rerun the curation`
+      )
+  }
+
   for (const community of manifest.communities) {
     const { slug } = community
+    const desiredMetadata = normalizeCommunityMetadata({
+      title: community.title,
+      description: community.description ?? ""
+    })
     if (seenCommunities.has(slug)) {
       refuse(`community ${slug} is listed twice`)
       continue
@@ -564,9 +694,65 @@ const main = async () => {
     if (existingVocabulary?.isDefault)
       refuse(`community ${slug} cannot own the default vocabulary`)
 
-    if (existing)
-      communityItems.push({ outcome: "present", what: `community ${slug}` })
-    else {
+    if (existing) {
+      if (!existingVocabulary) {
+        // The refusal above owns the diagnostic. Do not invent a metadata
+        // plan without both halves of the paired record.
+        communityItems.push({ outcome: "present", what: `community ${slug}` })
+      } else {
+        const expectedMetadata = pairedMetadataOf(existing, existingVocabulary)
+        const metadataChanges = planCommunityMetadata(
+          community.metadata,
+          expectedMetadata,
+          desiredMetadata
+        )
+        if (metadataChanges.length === 0)
+          communityItems.push({
+            outcome: "present",
+            what: `community ${slug}`,
+            ...(community.metadata === "exact"
+              ? {
+                  // Exact mode verifies even a converged preflight under the
+                  // transaction lock. A concurrent administrator edit cannot
+                  // let apply report a stale "present" result. This callback
+                  // never writes, so a steward may still verify exact copy.
+                  verificationOnly: true,
+                  write: async (tx: Tx) =>
+                    verifyCommunityMetadataPreflight(tx, {
+                      id: existing.id,
+                      slug,
+                      expected: expectedMetadata
+                    })
+                }
+              : {})
+          })
+        else {
+          const metadataRefusal = communityMetadataUpdateRefusal({
+            slug,
+            isAdmin: admin,
+            changes: metadataChanges
+          })
+          if (metadataRefusal) refuse(metadataRefusal)
+          communityItems.push({
+            outcome: "updated",
+            what: `community ${slug} metadata`,
+            note: communityMetadataChangeNote(metadataChanges),
+            write: async (tx) => {
+              await verifyCommunityMetadataPreflight(tx, {
+                id: existing.id,
+                slug,
+                expected: expectedMetadata
+              })
+              await synchronizeCommunityMetadata(tx, {
+                id: existing.id,
+                slug,
+                desired: desiredMetadata
+              })
+            }
+          })
+        }
+      }
+    } else {
       if (!admin) refuse(`creating community ${slug} is a curator's act`)
       communityItems.push({
         outcome: "created",
@@ -581,8 +767,7 @@ const main = async () => {
             .insert(vocabulariesTable)
             .values({
               slug,
-              title: community.title,
-              description: community.description || null,
+              ...desiredMetadata,
               createdById: operator.id
             })
             .onConflictDoNothing({ target: vocabulariesTable.slug })
@@ -607,8 +792,7 @@ const main = async () => {
             .values({
               slug,
               vocabularySlug: slug,
-              title: community.title,
-              description: community.description || null,
+              ...desiredMetadata,
               createdById: operator.id
             })
             .onConflictDoNothing({ target: communitiesTable.slug })
@@ -636,6 +820,21 @@ const main = async () => {
             throw new Error(
               `community ${slug} was concurrently claimed by another namespace`
             )
+          if (community.metadata === "exact") {
+            const lockedMetadata = await lockCommunityMetadata(tx, {
+              id: currentCommunity.id,
+              slug
+            })
+            if (
+              planCommunityMetadata("exact", lockedMetadata, desiredMetadata)
+                .length > 0
+            )
+              await synchronizeCommunityMetadata(tx, {
+                id: currentCommunity.id,
+                slug,
+                desired: desiredMetadata
+              })
+          }
           communityIds.set(slug, currentCommunity.id)
         }
       })
@@ -1589,7 +1788,8 @@ const main = async () => {
     present: 0,
     retracted: 0,
     retired: 0,
-    skipped: 0
+    skipped: 0,
+    updated: 0
   }
   const verb: Record<Outcome, string> = {
     created: args.dryRun ? "would create" : "created",
@@ -1597,7 +1797,8 @@ const main = async () => {
     present: "present",
     retracted: args.dryRun ? "would retract" : "retracted",
     retired: args.dryRun ? "would retire" : "retired",
-    skipped: "skipped"
+    skipped: "skipped",
+    updated: args.dryRun ? "would update" : "updated"
   }
   const render = (item: Item, note: string | undefined) =>
     `${verb[item.outcome]} ${item.what}${note ? ` (${note})` : ""}`

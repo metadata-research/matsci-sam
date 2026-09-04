@@ -4,7 +4,8 @@ const DURABLE_CURATION_OUTCOMES = new Set([
   "created",
   "moved",
   "retracted",
-  "retired"
+  "retired",
+  "updated"
 ])
 
 export type CurationConvergenceItem = {

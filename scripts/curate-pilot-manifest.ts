@@ -52,6 +52,11 @@ const communitySchema = z
     slug: slugSchema,
     title: titleSchema,
     description: descriptionSchema,
+    // Preserve is the compatibility default: an existing community keeps the
+    // public copy an administrator may have edited since it was created.
+    // Exact makes title and description authoritative for both the community
+    // and its paired same-slug vocabulary.
+    metadata: z.enum(["preserve", "exact"]).default("preserve"),
     // Stable term slugs to move into this community's vocabulary. A qualified
     // entry also fixes the expected source vocabulary once duplicate slugs
     // exist. Omit the field when the manifest only manages the roster. The
@@ -61,6 +66,16 @@ const communitySchema = z
     members: z.array(memberSchema).default([])
   })
   .strict()
+  .superRefine((community, context) => {
+    if (community.metadata !== "exact" || community.description !== undefined)
+      return
+    context.addIssue({
+      code: "custom",
+      path: ["description"],
+      message:
+        "exact metadata requires an explicit description; use an empty string to clear it"
+    })
+  })
 
 const collectionSchema = z
   .object({
