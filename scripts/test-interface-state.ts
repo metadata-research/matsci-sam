@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { initialTermFromSearchParam } from "../app/add/initial-term"
 import {
   parseSearchAuthor,
@@ -24,10 +26,33 @@ import {
 } from "../lib/search-evidence"
 import { studyActivityActionLabel } from "../components/studies/progress"
 import {
+  communityInvitationPageCopy,
   communityInvitationMessage,
   invitationOutcomeLabel,
   invitationRedeemedByLabel
 } from "../lib/invitation-presentation"
+import { parseStudyInstructions } from "../lib/study-instructions"
+
+assert.deepEqual(
+  parseStudyInstructions(
+    "Short introduction.\n\n1. Choose the closest definition.\n2. Accept or revise it.\n3. Propose a new one if needed.\n\nOne closing sentence."
+  ),
+  [
+    { kind: "paragraph", text: "Short introduction." },
+    {
+      kind: "steps",
+      items: [
+        "Choose the closest definition.",
+        "Accept or revise it.",
+        "Propose a new one if needed."
+      ]
+    },
+    { kind: "paragraph", text: "One closing sentence." }
+  ]
+)
+assert.deepEqual(parseStudyInstructions("1. One sentence, not a list."), [
+  { kind: "paragraph", text: "1. One sentence, not a list." }
+])
 
 assert.equal(parseSearchAuthor(null), "all")
 assert.equal(parseSearchAuthor(""), "all")
@@ -175,15 +200,15 @@ assert.deepEqual(scaleLabelsForPrompt("How complete is this list?"), {
 
 assert.equal(
   positionAcceptanceExplanation(null),
-  "Accepting records the candidate as your position and adds your upvote."
+  "Accepting records this definition as your position and adds your upvote."
 )
 assert.equal(
   positionAcceptanceExplanation("up"),
-  "You already upvoted this candidate. Accept will use that vote as your position."
+  "You already upvoted this definition. Accept will use that vote as your position."
 )
 assert.equal(
   positionAcceptanceExplanation("down"),
-  "You previously downvoted this candidate. Accept will change it to an upvote."
+  "You previously downvoted this definition. Accept will change it to an upvote."
 )
 
 assert.equal(invitationOutcomeLabel("live"), "Pending")
@@ -220,6 +245,7 @@ assert.equal(
 // because the recipient may already be in the community. A community
 // invitation keeps the join wording.
 const studyMessage = communityInvitationMessage({
+  communitySlug: "mrc",
   communityTitle: "Metadata Research Center",
   studyTitle: "New Materials workflow rehearsal",
   url: "https://example.test/invite/token",
@@ -240,6 +266,7 @@ assert.match(
 assert.doesNotMatch(studyMessage.text, /You have been invited to join/)
 
 const communityMessage = communityInvitationMessage({
+  communitySlug: "mrc",
   communityTitle: "Metadata Research Center",
   studyTitle: null,
   url: "https://example.test/invite/token",
@@ -247,17 +274,67 @@ const communityMessage = communityInvitationMessage({
 })
 assert.equal(
   communityMessage.subject,
-  "You have been invited to join Metadata Research Center"
+  "Invitation to join the Metadata Research Center Vocabulary Community"
 )
 assert.match(
   communityMessage.text,
-  /You have been invited to join Metadata Research Center on MatSci-SAM\./
+  /You have been invited to join the Metadata Research Center Vocabulary Community on MatSci-SAM\./
 )
 assert.doesNotMatch(communityMessage.text, /take part in the study/)
+
+assert.deepEqual(
+  communityInvitationPageCopy({
+    communitySlug: "id4",
+    communityTitle: "ID4",
+    siteName: "MatSci-SAM",
+    alreadyIn: false
+  }),
+  {
+    title: "Join ID4",
+    description:
+      "You have been invited to join the NSF Institute for Data-Driven Dynamical Design (ID4) Vocabulary Community on MatSci-SAM."
+  }
+)
+assert.deepEqual(
+  communityInvitationPageCopy({
+    communitySlug: "id4",
+    communityTitle: "ID4",
+    siteName: "MatSci-SAM",
+    alreadyIn: true
+  }),
+  {
+    title: "ID4",
+    description:
+      "You are already a member of the NSF Institute for Data-Driven Dynamical Design (ID4) Vocabulary Community."
+  }
+)
+
+const communityPage = readFileSync(
+  resolve("app/communities/[slug]/page.tsx"),
+  "utf8"
+)
+assert.match(
+  communityPage,
+  /\{\(runs \|\| loose\.length > 0\) && \(/,
+  "plain members must not see an empty additional-collections section"
+)
+assert.match(
+  communityPage,
+  /row\.studySlug === null && \(runs \|\| row\.retiredAt === null\)/,
+  "plain members must not see retired additional collections"
+)
+assert.match(
+  communityPage,
+  /collection\.retiredAt === null &&\s*!onWorklist\.has\(collection\.id\)/,
+  "stewards must not be offered a retired collection to add"
+)
+assert.match(communityPage, />Additional collections<\/h2>/)
+assert.doesNotMatch(communityPage, /Other terms in view/)
 
 // Titles are contributor text, so the HTML body escapes them.
 assert.match(
   communityInvitationMessage({
+    communitySlug: "alloys",
     communityTitle: "Alloys <careful> & co",
     studyTitle: null,
     url: "https://example.test/invite/token",

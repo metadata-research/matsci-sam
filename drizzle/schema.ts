@@ -479,6 +479,13 @@ export const definitionsTable = pgTable(
     replacesDefinitionId: integer().references(
       (): AnyPgColumn => definitionsTable.id
     ),
+    // The Position step in which this stable candidate was first published.
+    // The same trusted context remains on its immutable first revision; this
+    // denormalized key lets the original-definition uniqueness rule exempt an
+    // independent study proposal without pretending it replaces one candidate.
+    creationSurveyStepId: integer().references(
+      (): AnyPgColumn => surveyStepsTable.id
+    ),
     // Which add flow created this definition; interactive definitions get the
     // refine panel and skip the automatic term-level AI definition
     createdVia: definitionSourceEnum().notNull().default("classic"),
@@ -510,10 +517,15 @@ export const definitionsTable = pgTable(
     uniqueIndex("definitions_author_term_original_unique")
       .on(table.authorId, table.termId)
       .where(
-        sql`${table.refinedFromId} IS NULL AND ${table.replacesDefinitionId} IS NULL`
+        sql`${table.refinedFromId} IS NULL
+            AND ${table.replacesDefinitionId} IS NULL
+            AND ${table.creationSurveyStepId} IS NULL`
       ),
     index("definitions_current_revision_idx").on(table.currentRevisionId),
     index("definitions_replaces_definition_idx").on(table.replacesDefinitionId),
+    index("definitions_creation_survey_step_idx").on(
+      table.creationSurveyStepId
+    ),
     uniqueIndex("definitions_term_number_unique").on(
       table.termId,
       table.definitionNumber
@@ -2139,6 +2151,11 @@ export const surveyPositionKindEnum = pgEnum("survey_position_kind", [
   "proposed"
 ])
 
+export const surveyStepCompletionOutcomeEnum = pgEnum(
+  "survey_step_completion_outcome",
+  ["completed", "skipped"]
+)
+
 export type SurveyStep = typeof surveyStepsTable.$inferSelect
 export const surveyStepsTable = pgTable(
   "surveySteps",
@@ -2185,10 +2202,12 @@ export const surveyStepsTable = pgTable(
   ]
 )
 
-// One participant's completion of one step. The row is the whole of the
-// progress record: no status enum and no counter. Whether a step may be
-// pressed through is a rule over the acts it asked for (lib/surveys.ts
-// stepGate), and this row says only that it was.
+// One participant's completion of one step. The outcome distinguishes an
+// ordinary completion from an explicit no-opinion skip; it is not inferred
+// from the absence of a Position target because legacy completions and
+// administrative purges may also have no surviving target. Whether an
+// ordinary step may be pressed through remains a rule over the acts it asked
+// for (lib/surveys.ts stepGate).
 export type SurveyStepCompletion =
   typeof surveyStepCompletionsTable.$inferSelect
 export const surveyStepCompletionsTable = pgTable(
@@ -2201,6 +2220,7 @@ export const surveyStepCompletionsTable = pgTable(
     userId: integer()
       .references(() => usersTable.id)
       .notNull(),
+    outcome: surveyStepCompletionOutcomeEnum().default("completed").notNull(),
     // drizzle/invariants.sql proves the person had a live membership episode
     // in the community of the study at this moment.
     completedAt: timestamp({ mode: "string", withTimezone: true })

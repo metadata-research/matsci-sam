@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { studyActivityActionLabel } from "@/components/studies/progress"
 import { StudyActionButton } from "@/components/studies/action-button"
+import { StudyInstructionContent } from "@/components/studies/instruction-content"
 
 // Shared by generateMetadata and the body, so the page runs one query.
 const loadStudy = cache(async (slug: string) => studyBySlug(slug))
@@ -192,15 +193,9 @@ export default async function StudyPage({
                 ? "About this study"
                 : "What to do"}
             </h2>
-            {/* Plain text, split on blank lines. Nothing typed here becomes
-                markup, which is why the column is not markdown. */}
-            {participantInstructions
-              .split(/\n\s*\n/)
-              .map((paragraph, index) => (
-                <p key={index} className="whitespace-pre-line">
-                  {paragraph}
-                </p>
-              ))}
+            {/* Nothing typed here becomes markup. Numbered lines use the one
+                plain-text convention shared with the walkthrough. */}
+            <StudyInstructionContent text={participantInstructions} />
           </section>
         )}
 

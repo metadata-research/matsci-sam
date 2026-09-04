@@ -3,6 +3,7 @@ import "server-only"
 import { isDevAuthEnabled, getDevAuthUsers } from "@/lib/dev-auth"
 import { isEmailAuthEnabled } from "@/lib/email-auth"
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
+import { isGoogleAuthConfigured } from "@/lib/apis/google"
 import { Ollama } from "ollama"
 import { OllamaModel } from "@/lib/llm/model"
 
@@ -74,10 +75,7 @@ const devAuthConfigured = () => {
 }
 
 export const getConfiguredServiceHealth = () => {
-  const googleMode = process.env.GOOGLE_AUTH_ACCESS_MODE?.trim()
-  const googleConfigured =
-    allPresent(googleSettings) &&
-    (googleMode === "existing-or-allowlisted" || googleMode === "open")
+  const googleConfigured = isGoogleAuthConfigured()
 
   const google: ServiceState = {
     status: googleConfigured

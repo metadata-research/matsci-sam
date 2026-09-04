@@ -1,12 +1,13 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import {
   db,
   definitionsTable,
   surveyStepCompletionsTable,
   surveyStepPositionsTable,
+  surveyStepsTable,
   votesTable
 } from "@yamz/db"
 import { baseProcedure, createTRPCRouter } from "../init"
@@ -313,6 +314,37 @@ export const requireOnePosition = async (
   return voteState
 }
 
+/*
+ * A completed Review is read-only. In particular, a Review paired to an
+ * explicit term skip must never acquire a vote or comment through a stale or
+ * crafted request. Every walkthrough act takes the study lock first, so this
+ * check serializes with both completion and skipTerm.
+ */
+export const requireIncompleteStepForAct = async (
+  tx: DatabaseTransaction,
+  stepId: number,
+  userId: number
+) => {
+  const [completion] = await tx
+    .select({ outcome: surveyStepCompletionsTable.outcome })
+    .from(surveyStepCompletionsTable)
+    .where(
+      and(
+        eq(surveyStepCompletionsTable.stepId, stepId),
+        eq(surveyStepCompletionsTable.userId, userId)
+      )
+    )
+    .limit(1)
+  if (!completion) return
+  throw new TRPCError({
+    code: "CONFLICT",
+    message:
+      completion.outcome === "skipped"
+        ? "You skipped this term"
+        : "This step is already complete"
+  })
+}
+
 export const surveysRouter = createTRPCRouter({
   /*
    * The walkthrough as one viewer sees it. Public study, private progress:
@@ -596,6 +628,144 @@ export const surveysRouter = createTRPCRouter({
     ),
 
   /*
+   * Record an explicit no-opinion outcome for a term. Position and Review
+   * are skipped together so the term does not unexpectedly return in the
+   * second half of the walkthrough. The transaction creates no vocabulary
+   * act and marks no graph for rebuilding.
+   */
+  skipTerm: contributorProcedure
+    .meta({ marksGraphs: false })
+    .input(
+      z.object({
+        stepId: z.number().int(),
+        expectedInstructions: expectedInstructionsSchema
+      })
+    )
+    .mutation(
+      async ({ ctx: { userId }, input: { stepId, expectedInstructions } }) => {
+        const preview = await requireParticipation(stepId, userId)
+        if (preview.step.kind !== "define" || preview.step.termId === null)
+          throw notForThisAct()
+
+        try {
+          return await db.transaction(async (tx) => {
+            const { step, study } = await lockParticipation(
+              tx,
+              stepId,
+              preview.study.id,
+              userId,
+              expectedInstructions
+            )
+            if (step.kind !== "define" || step.termId === null)
+              throw notForThisAct()
+
+            const termSteps = await tx
+              .select({ id: surveyStepsTable.id, kind: surveyStepsTable.kind })
+              .from(surveyStepsTable)
+              .where(
+                and(
+                  eq(surveyStepsTable.studyId, study.id),
+                  eq(surveyStepsTable.termId, step.termId),
+                  inArray(surveyStepsTable.kind, ["define", "review"])
+                )
+              )
+              .orderBy(asc(surveyStepsTable.position))
+
+            const defineSteps = termSteps.filter(
+              (candidate) => candidate.kind === "define"
+            )
+            const reviewSteps = termSteps.filter(
+              (candidate) => candidate.kind === "review"
+            )
+            if (
+              defineSteps.length !== 1 ||
+              defineSteps[0].id !== step.id ||
+              reviewSteps.length !== 1
+            )
+              throw new TRPCError({
+                code: "CONFLICT",
+                message:
+                  "This term's Position and Review steps do not match. Reload the walkthrough."
+              })
+
+            const stepIds = termSteps.map((candidate) => candidate.id)
+            const existing = await tx
+              .select({
+                stepId: surveyStepCompletionsTable.stepId,
+                outcome: surveyStepCompletionsTable.outcome
+              })
+              .from(surveyStepCompletionsTable)
+              .where(
+                and(
+                  inArray(surveyStepCompletionsTable.stepId, stepIds),
+                  eq(surveyStepCompletionsTable.userId, userId)
+                )
+              )
+
+            if (existing.some((completion) => completion.outcome !== "skipped"))
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: "Work on this term is already recorded"
+              })
+
+            if (
+              (
+                await Promise.all(
+                  stepIds.map((id) => actNamesStep(tx, id, userId))
+                )
+              ).some(Boolean)
+            )
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: "Work on this term is already recorded"
+              })
+
+            await tx
+              .insert(surveyStepCompletionsTable)
+              .values(
+                stepIds.map((id) => ({
+                  stepId: id,
+                  userId,
+                  outcome: "skipped" as const
+                }))
+              )
+              .onConflictDoNothing()
+
+            const recorded = await tx
+              .select({
+                stepId: surveyStepCompletionsTable.stepId,
+                outcome: surveyStepCompletionsTable.outcome
+              })
+              .from(surveyStepCompletionsTable)
+              .where(
+                and(
+                  inArray(surveyStepCompletionsTable.stepId, stepIds),
+                  eq(surveyStepCompletionsTable.userId, userId)
+                )
+              )
+            if (
+              recorded.length !== stepIds.length ||
+              recorded.some((completion) => completion.outcome !== "skipped")
+            )
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: "Work on this term is already recorded"
+              })
+
+            return {
+              ok: true,
+              skippedStepIds: stepIds,
+              nextPosition: await nextPositionFor(tx, study.id, userId)
+            }
+          })
+        } catch (error) {
+          if (sqlState(error) === "23503") throw regeneratedConflict()
+          throw error
+        }
+      }
+    ),
+
+  /*
    * Press through a step. Instructions and review complete on the press, and
    * a question requires its existing answer. Accept and definition publication
    * own new Position completion, while this endpoint can finish a position act
@@ -649,7 +819,7 @@ export const surveysRouter = createTRPCRouter({
                   throw new TRPCError({
                     code: "PRECONDITION_FAILED",
                     message:
-                      "Choose Accept, Suggest a revision, or Propose a replacement to record this position."
+                      "Choose Accept as written, Suggest a revision, or Propose a new definition to record this position."
                   })
                 await recordPositionCompletion(tx, {
                   stepId: step.id,

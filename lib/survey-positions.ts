@@ -33,7 +33,7 @@ export class SurveyPositionConflictError extends Error {
 
 export class SurveyPositionTargetError extends Error {
   constructor() {
-    super("That candidate is not part of this Position step")
+    super("That definition is not part of this Position step")
     this.name = "SurveyPositionTargetError"
   }
 }
@@ -55,13 +55,15 @@ export const recordPositionCompletion = async (
   const completion =
     insertedCompletion ??
     (await tx.query.surveyStepCompletionsTable.findFirst({
-      columns: { id: true, completedAt: true },
+      columns: { id: true, outcome: true, completedAt: true },
       where: and(
         eq(surveyStepCompletionsTable.stepId, input.stepId),
         eq(surveyStepCompletionsTable.userId, input.userId)
       )
     }))
   if (!completion) throw new Error("Position completion was not recorded")
+  if (completion.outcome !== "completed")
+    throw new SurveyPositionConflictError()
 
   // The position carries its completion's time only when the completion is
   // written here. Behind a pre-existing targetless completion — a record

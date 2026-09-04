@@ -36,6 +36,13 @@ const DefinitionRevisionLink = ({
 )
 
 const PositionRecord = ({ step }: { step: Step }) => {
+  if (step.completionOutcome === "skipped")
+    return (
+      <p className="text-muted-foreground">
+        Skipped this term. No position was recorded.
+      </p>
+    )
+
   if (step.held)
     return (
       <p>
@@ -51,8 +58,9 @@ const PositionRecord = ({ step }: { step: Step }) => {
 
   return (
     <p className="text-muted-foreground">
-      This Position step is complete, but its candidate record is unavailable.
-      This can occur for an earlier completion or a candidate that was removed.
+      This Position step is complete, but its definition record is unavailable.
+      This can occur for an earlier completion or a definition that was
+      removed.
     </p>
   )
 }
@@ -65,6 +73,13 @@ const voteLabel = (kind: "up" | "down" | null) =>
       : "Withdrew a vote from"
 
 const ReviewRecord = ({ step }: { step: Step }) => {
+  if (step.completionOutcome === "skipped")
+    return (
+      <p className="text-muted-foreground">
+        Skipped with this term. No vote or comment was recorded.
+      </p>
+    )
+
   const votes = step.reviewRecord?.votes ?? []
   const comments = step.reviewRecord?.comments ?? []
 

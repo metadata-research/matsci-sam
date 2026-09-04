@@ -13,7 +13,8 @@ participant interface.
   pages, the pilot driver and the tests answer each question the same way,
   and the one write they share, `recordCompletion`.
 - `lib/survey-queries.ts` loads the facts the rules take and writes the
-  multi-row units. `scripts/test-kos-db.ts` imports it under plain `tsx` to
+  multi-row units, including the paired Position and Review outcomes for a
+  skipped term. `scripts/test-kos-db.ts` imports it under plain `tsx` to
   exercise those writes.
 - `lib/survey-positions.ts` completes a Position step with its exact
   definition revision and implements Accept without vote-toggle semantics.
@@ -37,7 +38,10 @@ with a one-based `position` unique per study, a `kind` from `instructions`,
 `define`, `review` and `question`, and a `termId`, a `prompt` and a
 `responseKind` that a CHECK requires or forbids by kind.
 `surveyStepCompletions`, one row per step and person, is the only progress
-record, and resumption is the lowest position without one. `surveyResponses`
+record, and resumption is the lowest position without one. Its outcome is
+`completed` for an ordinary completion or `skipped` for either half of a term
+the participant explicitly skipped. Existing rows default to `completed`;
+missing legacy target data is not reinterpreted as a skip. `surveyResponses`
 holds one answer per question step and person, as `valueText` or `valueScale`
 in 1 to 5, with an `authorKind`. Migration 0042 added its four stamp columns,
 `promptKey`, `promptHash`, `promptText` and `model`, with a CHECK that keeps a
@@ -45,8 +49,15 @@ stamp off a human answer. `surveyStepId` on `voteEvents`, `comments` and
 `definitionRevisions`, also from 0041, is the step an act was taken inside.
 `derivedFromRevisionId` on `definitionRevisions` is older, from migration
 0018, and the define step sets it when a participant publishes a suggested
-revision. A replacement proposal uses `definitions.replacesDefinitionId` to
-name the stable candidate it is intended to supersede.
+revision. A new definition proposed in a Position step names the step but has
+no derivation or replacement target. Migration 0053 repeats that trusted
+creation context on the stable definition as `creationSurveyStepId`, allowing
+the participant to publish an independent study proposal even when they
+already authored an ordinary original definition of the term. The initial
+revision's `surveyStepId` remains the provenance-bearing act, and the database
+invariant requires the two values to match. Outside that flow, a targeted
+replacement proposal uses `definitions.replacesDefinitionId` to name the
+stable definition it is intended to supersede.
 
 Migration 0051 added `surveyStepPositions`. Its primary key is the step and
 person, and it records whether the exact definition revision was accepted or
@@ -54,6 +65,8 @@ proposed. A composite foreign key ties it to the completion, and another proves
 that the revision belongs to the definition. Progress and target are separate:
 an exceptional administrative purge deletes the target row with the
 definition, while the completion continues to record that the step was done.
+A skipped term has no `surveyStepPositions` row because no definition was
+selected or created.
 
 Migration 0043 added `backfilled` and `migratedLegacy` to `voteEvents` and
 inserted one event for each vote that had none for its revision and user pair,
@@ -95,12 +108,26 @@ legacy recovery and service reads. `completeStep` presses instructions and
 review normally and can recover a step-scoped position act written by the
 former two-request client.
 
+`surveys.skipTerm` is the explicit no-position path. Under the same locked
+study and membership checks, it identifies the Position step and its paired
+Review step for the same term and writes a `skipped` completion for both in one
+transaction. It creates no position target, definition, revision, vote, or
+comment. Consequently it changes neither vocabulary content nor support and
+does not dirty the derived graphs. A retry of the same skip converges on the
+two existing outcomes. A prior position or study-scoped Review act conflicts
+with the skip, and a skipped outcome prevents later study-scoped Position,
+vote, or comment acts. The skip is therefore final within that walkthrough.
+
 `actMatchesStep` says which step an act may name. A comment names the review
 step of its term. A vote names the review step whatever its kind, and the
 define step only as an upvote. A definition names the define step of its term.
 `requireStepForAct` runs `requireParticipation`, which requires a live membership
 and an open study, then `actMatchesStep`. `requireOnePosition` runs inside the
 transaction that writes a vote, acceptance, or definition in a define step.
+The `definitions.create` input contract rejects `surveyStepId` together with
+`replacesDefinitionId`: a Position proposal belongs to the term as a whole,
+not to one displayed definition. A targeted replacement remains an action
+outside the study flow.
 For a general vote it checks the kind the vote will stand at, since a second
 cast on the same candidate is a withdrawal. For Accept it preserves a matching
 upvote. It refuses with CONFLICT when a completion or
@@ -115,17 +142,22 @@ step holds, that a response and a question completion come in pairs, that a
 simulated or model answer is from an AI-flag account and a text one has its
 stamp, and that positions run from 1 without gaps. For an explicit Position
 target it also checks the define-step term, transaction timestamp, accepting
-upvote or participant-authored initial proposal.
+upvote or participant-authored initial proposal. A skipped outcome is limited
+to a Position or Review step and must have a skipped partner for the same
+person, study, and term. Neither step may have a study-scoped contribution by
+that person.
 
 ## The writes
 
 `recordCompletion` inserts one completion, does nothing on conflict and
 returns null the second time. It takes an executor, so the act a step asks for
-and its completion share a transaction. `recordPositionCompletion` adds the
-exact accepted or proposed revision. `definitions.create` records a proposed
-position with the new definition, `surveys.acceptPosition` records an accepted
-position with its vote, and `recordResponse` records the completion with the
-answer. `recordResponse` inserts the answer with its
+and its completion share a transaction. Ordinary calls record `completed`;
+the term-skip unit records `skipped` on the paired steps.
+`recordPositionCompletion` adds the exact accepted or proposed revision.
+`definitions.create` records a proposed position with the new definition,
+`surveys.acceptPosition` records an accepted position with its vote, and
+`recordResponse` records the completion with the answer. `recordResponse`
+inserts the answer with its
 `authorKind` and optional stamp, then the completion, and
 `surveys.answerQuestion` turns the unique pair into CONFLICT.
 
@@ -137,10 +169,14 @@ runs `requireStepForAct` as a define act, and inside the transaction runs
 `requireOnePosition`. For **Suggest a revision**, it checks that
 `derivedFromRevisionId` is the current revision of a definition of the same
 term, holds the stable definition through that check, and consumes the explicit
-AI suggestion. For **Propose a replacement**, it checks that
-`replacesDefinitionId` is a stable definition of the same term. It records the
-completion with the newly published candidate and returns where the walkthrough
-resumes.
+AI suggestion. For the Position-only **Propose a new definition** action, the
+locked step supplies the existing term and the new initial revision carries no
+source relationship. The stable definition and its initial revision both carry
+the trusted creation step, and an optional first example is stored as a
+separate contribution. A targeted **Propose a replacement** action outside the
+Position step instead checks that `replacesDefinitionId` is a stable definition
+of the same term. Each Position publication records the completion with the
+new definition and returns where the walkthrough resumes.
 
 ## Support-ranking query
 
@@ -177,22 +213,34 @@ The study page at `/studies/<slug>` is public. It calls
 `surveys.get` for a signed-in viewer to render the resume card. Community pages
 provide the roster. The run page at `/studies/<slug>/run` admits a signed-in
 member while the study is open and renders the instructions and subsequent
-activity one step at a time. A define step offers **Accept**, the shared
-critique-driven **Suggest a revision** action, and **Propose a replacement**.
-It shows support and the viewer's existing vote as static context rather than
-disabled voting buttons. Vote controls appear in Review. Each write surface
-receives the step so the new act can name it. The community
-page renders
+activity one step at a time. A define step presents every earlier definition in
+one section. Each definition offers **Accept** and the shared critique-driven
+**Suggest a revision** action. One separate **Propose a new definition** action
+applies to the term rather than to an earlier definition. **Skip this term**
+appears once before the list while the Position step is unfinished. After
+confirmation, the shell advances to the next incomplete step; the paired
+Review is already skipped. Reopening either step shows its skipped outcome
+without contribution controls. The cards show
+support and the viewer's existing vote as static context rather than disabled
+voting buttons, and omit their lifecycle-status chips. Vote controls appear in
+Review. Each write surface receives the step so the new act can name it. The
+community page renders
 `GenerateWalkthrough`, which generates or regenerates, with a checkbox for the
 closing questions, and gives way to the step count once the walkthrough is in
 use or the study is retired. `studyProgress` gives the page how many
 participants have finished.
 
-The `Walkthrough` component owns a counted interaction state. Accept, vote, comment,
-definition, language-model draft, discard, completion, and answer controls report their
-mutation lifecycle to this state. Step dots and movement controls remain
-disabled from the initiating action until all related writes settle. Counting
-also supports overlapping child writes.
+Study instructions remain plain text. The invitation page, public study page,
+administrator preview and run page share one renderer. A blank-line block of
+consecutive `1.`, `2.`, `3.` lines renders as a semantic ordered list; other
+blocks render as paragraphs. This keeps stored copy safe as text while making
+short task sequences scannable and accessible.
+
+The `Walkthrough` component owns a counted interaction state. Accept, skip,
+vote, comment, definition, language-model draft, discard, completion, and
+answer controls report their mutation lifecycle to this state. Step dots and
+movement controls remain disabled from the initiating action until all related
+writes settle. Counting also supports overlapping child writes.
 
 ## Tests and what CI checks
 
@@ -212,5 +260,11 @@ again on the result.
 
 `pnpm test:definition-ui-safety` checks that the walkthrough receives each
 child mutation lifecycle and disables step navigation, votes, comments, and
-question controls while a write is active. `pnpm test:definition-source-lock`
-checks the shared source lock with two concurrent database transactions.
+question controls while a write is active. It also checks that Position cards
+offer Accept and revision only, omit their lifecycle status, and share one
+source-free new-definition action below the list. The survey database tests
+exercise the paired skip, idempotent retry, conflict with prior activity,
+absence of contribution rows and support changes, and the read-only skipped
+record returned for both steps.
+`pnpm test:definition-source-lock` checks the shared source lock with two
+concurrent database transactions.

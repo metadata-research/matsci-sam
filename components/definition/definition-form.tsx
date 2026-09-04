@@ -162,7 +162,9 @@ export const DefinitionForm = ({
   const term = lockedTerm ?? initialTerm
   const acceptsInitialExample =
     derivedFromRevisionId === undefined &&
-    (lockedTerm === undefined || replacesDefinitionId !== undefined)
+    (lockedTerm === undefined ||
+      replacesDefinitionId !== undefined ||
+      surveyStepId !== undefined)
   const [aiDraft, setAiDraft] = useState<{
     suggestionId: number
     definition: string
@@ -511,7 +513,9 @@ export const DefinitionForm = ({
                   ? "Publish suggested revision"
                   : replacesDefinitionId
                     ? "Publish replacement proposal"
-                    : "Publish new term"}
+                    : surveyStepId !== undefined
+                      ? "Publish new definition"
+                      : "Publish new term"}
             </Button>
           </form>
         </Form>

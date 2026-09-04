@@ -23,6 +23,7 @@ import {
   TERM_MAX_LENGTH
 } from "../lib/input-limits"
 import { isValidOrcidId, normalizeOrcidId } from "../lib/orcid"
+import { isGoogleAuthConfigured } from "../lib/apis/google"
 import { DefineTermSchema } from "../lib/schemas/terms"
 
 const loginResponse = getLogin()
@@ -61,6 +62,34 @@ assert.equal(
 assert.equal(isValidOrcidId("0000-0002-1825-0097"), true)
 assert.equal(isValidOrcidId("0000-0002-1825-0098"), false)
 assert.equal(isValidOrcidId("not-an-orcid"), false)
+
+const googleSettingNames = [
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "GOOGLE_CALLBACK_URL",
+  "GOOGLE_AUTH_ACCESS_MODE"
+] as const
+const originalGoogleSettings = Object.fromEntries(
+  googleSettingNames.map((name) => [name, process.env[name]])
+)
+try {
+  process.env.GOOGLE_CLIENT_ID = "client"
+  process.env.GOOGLE_CLIENT_SECRET = "secret"
+  process.env.GOOGLE_CALLBACK_URL = "https://example.test/auth/callback"
+  process.env.GOOGLE_AUTH_ACCESS_MODE = "existing-or-allowlisted"
+  assert.equal(isGoogleAuthConfigured(), true)
+  delete process.env.GOOGLE_CLIENT_SECRET
+  assert.equal(isGoogleAuthConfigured(), false)
+  process.env.GOOGLE_CLIENT_SECRET = "secret"
+  process.env.GOOGLE_AUTH_ACCESS_MODE = "unsupported"
+  assert.equal(isGoogleAuthConfigured(), false)
+} finally {
+  for (const name of googleSettingNames) {
+    const value = originalGoogleSettings[name]
+    if (value === undefined) delete process.env[name]
+    else process.env[name] = value
+  }
+}
 
 const firstToken = createOneTimeToken()
 const secondToken = createOneTimeToken()
@@ -129,6 +158,10 @@ assert.equal(
 
 const loginPage = readFileSync(resolve("app/login/page.tsx"), "utf8")
 const registrationPage = readFileSync(resolve("app/register/page.tsx"), "utf8")
+const invitationPage = readFileSync(
+  resolve("app/invite/[token]/page.tsx"),
+  "utf8"
+)
 const emailStartRoute = readFileSync(
   resolve("app/api/auth/email/start/route.ts"),
   "utf8"
@@ -149,6 +182,44 @@ const emailAuthTokenSchema = schemaSource.slice(
 assert.match(loginPage, /name="intent" value="sign-in"/)
 assert.match(registrationPage, /name="intent" value="create"/)
 assert.match(registrationPage, /isEmailAccountCreationEnabled\(\)/)
+assert.match(loginPage, /Continue to \{SITE_NAME\}/)
+assert.match(loginPage, /isGoogleAuthConfigured\(\)/)
+assert.match(loginPage, /Continue with Google/)
+assert.match(loginPage, /Google sign-in is not configured on this site\./)
+assert.match(loginPage, /Continue with ORCID/)
+assert.match(loginPage, /ORCID sign-in is not available yet\./)
+const orcidDescriptionReference = loginPage.indexOf(
+  'aria-describedby="orcid-unavailable"'
+)
+assert.notEqual(orcidDescriptionReference, -1)
+const unavailableOrcidButton = loginPage.slice(
+  loginPage.lastIndexOf("<Button", orcidDescriptionReference),
+  loginPage.indexOf("</Button>", orcidDescriptionReference)
+)
+assert.match(unavailableOrcidButton, /\bdisabled\b/)
+assert.doesNotMatch(unavailableOrcidButton, /\bhref=/)
+assert.match(loginPage, /id="orcid-unavailable"/)
+assert.match(registrationPage, /Create an account with email/)
+assert.match(registrationPage, /Create account with email/)
+assert.match(registrationPage, /isGoogleAuthConfigured\(\)/)
+assert.match(registrationPage, /Continue with Google instead/)
+assert.ok(
+  registrationPage.indexOf("Continue with Google instead") <
+    registrationPage.indexOf('action="/api/auth/email/start"'),
+  "Google must precede the email-creation form for returning contributors"
+)
+assert.match(invitationPage, /Continue to accept this invitation\./)
+assert.match(invitationPage, /authPathWithReturnTo\("\/login", returnTo\)/)
+assert.doesNotMatch(
+  invitationPage,
+  /community\.description\s*&&\s*!study/,
+  "community invitations must not repeat the separate community description"
+)
+assert.doesNotMatch(
+  invitationPage,
+  /authPathWithReturnTo\("\/register", returnTo\)/,
+  "the invitation must not offer a registration route that may be disabled"
+)
 assert.match(
   emailStartRoute,
   /if \(!allowAccountCreation\)[\s\S]*usersTable\.email[\s\S]*if \(!existingUser\) return false/

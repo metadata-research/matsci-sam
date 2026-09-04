@@ -13,6 +13,7 @@ import {
 import {
   expectedInstructionsSchema,
   lockParticipation,
+  requireIncompleteStepForAct,
   requireOnePosition,
   requireStepForDefinitionAct
 } from "./surveys"
@@ -118,6 +119,12 @@ export const votesRouter = createTRPCRouter({
                 revisionId,
                 vote
               })
+            else if (lockedWalkthrough?.step.kind === "review")
+              await requireIncompleteStepForAct(
+                tx,
+                lockedWalkthrough.step.id,
+                userId
+              )
 
             // A session vote is a human act in the community the person is
             // working in: the community running the study when the vote is

@@ -3,6 +3,51 @@ import type { InvitationOutcome } from "@/lib/communities"
 const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 
+const COMMUNITY_INVITATION_NAMES: Record<string, string> = {
+  id4: "NSF Institute for Data-Driven Dynamical Design (ID4)"
+}
+
+const vocabularyCommunityLabel = ({
+  communitySlug,
+  communityTitle
+}: {
+  communitySlug: string
+  communityTitle: string
+}) => {
+  const name = COMMUNITY_INVITATION_NAMES[communitySlug] ?? communityTitle
+  if (/vocabulary community$/i.test(name)) return name
+  if (/community$/i.test(name))
+    return `${name.replace(/ community$/i, "")} Vocabulary Community`
+  return `${name} Vocabulary Community`
+}
+
+export const communityInvitationPageCopy = ({
+  communitySlug,
+  communityTitle,
+  siteName,
+  alreadyIn
+}: {
+  communitySlug: string
+  communityTitle: string
+  siteName: string
+  alreadyIn: boolean
+}) => {
+  const communityLabel = vocabularyCommunityLabel({
+    communitySlug,
+    communityTitle
+  })
+
+  return alreadyIn
+    ? {
+        title: communityTitle,
+        description: `You are already a member of the ${communityLabel}.`
+      }
+    : {
+        title: `Join ${communityTitle}`,
+        description: `You have been invited to join the ${communityLabel} on ${siteName}.`
+      }
+}
+
 /*
  * The invitation email, built as a pure function so the wording is testable.
  * A study invitation leads with the study: the recipient may already be in
@@ -11,19 +56,25 @@ const escapeHtml = (text: string) =>
  * being joined. A community invitation keeps the join wording.
  */
 export const communityInvitationMessage = ({
+  communitySlug,
   communityTitle,
   studyTitle,
   url,
   siteName
 }: {
+  communitySlug: string
   communityTitle: string
   studyTitle: string | null
   url: string
   siteName: string
 }) => {
+  const communityLabel = vocabularyCommunityLabel({
+    communitySlug,
+    communityTitle
+  })
   const invitationLine = studyTitle
     ? `${communityTitle} has asked you to take part in the study ${studyTitle} on ${siteName}.`
-    : `You have been invited to join ${communityTitle} on ${siteName}.`
+    : `You have been invited to join the ${communityLabel} on ${siteName}.`
   const membershipNote = studyTitle
     ? `Accepting opens the study. It also joins you to ${communityTitle} if you are not already in it.`
     : null
@@ -31,7 +82,7 @@ export const communityInvitationMessage = ({
   return {
     subject: studyTitle
       ? `You have been asked to take part in ${studyTitle}`
-      : `You have been invited to join ${communityTitle}`,
+      : `Invitation to join the ${communityLabel}`,
     text: [
       invitationLine,
       "",
@@ -77,7 +128,11 @@ export const invitationRedeemedByLabel = ({
   // until a profile is saved, so blank means absent here — the label falls
   // to the address, which also keeps a mismatched address visible.
   const displayName = name?.trim() || null
-  if (displayName && email && email.toLowerCase() !== intendedEmail.toLowerCase())
+  if (
+    displayName &&
+    email &&
+    email.toLowerCase() !== intendedEmail.toLowerCase()
+  )
     return `${displayName} (${email})`
   return displayName ?? email ?? "a signed-in participant"
 }

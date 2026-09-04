@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { readStudyContent } from "../lib/study-content"
+import { parseStudyInstructions } from "../lib/study-instructions"
 import {
   planStudyCopySync,
   studyCopyPlanHash,
@@ -119,8 +120,24 @@ const current = (
 
 const target = readStudyContent("id4-round-two")
 assert.equal(target.title, "ID4 study, round two")
-assert.match(target.body, /\n\nFor each term/)
+assert.match(target.body, /2025 MatSci-YAMZ study/)
+assert.match(target.body, /\n\n1\. For each term/)
+assert.match(target.body, /2\. Accept it as written or suggest a revision/)
+assert.match(target.body, /propose a new definition/)
+assert.match(
+  target.body,
+  /If you do not know a term well enough to choose, skip it\./
+)
+assert.match(target.body, /3\. Then review the definitions/)
+assert.doesNotMatch(target.body, /MatSci-SAM records|Completed steps are saved/)
 assert.equal(target.body.endsWith("\n"), false)
+assert.deepEqual(
+  parseStudyInstructions(target.body).map((block) =>
+    block.kind === "steps" ? [block.kind, block.items.length] : [block.kind]
+  ),
+  [["paragraph"], ["steps", 3], ["paragraph"]],
+  "the reviewed ID4 copy keeps its scannable three-step structure"
+)
 assert.match(target.hash, /^[a-f0-9]{64}$/)
 assert.equal(readStudyContent("id4-round-two").hash, target.hash)
 assert.throws(() => readStudyContent("missing"), /No reviewed study content/)

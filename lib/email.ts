@@ -164,11 +164,13 @@ export const sendEmailSignInLink = async ({
 export const sendCommunityInvitation = async ({
   email,
   token,
+  communitySlug,
   communityTitle,
   studyTitle = null
 }: {
   email: string
   token: string
+  communitySlug: string
   communityTitle: string
   // Set for a study invitation, whose email leads with the study rather
   // than with joining the community the recipient may already be in.
@@ -176,6 +178,7 @@ export const sendCommunityInvitation = async ({
 }) => {
   const url = new URL(invitePath(token), getAuthSiteUrl())
   const message = communityInvitationMessage({
+    communitySlug,
     communityTitle,
     studyTitle,
     url: url.href,

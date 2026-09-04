@@ -22,6 +22,7 @@ import {
   recordCompletion,
   resumePosition,
   stepGate,
+  type CompletionOutcome,
   type Question,
   type Step
 } from "@/lib/surveys"
@@ -182,14 +183,19 @@ export const instructionPromptOfStudy = async (
   return row?.prompt ?? null
 }
 
-// The ids of the steps of a study one person has completed.
-export const completedStepIdsOf = async (
+// The completion outcomes for the steps of a study, keyed by step. A skip is
+// completed progress but remains distinct from an ordinary completion so the
+// walkthrough and study analysis do not infer an opinion from it.
+export const completionOutcomesOf = async (
   executor: Executor,
   studyId: number,
   userId: number
-): Promise<Set<number>> => {
+): Promise<Map<number, CompletionOutcome>> => {
   const rows = await executor
-    .select({ stepId: surveyStepCompletionsTable.stepId })
+    .select({
+      stepId: surveyStepCompletionsTable.stepId,
+      outcome: surveyStepCompletionsTable.outcome
+    })
     .from(surveyStepCompletionsTable)
     .innerJoin(
       surveyStepsTable,
@@ -201,8 +207,17 @@ export const completedStepIdsOf = async (
         eq(surveyStepCompletionsTable.userId, userId)
       )
     )
-  return new Set(rows.map((row) => row.stepId))
+  return new Map(rows.map((row) => [row.stepId, row.outcome]))
 }
+
+// The ids of the steps of a study one person has completed, including
+// explicit skips. Resumption depends on progress, not on the outcome.
+export const completedStepIdsOf = async (
+  executor: Executor,
+  studyId: number,
+  userId: number
+): Promise<Set<number>> =>
+  new Set((await completionOutcomesOf(executor, studyId, userId)).keys())
 
 // How many completions the steps of a study have, by anyone. Zero is what
 // lets a steward replace the steps (lib/surveys.ts mayRegenerateSteps).
@@ -621,10 +636,10 @@ export const hasPosition = async (
   (await stepsWithPosition(executor, [stepId], userId)).has(stepId)
 
 /*
- * Whether an act of a person already names a define step: a vote event or
- * an initial revision. A participant takes one position per define step, so
- * votes.vote and definitions.create refuse a second act on this, and
- * drizzle/invariants.sql proves afterwards that one is all there is.
+ * Whether an act of a person already names a step: a vote event, an initial
+ * revision, or a comment. A participant takes one position per define step,
+ * and a term cannot be skipped after work was recorded in either its Position
+ * or Review step.
  */
 export const actNamesStep = async (
   executor: Executor,
@@ -648,6 +663,11 @@ export const actNamesStep = async (
             where r."surveyStepId" = ${surveyStepsTable.id}
               and r."editorId" = ${userId}
               and r.version = 1
+          )`,
+          sql`exists (
+            select 1 from ${commentsTable} c
+            where c."surveyStepId" = ${surveyStepsTable.id}
+              and c."userId" = ${userId}
           )`
         )
       )
@@ -705,6 +725,9 @@ export const gateOf = async (
 export type WalkthroughStep = StepWithTerm & {
   // Whether the viewer completed it. False for a signed-out viewer.
   completed: boolean
+  // The explicit way the viewer completed it. Null means it is unfinished or
+  // the walkthrough has no signed-in viewer.
+  completionOutcome: CompletionOutcome | null
   // For a define step, whether the viewer holds a position on the term, the
   // fact the gate takes (stepsWithPosition); false elsewhere and for a
   // signed-out viewer.
@@ -742,6 +765,7 @@ export const walkthroughOf = async (
       steps: steps.map((step) => ({
         ...step,
         completed: false,
+        completionOutcome: null,
         hasPosition: false,
         held: null,
         response: null,
@@ -771,22 +795,30 @@ export const walkthroughOf = async (
           )
         )
     : Promise.resolve([])
-  const [completed, positions, withPosition, responsesRead, reviewRecords] =
+  const [completions, positions, withPosition, responsesRead, reviewRecords] =
     await Promise.all([
-      completedStepIdsOf(executor, studyId, userId),
+      completionOutcomesOf(executor, studyId, userId),
       positionsOf(executor, defineStepIds, userId),
       stepsWithPosition(executor, defineStepIds, userId),
       responseRows,
       reviewRecordsOf(executor, reviewStepIds, userId)
     ])
   const responses = new Map(responsesRead.map((row) => [row.stepId, row]))
+  const completed = new Set(completions.keys())
 
   return {
     steps: steps.map((step) => ({
       ...step,
       completed: completed.has(step.id),
-      hasPosition: withPosition.has(step.id),
-      held: positions.get(step.id) ?? null,
+      completionOutcome: completions.get(step.id) ?? null,
+      hasPosition:
+        completions.get(step.id) === "skipped"
+          ? false
+          : withPosition.has(step.id),
+      held:
+        completions.get(step.id) === "skipped"
+          ? null
+          : (positions.get(step.id) ?? null),
       response:
         step.kind === "question"
           ? (() => {
@@ -945,24 +977,44 @@ export const studyProgress = async (executor: Executor, studyId: number) => {
       ? executor
           .select({
             stepId: surveyStepCompletionsTable.stepId,
-            userId: surveyStepCompletionsTable.userId
+            userId: surveyStepCompletionsTable.userId,
+            outcome: surveyStepCompletionsTable.outcome
           })
           .from(surveyStepCompletionsTable)
           .where(inArray(surveyStepCompletionsTable.stepId, stepIds))
-      : Promise.resolve([] as { stepId: number; userId: number }[])
+      : Promise.resolve(
+          [] as {
+            stepId: number
+            userId: number
+            outcome: CompletionOutcome
+          }[]
+        )
   ])
 
   const byUser = new Map<number, number>()
   const byStep = new Map<number, number>()
+  const skippedByUser = new Map<number, number>()
+  const skippedByStep = new Map<number, number>()
   for (const completion of completions) {
     byUser.set(completion.userId, (byUser.get(completion.userId) ?? 0) + 1)
     byStep.set(completion.stepId, (byStep.get(completion.stepId) ?? 0) + 1)
+    if (completion.outcome === "skipped") {
+      skippedByUser.set(
+        completion.userId,
+        (skippedByUser.get(completion.userId) ?? 0) + 1
+      )
+      skippedByStep.set(
+        completion.stepId,
+        (skippedByStep.get(completion.stepId) ?? 0) + 1
+      )
+    }
   }
 
   const total = steps.length
   const participants = members.map((member) => ({
     ...member,
     completed: byUser.get(member.userId) ?? 0,
+    skipped: skippedByUser.get(member.userId) ?? 0,
     total
   }))
 
@@ -974,7 +1026,8 @@ export const studyProgress = async (executor: Executor, studyId: number) => {
     ).length,
     steps: steps.map((step) => ({
       ...step,
-      completions: byStep.get(step.id) ?? 0
+      completions: byStep.get(step.id) ?? 0,
+      skips: skippedByStep.get(step.id) ?? 0
     }))
   }
 }

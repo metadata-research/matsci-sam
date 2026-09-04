@@ -19,10 +19,12 @@ import { communityPath, studyPath } from "@/lib/public-identifiers"
  */
 export const AcceptInvitation = ({
   token,
-  forStudy = false
+  forStudy = false,
+  communityTitle
 }: {
   token: string
   forStudy?: boolean
+  communityTitle?: string
 }) => {
   const router = useRouter()
 
@@ -36,8 +38,10 @@ export const AcceptInvitation = ({
           : alreadyIn
             ? "You are already in this one"
             : nowWorkingIn
-              ? `You are in, and now working in ${nowWorkingIn}`
-              : "You are in"
+              ? `You joined ${communityTitle ?? "the community"}. ${nowWorkingIn} is now selected.`
+              : communityTitle
+                ? `You joined ${communityTitle}`
+                : "You are in"
       )
       // A study invitation lands on the study, where the walkthrough
       // starts; a community invitation lands on the community.
@@ -54,7 +58,9 @@ export const AcceptInvitation = ({
           : "Joining…"
         : forStudy
           ? "Accept and open the study"
-          : "Accept and join"}
+          : communityTitle
+            ? `Join ${communityTitle}`
+            : "Accept and join"}
     </Button>
   )
 }

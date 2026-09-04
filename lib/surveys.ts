@@ -13,10 +13,11 @@ import {
  *
  * A walkthrough is the ordered steps of a study: instructions, one define
  * step per term, one review step per term, then the questions. A define
- * step is a position step: the participant accepts one of the candidates of
- * the term with an upvote, suggests a revision to one, or proposes a
- * replacement of their own. The kind stays "define" in the schema; the shell
- * labels it "Position". Progress is the set of completions and nothing else.
+ * step is a position step: the participant accepts one of the definitions of
+ * the term with an upvote, suggests a revision to one, or proposes a new
+ * source-free definition when none is close enough, or explicitly skips the
+ * term with no opinion. The kind stays "define" in the schema; the shell
+ * labels it "Position". Progress is the set of completions and their outcome.
  * Resumption is the lowest position without one, and a gate is a rule over
  * the acts a step asked for, so there is no status column to drift from the
  * record.
@@ -24,6 +25,7 @@ import {
 
 export type StepKind = "instructions" | "define" | "review" | "question"
 export type ResponseKind = "text" | "scale"
+export type CompletionOutcome = "completed" | "skipped"
 
 export type Step = {
   id: number
@@ -41,18 +43,21 @@ export type Question = { prompt: string; responseKind: ResponseKind }
 // welcome is.
 export const DEFAULT_INSTRUCTIONS =
   "This study is a second round on a terminology list. Each term may have " +
-  "candidate definitions, examples, and comments from earlier work.\n\n" +
-  "MatSci-SAM uses five contribution actions: New term, Suggest a revision, " +
-  "Propose a replacement, Comment, and Add example. Language-model assistance, " +
+  "definitions, examples, and comments from earlier work.\n\n" +
+  "Outside a study, MatSci-SAM uses five vocabulary contribution actions: New term, Suggest a revision, " +
+  "Propose a replacement, Comment, and Add example. In this study, the whole-term alternative is " +
+  "Propose a new definition. Language-model assistance, " +
   "when offered, is an optional drafting aid inside New term or Suggest a " +
   "revision; it does not publish automatically. A comment stays a comment, and an example stays " +
   "separate from the definition.\n\nFor each term in this study, take a " +
-  "position by accepting a candidate as written, using Suggest a revision to " +
-  "say what is wrong or missing, or using Propose a replacement to offer a " +
-  "different candidate. Then compare the candidates, vote on each, and use " +
+  "position by reviewing the definitions from earlier work. Choose the one closest to the definition " +
+  "you would use, then accept it as written or use Suggest a revision to say " +
+  "what is wrong or missing. If none is close enough, use Propose a new " +
+  "definition. If you do not know a term well enough to choose, skip it. " +
+  "Then compare the definitions, vote on each, and use " +
   "Comment where you disagree or can add information. Any closing questions " +
-  "come last.\n\nMatSci-SAM records the upvote used to accept a candidate, " +
-  "revision and replacement proposals, review votes, comments, and question " +
+  "come last.\n\nMatSci-SAM records the upvote used to accept a definition, " +
+  "revision and new-definition proposals, review votes, comments, and question " +
   "responses. Completed steps are saved between visits, and the study " +
   "activity returns to the first incomplete step."
 
@@ -64,6 +69,38 @@ export const DEFAULT_INSTRUCTIONS =
  * the text its participants were shown and locked against.
  */
 const LEGACY_DEFAULT_INSTRUCTIONS = [
+  "This study is a second round on a terminology list. Each term may have " +
+    "definitions, examples, and comments from earlier work.\n\n" +
+    "Outside a study, MatSci-SAM uses five vocabulary contribution actions: New term, Suggest a revision, " +
+    "Propose a replacement, Comment, and Add example. In this study, the whole-term alternative is " +
+    "Propose a new definition. Language-model assistance, " +
+    "when offered, is an optional drafting aid inside New term or Suggest a " +
+    "revision; it does not publish automatically. A comment stays a comment, and an example stays " +
+    "separate from the definition.\n\nFor each term in this study, take a " +
+    "position by reviewing the definitions from earlier work. Choose the one closest to the definition " +
+    "you would use, then accept it as written or use Suggest a revision to say " +
+    "what is wrong or missing. If none is close enough, use Propose a new " +
+    "definition. Then compare the definitions, vote on each, and use " +
+    "Comment where you disagree or can add information. Any closing questions " +
+    "come last.\n\nMatSci-SAM records the upvote used to accept a definition, " +
+    "revision and new-definition proposals, review votes, comments, and question " +
+    "responses. Completed steps are saved between visits, and the study " +
+    "activity returns to the first incomplete step.",
+  "This study is a second round on a terminology list. Each term may have " +
+    "candidate definitions, examples, and comments from earlier work.\n\n" +
+    "MatSci-SAM uses five contribution actions: New term, Suggest a revision, " +
+    "Propose a replacement, Comment, and Add example. Language-model assistance, " +
+    "when offered, is an optional drafting aid inside New term or Suggest a " +
+    "revision; it does not publish automatically. A comment stays a comment, and an example stays " +
+    "separate from the definition.\n\nFor each term in this study, take a " +
+    "position by accepting a candidate as written, using Suggest a revision to " +
+    "say what is wrong or missing, or using Propose a replacement to offer a " +
+    "different candidate. Then compare the candidates, vote on each, and use " +
+    "Comment where you disagree or can add information. Any closing questions " +
+    "come last.\n\nMatSci-SAM records the upvote used to accept a candidate, " +
+    "revision and replacement proposals, review votes, comments, and question " +
+    "responses. Completed steps are saved between visits, and the study " +
+    "activity returns to the first incomplete step.",
   "This study is a second round on a terminology list. Each term may have " +
     "candidate definitions, examples, and comments from earlier work.\n\n" +
     "MatSci-SAM uses five contribution actions: New term, Suggest a revision, " +
@@ -123,13 +160,13 @@ export const planSteps = (input: {
     ...input.terms.map((term) => ({
       kind: "define" as const,
       termId: term.id,
-      prompt: `Accept the candidate of ${term.term} you would use as it stands, use Suggest a revision on the closest candidate, or Propose a replacement.`,
+      prompt: `Choose the definition of ${term.term} closest to what you think is right. Accept it as written, suggest a revision, or propose a new definition if none is close enough. If you do not know the term well enough to choose, skip it.`,
       responseKind: null
     })),
     ...input.terms.map((term) => ({
       kind: "review" as const,
       termId: term.id,
-      prompt: `Compare the candidates of ${term.term}. Vote on each, and comment where you disagree or can add something.`,
+      prompt: `Compare the definitions of ${term.term}. Vote on each, and comment where you disagree or can add something.`,
       responseKind: null
     })),
     ...input.questions.map((question) => ({
@@ -235,14 +272,23 @@ type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
  */
 export const recordCompletion = async (
   executor: typeof db | DatabaseTransaction,
-  input: { stepId: number; userId: number }
+  input: {
+    stepId: number
+    userId: number
+    outcome?: CompletionOutcome
+  }
 ) => {
   const [row] = await executor
     .insert(surveyStepCompletionsTable)
-    .values({ stepId: input.stepId, userId: input.userId })
+    .values({
+      stepId: input.stepId,
+      userId: input.userId,
+      outcome: input.outcome ?? "completed"
+    })
     .onConflictDoNothing()
     .returning({
       id: surveyStepCompletionsTable.id,
+      outcome: surveyStepCompletionsTable.outcome,
       completedAt: surveyStepCompletionsTable.completedAt
     })
   return row ?? null

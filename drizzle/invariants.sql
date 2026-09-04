@@ -1036,6 +1036,28 @@ BEGIN
       RAISE EXCEPTION 'revision step is not a define step on the term of its definition, or the revision is not the first';
     END IF;
 
+    -- Migration 0053 repeats the immutable first revision's study-creation
+    -- context on the stable definition. The duplicate is intentional: a
+    -- partial unique index cannot inspect the revision table when deciding
+    -- whether an independent study proposal is an ordinary original. Keep the
+    -- two values exact so the index exemption cannot drift from provenance.
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'definitions'
+        AND column_name = 'creationSurveyStepId'
+    ) THEN
+      IF EXISTS (
+        SELECT 1
+        FROM "definitions" d
+        JOIN "definitionRevisions" r
+          ON r."definitionId" = d.id AND r.version = 1
+        WHERE d."creationSurveyStepId" IS DISTINCT FROM r."surveyStepId"
+      ) THEN
+        RAISE EXCEPTION 'definition creation step differs from its first revision step';
+      END IF;
+    END IF;
+
     -- The explicit Position target (migration 0051) names one exact revision
     -- of a candidate for the term of a define step. Shape-detected separately
     -- so this invariant file still runs against a pre-0051 restore.
@@ -1102,6 +1124,89 @@ BEGIN
             OR r."createdAt" > p."recordedAt")
       ) THEN
         RAISE EXCEPTION 'proposed survey position is not its participant initial revision in the step';
+      END IF;
+    END IF;
+
+    -- Migration 0054 makes a participant's no-opinion choice explicit on the
+    -- completion itself. Shape-detect the column so this file still verifies
+    -- a restore taken before that migration.
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'surveyStepCompletions'
+        AND column_name = 'outcome'
+    ) THEN
+      -- Only the term-bearing Position and Review steps may be skipped.
+      IF EXISTS (
+        SELECT 1
+        FROM "surveyStepCompletions" c
+        JOIN "surveySteps" s ON s.id = c."stepId"
+        WHERE c.outcome = 'skipped'
+          AND s.kind NOT IN ('define', 'review')
+      ) THEN
+        RAISE EXCEPTION 'skipped completion is not a Position or Review step';
+      END IF;
+
+      -- Skip is one term-level decision. Its Position and Review rows are
+      -- recorded for the same person in the same transaction and therefore
+      -- share PostgreSQL transaction now().
+      IF EXISTS (
+        SELECT 1
+        FROM "surveyStepCompletions" c
+        JOIN "surveySteps" s ON s.id = c."stepId"
+        WHERE c.outcome = 'skipped'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM "surveyStepCompletions" paired
+            JOIN "surveySteps" paired_step ON paired_step.id = paired."stepId"
+            WHERE paired."userId" = c."userId"
+              AND paired.outcome = 'skipped'
+              AND paired."completedAt" = c."completedAt"
+              AND paired_step."studyId" = s."studyId"
+              AND paired_step."termId" = s."termId"
+              AND paired_step.kind = CASE
+                WHEN s.kind = 'define' THEN 'review'::survey_step_kind
+                ELSE 'define'::survey_step_kind
+              END
+          )
+      ) THEN
+        RAISE EXCEPTION 'term skip does not pair its Position and Review completions';
+      END IF;
+
+      -- A skipped step is a no-opinion record, never a vocabulary act.
+      IF EXISTS (
+        SELECT 1
+        FROM "surveyStepCompletions" c
+        WHERE c.outcome = 'skipped'
+          AND (
+            EXISTS (
+              SELECT 1 FROM "voteEvents" e
+              WHERE e."surveyStepId" = c."stepId" AND e."userId" = c."userId"
+            )
+            OR EXISTS (
+              SELECT 1 FROM "definitionRevisions" r
+              WHERE r."surveyStepId" = c."stepId" AND r."editorId" = c."userId"
+            )
+            OR EXISTS (
+              SELECT 1 FROM "comments" comment_row
+              WHERE comment_row."surveyStepId" = c."stepId"
+                AND comment_row."userId" = c."userId"
+            )
+          )
+      ) THEN
+        RAISE EXCEPTION 'skipped completion has a vote, revision or comment act';
+      END IF;
+
+      -- Conversely, an exact Position target always belongs to an ordinary
+      -- completion, never to a skip.
+      IF EXISTS (
+        SELECT 1
+        FROM "surveyStepPositions" p
+        JOIN "surveyStepCompletions" c
+          ON c."stepId" = p."stepId" AND c."userId" = p."userId"
+        WHERE c.outcome <> 'completed'
+      ) THEN
+        RAISE EXCEPTION 'survey position belongs to a skipped completion';
       END IF;
     END IF;
 

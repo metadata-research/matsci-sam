@@ -39,7 +39,7 @@ export const positionAcceptanceExplanation = (
   vote: "up" | "down" | null | undefined
 ) =>
   vote === "up"
-    ? "You already upvoted this candidate. Accept will use that vote as your position."
+    ? "You already upvoted this definition. Accept will use that vote as your position."
     : vote === "down"
-      ? "You previously downvoted this candidate. Accept will change it to an upvote."
-      : "Accepting records the candidate as your position and adds your upvote."
+      ? "You previously downvoted this definition. Accept will change it to an upvote."
+      : "Accepting records this definition as your position and adds your upvote."

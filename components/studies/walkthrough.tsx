@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { trpc } from "@/trpc/client"
@@ -12,9 +12,22 @@ import { RevisionSuggestionForm } from "@/components/definition/revision-suggest
 import { TermComments } from "@/components/term/comments"
 import { TermCommentBox } from "@/components/term/comment-box"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { CompletedStudySummary } from "@/components/studies/completed-study-summary"
+import { StudyInstructionContent } from "@/components/studies/instruction-content"
 import { cn } from "@/lib/utils"
 import { SURVEY_RESPONSE_MAX_LENGTH } from "@/lib/input-limits"
 import { collectionPath, studyPath } from "@/lib/public-identifiers"
@@ -35,12 +48,13 @@ import {
  * Each is given the step, so what it writes names the step it was written
  * in, and the router decides whether the step is done.
  *
- * A define step is labelled Position and shows the candidates of the term,
- * the draft first, and three explicit moves. Accepting atomically retains the
- * selected candidate, preserves or adds its upvote, and completes the step;
- * suggesting a revision opens the form with a candidate's text and names its
- * revision as the source; proposing a replacement opens the form empty. A
- * review step compares the candidates where there is more than one.
+ * A define step is labelled Position and shows one set of definitions from
+ * earlier work, with the model-authored definition first when there is one.
+ * Accepting atomically retains the selected definition, preserves or adds its
+ * upvote, and completes the step; suggesting a revision names the exact source
+ * revision; proposing a new definition is a term-level alternative when none
+ * of the earlier definitions is close. A review step compares the definitions
+ * where there is more than one.
  *
  * A completed step stays readable from the dots, without its controls: its
  * completion stands. A step is reachable once the step before it is
@@ -57,17 +71,6 @@ const KIND_LABEL: Record<Step["kind"], string> = {
   review: "Review",
   question: "Question"
 }
-
-// Instructions are plain text, split on blank lines.
-const Paragraphs = ({ text }: { text: string }) => (
-  <>
-    {text.split(/\n\s*\n/).map((paragraph, index) => (
-      <p key={index} className="whitespace-pre-line">
-        {paragraph}
-      </p>
-    ))}
-  </>
-)
 
 const Dots = ({
   steps,
@@ -90,7 +93,11 @@ const Dots = ({
         `Step ${step.position}`,
         KIND_LABEL[step.kind],
         step.term,
-        step.completed ? "done" : null
+        step.completionOutcome === "skipped"
+          ? "skipped"
+          : step.completed
+            ? "done"
+            : null
       ]
         .filter(Boolean)
         .join(", ")
@@ -105,14 +112,20 @@ const Dots = ({
             disabled={!open || navigationLocked}
             onClick={() => onSelect(step.position)}
             className={cn(
-              "block size-3.5 rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-30",
-              step.completed
-                ? "border-primary bg-primary"
-                : "border-muted-foreground/60 bg-background",
+              "flex size-3.5 items-center justify-center rounded-full border text-[11px] font-bold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-30",
+              step.completionOutcome === "skipped"
+                ? "border-primary bg-background text-primary"
+                : step.completed
+                  ? "border-primary bg-primary"
+                  : "border-muted-foreground/60 bg-background",
               open && !step.completed && "hover:border-primary",
               current && "ring-2 ring-ring ring-offset-2 ring-offset-background"
             )}
-          />
+          >
+            {step.completionOutcome === "skipped" && (
+              <span aria-hidden="true">−</span>
+            )}
+          </button>
         </li>
       )
     })}
@@ -129,7 +142,7 @@ const Instructions = ({
   onContinue: () => void
 }) => (
   <div className="space-y-4">
-    {step.prompt && <Paragraphs text={step.prompt} />}
+    {step.prompt && <StudyInstructionContent text={step.prompt} />}
     <Button onClick={onContinue} disabled={pending}>
       Continue
     </Button>
@@ -166,7 +179,7 @@ const orderCandidates = (definitions: Candidate[]) => {
  * a different standing vote. Support remains visible as noninteractive
  * context, while voting itself belongs to Review.
  */
-const HeldPosition = ({ step }: { step: Step }) => {
+const PositionTarget = ({ step }: { step: Step }) => {
   const [definitions] = trpc.definitions.list.useSuspenseQuery({
     termId: step.termId!
   })
@@ -180,8 +193,8 @@ const HeldPosition = ({ step }: { step: Step }) => {
     return (
       <p className="text-sm text-muted-foreground">
         {step.held
-          ? "The candidate you took a position on is no longer in the vocabulary."
-          : "Your position is recorded, but this earlier completion does not identify the candidate."}
+          ? "The definition you took a position on is no longer in the vocabulary."
+          : "Your position is recorded, but this earlier completion does not identify the definition."}
       </p>
     )
 
@@ -189,8 +202,8 @@ const HeldPosition = ({ step }: { step: Step }) => {
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
         {step.held?.kind === "proposed"
-          ? "You proposed this candidate. Voting is available in the Review step."
-          : "You accepted this candidate. Voting is available in the Review step."}
+          ? "You proposed this definition. You can compare and vote on all definitions in the Review step."
+          : "You accepted this definition as written. You can compare and vote on all definitions in the Review step."}
       </p>
       <Definition
         definition={{
@@ -199,27 +212,38 @@ const HeldPosition = ({ step }: { step: Step }) => {
           termVocabularySlug: step.termVocabularySlug!
         }}
         voteDisplay="summary"
+        showStatus={false}
       />
     </div>
   )
 }
 
+const HeldPosition = ({ step }: { step: Step }) =>
+  step.completionOutcome === "skipped" ? (
+    <p className="text-sm text-muted-foreground">
+      Skipped this term. No position was recorded.
+    </p>
+  ) : (
+    <PositionTarget step={step} />
+  )
+
 type Move =
   | { kind: "choose" }
   | { kind: "revise"; candidate: Candidate }
-  | { kind: "replace"; candidate: Candidate }
+  | { kind: "propose" }
 
 /*
- * The candidates of the term and the three moves. Accepting records the exact
- * candidate and its upvote. A suggested revision and a proposed replacement
- * publish separate candidates through the shared definition form, which
- * records the completion with the definition.
+ * The definitions of the term and the three moves. Accepting records the exact
+ * definition and its upvote. A suggested revision names one definition as its
+ * source; a new proposal belongs to the term as a whole. Both publish separate
+ * definitions and record the completion in the same transaction.
  */
 const Candidates = ({
   step,
   expectedInstructions,
   pending,
   onAccepted,
+  onSkip,
   onPublished,
   onFailed,
   onMutationStart,
@@ -229,6 +253,7 @@ const Candidates = ({
   expectedInstructions: string | null
   pending: boolean
   onAccepted: (nextPosition: number | null) => void
+  onSkip: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
   onFailed: () => void
 } & MutationActivityCallbacks) => {
@@ -236,8 +261,27 @@ const Candidates = ({
   const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
   const candidates = orderCandidates(definitions)
   const [move, setMove] = useState<Move>({ kind: "choose" })
+  const moveHeadingRef = useRef<HTMLHeadingElement>(null)
+  const returnFocusIdRef = useRef<string | null>(null)
   const utils = trpc.useUtils()
   const activity = useMutationActivity({ onMutationStart, onMutationEnd })
+
+  useEffect(() => {
+    if (move.kind !== "choose") moveHeadingRef.current?.focus()
+  }, [move.kind])
+
+  const openMove = (next: Move, trigger: HTMLButtonElement) => {
+    returnFocusIdRef.current = trigger.id
+    setMove(next)
+  }
+
+  const closeMove = () => {
+    setMove({ kind: "choose" })
+    window.requestAnimationFrame(() => {
+      if (returnFocusIdRef.current)
+        document.getElementById(returnFocusIdRef.current)?.focus()
+    })
+  }
 
   const accept = trpc.surveys.acceptPosition.useMutation({
     onSuccess: ({ nextPosition }, { definitionId, revisionId }) => {
@@ -268,143 +312,247 @@ const Candidates = ({
     })
   }
 
-  if (move.kind !== "choose") {
+  if (move.kind === "revise") {
     const candidate = move.candidate
     return (
       <div className="space-y-4">
-        {move.kind === "revise" ? (
-          <>
-            <DefinitionReference definition={candidate} />
-            <p className="text-sm text-muted-foreground">
-              If this candidate works as written, accept it below.{" "}
-              {positionAcceptanceExplanation(candidate.vote)} You can add a
-              public comment when you review this term.
-            </p>
-            <RevisionSuggestionForm
-              term={step.term!}
-              definitionId={candidate.id}
-              sourceRevisionId={candidate.revisionId}
-              surveyStepId={step.id}
-              expectedInstructions={expectedInstructions}
-              renderInitialActions={(formBusy) => (
-                <>
-                  <Button
-                    type="button"
-                    disabled={busy || formBusy}
-                    onClick={() => acceptCandidate(candidate)}
-                  >
-                    Accept this candidate
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={busy || formBusy}
-                    onClick={() => setMove({ kind: "choose" })}
-                  >
-                    Back to the candidates
-                  </Button>
-                </>
-              )}
-              onPublished={onPublished}
-              onMutationStart={activity.start}
-              onMutationEnd={activity.end}
-            />
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Proposing a replacement creates a separate candidate for this
-              term. Existing candidates remain available for comparison and
-              voting.
-            </p>
-            <DefinitionForm
-              lockedTerm={step.term!}
-              surveyStepId={step.id}
-              expectedInstructions={expectedInstructions}
-              replacesDefinitionId={candidate.id}
-              onPublished={onPublished}
-              onMutationStart={activity.start}
-              onMutationEnd={activity.end}
-            />
-          </>
-        )}
-        {move.kind === "replace" ? (
-          <Button
-            variant="ghost"
-            onClick={() => setMove({ kind: "choose" })}
-            disabled={busy}
-          >
-            Back to the candidates
-          </Button>
-        ) : null}
+        <h2 ref={moveHeadingRef} tabIndex={-1} className="sr-only">
+          Suggest a revision
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Edit the closest definition so it says what you mean. Your revision
+          will be added as a separate option; the original remains available.
+        </p>
+        <DefinitionReference
+          definition={candidate}
+          label="Definition you are revising"
+        />
+        <p className="text-sm text-muted-foreground">
+          If this definition works as written, accept it below.{" "}
+          {positionAcceptanceExplanation(candidate.vote)} You can add a public
+          comment when you review this term.
+        </p>
+        <RevisionSuggestionForm
+          term={step.term!}
+          definitionId={candidate.id}
+          sourceRevisionId={candidate.revisionId}
+          surveyStepId={step.id}
+          expectedInstructions={expectedInstructions}
+          renderInitialActions={(formBusy) => (
+            <>
+              <Button
+                type="button"
+                disabled={busy || formBusy}
+                onClick={() => acceptCandidate(candidate)}
+              >
+                Accept as written
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy || formBusy}
+                onClick={closeMove}
+              >
+                Back to earlier definitions
+              </Button>
+            </>
+          )}
+          onPublished={onPublished}
+          onMutationStart={activity.start}
+          onMutationEnd={activity.end}
+        />
       </div>
     )
   }
 
-  const draftFirst = candidates.length > 0 && isDraft(candidates[0])
+  if (move.kind === "propose")
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h2
+            ref={moveHeadingRef}
+            tabIndex={-1}
+            className="text-xl font-semibold outline-none"
+          >
+            Propose a new definition
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Write the definition you think is right for this term. Existing
+            definitions remain unchanged.
+          </p>
+        </div>
+        <DefinitionForm
+          lockedTerm={step.term!}
+          surveyStepId={step.id}
+          expectedInstructions={expectedInstructions}
+          onPublished={onPublished}
+          onMutationStart={activity.start}
+          onMutationEnd={activity.end}
+        />
+        <Button variant="ghost" onClick={closeMove} disabled={busy}>
+          Back to earlier definitions
+        </Button>
+      </div>
+    )
 
   return (
     <div className="space-y-6">
-      {candidates.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          This term has no candidate yet.
-        </p>
-      )}
-      {candidates.map((candidate, index) => {
-        return (
-          <div key={candidate.id} className="space-y-3">
-            {index === 0 && (
-              <Eyebrow>{draftFirst ? "Draft" : "Candidates"}</Eyebrow>
-            )}
-            {index === 1 && draftFirst && <Eyebrow>Proposed so far</Eyebrow>}
-            <Definition
-              definition={{
-                ...candidate,
-                termSlug: step.termSlug!,
-                termVocabularySlug: step.termVocabularySlug!
-              }}
-              voteDisplay="summary"
-            />
-            <div className="space-y-3 pl-4 sm:pl-8">
-              <Suspense fallback={<Skeleton className="h-16 w-full" />}>
-                <TermComments
-                  id={candidate.id}
-                  definitionNumber={candidate.definitionNumber}
-                  readOnly
-                />
-              </Suspense>
-              <p className="text-sm text-muted-foreground">
-                {positionAcceptanceExplanation(candidate.vote)}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => acceptCandidate(candidate)}
-                >
-                  Accept
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => setMove({ kind: "revise", candidate })}
-                >
-                  Suggest a revision
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => setMove({ kind: "replace", candidate })}
-                >
-                  Propose a replacement
-                </Button>
-              </div>
-            </div>
+      <section aria-labelledby="skip-term-heading">
+        <Card className="gap-4 bg-muted/20 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 id="skip-term-heading" className="font-semibold">
+              Don’t know this term well enough to choose?
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              You can record no opinion and move to the next term.
+            </p>
           </div>
-        )
-      })}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                className="w-full sm:w-auto"
+              >
+                Skip this term
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Skip {step.term}?</DialogTitle>
+                <DialogDescription>
+                  You won’t be asked to choose or review a definition for this
+                  term.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline" disabled={busy}>
+                    Go back
+                  </Button>
+                </DialogClose>
+                <Button type="button" disabled={busy} onClick={onSkip}>
+                  Skip this term
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </Card>
+      </section>
+      <section className="space-y-5" aria-labelledby="earlier-definitions">
+        <div className="space-y-1">
+          <h2 id="earlier-definitions" className="text-xl font-semibold">
+            Definitions from earlier work
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            This includes definitions already in the vocabulary and definitions
+            proposed by earlier participants.
+          </p>
+        </div>
+        {candidates.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            This term has no earlier definition yet.
+          </p>
+        )}
+        <ol className="space-y-6">
+          {candidates.map((candidate, index) => (
+            <li key={candidate.id}>
+              <article
+                className="space-y-3"
+                aria-labelledby={`position-definition-${candidate.id}`}
+              >
+                <h3
+                  id={`position-definition-${candidate.id}`}
+                  className="sr-only"
+                >
+                  Option {index + 1} of {candidates.length}
+                </h3>
+                <Definition
+                  definition={{
+                    ...candidate,
+                    termSlug: step.termSlug!,
+                    termVocabularySlug: step.termVocabularySlug!
+                  }}
+                  voteDisplay="summary"
+                  showStatus={false}
+                >
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Option {index + 1} of {candidates.length}
+                  </p>
+                </Definition>
+                <div className="space-y-3 pl-4 sm:pl-8">
+                  {(candidate.comments ?? 0) > 0 && (
+                    <div className="space-y-2">
+                      <Eyebrow>Earlier comments</Eyebrow>
+                      <Suspense fallback={<Skeleton className="h-16 w-full" />}>
+                        <TermComments
+                          id={candidate.id}
+                          definitionNumber={candidate.definitionNumber}
+                          readOnly
+                        />
+                      </Suspense>
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {positionAcceptanceExplanation(candidate.vote)}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => acceptCandidate(candidate)}
+                      aria-label={`Accept option ${index + 1} as written`}
+                    >
+                      Accept as written
+                    </Button>
+                    <Button
+                      id={`revise-definition-${candidate.id}`}
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={(event) =>
+                        openMove(
+                          { kind: "revise", candidate },
+                          event.currentTarget
+                        )
+                      }
+                      aria-label={`Suggest a revision to option ${index + 1}`}
+                    >
+                      Suggest a revision
+                    </Button>
+                  </div>
+                </div>
+              </article>
+            </li>
+          ))}
+        </ol>
+      </section>
+      <Separator />
+      <section aria-labelledby="new-definition-alternative">
+        <Card className="gap-4 bg-muted/30 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 id="new-definition-alternative" className="font-semibold">
+              None is close enough?
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Write the definition you would use instead. It will be added as a
+              new option for this term.
+            </p>
+          </div>
+          <Button
+            id="propose-new-definition"
+            variant="outline"
+            disabled={busy}
+            className="w-full sm:w-auto"
+            onClick={(event) =>
+              openMove({ kind: "propose" }, event.currentTarget)
+            }
+          >
+            Propose a new definition
+          </Button>
+        </Card>
+      </section>
     </div>
   )
 }
@@ -421,6 +569,7 @@ const Position = ({
   expectedInstructions,
   pending,
   onAccepted,
+  onSkip,
   onPublished,
   onFailed,
   onContinue,
@@ -431,6 +580,7 @@ const Position = ({
   expectedInstructions: string | null
   pending: boolean
   onAccepted: (nextPosition: number | null) => void
+  onSkip: () => void
   onPublished: (published: RouterOutput["definitions"]["create"]) => void
   onFailed: () => void
   onContinue: () => void
@@ -438,8 +588,15 @@ const Position = ({
   const settled = step.completed || step.held !== null
   return (
     <div className="space-y-6">
-      {step.prompt && !settled && (
-        <p className="text-muted-foreground">{step.prompt}</p>
+      {!settled && (
+        <Card className="gap-1 bg-muted/30 p-4 shadow-none">
+          <h2 className="font-semibold">Choose the closest definition</h2>
+          <p className="text-sm text-muted-foreground">
+            Choose the definition closest to what you think is right. Accept it
+            as written, or suggest a revision so it says what you mean. If none
+            is close enough, propose a new definition.
+          </p>
+        </Card>
       )}
       <Suspense fallback={<Skeleton className="h-32 w-full" />}>
         {settled ? (
@@ -450,6 +607,7 @@ const Position = ({
             expectedInstructions={expectedInstructions}
             pending={pending}
             onAccepted={onAccepted}
+            onSkip={onSkip}
             onPublished={onPublished}
             onFailed={onFailed}
             onMutationStart={onMutationStart}
@@ -499,7 +657,7 @@ const ReviewList = ({
         {definitions.length === 1 ? (
           <>
             <p className="text-muted-foreground">
-              This term has one candidate, so there is nothing to compare. It
+              This term has one definition, so there is nothing to compare. It
               stands with the support it has.
             </p>
             <Definition
@@ -509,12 +667,12 @@ const ReviewList = ({
                 termVocabularySlug: step.termVocabularySlug!
               }}
               voteReadOnly
-              voteReadOnlyTitle="The only candidate is not compared"
+              voteReadOnlyTitle="The only definition is not compared"
             />
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
-            This term has no candidate to review.
+            This term has no definition to review.
           </p>
         )}
         <Button onClick={onDone} disabled={pending}>
@@ -586,19 +744,29 @@ const Review = ({
   expectedInstructions: string | null
   pending: boolean
   onDone: () => void
-} & MutationActivityCallbacks) => (
-  <Suspense fallback={<Skeleton className="h-32 w-full" />}>
-    <ReviewList
-      step={step}
-      expectedInstructions={expectedInstructions}
-      readOnly={step.completed}
-      pending={pending}
-      onDone={onDone}
-      onMutationStart={onMutationStart}
-      onMutationEnd={onMutationEnd}
-    />
-  </Suspense>
-)
+} & MutationActivityCallbacks) =>
+  step.completionOutcome === "skipped" ? (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Skipped with this term. No vote or comment was recorded.
+      </p>
+      <Button onClick={onDone} disabled={pending}>
+        Continue
+      </Button>
+    </div>
+  ) : (
+    <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+      <ReviewList
+        step={step}
+        expectedInstructions={expectedInstructions}
+        readOnly={step.completed}
+        pending={pending}
+        onDone={onDone}
+        onMutationStart={onMutationStart}
+        onMutationEnd={onMutationEnd}
+      />
+    </Suspense>
+  )
 
 const SCALE = [1, 2, 3, 4, 5] as const
 
@@ -786,6 +954,15 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
     onSettled: interaction.end
   })
 
+  const skip = trpc.surveys.skipTerm.useMutation({
+    onSuccess: ({ nextPosition }) => advance(nextPosition),
+    onError: (error) => {
+      toast.error(error.message)
+      reread()
+    },
+    onSettled: interaction.end
+  })
+
   // A completed step is pressed through without a second completion.
   const press = (step: Step) => {
     if (step.completed) show(step.position + 1)
@@ -808,7 +985,8 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
   const reachable = (at: number) => at === 1 || steps[at - 2].completed
 
   const step: Step | undefined = steps[position - 1]
-  const navigationLocked = complete.isPending || interaction.busy
+  const navigationLocked =
+    complete.isPending || skip.isPending || interaction.busy
 
   return (
     <main className="px-4 py-8">
@@ -875,6 +1053,10 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
                 onAccepted={(nextPosition) => {
                   prefetchNext(step)
                   advance(nextPosition)
+                }}
+                onSkip={() => {
+                  interaction.start()
+                  skip.mutate({ stepId: step.id, expectedInstructions })
                 }}
                 onPublished={(published) => {
                   utils.definitions.list.invalidate({ termId: step.termId! })

@@ -120,7 +120,11 @@ export default async function CommunityPage({
   const onWorklist = new Set(worklist.map((row) => row.id))
   // A collection a live study is running against is shown under that study, so
   // it is not repeated here under a second heading.
-  const loose = worklist.filter((row) => row.studySlug === null)
+  // Keep retired worklist rows visible to stewards so they can remove the
+  // stale link. Participants see only collections they can still use.
+  const loose = worklist.filter(
+    (row) => row.studySlug === null && (runs || row.retiredAt === null)
+  )
   const vocabularyCountsByCollection = new Map<
     number,
     CommunityCollectionVocabularyCount[]
@@ -287,78 +291,81 @@ export default async function CommunityPage({
           )}
         </section>
 
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-xl font-semibold">Other terms in view</h2>
-            {runs && (
-              <span className="flex flex-wrap gap-2">
-                <AddCollection
-                  communityId={community.id}
-                  collections={allCollections.filter(
-                    (collection) => !onWorklist.has(collection.id)
-                  )}
-                />
-                <CreateWorklistCollection communityId={community.id} />
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Worklist collections that no study is currently using. They may
-            contain local terms or references to other vocabularies.
-          </p>
-          {loose.length === 0 ? (
+        {(runs || loose.length > 0) && (
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xl font-semibold">Additional collections</h2>
+              {runs && (
+                <span className="flex flex-wrap gap-2">
+                  <AddCollection
+                    communityId={community.id}
+                    collections={allCollections.filter(
+                      (collection) =>
+                        collection.retiredAt === null &&
+                        !onWorklist.has(collection.id)
+                    )}
+                  />
+                  <CreateWorklistCollection communityId={community.id} />
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
-              {studies.length > 0
-                ? "Nothing else. Members see the study terms above."
-                : runs
-                  ? "Nothing yet. Add a collection, or start a study, to give these people something to work through."
-                  : "Nothing yet."}
+              Collections available to this community that are not part of one
+              of the studies above. They may include terms from this community
+              or references to terms in other vocabularies.
             </p>
-          ) : (
-            <ul className="space-y-2">
-              {loose.map((collection) => (
-                <li
-                  key={collection.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border p-3"
-                >
-                  <div className="min-w-0 space-y-1">
-                    {/* A sibling of the controls, never wrapped around them. */}
-                    <Link
-                      href={collectionPath(collection.slug)}
-                      className="text-primary"
-                    >
-                      {collection.title}
-                    </Link>
-                    <span className="block text-xs text-muted-foreground">
-                      {collection.terms}{" "}
-                      {collection.terms === 1 ? "term" : "terms"}
-                    </span>
-                    <VocabularyReferenceSummary
-                      rows={
-                        vocabularyCountsByCollection.get(collection.id) ?? []
-                      }
-                      localVocabularySlug={community.vocabularySlug}
-                    />
-                  </div>
-                  <span className="flex items-center gap-2">
-                    {collection.retiredAt && (
-                      <span className="text-xs text-muted-foreground">
-                        retired
+            {loose.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {studies.length > 0
+                  ? "No additional collections. The study terms are listed above."
+                  : "Nothing yet. Add a collection, or start a study, to give these people something to work through."}
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {loose.map((collection) => (
+                  <li
+                    key={collection.id}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border p-3"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      {/* A sibling of the controls, never wrapped around them. */}
+                      <Link
+                        href={collectionPath(collection.slug)}
+                        className="text-primary"
+                      >
+                        {collection.title}
+                      </Link>
+                      <span className="block text-xs text-muted-foreground">
+                        {collection.terms}{" "}
+                        {collection.terms === 1 ? "term" : "terms"}
                       </span>
-                    )}
-                    {runs && (
-                      <RemoveCollection
-                        communityId={community.id}
-                        collectionId={collection.id}
-                        title={collection.title}
+                      <VocabularyReferenceSummary
+                        rows={
+                          vocabularyCountsByCollection.get(collection.id) ?? []
+                        }
+                        localVocabularySlug={community.vocabularySlug}
                       />
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                    </div>
+                    <span className="flex items-center gap-2">
+                      {collection.retiredAt && (
+                        <span className="text-xs text-muted-foreground">
+                          retired
+                        </span>
+                      )}
+                      {runs && (
+                        <RemoveCollection
+                          communityId={community.id}
+                          collectionId={collection.id}
+                          title={collection.title}
+                        />
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">

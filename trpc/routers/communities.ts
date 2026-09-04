@@ -657,6 +657,7 @@ export const communitiesRouter = createTRPCRouter({
           await sendCommunityInvitation({
             email,
             token,
+            communitySlug: community.slug,
             communityTitle: community.title,
             studyTitle
           })
@@ -758,6 +759,7 @@ export const communitiesRouter = createTRPCRouter({
         await sendCommunityInvitation({
           email: invitation.email,
           token,
+          communitySlug: community.slug,
           communityTitle: community.title,
           studyTitle: invitation.studyId
             ? (await requireStudy(invitation.studyId)).title
@@ -1117,14 +1119,12 @@ export const communitiesRouter = createTRPCRouter({
           .values({ communityId, userId, addedById: userId })
           .onConflictDoNothing()
 
-        // Someone who has never chosen a scope starts working in the community
-        // they just joined. A person who already has a scope keeps it.
-        const [switched] = await tx
+        // Accepting an invitation is an explicit move into this community, so
+        // make it the person's selected scope as well as opening its page.
+        const [selected] = await tx
           .update(usersTable)
           .set({ activeCommunityId: communityId })
-          .where(
-            and(eq(usersTable.id, userId), isNull(usersTable.activeCommunityId))
-          )
+          .where(eq(usersTable.id, userId))
           .returning({ id: usersTable.id })
 
         if (invitation)
@@ -1137,7 +1137,7 @@ export const communitiesRouter = createTRPCRouter({
           community,
           studySlug,
           alreadyIn: false,
-          nowWorkingIn: switched ? community.title : null
+          nowWorkingIn: selected ? community.title : null
         }
       })
 

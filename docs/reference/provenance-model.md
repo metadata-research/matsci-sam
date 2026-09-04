@@ -112,9 +112,10 @@ account. The hash node is not a resolvable profile IRI.
 
 A definition proposed in a walkthrough through **Suggest a revision** records
 the revision it started from, and its first revision states that derivation
-with `prov:wasDerivedFrom`. A **Propose a replacement** contribution records
-the stable candidate it is intended to supersede. The study step is recorded
-on the act in either case.
+with `prov:wasDerivedFrom`. A Position-step **Propose a new definition**
+contribution records the study step without a derivation or replacement target.
+Outside that flow, a **Propose a replacement** contribution records the stable
+definition it is intended to supersede.
 
 The dataset graph identifies a model as a `prov:SoftwareAgent` with a
 resolvable `/models/{slug}` IRI. Assertions, votes, and revisions produced by

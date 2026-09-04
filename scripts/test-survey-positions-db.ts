@@ -1,10 +1,8 @@
 /*
  * Exercise survey position recording against a migrated throwaway database:
- * a retried identical Accept converges instead of conflicting, a different
- * target stays a real conflict, and a position recorded behind a pre-existing
- * targetless completion — the state an administrative definition purge leaves
- * — carries a recordedAt its accepting vote event precedes, as the
- * invariants require. The fixture is committed and removed in finally.
+ * Accept is idempotent and retains its exact target, while Skip this term
+ * records the Position and Review outcomes together without creating a
+ * vocabulary act. The fixture is committed and removed in finally.
  */
 
 import assert from "node:assert/strict"
@@ -21,9 +19,11 @@ const main = async () => {
 
   const {
     collectionsTable,
+    commentsTable,
     communitiesTable,
     communityMembersTable,
     db,
+    definitionRevisionsTable,
     definitionsTable,
     studiesTable,
     surveyStepCompletionsTable,
@@ -40,7 +40,9 @@ const main = async () => {
   const { acceptPositionCandidate } = await import("../lib/survey-positions")
   const { deleteDefinitionRows } = await import("../lib/definition-purge")
   const { lockStudy } = await import("../lib/survey-queries")
+  const { commentsRouter } = await import("../trpc/routers/comments")
   const { surveysRouter } = await import("../trpc/routers/surveys")
+  const { votesRouter } = await import("../trpc/routers/votes")
   const { createCallerFactory } = await import("../trpc/init")
 
   const day = 24 * 60 * 60 * 1000
@@ -52,9 +54,13 @@ const main = async () => {
         communityId: number
         collectionId: number
         termId: number
+        skippedTermId: number
         studyId: number
         instructionsStepId: number
         defineStepId: number
+        reviewStepId: number
+        skippedDefineStepId: number
+        skippedReviewStepId: number
         definitionIds: number[]
       }
     | undefined
@@ -103,13 +109,20 @@ const main = async () => {
         })
         .returning({ id: collectionsTable.id })
 
-      const [term] = await tx
+      const [term, skippedTerm] = await tx
         .insert(termsTable)
-        .values({
-          vocabularySlug,
-          term: `survey position test term ${STAMP}`,
-          slug: `survey_position_test_term_${STAMP}`
-        })
+        .values([
+          {
+            vocabularySlug,
+            term: `survey position test term ${STAMP}`,
+            slug: `survey_position_test_term_${STAMP}`
+          },
+          {
+            vocabularySlug,
+            term: `survey skipped term ${STAMP}`,
+            slug: `survey_skipped_term_${STAMP}`
+          }
+        ])
         .returning({ id: termsTable.id })
 
       const [study] = await tx
@@ -125,7 +138,13 @@ const main = async () => {
         })
         .returning({ id: studiesTable.id })
 
-      const [instructionsStep, defineStep] = await tx
+      const [
+        instructionsStep,
+        defineStep,
+        skippedDefineStep,
+        reviewStep,
+        skippedReviewStep
+      ] = await tx
         .insert(surveyStepsTable)
         .values([
           {
@@ -140,6 +159,27 @@ const main = async () => {
             kind: "define",
             termId: term.id,
             prompt: `Take a position on the test term ${STAMP}.`
+          },
+          {
+            studyId: study.id,
+            position: 3,
+            kind: "define",
+            termId: skippedTerm.id,
+            prompt: `Take a position or skip the second test term ${STAMP}.`
+          },
+          {
+            studyId: study.id,
+            position: 4,
+            kind: "review",
+            termId: term.id,
+            prompt: `Review the test term ${STAMP}.`
+          },
+          {
+            studyId: study.id,
+            position: 5,
+            kind: "review",
+            termId: skippedTerm.id,
+            prompt: `Review the second test term ${STAMP}.`
           }
         ])
         .returning({ id: surveyStepsTable.id })
@@ -160,6 +200,14 @@ const main = async () => {
         changeNote: "survey position fixture",
         source: "initial"
       })
+      const skippedCandidate = await createDefinitionWithInitialRevision(tx, {
+        termId: skippedTerm.id,
+        authorId: author.id,
+        definition: "The candidate that must remain unchanged when skipped.",
+        example: "",
+        changeNote: "survey skip fixture",
+        source: "initial"
+      })
 
       return {
         participantId: participant.id,
@@ -168,15 +216,24 @@ const main = async () => {
         communityId: community.id,
         collectionId: collection.id,
         termId: term.id,
+        skippedTermId: skippedTerm.id,
         studyId: study.id,
         instructionsStepId: instructionsStep.id,
         defineStepId: defineStep.id,
-        definitionIds: [first.definition.id, second.definition.id]
+        reviewStepId: reviewStep.id,
+        skippedDefineStepId: skippedDefineStep.id,
+        skippedReviewStepId: skippedReviewStep.id,
+        definitionIds: [
+          first.definition.id,
+          second.definition.id,
+          skippedCandidate.definition.id
+        ]
       }
     })
 
     const committed = fixture
-    const [firstDefinitionId, secondDefinitionId] = committed.definitionIds
+    const [firstDefinitionId, secondDefinitionId, skippedDefinitionId] =
+      committed.definitionIds
     const currentRevisionIdOf = async (definitionId: number) => {
       const definition = await db.query.definitionsTable.findFirst({
         columns: { currentRevisionId: true },
@@ -189,10 +246,21 @@ const main = async () => {
 
     // The context a signed-in request carries: baseProcedure reads only the
     // session id from it.
-    const callerFor = createCallerFactory(surveysRouter)
-    const caller = callerFor({
+    const callerContext = {
       session: { id: committed.participantId }
-    } as unknown as Parameters<typeof callerFor>[0])
+    }
+    const callerFor = createCallerFactory(surveysRouter)
+    const caller = callerFor(
+      callerContext as unknown as Parameters<typeof callerFor>[0]
+    )
+    const voteCallerFor = createCallerFactory(votesRouter)
+    const voteCaller = voteCallerFor(
+      callerContext as unknown as Parameters<typeof voteCallerFor>[0]
+    )
+    const commentCallerFor = createCallerFactory(commentsRouter)
+    const commentCaller = commentCallerFor(
+      callerContext as unknown as Parameters<typeof commentCallerFor>[0]
+    )
 
     // --- A retried identical Accept converges. ---
 
@@ -350,10 +418,7 @@ const main = async () => {
             surveyStepCompletionsTable.stepId,
             surveyStepPositionsTable.stepId
           ),
-          eq(
-            surveyStepCompletionsTable.userId,
-            surveyStepPositionsTable.userId
-          )
+          eq(surveyStepCompletionsTable.userId, surveyStepPositionsTable.userId)
         )
       )
       .where(
@@ -373,11 +438,223 @@ const main = async () => {
       true,
       "a position behind an old completion is recorded now, not backdated"
     )
+
+    // --- Skip this term records one explicit, paired no-opinion outcome. ---
+
+    await caller.completeStep({
+      stepId: committed.instructionsStepId,
+      expectedInstructions: INSTRUCTIONS
+    })
+
+    await assert.rejects(
+      caller.skipTerm({
+        stepId: committed.defineStepId,
+        expectedInstructions: INSTRUCTIONS
+      }),
+      (error: { code?: string; message?: string }) => {
+        assert.equal(error.code, "CONFLICT")
+        assert.match(error.message ?? "", /work on this term/i)
+        return true
+      },
+      "a recorded position cannot be changed into a skip"
+    )
+
+    const skippedRevisionId = await currentRevisionIdOf(skippedDefinitionId)
+    const [scoreBeforeSkip] = await db
+      .select({ score: definitionsTable.score })
+      .from(definitionsTable)
+      .where(eq(definitionsTable.id, skippedDefinitionId))
+    assert.ok(scoreBeforeSkip)
+
+    const firstSkip = await caller.skipTerm({
+      stepId: committed.skippedDefineStepId,
+      expectedInstructions: INSTRUCTIONS
+    })
+    assert.equal(firstSkip.ok, true)
+    assert.deepEqual(firstSkip.skippedStepIds, [
+      committed.skippedDefineStepId,
+      committed.skippedReviewStepId
+    ])
+    assert.equal(
+      firstSkip.nextPosition,
+      4,
+      "resumption passes both skipped steps and stops at the unfinished review"
+    )
+
+    const skippedStepIds = [
+      committed.skippedDefineStepId,
+      committed.skippedReviewStepId
+    ]
+    const skipCompletionRows = () =>
+      db
+        .select({
+          stepId: surveyStepCompletionsTable.stepId,
+          outcome: surveyStepCompletionsTable.outcome
+        })
+        .from(surveyStepCompletionsTable)
+        .where(
+          and(
+            inArray(surveyStepCompletionsTable.stepId, skippedStepIds),
+            eq(surveyStepCompletionsTable.userId, committed.participantId)
+          )
+        )
+
+    assert.deepEqual(
+      (await skipCompletionRows())
+        .map((row) => [row.stepId, row.outcome] as const)
+        .sort((a, b) => a[0] - b[0]),
+      skippedStepIds.map((stepId) => [stepId, "skipped"] as const),
+      "Position and Review carry explicit skipped outcomes"
+    )
+
+    const retriedSkip = await caller.skipTerm({
+      stepId: committed.skippedDefineStepId,
+      expectedInstructions: INSTRUCTIONS
+    })
+    assert.equal(retriedSkip.ok, true)
+    assert.equal(retriedSkip.nextPosition, firstSkip.nextPosition)
+    assert.equal(
+      (await skipCompletionRows()).length,
+      2,
+      "an exact skip retry creates no duplicate completion"
+    )
+
+    await assert.rejects(
+      caller.skipTerm({
+        stepId: committed.skippedReviewStepId,
+        expectedInstructions: INSTRUCTIONS
+      }),
+      (error: { code?: string; message?: string }) => {
+        assert.equal(error.code, "BAD_REQUEST")
+        assert.match(error.message ?? "", /not for this act/i)
+        return true
+      },
+      "Skip this term starts only from a Position step"
+    )
+
+    await assert.rejects(
+      caller.acceptPosition({
+        stepId: committed.skippedDefineStepId,
+        definitionId: skippedDefinitionId,
+        revisionId: skippedRevisionId,
+        expectedInstructions: INSTRUCTIONS
+      }),
+      (error: { code?: string; message?: string }) => {
+        assert.equal(error.code, "CONFLICT")
+        assert.match(error.message ?? "", /position on this term/i)
+        return true
+      },
+      "a skipped Position cannot later be accepted"
+    )
+
+    await assert.rejects(
+      voteCaller.vote({
+        definitionId: skippedDefinitionId,
+        revisionId: skippedRevisionId,
+        vote: "up",
+        surveyStepId: committed.skippedReviewStepId,
+        expectedInstructions: INSTRUCTIONS
+      }),
+      (error: { code?: string; message?: string }) => {
+        assert.equal(error.code, "CONFLICT")
+        assert.match(error.message ?? "", /skipped this term/i)
+        return true
+      },
+      "a skipped Review cannot acquire a vote through a stale request"
+    )
+
+    await assert.rejects(
+      commentCaller.create({
+        id: skippedDefinitionId,
+        revisionId: skippedRevisionId,
+        comment: "This must not be written after the term was skipped.",
+        surveyStepId: committed.skippedReviewStepId,
+        expectedInstructions: INSTRUCTIONS
+      }),
+      (error: { code?: string; message?: string }) => {
+        assert.equal(error.code, "CONFLICT")
+        assert.match(error.message ?? "", /skipped this term/i)
+        return true
+      },
+      "a skipped Review cannot acquire a comment through a stale request"
+    )
+
+    const [scoreAfterSkip] = await db
+      .select({ score: definitionsTable.score })
+      .from(definitionsTable)
+      .where(eq(definitionsTable.id, skippedDefinitionId))
+    assert.equal(scoreAfterSkip?.score, scoreBeforeSkip.score)
+    assert.equal(
+      (
+        await db
+          .select({ stepId: surveyStepPositionsTable.stepId })
+          .from(surveyStepPositionsTable)
+          .where(
+            and(
+              inArray(surveyStepPositionsTable.stepId, skippedStepIds),
+              eq(surveyStepPositionsTable.userId, committed.participantId)
+            )
+          )
+      ).length,
+      0,
+      "skipping records no Position target"
+    )
+    assert.equal(
+      (
+        await db
+          .select({ id: voteEventsTable.id })
+          .from(voteEventsTable)
+          .where(
+            and(
+              inArray(voteEventsTable.surveyStepId, skippedStepIds),
+              eq(voteEventsTable.userId, committed.participantId)
+            )
+          )
+      ).length,
+      0,
+      "skipping and refused stale requests record no vote event"
+    )
+    assert.equal(
+      (
+        await db
+          .select({ id: definitionRevisionsTable.id })
+          .from(definitionRevisionsTable)
+          .where(
+            and(
+              inArray(definitionRevisionsTable.surveyStepId, skippedStepIds),
+              eq(definitionRevisionsTable.editorId, committed.participantId)
+            )
+          )
+      ).length,
+      0,
+      "skipping records no definition revision"
+    )
+    assert.equal(
+      (
+        await db
+          .select({ id: commentsTable.id })
+          .from(commentsTable)
+          .where(
+            and(
+              inArray(commentsTable.surveyStepId, skippedStepIds),
+              eq(commentsTable.userId, committed.participantId)
+            )
+          )
+      ).length,
+      0,
+      "skipping and refused stale requests record no comment"
+    )
   } finally {
     if (fixture) {
       const committed = fixture
       await db.transaction(async (tx) => {
-        const stepIds = [committed.instructionsStepId, committed.defineStepId]
+        const stepIds = [
+          committed.instructionsStepId,
+          committed.defineStepId,
+          committed.skippedDefineStepId,
+          committed.reviewStepId,
+          committed.skippedReviewStepId
+        ]
         await tx
           .delete(surveyStepPositionsTable)
           .where(inArray(surveyStepPositionsTable.stepId, stepIds))
@@ -398,7 +675,11 @@ const main = async () => {
         await tx
           .delete(communitiesTable)
           .where(eq(communitiesTable.id, committed.communityId))
-        await tx.delete(termsTable).where(eq(termsTable.id, committed.termId))
+        await tx
+          .delete(termsTable)
+          .where(
+            inArray(termsTable.id, [committed.termId, committed.skippedTermId])
+          )
         await tx
           .delete(collectionsTable)
           .where(eq(collectionsTable.id, committed.collectionId))
@@ -408,7 +689,10 @@ const main = async () => {
         await tx
           .delete(usersTable)
           .where(
-            inArray(usersTable.id, [committed.participantId, committed.authorId])
+            inArray(usersTable.id, [
+              committed.participantId,
+              committed.authorId
+            ])
           )
       })
     }
