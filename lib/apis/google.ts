@@ -1,5 +1,15 @@
 import { OAuth2Client } from "google-auth-library"
 
+export const isGoogleAuthConfigured = () => {
+  const mode = process.env.GOOGLE_AUTH_ACCESS_MODE?.trim()
+  return (
+    Boolean(process.env.GOOGLE_CLIENT_ID?.trim()) &&
+    Boolean(process.env.GOOGLE_CLIENT_SECRET?.trim()) &&
+    Boolean(process.env.GOOGLE_CALLBACK_URL?.trim()) &&
+    (mode === "existing-or-allowlisted" || mode === "open")
+  )
+}
+
 const requiredGoogleSetting = (name: string) => {
   const value = process.env[name]?.trim()
   if (!value) throw new Error(`${name} is required for Google authentication`)

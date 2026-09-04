@@ -1,9 +1,11 @@
 # Account access
 
-MatSci-SAM associates contributions with a contributor account. Google sign-in
-is always offered and uses the verified identity Google returns. Email sign-in,
-email account creation, and ORCID appear where the deployment maintainer has
-enabled them. The available sign-in choices therefore vary by deployment.
+MatSci-SAM associates contributions with a contributor account. The account
+gateway shows the access methods configured for that deployment. **Continue
+with Google** signs in a returning contributor or creates an eligible new
+account from the verified identity Google returns. Email sign-in, email account
+creation, and ORCID are controlled separately, so the available choices vary by
+deployment.
 
 ## Verified email sign-in
 
@@ -16,10 +18,10 @@ found. Sign-in uses the one-time link in place of a password.
 The link returns the contributor to the same account. The public profile
 never displays the email address.
 
-## Create an account by email
+## Create an account with email
 
 When account creation is also available, the sign-in page links to a separate
-**Create an account by email** form. That form is intended for a new
+**Create an account with email** form. That form is intended for a new
 contributor. After following its one-time link, the contributor completes
 their name and public-profile choices. When account creation began from a study
 invitation, the one-time link retains that invitation across browsers or
@@ -35,14 +37,14 @@ not appear in every environment.
 A delayed or filtered message may require the contributor to request another
 link after the short waiting period.
 
-## Google
+## Continue with Google
 
-Google sign-in confirms the email address through Google. A deployment either
-accepts any Google account or accepts only addresses a maintainer has listed.
-An address that already has an account here always signs in. An address that is
-neither listed nor known is refused after the round trip to Google, with the
-message that the account is not authorized. A newly created Google account
-confirms its participant profile before returning to a pending invitation.
+The same Google action handles account creation and sign-in. A deployment
+either accepts any Google account or accepts only addresses a maintainer has
+listed. An address that already has an account here signs in. An address that
+is neither listed nor known is refused after the round trip to Google, with the
+message that the account is not authorized. A newly created account confirms
+its participant profile before returning to a pending invitation.
 
 ## ORCID
 

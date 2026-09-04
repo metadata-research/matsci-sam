@@ -19,6 +19,7 @@ import {
   studyAcceptsParticipants
 } from "@/lib/communities"
 import { authPathWithReturnTo } from "@/lib/auth-return"
+import { communityInvitationPageCopy } from "@/lib/invitation-presentation"
 
 export const metadata: Metadata = {
   title: `Invitation | ${SITE_NAME}`,
@@ -70,9 +71,15 @@ export default async function InvitePage({
       </main>
     )
 
-  const { community, outcome, email, kind, study } = invitation
+  const { community, outcome, email, study } = invitation
   const user = await getCurrentUser()
   const alreadyIn = user ? await isMemberOf(community.id, user.id) : false
+  const communityCopy = communityInvitationPageCopy({
+    communitySlug: community.slug,
+    communityTitle: community.title,
+    siteName: SITE_NAME,
+    alreadyIn
+  })
 
   const dead = DEAD[outcome]
   // A live link to a study that closed or was retired: the router would
@@ -84,18 +91,16 @@ export default async function InvitePage({
       <Card className="mx-auto max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">
-            {study ? study.title : community.title}
+            {study ? study.title : communityCopy.title}
           </CardTitle>
           <CardDescription>
             {study
               ? `${community.title} has asked you to take part in a study on ${SITE_NAME}.`
-              : kind === "open"
-                ? `You have been given a link to join ${community.title} on ${SITE_NAME}.`
-                : `You have been invited to join ${community.title} on ${SITE_NAME}.`}
+              : communityCopy.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {community.description && !study && (
+          {community.description && !study && alreadyIn && (
             <p className="text-sm text-muted-foreground">
               {community.description}
             </p>
@@ -130,13 +135,16 @@ export default async function InvitePage({
           {/* The two workflows explain themselves differently: a study
               invitation is about taking part, and joining the community is
               incidental to it. */}
-          {!community.retiredAt && !alreadyIn && !DEAD[outcome] && !studyEnded && (
-            <p className="text-sm text-muted-foreground">
-              {study
-                ? `Accepting opens the study. It also adds you to ${community.title}, which shows you the terms the study works through. It publishes nothing about you, and you can leave at any time.`
-                : `Accepting puts you in ${community.title} and shows you the terms it is working through. It does not change what anyone else sees, it publishes nothing about you, and you can leave at any time.`}
-            </p>
-          )}
+          {!community.retiredAt &&
+            !alreadyIn &&
+            !DEAD[outcome] &&
+            !studyEnded && (
+              <p className="text-sm text-muted-foreground">
+                {study
+                  ? `Accepting opens the study. It also adds you to ${community.title}, which shows you the terms the study works through. It publishes nothing about you, and you can leave at any time.`
+                  : `Joining lets you take part in ${community.title} studies and shows its terms in your community view. You can leave the community at any time.`}
+              </p>
+            )}
 
           {community.retiredAt ? (
             <p className="text-sm text-muted-foreground">
@@ -149,8 +157,8 @@ export default async function InvitePage({
                 // consumes it, which records that the person asked arrived.
                 <>
                   <p className="text-sm text-muted-foreground">
-                    You are already in {community.title}. Accepting records
-                    this invitation and opens the study.
+                    You are already in {community.title}. Accepting records this
+                    invitation and opens the study.
                   </p>
                   <AcceptInvitation token={token} forStudy />
                 </>
@@ -176,27 +184,23 @@ export default async function InvitePage({
             </p>
           ) : user ? (
             <>
-              <AcceptInvitation token={token} forStudy={study !== null} />
+              <AcceptInvitation
+                token={token}
+                forStudy={study !== null}
+                communityTitle={study ? undefined : community.title}
+              />
             </>
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
-                Sign in to accept{email ? `, or create an account first` : ""}.
-                After sign-in and any required profile setup, you will return to
-                this invitation.
+                Continue to accept this invitation. You will return here
+                afterward.
               </p>
-              <div className="flex gap-2">
-                <Button asChild>
-                  <Link href={authPathWithReturnTo("/login", returnTo)}>
-                    Sign in
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href={authPathWithReturnTo("/register", returnTo)}>
-                    Create an account
-                  </Link>
-                </Button>
-              </div>
+              <Button asChild className="w-full">
+                <Link href={authPathWithReturnTo("/login", returnTo)}>
+                  Continue
+                </Link>
+              </Button>
             </>
           )}
 

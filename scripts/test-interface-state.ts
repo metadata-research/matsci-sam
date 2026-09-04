@@ -24,6 +24,7 @@ import {
 } from "../lib/search-evidence"
 import { studyActivityActionLabel } from "../components/studies/progress"
 import {
+  communityInvitationPageCopy,
   communityInvitationMessage,
   invitationOutcomeLabel,
   invitationRedeemedByLabel
@@ -220,6 +221,7 @@ assert.equal(
 // because the recipient may already be in the community. A community
 // invitation keeps the join wording.
 const studyMessage = communityInvitationMessage({
+  communitySlug: "mrc",
   communityTitle: "Metadata Research Center",
   studyTitle: "New Materials workflow rehearsal",
   url: "https://example.test/invite/token",
@@ -240,6 +242,7 @@ assert.match(
 assert.doesNotMatch(studyMessage.text, /You have been invited to join/)
 
 const communityMessage = communityInvitationMessage({
+  communitySlug: "mrc",
   communityTitle: "Metadata Research Center",
   studyTitle: null,
   url: "https://example.test/invite/token",
@@ -247,17 +250,45 @@ const communityMessage = communityInvitationMessage({
 })
 assert.equal(
   communityMessage.subject,
-  "You have been invited to join Metadata Research Center"
+  "Invitation to join the Metadata Research Center Vocabulary Community"
 )
 assert.match(
   communityMessage.text,
-  /You have been invited to join Metadata Research Center on MatSci-SAM\./
+  /You have been invited to join the Metadata Research Center Vocabulary Community on MatSci-SAM\./
 )
 assert.doesNotMatch(communityMessage.text, /take part in the study/)
+
+assert.deepEqual(
+  communityInvitationPageCopy({
+    communitySlug: "id4",
+    communityTitle: "ID4",
+    siteName: "MatSci-SAM",
+    alreadyIn: false
+  }),
+  {
+    title: "Join ID4",
+    description:
+      "You have been invited to join the NSF Institute for Data-Driven Dynamical Design (ID4) Vocabulary Community on MatSci-SAM."
+  }
+)
+assert.deepEqual(
+  communityInvitationPageCopy({
+    communitySlug: "id4",
+    communityTitle: "ID4",
+    siteName: "MatSci-SAM",
+    alreadyIn: true
+  }),
+  {
+    title: "ID4",
+    description:
+      "You are already a member of the NSF Institute for Data-Driven Dynamical Design (ID4) Vocabulary Community."
+  }
+)
 
 // Titles are contributor text, so the HTML body escapes them.
 assert.match(
   communityInvitationMessage({
+    communitySlug: "alloys",
     communityTitle: "Alloys <careful> & co",
     studyTitle: null,
     url: "https://example.test/invite/token",

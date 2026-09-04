@@ -19,11 +19,14 @@ import {
   isEmailAuthEnabled
 } from "@/lib/email-auth"
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
+import { isGoogleAuthConfigured } from "@/lib/apis/google"
 import { SITE_NAME } from "@/lib/site"
 import { getCurrentUser } from "@/lib/current-user"
 import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
 
-export const metadata: Metadata = { title: `Sign in | ${SITE_NAME}` }
+export const metadata: Metadata = {
+  title: `Continue to ${SITE_NAME}`
+}
 
 export default async function LoginPage({
   searchParams
@@ -37,6 +40,7 @@ export default async function LoginPage({
   if (await getCurrentUser()) redirect(returnTo ?? "/profile")
 
   const devEnabled = isDevAuthEnabled()
+  const googleEnabled = isGoogleAuthConfigured()
   const emailEnabled = isEmailAuthEnabled()
   const emailAccountCreationEnabled = isEmailAccountCreationEnabled()
   const orcidEnabled = isOrcidAuthEnabled()
@@ -45,17 +49,39 @@ export default async function LoginPage({
     <main className="px-4 py-12">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Sign in to {SITE_NAME}</CardTitle>
+          <CardTitle className="text-2xl">Continue to {SITE_NAME}</CardTitle>
           <CardDescription>
-            Continue with an identity already connected to your account.
+            Choose how you want to continue. If you have participated before,
+            use the same method so your work stays connected.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <Button asChild variant="outline" className="w-full">
-            <a href={authPathWithReturnTo("/api/auth/google", returnTo)}>
-              Continue with Google
-            </a>
-          </Button>
+          {googleEnabled ? (
+            <Button asChild className="w-full">
+              <a href={authPathWithReturnTo("/api/auth/google", returnTo)}>
+                Continue with Google
+              </a>
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled
+                aria-describedby="google-unavailable"
+              >
+                Continue with Google
+                <span className="ml-auto text-xs font-normal">Unavailable</span>
+              </Button>
+              <p
+                id="google-unavailable"
+                className="text-center text-xs text-muted-foreground"
+              >
+                Google sign-in is not configured on this site.
+              </p>
+            </div>
+          )}
           {orcidEnabled ? (
             <Button asChild variant="outline" className="w-full">
               <a
@@ -74,13 +100,39 @@ export default async function LoginPage({
                 Continue with ORCID
               </a>
             </Button>
-          ) : null}
+          ) : (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled
+                aria-describedby="orcid-unavailable"
+              >
+                <Image
+                  src="/orcid-id.svg"
+                  alt=""
+                  width={18}
+                  height={18}
+                  aria-hidden
+                />
+                Continue with ORCID
+                <span className="ml-auto text-xs font-normal">Coming soon</span>
+              </Button>
+              <p
+                id="orcid-unavailable"
+                className="text-center text-xs text-muted-foreground"
+              >
+                ORCID sign-in is not available yet.
+              </p>
+            </div>
+          )}
           {emailEnabled ? (
             <>
               <div className="flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                <span className="h-px flex-1 bg-border" />
-                Email
-                <span className="h-px flex-1 bg-border" />
+                <span className="h-px flex-1 bg-border" aria-hidden />
+                Or use email
+                <span className="h-px flex-1 bg-border" aria-hidden />
               </div>
               <form
                 action="/api/auth/email/start"
@@ -121,7 +173,7 @@ export default async function LoginPage({
                     href={authPathWithReturnTo("/register", returnTo)}
                     className="text-primary underline"
                   >
-                    Create an account by email
+                    Create an account with email
                   </Link>
                 </p>
               ) : null}
@@ -130,9 +182,9 @@ export default async function LoginPage({
           {devEnabled ? (
             <>
               <div className="flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                <span className="h-px flex-1 bg-border" />
+                <span className="h-px flex-1 bg-border" aria-hidden />
                 Development
-                <span className="h-px flex-1 bg-border" />
+                <span className="h-px flex-1 bg-border" aria-hidden />
               </div>
               <Button asChild variant="ghost" className="w-full">
                 <Link href={authPathWithReturnTo("/dev-login", returnTo)}>
