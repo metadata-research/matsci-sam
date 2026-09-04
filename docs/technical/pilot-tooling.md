@@ -47,6 +47,17 @@ recorded as the retractor. Because omission is destructive, exact mode refuses
 legacy text labels and `createdBefore`, an empty list, and duplicate qualified
 routes.
 
+Community `metadata` defaults to `"preserve"`. In that mode, title and
+description are used when the community is created but do not overwrite an
+existing community or vocabulary. `"exact"` makes both fields authoritative
+for the community and its paired same-slug vocabulary. Exact mode requires an
+explicit `description`; an empty string deliberately clears both nullable
+description fields. A change to either row is reported as one `updated`
+community-metadata item. Apply locks the community and vocabulary in the same
+order as the interactive administrator route, verifies that their metadata did
+not change after preflight, and updates both rows in the communities-section
+transaction. A repeat run then reports the community as `present`.
+
 An exact membership change also refuses when a non-retired study over the
 collection already has generated walkthrough steps, or when any linked study
 has participant activity. An idempotent exact run with no membership change is
@@ -68,23 +79,25 @@ own transaction. A later failure leaves earlier sections committed, and the
 next run finds those rows present.
 
 The run is idempotent by slug. A repeated run reports existing items as
-`present`. Existing members keep their episode and role, studies keep their
-window, and retired rows keep their slug. Retiring a community also retires its
-same-slug vocabulary; neither public route is reused. The script writes a
-walkthrough while the study has no steps. It uses `lockStudy`,
+`present`, including community metadata after an exact update. In the default
+preserve mode, existing community metadata is left alone. Existing members
+keep their episode and role, studies keep their window, and retired rows keep
+their slug. Retiring a community also retires its same-slug vocabulary; neither
+public route is reused. The script writes a walkthrough while the study has no
+steps. It uses `lockStudy`,
 `completionCountOfStudy`, `replaceSteps`, and `planSteps`, matching
 `generateSteps`. Closed studies and empty collections receive no walkthrough.
 
 Each write is the act of the operator, row for row as the communities,
 collections and surveys routers write it, through the `lib/` functions where
-those exist. Each report line begins with `created`, `present`, `retracted`,
-`retired` or `skipped`, followed by a note. A count line closes the report.
-`--dry-run` uses `would create`, `would retract`, and `would retire` and makes
-no database changes. Add `--expect-no-changes` to make that preview a
-convergence gate: it exits nonzero when any planned durable write remains,
-including a write held by a silent plan item. The flag is valid only with
-`--dry-run`. A manifest in use contains private email addresses. The repository
-includes only the example manifest.
+those exist. Each report line begins with `created`, `updated`, `present`,
+`retracted`, `retired` or `skipped`, followed by a note. A count line closes
+the report. `--dry-run` uses `would create`, `would update`, `would retract`,
+and `would retire` and makes no database changes. Add `--expect-no-changes` to
+make that preview a convergence gate: it exits nonzero when any planned durable
+write remains, including an exact metadata update or a write held by a silent
+plan item. The flag is valid only with `--dry-run`. A manifest in use contains
+private email addresses. The repository includes only the example manifest.
 
 Reviewed study copy has a separate preview and hash-bound apply:
 
