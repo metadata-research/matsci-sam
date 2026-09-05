@@ -448,6 +448,10 @@ jobs:
         run: |
           pnpm test:activity-timeline
 
+      - name: Test Date Rendering
+        run: |
+          pnpm test:date
+
       - name: Check Migration Journal
         run: |
           pnpm test:migration-journal
