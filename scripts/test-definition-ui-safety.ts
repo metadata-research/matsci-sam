@@ -77,6 +77,8 @@ assert.doesNotMatch(clearRevisionDraft, /setDraft\(null\)/)
 assert.match(revisionForm, /discard[\s\S]*onSuccess: \(\) => setDraft\(null\)/)
 assert.match(revisionForm, /activity\.start\(\)[\s\S]*discard\.mutate/)
 assert.match(revisionForm, /onSettled: activity\.end/)
+assert.match(revisionForm, /Revision draft/)
+assert.doesNotMatch(revisionForm, /Proposed definition|separate candidate/)
 
 // Shell navigation stays disabled for the full child mutation lifecycle.
 const contributionActions = source(
@@ -87,6 +89,9 @@ assert.match(contributionActions, /disabled={childBusy}/)
 
 const walkthrough = source("components/studies/walkthrough.tsx")
 assert.match(walkthrough, /const interaction = useMutationActivity\(\)/)
+assert.match(walkthrough, /You suggested this revision as your position/)
+assert.match(walkthrough, /Publishing it did not cast a vote/)
+assert.match(walkthrough, /Accepting it also recorded an upvote/)
 assert.match(
   walkthrough,
   /const navigationLocked =[\s\S]*complete\.isPending \|\| skip\.isPending \|\| interaction\.busy/
@@ -161,6 +166,11 @@ assert.match(
   position,
   /const settled = step\.completed \|\| step\.held !== null/
 )
+
+const completedSummary = source(
+  "components/studies/completed-study-summary.tsx"
+)
+assert.match(completedSummary, /Suggested a revision recorded as/)
 assert.match(
   position,
   /settled \? \([\s\S]*<HeldPosition step=\{step\} \/>[\s\S]*\) : \([\s\S]*<Candidates[\s\S]*onSkip=\{onSkip\}/
@@ -172,6 +182,19 @@ assert.match(
   /step\.completionOutcome === "skipped"[\s\S]*\? "skipped"[\s\S]*aria-label=\{label\}/
 )
 assert.match(dots, /<span aria-hidden="true">−<\/span>/)
+assert.match(
+  walkthrough,
+  /A skipped term marks both its Position and Review steps\./
+)
+assert.match(
+  walkthrough,
+  /const reachable = \(at: number\) =>[\s\S]*mayOpenStudyStep\(steps, walkthrough\.resumePosition, at\)/
+)
+assert.doesNotMatch(walkthrough, /steps\[at - 2\]\.completed/)
+assert.match(
+  walkthrough,
+  /show\(nextStudyPosition\(steps, walkthrough\.resumePosition, step\.position\)\)/
+)
 
 const skipMutation = section(
   walkthrough,

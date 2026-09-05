@@ -319,6 +319,7 @@ export type Position = {
   revisionId: number
   definitionNumber: number
   revisionVersion: number
+  refinedFromId: number | null
 }
 
 export const positionsOf = async (
@@ -335,7 +336,8 @@ export const positionsOf = async (
         definitionId: surveyStepPositionsTable.definitionId,
         revisionId: surveyStepPositionsTable.revisionId,
         definitionNumber: definitionsTable.definitionNumber,
-        revisionVersion: definitionRevisionsTable.version
+        revisionVersion: definitionRevisionsTable.version,
+        refinedFromId: definitionsTable.refinedFromId
       })
       .from(surveyStepPositionsTable)
       .innerJoin(
@@ -365,6 +367,7 @@ export const positionsOf = async (
         revisionId: voteEventsTable.revisionId,
         definitionNumber: definitionsTable.definitionNumber,
         revisionVersion: definitionRevisionsTable.version,
+        refinedFromId: definitionsTable.refinedFromId,
         createdAt: voteEventsTable.createdAt
       })
       .from(voteEventsTable)
@@ -397,6 +400,7 @@ export const positionsOf = async (
         revisionId: definitionRevisionsTable.id,
         definitionNumber: definitionsTable.definitionNumber,
         revisionVersion: definitionRevisionsTable.version,
+        refinedFromId: definitionsTable.refinedFromId,
         createdAt: definitionRevisionsTable.createdAt
       })
       .from(definitionRevisionsTable)
@@ -423,6 +427,7 @@ export const positionsOf = async (
       revisionId: number
       definitionNumber: number
       revisionVersion: number
+      refinedFromId: number | null
       createdAt: string
     }
   ) => {
@@ -435,6 +440,7 @@ export const positionsOf = async (
       revisionId: row.revisionId,
       definitionNumber: row.definitionNumber,
       revisionVersion: row.revisionVersion,
+      refinedFromId: row.refinedFromId,
       createdAt: row.createdAt
     })
   }
@@ -444,7 +450,14 @@ export const positionsOf = async (
     [...positions].map(
       ([
         stepId,
-        { kind, definitionId, revisionId, definitionNumber, revisionVersion }
+        {
+          kind,
+          definitionId,
+          revisionId,
+          definitionNumber,
+          revisionVersion,
+          refinedFromId
+        }
       ]) => [
         stepId,
         {
@@ -452,7 +465,8 @@ export const positionsOf = async (
           definitionId,
           revisionId,
           definitionNumber,
-          revisionVersion
+          revisionVersion,
+          refinedFromId
         }
       ]
     )
@@ -463,7 +477,8 @@ export const positionsOf = async (
       definitionId: row.definitionId,
       revisionId: row.revisionId,
       definitionNumber: row.definitionNumber,
-      revisionVersion: row.revisionVersion
+      revisionVersion: row.revisionVersion,
+      refinedFromId: row.refinedFromId
     })
   return legacy
 }

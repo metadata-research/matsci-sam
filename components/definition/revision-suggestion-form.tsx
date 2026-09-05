@@ -146,7 +146,7 @@ export function RevisionSuggestionForm({
                   htmlFor={"revision-draft-" + definitionId}
                   className="font-medium"
                 >
-                  Proposed definition
+                  Revision draft
                 </label>
                 <span className="text-xs text-muted-foreground">
                   Drafted by <span className="font-mono">{draft.model}</span>
@@ -167,8 +167,9 @@ export function RevisionSuggestionForm({
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Publishing creates a separate candidate. The source remains
-                available for comparison and voting, and the model is credited.
+                Publishing adds this revision as another definition. The
+                original remains available for comparison and voting, and the
+                language model is credited.
               </p>
             </div>
 

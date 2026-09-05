@@ -31,7 +31,10 @@ import {
   invitationOutcomeLabel,
   invitationRedeemedByLabel
 } from "../lib/invitation-presentation"
-import { parseStudyInstructions } from "../lib/study-instructions"
+import {
+  parseStudyInstructions,
+  studyInstructionBlocks
+} from "../lib/study-instructions"
 
 assert.deepEqual(
   parseStudyInstructions(
@@ -53,6 +56,19 @@ assert.deepEqual(
 assert.deepEqual(parseStudyInstructions("1. One sentence, not a list."), [
   { kind: "paragraph", text: "1. One sentence, not a list." }
 ])
+const distributedInstructions =
+  "Study overview.\n\n1. Choose.\n2. Review.\n\nClosing overview."
+assert.deepEqual(studyInstructionBlocks(distributedInstructions, "overview"), [
+  { kind: "paragraph", text: "Study overview." },
+  { kind: "paragraph", text: "Closing overview." }
+])
+assert.deepEqual(studyInstructionBlocks(distributedInstructions, "actions"), [
+  { kind: "steps", items: ["Choose.", "Review."] }
+])
+assert.deepEqual(
+  studyInstructionBlocks("Legacy instructions without a list.", "actions"),
+  [{ kind: "paragraph", text: "Legacy instructions without a list." }]
+)
 
 assert.equal(parseSearchAuthor(null), "all")
 assert.equal(parseSearchAuthor(""), "all")

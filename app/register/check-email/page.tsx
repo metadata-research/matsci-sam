@@ -25,12 +25,12 @@ export default function CheckEmailPage() {
           <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <MailCheckIcon className="size-5" aria-hidden />
           </div>
-          <CardTitle className="text-2xl">
-            Check your email
-          </CardTitle>
+          <CardTitle className="text-2xl">Check your email</CardTitle>
           <CardDescription className="leading-6">
-            If the address can receive mail, a one-time sign-in link is on its
-            way. The link expires shortly and works only once.
+            Check for a one-time link. MatSci-SAM sends a sign-in link only for
+            an existing account. New contributors receive a link after choosing
+            Create an account with email. Links expire shortly and work only
+            once.
           </CardDescription>
         </CardHeader>
         <CardContent>

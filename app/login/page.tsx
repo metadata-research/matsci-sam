@@ -159,8 +159,16 @@ export default async function LoginPage({
                       maxLength={254}
                       required
                       className="pl-9"
+                      aria-describedby="login-email-help"
                     />
                   </div>
+                  <p
+                    id="login-email-help"
+                    className="text-xs text-muted-foreground"
+                  >
+                    If an account exists for this address, MatSci-SAM will email
+                    a one-time sign-in link.
+                  </p>
                 </div>
                 <Button type="submit" className="w-full">
                   Email me a sign-in link

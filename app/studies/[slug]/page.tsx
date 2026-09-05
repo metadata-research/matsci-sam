@@ -45,9 +45,10 @@ const STATE_LABEL = {
 
 /*
  * A study, as its participants read it. This is the address that goes in a
- * reminder email, so it stays public and stays put: the instructions have to
+ * reminder email, so it stays public and stays put: the overview has to
  * be reachable a week after the invitation link was spent, and after the
- * study closes. The activity presents the same instructions as step 1.
+ * study closes. Structured study copy is divided between this overview and
+ * the numbered actions in step 1.
  *
  * The cohort is not listed here. Who is in a community is visible to its
  * members and to administrators, and routing round that rule through a study
@@ -188,14 +189,13 @@ export default async function StudyPage({
 
         {participantInstructions && (
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold">
-              {state === "closed" && study.steps === 0
-                ? "About this study"
-                : "What to do"}
-            </h2>
+            <h2 className="text-xl font-semibold">About this study</h2>
             {/* Nothing typed here becomes markup. Numbered lines use the one
                 plain-text convention shared with the walkthrough. */}
-            <StudyInstructionContent text={participantInstructions} />
+            <StudyInstructionContent
+              text={participantInstructions}
+              part="overview"
+            />
           </section>
         )}
 
@@ -223,14 +223,6 @@ export default async function StudyPage({
               {studyWindowExplanation(study.steps)}
             </p>
           </section>
-        )}
-
-        {activityActionLabel && (
-          <div className="border-t border-border pt-6">
-            <StudyActionButton href={studyRunPath(study.slug)}>
-              {activityActionLabel}
-            </StudyActionButton>
-          </div>
         )}
       </section>
     </main>

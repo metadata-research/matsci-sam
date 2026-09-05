@@ -128,14 +128,18 @@ assert.match(
   target.body,
   /If you do not know a term well enough to choose, skip it\./
 )
-assert.match(target.body, /3\. Then review the definitions/)
+assert.match(
+  target.body,
+  /1\. For each term, choose the definition closest to what you consider correct\./
+)
+assert.match(target.body, /3\. Review the definitions/)
 assert.doesNotMatch(target.body, /MatSci-SAM records|Completed steps are saved/)
 assert.equal(target.body.endsWith("\n"), false)
 assert.deepEqual(
   parseStudyInstructions(target.body).map((block) =>
     block.kind === "steps" ? [block.kind, block.items.length] : [block.kind]
   ),
-  [["paragraph"], ["steps", 3], ["paragraph"]],
+  [["paragraph"], ["steps", 3]],
   "the reviewed ID4 copy keeps its scannable three-step structure"
 )
 assert.match(target.hash, /^[a-f0-9]{64}$/)

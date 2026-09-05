@@ -35,6 +35,7 @@ import {
   positionAcceptanceExplanation,
   scaleLabelsForPrompt
 } from "@/lib/study-presentation"
+import { mayOpenStudyStep, nextStudyPosition } from "@/lib/study-navigation"
 import {
   type MutationActivityCallbacks,
   useMutationActivity
@@ -57,8 +58,8 @@ import {
  * where there is more than one.
  *
  * A completed step stays readable from the dots, without its controls: its
- * completion stands. A step is reachable once the step before it is
- * complete, so nobody compares candidates before taking a position.
+ * completion stands. The first incomplete step is open, but a completed
+ * paired Review later in the sequence does not open the step after it.
  */
 
 type Walkthrough = RouterOutput["surveys"]["get"]
@@ -142,9 +143,11 @@ const Instructions = ({
   onContinue: () => void
 }) => (
   <div className="space-y-4">
-    {step.prompt && <StudyInstructionContent text={step.prompt} />}
+    {step.prompt && (
+      <StudyInstructionContent text={step.prompt} part="actions" />
+    )}
     <Button onClick={onContinue} disabled={pending}>
-      Continue
+      Start with the first term
     </Button>
   </div>
 )
@@ -202,8 +205,10 @@ const PositionTarget = ({ step }: { step: Step }) => {
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
         {step.held?.kind === "proposed"
-          ? "You proposed this definition. You can compare and vote on all definitions in the Review step."
-          : "You accepted this definition as written. You can compare and vote on all definitions in the Review step."}
+          ? step.held.refinedFromId
+            ? "You suggested this revision as your position. Publishing it did not cast a vote. You can compare and vote on all definitions in the Review step."
+            : "You proposed this definition as your position. Publishing it did not cast a vote. You can compare and vote on all definitions in the Review step."
+          : "You accepted this definition as written. Accepting it also recorded an upvote. You can compare and vote on all definitions in the Review step."}
       </p>
       <Definition
         definition={{
@@ -320,8 +325,8 @@ const Candidates = ({
           Suggest a revision
         </h2>
         <p className="text-sm text-muted-foreground">
-          Edit the closest definition so it says what you mean. Your revision
-          will be added as a separate option; the original remains available.
+          Revise the closest definition to make it more accurate. Your revision
+          will be added as a separate option. The original remains available.
         </p>
         <DefinitionReference
           definition={candidate}
@@ -377,8 +382,8 @@ const Candidates = ({
             Propose a new definition
           </h2>
           <p className="text-sm text-muted-foreground">
-            Write the definition you think is right for this term. Existing
-            definitions remain unchanged.
+            Write a definition that states the meaning you consider correct.
+            Existing definitions remain unchanged.
           </p>
         </div>
         <DefinitionForm
@@ -397,6 +402,15 @@ const Candidates = ({
 
   return (
     <div className="space-y-6">
+      <Card className="gap-1 bg-muted/30 p-4 shadow-none">
+        <h2 className="font-semibold">Choose the closest definition</h2>
+        <p className="text-sm text-muted-foreground">
+          Choose the definition closest to what you consider correct. Accept it
+          as written, or suggest a revision to make it more accurate. If none is
+          close enough, propose a new definition. Accepting records the
+          definition as your position and adds your upvote.
+        </p>
+      </Card>
       <section aria-labelledby="skip-term-heading">
         <Card className="gap-4 bg-muted/20 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
@@ -494,9 +508,11 @@ const Candidates = ({
                       </Suspense>
                     </div>
                   )}
-                  <p className="text-sm text-muted-foreground">
-                    {positionAcceptanceExplanation(candidate.vote)}
-                  </p>
+                  {candidate.vote && (
+                    <p className="text-sm text-muted-foreground">
+                      {positionAcceptanceExplanation(candidate.vote)}
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
@@ -588,16 +604,6 @@ const Position = ({
   const settled = step.completed || step.held !== null
   return (
     <div className="space-y-6">
-      {!settled && (
-        <Card className="gap-1 bg-muted/30 p-4 shadow-none">
-          <h2 className="font-semibold">Choose the closest definition</h2>
-          <p className="text-sm text-muted-foreground">
-            Choose the definition closest to what you think is right. Accept it
-            as written, or suggest a revision so it says what you mean. If none
-            is close enough, propose a new definition.
-          </p>
-        </Card>
-      )}
       <Suspense fallback={<Skeleton className="h-32 w-full" />}>
         {settled ? (
           <HeldPosition step={step} />
@@ -928,6 +934,13 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
   )
   const interaction = useMutationActivity()
 
+  // Completed steps stay readable, including a Review completed when its
+  // term was skipped. Apart from those records, only the first incomplete
+  // step is open. A completed Review beyond that gap must not unlock the
+  // following step.
+  const reachable = (at: number) =>
+    mayOpenStudyStep(steps, walkthrough.resumePosition, at)
+
   const show = (next: number) => {
     setPosition(next)
     window.scrollTo({ top: 0 })
@@ -965,8 +978,9 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
 
   // A completed step is pressed through without a second completion.
   const press = (step: Step) => {
-    if (step.completed) show(step.position + 1)
-    else {
+    if (step.completed) {
+      show(nextStudyPosition(steps, walkthrough.resumePosition, step.position))
+    } else {
       interaction.start()
       complete.mutate({ stepId: step.id, expectedInstructions })
     }
@@ -979,10 +993,6 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
     const next = steps[step.position]
     if (next?.termId) utils.definitions.list.prefetch({ termId: next.termId })
   }
-
-  // A step is reachable once the step before it is complete, and the
-  // finished state once the last step is.
-  const reachable = (at: number) => at === 1 || steps[at - 2].completed
 
   const step: Step | undefined = steps[position - 1]
   const navigationLocked =
@@ -1027,13 +1037,25 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
           </div>
         ) : (
           <>
-            <Dots
-              steps={steps}
-              position={position}
-              reachable={reachable}
-              navigationLocked={navigationLocked}
-              onSelect={show}
-            />
+            <div className="space-y-2">
+              <Dots
+                steps={steps}
+                position={position}
+                reachable={reachable}
+                navigationLocked={navigationLocked}
+                onSelect={show}
+              />
+              {steps.some(
+                (candidate) => candidate.completionOutcome === "skipped"
+              ) && (
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-bold text-primary" aria-hidden>
+                    −
+                  </span>{" "}
+                  A skipped term marks both its Position and Review steps.
+                </p>
+              )}
+            </div>
 
             {step === undefined ? (
               <Finished study={study} steps={steps} onSelect={show} />

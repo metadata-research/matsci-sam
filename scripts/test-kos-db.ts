@@ -1787,7 +1787,8 @@ const main = async () => {
           definitionId: defA.id,
           revisionId: revA.id,
           definitionNumber: defA.definitionNumber,
-          revisionVersion: revA.version
+          revisionVersion: revA.version,
+          refinedFromId: null
         },
         "the definition written inside the step is the position"
       )
@@ -1799,7 +1800,8 @@ const main = async () => {
           definitionId: defB.id,
           revisionId: revB.id,
           definitionNumber: defB.definitionNumber,
-          revisionVersion: revB.version
+          revisionVersion: revB.version,
+          refinedFromId: null
         },
         "the candidate upvoted inside the step is the position"
       )

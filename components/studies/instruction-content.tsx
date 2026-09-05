@@ -1,21 +1,26 @@
 import type { ReactNode } from "react"
-import { parseStudyInstructions } from "@/lib/study-instructions"
+import {
+  studyInstructionBlocks,
+  type StudyInstructionPart
+} from "@/lib/study-instructions"
 import { cn } from "@/lib/utils"
 
 type StudyInstructionContentProps = {
   text: string
+  part?: StudyInstructionPart
   className?: string
   empty?: ReactNode
 }
 
 // Reviewed study copy stays plain text. Consecutive numbered lines are the
-// one formatting convention shared by every participant-facing surface.
+// one formatting convention used for participant actions.
 export const StudyInstructionContent = ({
   text,
+  part = "all",
   className,
   empty = null
 }: StudyInstructionContentProps) => {
-  const blocks = parseStudyInstructions(text)
+  const blocks = studyInstructionBlocks(text, part)
 
   if (blocks.length === 0) return empty
 
