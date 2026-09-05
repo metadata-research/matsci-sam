@@ -193,17 +193,17 @@ assert.match(loginPage, /Google sign-in is not configured on this site\./)
 assert.match(loginPage, /Continue with ORCID/)
 assert.match(loginPage, /ORCID sign-in is not available yet\./)
 assert.match(
-  loginPage,
-  /If an account exists for this address, MatSci-SAM will[\s\S]*email a one-time sign-in link\./
+  loginPage.replace(/\s+/g, " "),
+  /If an account exists for this address, MatSci-SAM will email a one-time sign-in link\./
 )
 assert.match(loginPage, /aria-describedby="login-email-help"/)
 assert.match(
-  checkEmailPage,
-  /sends a sign-in link only for[\s\S]*an existing account/
+  checkEmailPage.replace(/\s+/g, " "),
+  /sends a sign-in link only for an existing account/
 )
 assert.match(
-  checkEmailPage,
-  /New contributors receive a link after[\s\S]*choosing Create an account with email/
+  checkEmailPage.replace(/\s+/g, " "),
+  /New contributors receive a link after choosing Create an account with email/
 )
 const orcidDescriptionReference = loginPage.indexOf(
   'aria-describedby="orcid-unavailable"'

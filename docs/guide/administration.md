@@ -107,7 +107,7 @@ administrator can enter this area.
 | Vocabulary     | Find terms, compare definition, AI, and comment activity, and open public or provenance records                                        |
 | Tags           | Review meaning drift; tag pages provide concept editing and merging, while term pages provide PSPP facet assignment                    |
 | People         | Search and filter accounts and change the site role; role changes take effect immediately                                              |
-| Studies        | Create a study; manage participant invitations; edit its title, instructions, and schedule; inspect activity; and retire or restore it |
+| Studies        | Create a study; manage participant invitations; edit its title, instructions, and schedule; inspect activity; exclude or restore definitions; and retire or restore it |
 | AI & services  | Review authentication and integration readiness, test configured services, and inspect the active prompt registry                      |
 | Audit & safety | Review recorded publication evidence and recent revision events                                                                        |
 
@@ -115,6 +115,13 @@ The site-wide study editor locks instructions and schedule changes when
 recorded participant activity makes those changes unsafe. Retiring a study
 preserves its public address and contributions. Restoring it may require its
 community and collection to be restored first.
+
+In **Definitions in this study**, expand a definition and choose **Exclude
+from this study**. Enter a reason to omit it from Position and Review. The
+definition remains in the vocabulary and other studies. Earlier positions,
+votes, comments, and revision history remain recorded. **Restore to this
+study** makes the definition available again. The exclusion history records
+the reason, administrator, and date for both actions.
 
 ## Site-wide controls on public pages
 

@@ -268,3 +268,25 @@ absence of contribution rows and support changes, and the read-only skipped
 record returned for both steps.
 `pnpm test:definition-source-lock` checks the shared source lock with two
 concurrent database transactions.
+
+
+## Study candidate exclusions
+
+`study_definition_exclusions` stores one interval per exclusion. A partial
+unique index permits one active interval per study and definition. Restoration
+closes the interval and retains both reasons, actors, and times.
+
+`lib/study-candidates.ts` locks the study before changing an interval. Position
+acceptance, votes, comments, and revision publication check the active interval
+under the same study lock before writing. An identical retry of a previously
+recorded Accept returns its saved outcome after exclusion.
+
+`definitions.list` accepts an optional `surveyStepId` and checks the term against
+the step. Active Position and Review lists omit excluded definitions. Completed
+views use `includeExcluded` to retain earlier records and label excluded
+candidates. The unscoped vocabulary list is unchanged. The administrator editor
+requires the observed active interval ID, so a stale exclusion or restoration
+cannot overwrite a newer decision. These writes do not change graphs.
+
+The exceptional permanent definition purge removes its exclusion intervals as
+well as dependent contribution records. Study exclusion itself deletes no rows.

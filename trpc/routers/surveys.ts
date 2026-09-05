@@ -1,3 +1,4 @@
+import { requireStudyCandidate } from "@/lib/study-candidates"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
@@ -589,6 +590,7 @@ export const surveysRouter = createTRPCRouter({
               }
             }
 
+            await requireStudyCandidate(tx, study.id, definitionId)
             const voteState = await requireOnePosition(tx, step, userId, {
               definitionId,
               revisionId,

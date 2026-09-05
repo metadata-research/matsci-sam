@@ -26,6 +26,7 @@ const main = async () => {
     definitionRevisionsTable,
     definitionsTable,
     studiesTable,
+    studyDefinitionExclusionsTable,
     surveyStepCompletionsTable,
     surveyStepPositionsTable,
     surveyStepsTable,
@@ -43,6 +44,9 @@ const main = async () => {
   const { commentsRouter } = await import("../trpc/routers/comments")
   const { surveysRouter } = await import("../trpc/routers/surveys")
   const { votesRouter } = await import("../trpc/routers/votes")
+  const { setStudyCandidateExcluded } = await import("../lib/study-candidates")
+  const { definitionsRouter } = await import("../trpc/routers/definitions")
+  const { adminStudiesRouter } = await import("../trpc/routers/admin-studies")
   const { createCallerFactory } = await import("../trpc/init")
 
   const day = 24 * 60 * 60 * 1000
@@ -56,6 +60,8 @@ const main = async () => {
         termId: number
         skippedTermId: number
         studyId: number
+        otherStudyId: number
+        otherDefineStepId: number
         instructionsStepId: number
         defineStepId: number
         reviewStepId: number
@@ -184,6 +190,27 @@ const main = async () => {
         ])
         .returning({ id: surveyStepsTable.id })
 
+      const [otherStudy] = await tx
+        .insert(studiesTable)
+        .values({
+          slug: `survey_position_other_${STAMP}`,
+          title: "Another study using the same terms",
+          communityId: community.id,
+          collectionId: collection.id,
+          createdById: participant.id
+        })
+        .returning({ id: studiesTable.id })
+      const [otherDefineStep] = await tx
+        .insert(surveyStepsTable)
+        .values({
+          studyId: otherStudy.id,
+          position: 1,
+          kind: "define",
+          termId: term.id,
+          prompt: "Choose a definition."
+        })
+        .returning({ id: surveyStepsTable.id })
+
       const first = await createDefinitionWithInitialRevision(tx, {
         termId: term.id,
         authorId: author.id,
@@ -218,6 +245,8 @@ const main = async () => {
         termId: term.id,
         skippedTermId: skippedTerm.id,
         studyId: study.id,
+        otherStudyId: otherStudy.id,
+        otherDefineStepId: otherDefineStep.id,
         instructionsStepId: instructionsStep.id,
         defineStepId: defineStep.id,
         reviewStepId: reviewStep.id,
@@ -261,6 +290,170 @@ const main = async () => {
     const commentCaller = commentCallerFor(
       callerContext as unknown as Parameters<typeof commentCallerFor>[0]
     )
+
+    // Study exclusions filter candidates, refuse stale actions and restore
+    // without changing the definition or contributions.
+    const definitionCallerFor = createCallerFactory(definitionsRouter)
+    const definitionCaller = definitionCallerFor(
+      callerContext as unknown as Parameters<typeof definitionCallerFor>[0]
+    )
+    const adminCallerFor = createCallerFactory(adminStudiesRouter)
+    const nonAdminCaller = adminCallerFor(
+      callerContext as unknown as Parameters<typeof adminCallerFor>[0]
+    )
+    const exclusionInput = {
+      studyId: committed.studyId,
+      definitionId: firstDefinitionId,
+      excluded: true,
+      expectedExclusionId: null,
+      reason: "This candidate concerns a different term.",
+      userId: committed.authorId
+    }
+    await assert.rejects(nonAdminCaller.setCandidateExcluded(exclusionInput), {
+      code: "FORBIDDEN"
+    })
+    await assert.rejects(
+      setStudyCandidateExcluded({ ...exclusionInput, reason: "  " }),
+      { code: "BAD_REQUEST" }
+    )
+    await assert.rejects(
+      setStudyCandidateExcluded({
+        ...exclusionInput,
+        definitionId: 2147483647
+      }),
+      { code: "BAD_REQUEST" }
+    )
+    const races = await Promise.allSettled([
+      setStudyCandidateExcluded(exclusionInput),
+      setStudyCandidateExcluded(exclusionInput)
+    ])
+    assert.equal(
+      races.filter((result) => result.status === "fulfilled").length,
+      1,
+      "concurrent exclusions produce one interval"
+    )
+    const exclusionHistory = () =>
+      db
+        .select()
+        .from(studyDefinitionExclusionsTable)
+        .where(
+          eq(studyDefinitionExclusionsTable.definitionId, firstDefinitionId)
+        )
+    const [exclusion] = await exclusionHistory()
+    assert.ok(exclusion)
+    assert.equal(exclusion.excludedById, committed.authorId)
+    const active = await definitionCaller.list({
+      termId: committed.termId,
+      surveyStepId: committed.defineStepId
+    })
+    assert.deepEqual(
+      active.map((candidate) => candidate.id),
+      [secondDefinitionId]
+    )
+    const general = await definitionCaller.list({ termId: committed.termId })
+    assert.equal(
+      general.length,
+      2,
+      "the vocabulary still contains both definitions"
+    )
+    assert.ok(general.every((candidate) => !candidate.excludedFromStudy))
+    const anotherStudy = await definitionCaller.list({
+      termId: committed.termId,
+      surveyStepId: committed.otherDefineStepId
+    })
+    assert.equal(
+      anotherStudy.length,
+      2,
+      "the same definitions remain available in another study"
+    )
+    assert.ok(anotherStudy.every((candidate) => !candidate.excludedFromStudy))
+    const historical = await definitionCaller.list({
+      termId: committed.termId,
+      surveyStepId: committed.reviewStepId,
+      includeExcluded: true
+    })
+    assert.equal(historical.length, 2)
+    assert.ok(
+      historical.find((candidate) => candidate.id === firstDefinitionId)
+        ?.excludedFromStudy
+    )
+    await assert.rejects(
+      definitionCaller.list({
+        termId: committed.termId,
+        surveyStepId: committed.skippedDefineStepId
+      }),
+      { code: "BAD_REQUEST" }
+    )
+
+    const target = {
+      definitionId: firstDefinitionId,
+      revisionId: firstRevisionId,
+      expectedInstructions: INSTRUCTIONS
+    }
+    await assert.rejects(
+      caller.acceptPosition({ ...target, stepId: committed.defineStepId }),
+      /excluded from this study/
+    )
+    await assert.rejects(
+      voteCaller.vote({
+        ...target,
+        surveyStepId: committed.defineStepId,
+        vote: "up"
+      }),
+      /excluded from this study/
+    )
+    await assert.rejects(
+      voteCaller.vote({
+        ...target,
+        surveyStepId: committed.reviewStepId,
+        vote: "down"
+      }),
+      /excluded from this study/
+    )
+    await assert.rejects(
+      commentCaller.create({
+        id: firstDefinitionId,
+        revisionId: firstRevisionId,
+        expectedInstructions: INSTRUCTIONS,
+        surveyStepId: committed.reviewStepId,
+        comment: "A stale review submission."
+      }),
+      /excluded from this study/
+    )
+    await assert.rejects(
+      definitionCaller.create({
+        term: `survey position test term ${STAMP}`,
+        definition: "An excluded candidate cannot be revised in this study.",
+        derivedFromRevisionId: firstRevisionId,
+        surveyStepId: committed.defineStepId,
+        expectedInstructions: INSTRUCTIONS
+      }),
+      /excluded from this study/
+    )
+    await assert.rejects(
+      setStudyCandidateExcluded({ ...exclusionInput, excluded: false }),
+      { code: "CONFLICT" }
+    )
+    await setStudyCandidateExcluded({
+      ...exclusionInput,
+      excluded: false,
+      expectedExclusionId: exclusion.id,
+      reason: "Restored for the test."
+    })
+    assert.equal(
+      (
+        await definitionCaller.list({
+          termId: committed.termId,
+          surveyStepId: committed.defineStepId
+        })
+      ).length,
+      2
+    )
+    const [restored] = await exclusionHistory()
+    assert.ok(restored.restoredAt)
+    assert.equal(restored.reason, exclusionInput.reason)
+    assert.equal(restored.restorationReason, "Restored for the test.")
+    assert.equal(restored.restoredById, committed.authorId)
 
     // --- A retried identical Accept converges. ---
 
@@ -315,6 +508,34 @@ const main = async () => {
       heldPosition.recordedAt,
       completion.completedAt,
       "a position recorded with its completion carries the completion's time"
+    )
+
+    const retainedComment = await commentCaller.create({
+      id: firstDefinitionId,
+      revisionId: firstRevisionId,
+      expectedInstructions: INSTRUCTIONS,
+      surveyStepId: committed.reviewStepId,
+      comment: "A review comment retained after exclusion."
+    })
+    // Excluding a held candidate preserves its position, vote and revisions.
+    await setStudyCandidateExcluded(exclusionInput)
+    assert.deepEqual(await positionRows(), [heldPosition])
+    assert.ok(
+      await db.query.commentsTable.findFirst({
+        where: eq(commentsTable.id, retainedComment.id)
+      }),
+      "exclusion retains the comment"
+    )
+    assert.equal((await upEventRows()).length, 1)
+    assert.equal(await currentRevisionIdOf(firstDefinitionId), firstRevisionId)
+    const [secondExclusion] = (await exclusionHistory()).filter(
+      (entry) => entry.restoredAt === null
+    )
+    assert.ok(secondExclusion)
+    assert.equal(
+      (await exclusionHistory()).length,
+      2,
+      "a second exclusion retains the restored interval"
     )
 
     const retriedAccept = await caller.acceptPosition({
@@ -665,10 +886,20 @@ const main = async () => {
           await deleteDefinitionRows(tx, definitionId)
         await tx
           .delete(surveyStepsTable)
-          .where(eq(surveyStepsTable.studyId, committed.studyId))
+          .where(
+            inArray(surveyStepsTable.studyId, [
+              committed.studyId,
+              committed.otherStudyId
+            ])
+          )
         await tx
           .delete(studiesTable)
-          .where(eq(studiesTable.id, committed.studyId))
+          .where(
+            inArray(studiesTable.id, [
+              committed.studyId,
+              committed.otherStudyId
+            ])
+          )
         await tx
           .delete(communityMembersTable)
           .where(eq(communityMembersTable.communityId, committed.communityId))

@@ -14,7 +14,7 @@ import {
   surveyStepsTable,
   vocabulariesTable
 } from "@yamz/db"
-import { and, desc, eq, getTableColumns, like, sql } from "drizzle-orm"
+import { and, desc, eq, getTableColumns, like, not, sql } from "drizzle-orm"
 import { slugify, uniqueSlug } from "@/lib/slug"
 import { deleteDefinitionRows } from "@/lib/definition-purge"
 import {
@@ -54,6 +54,11 @@ import { lockDefinitionRevisionSource } from "@/lib/definition-source"
 import { activeCommunityFor } from "@/lib/community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 import { loadDefinitionRevisionComparison } from "@/lib/definition-revision-comparison"
+
+import {
+  excludedFromStudy,
+  requireStudyCandidate
+} from "@/lib/study-candidates"
 
 // Compatibility projection for compact definition views while examples have
 // their own endpoint: expose the active featured contribution under the old
@@ -318,6 +323,13 @@ export const definitionsRouter = createTRPCRouter({
               code: "BAD_REQUEST",
               message: "That language model draft belongs to another vocabulary"
             })
+
+          if (source && lockedWalkthroughStep)
+            await requireStudyCandidate(
+              tx,
+              lockedWalkthroughStep.study.id,
+              source.definitionId
+            )
 
           const replacementTarget = isReplacement
             ? await tx.query.definitionsTable.findFirst({
@@ -956,57 +968,89 @@ export const definitionsRouter = createTRPCRouter({
     return await definitionsQuery
   }),
   list: baseProcedure
-    .input(z.object({ termId: z.number() }))
-    .query(async ({ ctx: { userId }, input: { termId } }) => {
-      const definitionsQuery = db
-        .select({
-          ...getTableColumns(definitionsTable),
-          example: featuredExample.as("example"),
-          revisionId: definitionRevisionsTable.id,
-          version: definitionRevisionsTable.version,
-          isAi: usersTable.isAi,
-          author: usersTable.name,
-          authorProfilePublic: usersTable.isProfilePublic,
-          authorModelSlug: aiModelsTable.slug,
-          comments:
-            sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
-              .mapWith(Number)
-              .as("comments"),
-          vote: userId
-            ? sql<"up" | "down" | null>`${votesTable.kind}`.as("vote")
-            : sql<"up" | "down" | null>`null`.as("vote")
-        })
-        .from(definitionsTable)
-        .where(and(eq(definitionsTable.termId, termId)))
-        .innerJoin(
-          definitionRevisionsTable,
-          eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
-        )
-        .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
-        // A model author carries its own identity row.
-        .leftJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
-        // Highest voted first, newest breaking ties, then the permanent
-        // definition number for identical timestamps. The tiebreak matters:
-        // score alone left equal-scored definitions in whatever order the
-        // planner returned, so the one shown first -- the term's default --
-        // could change between requests.
-        .orderBy(
-          desc(definitionsTable.score),
-          desc(definitionsTable.createdAt),
-          desc(definitionsTable.definitionNumber)
-        )
-
-      if (userId)
-        definitionsQuery.leftJoin(
-          votesTable,
-          and(
-            eq(votesTable.userId, userId),
-            eq(votesTable.revisionId, definitionRevisionsTable.id)
+    .input(
+      z.object({
+        termId: z.number(),
+        surveyStepId: z.number().int().positive().optional(),
+        includeExcluded: z.boolean().optional()
+      })
+    )
+    .query(
+      async ({
+        ctx: { userId },
+        input: { termId, surveyStepId, includeExcluded }
+      }) => {
+        const step =
+          surveyStepId === undefined
+            ? null
+            : await db.query.surveyStepsTable.findFirst({
+                columns: { studyId: true, termId: true },
+                where: eq(surveyStepsTable.id, surveyStepId)
+              })
+        if (surveyStepId !== undefined && (!step || step.termId !== termId))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This term is not part of that study step."
+          })
+        const excluded = step
+          ? excludedFromStudy(step.studyId)
+          : sql<boolean>`false`
+        const definitionsQuery = db
+          .select({
+            ...getTableColumns(definitionsTable),
+            excludedFromStudy: excluded.as("excludedFromStudy"),
+            example: featuredExample.as("example"),
+            revisionId: definitionRevisionsTable.id,
+            version: definitionRevisionsTable.version,
+            isAi: usersTable.isAi,
+            author: usersTable.name,
+            authorProfilePublic: usersTable.isProfilePublic,
+            authorModelSlug: aiModelsTable.slug,
+            comments:
+              sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
+                .mapWith(Number)
+                .as("comments"),
+            vote: userId
+              ? sql<"up" | "down" | null>`${votesTable.kind}`.as("vote")
+              : sql<"up" | "down" | null>`null`.as("vote")
+          })
+          .from(definitionsTable)
+          .where(
+            and(
+              eq(definitionsTable.termId, termId),
+              includeExcluded ? undefined : not(excluded)
+            )
           )
-        )
+          .innerJoin(
+            definitionRevisionsTable,
+            eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
+          )
+          .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
+          // A model author carries its own identity row.
+          .leftJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
+          // Highest voted first, newest breaking ties, then the permanent
+          // definition number for identical timestamps. The tiebreak matters:
+          // score alone left equal-scored definitions in whatever order the
+          // planner returned, so the one shown first -- the term's default --
+          // could change between requests.
+          .orderBy(
+            desc(definitionsTable.score),
+            desc(definitionsTable.createdAt),
+            desc(definitionsTable.definitionNumber)
+          )
 
-      return await definitionsQuery
-    }),
+        if (userId)
+          definitionsQuery.leftJoin(
+            votesTable,
+            and(
+              eq(votesTable.userId, userId),
+              eq(votesTable.revisionId, definitionRevisionsTable.id)
+            )
+          )
+
+        return await definitionsQuery
+      }
+    ),
   delete: adminProcedure
     .input(z.number())
     .mutation(async ({ input: definitionId }) => {

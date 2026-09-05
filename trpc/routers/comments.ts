@@ -1,3 +1,4 @@
+import { requireStudyCandidate } from "@/lib/study-candidates"
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
@@ -80,6 +81,7 @@ export const commentsRouter = createTRPCRouter({
               userId,
               expectedInstructions!
             )
+            await requireStudyCandidate(tx, locked.study.id, id)
             await requireIncompleteStepForAct(tx, locked.step.id, userId)
           }
           let written

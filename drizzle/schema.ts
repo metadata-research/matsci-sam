@@ -2118,6 +2118,51 @@ export const studiesTable = pgTable(
   ]
 )
 
+// Exclusion intervals retain the reason and attribution after restoration.
+// They affect one study, without changing the underlying vocabulary record.
+export const studyDefinitionExclusionsTable = pgTable(
+  "study_definition_exclusions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    studyId: integer()
+      .notNull()
+      .references(() => studiesTable.id),
+    definitionId: integer()
+      .notNull()
+      .references(() => definitionsTable.id),
+    reason: text().notNull(),
+    excludedById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    excludedAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    restoredById: integer().references(() => usersTable.id),
+    restoredAt: timestamp({ mode: "string", withTimezone: true }),
+    restorationReason: text()
+  },
+  (t) => [
+    uniqueIndex("study_definition_exclusions_active_unique")
+      .on(t.studyId, t.definitionId)
+      .where(sql`${t.restoredAt} IS NULL`),
+    index("study_definition_exclusions_study_idx").on(t.studyId),
+    index("study_definition_exclusions_definition_idx").on(t.definitionId),
+    check(
+      "study_definition_exclusions_reason_valid",
+      sql`length(btrim(${t.reason})) BETWEEN 1 AND 1000`
+    ),
+    check(
+      "study_definition_exclusions_restoration_valid",
+      sql`
+      (${t.restoredAt} IS NULL AND ${t.restoredById} IS NULL AND ${t.restorationReason} IS NULL)
+      OR (${t.restoredAt} IS NOT NULL AND ${t.restoredById} IS NOT NULL
+        AND ${t.restorationReason} IS NOT NULL
+        AND length(btrim(${t.restorationReason})) BETWEEN 1 AND 1000
+        AND ${t.restoredAt} >= ${t.excludedAt})`
+    )
+  ]
+)
+
 // --- SURVEY WALKTHROUGH ---
 // The survey is a walkthrough: an ordered set of steps that takes a
 // participant through the term set of a study, define first, then comment

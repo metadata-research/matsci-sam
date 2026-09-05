@@ -184,7 +184,9 @@ const orderCandidates = (definitions: Candidate[]) => {
  */
 const PositionTarget = ({ step }: { step: Step }) => {
   const [definitions] = trpc.definitions.list.useSuspenseQuery({
-    termId: step.termId!
+    termId: step.termId!,
+    surveyStepId: step.id,
+    includeExcluded: true
   })
   const held = step.held
     ? definitions.find(
@@ -210,6 +212,12 @@ const PositionTarget = ({ step }: { step: Step }) => {
             : "You proposed this definition as your position. Publishing it did not cast a vote. You can compare and vote on all definitions in the Review step."
           : "You accepted this definition as written. Accepting it also recorded an upvote. You can compare and vote on all definitions in the Review step."}
       </p>
+      {held.excludedFromStudy && (
+        <p className="text-sm text-muted-foreground">
+          This definition is now excluded from this study. Your recorded
+          position is retained.
+        </p>
+      )}
       <Definition
         definition={{
           ...held,
@@ -263,7 +271,10 @@ const Candidates = ({
   onFailed: () => void
 } & MutationActivityCallbacks) => {
   const termId = step.termId!
-  const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
+  const [definitions] = trpc.definitions.list.useSuspenseQuery({
+    termId,
+    surveyStepId: step.id
+  })
   const candidates = orderCandidates(definitions)
   const [move, setMove] = useState<Move>({ kind: "choose" })
   const moveHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -655,7 +666,11 @@ const ReviewList = ({
   onDone: () => void
 } & MutationActivityCallbacks) => {
   const termId = step.termId!
-  const [definitions] = trpc.definitions.list.useSuspenseQuery({ termId })
+  const [definitions] = trpc.definitions.list.useSuspenseQuery({
+    termId,
+    surveyStepId: step.id,
+    includeExcluded: readOnly
+  })
 
   if (definitions.length <= 1)
     return (
@@ -692,6 +707,12 @@ const ReviewList = ({
       {step.prompt && <p className="text-muted-foreground">{step.prompt}</p>}
       {definitions.map((definition, index) => (
         <div key={definition.id} className="space-y-3">
+          {definition.excludedFromStudy && (
+            <p className="text-sm text-muted-foreground">
+              Excluded from this study. Earlier contributions remain in this
+              record.
+            </p>
+          )}
           <Definition
             definition={{
               ...definition,
@@ -991,7 +1012,12 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
   // skeleton.
   const prefetchNext = (step: Step) => {
     const next = steps[step.position]
-    if (next?.termId) utils.definitions.list.prefetch({ termId: next.termId })
+    if (next?.termId)
+      utils.definitions.list.prefetch({
+        termId: next.termId,
+        surveyStepId: next.id,
+        includeExcluded: next.completed
+      })
   }
 
   const step: Step | undefined = steps[position - 1]

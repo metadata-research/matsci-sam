@@ -29,8 +29,6 @@ export function ThemeToggle({
 }: {
   alwaysVisible?: boolean
 }) {
-  const { theme = "system" } = useTheme()
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -41,7 +39,7 @@ export function ThemeToggle({
             "group",
             !alwaysVisible && "invisible max-w-0 sm:visible sm:max-w-none"
           )}
-          aria-label={`Choose appearance (current: ${theme})`}
+          aria-label="Choose appearance"
         >
           <Sun className="scale-100 rotate-0 transition-transform motion-reduce:transition-none dark:scale-0 dark:-rotate-90" />
           <Moon className="absolute scale-0 rotate-90 transition-transform motion-reduce:transition-none dark:scale-100 dark:rotate-0" />

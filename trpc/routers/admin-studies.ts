@@ -19,6 +19,7 @@ import {
 } from "@/lib/study-editor"
 import { uniqueSlug } from "@/lib/slug"
 import { setStudyRetired, updateStudyDetails } from "@/lib/study-update"
+import { setStudyCandidateExcluded } from "@/lib/study-candidates"
 import {
   collectionsIndexPath,
   communityPath,
@@ -56,6 +57,23 @@ const revalidateStudyPaths = (study: {
 }
 
 export const adminStudiesRouter = createTRPCRouter({
+  setCandidateExcluded: adminProcedure
+    .meta({ marksGraphs: false })
+    .input(
+      z.object({
+        studyId: z.number().int().positive(),
+        definitionId: z.number().int().positive(),
+        excluded: z.boolean(),
+        expectedExclusionId: z.number().int().positive().nullable(),
+        reason: z.string().trim().min(1).max(1000)
+      })
+    )
+    .mutation(async ({ ctx: { userId }, input }) => {
+      const result = await setStudyCandidateExcluded({ ...input, userId })
+      revalidatePath(adminStudyPath(input.studyId))
+      return result
+    }),
+
   create: adminProcedure
     .input(
       z.object({
