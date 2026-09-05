@@ -110,7 +110,9 @@ assert.match(candidates, /Option \{index \+ 1\} of \{candidates\.length\}/)
 assert.match(candidates, /showStatus={false}/)
 assert.doesNotMatch(candidates, />Draft</)
 assert.doesNotMatch(candidates, /Proposed so far/)
-assert.match(candidates, /Accept as written/)
+assert.match(candidates, /Accept this definition/)
+assert.match(candidates, /Revise this definition/)
+assert.doesNotMatch(candidates, /Accept as written/)
 assert.match(candidates, /Suggest a revision/)
 assert.match(candidates, /None is close enough\?/)
 assert.match(candidates, /Propose a new definition/)
@@ -147,9 +149,32 @@ assert.match(skipTermChoice, /onClick=\{onSkip\}[\s\S]*Skip this term/)
 const candidateList = section(
   candidates,
   '<section className="space-y-5" aria-labelledby="earlier-definitions">',
-  "<Separator />"
+  '<section aria-labelledby="new-definition-alternative">'
 )
 assert.doesNotMatch(candidateList, /Skip this term|onSkip/)
+const definitionActions = section(
+  candidateList,
+  'role="group"',
+  "{(candidate.comments ?? 0) > 0"
+)
+assert.match(definitionActions, /Actions for definition option/)
+assert.match(definitionActions, /onClick=\{\(\) => acceptCandidate\(candidate\)\}/)
+assert.match(definitionActions, /kind: "revise", candidate/)
+assert.ok(
+  candidateList.indexOf('role="group"') <
+    candidateList.indexOf("Comments on this definition"),
+  "definition actions appear before the separate comments section"
+)
+const candidateComments = section(
+  candidateList,
+  "{(candidate.comments ?? 0) > 0",
+  "</section>"
+)
+assert.match(candidateComments, /aria-labelledby=\{`position-comments-/)
+assert.match(candidateComments, /<Separator \/>/)
+assert.match(candidateComments, /Comments on this definition/)
+assert.match(candidateComments, /<TermComments[\s\S]*readOnly/)
+assert.doesNotMatch(candidateComments, /<Button|acceptCandidate|openMove/)
 assert.ok(
   candidates.indexOf('if (move.kind === "revise")') <
     candidates.indexOf('aria-labelledby="skip-term-heading"'),

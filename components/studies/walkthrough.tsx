@@ -361,7 +361,7 @@ const Candidates = ({
                 disabled={busy || formBusy}
                 onClick={() => acceptCandidate(candidate)}
               >
-                Accept as written
+                Accept this definition
               </Button>
               <Button
                 type="button"
@@ -506,32 +506,24 @@ const Candidates = ({
                     Option {index + 1} of {candidates.length}
                   </p>
                 </Definition>
-                <div className="space-y-3 pl-4 sm:pl-8">
-                  {(candidate.comments ?? 0) > 0 && (
-                    <div className="space-y-2">
-                      <Eyebrow>Earlier comments</Eyebrow>
-                      <Suspense fallback={<Skeleton className="h-16 w-full" />}>
-                        <TermComments
-                          id={candidate.id}
-                          definitionNumber={candidate.definitionNumber}
-                          readOnly
-                        />
-                      </Suspense>
-                    </div>
-                  )}
+                <div className="flex flex-col gap-3 pl-4 sm:pl-8">
                   {candidate.vote && (
                     <p className="text-sm text-muted-foreground">
                       {positionAcceptanceExplanation(candidate.vote)}
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-2">
+                  <div
+                    className="flex flex-wrap gap-2"
+                    role="group"
+                    aria-label={`Actions for definition option ${index + 1}`}
+                  >
                     <Button
                       size="sm"
                       disabled={busy}
                       onClick={() => acceptCandidate(candidate)}
-                      aria-label={`Accept option ${index + 1} as written`}
+                      aria-label={`Accept this definition, option ${index + 1}`}
                     >
-                      Accept as written
+                      Accept this definition
                     </Button>
                     <Button
                       id={`revise-definition-${candidate.id}`}
@@ -544,11 +536,32 @@ const Candidates = ({
                           event.currentTarget
                         )
                       }
-                      aria-label={`Suggest a revision to option ${index + 1}`}
+                      aria-label={`Revise this definition, option ${index + 1}`}
                     >
-                      Suggest a revision
+                      Revise this definition
                     </Button>
                   </div>
+                  {(candidate.comments ?? 0) > 0 && (
+                    <section
+                      className="flex flex-col gap-3"
+                      aria-labelledby={`position-comments-${candidate.id}`}
+                    >
+                      <Separator />
+                      <h4
+                        id={`position-comments-${candidate.id}`}
+                        className="text-sm font-semibold"
+                      >
+                        Comments on this definition
+                      </h4>
+                      <Suspense fallback={<Skeleton className="h-16 w-full" />}>
+                        <TermComments
+                          id={candidate.id}
+                          definitionNumber={candidate.definitionNumber}
+                          readOnly
+                        />
+                      </Suspense>
+                    </section>
+                  )}
                 </div>
               </article>
             </li>
