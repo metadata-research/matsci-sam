@@ -139,8 +139,8 @@ assert.deepEqual(
   parseStudyInstructions(target.body).map((block) =>
     block.kind === "steps" ? [block.kind, block.items.length] : [block.kind]
   ),
-  [["paragraph"], ["steps", 3]],
-  "the reviewed ID4 copy keeps its scannable three-step structure"
+  [["paragraph"], ["paragraph"], ["steps", 3]],
+  "the ID4 overview and schedule preserve the three numbered actions"
 )
 assert.match(target.hash, /^[a-f0-9]{64}$/)
 assert.equal(readStudyContent("id4-round-two").hash, target.hash)
