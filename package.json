@@ -114,6 +114,7 @@
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.20",
     "@types/n3": "^1.26.1",

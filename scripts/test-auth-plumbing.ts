@@ -158,6 +158,10 @@ assert.equal(
 
 const loginPage = readFileSync(resolve("app/login/page.tsx"), "utf8")
 const registrationPage = readFileSync(resolve("app/register/page.tsx"), "utf8")
+const checkEmailPage = readFileSync(
+  resolve("app/register/check-email/page.tsx"),
+  "utf8"
+)
 const invitationPage = readFileSync(
   resolve("app/invite/[token]/page.tsx"),
   "utf8"
@@ -188,6 +192,19 @@ assert.match(loginPage, /Continue with Google/)
 assert.match(loginPage, /Google sign-in is not configured on this site\./)
 assert.match(loginPage, /Continue with ORCID/)
 assert.match(loginPage, /ORCID sign-in is not available yet\./)
+assert.match(
+  loginPage.replace(/\s+/g, " "),
+  /If an account exists for this address, MatSci-SAM will email a one-time sign-in link\./
+)
+assert.match(loginPage, /aria-describedby="login-email-help"/)
+assert.match(
+  checkEmailPage.replace(/\s+/g, " "),
+  /sends a sign-in link only for an existing account/
+)
+assert.match(
+  checkEmailPage.replace(/\s+/g, " "),
+  /New contributors receive a link after choosing Create an account with email/
+)
 const orcidDescriptionReference = loginPage.indexOf(
   'aria-describedby="orcid-unavailable"'
 )

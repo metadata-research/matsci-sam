@@ -12,6 +12,7 @@ import {
   refinementsTable,
   statementsTable,
   surveyStepPositionsTable,
+  studyDefinitionExclusionsTable,
   tagsToDefinitions,
   voteEventsTable,
   votesTable
@@ -35,6 +36,10 @@ export const deleteDefinitionRows = async (
   tx: DatabaseTransaction,
   id: number
 ) => {
+  // The exceptional permanent purge also removes study curation history.
+  await tx
+    .delete(studyDefinitionExclusionsTable)
+    .where(eq(studyDefinitionExclusionsTable.definitionId, id))
   await tx
     .delete(aiContributionSuggestionsTable)
     .where(

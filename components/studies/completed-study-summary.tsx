@@ -46,7 +46,11 @@ const PositionRecord = ({ step }: { step: Step }) => {
   if (step.held)
     return (
       <p>
-        {step.held.kind === "proposed" ? "Proposed" : "Accepted"}{" "}
+        {step.held.kind === "accepted"
+          ? "Accepted"
+          : step.held.refinedFromId
+            ? "Suggested a revision recorded as"
+            : "Proposed"}{" "}
         <DefinitionRevisionLink
           step={step}
           definitionNumber={step.held.definitionNumber}
@@ -59,8 +63,7 @@ const PositionRecord = ({ step }: { step: Step }) => {
   return (
     <p className="text-muted-foreground">
       This Position step is complete, but its definition record is unavailable.
-      This can occur for an earlier completion or a definition that was
-      removed.
+      This can occur for an earlier completion or a definition that was removed.
     </p>
   )
 }

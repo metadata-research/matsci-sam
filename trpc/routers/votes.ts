@@ -1,3 +1,4 @@
+import { requireStudyCandidate } from "@/lib/study-candidates"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { baseProcedure, createTRPCRouter } from "../init"
@@ -110,6 +111,12 @@ export const votesRouter = createTRPCRouter({
                     expectedInstructions!
                   )
                 : null
+            if (lockedWalkthrough)
+              await requireStudyCandidate(
+                tx,
+                lockedWalkthrough.study.id,
+                definitionId
+              )
             // One position per define step, taken by an upvote: checked in
             // the transaction that writes the vote, against the standing
             // vote castVote toggles on.

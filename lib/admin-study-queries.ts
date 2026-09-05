@@ -7,6 +7,9 @@ import {
   communityInvitationsTable,
   db,
   definitionRevisionsTable,
+  definitionsTable,
+  studyDefinitionExclusionsTable,
+  termsTable,
   studiesTable,
   surveyResponsesTable,
   surveyStepCompletionsTable,
@@ -14,7 +17,9 @@ import {
   usersTable,
   voteEventsTable
 } from "@yamz/db"
-import { asc, desc, eq, isNull, sql } from "drizzle-orm"
+import { asc, desc, eq, isNull, sql, getTableColumns } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
+import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
 import { stepsOfStudy, walkthroughUsageOfStudy } from "@/lib/survey-queries"
 
 const activityCount = sql<number>`cast(
@@ -175,4 +180,60 @@ export type AdminStudyDetail = NonNullable<
 export type AdminStudyOptions = Awaited<ReturnType<typeof adminStudyOptions>>
 export type AdminStudyInvitation = Awaited<
   ReturnType<typeof adminInvitationsOfStudy>
+>[number]
+
+export async function adminStudyCandidates(studyId: number) {
+  const restoredBy = alias(usersTable, "restored_by")
+  const [definitions, history] = await Promise.all([
+    db
+      .selectDistinct({
+        id: definitionsTable.id,
+        definitionNumber: definitionsTable.definitionNumber,
+        definition: definitionsTable.definition,
+        example: currentFeaturedExampleText().as("example"),
+        author: usersTable.name,
+        term: termsTable.term,
+        termSlug: termsTable.slug,
+        vocabularySlug: termsTable.vocabularySlug
+      })
+      .from(definitionsTable)
+      .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
+      .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+      .innerJoin(
+        surveyStepsTable,
+        eq(surveyStepsTable.termId, definitionsTable.termId)
+      )
+      .where(eq(surveyStepsTable.studyId, studyId))
+      .orderBy(asc(termsTable.term), asc(definitionsTable.definitionNumber)),
+    db
+      .select({
+        ...getTableColumns(studyDefinitionExclusionsTable),
+        excludedBy: usersTable.name,
+        restoredBy: restoredBy.name
+      })
+      .from(studyDefinitionExclusionsTable)
+      .innerJoin(
+        usersTable,
+        eq(usersTable.id, studyDefinitionExclusionsTable.excludedById)
+      )
+      .leftJoin(
+        restoredBy,
+        eq(restoredBy.id, studyDefinitionExclusionsTable.restoredById)
+      )
+      .where(eq(studyDefinitionExclusionsTable.studyId, studyId))
+      .orderBy(desc(studyDefinitionExclusionsTable.id))
+  ])
+  return definitions.map((definition) => ({
+    ...definition,
+    history: history.filter((entry) => entry.definitionId === definition.id),
+    exclusionId:
+      history.find(
+        (entry) =>
+          entry.definitionId === definition.id && entry.restoredAt === null
+      )?.id ?? null
+  }))
+}
+
+export type AdminStudyCandidate = Awaited<
+  ReturnType<typeof adminStudyCandidates>
 >[number]

@@ -19,6 +19,9 @@ const main = async () => {
     resumePosition,
     stepGate
   } = await import("../lib/surveys")
+  const { mayOpenStudyStep, nextStudyPosition } = await import(
+    "../lib/study-navigation"
+  )
   type Step = import("../lib/surveys").Step
 
   // --- The plan: instructions, defines, reviews, then questions ---
@@ -123,7 +126,8 @@ const main = async () => {
     DEFAULT_INSTRUCTIONS,
     /agreed|group's reference|nobody corrects|drafts are wrong/i
   )
-  assert.match(plan[1].prompt ?? "", /closest to what you think is right/i)
+  assert.match(plan[1].prompt ?? "", /closest to what you consider correct/i)
+  assert.match(plan[1].prompt ?? "", /revision to make it more accurate/i)
   assert.match(plan[1].prompt ?? "", /accept it as written/i)
   assert.match(plan[1].prompt ?? "", /suggest a revision/i)
   assert.match(plan[1].prompt ?? "", /propose a new definition/i)
@@ -202,6 +206,28 @@ const main = async () => {
   )
   // Order of arrival does not change the answer.
   assert.equal(resumePosition([...steps].reverse(), ids([1, 2])), 3)
+
+  // A skipped term completes both its Position and its later Review. The
+  // later completed Review remains readable, but it cannot unlock the next
+  // unfinished step or make Continue jump across the earlier gap.
+  const navigationSteps = Array.from({ length: 13 }, (_, index) => ({
+    position: index + 1,
+    completed: index < 4 || index + 1 === 12
+  }))
+  assert.equal(mayOpenStudyStep(navigationSteps, 5, 4), true)
+  assert.equal(mayOpenStudyStep(navigationSteps, 5, 5), true)
+  assert.equal(mayOpenStudyStep(navigationSteps, 5, 12), true)
+  assert.equal(mayOpenStudyStep(navigationSteps, 5, 13), false)
+  assert.equal(nextStudyPosition(navigationSteps, 5, 12), 5)
+  assert.equal(nextStudyPosition(navigationSteps, 5, 3), 4)
+  assert.equal(
+    nextStudyPosition(
+      navigationSteps.map((step) => ({ ...step, completed: true })),
+      null,
+      13
+    ),
+    14
+  )
 
   // --- Gates ---
 

@@ -160,7 +160,7 @@ export const planSteps = (input: {
     ...input.terms.map((term) => ({
       kind: "define" as const,
       termId: term.id,
-      prompt: `Choose the definition of ${term.term} closest to what you think is right. Accept it as written, suggest a revision, or propose a new definition if none is close enough. If you do not know the term well enough to choose, skip it.`,
+      prompt: `Choose the definition of ${term.term} closest to what you consider correct. Accept it as written, suggest a revision to make it more accurate, or propose a new definition if none is close enough. If you do not know the term well enough to choose, skip it.`,
       responseKind: null
     })),
     ...input.terms.map((term) => ({

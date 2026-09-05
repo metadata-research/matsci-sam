@@ -106,10 +106,11 @@ export default async function InvitePage({
           {study?.welcome && (
             <div className="space-y-2 rounded-md border border-border p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                What to do
+                About the study
               </p>
               <StudyInstructionContent
                 text={study.welcome}
+                part="overview"
                 className="text-sm"
               />
             </div>
@@ -117,12 +118,11 @@ export default async function InvitePage({
 
           {study && (
             <p className="text-sm text-muted-foreground">
-              The terms are in {study.collectionTitle}. You can read this again
-              at any time on the{" "}
+              The terms are in {study.collectionTitle}. You can return to the{" "}
               <Link href={studyPath(study.slug)} className="text-primary">
                 study page
-              </Link>
-              .
+              </Link>{" "}
+              at any time.
             </p>
           )}
 

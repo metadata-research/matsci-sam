@@ -5,6 +5,7 @@ import { AdminPageHeader } from "../../page-header"
 import styles from "../../admin.module.css"
 import {
   adminInvitationsOfStudy,
+  adminStudyCandidates,
   adminStudyById
 } from "@/lib/admin-study-queries"
 import { instructionEditability } from "@/lib/study-editor"
@@ -14,6 +15,7 @@ import { studyBySlug as referenceStudyBySlug } from "@/lib/published-studies"
 import { studyPath } from "@/lib/public-identifiers"
 import { Button } from "@/components/ui/button"
 import { StudyEditor } from "../study-editor"
+import { StudyCandidates } from "../study-candidates"
 import { StudyInvitations } from "../study-invitations"
 
 export const metadata = {
@@ -43,9 +45,10 @@ export default async function AdminStudyPage({
     notFound()
   }
 
-  const [study, invitations] = await Promise.all([
+  const [study, invitations, candidates] = await Promise.all([
     adminStudyById(id),
-    adminInvitationsOfStudy(id)
+    adminInvitationsOfStudy(id),
+    adminStudyCandidates(id)
   ])
   if (!study) notFound()
 
@@ -99,6 +102,8 @@ export default async function AdminStudyPage({
         acceptingParticipants={studyAcceptsParticipants(study)}
         invitations={invitations}
       />
+
+      <StudyCandidates studyId={id} candidates={candidates} />
 
       <StudyEditor
         key={[

@@ -9,8 +9,9 @@ scope](/docs/communities) explains community membership and invitations.
 ## The study page
 
 **The terms** links to the collection used for the study, and the window states
-when the study accepts actions. The instructions appear as the first activity
-step, where the participant needs them.
+when the study accepts actions. **About this study** gives a short overview.
+The numbered actions appear as the first activity step, where the participant
+needs them.
 
 A study with prepared steps shows a progress card to members of the community
 while the study is open. **Begin study** starts at the first step, and
@@ -23,16 +24,19 @@ item can also reopen its original step.
 ## The study activity
 
 The activity is an ordered set of steps. The first step presents the
-instructions. A position step and a review step follow for each term, followed
-by any closing questions. The step list shows progress. A completed step can be
-reopened for reading. The button at the end records completion, and progress is
-stored between visits. Reviewed instructions can use consecutive numbered
-lines, which the invitation, study page and activity display as a short ordered
-list.
+numbered actions. A position step and a review step follow for each term,
+followed by any closing questions. The step list shows progress. A completed
+step can be reopened for reading. The first unfinished step is open, while
+later unfinished steps remain locked. A dash marks both the Position and
+paired Review steps for a skipped term. Opening that later Review step for
+reading does not unlock the steps after it. The button at the end records
+completion, and progress is stored between visits. Reviewed instructions can use
+consecutive numbered lines. The invitation and study page show the surrounding
+overview, and the first activity step displays the lines as an ordered list.
 
 The default pilot protocol begins with definitions and comments from earlier
 work. For each term, a participant accepts the definition closest to what they
-think is right, suggests a revision to it, proposes a new definition, or skips
+consider correct, suggests a revision to it, proposes a new definition, or skips
 the term when they do not know it well enough to choose. Each term ends with a
 recorded position or an explicit skip. The fallback instructions label the
 wider vocabulary's targeted **Propose a replacement** as an outside-study
@@ -47,7 +51,7 @@ comments, support score, and any vote you already cast. The position step does
 not show a definition's lifecycle status or voting controls. Voting controls
 are available in the later review step.
 
-Choose the definition closest to what you think is right. **Accept as written**
+Choose the definition closest to what you consider correct. **Accept as written**
 records the selected definition as your position and adds your upvote. If you
 already upvoted it, that vote stands without adding another point. If you
 previously downvoted it, Accept changes the vote to an upvote.
@@ -59,15 +63,17 @@ accept the source definition or return to the list. Once a draft exists, the
 form replaces those alternatives with **Publish revision** and **Discard
 draft**. Comments remain a separate action in the later review step. The
 published definition is attributed to you and the named model and records its
-derivation from the exact source revision.
+derivation from the exact source revision. Publishing records the revision as
+your position but does not cast a vote. You can vote during Review.
 
 If none of the earlier definitions is close enough, **Propose a new
 definition** opens one empty form below the complete list. The resulting
 definition records the study step but does not claim to replace any one of the
 earlier definitions. Those definitions remain available for later participants
-to compare and vote on. The server rejects a Position submission that also
-names a replacement target. The participant may include an optional first example;
-it is stored as a separately attributed contribution. Outside a study,
+to compare and vote on. Publishing records the new definition as your position
+but does not cast a vote. You can vote during Review. The server rejects a Position submission that also
+names a replacement target. The participant may include an optional first
+example. It is stored as a separately attributed contribution. Outside a study,
 **Propose a replacement** remains a separate action on a particular definition
 and records that definition as its replacement target.
 
