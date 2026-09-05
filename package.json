@@ -12,6 +12,7 @@
     "test:revisions": "tsx scripts/test-definition-revisions.ts",
     "test:comparison": "tsx scripts/test-definition-comparison.ts",
     "test:activity-timeline": "tsx scripts/test-activity-timeline.ts",
+    "test:date": "tsx scripts/test-date.ts",
     "test:activity-db": "tsx --conditions=react-server scripts/test-term-activity-db.ts",
     "test:identifiers": "tsx scripts/test-public-identifiers.ts",
     "test:auth": "tsx scripts/test-auth-plumbing.ts",

@@ -1,18 +1,34 @@
-import { format } from "date-fns"
-
-/*
- * One date format across every view: month abbreviation, day, year --
- * "Jul 20, 2026". Chosen to be unambiguous: a numeric form like 07/20/2026 or
- * 2026-07-20 reads differently to a European audience (day/month order), and
- * spelling the month out removes the guess. Use formatDateTime where the time
- * of day matters (chats, comments, provenance events).
- *
- * Accepts the string timestamps the schema stores (mode: "string") as well as
- * Date/number, matching date-fns' own input.
- */
 type DateInput = Date | string | number
 
-export const formatDate = (value: DateInput) => format(value, "MMM d, yyyy")
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+})
 
-export const formatDateTime = (value: DateInput) =>
-  format(value, "MMM d, yyyy 'at' h:mm a")
+const timeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true
+})
+
+// Interpret offset-free timestamps in UTC to preserve their recorded wall time
+// and keep the server and browser output identical.
+const asDate = (value: DateInput) => {
+  if (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(value)
+  )
+    return new Date(`${value.replace(" ", "T")}Z`)
+  return new Date(value)
+}
+
+export const formatDate = (value: DateInput) =>
+  dateFormatter.format(asDate(value))
+
+export const formatDateTime = (value: DateInput) => {
+  const date = asDate(value)
+  return `${dateFormatter.format(date)} at ${timeFormatter.format(date)} UTC`
+}
