@@ -1,0 +1,54 @@
+{
+  "IBMPlexSans-Regular.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-sans/fonts/complete/woff2/IBMPlexSans-Regular.woff2",
+    "sha256": "ba711a3085ff9f27440b6b9c4550cfc47c97bf36591d5da958b975bb3add8c1a",
+    "bytes": 63020
+  },
+  "IBMPlexSans-Medium.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-sans/fonts/complete/woff2/IBMPlexSans-Medium.woff2",
+    "sha256": "5660f8a658f8bb50dbc005232f885eadffd2bc1c235c4f6fbb63469d1f9cde6d",
+    "bytes": 66740
+  },
+  "IBMPlexSans-SemiBold.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-sans/fonts/complete/woff2/IBMPlexSans-SemiBold.woff2",
+    "sha256": "f78048030eab62e860efa39a0df79e2e5581bf122eb95b9bc42c0b8a4988d205",
+    "bytes": 67060
+  },
+  "IBMPlexSans-Bold.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-sans/fonts/complete/woff2/IBMPlexSans-Bold.woff2",
+    "sha256": "fa7130d854a660b39a7fc9e6e0f2dc23dba5f1346e2adea3e1fe37b6d884133d",
+    "bytes": 63012
+  },
+  "IBMPlexSerif-Medium.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-serif/fonts/complete/woff2/IBMPlexSerif-Medium.woff2",
+    "sha256": "f66376aeb33a5b32116558e0de53b76b48531f6388e352aeeb35ad82ea05cfaa",
+    "bytes": 73052
+  },
+  "IBMPlexSerif-SemiBold.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-serif/fonts/complete/woff2/IBMPlexSerif-SemiBold.woff2",
+    "sha256": "030d808e82f99ebe5c21d50745bd06e5ce16ad9e94b360f5adcc19362beb5344",
+    "bytes": 73440
+  },
+  "IBMPlexSerif-Bold.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-serif/fonts/complete/woff2/IBMPlexSerif-Bold.woff2",
+    "sha256": "3b9eb99793dd9fed419aaf1af03559ea28bac17b7cb6146e7f8fc3db813621fe",
+    "bytes": 69300
+  },
+  "IBMPlexMono-Regular.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-mono/fonts/complete/woff2/IBMPlexMono-Regular.woff2",
+    "sha256": "ba204497f16b6d334cee9d1e963a831b73e3a56e1d6300a8489d18df7214b350",
+    "bytes": 49248
+  },
+  "IBMPlexMono-Medium.woff2": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/packages/plex-mono/fonts/complete/woff2/IBMPlexMono-Medium.woff2",
+    "sha256": "33faf307fa6031fb4062276d7320a6d632de890cbb347576fd80cfa01077bc25",
+    "bytes": 50400
+  },
+  "LICENSE.txt": {
+    "source": "https://raw.githubusercontent.com/IBM/plex/bf260093582f04622aacc1e9f9ca604d7ccd0c42/LICENSE.txt",
+    "sha256": "d741e57d5f865e294df801f96b7b5161a88b211df65887e4358d271c9fc5fb4f",
+    "bytes": 4362,
+    "upstreamSha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+    "normalization": "LF line endings and no trailing whitespace; license wording unchanged."
+  }
+}

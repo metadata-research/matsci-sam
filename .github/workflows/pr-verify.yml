@@ -469,5 +469,8 @@ jobs:
       - name: Build
         env:
           SYSTEM_PROMPT_KEY: materials-reference
+          # Font compilation must succeed without an external download.
+          HTTP_PROXY: http://127.0.0.1:9
+          HTTPS_PROXY: http://127.0.0.1:9
         run: |
           pnpm build
