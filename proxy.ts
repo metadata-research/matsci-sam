@@ -9,15 +9,9 @@ export function proxy(request: NextRequest) {
   if (!["GET", "HEAD"].includes(request.method)) return NextResponse.next()
   const doc = vocabularyDocument(request.nextUrl.pathname)
   if (!doc) return NextResponse.next()
-  if (doc.format) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/api/vocabulary-document"
-    url.search = ""
-    url.searchParams.set("resource", doc.resource)
-    url.searchParams.set("format", doc.format)
-    if (doc.provenance) url.searchParams.set("provenance", "true")
-    return NextResponse.rewrite(url)
-  }
+  // Explicit documents use relative next.config rewrites. An absolute rewrite
+  // here can become an external HTTPS request to the HTTP listener behind TLS.
+  if (doc.format) return NextResponse.next()
   const representation = preferredRepresentation(request.headers.get("accept"))
   if (!representation)
     return new Response("Not acceptable", {
