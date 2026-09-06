@@ -3,6 +3,7 @@
 // HTTPS forwarding headers used by Nginx, rather than just calling handlers.
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
+import { randomBytes } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { setTimeout as delay } from "node:timers/promises"
@@ -20,7 +21,10 @@ async function main() {
   const server = spawn(process.execPath, [
     "node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1",
     "--port", String(address.port)
-  ], { stdio: ["ignore", "pipe", "pipe"], env: process.env })
+  ], {
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, SESSION_PASSWORD: randomBytes(32).toString("hex") }
+  })
   let output = ""
   server.stdout.on("data", (data) => { output += data })
   server.stderr.on("data", (data) => { output += data })
