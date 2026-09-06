@@ -17,7 +17,7 @@ import {
   DEFAULT_LIKELIHOOD_QUESTION,
   positionAcceptanceExplanation,
   scaleLabelsForPrompt,
-  studyWindowExplanation
+  studyClosingNote
 } from "../lib/study-presentation"
 import {
   parseSearchHeadline,
@@ -192,14 +192,22 @@ assert.equal(
 )
 assert.equal(studyActivityActionLabel(11, null, 11), null)
 
-const walkthroughWindow = studyWindowExplanation(7)
-assert.match(walkthroughWindow, /only while the study is open/)
-assert.match(walkthroughWindow, /before a future opening date/)
-assert.match(walkthroughWindow, /not once the study has closed or been retired/)
-assert.doesNotMatch(walkthroughWindow, /nothing is locked/i)
-const archivalWindow = studyWindowExplanation(0)
-assert.match(archivalWindow, /record the study period/)
-assert.doesNotMatch(archivalWindow, /walkthrough/)
+assert.equal(
+  studyClosingNote(19, "2026-09-12T03:59:00Z"),
+  "Responses close on September 11, 2026 (Eastern time).",
+  "the deadline uses the Eastern calendar date, not the next UTC day"
+)
+assert.equal(
+  studyClosingNote(19, "2026-01-12T04:59:00Z"),
+  "Responses close on January 11, 2026 (Eastern time).",
+  "winter deadlines use Eastern standard time"
+)
+assert.equal(studyClosingNote(19, null), null)
+assert.equal(
+  studyClosingNote(0, "2025-09-17T23:59:59Z"),
+  "The study period ends on September 17, 2025 (Eastern time).",
+  "a study without a walkthrough does not imply response gating"
+)
 
 assert.deepEqual(scaleLabelsForPrompt(DEFAULT_LIKELIHOOD_QUESTION), {
   minimum: "Not likely",

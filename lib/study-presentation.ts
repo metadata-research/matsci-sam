@@ -28,12 +28,19 @@ export const scaleLabelsForPrompt = (prompt: string | null) =>
     ? LIKELIHOOD_SCALE_LABELS
     : GENERIC_SCALE_LABELS
 
-export const studyWindowExplanation = (steps: number) =>
-  (steps > 0
-    ? "Community members can take part only while the study is open. "
-    : "These dates record the study period. ") +
-  "A valid study invitation can be accepted while the study is open or before " +
-  "a future opening date, but not once the study has closed or been retired."
+const studyDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  month: "long",
+  day: "numeric",
+  year: "numeric"
+})
+
+// Study deadlines use the Eastern calendar date agreed for participation,
+// which can be the day before the stored UTC date.
+export const studyClosingNote = (steps: number, closesAt: string | null) =>
+  closesAt
+    ? `${steps > 0 ? "Responses close" : "The study period ends"} on ${studyDateFormatter.format(new Date(closesAt))} (Eastern time).`
+    : null
 
 export const positionAcceptanceExplanation = (
   vote: "up" | "down" | null | undefined
