@@ -8,27 +8,40 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { TRPCProvider } from "@/trpc/client"
 import { Toaster } from "@/components/ui/sonner"
 import { getCurrentUser } from "@/lib/current-user"
-import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google"
+import localFont from "next/font/local"
 
 // One designed family across roles: Plex Sans for body and UI, Plex Serif
 // for term headwords and the logo, Plex Mono for model names, prompt keys,
-// and hashes.
-const plexSans = IBM_Plex_Sans({
+// and hashes. Bundle the licensed files so release builds do not fetch fonts.
+const plexSans = localFont({
+  src: [
+    { path: "./fonts/IBMPlexSans-Regular.woff2", weight: "400" },
+    { path: "./fonts/IBMPlexSans-Medium.woff2", weight: "500" },
+    { path: "./fonts/IBMPlexSans-SemiBold.woff2", weight: "600" },
+    { path: "./fonts/IBMPlexSans-Bold.woff2", weight: "700" }
+  ],
   variable: "--font-plex-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"]
+  display: "swap"
 })
 
-const plexSerif = IBM_Plex_Serif({
+const plexSerif = localFont({
+  src: [
+    { path: "./fonts/IBMPlexSerif-Medium.woff2", weight: "500" },
+    { path: "./fonts/IBMPlexSerif-SemiBold.woff2", weight: "600" },
+    { path: "./fonts/IBMPlexSerif-Bold.woff2", weight: "700" }
+  ],
   variable: "--font-plex-serif",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"]
+  display: "swap",
+  adjustFontFallback: "Times New Roman"
 })
 
-const plexMono = IBM_Plex_Mono({
+const plexMono = localFont({
+  src: [
+    { path: "./fonts/IBMPlexMono-Regular.woff2", weight: "400" },
+    { path: "./fonts/IBMPlexMono-Medium.woff2", weight: "500" }
+  ],
   variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"]
+  display: "swap"
 })
 
 export const metadata: Metadata = {
