@@ -1,0 +1,53 @@
+import { termPath } from "@/lib/public-identifiers"
+import { trpc } from "@/trpc/server"
+import { notFound } from "next/navigation"
+import Link from "next/link"
+import { ArrowLeftIcon } from "lucide-react"
+import { ProvenanceGraph } from "@/components/provenance/graph"
+import { ProvenanceTimeline } from "@/components/provenance/timeline"
+
+// Public, read-only PROV-O view of a term's history. Voter identities are
+// anonymized server-side (see terms.provenance).
+export async function TermProvenancePage({ termId }: { termId: number }) {
+  const provenance = await trpc.terms.provenance(termId).catch(() => null)
+  if (!provenance) notFound()
+
+  return (
+    <main className="px-4 p-8">
+      <section className="max-w-4xl w-full mx-auto space-y-4">
+        <Link
+          href={termPath(provenance.term.slug, provenance.term.vocabularySlug)}
+          className="flex items-center text-primary"
+        >
+          <ArrowLeftIcon className="mr-2 size-4" /> Definitions for{" "}
+          {provenance.term.term}
+        </Link>
+        <h1 className="text-3xl font-bold">
+          Provenance: {provenance.term.term}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          The published history of this term as a W3C PROV-O graph, including
+          definitions and revisions, AI-assisted activity, examples and featured
+          selections, comments, and votes. Click a node for details, or download
+          the graph as{" "}
+          <a
+            href={
+              termPath(provenance.term.slug, provenance.term.vocabularySlug) +
+              "/provenance.ttl"
+            }
+            className="text-primary font-mono text-xs"
+          >
+            PROV-O Turtle
+          </a>
+          .
+        </p>
+        <ProvenanceGraph
+          nodes={provenance.graph.nodes}
+          edges={provenance.graph.edges}
+        />
+        <h2 className="text-xl font-semibold pt-2">Timeline</h2>
+        <ProvenanceTimeline events={provenance.events} />
+      </section>
+    </main>
+  )
+}

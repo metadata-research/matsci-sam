@@ -1,12 +1,18 @@
+import {
+  currentDefinitionRevision,
+  publicDefinitionAuthor,
+  canonicalDefinitionOrder
+} from "@/lib/canonical-definition-query"
 import "server-only"
 
 import {
   db,
   definitionRevisionsTable,
   definitionsTable,
-  termsTable
+  termsTable,
+  usersTable
 } from "@yamz/db"
-import { and, desc, eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { cache } from "react"
 import { DEFAULT_VOCABULARY_SLUG } from "./public-identifiers"
 
@@ -122,23 +128,22 @@ export async function findDefinitionAtRank(
     .select({
       id: definitionsTable.id,
       definitionNumber: definitionsTable.definitionNumber,
+      definition: definitionsTable.definition,
       term: termsTable.term,
       termSlug: termsTable.slug,
       termVocabularySlug: termsTable.vocabularySlug
     })
     .from(definitionsTable)
     .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
+    .innerJoin(definitionRevisionsTable, currentDefinitionRevision)
+    .innerJoin(usersTable, publicDefinitionAuthor)
     .where(
       and(
         eq(termsTable.slug, termSlug),
         eq(termsTable.vocabularySlug, vocabularySlug)
       )
     )
-    .orderBy(
-      desc(definitionsTable.score),
-      desc(definitionsTable.createdAt),
-      desc(definitionsTable.definitionNumber)
-    )
+    .orderBy(...canonicalDefinitionOrder())
     .limit(1)
     .offset(rank - 1)
 

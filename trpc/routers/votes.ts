@@ -1,3 +1,4 @@
+import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 import { requireStudyCandidate } from "@/lib/study-candidates"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
@@ -152,6 +153,11 @@ export const votesRouter = createTRPCRouter({
             })
           })
 
+          await revalidatePublicDefinition({
+            definitionId,
+            definitionNumber: updatedDefinition.definitionNumber,
+            termId: updatedDefinition.termId
+          })
           return { score: updatedDefinition.score, ok: true }
         } catch (error) {
           if (error instanceof VoteTargetMissingError)

@@ -1,3 +1,8 @@
+import {
+  currentDefinitionRevision,
+  publicDefinitionAuthor,
+  canonicalDefinitionOrder
+} from "@/lib/canonical-definition-query"
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
@@ -568,10 +573,7 @@ export const definitionsRouter = createTRPCRouter({
       const [row] = await db
         .select({ version: definitionRevisionsTable.version })
         .from(definitionsTable)
-        .innerJoin(
-          definitionRevisionsTable,
-          eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
-        )
+        .innerJoin(definitionRevisionsTable, currentDefinitionRevision)
         .where(eq(definitionsTable.id, definitionId))
         .limit(1)
       return { version: row?.version ?? null }
@@ -750,7 +752,7 @@ export const definitionsRouter = createTRPCRouter({
         .from(definitionsTable)
         .where(eq(definitionsTable.id, definitionId))
         .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-        .innerJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
+        .innerJoin(usersTable, publicDefinitionAuthor)
         // A model author carries its own identity row.
         .leftJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
 
@@ -1021,11 +1023,8 @@ export const definitionsRouter = createTRPCRouter({
               includeExcluded ? undefined : not(excluded)
             )
           )
-          .innerJoin(
-            definitionRevisionsTable,
-            eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
-          )
-          .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
+          .innerJoin(definitionRevisionsTable, currentDefinitionRevision)
+          .innerJoin(usersTable, publicDefinitionAuthor)
           // A model author carries its own identity row.
           .leftJoin(aiModelsTable, eq(aiModelsTable.userId, usersTable.id))
           // Highest voted first, newest breaking ties, then the permanent
@@ -1033,11 +1032,7 @@ export const definitionsRouter = createTRPCRouter({
           // score alone left equal-scored definitions in whatever order the
           // planner returned, so the one shown first -- the term's default --
           // could change between requests.
-          .orderBy(
-            desc(definitionsTable.score),
-            desc(definitionsTable.createdAt),
-            desc(definitionsTable.definitionNumber)
-          )
+          .orderBy(...canonicalDefinitionOrder())
 
         if (userId)
           definitionsQuery.leftJoin(

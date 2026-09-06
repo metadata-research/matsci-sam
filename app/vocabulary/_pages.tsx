@@ -1,3 +1,4 @@
+import { findDefinitionAtRank } from "@/lib/public-definition-resolution"
 import { DefinitionList } from "@/app/terms/[termId]/definitions"
 import { Badge } from "@/components/ui/badge"
 import { FacetEditor } from "@/components/tags/facet-editor"
@@ -18,8 +19,6 @@ import {
 } from "@/lib/public-identifiers"
 import { SITE_NAME } from "@/lib/site"
 import { HydrateClient, trpc } from "@/trpc/server"
-import { db, definitionsTable } from "@yamz/db"
-import { desc, eq } from "drizzle-orm"
 import { ActivityIcon, NetworkIcon } from "lucide-react"
 import Link from "next/link"
 import { Suspense } from "react"
@@ -257,14 +256,11 @@ export async function VocabularyTermPage({
     trpc.tags.facets.prefetch({ termId: term.id })
   ])
   const userPromise = getCurrentUser()
-  const topDefinitionPromise = db.query.definitionsTable.findFirst({
-    where: eq(definitionsTable.termId, term.id),
-    orderBy: [
-      desc(definitionsTable.score),
-      desc(definitionsTable.createdAt),
-      desc(definitionsTable.definitionNumber)
-    ]
-  })
+  const topDefinitionPromise = findDefinitionAtRank(
+    term.slug,
+    1,
+    term.vocabularySlug
+  )
   const [, user, topDefinition] = await Promise.all([
     prefetches,
     userPromise,
@@ -313,20 +309,22 @@ export async function VocabularyTermPage({
                 activity
               </Link>
               <Link
-                href={"/terms/" + term.id + "/provenance"}
+                href={termPath(term.slug, term.vocabularySlug) + "/provenance"}
                 className="flex items-center gap-1 text-primary"
               >
                 <NetworkIcon className="size-4" /> Provenance
               </Link>
               <span className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
                 <a
-                  href={"/terms/" + term.id + "/skos.ttl"}
+                  href={termPath(term.slug, term.vocabularySlug) + "/skos.ttl"}
                   className="hover:text-primary"
                 >
                   SKOS
                 </a>
                 <a
-                  href={"/terms/" + term.id + "/skos.jsonld"}
+                  href={
+                    termPath(term.slug, term.vocabularySlug) + "/skos.jsonld"
+                  }
                   className="hover:text-primary"
                 >
                   JSON-LD

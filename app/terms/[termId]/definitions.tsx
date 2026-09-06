@@ -1,5 +1,7 @@
 "use client"
 
+import { compareDefinitions } from "@/lib/canonical-definition"
+
 import { Definition } from "@/components/definition"
 import { trpc } from "@/trpc/client"
 import { useFlip } from "@/lib/use-flip"
@@ -25,11 +27,11 @@ export const DefinitionList = ({
   // Same rule as the server (definitions.list): highest score first, newest
   // breaking ties, then the permanent definition number for identical
   // timestamps. Kept in sync so a client reorder matches a reload.
-  const ordered = [...definitions].sort(
-    (a, b) =>
-      scoreOf(b.id, b.score) - scoreOf(a.id, a.score) ||
-      b.createdAt.localeCompare(a.createdAt) ||
-      b.definitionNumber - a.definitionNumber
+  const ordered = [...definitions].sort((a, b) =>
+    compareDefinitions(
+      { ...a, score: scoreOf(a.id, a.score) },
+      { ...b, score: scoreOf(b.id, b.score) }
+    )
   )
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -42,9 +44,8 @@ export const DefinitionList = ({
         <div key={definition.id} data-flip-key={definition.id}>
           <Definition
             definition={{ ...definition, termSlug, termVocabularySlug }}
-            // Only marked when more than one definition exists -- with a single
-            // one, "default" distinguishes nothing.
-            isDefault={i === 0 && ordered.length > 1}
+            isDefault={i === 0}
+            isCanonical={i === 0}
             onScoreChange={(score) =>
               setScores((prev) => ({ ...prev, [definition.id]: score }))
             }
