@@ -13,8 +13,7 @@ import {
   communityPath,
   studyRunPath
 } from "@/lib/public-identifiers"
-import { formatDate } from "@/lib/date"
-import { studyWindowExplanation } from "@/lib/study-presentation"
+import { studyClosingNote } from "@/lib/study-presentation"
 import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -64,6 +63,7 @@ export default async function StudyPage({
   if (!study) notFound()
 
   const state = studyState(study)
+  const closingNote = studyClosingNote(study.steps, study.closesAt)
 
   // The walkthrough as this viewer sees it, for the resume card. A
   // signed-out viewer has no progress to resume, so nothing is read.
@@ -214,15 +214,8 @@ export default async function StudyPage({
           </p>
         </section>
 
-        {(study.opensAt || study.closesAt) && (
-          <section className="space-y-2">
-            <h2 className="text-xl font-semibold">When</h2>
-            <p className="text-sm text-muted-foreground">
-              {study.opensAt && `Opens ${formatDate(study.opensAt)}. `}
-              {study.closesAt && `Closes ${formatDate(study.closesAt)}. `}
-              {studyWindowExplanation(study.steps)}
-            </p>
-          </section>
+        {closingNote && (
+          <p className="text-sm text-muted-foreground">{closingNote}</p>
         )}
       </section>
     </main>
