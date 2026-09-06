@@ -83,6 +83,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
         run: |
           pnpm test:vocabularies-db
+          pnpm test:canonical-db
 
       # Exercises the knowledge-organization ledger's CHECKs, indexes and the
       # definition purge inside one rolled-back transaction. It needs the
@@ -378,6 +379,7 @@ jobs:
       - name: Test Public Identifiers
         run: |
           pnpm test:identifiers
+          pnpm test:canonical
 
       - name: Test Definition Revisions
         run: |

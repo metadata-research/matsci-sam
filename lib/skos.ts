@@ -1,3 +1,8 @@
+import {
+  currentDefinitionRevision,
+  publicDefinitionAuthor
+} from "@/lib/canonical-definition-query"
+import { compareDefinitions } from "./canonical-definition"
 import "server-only"
 
 import {
@@ -21,6 +26,7 @@ import {
   definitionUri,
   revisionUri,
   termUri,
+  termPath,
   vocabularyUri
 } from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
@@ -68,6 +74,7 @@ export type TermSkos = {
   vocabularySlug: string
   prefLabel: string
   created: string
+  canonicalDefinition?: string
   definitions: {
     id: number
     uri: string
@@ -214,7 +221,19 @@ export const assembleTermSkos = (
   }
 
   return rows.terms.map((term) => {
-    const definitions = (definitionsByTerm.get(term.id) ?? [])
+    const candidates = definitionsByTerm.get(term.id) ?? []
+    const winner = candidates.reduce<(typeof candidates)[number] | undefined>(
+      (best, candidate) =>
+        !best ||
+        compareDefinitions(
+          { ...candidate, createdAt: candidate.definitionCreatedAt },
+          { ...best, createdAt: best.definitionCreatedAt }
+        ) < 0
+          ? candidate
+          : best,
+      undefined
+    )
+    const definitions = candidates
       .slice()
       .sort((a, b) => a.definitionNumber - b.definitionNumber)
       .map((d) => {
@@ -289,6 +308,9 @@ export const assembleTermSkos = (
       uri: termUri(term.slug, term.vocabularySlug),
       slug: term.slug,
       vocabularySlug: term.vocabularySlug,
+      canonicalDefinition: winner
+        ? definitionUri(term.slug, winner.definitionNumber, term.vocabularySlug)
+        : undefined,
       prefLabel: term.term,
       created: term.createdAt.slice(0, 10),
       definitions,
@@ -340,11 +362,8 @@ export const buildTermsSkos = async (
       authorIsAi: usersTable.isAi
     })
     .from(definitionsTable)
-    .innerJoin(
-      definitionRevisionsTable,
-      eq(definitionRevisionsTable.id, definitionsTable.currentRevisionId)
-    )
-    .innerJoin(usersTable, eq(definitionsTable.authorId, usersTable.id))
+    .innerJoin(definitionRevisionsTable, currentDefinitionRevision)
+    .innerJoin(usersTable, publicDefinitionAuthor)
     .where(termIds ? inArray(definitionsTable.termId, termIds) : undefined)
     .orderBy(asc(definitionsTable.definitionNumber))
 
@@ -410,6 +429,9 @@ const conceptTurtle = (skos: TermSkos) => {
     "a skos:Concept",
     `skos:inScheme <${vocabularyUri(skos.vocabularySlug)}>`,
     `skos:prefLabel ${en(skos.prefLabel)}`,
+    ...(skos.canonicalDefinition
+      ? [`matsci:canonicalDefinition <${skos.canonicalDefinition}>`]
+      : []),
     ...skos.definitions.map(
       (d) => `skos:definition <${d.currentRevision.uri}>`
     ),
@@ -577,6 +599,9 @@ export const termJsonLd = (skos: TermSkos, kos: KosData) => {
     "@type": "skos:Concept",
     "skos:inScheme": idRef(vocabularyUri(skos.vocabularySlug)),
     "skos:prefLabel": { "@value": skos.prefLabel, "@language": "en" },
+    ...(skos.canonicalDefinition
+      ? { "matsci:canonicalDefinition": { "@id": skos.canonicalDefinition } }
+      : {}),
     "skos:definition": skos.definitions.map((d) => {
       const revision = d.currentRevision
 
@@ -665,7 +690,7 @@ export const definedTermJsonLd = (
   "@id": termUri(term.slug, term.vocabularySlug),
   name: term.term,
   ...(description ? { description } : {}),
-  url: termUri(term.slug, term.vocabularySlug),
+  url: `${SITE_URL}${termPath(term.slug, term.vocabularySlug)}`,
   inDefinedTermSet: {
     "@type": "DefinedTermSet",
     "@id": vocabularyUri(term.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG),

@@ -57,6 +57,7 @@ export const Term = ({
 export const Definition = ({
   definition,
   isDefault = false,
+  isCanonical = false,
   showStatus = true,
   onScoreChange,
   surveyStepId,
@@ -82,10 +83,10 @@ export const Definition = ({
     termSlug: string
     termVocabularySlug: string
   }
-  // The term's leading definition: highest voted, newest breaking ties. Callers
-  // decide -- this component does not rank, it only marks. Left false when a
-  // term has just one definition, where "default" would distinguish nothing.
+  // The leading card in the displayed list. A study can filter candidates,
+  // so its leading card need not be the public canonical definition.
   isDefault?: boolean
+  isCanonical?: boolean
   // Position steps present lifecycle-neutral options for a participant's
   // choice. Other definition surfaces keep the support-derived status chip.
   showStatus?: boolean
@@ -109,9 +110,8 @@ export const Definition = ({
   children?: ReactNode
 } & MutationActivityCallbacks) => (
   <Card
-    // The leading (highest-voted) definition is marked by a full primary
-    // border and a soft lift, not a label and not a fill -- a colored edge on
-    // a bright surface reads as promoted, whereas a tint reads as muted. The
+    // The leading definition is marked by a full primary
+    // border and a soft lift. The
     // styling follows whichever card is on top, so it survives reordering.
     className={`flex-row p-4 gap-4 transition-all ${
       isDefault
@@ -138,6 +138,11 @@ export const Definition = ({
         />
       ))}
     <section className="min-w-0 flex-1 space-y-2">
+      {isCanonical ? (
+        <p className="text-xs font-semibold text-primary">
+          Canonical definition
+        </p>
+      ) : null}
       <Link
         href={definitionPath(
           definition.termSlug,

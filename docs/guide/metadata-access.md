@@ -123,14 +123,15 @@ Core, and PROV-O do not name directly. Its namespace is
 `{identifier-base}/metadata#`. The base `/metadata` address redirects to this
 guide.
 
-| Term                 | Meaning                                               |
-| -------------------- | ----------------------------------------------------- |
-| `Definition`         | One stable contributed interpretation of a term       |
-| `DefinitionRevision` | One immutable state of a definition                   |
-| `definitionNumber`   | The permanent creation-order number within a term     |
-| `currentRevision`    | The active revision of a stable definition            |
-| `version`            | The positive revision number stored in the RDF record |
-| `status`             | The score-derived activity status of a revision       |
+| Term                  | Meaning                                                                            |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `Definition`          | One stable contributed interpretation of a term                                    |
+| `DefinitionRevision`  | One immutable state of a definition                                                |
+| `definitionNumber`    | The permanent creation-order number within a term                                  |
+| `canonicalDefinition` | The highest-scored definition of this community term; newest candidate breaks ties |
+| `currentRevision`     | The active revision of a stable definition                                         |
+| `version`             | The positive revision number stored in the RDF record                              |
+| `status`              | The score-derived activity status of a revision                                    |
 
 The provenance graph adds terms for recorded acts.
 

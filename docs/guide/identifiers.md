@@ -176,3 +176,17 @@ same. A deployment sets the base once, before external citation.
 A deployment that requires durable citations configures a persistent resolver
 as its identifier base before publishing. An identifier minted under the
 application origin is bound to that host.
+
+## Persistent term resolution
+
+The persistent namespace is `https://w3id.org/matsci-sam`. A term w3id opens
+the owning community's term page, where the canonical definition appears first.
+A different community's same-label term has a different identifier and winner.
+
+For RDF, request `text/turtle` or `application/ld+json` at the readable
+vocabulary, term, definition, or revision address. A 303 response leads to
+an explicit `/skos.ttl` or `/skos.jsonld` document. Term history opens at
+`/provenance`, with `/provenance.ttl` and `/provenance.jsonld` for machines.
+Older numeric document addresses continue to work. RDF publishes
+`matsci:canonicalDefinition`; the selected definition's
+`matsci:currentRevision` identifies its current wording.

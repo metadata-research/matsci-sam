@@ -44,6 +44,13 @@ steward removes you, or an administrator retires the community.
 Each vocabulary ranks its own candidate definitions. Rank 1 is that
 vocabulary's current canonical definition for the term; a same-label term in
 another vocabulary has an independent set of candidates, votes, and rankings.
+A readable w3id includes both the vocabulary and term slug. For example,
+`/vocabulary/community_a/metal` and `/vocabulary/community_b/metal` identify
+different concepts. Votes and definition revisions never change those term
+identifiers. Highest net score wins; ties prefer the newest candidate, then
+the higher permanent definition number. Revising a candidate resets its score
+for the new revision; it does not change the candidate creation time.
+
 Definition and revision identifiers remain available when a publication needs
 to pin the wording used at a particular time.
 
