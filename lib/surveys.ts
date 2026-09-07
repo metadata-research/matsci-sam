@@ -42,6 +42,28 @@ export type Question = { prompt: string; responseKind: ResponseKind }
 // own: the purpose of the protocol. Plain sentences, rendered as the study
 // welcome is.
 export const DEFAULT_INSTRUCTIONS =
+  "This study asks you to review a collection of terms. Definitions may come " +
+  "from vocabulary work, preparation for this study, or other participants.\n\n" +
+  "1. For each term, take a position: choose the definition closest to what " +
+  "you consider correct. Accept it as written or use Suggest a revision to " +
+  "request and review a language-model draft of an alternative.\n" +
+  "2. If none is close enough, or there is no definition yet, use Propose a " +
+  "new definition to write your own. If you do not know a term well enough " +
+  "to choose, skip it.\n" +
+  "3. After the Position steps, review the definitions, vote on each, and " +
+  "comment where you disagree or can add information. You can review a term " +
+  "with just one definition.\n" +
+  "4. Answer any closing questions.\n\n" +
+  "Accepting records your position and ensures an upvote. Publishing a " +
+  "suggested revision or new definition records your position without " +
+  "casting a vote. A skip records no opinion and skips both steps for that " +
+  "term. Completed steps are saved between visits. Use Study help to reread " +
+  "these instructions or learn how an action works."
+
+// Retain the exact former fallback for studies that have already stored it.
+// A new default must not rewrite a participant's instructions or make an
+// untouched study fail the editor's legacy-default comparison.
+const SECOND_ROUND_INSTRUCTIONS =
   "This study is a second round on a terminology list. Each term may have " +
   "definitions, examples, and comments from earlier work.\n\n" +
   "Outside a study, MatSci-SAM uses five vocabulary contribution actions: New term, Suggest a revision, " +
@@ -69,6 +91,7 @@ export const DEFAULT_INSTRUCTIONS =
  * the text its participants were shown and locked against.
  */
 const LEGACY_DEFAULT_INSTRUCTIONS = [
+  SECOND_ROUND_INSTRUCTIONS,
   "This study is a second round on a terminology list. Each term may have " +
     "definitions, examples, and comments from earlier work.\n\n" +
     "Outside a study, MatSci-SAM uses five vocabulary contribution actions: New term, Suggest a revision, " +

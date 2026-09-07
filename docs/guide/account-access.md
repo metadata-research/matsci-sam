@@ -1,19 +1,26 @@
 # Account access
 
-MatSci-SAM associates contributions with a contributor account. The account
-gateway shows the access methods configured for that deployment. **Continue
-with Google** signs in a returning contributor or creates an eligible new
-account from the verified identity Google returns. Email sign-in, email account
-creation, and ORCID are controlled separately, so the available choices vary by
-deployment.
+Sign in to contribute definitions, vote, comment, or take part in a study.
+Select **Login** and choose one of the available methods. You can read the
+vocabulary and documentation without an account.
+
+If you have participated before, use the same account so your contributions
+and community memberships stay together. **Continue with Google** uses your
+Google account. Email sign-in uses an email address already attached to your
+MatSci-SAM account.
+
+Use **Sign in** on the study page to return there after login. You can also
+find your communities' studies under **Your studies** on your profile. If the
+study asks you to join its community, ask the person who shared the link for
+an invitation. See [Studies](/docs/studies#the-study-page).
 
 ## Verified email sign-in
 
-When email sign-in is available, the form on **Sign in** is for an existing
-account. Enter an email address already attached to that account. MatSci-SAM
-sends a short-lived, one-time link only when the address matches an existing
-contributor. The confirmation page does not reveal whether an address was
-found. Sign-in uses the one-time link in place of a password.
+Enter an email address already attached to your account and select **Email
+me a sign-in link**. If the address matches an account, MatSci-SAM sends a
+short-lived, one-time link. Open that link to sign in without a password.
+For privacy, the confirmation page looks the same whether or not an account
+was found.
 
 The link returns the contributor to the same account. The public profile
 never displays the email address.
@@ -28,23 +35,20 @@ invitation, the one-time link retains that invitation across browsers or
 devices. Saving the required profile returns the contributor to the invitation
 so they can accept it and begin the study.
 
-If you already have contributions, sign in with the same Google account you
-used before. Creating a second account by email assigns later activity to a
-separate profile. A deployment maintainer can enable existing-account email
-sign-in without enabling new account creation, so the registration link may
-not appear in every environment.
-
-A delayed or filtered message may require the contributor to request another
-link after the short waiting period.
+If you already have contributions, sign in to your existing account.
+Creating a second account assigns later activity to a separate profile.
+If **Create an account with email** is unavailable, choose another available
+method or contact the person who invited you.
 
 ## Continue with Google
 
-The same Google action handles account creation and sign-in. A deployment
-either accepts any Google account or accepts only addresses a maintainer has
-listed. An address that already has an account here signs in. An address that
-is neither listed nor known is refused after the round trip to Google, with the
-message that the account is not authorized. A newly created account confirms
-its participant profile before returning to a pending invitation.
+Select **Continue with Google** and choose your Google account. If you have
+used MatSci-SAM before, choose the same Google account. A new contributor
+confirms their profile before returning to a pending study or invitation.
+
+If you see that your account is not authorized, check that you selected the
+intended Google account. Contact the person who invited you if you still
+cannot sign in.
 
 ## ORCID
 
@@ -61,3 +65,18 @@ A contributor can disconnect an ORCID iD after another sign-in method has been
 verified. Contributions and recorded attribution remain attached to the
 MatSci-SAM account. Public display of the ORCID iD follows the
 [profile visibility setting](/docs/community).
+
+## Trouble signing in
+
+- **No email arrived:** check your spam folder and confirm that you entered
+  the email address attached to your account. The sign-in form does not
+  create a new account. You can request another link after the short waiting
+  period shown on the page.
+- **The link expired or was already used:** request a new link and open the
+  most recent message.
+- **Your study or contributions are missing:** check that you signed in to
+  the account you used before. A separate account has separate memberships
+  and contribution history.
+
+Use **Feedback**, available even when signed out, to report a site problem.
+For help joining a study, contact the person who shared its link.

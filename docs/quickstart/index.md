@@ -4,10 +4,17 @@ MatSci-SAM is a collaborative dictionary for materials science terminology.
 The steps below take a new term from contribution to its recorded history.
 Each section links to the corresponding page of the user guide.
 
+**Taking part in a study?** Open the study activity and follow its instructions.
+The [study guide](/docs/studies) explains Position, Review, and saved progress;
+**Study help** opens that guidance inside the activity. The workflow below
+describes ordinary vocabulary contributions, which do not complete study steps.
+
 ## Sign in
 
-Select **Login** in the navigation bar. Sign-in uses Google or a verified
-email address. You can link an ORCID iD to the account later.
+Select **Login** in the navigation bar and choose an available sign-in
+method. If you have contributed before, use the same account to keep your
+work and community memberships together. You can link an ORCID iD to the
+account later when that option is available.
 Anyone can read the dictionary without an account. An account is required to
 add a definition or example, vote, or comment.
 
@@ -41,7 +48,7 @@ each card.
 A definition written by a model names that model and its exact version, so a
 reader can tell machine text from human text. The chip beside each definition
 reports the net score of the current revision as proposed, community-reviewed,
-or stable. Those labels report activity in the pilot community. Scientific
+or stable. Those labels summarize voting activity. Scientific
 assessment comes from the definitions and their discussion.
 
 [Community review and revisions](/docs/community) explains voting, score, and

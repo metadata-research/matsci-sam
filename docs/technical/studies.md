@@ -209,6 +209,11 @@ that have no community context.
 
 ## The pages
 
+The activity includes contextual **Study help**, sourced from the same Markdown
+as `/docs/studies`, and preserves unfinished form state while help is open.
+[Study help and workflow alignment](study-help-and-workflow.md) records the
+shared-content design and the boundary for future study protocols.
+
 The study page at `/studies/<slug>` is public. It calls
 `surveys.get` for a signed-in viewer to render the resume card. Community pages
 provide the roster. The run page at `/studies/<slug>/run` admits a signed-in
@@ -223,7 +228,8 @@ Review is already skipped. Reopening either step shows its skipped outcome
 without contribution controls. The cards show
 support and the viewer's existing vote as static context rather than disabled
 voting buttons, and omit their lifecycle-status chips. Vote controls appear in
-Review. Each write surface receives the step so the new act can name it. The
+Review, including when there is only one definition. Each write surface
+receives the step so the new act can name it. The
 community page renders
 `GenerateWalkthrough`, which generates or regenerates, with a checkbox for the
 closing questions, and gives way to the step count once the walkthrough is in
@@ -248,7 +254,9 @@ writes settle. Counting also supports overlapping child writes.
 placeholder `DATABASE_URL` and no database. It asserts each rule in both
 directions, covering the plan, resumption, the gates, regeneration, the matrix
 of `actMatchesStep` and `mayParticipate`. The `verify` job of `pr-verify.yml`
-runs it. `pnpm test:kos-db` probes each CHECK on `surveySteps` in a savepoint
+runs it. The same command also runs `scripts/test-study-help.ts` with the
+React server condition, checking the real rendered guide's contextual topics
+and links. `pnpm test:kos-db` probes each CHECK on `surveySteps` in a savepoint
 of its rolled-back transaction, writes a walkthrough through `replaceSteps`,
 acts that name its steps and answers through `recordResponse`, and reads them
 back through `walkthroughOf` and `gateOf`. It exercises Accept with no vote,
@@ -268,7 +276,6 @@ absence of contribution rows and support changes, and the read-only skipped
 record returned for both steps.
 `pnpm test:definition-source-lock` checks the shared source lock with two
 concurrent database transactions.
-
 
 ## Study candidate exclusions
 

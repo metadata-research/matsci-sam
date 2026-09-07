@@ -39,6 +39,11 @@ begins on Contribute. Each of the other four actions applies to a current
 definition. Discussion and studies present the actions available in those
 contexts.
 
+A study adds **Propose a new definition** for its current term. That action
+creates an independent definition without a replacement target and records
+the participant’s Position. It does not create a new term. See
+[Study and vocabulary workflows](/docs/studies#study-and-vocabulary-workflows).
+
 - **New term** creates a vocabulary term and its first definition. The optional
   **Draft with a language model** control generates editable definition text.
   A contributor-written first example may accompany publication.

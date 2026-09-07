@@ -112,6 +112,36 @@ assert.equal(normalizeAuthReturnTo("/invite/too-short"), null)
 assert.equal(normalizeAuthReturnTo("/profile"), null)
 assert.equal(normalizeAuthReturnTo("//example.org/invite/"), null)
 assert.equal(normalizeAuthReturnTo("https://example.org/invite/token"), null)
+const studyReturnTo = "/studies/id4_round_two"
+const studyRunReturnTo = `${studyReturnTo}/run`
+for (const path of [
+  studyReturnTo,
+  studyRunReturnTo,
+  "/studies/materials-review"
+]) {
+  assert.equal(normalizeAuthReturnTo(path), path)
+  assert.equal(
+    profileCompletionPath(path),
+    `/profile/edit?welcome=1&returnTo=${encodeURIComponent(path)}`
+  )
+}
+for (const path of [
+  "/studies",
+  "/studies/",
+  "/studies/id4_round_two/admin",
+  "/studies/id4_round_two?returnTo=//example.org",
+  "/studies/id4_round_two#fragment",
+  "/studies/../admin",
+  "/studies/%2e%2e%2fadmin",
+  "/studies/id4%2frun",
+  "/studies/id4\\run",
+  "/studies/id4_round_two\n",
+  `${invitationReturnTo}\n`,
+  "//example.org/studies/id4_round_two",
+  "https://example.org/studies/id4_round_two"
+]) {
+  assert.equal(normalizeAuthReturnTo(path), null, path)
+}
 assert.equal(
   authPathWithReturnTo("/login", invitationReturnTo),
   `/login?returnTo=${encodeURIComponent(invitationReturnTo)}`
@@ -153,7 +183,22 @@ assert.equal(
     "returnTo"
   ),
   null,
-  "non-invitation continuations are not carried in email links"
+  "unapproved continuations are not carried in email links"
+)
+for (const path of [studyReturnTo, studyRunReturnTo]) {
+  const parameters = new URLSearchParams(
+    createEmailAuthLinkFragment(emailToken, path)
+  )
+  assert.equal(parameters.get("returnTo"), path)
+  assert.notEqual(
+    hashEmailAuthToken(emailToken, path),
+    hashEmailAuthToken(emailToken)
+  )
+}
+assert.notEqual(
+  hashEmailAuthToken(emailToken, studyReturnTo),
+  hashEmailAuthToken(emailToken, studyRunReturnTo),
+  "changing the study destination invalidates the email token digest"
 )
 
 const loginPage = readFileSync(resolve("app/login/page.tsx"), "utf8")

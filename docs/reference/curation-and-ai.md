@@ -72,12 +72,14 @@ the same meaning wherever it appears on a vocabulary page or in Discussion.
 - **Add example** attaches a separately attributed usage example to one
   definition.
 
-A study Position step reuses **Suggest a revision**, but also has two
-study-specific choices. **Accept** records one earlier definition as the
+A study Position step reuses **Suggest a revision**, but also has three
+study-specific choices. **Accept** records one available definition as the
 participant's position. **Propose a new definition** records an initial
 definition against the step without naming one earlier definition as a
 replacement target. The target-specific **Propose a replacement** action
 remains available from a particular definition outside the Position step.
+**Skip this term** records no opinion and skips the term's Position and Review
+steps without creating a definition or vote.
 
 Language-model drafting is available only inside **New term** and **Suggest a
 revision**. **Draft with a language model** generates editable text for a new
@@ -115,13 +117,18 @@ generation stamp without a source revision.
 ## Studies and support
 
 A community may conduct a study over a collection of terms with an ordered
-walkthrough. The pilot protocol asks each participant to take one position on
-each term by accepting an earlier definition, suggesting a revision to the
-closest one, or proposing a new definition when none is close enough.
-Acceptance records an upvote. A suggested revision uses the critique-driven
+walkthrough. The protocol asks each participant to accept an available
+definition, suggest a revision to the closest one, propose a new definition,
+or skip an unfamiliar term.
+Acceptance ensures an upvote without duplicating one already held. Publishing
+an alternative records the position without casting a vote. A suggested revision uses the critique-driven
 language-model drafting control and creates a definition whose first revision
 names the source revision. A new definition names the Position step but has no
 derivation or replacement target.
+
+The [study guide](/docs/studies#study-and-vocabulary-workflows) distinguishes
+these actions from ordinary vocabulary work, including the Position screen's
+presentation order and the separation of positions from support scores.
 
 Votes, comments, and definitions created through the walkthrough name the
 study step that prompted them. Step completions and closing answers form

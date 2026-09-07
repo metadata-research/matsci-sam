@@ -11,8 +11,10 @@ import { getCurrentUser } from "@/lib/current-user"
 import {
   collectionPath,
   communityPath,
+  studyPath,
   studyRunPath
 } from "@/lib/public-identifiers"
+import { authPathWithReturnTo } from "@/lib/auth-return"
 import { studyClosingNote } from "@/lib/study-presentation"
 import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
@@ -163,7 +165,11 @@ export default async function StudyPage({
               between visits.
             </p>
             <Button asChild>
-              <Link href="/login">Sign in</Link>
+              <Link
+                href={authPathWithReturnTo("/login", studyPath(study.slug))}
+              >
+                Sign in
+              </Link>
             </Button>
           </section>
         )}
@@ -175,8 +181,10 @@ export default async function StudyPage({
           walkthrough !== null &&
           walkthrough.membership === null && (
             <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
-              The study activity is for members of {study.communityTitle}. An
-              invitation from the community is the way in.
+              To take part, join {study.communityTitle}. Ask the person who
+              shared this study link to add you or send an invitation. If you
+              already belong, check that you signed in with the account you used
+              before.
             </p>
           )}
 
@@ -217,6 +225,16 @@ export default async function StudyPage({
         {closingNote && (
           <p className="text-sm text-muted-foreground">{closingNote}</p>
         )}
+        <p className="text-sm">
+          <Link
+            href="/docs/studies"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-4"
+          >
+            Study guide (opens in a new tab)
+          </Link>
+        </p>
       </section>
     </main>
   )

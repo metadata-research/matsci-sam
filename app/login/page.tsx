@@ -52,7 +52,7 @@ export default async function LoginPage({
           <CardTitle className="text-2xl">Continue to {SITE_NAME}</CardTitle>
           <CardDescription>
             Choose how you want to continue. If you have participated before,
-            use the same method so your work stays connected.
+            use the same account so your work stays connected.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">

@@ -4,8 +4,8 @@ import { normalizeAuthReturnTo } from "@/lib/auth-return"
 const RETURN_TO_HASH_CONTEXT = "email-auth-return-to:v1"
 
 /*
- * Invitation continuations travel in the email link fragment so they work
- * across devices without being persisted or entering ordinary request logs.
+ * Invitation and study continuations travel in the email link fragment so
+ * they work across devices without entering ordinary request logs.
  * Binding the continuation to the stored digest also makes the fragment
  * tamper-evident. Token-only hashes retain compatibility with ordinary links.
  */

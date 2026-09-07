@@ -28,6 +28,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { CompletedStudySummary } from "@/components/studies/completed-study-summary"
 import { StudyInstructionContent } from "@/components/studies/instruction-content"
+import { StudyHelp } from "@/components/studies/help"
+import type { StudyHelpSection } from "@/lib/study-help"
 import { cn } from "@/lib/utils"
 import { SURVEY_RESPONSE_MAX_LENGTH } from "@/lib/input-limits"
 import { collectionPath, studyPath } from "@/lib/public-identifiers"
@@ -369,7 +371,7 @@ const Candidates = ({
                 disabled={busy || formBusy}
                 onClick={closeMove}
               >
-                Back to earlier definitions
+                Back to definitions
               </Button>
             </>
           )}
@@ -406,7 +408,7 @@ const Candidates = ({
           onMutationEnd={activity.end}
         />
         <Button variant="ghost" onClick={closeMove} disabled={busy}>
-          Back to earlier definitions
+          Back to definitions
         </Button>
       </div>
     )
@@ -417,9 +419,10 @@ const Candidates = ({
         <h2 className="font-semibold">Choose the closest definition</h2>
         <p className="text-sm text-muted-foreground">
           Choose the definition closest to what you consider correct. Accept it
-          as written, or suggest a revision to make it more accurate. If none is
-          close enough, propose a new definition. Accepting records the
-          definition as your position and adds your upvote.
+          as written, or suggest a revision to make it more accurate. You may
+          choose your own definition. Propose a new definition if none is close
+          enough. Accept records your choice and adds an upvote if you have not
+          already upvoted that revision.
         </p>
       </Card>
       <section aria-labelledby="skip-term-heading">
@@ -468,16 +471,21 @@ const Candidates = ({
       <section className="space-y-5" aria-labelledby="earlier-definitions">
         <div className="space-y-1">
           <h2 id="earlier-definitions" className="text-xl font-semibold">
-            Definitions from earlier work
+            Existing definitions
           </h2>
           <p className="text-sm text-muted-foreground">
-            This includes definitions already in the vocabulary and definitions
-            proposed by earlier participants.
+            These may have been prepared for this study, contributed to the
+            vocabulary, or proposed by other participants.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Existing comments and support scores provide context. You may choose
+            any definition, regardless of its score.
           </p>
         </div>
         {candidates.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            This term has no earlier definition yet.
+            This term has no definition yet. You can propose the first one or
+            skip the term.
           </p>
         )}
         <ol className="space-y-6">
@@ -685,30 +693,12 @@ const ReviewList = ({
     includeExcluded: readOnly
   })
 
-  if (definitions.length <= 1)
+  if (definitions.length === 0)
     return (
       <div className="space-y-6">
-        {definitions.length === 1 ? (
-          <>
-            <p className="text-muted-foreground">
-              This term has one definition, so there is nothing to compare. It
-              stands with the support it has.
-            </p>
-            <Definition
-              definition={{
-                ...definitions[0],
-                termSlug: step.termSlug!,
-                termVocabularySlug: step.termVocabularySlug!
-              }}
-              voteReadOnly
-              voteReadOnlyTitle="The only definition is not compared"
-            />
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            This term has no definition to review.
-          </p>
-        )}
+        <p className="text-sm text-muted-foreground">
+          This term has no definition to review.
+        </p>
         <Button onClick={onDone} disabled={pending}>
           Continue
         </Button>
@@ -718,6 +708,12 @@ const ReviewList = ({
   return (
     <div className="space-y-6">
       {step.prompt && <p className="text-muted-foreground">{step.prompt}</p>}
+      {!readOnly && (
+        <p className="text-sm text-muted-foreground">
+          You may vote on your own definition. Each vote applies to the revision
+          shown.
+        </p>
+      )}
       {definitions.map((definition, index) => (
         <div key={definition.id} className="space-y-3">
           {definition.excludedFromStudy && (
@@ -951,7 +947,13 @@ const Finished = ({
   </div>
 )
 
-export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
+export const Walkthrough = ({
+  studySlug,
+  helpSections
+}: {
+  studySlug: string
+  helpSections: StudyHelpSection[]
+}) => {
   const [walkthrough] = trpc.surveys.get.useSuspenseQuery({ studySlug })
   const utils = trpc.useUtils()
   const { study, steps } = walkthrough
@@ -1041,8 +1043,15 @@ export const Walkthrough = ({ studySlug }: { studySlug: string }) => {
     <main className="px-4 py-8">
       <section className="max-w-3xl w-full mx-auto space-y-6">
         <div className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            <Link href={studyPath(study.slug)}>{study.title}</Link>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <Link href={studyPath(study.slug)}>{study.title}</Link>
+            </div>
+            <StudyHelp
+              kind={step?.kind}
+              instructions={expectedInstructions}
+              sections={helpSections}
+            />
           </div>
           {total === 0 ? (
             <h1 className="text-3xl font-bold">Study activity</h1>

@@ -4,6 +4,11 @@ MatSci-SAM calculates definition scores and status from votes across the site.
 A community is a named group of people with a shared worklist and studies, as
 described in [Communities and scope](/docs/communities).
 
+This page describes ordinary vocabulary work. A study uses the same
+contributions but adds Position and Review steps. Votes or comments made
+outside the activity do not complete those steps. See
+[Study and vocabulary workflows](/docs/studies#study-and-vocabulary-workflows).
+
 A term can have several definitions from different contributors. Each
 definition has a stable page and an immutable revision history. The current
 revision has its own score and status. Comments share one discussion thread and
@@ -86,6 +91,11 @@ This order applies to term pages. Search uses text relevance, and the
 [Discussion](/docs/discussion) feed selects a model-authored definition when one
 is available.
 
+Study Position screens use a different presentation order, and Review screens
+keep cards in place while you vote. First on a study screen need not be the
+current canonical definition. The [study guide](/docs/studies#the-position-step)
+explains how to interpret the order.
+
 ## Definition status
 
 A chip summarizes the net score of each definition.
@@ -103,12 +113,18 @@ voters. Scientific assessment comes from the definitions and their discussion.
 
 ## Editing and proposing definitions
 
+**Editing your own definition** appends a revision under its existing
+identifier. **Suggest a revision** creates a separate definition with its own
+identifier and history. Both interfaces use the button label **Publish
+revision**; the action you started determines which result is published.
+
 The primary author can revise the definition text in place. Other contributors
 can comment, vote, suggest an AI-assisted revision, or propose a replacement.
 Suggested revisions and replacements are separate voteable candidates. They do
 not overwrite their source or target.
 
-**Publish revision** keeps the definition identifier and URL. The new revision
+When editing your own definition, **Publish revision** keeps its identifier
+and URL. The new revision
 records the definition text, editor, publication time, change note, and
 relationship to the preceding revision. Earlier revisions remain available
 from the revision history and [provenance](/docs/provenance). The default

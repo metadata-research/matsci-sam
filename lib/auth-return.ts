@@ -1,13 +1,17 @@
 const INVITATION_RETURN_PATH = /^\/invite\/[A-Za-z0-9_-]{43}$/
+const STUDY_RETURN_PATH = /^\/studies\/[a-z0-9][a-z0-9_-]*(?:\/run)?$/
 
 /*
- * Authentication may resume only an invitation route. Keeping this narrower
- * than a generic same-origin redirect prevents an attacker from turning the
- * sign-in endpoints into an open redirect or choosing an unrelated privileged
- * page as the post-authentication destination.
+ * Authentication may resume an invitation, study overview, or study activity.
+ * These explicit routes exclude external URLs and privileged destinations.
+ * The study pages still check membership and the participation window.
  */
 export const normalizeAuthReturnTo = (value: unknown): string | null =>
-  typeof value === "string" && INVITATION_RETURN_PATH.test(value) ? value : null
+  typeof value === "string" &&
+  value === value.trim() &&
+  (INVITATION_RETURN_PATH.test(value) || STUDY_RETURN_PATH.test(value))
+    ? value
+    : null
 
 export const authPathWithReturnTo = (path: string, returnTo: string | null) => {
   if (!returnTo) return path

@@ -7,13 +7,20 @@ import { studyBySlug } from "@/lib/study-queries"
 import { membershipIn } from "@/lib/community-queries"
 import { getCurrentUser } from "@/lib/current-user"
 import { studyState } from "@/lib/communities"
-import { communityPath, studyPath } from "@/lib/public-identifiers"
+import {
+  communityPath,
+  studyPath,
+  studyRunPath
+} from "@/lib/public-identifiers"
+import { authPathWithReturnTo } from "@/lib/auth-return"
 import { formatDate } from "@/lib/date"
 import { getQueryClient, HydrateClient, trpc } from "@/trpc/server"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Walkthrough } from "@/components/studies/walkthrough"
+import { renderDoc } from "@/lib/docs"
+import { studyHelpFromHtml } from "@/lib/study-help"
 
 // Shared by generateMetadata and the body, so the page runs one query.
 const loadStudy = cache(async (slug: string) => studyBySlug(slug))
@@ -104,7 +111,11 @@ export default async function RunPage({
         </p>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
-            <Link href="/login">Sign in</Link>
+            <Link
+              href={authPathWithReturnTo("/login", studyRunPath(study.slug))}
+            >
+              Sign in
+            </Link>
           </Button>
           <Button asChild variant="outline">
             <Link href={studyPath(study.slug)}>Open the study</Link>
@@ -117,8 +128,9 @@ export default async function RunPage({
     return (
       <Notice title={study.title}>
         <p className="text-sm text-muted-foreground">
-          Only members of {study.communityTitle} can take part. The person
-          running it can add you or send you an invitation.
+          To take part, join {study.communityTitle}. Ask the person who shared
+          this study link to add you or send an invitation. If you already
+          belong, check that you signed in with the account you used before.
         </p>
         <Button asChild variant="outline">
           <Link href={communityPath(study.communitySlug)}>
@@ -132,7 +144,10 @@ export default async function RunPage({
   // study closes: the shell opens on the finished view, and every step it
   // can reach is complete, which the walkthrough renders read-only.
   if (state === "closed") {
-    await trpc.surveys.get.prefetch({ studySlug: slug })
+    const [, helpGuide] = await Promise.all([
+      trpc.surveys.get.prefetch({ studySlug: slug }),
+      renderDoc("guide", "studies")
+    ])
     const walkthrough = prefetched<RouterOutput["surveys"]["get"]>(
       ["surveys", "get"],
       { studySlug: slug }
@@ -144,7 +159,10 @@ export default async function RunPage({
     )
       return (
         <HydrateClient>
-          <Walkthrough studySlug={slug} />
+          <Walkthrough
+            studySlug={slug}
+            helpSections={helpGuide ? studyHelpFromHtml(helpGuide.html) : []}
+          />
         </HydrateClient>
       )
   }
@@ -164,7 +182,10 @@ export default async function RunPage({
       </Notice>
     )
 
-  await trpc.surveys.get.prefetch({ studySlug: slug })
+  const [, helpGuide] = await Promise.all([
+    trpc.surveys.get.prefetch({ studySlug: slug }),
+    renderDoc("guide", "studies")
+  ])
 
   // The resume step is painted first, so what it reads is prefetched too:
   // the candidates of its term and their comments, which a position step
@@ -189,7 +210,10 @@ export default async function RunPage({
 
   return (
     <HydrateClient>
-      <Walkthrough studySlug={slug} />
+      <Walkthrough
+        studySlug={slug}
+        helpSections={helpGuide ? studyHelpFromHtml(helpGuide.html) : []}
+      />
     </HydrateClient>
   )
 }
