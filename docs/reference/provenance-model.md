@@ -6,9 +6,12 @@ AI](/docs/reference/curation-and-ai)
 describes the workflow and the roles within it. The provenance layer publishes
 the resulting activities, agents, entities, and derivations as W3C PROV-O.
 
-Every term has a provenance record in Turtle at
-`/terms/{id}/provenance.ttl`. The provenance page of the term presents the same
-record as a graph and a timeline.
+Every term has a readable provenance record. A community term uses
+`/vocabulary/{community}/{term}/provenance.ttl` for Turtle and
+`/vocabulary/{community}/{term}/provenance.jsonld` for JSON-LD. The provenance
+page at the same path without a file extension presents the history as a graph
+and a timeline. It does not redirect to the candidate that currently ranks
+first.
 
 ## What the record contains
 

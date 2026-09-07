@@ -1,7 +1,9 @@
 # Provenance
 
 Every term has a provenance page linked near the term heading. The page
-presents recorded contribution history as a graph and a timeline.
+presents recorded contribution history as a graph and a timeline. It describes
+the history of the community term. It does not redirect to the definition that
+currently ranks first.
 
 The record includes immutable definition revisions, revision-specific vote
 records, comments, examples, replacement and derivation links, and accepted

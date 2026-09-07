@@ -69,14 +69,18 @@ its own contribution history.
 ## Definition order
 
 Definitions on a term page are ordered from highest to lowest score. The newest
-definition appears first when scores are equal. The leading definition receives
-a stronger border when the term has multiple definitions. Its text also
-supplies the schema.org description embedded in the term page.
+candidate creation time breaks a score tie. The higher permanent definition
+number breaks a tie when two candidates have the same creation time. The latest
+edit time does not affect this order. The leading definition is the canonical
+definition and receives a stronger border when the term has multiple
+definitions. Its text also supplies the schema.org description embedded in the
+term page.
 
 Each definition receives a permanent creation-order number within the term.
 Votes change the displayed order while the number remains fixed. The dynamic
 `/rank/{number}` lookup redirects to the definition at that rank when the
-request is evaluated.
+request is evaluated. Use a definition or revision identifier, rather than a
+rank lookup, for citation.
 
 This order applies to term pages. Search uses text relevance, and the
 [Discussion](/docs/discussion) feed selects a model-authored definition when one

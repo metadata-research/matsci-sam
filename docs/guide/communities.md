@@ -44,15 +44,30 @@ steward removes you, or an administrator retires the community.
 Each vocabulary ranks its own candidate definitions. Rank 1 is that
 vocabulary's current canonical definition for the term; a same-label term in
 another vocabulary has an independent set of candidates, votes, and rankings.
-A readable w3id includes both the vocabulary and term slug. For example,
-`/vocabulary/community_a/metal` and `/vocabulary/community_b/metal` identify
-different concepts. Votes and definition revisions never change those term
-identifiers. Highest net score wins; ties prefer the newest candidate, then
-the higher permanent definition number. Revising a candidate resets its score
-for the new revision; it does not change the candidate creation time.
+A readable w3id includes both the vocabulary and term slug. The following
+illustrative identifiers therefore refer to different concepts.
+
+```text
+https://w3id.org/matsci-sam/vocabulary/community_a/metal
+https://w3id.org/matsci-sam/vocabulary/community_b/metal
+```
+
+Terms stay in the vocabulary where they were created. Another community can
+refer to a term in a collection, or it can create a distinct term in its own
+vocabulary.
+
+Votes and definition revisions never change a term identifier. The candidate
+with the highest net vote score is canonical. The newest candidate creation
+time breaks a score tie, and the higher permanent definition number breaks an
+exact timestamp tie. This rule does not use the time of the latest edit.
+Revising a candidate resets its score for the new revision, but it does not
+change the candidate creation time.
 
 Definition and revision identifiers remain available when a publication needs
 to pin the wording used at a particular time.
+
+[Identifiers and citation](/docs/identifiers) explains when to cite a term, a
+definition candidate, or an immutable revision.
 
 ## Studies
 
