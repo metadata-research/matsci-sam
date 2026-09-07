@@ -74,8 +74,10 @@ definition candidate, or an immutable revision.
 A study asks the members of a community to work through a collection of terms
 under shared instructions and an optional time window. The public study page at
 `/studies/{study}` presents the title, instructions, dates, collection, and
-progress. An invitation opens on that page. Accepting it adds the participant
-to the community and adds it to the participant's **Working in** choices.
+your progress when signed in. Members can begin from the study page or find
+it under **Your studies** on their profile. A study invitation describes the
+study and offers **Accept and join**. Accepting it adds the participant to the
+community and adds it to the participant's **Working in** choices.
 Selecting it shows the community vocabulary in Browse and its worklist in
 Collections.
 
@@ -89,11 +91,11 @@ shared with a group. Open the link and sign in or create an account. The sign-in
 and required profile setup return you to the invitation; then select **Accept
 and join**.
 
-The invitation token supplies the credential, so a per-person invitation also
-works after sign-in with a different address. A per-person invitation lasts
-fourteen days. A steward can reissue a live invitation or create a new one
-after expiration. The invitation page reports whether a link has been used,
-withdrawn, or replaced.
+A personal invitation can be accepted with the account you already use,
+even if it was sent to a different email address. Each personal invitation
+can be used once and expires after fourteen days. Ask the person who invited
+you for a replacement if it has expired or no longer works. The invitation
+page reports whether a link has been used, withdrawn, or replaced.
 
 See [Account access](/docs/account-access) for the available sign-in methods.
 You can leave a community from its page.

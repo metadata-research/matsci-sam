@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 
 // Every rule is asserted in both directions. A rule checked only where it
 // refuses can pass while permitting nothing at all.
@@ -113,14 +114,15 @@ const main = async () => {
     "What would you add or change in this list?"
   )
   assert.ok(DEFAULT_INSTRUCTIONS.trim().length > 0)
-  assert.match(DEFAULT_INSTRUCTIONS, /second round/)
+  assert.doesNotMatch(DEFAULT_INSTRUCTIONS, /second round/)
+  assert.match(DEFAULT_INSTRUCTIONS, /there is no definition yet/)
+  assert.match(DEFAULT_INSTRUCTIONS, /just one definition/)
   assert.match(DEFAULT_INSTRUCTIONS, /position/)
   assert.match(
     DEFAULT_INSTRUCTIONS,
     /If you do not know a term well enough to choose, skip it\./
   )
-  assert.match(DEFAULT_INSTRUCTIONS, /Outside a study/)
-  assert.match(DEFAULT_INSTRUCTIONS, /whole-term alternative/)
+  assert.match(DEFAULT_INSTRUCTIONS, /Study help/)
   assert.doesNotMatch(DEFAULT_INSTRUCTIONS, /candidate/i)
   assert.doesNotMatch(
     DEFAULT_INSTRUCTIONS,
@@ -137,9 +139,18 @@ const main = async () => {
     /as it stands|propose a replacement/i,
     "a define prompt uses the clarified Position choices"
   )
+  const priorDefault = readFileSync(
+    new URL("./fixtures/study-instructions-20260906.txt", import.meta.url),
+    "utf8"
+  ).trimEnd()
+  assert.equal(
+    isDefaultInstructions(priorDefault),
+    true,
+    "the exact stored second-round default remains recognized"
+  )
   assert.equal(
     isDefaultInstructions(
-      DEFAULT_INSTRUCTIONS.replace(
+      priorDefault.replace(
         " If you do not know a term well enough to choose, skip it.",
         ""
       )

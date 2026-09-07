@@ -1,0 +1,7 @@
+This study is a second round on a terminology list. Each term may have definitions, examples, and comments from earlier work.
+
+Outside a study, MatSci-SAM uses five vocabulary contribution actions: New term, Suggest a revision, Propose a replacement, Comment, and Add example. In this study, the whole-term alternative is Propose a new definition. Language-model assistance, when offered, is an optional drafting aid inside New term or Suggest a revision; it does not publish automatically. A comment stays a comment, and an example stays separate from the definition.
+
+For each term in this study, take a position by reviewing the definitions from earlier work. Choose the one closest to the definition you would use, then accept it as written or use Suggest a revision to say what is wrong or missing. If none is close enough, use Propose a new definition. If you do not know a term well enough to choose, skip it. Then compare the definitions, vote on each, and use Comment where you disagree or can add information. Any closing questions come last.
+
+MatSci-SAM records the upvote used to accept a definition, revision and new-definition proposals, review votes, comments, and question responses. Completed steps are saved between visits, and the study activity returns to the first incomplete step.

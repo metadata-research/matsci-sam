@@ -41,6 +41,13 @@ candidate records the exact source revision, your critique, the stored model
 output, the prompt, and the model identity. It is attributed to you with the
 model as a coauthor.
 
+In a study Position step, publishing this separate definition also records
+your Position and completes the step. It does not cast a vote; voting and
+comments follow in Review. Begin with **Revise this definition** on the option
+you want to improve. The button **Publish revision** here does not edit
+the original definition in place. Editing your own existing definition is a
+different action described in [Community review and revisions](/docs/community#editing-and-proposing-definitions).
+
 The source revision must still be current when the suggestion is requested and
 published. If it changes, review the latest wording and request a new draft.
 
@@ -53,6 +60,9 @@ published. If it changes, review the latest wording and request a new draft.
   model. Its optional first example is also written by the contributor.
 - Use **Add example** to contribute an example of use. Examples have their own
   attribution and do not change the definition revision or its votes.
+- In a study, use **Propose a new definition** to write an independent
+  alternative for the current term. It does not invoke AI or name a
+  replacement target. See [the Position step](/docs/studies#the-position-step).
 
 [Community review and revisions](/docs/community) explains candidate voting
 and immutable revision history. [Provenance](/docs/provenance) explains the

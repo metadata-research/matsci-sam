@@ -14,10 +14,10 @@ history. The pages below provide detailed instructions for each feature.
 - [Account access](/docs/account-access) explains Google and verified-email
   sign-in, email account creation, and linked ORCID iDs.
 - [Communities and scope](/docs/communities) explains named groups of people,
-  invitations, and how a selected community narrows Browse and Collections to
-  its worklist.
-- [Studies](/docs/studies) covers a study a community runs, its activity,
-  taking a position on a term, and the resulting definition list.
+  invitations, and how a selected community scopes Browse to its vocabulary
+  and Collections to its worklist.
+- [Studies](/docs/studies) explains how to join and complete a study, take a
+  position, review definitions, get help, and return to saved progress.
 - [Adding a term](/docs/adding-terms) covers the five contribution actions and
   the Contribute page.
 - [Community review and revisions](/docs/community) covers voting,

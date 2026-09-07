@@ -105,7 +105,7 @@ const candidates = section(
 assert.match(candidates, /trpc\.surveys\.acceptPosition\.useMutation/)
 assert.doesNotMatch(candidates, /trpc\.votes\.vote/)
 assert.match(candidates, /voteDisplay="summary"/)
-assert.match(candidates, /Definitions from earlier work/)
+assert.match(candidates, /Existing definitions/)
 assert.match(candidates, /Option \{index \+ 1\} of \{candidates\.length\}/)
 assert.match(candidates, /showStatus={false}/)
 assert.doesNotMatch(candidates, />Draft</)
@@ -158,7 +158,10 @@ const definitionActions = section(
   "{(candidate.comments ?? 0) > 0"
 )
 assert.match(definitionActions, /Actions for definition option/)
-assert.match(definitionActions, /onClick=\{\(\) => acceptCandidate\(candidate\)\}/)
+assert.match(
+  definitionActions,
+  /onClick=\{\(\) => acceptCandidate\(candidate\)\}/
+)
 assert.match(definitionActions, /kind: "revise", candidate/)
 assert.ok(
   candidateList.indexOf('role="group"') <
