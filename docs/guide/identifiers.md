@@ -17,8 +17,7 @@ The default MatSci-SAM vocabulary uses these paths:
 
 `/vocabulary` identifies the default MatSci-SAM concept scheme. Its page also
 lists the community vocabularies in the **Everything** catalog. Terms curated
-into a community vocabulary use that community's canonical path. A previous
-term path remains a permanent compatibility alias when ownership changes.
+in a community vocabulary use that community path.
 
 Each community owns another concept scheme. Its terms add the community slug
 to the path:
@@ -46,11 +45,19 @@ current revision. A revision path identifies one immutable state of that
 definition.
 
 Two vocabularies may use the same label for distinct concepts. For example,
-`/vocabulary/id4/band_gap` and
-`/vocabulary/{another-community}/band_gap` have separate term, definition, and
-revision IRIs.
+the following illustrative paths identify separate concepts with separate
+definition and revision IRIs.
 
-The interface labels the last two resources with both coordinates, such as
+```text
+/vocabulary/community_a/metal
+/vocabulary/community_b/metal
+```
+
+Terms stay in the vocabulary where they were created. A collection may
+reference a term from another vocabulary without changing that term or its
+identifier.
+
+Definition and revision pages show both coordinates, such as
 `Definition 2 · revision 1`. Competing definitions can both have revision 1
 because each definition has an independent revision sequence.
 
@@ -87,11 +94,6 @@ through attribution and provenance, not through the identifier.
 Numeric legacy routes such as `/definition/{legacy-id}` remain compatibility
 aliases. They redirect permanently to the canonical term-scoped path. New
 links and metadata use the canonical path.
-
-A curated vocabulary move follows the same rule. The former term path and its
-definition, revision, provenance, and rank paths redirect to the canonical
-path in the owning vocabulary. The alias reserves the former route so it
-cannot later identify another term or vocabulary.
 
 ## Tags, facets and collections
 
@@ -136,17 +138,26 @@ the definition or revision IRI for citation and storage.
 
 ## Citation
 
-Use the term IRI when citing the concept as defined in one vocabulary. The
-scheme in its path distinguishes same-label concepts. Use a definition IRI
-when the citation concerns the contribution as it develops. Use the exact
-revision IRI for a quotation or reproducible analysis.
+Use the persistent term IRI for the community concept as a whole. This is the
+usual choice for a dataset field, glossary link, or discussion of the term.
+The page shows the current canonical definition first, but votes and new
+candidates can change that definition without changing the term IRI.
 
-A minimal exact citation has this form:
+Use a definition IRI when the citation concerns one contributed candidate and
+should follow its current wording. Use an immutable revision IRI for a direct
+quotation, an archived claim, or a reproducible analysis that must retain the
+exact wording.
 
-> martensite, Definition 2, revision 1. _MatSci-SAM_. [full revision IRI]
+The following real term and path patterns show the three choices.
 
-The pages display full IRIs for the active deployment. Copy the displayed IRI
-because the hostname depends on the deployment.
+```text
+https://w3id.org/matsci-sam/vocabulary/id4/data
+https://w3id.org/matsci-sam/vocabulary/id4/data/definitions/{definition-number}
+https://w3id.org/matsci-sam/vocabulary/id4/data/definitions/{definition-number}/revisions/{revision-number}
+```
+
+Replace the values in braces with the numbers shown on the relevant page. Do
+not cite `/rank/1` as an identity because its destination can change.
 
 ## Machine-readable forms
 
@@ -166,22 +177,17 @@ IRIs.
 The [Metadata access](/docs/metadata-access) guide lists the Turtle and JSON-LD
 endpoints.
 
-## Persistence
+## Persistent resolution
 
-The authority portion of every IRI is the identifier base of the deployment,
-`IDENTIFIER_BASE_URL` where one is set and the application origin otherwise.
-The full IRI changes when that base changes, even though the path remains the
-same. A deployment sets the base once, before external citation.
+Published vocabulary IRIs use the persistent namespace
+`https://w3id.org/matsci-sam`. A browser follows that identifier to the
+matching page on the Ego website, which currently serves MatSci-SAM. The Ego
+page location is where the representation is served. The w3id remains the
+identifier to cite.
 
-A deployment that requires durable citations configures a persistent resolver
-as its identifier base before publishing. An identifier minted under the
-application origin is bound to that host.
-
-## Persistent term resolution
-
-The persistent namespace is `https://w3id.org/matsci-sam`. A term w3id opens
-the owning community's term page, where the canonical definition appears first.
-A different community's same-label term has a different identifier and winner.
+A community term w3id opens that community term page with the canonical
+definition first. A same-label term in another community has a different w3id
+and an independent canonical definition.
 
 For RDF, request `text/turtle` or `application/ld+json` at the readable
 vocabulary, term, definition, or revision address. A 303 response leads to

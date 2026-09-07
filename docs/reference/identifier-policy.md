@@ -47,9 +47,10 @@ IRIs.
 
 The HTML representation at `/vocabulary` also lists the community schemes in
 the **Everything** catalog. The IRI continues to identify the default
-MatSci-SAM concept scheme. A term curated into a community scheme receives the
-community path as its canonical IRI. Its former path remains reserved and
-redirects permanently to the canonical term.
+MatSci-SAM concept scheme. A term created in a community scheme receives the
+community path as its canonical IRI. Terms do not move between vocabularies.
+A collection can reference a term from another vocabulary without changing
+its IRI or its owning scheme.
 
 ## Slugs
 
@@ -97,10 +98,7 @@ keeps its identifier and its attributed contributions.
 
 Older addresses that contained a database identity, `/terms/{id}`,
 `/definition/{id}` and `/tags/{id}`, redirect permanently to the identifier
-in the path grammar. Metadata documents publish the canonical form. When a
-curated migration changes a term's owning vocabulary, the former term path and
-its definition, revision, provenance, and rank suffixes remain permanent route
-aliases. An alias continues to reserve its route and cannot be reassigned.
+in the path grammar. Metadata documents publish the canonical form.
 
 ## Statements and acts
 
@@ -126,14 +124,14 @@ model](/docs/reference/provenance-model) describes their privacy treatment.
 `/vocabulary/{term}/rank/{n}` resolves a default-scheme rank, and
 `/vocabulary/{community}/{term}/rank/{n}` does the same within a community
 scheme. Each is a lookup, not an identifier. It redirects temporarily to the
-stable definition. Metadata documents use the definition identifier.
+stable definition. Metadata documents use the definition identifier. Rank 1
+is the candidate with the highest net vote score. Newest candidate creation
+time breaks a score tie, and higher definition number breaks an exact timestamp tie.
+Revision publication time does not determine rank.
 
 ## Authority
 
-The path grammar is independent of the host. The identifier base is
-configured per deployment and is the authority component of every IRI, so
-changing it changes every IRI. `IDENTIFIER_BASE_URL` supplies that base when
-configured, and the application origin is the fallback. A deployment that
-requires durable identifiers configures a persistent resolver before
-publishing. Identifiers minted under the application origin remain bound to
-that host.
+Published resource IRIs use `https://w3id.org/matsci-sam` as their authority.
+The resolver currently sends a browser or RDF client to the matching document
+on the Ego website. This separation allows the website that serves a page to
+change without a change to the persistent identifier.

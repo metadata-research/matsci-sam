@@ -8,40 +8,41 @@ provides project-specific classes and properties.
 
 ## Documents
 
-| Document                             | Content                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `/vocabulary.ttl`                    | All hosted vocabulary schemes and terms, plus all content from `/tags.ttl`                  |
-| `/tags.ttl`                          | The tag schemes, tags, hierarchy, mappings and collections                                  |
-| `/terms/{id}/skos.ttl` and `.jsonld` | One term, with the tags it refers to and their schemes                                      |
-| `/terms/{id}/provenance.ttl`         | The PROV-O record of one term                                                               |
-| `/graphs/vocabulary`                 | Every hosted vocabulary scheme and term, with definitions and revisions, as a named graph   |
-| `/graphs/kos`                        | The tag schemes, tags, hierarchy, mappings and collections, as a named graph                |
-| `/graphs/provenance`                 | The PROV-O record of every term, with the assertions of the ledger, voting acts and studies |
-| `/graphs/matcore`                    | The MatCore element set and its crosswalk, as a named graph                                 |
-| `/dataset`                           | The description of the dataset and its named graphs, also served as `/graphs/meta`          |
+| Document                                                      | Content                                                                                     |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `/vocabulary.ttl`                                             | All hosted vocabulary schemes and terms, plus all content from `/tags.ttl`                  |
+| `/tags.ttl`                                                   | The tag schemes, tags, hierarchy, mappings and collections                                  |
+| `/vocabulary/{community}/{term}/skos.ttl` and `.jsonld`       | One community term, with the tags it refers to and their schemes                            |
+| `/vocabulary/{community}/{term}/provenance.ttl` and `.jsonld` | The PROV-O record of one community term                                                     |
+| `/graphs/vocabulary`                                          | Every hosted vocabulary scheme and term, with definitions and revisions, as a named graph   |
+| `/graphs/kos`                                                 | The tag schemes, tags, hierarchy, mappings and collections, as a named graph                |
+| `/graphs/provenance`                                          | The PROV-O record of every term, with the assertions of the ledger, voting acts and studies |
+| `/graphs/matcore`                                             | The MatCore element set and its crosswalk, as a named graph                                 |
+| `/dataset`                                                    | The description of the dataset and its named graphs, also served as `/graphs/meta`          |
 
 The four content graphs are pairwise disjoint. [Metadata
 access](/docs/metadata-access#named-graphs)
-describes them and the SPARQL endpoint over their union.
+describes them and the optional SPARQL endpoint over their union.
 
 Every document describes each concept once. A term document identifies its
 owning vocabulary with `skos:inScheme` and includes the tags it refers to and
 their schemes. `/tags.ttl` and `/vocabulary.ttl` enumerate the top concepts of
 each tag scheme. Term documents provide the scheme description without that
-enumeration. The JSON-LD form lists the same secondary nodes under `@included`.
+enumeration. JSON-LD documents at the readable vocabulary paths contain an
+expanded array of nodes describing the same RDF graph as the Turtle form.
 
 ## Classes and properties
 
-| Resource              | Class                       | Properties                                                                                                                                                                        |
-| --------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A hosted vocabulary   | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `dcterms:publisher`                                                                                                                       |
-| A term                | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `skos:definition`, `dcterms:subject`, `dcterms:contributor`, `dcterms:created`, `skos:broader`, `skos:narrower`, `skos:related`, `skos:*Match` |
-| A tag scheme          | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `skos:hasTopConcept`                                                                                                                      |
-| A tag                 | `skos:Concept`              | `skos:inScheme`, `skos:topConceptOf`, `skos:prefLabel`, `skos:altLabel`, `skos:definition`, `skos:scopeNote`, `skos:broader`, `skos:narrower`, `skos:related`, `skos:*Match`      |
-| A retired tag         | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `owl:deprecated true`, `dcterms:isReplacedBy`                                                                                                  |
-| A collection          | `skos:Collection`           | `skos:prefLabel`, `dcterms:description`, `skos:member`                                                                                                                            |
-| A definition          | `matsci:Definition`         | `dcterms:isPartOf`, `dcterms:subject`, `matsci:definitionNumber`, `matsci:currentRevision`, `dcterms:hasVersion`, `dcterms:created`                                               |
-| A definition revision | `matsci:DefinitionRevision` | `rdf:value`, `skos:example`, `dcterms:isVersionOf`, `prov:specializationOf`, `dcterms:creator`, `matsci:version`, `matsci:status`, `dcterms:created`                              |
+| Resource              | Class                       | Properties                                                                                                                                                                                                      |
+| --------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A hosted vocabulary   | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `dcterms:publisher`                                                                                                                                                     |
+| A term                | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `skos:definition`, `matsci:canonicalDefinition`, `dcterms:subject`, `dcterms:contributor`, `dcterms:created`, `skos:broader`, `skos:narrower`, `skos:related`, `skos:*Match` |
+| A tag scheme          | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `skos:hasTopConcept`                                                                                                                                                    |
+| A tag                 | `skos:Concept`              | `skos:inScheme`, `skos:topConceptOf`, `skos:prefLabel`, `skos:altLabel`, `skos:definition`, `skos:scopeNote`, `skos:broader`, `skos:narrower`, `skos:related`, `skos:*Match`                                    |
+| A retired tag         | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `owl:deprecated true`, `dcterms:isReplacedBy`                                                                                                                                |
+| A collection          | `skos:Collection`           | `skos:prefLabel`, `dcterms:description`, `skos:member`                                                                                                                                                          |
+| A definition          | `matsci:Definition`         | `dcterms:isPartOf`, `dcterms:subject`, `matsci:definitionNumber`, `matsci:currentRevision`, `dcterms:hasVersion`, `dcterms:created`                                                                             |
+| A definition revision | `matsci:DefinitionRevision` | `rdf:value`, `skos:example`, `dcterms:isVersionOf`, `prov:specializationOf`, `dcterms:creator`, `matsci:version`, `matsci:status`, `dcterms:created`                                                            |
 
 The application namespace is `{identifier-base}/metadata#`, and its terms
 are listed in [Metadata access](/docs/metadata-access).
@@ -52,6 +53,12 @@ A term names its owning vocabulary with `skos:inScheme`. The default
 MatSci-SAM scheme is `/vocabulary`; a community scheme is
 `/vocabulary/{community}`. Same-label terms in different schemes remain
 separate concepts with separate IRIs and definitions.
+
+`matsci:canonicalDefinition` names the current first-ranked candidate within
+that term. The highest net vote score wins. Newest candidate creation time
+and then higher definition number break ties. `matsci:currentRevision` on that definition
+names its current wording. A provenance document remains the history of the
+term and does not stand for the canonical definition.
 
 A term or a definition names its tags with `dcterms:subject`. The object is the
 tag IRI. A tag's `skos:inScheme` identifies its facet or topic scheme. A facet
@@ -93,8 +100,9 @@ Labels, titles, descriptions, definition text, examples and scope notes are
 literals tagged `en`. Contributor and creator names, the publisher and the
 status value have no language tag. Definition numbers and revision versions
 are `xsd:positiveInteger`. Dates are `xsd:dateTime`, except the creation date
-of a term, which is `xsd:date` in the Turtle documents and an untyped string
-in the JSON-LD term document. Every identifier in these documents is one
+of a term, which is `xsd:date` in the Turtle documents and the JSON-LD
+documents at readable vocabulary paths. The legacy numeric JSON-LD term
+document represents that date as an untyped string. Every identifier in these documents is one
 described in [the identifier policy](/docs/reference/identifier-policy).
 
 Each active example of a definition is emitted as a separate `skos:example`

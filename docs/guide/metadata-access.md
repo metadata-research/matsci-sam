@@ -9,17 +9,19 @@ representation of the preliminary Minimal and DFT elements from
 vocabulary](/docs/reference/matcore-and-the-vocabulary) describes the source
 and its place in the application architecture.
 
-| Resource                  | URL                          | Format                                                    |
-| ------------------------- | ---------------------------- | --------------------------------------------------------- |
-| Current published dataset | `/dataset.ttl`               | Vocabulary, knowledge organization, and MatCore in Turtle |
-| Whole vocabulary          | `/vocabulary.ttl`            | SKOS concept scheme in Turtle                             |
-| One term                  | `/terms/{id}/skos.ttl`       | SKOS concept in Turtle                                    |
-| One term                  | `/terms/{id}/skos.jsonld`    | SKOS concept in JSON-LD                                   |
-| Term history              | `/terms/{id}/provenance.ttl` | PROV-O in Turtle                                          |
-| Tags and collections      | `/tags.ttl`                  | SKOS concept schemes and collections in Turtle            |
-| Dataset description       | `/dataset`                   | VoID and SPARQL service description in Turtle             |
-| One named graph           | `/graphs/{name}`             | Named graph in Turtle                                     |
-| SPARQL endpoint           | `/sparql`                    | SPARQL 1.1 query over the graph union                     |
+| Resource                  | URL                                                | Format                                                    |
+| ------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| Current published dataset | `/dataset.ttl`                                     | Vocabulary, knowledge organization, and MatCore in Turtle |
+| All hosted vocabularies   | `/vocabulary.ttl`                                  | SKOS concept schemes in Turtle                            |
+| One community vocabulary  | `/vocabulary/{community}/skos.ttl`                 | SKOS concept scheme in Turtle                             |
+| One community term        | `/vocabulary/{community}/{term}/skos.ttl`          | SKOS concept in Turtle                                    |
+| One community term        | `/vocabulary/{community}/{term}/skos.jsonld`       | SKOS concept in JSON-LD                                   |
+| Term history              | `/vocabulary/{community}/{term}/provenance.ttl`    | PROV-O in Turtle                                          |
+| Term history              | `/vocabulary/{community}/{term}/provenance.jsonld` | PROV-O in JSON-LD                                         |
+| Tags and collections      | `/tags.ttl`                                        | SKOS concept schemes and collections in Turtle            |
+| Dataset description       | `/dataset`                                         | VoID and SPARQL service description in Turtle             |
+| One named graph           | `/graphs/{name}`                                   | Named graph in Turtle                                     |
+| Optional SPARQL endpoint  | `/sparql`                                          | SPARQL 1.1 query over the graph union, where enabled      |
 
 `/dataset.ttl` combines the current dictionary, definitions and revisions, tag
 schemes, tags, collections, and MatCore element set. Per-term provenance
@@ -28,11 +30,17 @@ downloads and the provenance named graph provide the recorded histories.
 Use a layer-specific document when an application needs only one part of the
 dataset.
 
+The readable vocabulary paths also support definitions and revisions. Append
+`/skos.ttl` or `/skos.jsonld` to a vocabulary, term, definition, or revision
+path. A client may instead request `text/turtle` or `application/ld+json` from
+the resource IRI and follow the 303 redirect to the matching document. A
+browser request returns the readable HTML page.
+
 ## Named graphs
 
-The SPARQL store holds five named graphs projected from the application
-database. Each graph is served as Turtle at
-`{identifier-base}/graphs/{name}`.
+The dataset has five named graphs derived from the application database.
+Each graph is served as Turtle at `{identifier-base}/graphs/{name}`. These
+downloads are available independently of the optional SPARQL store.
 
 | Graph        | Content                                                        |
 | ------------ | -------------------------------------------------------------- |
@@ -45,12 +53,13 @@ database. Each graph is served as Turtle at
 The four content graphs are pairwise disjoint, so a count over the union counts
 each triple once. `/dataset` describes the union as a `void:Dataset` and the
 endpoint as an `sd:Service`. The description includes the triple count of each
-graph and the projection time.
+graph and the time the graph documents were generated.
 
-`/sparql` accepts SPARQL 1.1 GET and POST queries over the union. A query with
-no named graph clause returns matches from all five graphs. The endpoint is
-read-only. The public host forwards the path to the graph store, while the
-application database remains the system of record.
+On deployments with the SPARQL service enabled, `/sparql` accepts SPARQL 1.1
+GET and POST queries over the union. A query with no named graph clause
+returns matches from all five graphs. The endpoint is read-only. If the
+service is unavailable, use the Turtle downloads in your own RDF tools.
+The application database remains the system of record.
 
 Each term is a `skos:Concept`, and its name is the `skos:prefLabel`. Each
 `skos:definition` value is the identified current revision of a contributed
@@ -64,18 +73,19 @@ identifies the stable definition of which it is a version.
 ## Resource identifiers
 
 Every concept, definition, and revision uses a human-readable IRI. The
-authority is the identifier base of the deployment, followed by the canonical
-path.
+published authority is `https://w3id.org/matsci-sam`, followed by the readable
+path. The examples below are illustrative.
 
 ```text
-{identifier-base}/vocabulary/martensite
-{identifier-base}/vocabulary/martensite/definitions/2
-{identifier-base}/vocabulary/martensite/definitions/2/revisions/1
+https://w3id.org/matsci-sam/vocabulary/example_lab/martensite
+https://w3id.org/matsci-sam/vocabulary/example_lab/martensite/definitions/2
+https://w3id.org/matsci-sam/vocabulary/example_lab/martensite/definitions/2/revisions/1
 ```
 
-The concept scheme uses `{identifier-base}/vocabulary`, which resolves to the
-vocabulary page with embedded JSON-LD. Every term points to that scheme with
-`skos:inScheme`.
+The default concept scheme uses `{identifier-base}/vocabulary`; a community
+scheme uses `{identifier-base}/vocabulary/{community}`. Each resolves to its
+vocabulary page with embedded JSON-LD. Every term points to its owning
+scheme with `skos:inScheme`.
 
 Tags, facets, and collections also have readable IRIs.
 
@@ -95,11 +105,10 @@ definition points to a tag with `dcterms:subject`. `skos:inScheme` identifies
 the applicable topic or facet scheme. Numeric `/tags/{id}` routes redirect
 permanently to the readable tag path.
 
-The identifier base comes from `IDENTIFIER_BASE_URL` when configured and from
-the application origin otherwise. Changing the base changes every resource and
-scheme IRI. A deployment that requires durable citations sets a persistent
-resolver before publishing. IRIs minted under the application origin remain
-bound to that host.
+The w3id resolver currently sends requests to the Ego website, which serves
+the HTML and RDF documents. The website address is a document location. The
+w3id is the persistent resource identifier and is the address to retain in
+citations and metadata.
 
 Numeric term and definition routes are compatibility aliases that redirect to
 readable canonical paths. [Identifiers and citation](/docs/identifiers)
@@ -123,15 +132,15 @@ Core, and PROV-O do not name directly. Its namespace is
 `{identifier-base}/metadata#`. The base `/metadata` address redirects to this
 guide.
 
-| Term                  | Meaning                                                                            |
-| --------------------- | ---------------------------------------------------------------------------------- |
-| `Definition`          | One stable contributed interpretation of a term                                    |
-| `DefinitionRevision`  | One immutable state of a definition                                                |
-| `definitionNumber`    | The permanent creation-order number within a term                                  |
-| `canonicalDefinition` | The highest-scored definition of this community term; newest candidate breaks ties |
-| `currentRevision`     | The active revision of a stable definition                                         |
-| `version`             | The positive revision number stored in the RDF record                              |
-| `status`              | The score-derived activity status of a revision                                    |
+| Term                  | Meaning                                                                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Definition`          | One stable contributed interpretation of a term                                                                                                     |
+| `DefinitionRevision`  | One immutable state of a definition                                                                                                                 |
+| `definitionNumber`    | The permanent creation-order number within a term                                                                                                   |
+| `canonicalDefinition` | The definition with the highest net vote score for this community term; newest candidate creation time and then higher definition number break ties |
+| `currentRevision`     | The active revision of a stable definition                                                                                                          |
+| `version`             | The positive revision number stored in the RDF record                                                                                               |
+| `status`              | The score-derived activity status of a revision                                                                                                     |
 
 The provenance graph adds terms for recorded acts.
 
