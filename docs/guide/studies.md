@@ -26,12 +26,17 @@ The public page at `/studies/{study}` describes the study, its community,
 terms, and closing date. Anyone can read it. To participate, sign in with the
 account that belongs to the community running the study. Existing members
 also see the study under **Your studies** on their profile and on the Studies
-page. They do not need a new invitation. A new participant joins through an
-invitation or is added by a steward; the public study link alone does not add
-membership. If you cannot begin, check that you signed in with the account
-you used before. Ask the person who shared the study link to add you or send
-an invitation if you need to join. See
-[Communities and scope](/docs/communities#joining).
+page. They do not need a new invitation.
+
+**ID4 round two is open to anyone with the study link.** Sign in, then select
+**Join and begin study** if you are not already an ID4 member. This joins ID4
+and opens the activity. Existing members can select **Begin study** or
+**Continue study** immediately. Returning participants should use the same
+Google account they used before so their earlier contributions stay linked.
+
+Other studies may require an invitation or membership added by a steward.
+If a study asks you to join and has no join button, contact the person who
+shared its link. See [Communities and scope](/docs/communities#joining).
 
 **Begin study** opens the activity. **Continue study** returns to your next
 unfinished step. **About this study** gives the overview; the first activity

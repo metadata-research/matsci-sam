@@ -93,6 +93,16 @@ only be added to, which `surveys.addQuestionStep` does at any time.
 
 ### ID4 round-two amendment
 
+ID4 round two also permits self-enrollment from its public study link.
+`surveys.join` requires authentication and calls `joinOpenStudy`, which locks
+the study and parents, requires an open, prepared ID4 activity, and inserts
+only a regular membership with the caller recorded as its source. Repeated
+joins are idempotent. It selects ID4 as the new member's active community and
+records no study responses or invitation redemption. Other studies retain
+their invitation rules. The overview and activity both show **Join and begin
+study** to nonmembers; sign-in retains the destination. Invitation pages read
+the amended instructions too.
+
 `lib/study-protocol.ts` scopes the shortened protocol to `id4_round_two`.
 Its active sequence contains the original instructions and eight define steps,
 followed by the text question. Define steps appear as **Vote** and use

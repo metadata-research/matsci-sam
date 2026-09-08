@@ -11,8 +11,9 @@ MatSci-SAM account.
 
 Use **Sign in** on the study page to return there after login. You can also
 find your communities' studies under **Your studies** on your profile. If the
-study asks you to join its community, ask the person who shared the link for
-an invitation. See [Studies](/docs/studies#the-study-page).
+study shows **Join and begin study**, select it to join and start without an
+invitation. If it instead asks you to request access, contact the person who
+shared the link. See [Studies](/docs/studies#the-study-page).
 
 ## Verified email sign-in
 

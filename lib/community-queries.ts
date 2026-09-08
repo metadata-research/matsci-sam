@@ -16,6 +16,7 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
 import { hashOneTimeToken } from "@/lib/auth-tokens"
 import { getCurrentUser } from "@/lib/current-user"
 import { invitationOutcome, type InvitationOutcome } from "@/lib/communities"
+import { studyInstructions } from "@/lib/study-protocol"
 
 export type InvitationView = {
   // A link addressed to one person, or the open join link of a community.
@@ -114,7 +115,7 @@ export const invitationForToken = async (
         ? {
             slug: joined.slug,
             title: joined.title,
-            welcome: joined.welcome,
+            welcome: studyInstructions(joined.slug, joined.welcome),
             opensAt: joined.opensAt,
             closesAt: joined.closesAt,
             retiredAt: joined.retiredAt,

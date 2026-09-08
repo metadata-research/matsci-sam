@@ -6,6 +6,8 @@ import type { Act, Step } from "./surveys"
 // avoids turning the ID4 amendment into a new default for future studies.
 export const ID4_ROUND_TWO = "id4_round_two"
 export const isVotingStudy = (slug: string) => slug === ID4_ROUND_TWO
+export const allowsStudySelfEnrollment = (slug: string) =>
+  slug === ID4_ROUND_TWO
 
 export const ID4_VOTING_INSTRUCTIONS = `This study continues vocabulary work begun in a 2025 MatSci-YAMZ study. You will vote on eight materials science terms, then give written feedback.
 

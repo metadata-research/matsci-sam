@@ -56,6 +56,7 @@ import {
 } from "@/lib/input-limits"
 import { communityPath, studyPath } from "@/lib/public-identifiers"
 import { isActiveStudyStep, studyAllowsAct } from "@/lib/study-protocol"
+import { joinOpenStudy } from "@/lib/study-enrollment"
 
 /*
  * The survey walkthrough: the ordered steps of a study, and a participant's
@@ -360,6 +361,17 @@ export const requireIncompleteStepForAct = async (
 }
 
 export const surveysRouter = createTRPCRouter({
+  join: authenticatedProcedure
+    .meta({ marksGraphs: false })
+    .input(z.object({ studySlug: z.string().min(1) }))
+    .mutation(async ({ ctx: { userId }, input: { studySlug } }) => {
+      const joined = await joinOpenStudy(studySlug, userId)
+      revalidatePath("/", "layout")
+      revalidatePath(studyPath(joined.studySlug))
+      revalidatePath(communityPath(joined.communitySlug))
+      return joined
+    }),
+
   /*
    * The walkthrough as one viewer sees it. Public study, private progress:
    * a signed-out viewer gets the steps and no completions, and a member gets

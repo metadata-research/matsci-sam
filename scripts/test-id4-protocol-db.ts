@@ -16,6 +16,9 @@ import { studyBySlug, studiesOfViewer } from "../lib/study-queries"
 import { ID4_ROUND_TWO, ID4_VOTING_INSTRUCTIONS } from "../lib/study-protocol"
 import { surveysRouter, requireStepForAct } from "../trpc/routers/surveys"
 import { createCallerFactory } from "../trpc/init"
+import { joinOpenStudy } from "../lib/study-enrollment"
+import { hashOneTimeToken } from "../lib/auth-tokens"
+import { invitationForToken, membershipIn } from "../lib/community-queries"
 
 const {
   db,
@@ -158,7 +161,15 @@ async function main() {
       surveyStepId: null,
       communityId: null
     })
-    return { fresh, returning, study, steps, candidates }
+    await tx.insert(schema.communityInvitationsTable).values({
+      communityId: community.id,
+      studyId: study.id,
+      email: "id4-test-invite@example.invalid",
+      tokenHash: hashOneTimeToken("id4-test-invite"),
+      invitedById: author.id,
+      expiresAt: new Date(Date.now() + 86400000).toISOString()
+    })
+    return { fresh, returning, author, study, steps, candidates }
   })
   const before = await db.query.surveyStepsTable.findMany({
     where: eq(surveyStepsTable.studyId, fixture.study.id)
@@ -172,6 +183,80 @@ async function main() {
   const returning = caller(fixture.returning.id)
   const input = { expectedInstructions: ID4_VOTING_INSTRUCTIONS }
 
+  assert.equal(
+    (await invitationForToken("id4-test-invite"))?.study?.welcome,
+    ID4_VOTING_INSTRUCTIONS
+  )
+  await assert.rejects(
+    makeCaller({ session: {} } as unknown as Parameters<
+      typeof makeCaller
+    >[0]).join({ studySlug: ID4_ROUND_TWO }),
+    { code: "UNAUTHORIZED" }
+  )
+  assert.equal(
+    await membershipIn(fixture.study.communityId, fixture.author.id),
+    null
+  )
+  await assert.rejects(
+    caller(fixture.author.id).completeStep({
+      ...input,
+      stepId: fixture.steps[0].id
+    }),
+    { code: "FORBIDDEN" }
+  )
+  await Promise.all([
+    joinOpenStudy(ID4_ROUND_TWO, fixture.author.id),
+    joinOpenStudy(ID4_ROUND_TWO, fixture.author.id)
+  ])
+  assert.deepEqual(
+    await membershipIn(fixture.study.communityId, fixture.author.id),
+    { role: "member" }
+  )
+  const joinedRows = await db.query.communityMembersTable.findMany({
+    where: eq(communityMembersTable.userId, fixture.author.id)
+  })
+  assert.equal(joinedRows.length, 1, "Repeated joins create one membership")
+  assert.equal(joinedRows[0].addedById, fixture.author.id)
+  assert.equal(
+    (await caller(fixture.author.id).get({ studySlug: ID4_ROUND_TWO }))
+      .completedStepIds.length,
+    0,
+    "Joining creates no study response"
+  )
+  assert.equal(
+    (
+      await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, fixture.author.id)
+      })
+    )?.activeCommunityId,
+    fixture.study.communityId
+  )
+
+  const [privateStudy] = await db
+    .insert(studiesTable)
+    .values({
+      slug: "invitation_only_test",
+      title: "Invitation-only test study",
+      communityId: fixture.study.communityId,
+      collectionId: fixture.study.collectionId,
+      createdById: fixture.author.id
+    })
+    .returning()
+  await assert.rejects(joinOpenStudy(privateStudy.slug, fixture.author.id), {
+    code: "FORBIDDEN"
+  })
+  await db
+    .update(studiesTable)
+    .set({ closesAt: new Date(Date.now() - 1000).toISOString() })
+    .where(eq(studiesTable.id, fixture.study.id))
+  await assert.rejects(joinOpenStudy(ID4_ROUND_TWO, fixture.fresh.id), {
+    code: "BAD_REQUEST"
+  })
+  await db
+    .update(studiesTable)
+    .set({ closesAt: null })
+    .where(eq(studiesTable.id, fixture.study.id))
+
   const publicWalk = await walkthroughOf(db, fixture.study.id, null)
   assert.equal(publicWalk.steps.length, 10)
   assert.deepEqual(publicWalk.earlierSteps, [])
@@ -184,7 +269,12 @@ async function main() {
   assert.equal(oldWalk.earlierSteps[1].reviewRecord?.votes[0].kind, "down")
   assert.equal(oldWalk.earlierSteps[2].response?.valueScale, 4)
   assert.equal((await studyBySlug(ID4_ROUND_TWO))?.steps, 10)
-  assert.equal((await studiesOfViewer(fixture.returning.id))[0].saved, 9)
+  assert.equal(
+    (await studiesOfViewer(fixture.returning.id)).find(
+      (study) => study.slug === ID4_ROUND_TWO
+    )!.saved,
+    9
+  )
   assert.equal((await studyProgress(db, fixture.study.id))?.total, 10)
 
   await assert.rejects(
@@ -275,7 +365,12 @@ async function main() {
   const finished = await fresh.get({ studySlug: ID4_ROUND_TWO })
   assert.equal(finished.completedStepIds.length, 10)
   assert.equal(finished.resumePosition, null)
-  assert.equal((await studiesOfViewer(fixture.fresh.id))[0].saved, 10)
+  assert.equal(
+    (await studiesOfViewer(fixture.fresh.id)).find(
+      (study) => study.slug === ID4_ROUND_TWO
+    )!.saved,
+    10
+  )
   assert.equal((await studyProgress(db, fixture.study.id))?.finished, 2)
   assert.deepEqual(
     await db.query.surveyStepsTable.findMany({
