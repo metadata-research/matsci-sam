@@ -2283,7 +2283,7 @@ const main = async () => {
           })
           await runInvariants(sp)
         }),
-        "comment step is not a review step",
+        "comment step does not permit discussion",
         "comment on the review step of another term"
       )
       expectInvariant(

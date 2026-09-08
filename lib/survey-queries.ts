@@ -18,7 +18,11 @@ import {
   votesTable
 } from "@yamz/db"
 import type { ActorKind, GenerationStampInput } from "@/lib/participation"
-import { activeStudySteps, studyInstructions } from "./study-protocol"
+import {
+  activeStudySteps,
+  studyInstructions,
+  isSinglePassStudy
+} from "./study-protocol"
 import {
   recordCompletion,
   resumePosition,
@@ -86,7 +90,11 @@ const protocolStepsOfStudy = async (executor: Executor, studyId: number) => {
       where: eq(studiesTable.id, studyId)
     })
   ])
-  return { stored: steps, active: activeStudySteps(study?.slug ?? "", steps) }
+  return {
+    stored: steps,
+    active: activeStudySteps(study?.slug ?? "", steps),
+    slug: study?.slug ?? ""
+  }
 }
 
 // One step with the study it belongs to, which is what every participation
@@ -790,10 +798,11 @@ export const walkthroughOf = async (
   studyId: number,
   userId: number | null
 ) => {
-  const { stored: steps, active } = await protocolStepsOfStudy(
-    executor,
-    studyId
-  )
+  const {
+    stored: steps,
+    active,
+    slug
+  } = await protocolStepsOfStudy(executor, studyId)
   if (userId === null)
     return {
       steps: active.map((step) => ({
@@ -816,9 +825,10 @@ export const walkthroughOf = async (
   const questionStepIds = steps
     .filter((step) => step.kind === "question")
     .map((step) => step.id)
-  const reviewStepIds = steps
-    .filter((step) => step.kind === "review" || step.kind === "define")
-    .map((step) => step.id)
+  const hasDiscussionRecord = (step: Step) =>
+    step.kind === "review" ||
+    (isSinglePassStudy(slug) && step.kind === "define")
+  const reviewStepIds = steps.filter(hasDiscussionRecord).map((step) => step.id)
   const responseRows = questionStepIds.length
     ? executor
         .select(responseColumns)
@@ -865,10 +875,9 @@ export const walkthroughOf = async (
               : null
           })()
         : null,
-    reviewRecord:
-      step.kind === "review" || step.kind === "define"
-        ? (reviewRecords.get(step.id) ?? { votes: [], comments: [] })
-        : null
+    reviewRecord: hasDiscussionRecord(step)
+      ? (reviewRecords.get(step.id) ?? { votes: [], comments: [] })
+      : null
   })
   const activeIds = new Set(active.map((step) => step.id))
   return {
