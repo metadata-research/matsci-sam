@@ -1,5 +1,8 @@
-This study continues vocabulary work begun in a 2025 MatSci-YAMZ study. The study has 19 steps. After the instructions, you will work through eight terms twice. First, choose, revise, or propose a definition for each term. Then review and vote on the definitions, adding comments where useful. Finish with two short questions.
+This study continues vocabulary work begun in a 2025 MatSci-YAMZ study. You will vote on eight materials science terms, then give written feedback.
 
-1. For each term, choose the definition closest to what you consider correct.
-2. Accept it as written or suggest a revision. If none is close enough, propose a new definition. If you do not know a term well enough to choose, skip it.
-3. Review the definitions, vote on each, and comment where you disagree or can add information.
+1. For each term, read the definitions and vote for the one closest to what you consider correct. Choose any definition, regardless of its support score.
+2. Select Vote for this definition to save your choice and continue. This ensures an upvote on that revision. An existing upvote is kept without adding another point; a downvote changes to an upvote.
+3. If you cannot choose a definition, select Skip this term. You can explain missing or unsuitable definitions in your closing feedback.
+4. After the eight terms, answer the written feedback question and submit it to finish.
+
+Your saved choices and skips count toward progress when you return. Study help is available at every step.

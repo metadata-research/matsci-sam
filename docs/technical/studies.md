@@ -91,6 +91,55 @@ only be added to, which `surveys.addQuestionStep` does at any time.
 
 ## The position rule
 
+### ID4 round-two amendment
+
+ID4 round two also permits self-enrollment from its public study link.
+`surveys.join` requires authentication and calls `joinOpenStudy`, which locks
+the study and parents, requires an open, prepared ID4 activity, and inserts
+only a regular membership with the caller recorded as its source. Repeated
+joins are idempotent. It selects ID4 as the new member's active community and
+records no study responses or invitation redemption. Other studies retain
+their invitation rules. The overview and activity both show **Join and begin
+study** to nonmembers; sign-in retains the destination. Invitation pages read
+the amended instructions too.
+
+`lib/study-protocol.ts` scopes the shortened protocol to `id4_round_two`.
+Its active sequence contains the original instructions and eight define steps,
+followed by the text question. Define steps appear as **Vote** and use
+`acceptPosition` to save one choice and ensure an upvote. Revision proposals
+and new definitions are unavailable in this activity. The Review steps and
+scale question are excluded from both participant reads and mutations.
+
+Stored steps, positions, responses, prompts and contribution contexts remain
+intact. The active sequence uses contiguous display positions while retaining
+the permanent step IDs. `walkthroughOf`, `nextPositionFor`, profile counts and
+steward progress all use the active sequence. `stepsOfStudy` remains the raw
+historical read. A paired skip still writes both skipped outcomes to satisfy
+the existing database invariant; only the active term step counts as progress.
+
+The amendment supplies current instructions to the overview, activity, help
+and mutation guard. Requests carrying the previous instructions must reload.
+Do not run step regeneration or a used-instructions copy sync to deploy this
+amendment. It takes effect with the application release, without a migration
+or data rewrite. The original stored instructions remain available for analysis.
+The checked-in content file is tested against the amended instruction text.
+
+Previous choices and proposals still complete their original term steps. They
+are not converted into new voting events. Earlier Review activity and rating
+answers appear in the viewer's `earlierSteps` record, even when a Review step
+had activity but was not completed. Raw completion counts include historical
+steps and must not be used as the denominator for the shortened activity.
+Analysis must distinguish work under the original instructions from work after
+the amendment's release on each host. No general study-builder redesign is
+implied by this one-study amendment.
+
+`test:study-protocol-db` exercises the actual ID4 slug with synthetic new and
+returning participants in an empty migrated scratch database. It refuses a
+populated database. CI clones the clean schema into a separate temporary
+database for this test and drops it afterwards.
+
+### Shared position recording
+
 A define step asks for a position on its term. As `stepsWithPosition` and
 `hasPosition` read it, a person holds one when an upvote event of theirs names
 the step, when an initial revision of theirs names the step, or when they have

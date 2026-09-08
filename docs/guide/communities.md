@@ -91,6 +91,10 @@ shared with a group. Open the link and sign in or create an account. The sign-in
 and required profile setup return you to the invitation; then select **Accept
 and join**.
 
+Some studies also offer **Join and begin study** on their public page. ID4 round
+two uses this option: sign in, select the button, and the site adds you as a
+member of ID4 and opens the study. No separate invitation is needed.
+
 A personal invitation can be accepted with the account you already use,
 even if it was sent to a different email address. Each personal invitation
 can be used once and expires after fourteen days. Ask the person who invited

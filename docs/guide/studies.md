@@ -1,8 +1,9 @@
 # Studies
 
 A study asks a community to work through a selected collection of terms under
-shared instructions. Participants choose or propose definitions, review them,
-and answer any closing questions.
+shared instructions. The instructions explain which
+actions to take, such as choosing definitions, reviewing them, or giving
+written feedback.
 
 ## Help in the study
 
@@ -16,8 +17,8 @@ The help topics use the same text as this guide. Guide links open in a new
 tab so you can keep the study open. Follow your study’s own instructions for
 its purpose and tasks; this guide explains how the controls work.
 
-Use **Feedback** to report a problem with the site. Use the comment box in a
-Review step to discuss a definition. These are separate conversations.
+Use **Feedback** to report a problem with the site. Use the closing question for study
+feedback. Studies with Review steps also provide public definition comments.
 
 ## The study page
 
@@ -25,12 +26,17 @@ The public page at `/studies/{study}` describes the study, its community,
 terms, and closing date. Anyone can read it. To participate, sign in with the
 account that belongs to the community running the study. Existing members
 also see the study under **Your studies** on their profile and on the Studies
-page. They do not need a new invitation. A new participant joins through an
-invitation or is added by a steward; the public study link alone does not add
-membership. If you cannot begin, check that you signed in with the account
-you used before. Ask the person who shared the study link to add you or send
-an invitation if you need to join. See
-[Communities and scope](/docs/communities#joining).
+page. They do not need a new invitation.
+
+**ID4 round two is open to anyone with the study link.** Sign in, then select
+**Join and begin study** if you are not already an ID4 member. This joins ID4
+and opens the activity. Existing members can select **Begin study** or
+**Continue study** immediately. Returning participants should use the same
+Google account they used before so their earlier contributions stay linked.
+
+Other studies may require an invitation or membership added by a steward.
+If a study asks you to join and has no join button, contact the person who
+shared its link. See [Communities and scope](/docs/communities#joining).
 
 **Begin study** opens the activity. **Continue study** returns to your next
 unfinished step. **About this study** gives the overview; the first activity
@@ -46,8 +52,9 @@ step presents the instructions. **The terms** links to the selected collection.
   the revision shown. Editing a definition creates a new revision; suggesting
   an alternative creates a separate definition.
 - **Position:** the definition you accept or publish for a term in the study.
-  It records your choice at that step. It is separate from your later votes
-  and from the community’s canonical definition.
+  It records your choice at that step. Selecting an existing definition also
+  ensures an upvote. Your choice does not establish the community’s canonical
+  definition.
 - **Canonical definition:** the current highest-ranked definition for the
   term in its owning vocabulary. Highest net score wins, then newest
   definition creation time, then higher permanent definition number. This
@@ -62,23 +69,53 @@ own revision history. The source definition stays available. See
 
 ## The study activity
 
-The current walkthrough uses this sequence:
+ID4 round two has ten steps: instructions, one vote or skip for each of eight
+terms, then written feedback. You work through the terms once.
 
-1. Read the instructions.
-2. Take a **Position** on each term.
-3. **Review** each term’s definitions.
-4. Answer any closing **Questions**.
-
-You work through all Position steps before the Review steps. The number of
-terms and closing questions varies by study.
+Other studies may include Position steps for accepting or proposing definitions,
+a separate Review round for votes and comments, and closing questions. Follow
+the instructions and controls shown in your study.
 
 The step indicators show your progress. Completed steps can be reopened for
 reading. Your first unfinished step is available; later unfinished steps
-remain locked. A dash marks both steps for a term you skipped.
+remain locked. A dash marks a skipped term.
+
+## Voting on the terms
+
+In ID4 round two, read the definitions and select **Vote for this definition**
+on the one closest to what you consider correct. This saves your choice of an
+exact revision, ensures an upvote on it, and moves to the next term. You may
+choose any definition, including your own, regardless of its score.
+
+If you already upvoted that revision, your vote is kept without adding another
+point. If you downvoted it, your vote changes to an upvote. An upvote made
+outside the study does not replace this explicit choice inside the activity.
+
+If you cannot choose, select **Skip this term** and confirm. This records no
+choice or new vote for the term. You can explain missing or unsuitable
+definitions in the closing feedback. A saved choice or skip is final in this
+activity.
+
+Existing comments and support scores provide context. A model-authored starting
+definition appears first when available; this is not a recommendation. The
+remaining definitions are ordered by support, with older definitions first
+when scores tie.
+
+## Written feedback
+
+After the eight terms in ID4 round two, give written feedback about what you
+would add or change. Mention individual terms where helpful, including any
+you skipped because the available definitions did not fit. Select **Submit**
+to save your answer and finish. You can reread your saved answer in the study
+record. It cannot be edited in the activity.
+
+If you started before the activity was shortened, saved choices, proposals and
+skips still count toward progress. Earlier review actions and rating answers
+remain available under **Your earlier responses** in the completed study record.
 
 ## The Position step
 
-Choose the definition closest to what you consider correct. You may choose
+For studies that offer acceptance and definition proposals, choose the definition closest to what you consider correct. You may choose
 your own definition and any definition regardless of its support score.
 Existing definitions may come from earlier vocabulary work, preparation for
 this study, or other participants. If none exists, propose the first one or
@@ -131,14 +168,14 @@ ordinary definition page.
 ### Skip a term
 
 Use **Skip this term** when you do not know the term well enough to choose.
-Confirming skips both its Position and Review steps. It records no position,
+In studies with Position and Review rounds, confirming skips both steps. It records no position,
 vote, definition, or comment, and does not change the vocabulary. Skipping is
 final within this walkthrough. A later skipped Review can be opened for
 reading, but does not unlock other unfinished steps.
 
 ## Reviewing the definitions
 
-Review the definitions and use the upvote, downvote, and comment controls.
+For studies with a separate Review round, review the definitions and use the upvote, downvote, and comment controls.
 You may vote on your own definition. These controls are also available when
 there is only one definition. If there are no definitions, continue to the
 next step.
@@ -185,11 +222,11 @@ unfinished step.
 
 Text still being written in a form is a draft, not a saved contribution.
 Opening and closing **Study help** keeps it on screen, but leaving or
-reloading the activity can lose it. A saved vote or comment does not by itself
-complete a Review step; select **Done with this term** when finished.
+reloading the activity can lose it. In studies with Review steps, a saved vote or comment does not by itself
+complete the step; select **Done with this term** when finished.
 
 Completed steps can be reopened for reading. **Review completed study** opens
-your consolidated record: the position or skip for each term, votes and
+your consolidated record: the choice or skip for each term, any votes and
 comments recorded inside Review steps, and closing answers. Later vocabulary
 activity can change scores or wording without rewriting your recorded choice.
 
@@ -204,15 +241,18 @@ comments as the rest of MatSci-SAM. It adds an ordered task and a record of
 your participation. Working on an ordinary vocabulary page does not complete
 a study step; use the activity to record the study’s requested actions.
 
-| Action or concept        | Ordinary vocabulary work                               | Inside the current study walkthrough                                                                                   |
-| ------------------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Choose a definition      | Read, compare, and vote freely                         | Accept or publish one Position per term, or skip it                                                                    |
-| Suggest a revision       | Publish a separate AI-assisted definition              | Same publication, also recorded as your Position                                                                       |
-| Write an alternative     | Propose a replacement for a particular definition      | Propose a new definition for the term without a replacement target                                                     |
-| Edit your own definition | Publish another revision under its existing identifier | The Position choices publish a separate alternative; they do not edit an existing definition in place                  |
-| Vote and comment         | Available on current definitions                       | Accept ensures an upvote; other voting and commenting happen in Review                                                 |
-| Definition order         | Canonical first; newest wins a score tie               | Position puts a model-authored starting definition first when available; Review keeps its initial order while you vote |
-| Progress                 | No required sequence                                   | Recorded steps, saved progress, and a closing window                                                                   |
+| Action                       | Ordinary vocabulary work                      | ID4 round two                                                           |
+| ---------------------------- | --------------------------------------------- | ----------------------------------------------------------------------- |
+| Choose a definition          | Read, compare, and vote freely                | Vote for one definition per term, or skip                               |
+| Write or revise a definition | Publish a definition or revision              | Describe suggested changes in the closing feedback                      |
+| Vote                         | Upvote, downvote, change, or withdraw support | The chosen definition gets your upvote; an existing upvote is preserved |
+| Comment                      | Public discussion on a definition             | Give written study feedback after the terms                             |
+| Progress                     | No required sequence                          | One pass through the terms, followed by feedback                        |
+
+Studies that include Position and Review rounds also use ordinary definition
+publication and voting actions. Acceptance ensures an upvote; publishing a
+proposal records a position without casting a vote. Review allows additional
+votes and public comments. These actions keep their study-step context.
 
 A definition’s permanent number is its identity within the term, not its
 screen position or score. To cite exact wording, use the immutable revision
@@ -233,8 +273,8 @@ definitions offered in that study without deleting them from the vocabulary.
 
 Prepare and review the starting material and instructions before recruiting.
 The study instructions should explain its purpose, starting material, and
-tasks. Stored instructions remain the record of what participants were asked
-to do.
+tasks. A change to a running study must preserve earlier instructions and responses
+so its results can be interpreted against the tasks participants saw.
 
 [Administration and stewardship](/docs/administration#studies) describes the
 controls for setup, invitations, and progress.

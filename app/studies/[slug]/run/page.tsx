@@ -21,6 +21,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Walkthrough } from "@/components/studies/walkthrough"
 import { renderDoc } from "@/lib/docs"
 import { studyHelpFromHtml } from "@/lib/study-help"
+import { JoinStudy } from "@/components/studies/join-study"
+import { allowsStudySelfEnrollment } from "@/lib/study-protocol"
 
 // Shared by generateMetadata and the body, so the page runs one query.
 const loadStudy = cache(async (slug: string) => studyBySlug(slug))
@@ -106,15 +108,18 @@ export default async function RunPage({
     return (
       <Notice title={study.title}>
         <p className="text-sm text-muted-foreground">
-          The study activity is for members of {study.communityTitle}. Sign in
-          to take part.
+          {allowsStudySelfEnrollment(study.slug)
+            ? "Sign in to join this study and take part. No invitation is needed."
+            : `The study activity is for members of ${study.communityTitle}. Sign in to take part.`}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
             <Link
               href={authPathWithReturnTo("/login", studyRunPath(study.slug))}
             >
-              Sign in
+              {allowsStudySelfEnrollment(study.slug)
+                ? "Sign in to begin"
+                : "Sign in"}
             </Link>
           </Button>
           <Button asChild variant="outline">
@@ -124,7 +129,21 @@ export default async function RunPage({
       </Notice>
     )
 
-  if (!membership)
+  if (!membership && state === "open" && allowsStudySelfEnrollment(study.slug))
+    return (
+      <Notice title={study.title}>
+        {study.steps > 0 ? (
+          <JoinStudy
+            studySlug={study.slug}
+            communityTitle={study.communityTitle}
+          />
+        ) : (
+          <p>The study activity is not ready yet.</p>
+        )}
+      </Notice>
+    )
+
+  if (!membership && !allowsStudySelfEnrollment(study.slug))
     return (
       <Notice title={study.title}>
         <p className="text-sm text-muted-foreground">

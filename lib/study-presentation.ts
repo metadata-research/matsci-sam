@@ -43,10 +43,17 @@ export const studyClosingNote = (steps: number, closesAt: string | null) =>
     : null
 
 export const positionAcceptanceExplanation = (
-  vote: "up" | "down" | null | undefined
+  vote: "up" | "down" | null | undefined,
+  votingOnly = false
 ) =>
-  vote === "up"
-    ? "You already upvoted this definition. Accept will use that vote as your position."
-    : vote === "down"
-      ? "You previously downvoted this definition. Accept will change it to an upvote."
-      : "Accepting records this definition as your position and adds your upvote."
+  votingOnly
+    ? vote === "up"
+      ? "You already upvoted this definition. Choosing it saves your study response without adding another point."
+      : vote === "down"
+        ? "You previously downvoted this definition. Choosing it changes that vote to an upvote."
+        : "Choosing this definition saves your study response and adds your upvote."
+    : vote === "up"
+      ? "You already upvoted this definition. Accept will use that vote as your position."
+      : vote === "down"
+        ? "You previously downvoted this definition. Accept will change it to an upvote."
+        : "Accepting records this definition as your position and adds your upvote."

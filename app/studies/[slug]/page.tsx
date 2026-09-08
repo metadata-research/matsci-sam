@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/button"
 import { studyActivityActionLabel } from "@/components/studies/progress"
 import { StudyActionButton } from "@/components/studies/action-button"
 import { StudyInstructionContent } from "@/components/studies/instruction-content"
+import { JoinStudy } from "@/components/studies/join-study"
+import { allowsStudySelfEnrollment } from "@/lib/study-protocol"
 
 // Shared by generateMetadata and the body, so the page runs one query.
 const loadStudy = cache(async (slug: string) => studyBySlug(slug))
@@ -163,12 +165,16 @@ export default async function StudyPage({
             <p className="text-sm">
               {study.steps} steps. Sign in to take part. Your place is kept
               between visits.
+              {allowsStudySelfEnrollment(study.slug) &&
+                " Anyone can join this study after signing in. No invitation is needed."}
             </p>
             <Button asChild>
               <Link
                 href={authPathWithReturnTo("/login", studyPath(study.slug))}
               >
-                Sign in
+                {allowsStudySelfEnrollment(study.slug)
+                  ? "Sign in to begin"
+                  : "Sign in"}
               </Link>
             </Button>
           </section>
@@ -179,14 +185,22 @@ export default async function StudyPage({
           study.steps > 0 &&
           user &&
           walkthrough !== null &&
-          walkthrough.membership === null && (
+          walkthrough.membership === null &&
+          (allowsStudySelfEnrollment(study.slug) ? (
+            <section className="rounded-md border border-primary/40 bg-primary/5 p-4">
+              <JoinStudy
+                studySlug={study.slug}
+                communityTitle={study.communityTitle}
+              />
+            </section>
+          ) : (
             <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
               To take part, join {study.communityTitle}. Ask the person who
               shared this study link to add you or send an invitation. If you
               already belong, check that you signed in with the account you used
               before.
             </p>
-          )}
+          ))}
 
         {state === "retired" && (
           <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">

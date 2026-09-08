@@ -55,6 +55,8 @@ import {
   SURVEY_RESPONSE_MAX_LENGTH
 } from "@/lib/input-limits"
 import { communityPath, studyPath } from "@/lib/public-identifiers"
+import { isActiveStudyStep, studyAllowsAct } from "@/lib/study-protocol"
+import { joinOpenStudy } from "@/lib/study-enrollment"
 
 /*
  * The survey walkthrough: the ordered steps of a study, and a participant's
@@ -141,6 +143,12 @@ const requireParticipation = async (
       message: "This study is not open"
     })
   }
+  if (!isActiveStudyStep(found.study.slug, found.step))
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        "This step is no longer part of the study. Reload the walkthrough."
+    })
   return found
 }
 
@@ -197,6 +205,12 @@ export const requireStepForAct = async (
   act: Act
 ) => {
   const found = await requireParticipation(stepId, userId)
+  if (!studyAllowsAct(found.study.slug, act))
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "This study asks you to vote for a definition or skip the term, then give written feedback."
+    })
   if (!actMatchesStep(act, found.step)) throw notForThisAct()
   return found
 }
@@ -347,6 +361,17 @@ export const requireIncompleteStepForAct = async (
 }
 
 export const surveysRouter = createTRPCRouter({
+  join: authenticatedProcedure
+    .meta({ marksGraphs: false })
+    .input(z.object({ studySlug: z.string().min(1) }))
+    .mutation(async ({ ctx: { userId }, input: { studySlug } }) => {
+      const joined = await joinOpenStudy(studySlug, userId)
+      revalidatePath("/", "layout")
+      revalidatePath(studyPath(joined.studySlug))
+      revalidatePath(communityPath(joined.communitySlug))
+      return joined
+    }),
+
   /*
    * The walkthrough as one viewer sees it. Public study, private progress:
    * a signed-out viewer gets the steps and no completions, and a member gets

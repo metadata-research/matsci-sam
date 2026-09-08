@@ -18,6 +18,8 @@ import {
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { statementsTable } from "@yamz/db"
 import { currentFeaturedExampleText } from "./definition-example-queries"
+import { ID4_ROUND_TWO, ID4_VOTING_INSTRUCTIONS } from "./study-protocol"
+import { activeStudyStepSql } from "./study-protocol-queries"
 
 /*
  * Reads for studies. A study is public as a page, so none of these gate on the
@@ -29,7 +31,8 @@ const studyColumns = {
   id: studiesTable.id,
   slug: studiesTable.slug,
   title: studiesTable.title,
-  welcome: studiesTable.welcome,
+  welcome: sql<string | null>`case when ${studiesTable.slug} = ${ID4_ROUND_TWO}
+    then ${ID4_VOTING_INSTRUCTIONS} else ${studiesTable.welcome} end`,
   opensAt: studiesTable.opensAt,
   closesAt: studiesTable.closesAt,
   retiredAt: studiesTable.retiredAt,
@@ -56,6 +59,7 @@ const studyColumns = {
     select cast(count(*) as int)
     from ${surveyStepsTable} st
     where st."studyId" = ${studiesTable.id}
+      and ${activeStudyStepSql(studiesTable.slug, "st")}
   )`
 }
 
@@ -111,6 +115,7 @@ export const studiesOfViewer = async (userId: number) =>
         join ${surveyStepsTable} cs on cs.id = c."stepId"
         where cs."studyId" = ${studiesTable.id}
           and c."userId" = ${userId}
+          and ${activeStudyStepSql(studiesTable.slug, "cs")}
       )`
     })
     .from(studiesTable)

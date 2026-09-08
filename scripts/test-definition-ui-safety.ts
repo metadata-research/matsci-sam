@@ -201,7 +201,7 @@ const completedSummary = source(
 assert.match(completedSummary, /Suggested a revision recorded as/)
 assert.match(
   position,
-  /settled \? \([\s\S]*<HeldPosition step=\{step\} \/>[\s\S]*\) : \([\s\S]*<Candidates[\s\S]*onSkip=\{onSkip\}/
+  /settled \? \([\s\S]*<HeldPosition step=\{step\}[^>]*\/>[\s\S]*\) : \([\s\S]*<Candidates[\s\S]*onSkip=\{onSkip\}/
 )
 
 const dots = section(walkthrough, "const Dots =", "const Instructions =")
