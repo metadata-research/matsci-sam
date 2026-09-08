@@ -1,57 +1,47 @@
 # User guide
 
-MatSci-SAM is a collaborative dictionary for materials science
-terminology, built by the Metadata Research Center at Drexel University.
-Signed-in contributors submit definitions and examples of use. Community
-members evaluate definitions through votes and comments. Contributors can
-request suggested revisions from the configured language model and decide
-whether to publish them. The site also publishes standards-based metadata for
-data consumers and semantic web tools.
+Start with the [quick start](/docs) for the contribution workflow, or choose
+a task below.
 
-The [quick start](/docs) follows a new term from contribution to its recorded
-history. The pages below provide detailed instructions for each feature.
+## Accounts and studies
 
-- [Account access](/docs/account-access) explains Google and verified-email
-  sign-in, email account creation, and linked ORCID iDs.
-- [Communities and scope](/docs/communities) explains named groups of people,
-  invitations, and how a selected community scopes Browse to its vocabulary
-  and Collections to its worklist.
-- [Studies](/docs/studies) explains how to join and complete a study, take a
-  position, review definitions, get help, and return to saved progress.
-- [Adding a term](/docs/adding-terms) covers the five contribution actions and
-  the Contribute page.
-- [Community review and revisions](/docs/community) covers voting,
-  score and status, author editing, comments, and removal limits.
-- [AI-assisted suggestions](/docs/ai-refinement) covers the optional draft in
-  **New term** and the critique-driven draft in **Suggest a revision**.
-- [Discussion](/docs/discussion) covers the recent-term feed, ordinary
-  comments, and the shared revision-suggestion action.
-- [Search and browse](/docs/search) covers search filters and the
-  alphabetical term list.
-- [Tags](/docs/tags) covers community topics on definitions, PSPP facets
-  on terms, collections of terms, and the tag pages and identifiers.
-- [Provenance](/docs/provenance) covers the recorded history associated
-  with each term.
-- [Metadata access](/docs/metadata-access) covers the SKOS and PROV-O
-  serializations for data consumers.
-- [Identifiers and citation](/docs/identifiers) explains term, definition, and
-  revision IRIs, readable slugs, rank lookups, and identifier persistence.
+- [Account access](/docs/account-access): sign in, create an email account,
+  or connect an ORCID iD.
+- [Communities and scope](/docs/communities): join a community and select
+  the vocabulary you work in.
+- [Studies](/docs/studies): begin an activity, record a Position, and return
+  to saved progress.
+
+## Contributions and review
+
+- [Adding a term](/docs/adding-terms): publish a term and choose a contribution
+  action.
+- [Community review and revisions](/docs/community): vote, edit your
+  definitions, compare candidates, and manage your public profile.
+- [AI-assisted suggestions](/docs/ai-refinement): request and review a model
+  draft before publication.
+- [Discussion](/docs/discussion): comment on recent terms or suggest a revision.
+
+## Finding and citing content
+
+- [Search and browse](/docs/search): find terms, definitions, and examples.
+- [Tags](/docs/tags): classify content and manage collections.
+- [Provenance](/docs/provenance): inspect contribution history and attribution.
+- [Identifiers and citation](/docs/identifiers): choose a term, definition,
+  or revision link.
+- [Metadata access](/docs/metadata-access): download RDF or query a graph store.
 
 ## Administration
 
-- [Administration and stewardship](/docs/administration) lists community
-  steward controls separately from site-administrator functions and identifies
-  where each control appears.
+[Administration and stewardship](/docs/administration) lists the controls
+for community stewards, moderators, and site administrators.
 
 ## Knowledge organization
 
-The [knowledge organization](/docs/reference) pages are for readers who work
-with the published metadata. They cover the model behind terms, tags and
-collections, their SKOS and PROV-O representation, the identifier policy, and
-the roles of curation and language models.
+The [reference](/docs/reference) explains concepts, identifiers, SKOS,
+PROV-O, and curation for readers who use the published metadata.
 
 ## Metadata models
 
-- [MatCore metadata](/metadata/matcore) presents the MatSci-SAM representation of
-  the preliminary Minimal and DFT metadata elements published in the 2025
-  MatCore paper, with one synthetic example record labeled as such.
+[MatCore metadata](/metadata/matcore) presents the Minimal and DFT elements
+from the preliminary 2025 MatCore paper and a labeled synthetic example.

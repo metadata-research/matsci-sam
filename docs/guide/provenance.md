@@ -1,76 +1,60 @@
 # Provenance
 
-Every term has a provenance page linked near the term heading. The page
-presents recorded contribution history as a graph and a timeline. It describes
-the history of the community term. It does not redirect to the definition that
-currently ranks first.
+Open **Provenance** near a term heading to inspect its contribution history
+as a graph and timeline. Select a graph node for details or download the
+record as W3C PROV-O data.
 
-The record includes immutable definition revisions, revision-specific vote
-records, comments, examples, replacement and derivation links, and accepted
-AI-assisted suggestions. Each revision records its definition text, editor,
-time, change note, and predecessor. An AI-assisted contribution also records
-its source action, named model, prompt, and exact source revision when it is a
-suggested revision. The public view replaces voter names with "A community
-member."
+The record includes definition revisions, comments, vote events, examples,
+and published AI-assisted work. Revisions record text, editor, time, change
+note, and predecessor. A restored revision also identifies the earlier text
+it copies.
 
-An accepted **Suggest a revision** draft records the exact source revision,
-contributor critique, stored model output, prompt, named model, and published
-candidate. The same record shape applies whether the action began on a
-definition page, in Discussion, or in a study. A **Propose a replacement**
-candidate names the definition it is intended to supersede. A restored
-revision links directly to the earlier revision it copied, independently of
-its chronological predecessor.
+A published **Suggest a revision** candidate links to the source revision,
+contributor critique, stored model output, prompt, and model. A replacement
+identifies the definition it should supersede. Discarded model drafts remain
+outside the published vocabulary.
 
-Discarded language-model drafts remain unpublished records and are not vocabulary
-definitions.
+## People and models
 
-The graph uses the W3C PROV-O vocabulary. The nodes include entities such as
-definitions, accepted suggestions, and feedback. Writing and publishing are
-activities. People and models are agents. Select a node for its detail.
+Definitions and examples are entities, publication events are activities,
+and people and models are agents. The record attributes contributions to
+their authors. The per-term view labels votes "A community member". The
+[dataset graph uses a separate voter-visibility rule](/docs/reference/provenance-model#people-and-models).
 
-![The profile of a model, with its exact version and the definitions it authored](/images/docs/model-profile.png)
+A model profile identifies the recorded runtime tag, publisher, directly
+authored definitions, and their prompts. Coauthored definitions credit the
+contributor and model on the definition page. A tag identifies the model
+configuration requested for a run.
 
-A model that contributes is credited by name. On a term page its name opens
-the profile of the model. The graph and timeline identify the model by the
-exact tag it ran under, such as `gemma4:26b`. The profile gives that tag, the
-publisher, direct model authorship, and the prompts used for those definitions.
-Coauthored definitions credit the contributor and model on the definition.
-One profile covers one version of a model. [The provenance
-model](/docs/reference/provenance-model)
-describes what the record contains and how it is published. The timeline
-below the graph presents the same record in order.
+![A model profile with recorded authorship](/images/docs/model-profile.png)
 
-Provenance is derived on demand from the ordinary application records. The
-graph can also be downloaded as PROV-O Turtle from the provenance page, as
-described in [Metadata access](/docs/metadata-access).
+## Votes, comments, and examples
 
-Votes and comments identify the revision visible when each contribution was
-made. A later definition revision starts a new vote tally. Earlier revision
-tallies and their comments remain in the history.
+Votes and comments identify a definition revision. An author edit starts a
+new vote tally. Vote direction changes and withdrawals append events, so the
+record retains their sequence. Study actions also identify the study context.
 
-An application-created example identifies the definition and exact revision
-visible when it was added. Multiple examples may belong to one definition.
-Featuring an example is a separately attributed selection with its own time
-interval. It does not change the definition revision or vote tally.
+Examples identify the stable definition and the revision displayed when
+added. The featured-example history records who selected an example and the
+interval it was featured. Example selection leaves definition text and votes
+unchanged.
 
-Each voting act is recorded as an event with the revision it used, its kind
-(up, down, or withdrawn), and the time. A change or withdrawal appends an act,
-so the provenance view shows the sequence. The last act gives the current vote
-of a person on a revision. A standing vote from before event recording began
-has one backfilled act at the recorded time of the vote. A vote cast or a
-comment posted inside the activity of a [study](/docs/studies) names that
-study, so the dataset graph states under which study the act was taken.
+## Imported records
 
-Some revisions imported from the earlier pilot schema contain only the
-definition text and time. Their editors and change notes were not stored. The
-provenance view labels these partial revisions and leaves unknown values empty.
-Examples recovered from the former single-example field are marked as legacy.
-The older schema did not record their independent contributor, exact source
-revision, publication time, selector, or selection time. Those facts remain
-unknown in the application and graph. Imported comments and older refinement
-rounds identify the revision visible at their recorded time. Imported votes
-identify the revision current during migration. Their earlier timestamps do
-not establish which revision the voter evaluated.
+Some pilot records lack facts that the earlier schema did not store.
 
-[Community review and revisions](/docs/community) describes revision
-publishing, restoration, and the imported-history limits.
+| Record                         | Limitation                                                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Partial revision               | Editor or change note may be unknown                                                                     |
+| Legacy example                 | Independent author, exact source revision, contribution time, and selection provenance were not recorded |
+| Imported comment or refinement | Revision association is inferred from the recorded time                                                  |
+| Imported vote                  | Revision association uses the revision current at migration                                              |
+| Backfilled vote event          | One event reconstructs a standing vote when event recording began                                        |
+
+The interface labels imported records and leaves unknown provenance empty.
+A backfilled event does not reconstruct all earlier vote changes.
+
+[The provenance model](/docs/reference/provenance-model) describes the RDF
+properties and privacy rules. [Metadata access](/docs/metadata-access) lists
+downloads. [Community review and revisions](/docs/community) explains editing
+and restoration.

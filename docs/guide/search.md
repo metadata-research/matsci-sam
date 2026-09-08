@@ -2,76 +2,50 @@
 
 ## Search
 
-The **Search** entry under **Vocabulary** in the navigation bar opens the
-Search page. The quick-search field in the navigation bar opens the same page
-with a query. Search covers term names, definition text, and examples of use.
-Search always covers every vocabulary hosted by MatSci-SAM, including while a
-community is selected under **Working in**. Each result names the vocabulary
-that defines it.
+Open **Search** under **Vocabulary**, or enter a query in the navigation bar.
+Search covers term names, definition text, and examples across all hosted
+vocabularies. **Working in** does not limit it. Each result identifies the
+owning vocabulary and highlights the matching text. **Similar term name**
+labels a fuzzy name match.
 
-Every result also says why it matched. A term-name match highlights the name;
-a definition or example match shows a short highlighted excerpt. A fuzzy
-term-name match is labelled **Similar term name** when the typed text does not
-appear literally.
+Select **Terms**, **Definitions**, or both. At least one result type must
+remain selected. **By** filters definition results by human or model
+attribution. It does not filter term results. A matching term name includes
+its definitions. Otherwise, a definition result requires matching definition
+text or an example.
 
-Results are divided into **Terms** and **Definitions**. Checkboxes show or
-hide either result type. At least one remains selected. The **By** filter
-narrows definitions by human or language-model attribution and does not apply
-to term results. Definition results contain only definitions whose own text or
-examples match, except that a matching term name includes that term's
-definitions. Definition results show the same vote controls and comment counts
-as the term page, and comment counts open the discussion for that definition.
-When no term matches, the page offers a link to define the searched term in the
-vocabulary selected under **Working in**.
+**PSPP facet** narrows both result types by term-level Processing, Structure,
+Properties, or Performance assignments. Multiple selected facets match any
+of them. No facet is selected initially, so unclassified terms remain in the
+results. Definition topics are browsable under [Tags](/docs/tags).
 
-The optional **PSPP facet** checkboxes narrow both term and definition results
-by term-level Processing, Structure, Properties, or Performance assignments.
-No facet is selected by default, so terms without an assignment remain in
-ordinary search results. Selecting several facets matches any of them.
-Definition-level topic tags remain available on the **Tags** page and are not
-search filters yet.
+Exact term names rank first, then names that begin with the query. Other
+results use full-text relevance and name similarity. English word forms can
+match, such as "quench" and "quenching". Name similarity can recover some
+misspellings.
 
-Two vocabularies may define the same label differently. Global Search keeps
-those terms as separate results, and each result opens the term in its own
-vocabulary namespace.
+| Search form        | Effect                   |
+| ------------------ | ------------------------ |
+| `"heat treatment"` | Match a phrase           |
+| `quench OR anneal` | Match either alternative |
+| `steel -stainless` | Exclude a word           |
 
-Exact term names rank first, followed by term names that begin with the
-query. Full-text relevance and term-name similarity order the remaining
-results. English stemming can match related word forms, such as "quench" and
-"quenching". Term-name similarity can recover some misspellings. Search uses
-PostgreSQL web-search syntax. Quotation marks search for words as a phrase,
-uppercase `OR` matches either alternative, and a minus sign immediately
-before a word excludes it. The example buttons beneath the search field can
-insert each form.
-
-Search filters and the query are stored in the URL so the result view can
-be bookmarked or shared.
-
-The empty Search page waits for a query. Begin typing to see matching term
-suggestions and definitions, or use **Browse** to scan the terms in the current
-scope alphabetically.
+The query and filters are stored in the URL for sharing or bookmarking.
+Vote controls and comment counts work as on the term page. A search with no
+matching term links to Contribute in the selected vocabulary.
 
 ## Browse
 
-The **Browse** page lists defined terms alphabetically with the definition
-count in parentheses. A letter index stays pinned to the top of the page while
-you scroll. Browse lists terms from every hosted vocabulary when you are signed
-out or have selected **Everything**. Choosing a community from the **Working
-in** control narrows Browse to terms defined in that community's vocabulary.
-Terms from another vocabulary that appear in a worklist collection remain
-references and are not added to this list. **Show everything** displays the
-full catalog for one request and keeps the selected community in place. In the
-full catalog, a **Defined in** label distinguishes same-label terms from
-different vocabularies. See [Communities and scope](/docs/communities).
+**Browse** lists defined terms with a definition count. A community selection
+limits the list to its vocabulary. **Everything**, or signed-out browsing,
+includes all hosted vocabularies. **Show everything** expands one request
+without changing your selection. **Defined in** distinguishes vocabularies in
+the full catalog. References from a community worklist remain in their owning
+vocabulary.
 
-The **Tags** page is the other way to browse. It groups terms by facet and
-definitions by topic, and lists collections. See
-[Tags](/docs/tags).
+Use **Filter these terms** to match a substring in the displayed names.
+Escape or the clear control removes that filter. A bookmarked `/terms?q=...`
+applies the full search engine before the list loads. **Show all terms**
+removes that search.
 
-The **Filter these terms** field performs a direct substring filter on
-the terms already displayed. Press Escape or use the clear control to
-remove that filter.
-
-A bookmarked `/terms?q=...` address applies the full search engine before
-the page loads and provides a **Show all terms** link. The navigation search
-sends queries to `/search`.
+[Tags](/docs/tags) provides another route through facets, topics, and collections.

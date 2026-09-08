@@ -1,110 +1,75 @@
 # SKOS and metadata
 
-SKOS publishes the concepts and the relations between them. Dublin Core
-records attribution and subject. OWL marks a retired concept. PROV-O
-expresses history, described in [the provenance
-model](/docs/reference/provenance-model). A small application namespace
-provides project-specific classes and properties.
+MatSci-SAM uses SKOS for concepts and relations, Dublin Core for attribution
+and subject, OWL for deprecation, and PROV-O for history. Application-specific
+classes and properties use `{identifier-base}/metadata#`.
 
 ## Documents
 
-| Document                                                      | Content                                                                                     |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `/vocabulary.ttl`                                             | All hosted vocabulary schemes and terms, plus all content from `/tags.ttl`                  |
-| `/tags.ttl`                                                   | The tag schemes, tags, hierarchy, mappings and collections                                  |
-| `/vocabulary/{community}/{term}/skos.ttl` and `.jsonld`       | One community term, with the tags it refers to and their schemes                            |
-| `/vocabulary/{community}/{term}/provenance.ttl` and `.jsonld` | The PROV-O record of one community term                                                     |
-| `/graphs/vocabulary`                                          | Every hosted vocabulary scheme and term, with definitions and revisions, as a named graph   |
-| `/graphs/kos`                                                 | The tag schemes, tags, hierarchy, mappings and collections, as a named graph                |
-| `/graphs/provenance`                                          | The PROV-O record of every term, with the assertions of the ledger, voting acts and studies |
-| `/graphs/matcore`                                             | The MatCore element set and its crosswalk, as a named graph                                 |
-| `/dataset`                                                    | The description of the dataset and its named graphs, also served as `/graphs/meta`          |
+[Metadata access](/docs/metadata-access) lists the downloads and named graphs.
+`/vocabulary.ttl` includes the vocabulary and classification records.
+`/tags.ttl` includes tag schemes, concepts, and collections. Per-term documents
+include the owning vocabulary and referenced tags and schemes.
 
-The four content graphs are pairwise disjoint. [Metadata
-access](/docs/metadata-access#named-graphs)
-describes them and the optional SPARQL endpoint over their union.
-
-Every document describes each concept once. A term document identifies its
-owning vocabulary with `skos:inScheme` and includes the tags it refers to and
-their schemes. `/tags.ttl` and `/vocabulary.ttl` enumerate the top concepts of
-each tag scheme. Term documents provide the scheme description without that
-enumeration. JSON-LD documents at the readable vocabulary paths contain an
-expanded array of nodes describing the same RDF graph as the Turtle form.
+Readable `/skos.ttl` and `/skos.jsonld` paths describe the same RDF graph.
+The JSON-LD form is an expanded array of nodes. Legacy numeric JSON-LD
+endpoints retain their earlier representation. Provenance is available
+separately from current vocabulary content.
 
 ## Classes and properties
 
-| Resource              | Class                       | Properties                                                                                                                                                                                                      |
-| --------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A hosted vocabulary   | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `dcterms:publisher`                                                                                                                                                     |
-| A term                | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `skos:definition`, `matsci:canonicalDefinition`, `dcterms:subject`, `dcterms:contributor`, `dcterms:created`, `skos:broader`, `skos:narrower`, `skos:related`, `skos:*Match` |
-| A tag scheme          | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `skos:hasTopConcept`                                                                                                                                                    |
-| A tag                 | `skos:Concept`              | `skos:inScheme`, `skos:topConceptOf`, `skos:prefLabel`, `skos:altLabel`, `skos:definition`, `skos:scopeNote`, `skos:broader`, `skos:narrower`, `skos:related`, `skos:*Match`                                    |
-| A retired tag         | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `owl:deprecated true`, `dcterms:isReplacedBy`                                                                                                                                |
-| A collection          | `skos:Collection`           | `skos:prefLabel`, `dcterms:description`, `skos:member`                                                                                                                                                          |
-| A definition          | `matsci:Definition`         | `dcterms:isPartOf`, `dcterms:subject`, `matsci:definitionNumber`, `matsci:currentRevision`, `dcterms:hasVersion`, `dcterms:created`                                                                             |
-| A definition revision | `matsci:DefinitionRevision` | `rdf:value`, `skos:example`, `dcterms:isVersionOf`, `prov:specializationOf`, `dcterms:creator`, `matsci:version`, `matsci:status`, `dcterms:created`                                                            |
+| Resource   | Class                       | Principal properties                                                                                           |
+| ---------- | --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Vocabulary | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `dcterms:publisher`                                                    |
+| Term       | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `skos:definition`, `matsci:canonicalDefinition`                             |
+| Tag scheme | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `skos:hasTopConcept`                                                   |
+| Tag        | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `skos:altLabel`, `skos:definition`, `skos:scopeNote`                        |
+| Collection | `skos:Collection`           | `skos:prefLabel`, `dcterms:description`, `skos:member`                                                         |
+| Definition | `matsci:Definition`         | `dcterms:isPartOf`, `matsci:definitionNumber`, `matsci:currentRevision`, `dcterms:hasVersion`                  |
+| Revision   | `matsci:DefinitionRevision` | `rdf:value`, `skos:example`, `dcterms:isVersionOf`, `prov:specializationOf`, `matsci:version`, `matsci:status` |
 
-The application namespace is `{identifier-base}/metadata#`, and its terms
-are listed in [Metadata access](/docs/metadata-access).
+Term records also publish contributors and creation dates. Definitions and
+revisions retain creation dates, and revisions list creators. Terms and
+definitions use `dcterms:subject` for classification.
 
 ## Conventions
 
-A term names its owning vocabulary with `skos:inScheme`. The default
-MatSci-SAM scheme is `/vocabulary`; a community scheme is
-`/vocabulary/{community}`. Same-label terms in different schemes remain
-separate concepts with separate IRIs and definitions.
+A term belongs to the default `/vocabulary` scheme or a community scheme at
+`/vocabulary/{community}`. Same-label terms in different schemes retain
+separate IRIs and definitions.
 
-`matsci:canonicalDefinition` names the current first-ranked candidate within
-that term. The highest net vote score wins. Newest candidate creation time
-and then higher definition number break ties. `matsci:currentRevision` on that definition
-names its current wording. A provenance document remains the history of the
-term and does not stand for the canonical definition.
+`skos:definition` links a term to each current definition revision.
+`matsci:canonicalDefinition` identifies the highest-ranked stable candidate,
+and `matsci:currentRevision` identifies its current wording. The
+[ordering rule](/docs/community#definition-order) uses score, candidate
+creation time, and permanent number.
 
-A term or a definition names its tags with `dcterms:subject`. The object is the
-tag IRI. A tag's `skos:inScheme` identifies its facet or topic scheme. A facet
-appears on the term. A topic appears on the definition that holds it and, as a
-derived statement, on the term.
+A facet appears on a term. A topic appears on a definition and is derived
+on the containing term. The tag identifies its scheme with `skos:inScheme`.
 
-Top concepts follow the SKOS convention. A concept with no broader concept in
-its scheme is a top concept. Each tag scheme lists its top concepts with
-`skos:hasTopConcept` in `/tags.ttl` and `/vocabulary.ttl`, and each top tag
-states `skos:topConceptOf`. The JSON-LD embedded in each vocabulary scheme page
-enumerates the top terms of that scheme. Term records express hierarchy through
-`skos:broader` and `skos:narrower` within their vocabulary. Top-concept
-enumeration includes active tags.
+Hierarchy uses `skos:broader` and derived `skos:narrower`. Association uses
+symmetric `skos:related`. Active tags without a broader tag in the same
+scheme are top concepts. Full classification documents use
+`skos:hasTopConcept` and `skos:topConceptOf`. Vocabulary-page JSON-LD also
+lists top terms. Per-term documents describe tag schemes without enumerating
+all their top concepts.
 
-A retired tag keeps its IRI and is marked `owl:deprecated true`. A tag that
-was merged into another also points at its replacement with
-`dcterms:isReplacedBy`, so a consumer holding the old IRI can follow it. The
-retired record contains the scheme, preferred label, deprecation marker, and
-replacement where applicable.
+Retired tags retain their IRI, scheme, and label with `owl:deprecated true`.
+Merged tags also name a replacement with `dcterms:isReplacedBy`.
 
-Mapping properties connect the vocabulary outward. The object of
-`skos:exactMatch`, `skos:closeMatch`, `skos:broadMatch`, `skos:narrowMatch`,
-or `skos:relatedMatch` is an absolute IRI in another vocabulary, such as a
-class in EMMO, PMDco, CHAMEO, or QUDT. SKOS entails that the object is a
-concept. An external mapping uses an IRI outside the identifier base. Relations
-within MatSci-SAM use typed references.
+External mapping assertions use `skos:exactMatch`, `skos:closeMatch`,
+`skos:broadMatch`, `skos:narrowMatch`, or `skos:relatedMatch` with an absolute
+IRI outside the identifier base. Internal relations use typed references.
+A topic-to-term equivalence uses `skos:exactMatch` in both directions and is
+one-to-one. Collection membership uses `skos:member` and does not imply a
+semantic mapping.
 
-A collection may use `skos:member` to reference a term from any hosted
-vocabulary. That membership leaves the term's `skos:inScheme` unchanged and
-does not imply a SKOS mapping. A future link to MatSci-ONT or another external
-vocabulary uses a separate mapping statement with the appropriate `skos:*Match`
-predicate.
+Labels, titles, descriptions, definition text, examples, and scope notes use
+English-tagged literals. Names, publisher, and status are untagged.
+Definition and revision numbers are `xsd:positiveInteger`. Dates use
+`xsd:dateTime`, except term creation dates, which use `xsd:date`. The legacy
+numeric JSON-LD term document retains an untyped creation-date string.
 
-A topic that identifies the same concept as a term states `skos:exactMatch` to
-the term IRI, and the term states it in return. The ledger records the term as
-a typed reference. The link is one-to-one in both directions.
-
-Labels, titles, descriptions, definition text, examples and scope notes are
-literals tagged `en`. Contributor and creator names, the publisher and the
-status value have no language tag. Definition numbers and revision versions
-are `xsd:positiveInteger`. Dates are `xsd:dateTime`, except the creation date
-of a term, which is `xsd:date` in the Turtle documents and the JSON-LD
-documents at readable vocabulary paths. The legacy numeric JSON-LD term
-document represents that date as an untyped string. Every identifier in these documents is one
-described in [the identifier policy](/docs/reference/identifier-policy).
-
-Each active example of a definition is emitted as a separate `skos:example`
-value on its current revision. The application may feature one example in
-compact views, but the SKOS documents include the complete active set.
+Each active example appears as a separate `skos:example` on the current
+revision. The featured selection does not limit the export.
+[Identifier policy](/docs/reference/identifier-policy) specifies resource paths.

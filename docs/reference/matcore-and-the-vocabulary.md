@@ -1,19 +1,16 @@
 # MatCore and the vocabulary
 
-MatSci-SAM publishes terms, concepts, and MatCore elements.
+MatSci-SAM publishes vocabulary concepts and MatCore metadata elements.
 
-| Family           | What it describes                        | Identifier pattern                                       |
-| ---------------- | ---------------------------------------- | -------------------------------------------------------- |
-| Terms            | materials science terminology            | `/vocabulary/{term}` or `/vocabulary/{community}/{term}` |
-| Concepts         | topics and facets that classify terms    | `/tags/{scheme}/{concept}`                               |
-| MatCore elements | metadata fields for describing a dataset | `/metadata/matcore#{element}`                            |
+| Family           | What it describes                         | Identifier pattern                                       |
+| ---------------- | ----------------------------------------- | -------------------------------------------------------- |
+| Terms            | materials science terminology             | `/vocabulary/{term}` or `/vocabulary/{community}/{term}` |
+| Concepts         | topics on definitions and facets on terms | `/tags/{scheme}/{concept}`                               |
+| MatCore elements | metadata fields for describing a dataset  | `/metadata/matcore#{element}`                            |
 
-Terms and concepts form the vocabulary. A term is a materials science word or
-phrase with definitions contributed in the default MatSci-SAM scheme or a
-community-owned scheme. The same label may identify distinct concepts in two
-schemes. Classification concepts organize terms by topic or facet. MatCore
-elements are fields in metadata records for computational datasets
-([Greenberg et al., 2025](https://arxiv.org/abs/2502.07106v1)).
+Terms and classification tags are SKOS concepts. Topics classify definitions,
+and facets classify terms. MatCore elements are fields for computational
+dataset metadata ([Greenberg et al., 2025](https://arxiv.org/abs/2502.07106v1)).
 
 ## MatCore profiles
 
@@ -52,8 +49,7 @@ resources, and a `dcterms:Standard` resource identifies the source snapshot.
 
 The MatCore element set is available as a named graph at
 [`/graphs/matcore`](/graphs/matcore) and as part of
-[`/dataset.ttl`](/dataset.ttl). These resources form the dataset-metadata layer
-alongside the materials terminology in the vocabulary.
+[`/dataset.ttl`](/dataset.ttl).
 
 ## Vocabulary and Dublin Core
 

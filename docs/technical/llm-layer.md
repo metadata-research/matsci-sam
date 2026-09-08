@@ -1,143 +1,92 @@
 # The LLM layer
 
-Most of the code that calls a language model is under `lib/llm/`. The
-exception is `lib/admin/integration-readiness.ts`, which builds its own
-client for a health check so the check does not depend on a working prompt
-registry.
-
-The modules separate the model tag from prompt-dependent and database-bound
-code. A caller that needs only the model name can import it without loading the
-database, `next/cache`, or prompt configuration.
+`lib/llm/` contains generation, prompts, stamps, and model identities.
+`lib/admin/integration-readiness.ts` creates a separate health-check client
+so readiness checks can run without a working prompt registry.
 
 ## Modules
 
-**`model.ts`** holds `OllamaModel`, the tag every generation runs against. It
-has no imports, so `lib/admin/integration-readiness.ts` can name the model
-without loading the other modules.
+| Module under `lib/llm/` | Responsibility                                                   |
+| ----------------------- | ---------------------------------------------------------------- |
+| `model.ts`              | Import-free `OllamaModel` runtime tag                            |
+| `prompts.ts`            | Named prompts resolved from `lib/prompts.json` at import         |
+| `stamp.ts`              | `{ promptKey, promptHash, promptText, model }` generation stamps |
+| `client.ts`             | Ollama client, structured output, and response validation        |
+| `revision-context.ts`   | Pure reconstruction of legacy chat context                       |
+| `definitions.ts`        | Retained administrator term-generation path                      |
+| `model-identity.ts`     | Pure derivation of model slug and display metadata               |
 
-**`prompts.ts`** holds the prompt registry. `lib/prompts.json` holds named
-prompts, and the module-private `resolvePromptKey` reads one and throws a
-clear error for an unknown key. `NewTermSystemPrompt` and
-`RevisionSuggestionSystemPrompt` are the prompts for the two canonical
-AI-assisted actions. `LLMSystemPrompt` remains for administrator-run legacy
-term generation. Historical refinement rows carry their own stored prompt text
-and model provenance. The retired refinement prompt is no longer executable.
-The prompts are resolved at import, so import this module only where a prompt
-is needed.
+`NewTermSystemPrompt` and `RevisionSuggestionSystemPrompt` define public
+contribution drafting. `LLMSystemPrompt` supports retained administrator
+term generation. Historical refinement rows retain their recorded stamps.
+The retired refinement workflow has no executable router or model call.
 
-**`stamp.ts`** holds `makeGenerationStamp(promptKey, promptText)`, which
-returns `{ promptKey, promptHash, promptText, model }`. `promptHash` covers
-edits to a prompt under an unchanged key. `newTermGenerationStamp` and
-`revisionSuggestionGenerationStamp` are written to
-`aiContributionSuggestions` before the contributor decides what to do with a
-draft. The older chat path uses the same four-part stamp, while historical
-refinement rows retain the stamps written when that workflow was active.
+`runLLM(messages, systemPrompt, schema)` sends a Zod-derived JSON schema to
+Ollama and validates the response. Public drafts use `DefinitionTextOutput`.
+The default `DefinitionOutput` includes an example for older callers and pilot
+tooling. Invalid output returns `undefined`. Transport failures propagate to
+the caller, which controls retries.
 
-**`client.ts`** holds the Ollama client and
-`runLLM(messages, systemPrompt, schema)`. The schema is a Zod object passed
-to the model as its output format and used to parse the reply. Canonical
-contribution suggestions use `DefinitionTextOutput`, which deliberately has no
-example field. The default `DefinitionOutput` remains for older callers and
-pilot tooling. A malformed reply
-resolves to `undefined` and each caller raises its own error. A transport
-failure propagates because the caller owns the retry policy and can determine
-whether the work is resumable. `scripts/test-prompt.ts` imports the module
-under plain `tsx`.
+`trpc/routers/ai-assist.ts` exposes `suggestNewTerm`, `suggestRevision`, and
+discard. Suggestions persist before the preview is returned.
+`definitions.create` validates and consumes a suggestion at publication.
+Supporting modules under `lib/` provide the remaining contracts.
 
-**`revision-context.ts`** holds two pure helpers over the legacy term-level
-`chats` thread. `needsReconstructedDefinitionContext` reports whether the
-thread opens with feedback and therefore lacks the term and definition it
-refers to. `buildRevisionMessages` maps chat rows into Ollama messages and
-prepends that missing context when it is needed. Public comments no longer
-write this thread or trigger a generation.
-
-**`definitions.ts`** holds the retained database-bound implementation for an
-administrator-run term generation. Historical refinement rounds remain
-queryable for provenance but have no executable router or model call. The
-canonical public entry point is
-`trpc/routers/ai-assist.ts`: `suggestNewTerm` and `suggestRevision` call
-`runLLM`, persist the exact draft and generation stamp, and return an editable
-preview. `definitions.create` validates and consumes the suggestion identifier
-when the contributor publishes it.
-
-**`ai-contribution-suggestions.ts`** owns discard semantics. A requester may
-discard a generated preview, and a retry against the same discarded row is a
-successful no-op. The update preserves the first decision time and does not
-expose a preview to another account.
-
-**`definition-source.ts`** locks the stable definition that owns a source
-revision. `definitions.create` and the pilot driver use this shared check so a
-concurrent edit either commits before source validation or waits until the
-derived definition commits.
-
-**`ai-contribution-provenance.ts`** loads accepted canonical and historical
-Discussion suggestions through the exact output definition foreign key.
-`featured-provenance.ts` resolves the homepage activity label from those exact
-records and from an accepted historical refinement when one is linked to the
-output revision. `lib/provenance.ts` uses the same canonical queries for the
-term record.
+- `ai-contribution-suggestions.ts` restricts discard to the requester and
+  preserves the first decision time on retries.
+- `definition-source.ts` locks the stable source definition and checks that
+  its revision is still current.
+- `ai-contribution-provenance.ts` resolves accepted suggestions through the
+  exact output-definition link.
+- `featured-provenance.ts` uses those records and linked historical
+  refinements for homepage attribution.
 
 ## Canonical contribution boundary
 
-AI is optional inside **New term** and required to draft **Suggest a
-revision**. Both calls produce definition text only. A suggestion row records
-its intent, requester, term, input text, exact model output, prompt stamp,
-status, and eventual output definition. A revision suggestion additionally
-records the target definition, immutable source revision, and critique. The
-database constraints keep those two shapes distinct and allow one published
-definition to consume a suggestion only once.
+Public drafting occurs within **New term** and **Suggest a revision** and
+returns definition text only. A suggestion stores intent, requester, term,
+input, model output, generation stamp, decision, and output definition.
+A revision suggestion also names its target, source revision, and critique.
+Database checks distinguish the two shapes and permit one consumption.
 
-**Comment**, **Propose a replacement**, and **Add example** do not call the LLM.
-This is an architectural boundary as well as interface copy: the comments
-router performs only the comment write, replacement publication has no
-suggestion identifier, and examples use their own contribution table.
-`scripts/test-public-router-surface.ts` inspects the mounted application router
-in CI. It requires the three `aiAssist` procedures, a read-only Discussion
-router, and the absence of the retired refinements router and its source file.
+Comments, replacements, and examples do not call the model. The router-surface
+test requires the supported `aiAssist` procedures, read-only Discussion,
+and absence of the retired refinements router.
 
-Publication holds the source-definition lock while it checks that the source
-revision remains current and consumes the suggestion. Discard is idempotent, so
-a client may retry after a lost response without changing the first decision
-time. `scripts/test-definition-source-lock.ts` and
-`scripts/test-ai-contribution-discard-db.ts` exercise these cases against a
-migrated database.
-
-**`model-identity.ts`** turns a model tag into an identity, giving a slug,
-display name, vendor, family and parameter size. It is pure, so a model that
-first appears at runtime receives a derived identity. The SQL
-in migration `0031` mirrors it for the backfill. If you change one, change
-the other and compare the two over every existing tag.
+Publication holds the source-definition lock during validation and suggestion
+consumption. Discard retries leave the original decision time unchanged.
+`test:definition-source-lock` and `test:ai-contribution-discard-db` check these
+contracts against a migrated database.
 
 ## Model identities
 
-A model that contributes is a user, so the author, coauthor, vote, and
-provenance paths also apply to it. `aiModels` extends the user row with `tag`,
-`vendor`, `family`, `parameterSize`, `retiredAt`, and a `slug` for
-`/models/<slug>`. The tag is
-the identity and is what `GetModelUser` in `lib/crud.ts` looks up by. The
-display name, `MatBot Gemma 4`, is presentation. Each tag has one row because
-two versions of one family are different agents.
+A model account is a user with an `aiModels` extension containing runtime tag,
+slug, publisher, family, parameter size, and retirement time. `GetModelUser`
+in `lib/crud.ts` resolves the tag. Different tags identify different model
+accounts. The display name is presentation metadata.
 
-A model user has `isProfilePublic` false, as every user row does by default,
-and the model route ignores it. `/models/<slug>` provides the public model
-profile, while `/people/<id>` applies the visibility setting for a person.
-`PublicProfileName` links an AI author to its model page when a `modelSlug` is
-supplied. Definition queries obtain that slug by left-joining `aiModels` on the
-author.
+`/models/{slug}` provides a public model profile independently of the private
+profile default on user rows. Human `/people/{id}` pages use that setting.
+Definition queries join model metadata so `PublicProfileName` can link a model
+author to the model page.
+
+`model-identity.ts` derives metadata from the tag and reports an unknown
+publisher when no family matches. Migration 0031 contains the historical
+backfill equivalent. Preserve applied migration files. Introduce a new
+migration if a changed identity rule requires stored data updates.
 
 ## Adding a structured call
 
-Add the prompt to `lib/prompts.json` under a key. Export a named key and its
-resolved prompt from `prompts.ts`, then export the corresponding stamp from
-`stamp.ts`. Define a Zod schema for the reply and call
-`runLLM(messages, prompt, Schema)`. Write the stamp on whatever row records the
-result before a person acts on it. Persist the model output before the human
-decision to retain the complete attribution record. A new public drafting
-feature must also fit one of the two canonical AI-assisted actions. It must not
-attach a model side effect to a comment, replacement, or example.
+Add a prompt key to `lib/prompts.json`, export the resolved prompt and stamp,
+and define a Zod response schema. Call `runLLM` with that schema. Store the
+output and stamp before a person acts on the result.
 
-`scripts/test-prompt.ts` compares every registered prompt against the live
-host for one term without touching the database. Use it when editing a
-prompt. `scripts/test-ollama-revision-context.ts` covers the pure context
-helpers. `scripts/test-featured-provenance.ts` checks the precedence and exact
-linkage of homepage AI activity. These tests run in CI.
+A public draft must fit a supported contribution action. Keep comments,
+replacements, and examples free of generation side effects.
+
+`test:ollama-context` checks pure message reconstruction.
+`test:featured-provenance` checks exact output linkage and attribution.
+These run in CI. `scripts/test-prompt.ts` is a separate manual diagnostic that
+calls the configured model with the legacy definition-and-example response
+shape for each registered prompt. It does not validate all task-specific
+schemas and is not a CI test.

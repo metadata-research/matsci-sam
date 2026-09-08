@@ -1,123 +1,86 @@
 # Communities and scope
 
-A community is a named group of people, such as a lab, specialty, or review
-panel. It owns a vocabulary and organizes a roster, a worklist of collections,
-and studies. A community vocabulary is a SKOS concept scheme at
-`/vocabulary/{community}`. Community pages are application routes, while the
-linked-data exports omit community rosters and invitations.
+A community is a group of people, such as a lab or review panel. It has a
+vocabulary, roster, collection worklist, and studies. Its vocabulary is
+published at `/vocabulary/{community}`. Rosters and invitations are omitted
+from linked-data exports.
 
 ## Working in a community
 
-Members use the **Working in** control in the navigation bar to select one of
-their communities or **Everything**. MatSci-SAM stores that selection for the
-individual account across sessions. The menu also links to the selected
-community and its studies.
+Select a community or **Everything** under **Working in**. The choice is
+saved for your account across sessions.
 
-The selection scopes the home page and [Browse](/terms) to terms defined in
-that community's vocabulary. Recent comments, featured definitions, and
-personal contributions on the home page use the same scope.
-[Collections](/collections) shows the community's worklist. When the
-vocabulary has no terms, the home page names the community and links to its
-page. [Search](/docs/search) remains global so a sparse community vocabulary
-does not hide relevant concepts owned elsewhere.
+| Page                     | Effect of a community selection               |
+| ------------------------ | --------------------------------------------- |
+| Home, Browse, Discussion | Terms and activity in that vocabulary         |
+| Collections              | Collections on the community worklist         |
+| Contribute               | New terms enter that community vocabulary     |
+| Search                   | Searches all hosted vocabularies              |
+| Tags                     | Lists classification concepts across the site |
 
-A collection on the worklist can also reference a term defined in MatSci-SAM
-or another community vocabulary. The community and collection pages label such
-terms as references and link to the vocabulary that defines them. References
-do not enter the community's recent activity or Browse list. Global Search can
-still find them under the vocabulary that defines them.
+**Everything** includes all hosted vocabularies on Home and Browse and uses
+the default MatSci-SAM vocabulary for new terms. **Show everything** on Browse
+or Collections displays the full catalog for one request without changing your
+saved selection. The URL option `?scope=all` has the same effect.
 
-With **Everything** selected, the home page and Browse include terms from every
-vocabulary hosted by MatSci-SAM. Search already does so in every working
-context. Contribute publishes a new term in the selected community vocabulary,
-or in the default MatSci-SAM vocabulary when **Everything** is selected.
-Discussion uses the working vocabulary scope. [Tags](/docs/tags) remain
-site-wide.
-
-**Show everything** on Browse or Collections displays the full catalog for one
-request and keeps the selected community in place. The address `?scope=all`
-provides the same view.
-
-The selection returns to **Everything** when you leave the community, a
-steward removes you, or an administrator retires the community.
-
-Each vocabulary ranks its own candidate definitions. Rank 1 is that
-vocabulary's current canonical definition for the term; a same-label term in
-another vocabulary has an independent set of candidates, votes, and rankings.
-A readable w3id includes both the vocabulary and term slug. The following
-illustrative identifiers therefore refer to different concepts.
-
-```text
-https://w3id.org/matsci-sam/vocabulary/community_a/metal
-https://w3id.org/matsci-sam/vocabulary/community_b/metal
-```
-
-Terms stay in the vocabulary where they were created. Another community can
-refer to a term in a collection, or it can create a distinct term in its own
+A collection can reference terms from other vocabularies. These remain
+references on the collection and community pages and do not enter the
+selected vocabulary in Browse. Search can find them under their owning
 vocabulary.
 
-Votes and definition revisions never change a term identifier. The candidate
-with the highest net vote score is canonical. The newest candidate creation
-time breaks a score tie, and the higher permanent definition number breaks an
-exact timestamp tie. This rule does not use the time of the latest edit.
-Revising a candidate resets its score for the new revision, but it does not
-change the candidate creation time.
+Two communities may define the same label independently. Their terms have
+separate identifiers, candidates, votes, and canonical rankings. For example,
+these illustrative paths identify different concepts.
 
-Definition and revision identifiers remain available when a publication needs
-to pin the wording used at a particular time.
+```text
+/vocabulary/community_a/metal
+/vocabulary/community_b/metal
+```
 
-[Identifiers and citation](/docs/identifiers) explains when to cite a term, a
-definition candidate, or an immutable revision.
+Ordinary contributions retain the owning vocabulary of a term. Another
+community can reference that term in a collection or define a distinct term
+in its own vocabulary. [Identifiers and citation](/docs/identifiers) explains
+how to cite terms and exact revisions.
+
+Your selection returns to **Everything** if you leave the community, are
+removed from it, or the community is retired.
 
 ## Studies
 
-A study asks the members of a community to work through a collection of terms
-under shared instructions and an optional time window. The public study page at
-`/studies/{study}` presents the title, instructions, dates, collection, and
-your progress when signed in. Members can begin from the study page or find
-it under **Your studies** on their profile. A study invitation describes the
-study and offers **Accept and join**. Accepting it adds the participant to the
-community and adds it to the participant's **Working in** choices.
-Selecting it shows the community vocabulary in Browse and its worklist in
-Collections.
+A study gives community members an activity over selected terms, with
+instructions and an optional time window. Members can begin from its public
+page or **Your studies** on their profile. An invitation can also add a new
+member before opening the activity.
 
-[Studies](/docs/studies) covers the study activity, the position taken on each
-term, and the resulting definition list.
+[Studies](/docs/studies) covers participation, Position choices, and saved
+progress.
 
 ## Joining
 
-You join through an invitation link addressed to you or through an open link
-shared with a group. Open the link and sign in or create an account. The sign-in
-and required profile setup return you to the invitation; then select **Accept
-and join**.
+Open a personal invitation or reusable group link, sign in, and select
+**Accept and join**. Required account creation and profile setup return you
+to the invitation. ID4 round two also permits **Join and begin study** from
+the public study page while participation is open.
 
-Some studies also offer **Join and begin study** on their public page. ID4 round
-two uses this option: sign in, select the button, and the site adds you as a
-member of ID4 and opens the study. No separate invitation is needed.
+A personal invitation can be accepted with your existing account even if it
+was sent to another email address. It can be used once and expires after
+fourteen days. Request a replacement if it has expired, been withdrawn, or
+been replaced. Reusable group links remain active until disabled or replaced.
 
-A personal invitation can be accepted with the account you already use,
-even if it was sent to a different email address. Each personal invitation
-can be used once and expires after fourteen days. Ask the person who invited
-you for a replacement if it has expired or no longer works. The invitation
-page reports whether a link has been used, withdrawn, or replaced.
-
-See [Account access](/docs/account-access) for the available sign-in methods.
-You can leave a community from its page.
+See [Account access](/docs/account-access) for sign-in methods. You can leave
+a community from its page.
 
 ## Membership visibility
 
 Members and administrators can view the roster. Other visitors see the member
-count. Community membership remains private application data, and the profile
-visibility setting continues to govern public names and affiliations.
-[Community review and revisions](/docs/community) describes that setting.
+count. Your [profile setting](/docs/community#contributor-profiles) controls
+public profile access and affiliation display.
 
 ## Stewardship and administration
 
-A steward manages the roster, worklist, invitations, and studies of an assigned
-community. Administrators can run every community and additionally create,
-rename, retire, and restore communities and appoint their stewards.
+Stewards manage members, worklists, invitations, and studies in assigned
+communities. Administrators can also create, rename, retire, and restore
+communities and appoint stewards. A rename preserves the community address.
+Retirement retains membership history and the worklist for restoration.
 
-[Administration and stewardship](/docs/administration) lists these controls by
-role, including the collection-page worklist control and the invitation paths.
-The address of a community remains the same after a rename. Retirement keeps
-the address, membership history, and worklist available for restoration.
+[Administration and stewardship](/docs/administration) lists the controls by role.

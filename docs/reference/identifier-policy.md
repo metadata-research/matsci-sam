@@ -1,137 +1,111 @@
 # Identifier policy
 
-MatSci-SAM assigns public identifiers through a shared path grammar. Resource
-paths remain stable while their descriptions change. [Identifiers and
-citation](/docs/identifiers) gives the contributor-facing version of this
-policy.
+Public identifiers distinguish vocabulary schemes, terms, candidates, and
+immutable definition revisions. Other resources include tags, collections,
+models, studies, assertions, and metadata elements.
+[Identifiers and citation](/docs/identifiers) gives citation examples.
 
 ## What is identified
 
-MatSci-SAM identifies four levels of vocabulary content. A vocabulary is a SKOS
-concept scheme. A term is one concept in that scheme. A definition is one
-contributed interpretation of that concept. A revision is one immutable state
-of a definition. The knowledge organization layer adds tag schemes, tags,
-collections, language models, studies, and individual statements. The dataset,
-named graphs, application metadata terms, and MatCore elements also have
-identifiers.
-
-Resource paths use stable slugs and numbers assigned within a scope. Database
-keys remain internal to those paths. Statements and acts use the fragment
-identifiers described below.
+A vocabulary is a concept scheme. A term is one concept in that scheme.
+A definition is a contributed interpretation of the term, and a revision
+fixes one version of its text. Slugs and scoped numbers form their paths.
+Database primary keys are used internally and in legacy route lookups.
 
 ## Grammar
 
 ```text
-{base}/vocabulary                                  the default MatSci-SAM scheme
-{base}/vocabulary/{term}                           a default-scheme term
-{base}/vocabulary/{term}/definitions/{n}           a default-scheme definition
-{base}/vocabulary/{term}/definitions/{n}/revisions/{v}   a default-scheme revision
-{base}/vocabulary/{community}                      a community scheme
-{base}/vocabulary/{community}/{term}               a community-scheme term
-{base}/vocabulary/{community}/{term}/definitions/{n}     a community-scheme definition
-{base}/vocabulary/{community}/{term}/definitions/{n}/revisions/{v}   a community-scheme revision
-{base}/tags/{scheme}                               a tag scheme
-{base}/tags/{scheme}/{tag}                         a tag
-{base}/collections/{collection}                    a collection
-{base}/models/{model}                              a language model
-{base}/studies/{study}                             a study
-{base}/metadata#{term}                             an application metadata term
-{base}/metadata/matcore#{element}                  a MatCore element or profile
-{base}/graphs/{graph}                              a named graph
-{base}/dataset                                     the dataset
+{base}/vocabulary
+{base}/vocabulary/{term}
+{base}/vocabulary/{term}/definitions/{n}
+{base}/vocabulary/{term}/definitions/{n}/revisions/{v}
+{base}/vocabulary/{community}
+{base}/vocabulary/{community}/{term}
+{base}/vocabulary/{community}/{term}/definitions/{n}
+{base}/vocabulary/{community}/{term}/definitions/{n}/revisions/{v}
+{base}/tags/{scheme}
+{base}/tags/{scheme}/{tag}
+{base}/collections/{collection}
+{base}/models/{model}
+{base}/studies/{study}
+{base}/metadata#{term}
+{base}/metadata/matcore#{element}
+{base}/graphs/{graph}
+{base}/dataset
 ```
 
-`{base}` is the identifier base configured for the deployment. Each resource
-IRI dereferences to a description, and the metadata documents use the same
-IRIs.
-
-The HTML representation at `/vocabulary` also lists the community schemes in
-the **Everything** catalog. The IRI continues to identify the default
-MatSci-SAM concept scheme. A term created in a community scheme receives the
-community path as its canonical IRI. Terms do not move between vocabularies.
-A collection can reference a term from another vocabulary without changing
-its IRI or its owning scheme.
+`{base}` is the configured identifier base. `/vocabulary` identifies the
+default scheme and its HTML page also lists community vocabularies.
+A collection may reference a term from another vocabulary without changing
+its identity or owning scheme.
 
 ## Slugs
 
-A term slug is the lowercased term name with spaces written as underscores
-and hyphens retained, so a hyphen inside a term keeps its meaning.
-Diacritics are stripped and every character outside letters, digits,
-underscore and hyphen is dropped, so "density functional theory (DFT)"
-becomes `density_functional_theory_dft`. A term slug is unique within its
-vocabulary. Two labels in one vocabulary that normalize to the same slug are
-told apart by a numeric suffix on the second. Two vocabularies may use the same
-label and slug for distinct concepts because the scheme path remains part of
-the identifier. Tag and collection slugs are formed the same way from the
-label. A model slug is formed from the model tag, not from the display name,
-and by a rule of its own. Every run of characters outside letters and digits
-becomes a single underscore, hyphens included, so `claude-opus-5` is
-`/models/claude_opus_5` and `gemma4:26b` is `/models/gemma4_26b`. A tag-scheme
-slug is never all digits, so the older numeric tag address stays unambiguous.
+Term slugs use lowercase ASCII letters, digits, underscores, and hyphens.
+Spaces become underscores, diacritics are removed, and other characters are
+dropped. For example, "density functional theory (DFT)" becomes
+`density_functional_theory_dft`.
 
-A one-segment path below `/vocabulary` can identify either a default term or a
-community vocabulary. The application reserves each community slug from the
-default term namespace, so the path resolves unambiguously.
+Slugs are unique within a vocabulary. A numeric suffix distinguishes
+normalized-label collisions. Community slugs are reserved from the default
+term namespace because both use one segment below `/vocabulary`.
 
-A slug is assigned when the resource is first published and is identifier
-data from then on. A change to the display label does not change the slug.
+Tag and collection slugs follow the label normalization rule. Tag slugs are
+unique within a scheme, and scheme slugs cannot be all digits. Numeric
+legacy tag routes therefore remain unambiguous.
+
+Model slugs use the runtime tag, with runs of non-alphanumeric characters
+replaced by underscores. Hyphens are replaced too. For example,
+`gemma4:26b` becomes `gemma4_26b`.
+
+Assigned slugs remain identifier data after display labels change.
 
 ## Numbers
 
-Each definition receives a positive integer within its term, in creation
-order. Each revision receives a positive integer within its definition. The
-application assigns and stores each number once and never recalculates a
-number from ranking, score, page position, or a database identity.
-Withdrawal or removal does not release a number for reuse. Competing
-definitions of one term are separate definitions, so two of them can both
-have revision 1, and the interface shows both coordinates, `Definition 2 ·
-revision 1`, to keep that unambiguous.
+A definition receives a positive creation-order number within its term.
+A revision receives a positive number within its definition. The application
+stores these numbers and retains them through score changes, edits, and
+restorations. Removal does not release numbers for reuse. The interface shows
+both coordinates, such as `Definition 2 · revision 1`.
 
 ## Stability
 
-A tag that is merged into another keeps its identifier, is retired, and
-redirects permanently to the tag that replaced it. A tag retired without a
-replacement keeps its identifier and is marked as retired. A merged or
-deprecated term keeps its path. Definitions and revisions published under
-the former term keep their identifiers. A model that is retired from service
-keeps its identifier and its attributed contributions.
+A merged tag retains its identifier and redirects permanently to its
+replacement. A retired tag without a replacement retains a status page.
+Retired model identities retain attributed contributions. Ordinary definition
+edits preserve the candidate and earlier revision addresses.
 
-Older addresses that contained a database identity, `/terms/{id}`,
-`/definition/{id}` and `/tags/{id}`, redirect permanently to the identifier
-in the path grammar. Metadata documents publish the canonical form.
+Exceptional administrator cleanup permanently deletes test definitions,
+revisions, and dependent records. Those resources then cease to resolve,
+although their numbers are not reused. The implementation does not provide
+historical tombstones for purged definitions.
+
+Numeric `/terms/{id}`, `/definition/{id}`, and `/tags/{id}` routes redirect
+to readable paths. Controlled vocabulary migrations retain former term paths
+as aliases. Ordinary contribution actions do not move terms between schemes.
 
 ## Statements and acts
 
-Each stored statement has an opaque key independent of its database row
-identity. The identifier of a statement is a hash IRI on its subject.
+An assertion has a permanent opaque key at `{subject-IRI}#statement-{key}`.
+A voting act uses `{revision-IRI}#vote-event-{id}`. The event row identifier
+is not reused.
 
-```text
-{subject-IRI}#statement-{key}
-```
-
-This is the resource the provenance record names when it describes who
-asserted a relation and when. The key is assigned once and never reused.
-
-Two further fragments are formed from row identities that are not reused.
-A voting act is `{revision-IRI}#vote-event-{id}`, and a person in a
-provenance document is `{document-IRI}#user_{id}`, the same number on each
-document the person acted on. These fragments identify nodes within the
-provenance document. [The provenance
-model](/docs/reference/provenance-model) describes their privacy treatment.
+A person in a provenance document uses `{document-IRI}#user_{id}`.
+The account number is consistent across documents. It identifies a fragment
+node, not a public profile page. [The provenance model](/docs/reference/provenance-model#people-and-models)
+explains attribution and voter privacy.
 
 ## Dynamic selectors
 
-`/vocabulary/{term}/rank/{n}` resolves a default-scheme rank, and
-`/vocabulary/{community}/{term}/rank/{n}` does the same within a community
-scheme. Each is a lookup, not an identifier. It redirects temporarily to the
-stable definition. Metadata documents use the definition identifier. Rank 1
-is the candidate with the highest net vote score. Newest candidate creation
-time breaks a score tie, and higher definition number breaks an exact timestamp tie.
-Revision publication time does not determine rank.
+Append `/rank/{n}` to a default or community term path for a temporary redirect
+to the candidate at that rank. Highest net score wins, followed by newest
+candidate creation time and higher definition number. Revision publication
+time is not a tie-breaker. A rank URL is a changing selector and should not
+be stored as a candidate identity.
 
 ## Authority
 
-Published resource IRIs use `https://w3id.org/matsci-sam` as their authority.
-The resolver currently sends a browser or RDF client to the matching document
-on the Ego website. This separation allows the website that serves a page to
-change without a change to the persistent identifier.
+The public namespace is `https://w3id.org/matsci-sam`. Its resolver redirects
+to the website that provides HTML or RDF. The document location can change
+independently of the resource identifier. Separate deployments can configure
+a different base for their own data.

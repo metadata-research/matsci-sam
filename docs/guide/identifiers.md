@@ -1,105 +1,51 @@
 # Identifiers and citation
 
-MatSci-SAM assigns public identifiers to vocabulary schemes, terms,
-contributed definitions, and immutable revisions. Readable slugs and stored
-numbers form the public paths, while database primary keys remain internal.
+Choose an identifier according to what you want to cite.
+
+| Resource   | Use                                               |
+| ---------- | ------------------------------------------------- |
+| Term       | The concept, with its changing set of definitions |
+| Definition | One candidate, following later edits              |
+| Revision   | Exact definition text at a recorded version       |
 
 ## Identifier paths
 
-The default MatSci-SAM vocabulary uses these paths:
+The default vocabulary uses `/vocabulary`. Community vocabularies add a
+community slug. Definition and revision paths extend the term path.
 
 ```text
-/vocabulary
-/vocabulary/{term-slug}
-/vocabulary/{term-slug}/definitions/{definition-number}
-/vocabulary/{term-slug}/definitions/{definition-number}/revisions/{revision-number}
+/vocabulary/{term}
+/vocabulary/{community}/{term}
+/vocabulary/{community}/{term}/definitions/{number}
+/vocabulary/{community}/{term}/definitions/{number}/revisions/{version}
 ```
 
-`/vocabulary` identifies the default MatSci-SAM concept scheme. Its page also
-lists the community vocabularies in the **Everything** catalog. Terms curated
-in a community vocabulary use that community path.
-
-Each community owns another concept scheme. Its terms add the community slug
-to the path:
-
-```text
-/vocabulary/{community-slug}
-/vocabulary/{community-slug}/{term-slug}
-/vocabulary/{community-slug}/{term-slug}/definitions/{definition-number}
-/vocabulary/{community-slug}/{term-slug}/definitions/{definition-number}/revisions/{revision-number}
-```
-
-Microstructure in the default scheme can therefore have these resources:
-
-```text
-/vocabulary/microstructure
-/vocabulary/microstructure/definitions/1
-/vocabulary/microstructure/definitions/1/revisions/1
-/vocabulary/microstructure/definitions/2
-/vocabulary/microstructure/definitions/2/revisions/1
-```
-
-The term path identifies one concept in one vocabulary. A definition path
-identifies one contributed interpretation as it develops and displays its
-current revision. A revision path identifies one immutable state of that
-definition.
-
-Two vocabularies may use the same label for distinct concepts. For example,
-the following illustrative paths identify separate concepts with separate
-definition and revision IRIs.
-
-```text
-/vocabulary/community_a/metal
-/vocabulary/community_b/metal
-```
-
-Terms stay in the vocabulary where they were created. A collection may
-reference a term from another vocabulary without changing that term or its
-identifier.
-
-Definition and revision pages show both coordinates, such as
-`Definition 2 · revision 1`. Competing definitions can both have revision 1
-because each definition has an independent revision sequence.
+Omit `{community}/` for a term in the default vocabulary. Two vocabularies
+can use the same label for distinct concepts with independent definitions.
+A collection reference retains the identifier of the owning vocabulary.
 
 ## Term slugs
 
-The application assigns a slug when a term is created. It lowercases the term
-name, writes spaces as underscores, and retains hyphens. Characters outside
-`a-z`, `0-9`, `_`, and `-` are dropped, and diacritics are removed.
+A term receives a readable slug at creation. For example, "density functional
+theory (DFT)" becomes `density_functional_theory_dft`. A suffix such as `_2`
+distinguishes a collision within one vocabulary. It is not a rank.
+The assigned slug remains fixed when a display label changes.
 
-For example, _density functional theory (DFT)_ receives the slug
-`density_functional_theory_dft`.
-
-Different labels can produce the same normalized slug. Within one vocabulary,
-the first term receives the base slug. A later collision receives a suffix such
-as `_2`, followed by `_3` when needed. This suffix resolves a slug collision.
-It does not express a rank. Another vocabulary may use the same slug because
-its scheme path keeps the concepts distinct.
-
-The assigned slug remains identifier data even if the preferred display label
-changes.
+[Identifier policy](/docs/reference/identifier-policy#slugs) specifies the
+normalization and namespace rules.
 
 ## Definition and revision numbers
 
-Each competing definition receives a positive number within its term. The
-application assigns these numbers in creation order and stores them. A score,
-page position, author, or language-model attribution leaves the number
-unchanged.
+Definitions receive permanent creation-order numbers within a term.
+Each definition has its own revision sequence, so Definition 1 and Definition 2
+can each have revision 1. An author edit or restoration increments the revision
+number and retains the definition number. Votes and model attribution do not
+change these numbers.
 
-Each immutable revision receives a positive number within its definition.
-A published edit or restoration increments the revision number while
-retaining the definition number. Language-model involvement is recorded
-through attribution and provenance, not through the identifier.
-
-Numeric legacy routes such as `/definition/{legacy-id}` remain compatibility
-aliases. They redirect permanently to the canonical term-scoped path. New
-links and metadata use the canonical path.
+Numeric legacy routes, such as `/definition/{id}`, redirect to readable paths.
+Use the readable identifier in new citations.
 
 ## Tags, facets and collections
-
-Tags are also identified by readable paths. A tag belongs to a scheme, and
-the scheme is part of the path, so two schemes can each have a tag with the
-same slug.
 
 ```text
 /tags/{scheme}
@@ -107,92 +53,52 @@ same slug.
 /collections/{collection}
 ```
 
-For example, `/tags/pspp/processing` is the Processing facet in the PSPP
-scheme (Processing, Structure, Properties, Performance). A community topic
-takes the same form under `/tags/topics`. A collection is a named set
-of terms. The scheme of a tag states which kind of tag it is, and the metadata
-exports publish that scheme as `skos:inScheme`.
-
-Scheme, tag and collection slugs are assigned once and never change. A tag
-that is merged into another keeps its path and redirects permanently to the
-tag that replaced it. A tag that is retired without a replacement keeps its
-path and shows that it is retired.
-
-Older links of the form `/tags/{number}` still work and redirect permanently
-to the readable path of the tag. Metadata exports name tags by the readable
-path.
+For example, `/tags/pspp/processing` identifies the Processing facet.
+Community topics use `/tags/topics`. Slugs remain fixed. A merged tag
+redirects to its replacement, and a retired tag without a replacement
+retains a status page. Numeric legacy tag links redirect to readable paths.
 
 ## Live rank lookup
 
-A term also has a dynamic rank lookup. The default and community forms are:
-
-```text
-/vocabulary/{term-slug}/rank/{rank}
-/vocabulary/{community-slug}/{term-slug}/rank/{rank}
-```
-
-For example, `/vocabulary/microstructure/rank/1` redirects temporarily to the
-definition that holds first place when the request is evaluated. Voting can
-change that target. A rank path is a lookup, not a persistent identifier. Use
-the definition or revision IRI for citation and storage.
+Append `/rank/{rank}` to a term path to open the candidate at that rank.
+For example, `/vocabulary/id4/data/rank/1` follows the leading candidate.
+The destination can change with votes and new revisions. Use a definition or
+revision identifier for a citation that must identify one candidate.
 
 ## Citation
 
-Use the persistent term IRI for the community concept as a whole. This is the
-usual choice for a dataset field, glossary link, or discussion of the term.
-The page shows the current canonical definition first, but votes and new
-candidates can change that definition without changing the term IRI.
-
-Use a definition IRI when the citation concerns one contributed candidate and
-should follow its current wording. Use an immutable revision IRI for a direct
-quotation, an archived claim, or a reproducible analysis that must retain the
-exact wording.
-
-The following real term and path patterns show the three choices.
+Retain the persistent `https://w3id.org/matsci-sam` identifier shown on the
+page. These patterns illustrate the three citation choices.
 
 ```text
 https://w3id.org/matsci-sam/vocabulary/id4/data
-https://w3id.org/matsci-sam/vocabulary/id4/data/definitions/{definition-number}
-https://w3id.org/matsci-sam/vocabulary/id4/data/definitions/{definition-number}/revisions/{revision-number}
+https://w3id.org/matsci-sam/vocabulary/id4/data/definitions/{number}
+https://w3id.org/matsci-sam/vocabulary/id4/data/definitions/{number}/revisions/{version}
 ```
 
-Replace the values in braces with the numbers shown on the relevant page. Do
-not cite `/rank/1` as an identity because its destination can change.
+Replace placeholders with the displayed numbers. Cite the term for a dataset
+field or glossary concept. Cite a revision for a quotation or reproducible
+analysis of exact wording. A revision fixes definition text, while the page
+may also display examples added later.
 
 ## Machine-readable forms
 
-Every term is a `skos:Concept` in its owning concept scheme. The default scheme
-is `/vocabulary`; community schemes use `/vocabulary/{community-slug}`. SKOS
-records identify current definition revisions as related resources. Those
-resources associate the text with all active examples of use, creators, date,
-status, and revision number. PROV-O records use the same definition and
-revision IRIs for the revision chain and derivation history.
+Request `text/turtle` or `application/ld+json` at a readable vocabulary,
+term, definition, or revision address. A 303 response points to the matching
+`/skos.ttl` or `/skos.jsonld` document. Term history uses `/provenance`,
+`/provenance.ttl`, and `/provenance.jsonld`.
 
-Tags are `skos:Concept` resources in their own schemes at `/tags/{scheme}`,
-and a term or definition points at them with `dcterms:subject`. Collections
-are `skos:Collection` resources at `/collections/{collection}`. A collection
-may reference terms from several vocabularies without changing their scheme
-IRIs.
-
-The [Metadata access](/docs/metadata-access) guide lists the Turtle and JSON-LD
-endpoints.
+The RDF names the canonical candidate with `matsci:canonicalDefinition` and
+its active revision with `matsci:currentRevision`.
+[Metadata access](/docs/metadata-access) lists other exports.
 
 ## Persistent resolution
 
-Published vocabulary IRIs use the persistent namespace
-`https://w3id.org/matsci-sam`. A browser follows that identifier to the
-matching page on the Ego website, which currently serves MatSci-SAM. The Ego
-page location is where the representation is served. The w3id remains the
-identifier to cite.
+The w3id namespace redirects to the website serving MatSci-SAM. Retain the
+w3id in citations even when the browser displays a different website address.
+The website location can change independently of the identifier.
 
-A community term w3id opens that community term page with the canonical
-definition first. A same-label term in another community has a different w3id
-and an independent canonical definition.
-
-For RDF, request `text/turtle` or `application/ld+json` at the readable
-vocabulary, term, definition, or revision address. A 303 response leads to
-an explicit `/skos.ttl` or `/skos.jsonld` document. Term history opens at
-`/provenance`, with `/provenance.ttl` and `/provenance.jsonld` for machines.
-Older numeric document addresses continue to work. RDF publishes
-`matsci:canonicalDefinition`; the selected definition's
-`matsci:currentRevision` identifies its current wording.
+Ordinary edits preserve definition and revision addresses. Exceptional
+administrator cleanup permanently removes test definitions and revisions.
+Removed numbers are not reassigned. See the
+[stability policy](/docs/reference/identifier-policy#stability).

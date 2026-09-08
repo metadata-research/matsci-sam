@@ -1,222 +1,170 @@
 # Pilot tooling
 
-Three scripts run a pilot. The curation script builds the containers from a
-manifest, the driver walks a simulated cohort through the walkthrough of a
-study, and the verifier checks the resulting records and pages. `studies.md`
-and `knowledge-organization-ledger.md` describe the rules they use. The
-internal [pilot plan](../../docs-internal/MTSR-PILOT-PLAN.md) records the
-protocol decisions and acceptance criteria.
+The curation script prepares communities, collections, and studies. The pilot
+driver runs simulated participants through the original Position/Review
+protocol, and the verifier checks records and pages.
+[Studies](studies.md) describes the shared write contracts.
 
 ## Modules
 
-- `scripts/curate-pilot.ts` is the curation script,
-  `scripts/curate-pilot-manifest.ts` holds its Zod manifest schema, and
-  `scripts/curate-pilot.example.json` shows the shape.
-- `scripts/pilot/config.ts` parses the arguments and holds `slugs`, the
-  seed and the generators, the state directory, the operator address, the
-  base URL and `requireEnv`.
-- `scripts/pilot/run.ts` is the driver. `scripts/pilot/steps.ts` holds one
-  act per function, and `scripts/pilot/db.ts` resolves the operator, the
-  containers and the walkthrough and writes the persona accounts and their
-  memberships.
-- `scripts/pilot/personas.ts` holds the six personas and `personaName`,
-  `scripts/pilot/terms.ts` the eight terms, and `scripts/pilot/prompts.ts`
-  the registered prompts, their stamps and the message helpers.
-- `scripts/pilot/verify.ts` is the verifier.
+| Module                                                | Responsibility                                      |
+| ----------------------------------------------------- | --------------------------------------------------- |
+| `scripts/curate-pilot.ts`                             | Manifest validation and reconciliation              |
+| `scripts/curate-pilot-manifest.ts`                    | Zod manifest schema                                 |
+| `scripts/pilot/config.ts`                             | Arguments, slugs, seed, state path, and environment |
+| `scripts/pilot/run.ts`                                | Sequential driver and checkpoints                   |
+| `scripts/pilot/steps.ts`                              | Transactional simulated acts                        |
+| `scripts/pilot/db.ts`                                 | Account, container, and stored-step queries         |
+| `scripts/pilot/personas.ts`, `terms.ts`, `prompts.ts` | Persona descriptions, term set, and prompt stamps   |
+| `scripts/pilot/verify.ts`                             | Record and HTTP verification                        |
 
 ## The curation script
 
-`pnpm curate:pilot -- --manifest <path> [--dry-run [--expect-no-changes]]`
-reconciles the database with the manifest by slug and prints one line per
-item. The manifest names its `operator` by email and processes four sections
-in order, `retire`, `communities`, `collections`, and `studies`. Each community
-has a slug, a title, a description and its members by email, each with a role
-and an optional `addedAt`, which may be a moment or `first-act-2025`, the
-earliest definition, comment or vote of the person in 2025. A community may
-also name the stable slugs of terms curated into its vocabulary. The script
-moves the existing term rows without copying their histories and preserves
-each former path as a permanent route alias. Each collection has a slug, a
-title and its terms. Vocabulary-qualified
-`{ "vocabulary": "...", "slug": "..." }` references are the unambiguous form;
-legacy term labels and the older `createdBefore` selector remain accepted for
-existing manifests. Collection `membership` defaults to `"additive"`, which
-asserts missing listed members and leaves every other live membership alone.
-`"exact"` makes an explicit qualified list authoritative: live `skos:member`
-assertions omitted from the list are retracted, not deleted, with the operator
-recorded as the retractor. Because omission is destructive, exact mode refuses
-legacy text labels and `createdBefore`, an empty list, and duplicate qualified
-routes.
+```sh
+pnpm curate:pilot -- --manifest <path> --dry-run
+pnpm curate:pilot -- --manifest <path> --dry-run --expect-no-changes
+pnpm curate:pilot -- --manifest <path>
+```
 
-Community `metadata` defaults to `"preserve"`. In that mode, title and
-description are used when the community is created but do not overwrite an
-existing community or vocabulary. `"exact"` makes both fields authoritative
-for the community and its paired same-slug vocabulary. Exact mode requires an
-explicit `description`; an empty string deliberately clears both nullable
-description fields. A change to either row is reported as one `updated`
-community-metadata item. Apply locks the community and vocabulary in the same
-order as the interactive administrator route, verifies that their metadata did
-not change after preflight, and updates both rows in the communities-section
-transaction. A repeat run then reports the community as `present`.
+The manifest names an operator by email and processes `retire`, `communities`,
+`collections`, and `studies` in that order. The script validates the complete
+manifest before writing. Each section commits separately, so a later failure
+can leave earlier sections applied. Repeated runs resolve existing records
+by slug.
 
-An exact membership change also refuses when a non-retired study over the
-collection already has generated walkthrough steps, or when any linked study
-has participant activity. An idempotent exact run with no membership change is
-allowed. The transaction locks linked studies in the same order as step
-generation and uses the shared collection-membership lock used by interactive
-edits, then re-reads the steps and authoritative live membership before it
-writes. A concurrent edit or generation therefore lands before the check or
-waits for the reconciled state; it cannot make an accepted plan stale.
+Community entries specify metadata and members, with optional membership start
+times. `first-act-2025` uses the earliest recorded definition, comment, or vote
+by that person in 2025. Optional term slugs support controlled migration into
+the community vocabulary. Those moves retain histories and former route aliases.
 
-Each study names its community and collection by slug, and has a title, a
-welcome, the window, and a `walkthrough`, null for none, `"default"` for the
-two closing questions, or a list of questions. A `$comment` anywhere is
-ignored.
+Collection members should use qualified references such as
+`{ "vocabulary": "example_lab", "slug": "metal" }`.
+Legacy labels and `createdBefore` selectors remain accepted in additive mode.
 
-The script resolves the complete manifest before the first write. Missing
-accounts or terms, conflicting slug shapes, an operator without standing, and
-studies over retired containers abort validation. Each section then runs in its
-own transaction. A later failure leaves earlier sections committed, and the
-next run finds those rows present.
+| Setting                 | Default                                           | Exact mode                                     |
+| ----------------------- | ------------------------------------------------- | ---------------------------------------------- |
+| Collection `membership` | `additive` adds listed terms and retains others   | Retracts omitted live membership assertions    |
+| Community `metadata`    | `preserve` uses title and description at creation | Updates the community and same-slug vocabulary |
 
-The run is idempotent by slug. A repeated run reports existing items as
-`present`, including community metadata after an exact update. In the default
-preserve mode, existing community metadata is left alone. Existing members
-keep their episode and role, studies keep their window, and retired rows keep
-their slug. Retiring a community also retires its same-slug vocabulary; neither
-public route is reused. The script writes a walkthrough while the study has no
-steps. It uses `lockStudy`,
-`completionCountOfStudy`, `replaceSteps`, and `planSteps`, matching
-`generateSteps`. Closed studies and empty collections receive no walkthrough.
+Exact membership requires a nonempty qualified list without duplicates.
+It refuses legacy labels and `createdBefore`. A membership change is refused
+when a non-retired linked study has generated steps or any linked study has
+participant activity. An already-converged run is permitted. Apply locks the
+linked studies and collection membership and rechecks the plan before writing.
 
-Each write is the act of the operator, row for row as the communities,
-collections and surveys routers write it, through the `lib/` functions where
-those exist. Each report line begins with `created`, `updated`, `present`,
-`retracted`, `retired` or `skipped`, followed by a note. A count line closes
-the report. `--dry-run` uses `would create`, `would update`, `would retract`,
-and `would retire` and makes no database changes. Add `--expect-no-changes` to
-make that preview a convergence gate: it exits nonzero when any planned durable
-write remains, including an exact metadata update or a write held by a silent
-plan item. The flag is valid only with `--dry-run`. A manifest in use contains
-private email addresses. The repository includes only the example manifest.
+Exact metadata requires an explicit description. An empty string clears the
+description on both community and vocabulary. Apply locks both rows in the
+interactive write order and rejects metadata changes since preflight.
 
-Reviewed study copy has a separate preview and hash-bound apply:
+A study entry names its community and collection, title, welcome, window,
+and `walkthrough`. The latter is null for no steps, `default` for the default
+question pair, or an explicit question list. `$comment` fields are ignored.
+The script creates steps only when none exist and the study and collection
+permit generation. Existing members retain their roles and episodes.
+Existing studies retain their stored window.
+
+Reports distinguish created, updated, present, retracted, retired, and skipped
+items. Dry runs make no changes. `--expect-no-changes` is valid only with
+`--dry-run` and fails when a durable change remains. Real manifests contain
+private account addresses. Keep them out of the repository.
+
+Study wording uses a separate preview and hash-bound apply operation.
 
 ```sh
-pnpm study-copy:sync -- --manifest <path> --dry-run [--expect-no-changes]
+pnpm study-copy:sync -- --manifest <path> --dry-run
+pnpm study-copy:sync -- --manifest <path> --dry-run --expect-no-changes
 pnpm study-copy:sync -- --manifest <path> --apply --expect-plan <sha256>
 ```
 
-The ordinary dry run displays copy drift for review. With
-`--expect-no-changes`, either a planned field change or a refusal makes the dry
-run exit nonzero. The apply mode continues to require the exact plan hash and
-does not accept the convergence flag.
+The convergence check fails for planned changes or refusals. Apply requires
+the exact reviewed plan hash. It does not accept the convergence flag.
 
 ## The driver
 
+Use a separate, prepared rehearsal study and database for simulation.
+
 ```sh
-PILOT_OPERATOR_EMAIL=... pnpm pilot:run -- --suffix rehearsal-1
-pnpm pilot:run -- --dry-run
-pnpm pilot:run -- --resume --suffix rehearsal-1
+PILOT_OPERATOR_EMAIL=operator@example.org pnpm pilot:run -- --suffix rehearsal-1 --dry-run
+PILOT_OPERATOR_EMAIL=operator@example.org pnpm pilot:run -- --suffix rehearsal-1
+PILOT_OPERATOR_EMAIL=operator@example.org pnpm pilot:run -- --resume --suffix rehearsal-1
 ```
 
 ### Protocol execution
 
-The driver follows the order of the walkthrough. Setup creates persona accounts
-and memberships. For each persona and term, the position unit uses the draft to
-choose acceptance or amendment. Acceptance creates an upvote that names the
-define step. Amendment creates a definition whose initial revision names the
-step and the current draft revision from which it derives.
+The driver loads stored steps with `stepsOfStudy` and expects Position and
+Review for each term. It does not apply the shortened participant sequence
+for `id4_round_two`. Validate the intended protocol before using this driver
+for any study with an amended sequence.
 
-During review, a persona that accepted completes the review step. A persona
-that amended upvotes the best-supported candidate outside its own definition
-and the draft, using a draw to break a tie. It completes the step directly when
-no such candidate exists. One or two personas selected for the term comment on
-the candidate they supported.
+Setup creates persona accounts and memberships. Each Position unit requests
+an accept-or-amend decision about the model draft. Acceptance records an
+upvote. Amendment publishes a definition derived from the current draft revision.
 
-The walkthrough unit completes the instructions and closing questions. Scale
-answers are drawn, and text answers are generated and stamped. The close unit
-projects the graphs once and records completion. Each simulated act names its
-step and completes the step in the same transaction as the act. Generated
-definitions, comments, and text answers also record a generation stamp.
+Review completes directly for a persona that accepted. A persona that amended
+upvotes the best-supported candidate other than its own definition or the
+draft, with a seeded tie-break. Selected personas comment on their supported
+candidate. Instructions and closing questions are completed separately.
+Scale answers use seeded draws. Text answers use stamped model output.
+The close unit projects graphs and records completion.
+
+Each contribution and its step completion share a transaction. Generated
+definitions, comments, and text answers include generation stamps.
 
 ### Checkpoints and rehearsals
 
-The driver requires a generated walkthrough. Before the first unit, it resolves
-the operator, containers, walkthrough, and draft of each term. Missing
-containers, a closed study, missing term steps, or a missing draft abort the
-run. Curation creates the terms before the driver starts. The driver is
-sequential because the protocol is ordered and the inference host serves one
-generation at a time.
+The driver requires prepared containers, generated steps, an open study, and
+a model draft for each term. It executes sequentially. Each completed unit is
+recorded in a state file named for the study slug. The file retains persona
+IDs, Position decisions and stamps, completed units, and finish time.
 
-Each completed unit is checkpointed in a file under the state directory,
-named for the study slug. This run manifest records the persona IDs, position
-decisions and their stamps, completed units, and finish. `--resume` skips the
-completed units, and a resumed position unit acts on its recorded decision.
-Each act reads the record before it writes, preventing a repeated position or
-a second cast that would withdraw an existing vote. `--steps` takes a
-comma-separated subset of `setup`, `position`, `review`, `walkthrough`, and
-`close`.
+`--resume` skips completed units and reuses recorded decisions. Each act
+checks for an existing record before writing, which prevents duplicate
+contributions or accidental vote withdrawal. `--steps` accepts a subset of
+`setup`, `position`, `review`, `walkthrough`, and `close`.
 
-An amendment uses `lockDefinitionRevisionSource` after model generation and
-before publication. The lock confirms that the source revision shown to the
-model remains current and prevents a concurrent edit from advancing the source
-definition until the derived definition commits.
+An amendment checks the source revision under
+`lockDefinitionRevisionSource` after generation and before publication.
+A concurrent edit must complete before validation or wait for the derived
+candidate transaction.
 
-`slugs(suffix)` names the containers `id4`, `id4_round_two` and
-`id4_round_two_terms`, each with the suffix appended. The public run takes no
-suffix and runs once. The driver refuses clean slugs when the checkpoint file
-says the run finished, and when the study holds a completion by a persona with
-the clean name while no checkpoint file records the run. A rehearsal passes
-`--suffix`, which mints distinct slugs and persona names. Rehearsal state is
-retained. Each term has a generator based on FNV-1a over the label, folded with
-the seed and passed to `mulberry32`. The seed and label determine the
-commenters, persona tie-breaks, and scale answers for that term. Position
-decisions come from model output, and review votes follow those positions.
+The suffix extends `id4`, `id4_round_two`, and `id4_round_two_terms`, as well
+as persona names. Unsuffixed runs have guards against a finished checkpoint
+or prior clean-name persona completions without a checkpoint. Rehearsal data
+and state are retained. Label and seed determine comment selection, review
+tie-breaks, and scale answers. Model output determines Position decisions.
 
 ### Simulated identities
 
-A persona is a `users` row with `isAi` true. It has no `aiModels` row. A model
-is driven under the account, and the display name identifies it as simulated.
-The public-run name is `Simulated Participant n (Gemma 4)`. A rehearsal suffix
-adds the rehearsal name. Accounts are created once by exact name, and
-memberships are added as `member` with the operator as `addedById`. The prompts
-are the `pilot-persona-position`, `pilot-persona-amend`,
-`pilot-persona-comment`, and `pilot-persona-survey` entries of
-`lib/prompts.json`. They are identical across personas. The voice of the
-persona arrives in the user message, and each generation stamp records the
-prompt key and hash. `pilot-persona-position` returns `accept` or `amend`,
-`pilot-persona-amend` generates the amendment, `pilot-persona-comment`
-generates a review, and `pilot-persona-survey` generates a text answer.
-`pilot-persona-define` and `pilot-persona-rebuttal` remain registered for the
-earlier protocol. The position stamp goes to the checkpoint file because the
-decision has no row in the application record.
+A simulated participant is an AI-flagged user without an `aiModels` row.
+The display name identifies simulation, and memberships record the operator
+as the adding account. Accounts are reused by exact name.
+
+Prompts `pilot-persona-position`, `pilot-persona-amend`,
+`pilot-persona-comment`, and `pilot-persona-survey` are shared across personas.
+Persona context is supplied in the user message. The prompt key and hash are
+recorded with generated content. The Position decision stamp is stored in the
+checkpoint because the decision itself has no application row.
 
 ## Environment
 
-| Variable               | Meaning                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `PILOT_OPERATOR_EMAIL` | The human account that owns the containers and the membership additions. The driver stops when it is absent. |
-| `PILOT_BASE_URL`       | Where the verifier sends its HTTP checks. Defaults to the local development server.                          |
-| `PILOT_SEED`           | The seed of the generators. Defaults to `20260913`.                                                          |
-| `PILOT_STATE_DIR`      | Where the checkpoint files are written. Defaults to `.cache/pilot`.                                          |
-| `OLLAMA_HOST`          | The inference host `lib/llm/client.ts` sends each generation to.                                             |
-
-`requireEnv` also requires `DATABASE_URL` and `SYSTEM_PROMPT_KEY` or
-`SYSTEM_PROMPT`, which the prompt registry loads at import.
+| Variable                               | Meaning                                                        |
+| -------------------------------------- | -------------------------------------------------------------- |
+| `PILOT_OPERATOR_EMAIL`                 | Required operator account                                      |
+| `PILOT_BASE_URL`                       | HTTP target for verification, default local development server |
+| `PILOT_SEED`                           | Deterministic draw seed, default `20260913`                    |
+| `PILOT_STATE_DIR`                      | Checkpoint directory, default `.cache/pilot`                   |
+| `OLLAMA_HOST`                          | Inference endpoint                                             |
+| `DATABASE_URL`                         | Database used by the scripts                                   |
+| `SYSTEM_PROMPT_KEY` or `SYSTEM_PROMPT` | Prompt-registry configuration                                  |
 
 ## The verifier
 
-`PILOT_BASE_URL=... pnpm pilot:verify -- --suffix rehearsal-1` prints the
-state of the study and runs two halves. The record half asserts what the paper
-claims. The persona accounts exist and are AI identities. Each persona
-definition is an amendment, stamped, written inside a define step and derived
-from the current revision of a definition of the term of that step. Each model
-or simulated comment records its generation stamp. Every comment, vote event,
-and response has an actor kind that agrees with the account flag. Each persona
-holds a position on each term, its completions are exactly the steps its acts
-completed, and no draft was revised after the first completion of the cohort.
-Each persona answered each closing question as a simulated act, with a stamp
-on each text answer. The HTTP half
-fetches the study page, the run page, the collection, the provenance page and
-Turtle document of three terms, the dataset document and the models page, and
-requires each to resolve. A failed check exits with status 1.
+`pnpm pilot:verify -- --suffix rehearsal-1` checks simulated identities,
+stamped amendments and derivations, actor kinds, Position records, step
+completions, and closing answers. It also verifies that no draft was edited
+after cohort participation began.
+
+HTTP checks cover the study, activity, collection, models, dataset, and
+selected term provenance pages and Turtle documents. A failed check exits
+with status 1. This verifies the original pilot protocol, not acceptance of
+a later study amendment.
