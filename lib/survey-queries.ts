@@ -672,7 +672,8 @@ export const hasPosition = async (
 export const actNamesStep = async (
   executor: Executor,
   stepId: number,
-  userId: number
+  userId: number,
+  { includeComments = true }: { includeComments?: boolean } = {}
 ): Promise<boolean> => {
   const [row] = await executor
     .select({ found: sql<number>`1` })
@@ -692,11 +693,13 @@ export const actNamesStep = async (
               and r."editorId" = ${userId}
               and r.version = 1
           )`,
-          sql`exists (
+          includeComments
+            ? sql`exists (
             select 1 from ${commentsTable} c
             where c."surveyStepId" = ${surveyStepsTable.id}
               and c."userId" = ${userId}
           )`
+            : undefined
         )
       )
     )
@@ -770,8 +773,8 @@ export type WalkthroughStep = StepWithTerm & {
     valueText: string | null
     valueScale: number | null
   } | null
-  // The viewer's vote events and comments that explicitly name a review
-  // step. Null outside review steps and for a signed-out viewer.
+  // The viewer's vote events and comments naming this term step.
+  // Null outside term steps and for a signed-out viewer.
   reviewRecord: ReviewRecord | null
 }
 
@@ -814,7 +817,7 @@ export const walkthroughOf = async (
     .filter((step) => step.kind === "question")
     .map((step) => step.id)
   const reviewStepIds = steps
-    .filter((step) => step.kind === "review")
+    .filter((step) => step.kind === "review" || step.kind === "define")
     .map((step) => step.id)
   const responseRows = questionStepIds.length
     ? executor
@@ -863,7 +866,7 @@ export const walkthroughOf = async (
           })()
         : null,
     reviewRecord:
-      step.kind === "review"
+      step.kind === "review" || step.kind === "define"
         ? (reviewRecords.get(step.id) ?? { votes: [], comments: [] })
         : null
   })

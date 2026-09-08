@@ -84,6 +84,7 @@ jobs:
           createdb --host=localhost --username=postgres --template=matsci_sam_ci matsci_sam_id4_protocol_ci
           trap 'dropdb --host=localhost --username=postgres matsci_sam_id4_protocol_ci' EXIT
           pnpm test:id4-protocol-db
+          pnpm db:invariants
 
       # Exercises vocabulary ownership, route aliases, and exact collection
       # membership retraction against the fully migrated schema.

@@ -18,7 +18,7 @@ import {
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { statementsTable } from "@yamz/db"
 import { currentFeaturedExampleText } from "./definition-example-queries"
-import { ID4_ROUND_TWO, ID4_VOTING_INSTRUCTIONS } from "./study-protocol"
+import { ID4_ROUND_TWO, ID4_INSTRUCTIONS } from "./study-protocol"
 import { activeStudyStepSql } from "./study-protocol-queries"
 
 /*
@@ -32,7 +32,7 @@ const studyColumns = {
   slug: studiesTable.slug,
   title: studiesTable.title,
   welcome: sql<string | null>`case when ${studiesTable.slug} = ${ID4_ROUND_TWO}
-    then ${ID4_VOTING_INSTRUCTIONS} else ${studiesTable.welcome} end`,
+    then ${ID4_INSTRUCTIONS} else ${studiesTable.welcome} end`,
   opensAt: studiesTable.opensAt,
   closesAt: studiesTable.closesAt,
   retiredAt: studiesTable.retiredAt,

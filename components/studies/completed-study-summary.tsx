@@ -166,7 +166,15 @@ const QuestionRecord = ({ step }: { step: Step }) => {
 
 const StepRecord = ({ step }: { step: Step }) => {
   if (step.kind === "instructions") return <p>Instructions completed.</p>
-  if (step.kind === "define") return <PositionRecord step={step} />
+  if (step.kind === "define")
+    return (
+      <div className="space-y-3">
+        <PositionRecord step={step} />
+        {(step.reviewRecord?.comments.length ?? 0) > 0 && (
+          <ReviewRecord step={step} />
+        )}
+      </div>
+    )
   if (step.kind === "review") return <ReviewRecord step={step} />
   return <QuestionRecord step={step} />
 }
@@ -174,12 +182,10 @@ const StepRecord = ({ step }: { step: Step }) => {
 export const CompletedStudySummary = ({
   steps,
   earlierSteps = [],
-  votingOnly = false,
   onSelect
 }: {
   steps: Step[]
   earlierSteps?: Step[]
-  votingOnly?: boolean
   onSelect: (position: number) => void
 }) => (
   <section className="space-y-4" aria-labelledby="study-record-heading">
@@ -198,7 +204,7 @@ export const CompletedStudySummary = ({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Step {step.position} · {studyStepLabel(step.kind, votingOnly)}
+                Step {step.position} · {studyStepLabel(step.kind)}
               </p>
               {step.term && (
                 <h3 className="font-serif text-xl font-bold">{step.term}</h3>

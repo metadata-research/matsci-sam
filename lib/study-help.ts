@@ -5,8 +5,6 @@ export type StudyHelpSection = { id: string; title: string; html: string }
 const HELP_SECTIONS = new Set([
   "help-in-the-study",
   "terms-used-in-the-study",
-  "voting-on-the-terms",
-  "written-feedback",
   "the-position-step",
   "reviewing-the-definitions",
   "the-closing-questions",
@@ -33,18 +31,17 @@ export const studyHelpFromHtml = (html: string): StudyHelpSection[] => {
 }
 
 export const studyHelpTopic = (
-  kind: "instructions" | "define" | "review" | "question" | undefined,
-  votingOnly = false
+  kind: "instructions" | "define" | "review" | "question" | undefined
 ) => {
   switch (kind) {
     case "instructions":
       return "instructions"
     case "define":
-      return votingOnly ? "voting-on-the-terms" : "the-position-step"
+      return "the-position-step"
     case "review":
       return "reviewing-the-definitions"
     case "question":
-      return votingOnly ? "written-feedback" : "the-closing-questions"
+      return "the-closing-questions"
     default:
       return "saving-and-returning"
   }
@@ -52,14 +49,8 @@ export const studyHelpTopic = (
 
 export const studyHelpSectionsFor = (
   sections: StudyHelpSection[],
-  votingOnly: boolean
+  singlePass: boolean
 ) =>
-  sections.filter((section) =>
-    votingOnly
-      ? ![
-          "the-position-step",
-          "reviewing-the-definitions",
-          "the-closing-questions"
-        ].includes(section.id)
-      : !["voting-on-the-terms", "written-feedback"].includes(section.id)
+  sections.filter(
+    (section) => !singlePass || section.id !== "reviewing-the-definitions"
   )
