@@ -30,7 +30,7 @@
     "test:ollama-context": "tsx scripts/test-ollama-revision-context.ts",
     "test:communities": "tsx scripts/test-communities.ts",
     "test:curate-pilot": "tsx scripts/test-curate-pilot.ts",
-    "test:surveys": "tsx scripts/test-surveys.ts && tsx --conditions=react-server scripts/test-study-help.ts",
+    "test:surveys": "tsx scripts/test-surveys.ts && tsx scripts/test-study-protocol.ts && tsx --conditions=react-server scripts/test-study-help.ts",
     "test:study-copy": "tsx scripts/test-study-copy.ts",
     "test:study-editor": "tsx scripts/test-study-editor.ts",
     "test:kos": "tsx --conditions=react-server scripts/test-kos.ts",
@@ -58,7 +58,8 @@
     "seed:ci-graph": "tsx --conditions=react-server scripts/seed-ci-graph.ts",
     "test:canonical": "tsx scripts/test-canonical-definition.ts",
     "test:canonical-db": "tsx --conditions=react-server scripts/test-canonical-definition-db.ts",
-    "test:vocabulary-http": "tsx scripts/test-vocabulary-http.ts"
+    "test:vocabulary-http": "tsx scripts/test-vocabulary-http.ts",
+    "test:id4-protocol-db": "tsx --conditions=react-server scripts/test-id4-protocol-db.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

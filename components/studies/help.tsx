@@ -16,26 +16,33 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog"
 import { StudyInstructionContent } from "./instruction-content"
-import { studyHelpTopic, type StudyHelpSection } from "@/lib/study-help"
+import {
+  studyHelpTopic,
+  studyHelpSectionsFor,
+  type StudyHelpSection
+} from "@/lib/study-help"
 
 export function StudyHelp({
   kind,
+  votingOnly = false,
   instructions,
   sections
 }: {
   kind?: Parameters<typeof studyHelpTopic>[0]
+  votingOnly?: boolean
   instructions: string | null
   sections: StudyHelpSection[]
 }) {
   const selectId = useId()
   const [topic, setTopic] = useState("instructions")
-  const selected = sections.find((section) => section.id === topic)
+  const relevantSections = studyHelpSectionsFor(sections, votingOnly)
+  const selected = relevantSections.find((section) => section.id === topic)
 
   return (
     <Dialog
       onOpenChange={(open) => {
         if (open) {
-          const context = studyHelpTopic(kind)
+          const context = studyHelpTopic(kind, votingOnly)
           setTopic(
             context === "instructions" || sections.some((s) => s.id === context)
               ? context
@@ -67,7 +74,7 @@ export function StudyHelp({
             className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
           >
             <option value="instructions">This study’s instructions</option>
-            {sections.map((section) => (
+            {relevantSections.map((section) => (
               <option key={section.id} value={section.id}>
                 {section.title}
               </option>

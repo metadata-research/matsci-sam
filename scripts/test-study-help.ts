@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import { renderDoc } from "../lib/docs"
-import { studyHelpFromHtml, studyHelpTopic } from "../lib/study-help"
+import {
+  studyHelpFromHtml,
+  studyHelpTopic,
+  studyHelpSectionsFor
+} from "../lib/study-help"
 
 // Use the real guide and its served heading grammar: a renamed or removed
 // section must not silently leave an activity without its contextual help.
@@ -8,8 +12,8 @@ async function main() {
   const guide = await renderDoc("guide", "studies")
   assert.ok(guide)
   const sections = studyHelpFromHtml(guide.html)
-  assert.equal(sections.length, 7)
-  assert.equal(new Set(sections.map((section) => section.id)).size, 7)
+  assert.equal(sections.length, 9)
+  assert.equal(new Set(sections.map((section) => section.id)).size, 9)
   for (const kind of ["define", "review", "question", undefined] as const) {
     const section = sections.find((entry) => entry.id === studyHelpTopic(kind))
     assert.ok(section, `Missing help for ${kind ?? "completion"}`)
@@ -24,6 +28,21 @@ async function main() {
     }
   }
   assert.equal(studyHelpTopic("instructions"), "instructions")
+  assert.equal(studyHelpTopic("define", true), "voting-on-the-terms")
+  assert.equal(studyHelpTopic("question", true), "written-feedback")
+  const voting = studyHelpSectionsFor(sections, true)
+  assert.ok(voting.some((section) => section.id === "voting-on-the-terms"))
+  assert.ok(
+    voting.every(
+      (section) =>
+        !["the-position-step", "reviewing-the-definitions"].includes(section.id)
+    )
+  )
+  assert.ok(
+    studyHelpSectionsFor(sections, false).every(
+      (section) => section.id !== "voting-on-the-terms"
+    )
+  )
   assert.deepEqual(studyHelpFromHtml("<p>Guide unavailable</p>"), [])
   console.log(
     "Study help topics, guide boundaries, and draft-preserving links passed"

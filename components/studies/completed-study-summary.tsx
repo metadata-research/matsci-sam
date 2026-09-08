@@ -3,15 +3,9 @@ import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Button } from "@/components/ui/button"
 import { revisionPath } from "@/lib/public-identifiers"
 import { scaleLabelsForPrompt } from "@/lib/study-presentation"
+import { studyStepLabel } from "@/lib/study-protocol"
 
 type Step = RouterOutput["surveys"]["get"]["steps"][number]
-
-const KIND_LABEL: Record<Step["kind"], string> = {
-  instructions: "Instructions",
-  define: "Position",
-  review: "Review",
-  question: "Question"
-}
 
 const DefinitionRevisionLink = ({
   step,
@@ -179,9 +173,13 @@ const StepRecord = ({ step }: { step: Step }) => {
 
 export const CompletedStudySummary = ({
   steps,
+  earlierSteps = [],
+  votingOnly = false,
   onSelect
 }: {
   steps: Step[]
+  earlierSteps?: Step[]
+  votingOnly?: boolean
   onSelect: (position: number) => void
 }) => (
   <section className="space-y-4" aria-labelledby="study-record-heading">
@@ -200,7 +198,7 @@ export const CompletedStudySummary = ({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Step {step.position} · {KIND_LABEL[step.kind]}
+                Step {step.position} · {studyStepLabel(step.kind, votingOnly)}
               </p>
               {step.term && (
                 <h3 className="font-serif text-xl font-bold">{step.term}</h3>
@@ -225,5 +223,24 @@ export const CompletedStudySummary = ({
         </li>
       ))}
     </ol>
+    {earlierSteps.length > 0 && (
+      <details className="rounded-lg border p-4">
+        <summary className="cursor-pointer font-medium">
+          Your earlier responses
+        </summary>
+        <p className="mt-3 text-sm text-muted-foreground">
+          These responses were saved before the activity was shortened. They
+          remain in your record and do not add steps to the current activity.
+        </p>
+        <ul className="mt-4 space-y-4">
+          {earlierSteps.map((step) => (
+            <li key={step.id} className="space-y-2 border-t pt-4">
+              <h3 className="font-medium">{step.term ?? step.prompt}</h3>
+              <StepRecord step={step} />
+            </li>
+          ))}
+        </ul>
+      </details>
+    )}
   </section>
 )

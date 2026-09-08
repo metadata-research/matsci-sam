@@ -55,6 +55,7 @@ import {
   SURVEY_RESPONSE_MAX_LENGTH
 } from "@/lib/input-limits"
 import { communityPath, studyPath } from "@/lib/public-identifiers"
+import { isActiveStudyStep, studyAllowsAct } from "@/lib/study-protocol"
 
 /*
  * The survey walkthrough: the ordered steps of a study, and a participant's
@@ -141,6 +142,12 @@ const requireParticipation = async (
       message: "This study is not open"
     })
   }
+  if (!isActiveStudyStep(found.study.slug, found.step))
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        "This step is no longer part of the study. Reload the walkthrough."
+    })
   return found
 }
 
@@ -197,6 +204,12 @@ export const requireStepForAct = async (
   act: Act
 ) => {
   const found = await requireParticipation(stepId, userId)
+  if (!studyAllowsAct(found.study.slug, act))
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "This study asks you to vote for a definition or skip the term, then give written feedback."
+    })
   if (!actMatchesStep(act, found.step)) throw notForThisAct()
   return found
 }

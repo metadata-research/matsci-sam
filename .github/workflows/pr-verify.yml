@@ -76,6 +76,15 @@ jobs:
         run: |
           pnpm db:invariants
 
+      - name: Test amended ID4 protocol with synthetic participants
+        env:
+          PGPASSWORD: postgres
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_id4_protocol_ci
+        run: |
+          createdb --host=localhost --username=postgres --template=matsci_sam_ci matsci_sam_id4_protocol_ci
+          trap 'dropdb --host=localhost --username=postgres matsci_sam_id4_protocol_ci' EXIT
+          pnpm test:id4-protocol-db
+
       # Exercises vocabulary ownership, route aliases, and exact collection
       # membership retraction against the fully migrated schema.
       - name: Test vocabulary and collection database behavior

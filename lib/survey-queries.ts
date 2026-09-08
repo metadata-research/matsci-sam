@@ -18,6 +18,7 @@ import {
   votesTable
 } from "@yamz/db"
 import type { ActorKind, GenerationStampInput } from "@/lib/participation"
+import { activeStudySteps, studyInstructions } from "./study-protocol"
 import {
   recordCompletion,
   resumePosition,
@@ -76,6 +77,17 @@ export const stepsOfStudy = async (
     .leftJoin(termsTable, eq(termsTable.id, surveyStepsTable.termId))
     .where(eq(surveyStepsTable.studyId, studyId))
     .orderBy(asc(surveyStepsTable.position))
+
+const protocolStepsOfStudy = async (executor: Executor, studyId: number) => {
+  const [steps, study] = await Promise.all([
+    stepsOfStudy(executor, studyId),
+    executor.query.studiesTable.findFirst({
+      columns: { slug: true },
+      where: eq(studiesTable.id, studyId)
+    })
+  ])
+  return { stored: steps, active: activeStudySteps(study?.slug ?? "", steps) }
+}
 
 // One step with the study it belongs to, which is what every participation
 // check needs: the community for the membership and whether it is retired,
@@ -170,8 +182,9 @@ export const instructionPromptOfStudy = async (
   studyId: number
 ): Promise<string | null> => {
   const [row] = await executor
-    .select({ prompt: surveyStepsTable.prompt })
+    .select({ prompt: surveyStepsTable.prompt, slug: studiesTable.slug })
     .from(surveyStepsTable)
+    .innerJoin(studiesTable, eq(studiesTable.id, surveyStepsTable.studyId))
     .where(
       and(
         eq(surveyStepsTable.studyId, studyId),
@@ -180,7 +193,7 @@ export const instructionPromptOfStudy = async (
       )
     )
     .limit(1)
-  return row?.prompt ?? null
+  return row ? studyInstructions(row.slug, row.prompt) : null
 }
 
 // The completion outcomes for the steps of a study, keyed by step. A skip is
@@ -774,10 +787,13 @@ export const walkthroughOf = async (
   studyId: number,
   userId: number | null
 ) => {
-  const steps = await stepsOfStudy(executor, studyId)
+  const { stored: steps, active } = await protocolStepsOfStudy(
+    executor,
+    studyId
+  )
   if (userId === null)
     return {
-      steps: steps.map((step) => ({
+      steps: active.map((step) => ({
         ...step,
         completed: false,
         completionOutcome: null,
@@ -786,8 +802,9 @@ export const walkthroughOf = async (
         response: null,
         reviewRecord: null
       })) as WalkthroughStep[],
+      earlierSteps: [] as WalkthroughStep[],
       completedStepIds: [] as number[],
-      resumePosition: resumePosition(steps, new Set())
+      resumePosition: resumePosition(active, new Set())
     }
 
   const defineStepIds = steps
@@ -821,38 +838,54 @@ export const walkthroughOf = async (
   const responses = new Map(responsesRead.map((row) => [row.stepId, row]))
   const completed = new Set(completions.keys())
 
+  const withRecord = (step: StepWithTerm): WalkthroughStep => ({
+    ...step,
+    completed: completed.has(step.id),
+    completionOutcome: completions.get(step.id) ?? null,
+    hasPosition:
+      completions.get(step.id) === "skipped"
+        ? false
+        : withPosition.has(step.id),
+    held:
+      completions.get(step.id) === "skipped"
+        ? null
+        : (positions.get(step.id) ?? null),
+    response:
+      step.kind === "question"
+        ? (() => {
+            const response = responses.get(step.id)
+            return response
+              ? {
+                  valueText: response.valueText,
+                  valueScale: response.valueScale
+                }
+              : null
+          })()
+        : null,
+    reviewRecord:
+      step.kind === "review"
+        ? (reviewRecords.get(step.id) ?? { votes: [], comments: [] })
+        : null
+  })
+  const activeIds = new Set(active.map((step) => step.id))
   return {
-    steps: steps.map((step) => ({
-      ...step,
-      completed: completed.has(step.id),
-      completionOutcome: completions.get(step.id) ?? null,
-      hasPosition:
-        completions.get(step.id) === "skipped"
-          ? false
-          : withPosition.has(step.id),
-      held:
-        completions.get(step.id) === "skipped"
-          ? null
-          : (positions.get(step.id) ?? null),
-      response:
-        step.kind === "question"
-          ? (() => {
-              const response = responses.get(step.id)
-              return response
-                ? {
-                    valueText: response.valueText,
-                    valueScale: response.valueScale
-                  }
-                : null
-            })()
-          : null,
-      reviewRecord:
-        step.kind === "review"
-          ? (reviewRecords.get(step.id) ?? { votes: [], comments: [] })
-          : null
-    })) as WalkthroughStep[],
-    completedStepIds: [...completed],
-    resumePosition: resumePosition(steps, completed)
+    steps: active.map(withRecord),
+    // Only the viewer's real prior activity belongs in this record. Paired
+    // skips are still stored for the DB invariant, but are not extra work.
+    earlierSteps: steps
+      .filter((step) => !activeIds.has(step.id))
+      .map(withRecord)
+      .filter(
+        (step) =>
+          step.completionOutcome === "completed" ||
+          step.response !== null ||
+          (step.reviewRecord?.votes.length ?? 0) > 0 ||
+          (step.reviewRecord?.comments.length ?? 0) > 0
+      ),
+    completedStepIds: active
+      .filter((step) => completed.has(step.id))
+      .map((step) => step.id),
+    resumePosition: resumePosition(active, completed)
   }
 }
 
@@ -864,10 +897,10 @@ export const nextPositionFor = async (
   userId: number
 ): Promise<number | null> => {
   const [steps, completed] = await Promise.all([
-    stepsOfStudy(executor, studyId),
+    protocolStepsOfStudy(executor, studyId),
     completedStepIdsOf(executor, studyId, userId)
   ])
-  return resumePosition(steps, completed)
+  return resumePosition(steps.active, completed)
 }
 
 /*
@@ -967,7 +1000,7 @@ export const studyProgress = async (executor: Executor, studyId: number) => {
     .limit(1)
   if (!study) return null
 
-  const steps = await stepsOfStudy(executor, studyId)
+  const { active: steps } = await protocolStepsOfStudy(executor, studyId)
   const stepIds = steps.map((step) => step.id)
 
   const [members, completions] = await Promise.all([
