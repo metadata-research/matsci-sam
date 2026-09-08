@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { readStudyContent } from "../lib/study-content"
-import { ID4_VOTING_INSTRUCTIONS } from "../lib/study-protocol"
+import { ID4_INSTRUCTIONS } from "../lib/study-protocol"
 import { parseStudyInstructions } from "../lib/study-instructions"
 import {
   planStudyCopySync,
@@ -123,14 +123,14 @@ const target = readStudyContent("id4-round-two")
 assert.equal(target.title, "ID4 study, round two")
 assert.match(target.body, /2025 MatSci-YAMZ study/)
 assert.match(target.body, /\n\n1\. For each term/)
-assert.equal(target.body, ID4_VOTING_INSTRUCTIONS)
+assert.equal(target.body, ID4_INSTRUCTIONS)
 assert.equal(target.body.endsWith("\n"), false)
 assert.deepEqual(
   parseStudyInstructions(target.body).map((block) =>
     block.kind === "steps" ? [block.kind, block.items.length] : [block.kind]
   ),
   [["paragraph"], ["steps", 4], ["paragraph"]],
-  "the ID4 overview presents voting, skipping and written feedback"
+  "the ID4 overview preserves positions, comments, skipping and closing questions"
 )
 assert.match(target.hash, /^[a-f0-9]{64}$/)
 assert.equal(readStudyContent("id4-round-two").hash, target.hash)

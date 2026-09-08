@@ -55,7 +55,8 @@ import {
   SURVEY_RESPONSE_MAX_LENGTH
 } from "@/lib/input-limits"
 import { communityPath, studyPath } from "@/lib/public-identifiers"
-import { isActiveStudyStep, studyAllowsAct } from "@/lib/study-protocol"
+import { isActiveStudyStep } from "@/lib/study-protocol"
+import { studyActMatchesStep } from "@/lib/study-protocol-actions"
 import { joinOpenStudy } from "@/lib/study-enrollment"
 
 /*
@@ -205,13 +206,8 @@ export const requireStepForAct = async (
   act: Act
 ) => {
   const found = await requireParticipation(stepId, userId)
-  if (!studyAllowsAct(found.study.slug, act))
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message:
-        "This study asks you to vote for a definition or skip the term, then give written feedback."
-    })
-  if (!actMatchesStep(act, found.step)) throw notForThisAct()
+  if (!studyActMatchesStep(found.study.slug, act, found.step))
+    throw notForThisAct()
   return found
 }
 
@@ -321,7 +317,10 @@ export const requireOnePosition = async (
       )
     )
     .limit(1)
-  if (completion || (await actNamesStep(tx, step.id, userId)))
+  if (
+    completion ||
+    (await actNamesStep(tx, step.id, userId, { includeComments: false }))
+  )
     throw new TRPCError({
       code: "CONFLICT",
       message: "Your position on this term is recorded"

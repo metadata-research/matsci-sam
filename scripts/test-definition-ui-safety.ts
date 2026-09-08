@@ -155,7 +155,7 @@ assert.doesNotMatch(candidateList, /Skip this term|onSkip/)
 const definitionActions = section(
   candidateList,
   'role="group"',
-  "{(candidate.comments ?? 0) > 0"
+  "{(singlePass || (candidate.comments ?? 0) > 0)"
 )
 assert.match(definitionActions, /Actions for definition option/)
 assert.match(
@@ -170,7 +170,7 @@ assert.ok(
 )
 const candidateComments = section(
   candidateList,
-  "{(candidate.comments ?? 0) > 0",
+  "{(singlePass || (candidate.comments ?? 0) > 0)",
   "</section>"
 )
 assert.match(candidateComments, /aria-labelledby=\{`position-comments-/)

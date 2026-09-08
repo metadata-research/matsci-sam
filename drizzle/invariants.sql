@@ -950,16 +950,18 @@ BEGIN
     FROM information_schema.tables
     WHERE table_name = 'surveySteps'
   ) THEN
-    -- A comment posted inside a step was posted inside a review step on the
-    -- term of its definition.
+    -- A study comment names its definition's term. ID4 also permits comments
+    -- in Position because its repeat Review round is omitted.
     IF EXISTS (
       SELECT 1
       FROM "comments" c
       JOIN "surveySteps" s ON s.id = c."surveyStepId"
       JOIN "definitions" d ON d.id = c."definitionId"
-      WHERE s.kind <> 'review' OR s."termId" IS DISTINCT FROM d."termId"
+      JOIN "studies" st ON st.id = s."studyId"
+      WHERE (s.kind <> 'review' AND NOT (s.kind = 'define' AND st.slug = 'id4_round_two'))
+         OR s."termId" IS DISTINCT FROM d."termId"
     ) THEN
-      RAISE EXCEPTION 'comment step is not a review step on the term of its definition';
+      RAISE EXCEPTION 'comment step does not permit discussion on the term of its definition';
     END IF;
 
     -- A voting act inside a step was taken inside the define step of the

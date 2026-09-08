@@ -18,7 +18,7 @@ tab so you can keep the study open. Follow your study’s own instructions for
 its purpose and tasks; this guide explains how the controls work.
 
 Use **Feedback** to report a problem with the site. Use the closing question for study
-feedback. Studies with Review steps also provide public definition comments.
+feedback. Use a definition’s comment box for public discussion about that definition.
 
 ## The study page
 
@@ -69,8 +69,10 @@ own revision history. The source definition stays available. See
 
 ## The study activity
 
-ID4 round two has ten steps: instructions, one vote or skip for each of eight
-terms, then written feedback. You work through the terms once.
+ID4 round two takes you through instructions, a Position step for each of eight
+terms, then the closing questions. You work through the terms once, accepting
+or revising a definition, proposing a new one, or skipping. Public comments
+are available during each Position step.
 
 Other studies may include Position steps for accepting or proposing definitions,
 a separate Review round for votes and comments, and closing questions. Follow
@@ -80,42 +82,9 @@ The step indicators show your progress. Completed steps can be reopened for
 reading. Your first unfinished step is available; later unfinished steps
 remain locked. A dash marks a skipped term.
 
-## Voting on the terms
-
-In ID4 round two, read the definitions and select **Vote for this definition**
-on the one closest to what you consider correct. This saves your choice of an
-exact revision, ensures an upvote on it, and moves to the next term. You may
-choose any definition, including your own, regardless of its score.
-
-If you already upvoted that revision, your vote is kept without adding another
-point. If you downvoted it, your vote changes to an upvote. An upvote made
-outside the study does not replace this explicit choice inside the activity.
-
-If you cannot choose, select **Skip this term** and confirm. This records no
-choice or new vote for the term. You can explain missing or unsuitable
-definitions in the closing feedback. A saved choice or skip is final in this
-activity.
-
-Existing comments and support scores provide context. A model-authored starting
-definition appears first when available; this is not a recommendation. The
-remaining definitions are ordered by support, with older definitions first
-when scores tie.
-
-## Written feedback
-
-After the eight terms in ID4 round two, give written feedback about what you
-would add or change. Mention individual terms where helpful, including any
-you skipped because the available definitions did not fit. Select **Submit**
-to save your answer and finish. You can reread your saved answer in the study
-record. It cannot be edited in the activity.
-
-If you started before the activity was shortened, saved choices, proposals and
-skips still count toward progress. Earlier review actions and rating answers
-remain available under **Your earlier responses** in the completed study record.
-
 ## The Position step
 
-For studies that offer acceptance and definition proposals, choose the definition closest to what you consider correct. You may choose
+Choose the definition closest to what you consider correct. You may choose
 your own definition and any definition regardless of its support score.
 Existing definitions may come from earlier vocabulary work, preparation for
 this study, or other participants. If none exists, propose the first one or
@@ -124,8 +93,9 @@ skip the term.
 The current Position view puts the earliest model-authored definition first
 when one exists. The others follow by support score, with older definitions
 first for equal scores. **First on this screen does not mean canonical or
-recommended.** Attribution, comments, and scores provide context; the vote
-arrows appear in Review.
+recommended.** Attribution, comments, and scores provide context. Acceptance
+ensures an upvote. Studies with a separate Review round also offer vote arrows
+there; ID4 round two finishes the terms after the Position steps.
 
 ### Accept a definition
 
@@ -146,12 +116,14 @@ Explain what is wrong or missing, request a language-model draft, and review
 and edit it. **Publish revision** adds it as a separate definition, credits
 you and the named model, and records its exact source revision. The original
 remains available. Publication records your position and completes the step;
-it does not cast a vote. You can vote on it during Review.
+it does not cast a vote. Studies with a separate Review round let you vote
+on it there. ID4 round two moves on to the next unfinished step.
 
 Before a draft exists, you can accept the source as written or return to the
 definitions. **Discard draft** publishes nothing. If model drafting is
 unavailable, you can return and use **Propose a new definition** to write your
-own alternative. Comments belong in the Review step.
+own alternative. In ID4 round two, return to the definitions to post any
+public comments before accepting or publishing.
 
 ### Propose a new definition
 
@@ -165,11 +137,23 @@ identify another definition as a replacement target. Existing definitions
 remain available. This is distinct from **Propose a replacement** on an
 ordinary definition page.
 
+### Comment on a definition
+
+In ID4 round two, use the comment box beneath a definition to add a public
+comment. Select **Post comment** to save it before accepting or publishing a
+position, which completes the term. A comment records what you write and
+does not request a language-model draft, cast a vote, or complete the step.
+You can still accept, revise, or propose after commenting.
+
+Other studies with a Review round provide comment boxes there. The displayed
+comment history may also include discussion from outside the study.
+
 ### Skip a term
 
 Use **Skip this term** when you do not know the term well enough to choose.
-In studies with Position and Review rounds, confirming skips both steps. It records no position,
-vote, definition, or comment, and does not change the vocabulary. Skipping is
+Confirming records no position, vote, definition, or comment, and does not
+change the vocabulary. Skip before posting a comment or recording a position.
+In studies with Position and Review rounds, confirming skips both steps. Skipping is
 final within this walkthrough. A later skipped Review can be opened for
 reading, but does not unlock other unfinished steps.
 
@@ -227,8 +211,13 @@ complete the step; select **Done with this term** when finished.
 
 Completed steps can be reopened for reading. **Review completed study** opens
 your consolidated record: the choice or skip for each term, any votes and
-comments recorded inside Review steps, and closing answers. Later vocabulary
+comments recorded inside the study, and closing answers. Later vocabulary
 activity can change scores or wording without rewriting your recorded choice.
+
+If you started ID4 round two before the repeated Review round was removed,
+your saved positions, skips, and answers still count toward progress. Earlier
+Review activity remains under **Your earlier responses** in your completed
+study record.
 
 At closing time, the study stops accepting actions. Its page and recorded
 contributions remain available. Definitions, votes, and comments also remain
@@ -241,13 +230,13 @@ comments as the rest of MatSci-SAM. It adds an ordered task and a record of
 your participation. Working on an ordinary vocabulary page does not complete
 a study step; use the activity to record the study’s requested actions.
 
-| Action                       | Ordinary vocabulary work                      | ID4 round two                                                           |
-| ---------------------------- | --------------------------------------------- | ----------------------------------------------------------------------- |
-| Choose a definition          | Read, compare, and vote freely                | Vote for one definition per term, or skip                               |
-| Write or revise a definition | Publish a definition or revision              | Describe suggested changes in the closing feedback                      |
-| Vote                         | Upvote, downvote, change, or withdraw support | The chosen definition gets your upvote; an existing upvote is preserved |
-| Comment                      | Public discussion on a definition             | Give written study feedback after the terms                             |
-| Progress                     | No required sequence                          | One pass through the terms, followed by feedback                        |
+| Action                       | Ordinary vocabulary work                      | ID4 round two                                                        |
+| ---------------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
+| Choose a definition          | Read, compare, and vote freely                | Accept a definition, revise it, propose a new one, or skip           |
+| Write or revise a definition | Publish a definition or revision              | Publish a suggested revision or new definition as your position      |
+| Vote                         | Upvote, downvote, change, or withdraw support | Accept ensures an upvote; publishing a proposal does not cast a vote |
+| Comment                      | Public discussion on a definition             | Post public comments during the Position step, before completing it  |
+| Progress                     | No required sequence                          | One pass through the terms, followed by closing questions            |
 
 Studies that include Position and Review rounds also use ordinary definition
 publication and voting actions. Acceptance ensures an upvote; publishing a

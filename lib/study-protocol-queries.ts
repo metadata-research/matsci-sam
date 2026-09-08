@@ -7,10 +7,5 @@ export const activeStudyStepSql = (
   studySlug: SQLWrapper,
   alias: string
 ) => sql`(
-  ${studySlug} <> ${ID4_ROUND_TWO} or (
-    ${sql.identifier(alias)}.kind <> 'review' and (
-      ${sql.identifier(alias)}.kind <> 'question' or
-      ${sql.identifier(alias)}."responseKind" = 'text'
-    )
-  )
+  ${studySlug} <> ${ID4_ROUND_TWO} or ${sql.identifier(alias)}.kind <> 'review'
 )`

@@ -24,25 +24,25 @@ import {
 
 export function StudyHelp({
   kind,
-  votingOnly = false,
+  singlePass = false,
   instructions,
   sections
 }: {
   kind?: Parameters<typeof studyHelpTopic>[0]
-  votingOnly?: boolean
+  singlePass?: boolean
   instructions: string | null
   sections: StudyHelpSection[]
 }) {
   const selectId = useId()
   const [topic, setTopic] = useState("instructions")
-  const relevantSections = studyHelpSectionsFor(sections, votingOnly)
+  const relevantSections = studyHelpSectionsFor(sections, singlePass)
   const selected = relevantSections.find((section) => section.id === topic)
 
   return (
     <Dialog
       onOpenChange={(open) => {
         if (open) {
-          const context = studyHelpTopic(kind, votingOnly)
+          const context = studyHelpTopic(kind)
           setTopic(
             context === "instructions" || sections.some((s) => s.id === context)
               ? context

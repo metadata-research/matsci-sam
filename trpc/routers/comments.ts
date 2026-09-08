@@ -49,7 +49,7 @@ export const commentsRouter = createTRPCRouter({
         id: z.number(),
         revisionId: z.number(),
         comment: z.string().trim().min(1).max(COMMENT_MAX_LENGTH),
-        // The review step of a walkthrough the comment is posted inside.
+        // The term step of a walkthrough the comment is posted inside.
         surveyStepId: z.number().int().optional(),
         expectedInstructions: expectedInstructionsSchema.optional()
       })

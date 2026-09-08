@@ -38,7 +38,7 @@ import {
   scaleLabelsForPrompt
 } from "@/lib/study-presentation"
 import { mayOpenStudyStep, nextStudyPosition } from "@/lib/study-navigation"
-import { isVotingStudy, studyStepLabel } from "@/lib/study-protocol"
+import { isSinglePassStudy } from "@/lib/study-protocol"
 import {
   type MutationActivityCallbacks,
   useMutationActivity
@@ -69,16 +69,21 @@ type Walkthrough = RouterOutput["surveys"]["get"]
 type Step = Walkthrough["steps"][number]
 type Candidate = RouterOutput["definitions"]["list"][number]
 
+const KIND_LABEL: Record<Step["kind"], string> = {
+  instructions: "Instructions",
+  define: "Position",
+  review: "Review",
+  question: "Question"
+}
+
 const Dots = ({
   steps,
-  votingOnly,
   position,
   reachable,
   navigationLocked,
   onSelect
 }: {
   steps: Step[]
-  votingOnly: boolean
   position: number
   reachable: (position: number) => boolean
   navigationLocked: boolean
@@ -90,7 +95,7 @@ const Dots = ({
       const open = reachable(step.position)
       const label = [
         `Step ${step.position}`,
-        studyStepLabel(step.kind, votingOnly),
+        KIND_LABEL[step.kind],
         step.term,
         step.completionOutcome === "skipped"
           ? "skipped"
@@ -182,10 +187,10 @@ const orderCandidates = (definitions: Candidate[]) => {
  */
 const PositionTarget = ({
   step,
-  votingOnly
+  singlePass
 }: {
   step: Step
-  votingOnly: boolean
+  singlePass: boolean
 }) => {
   const [definitions] = trpc.definitions.list.useSuspenseQuery({
     termId: step.termId!,
@@ -210,15 +215,13 @@ const PositionTarget = ({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        {votingOnly
-          ? step.held?.kind === "proposed"
-            ? "You previously proposed this definition. Your contribution remains recorded, and this term is complete. Publishing it did not cast a vote."
-            : "Your choice is saved. Selecting this definition ensured an upvote on the chosen revision."
-          : step.held?.kind === "proposed"
-            ? step.held.refinedFromId
-              ? "You suggested this revision as your position. Publishing it did not cast a vote. You can compare and vote on all definitions in the Review step."
-              : "You proposed this definition as your position. Publishing it did not cast a vote. You can compare and vote on all definitions in the Review step."
-            : "You accepted this definition as written. Accepting it also recorded an upvote. You can compare and vote on all definitions in the Review step."}
+        {step.held?.kind === "proposed"
+          ? step.held.refinedFromId
+            ? "You suggested this revision as your position. Publishing it did not cast a vote."
+            : "You proposed this definition as your position. Publishing it did not cast a vote."
+          : "You accepted this definition as written. Accepting it also recorded an upvote."}{" "}
+        {!singlePass &&
+          "You can compare and vote on all definitions in the Review step."}
       </p>
       {held.excludedFromStudy && (
         <p className="text-sm text-muted-foreground">
@@ -241,17 +244,17 @@ const PositionTarget = ({
 
 const HeldPosition = ({
   step,
-  votingOnly
+  singlePass
 }: {
   step: Step
-  votingOnly: boolean
+  singlePass: boolean
 }) =>
   step.completionOutcome === "skipped" ? (
     <p className="text-sm text-muted-foreground">
       Skipped this term. No position was recorded.
     </p>
   ) : (
-    <PositionTarget step={step} votingOnly={votingOnly} />
+    <PositionTarget step={step} singlePass={singlePass} />
   )
 
 type Move =
@@ -267,7 +270,7 @@ type Move =
  */
 const Candidates = ({
   step,
-  votingOnly,
+  singlePass,
   expectedInstructions,
   pending,
   onAccepted,
@@ -278,7 +281,7 @@ const Candidates = ({
   onMutationEnd
 }: {
   step: Step
-  votingOnly: boolean
+  singlePass: boolean
   expectedInstructions: string | null
   pending: boolean
   onAccepted: (nextPosition: number | null) => void
@@ -344,7 +347,7 @@ const Candidates = ({
     })
   }
 
-  if (!votingOnly && move.kind === "revise") {
+  if (move.kind === "revise") {
     const candidate = move.candidate
     return (
       <div className="space-y-4">
@@ -361,8 +364,10 @@ const Candidates = ({
         />
         <p className="text-sm text-muted-foreground">
           If this definition works as written, accept it below.{" "}
-          {positionAcceptanceExplanation(candidate.vote, votingOnly)} You can
-          add a public comment when you review this term.
+          {positionAcceptanceExplanation(candidate.vote)}{" "}
+          {singlePass
+            ? "To post a public comment, return to the definitions before completing this term."
+            : "You can add a public comment when you review this term."}
         </p>
         <RevisionSuggestionForm
           term={step.term!}
@@ -397,7 +402,7 @@ const Candidates = ({
     )
   }
 
-  if (!votingOnly && move.kind === "propose")
+  if (move.kind === "propose")
     return (
       <div className="space-y-4">
         <div className="space-y-1">
@@ -432,26 +437,20 @@ const Candidates = ({
       <Card className="gap-1 bg-muted/30 p-4 shadow-none">
         <h2 className="font-semibold">Choose the closest definition</h2>
         <p className="text-sm text-muted-foreground">
-          {votingOnly ? (
-            "Read the definitions and vote for the one closest to what you consider correct. Your choice is saved and you move to the next term. You may choose any definition, including your own, regardless of its score. If you cannot choose, skip the term and explain your concerns in the closing feedback."
-          ) : (
-            <>
-              Choose the definition closest to what you consider correct. Accept
-              it as written, or suggest a revision to make it more accurate. You
-              may choose your own definition. Propose a new definition if none
-              is close enough. Accept records your choice and adds an upvote if
-              you have not already upvoted that revision.
-            </>
-          )}
+          Choose the definition closest to what you consider correct. Accept it
+          as written, or suggest a revision to make it more accurate. You may
+          choose your own definition. Propose a new definition if none is close
+          enough. Accept records your choice and adds an upvote if you have not
+          already upvoted that revision.
+          {singlePass &&
+            " Post any public comments before accepting or publishing, which completes this term."}
         </p>
       </Card>
       <section aria-labelledby="skip-term-heading">
         <Card className="gap-4 bg-muted/20 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <h2 id="skip-term-heading" className="font-semibold">
-              {votingOnly
-                ? "Unable to choose a definition?"
-                : "Don’t know this term well enough to choose?"}
+              Don’t know this term well enough to choose?
             </h2>
             <p className="text-sm text-muted-foreground">
               You can record no opinion and move to the next term.
@@ -472,8 +471,8 @@ const Candidates = ({
               <DialogHeader>
                 <DialogTitle>Skip {step.term}?</DialogTitle>
                 <DialogDescription>
-                  {votingOnly
-                    ? "No choice or vote will be recorded for this term. You can explain why in the closing feedback."
+                  {singlePass
+                    ? "No position or vote will be recorded for this term."
                     : "You won’t be asked to choose or review a definition for this term."}
                 </DialogDescription>
               </DialogHeader>
@@ -507,9 +506,8 @@ const Candidates = ({
         </div>
         {candidates.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            {votingOnly
-              ? "This term has no definition available. Skip it and mention it in your closing feedback."
-              : "This term has no definition yet. You can propose the first one or skip the term."}
+            This term has no definition yet. You can propose the first one or
+            skip the term.
           </p>
         )}
         <ol className="space-y-6">
@@ -541,10 +539,7 @@ const Candidates = ({
                 <div className="flex flex-col gap-3 pl-4 sm:pl-8">
                   {candidate.vote && (
                     <p className="text-sm text-muted-foreground">
-                      {positionAcceptanceExplanation(
-                        candidate.vote,
-                        votingOnly
-                      )}
+                      {positionAcceptanceExplanation(candidate.vote)}
                     </p>
                   )}
                   <div
@@ -556,31 +551,27 @@ const Candidates = ({
                       size="sm"
                       disabled={busy}
                       onClick={() => acceptCandidate(candidate)}
-                      aria-label={`${votingOnly ? "Vote for" : "Accept"} this definition, option ${index + 1}`}
+                      aria-label={`Accept this definition, option ${index + 1}`}
                     >
-                      {votingOnly
-                        ? "Vote for this definition"
-                        : "Accept this definition"}
+                      Accept this definition
                     </Button>
-                    {!votingOnly && (
-                      <Button
-                        id={`revise-definition-${candidate.id}`}
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={(event) =>
-                          openMove(
-                            { kind: "revise", candidate },
-                            event.currentTarget
-                          )
-                        }
-                        aria-label={`Revise this definition, option ${index + 1}`}
-                      >
-                        Revise this definition
-                      </Button>
-                    )}
+                    <Button
+                      id={`revise-definition-${candidate.id}`}
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={(event) =>
+                        openMove(
+                          { kind: "revise", candidate },
+                          event.currentTarget
+                        )
+                      }
+                      aria-label={`Revise this definition, option ${index + 1}`}
+                    >
+                      Revise this definition
+                    </Button>
                   </div>
-                  {(candidate.comments ?? 0) > 0 && (
+                  {(singlePass || (candidate.comments ?? 0) > 0) && (
                     <section
                       className="flex flex-col gap-3"
                       aria-labelledby={`position-comments-${candidate.id}`}
@@ -596,9 +587,20 @@ const Candidates = ({
                         <TermComments
                           id={candidate.id}
                           definitionNumber={candidate.definitionNumber}
-                          readOnly
+                          readOnly={!singlePass}
                         />
                       </Suspense>
+                      {singlePass && (
+                        <TermCommentBox
+                          id={candidate.id}
+                          revisionId={candidate.currentRevisionId!}
+                          surveyStepId={step.id}
+                          expectedInstructions={expectedInstructions}
+                          disabled={busy}
+                          onMutationStart={onMutationStart}
+                          onMutationEnd={onMutationEnd}
+                        />
+                      )}
                     </section>
                   )}
                 </div>
@@ -607,35 +609,31 @@ const Candidates = ({
           ))}
         </ol>
       </section>
-      {!votingOnly && (
-        <>
-          <Separator />
-          <section aria-labelledby="new-definition-alternative">
-            <Card className="gap-4 bg-muted/30 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <h2 id="new-definition-alternative" className="font-semibold">
-                  None is close enough?
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Write the definition you would use instead. It will be added
-                  as a new option for this term.
-                </p>
-              </div>
-              <Button
-                id="propose-new-definition"
-                variant="outline"
-                disabled={busy}
-                className="w-full sm:w-auto"
-                onClick={(event) =>
-                  openMove({ kind: "propose" }, event.currentTarget)
-                }
-              >
-                Propose a new definition
-              </Button>
-            </Card>
-          </section>
-        </>
-      )}
+      <Separator />
+      <section aria-labelledby="new-definition-alternative">
+        <Card className="gap-4 bg-muted/30 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 id="new-definition-alternative" className="font-semibold">
+              None is close enough?
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Write the definition you would use instead. It will be added as a
+              new option for this term.
+            </p>
+          </div>
+          <Button
+            id="propose-new-definition"
+            variant="outline"
+            disabled={busy}
+            className="w-full sm:w-auto"
+            onClick={(event) =>
+              openMove({ kind: "propose" }, event.currentTarget)
+            }
+          >
+            Propose a new definition
+          </Button>
+        </Card>
+      </section>
     </div>
   )
 }
@@ -649,7 +647,7 @@ const Candidates = ({
  */
 const Position = ({
   step,
-  votingOnly,
+  singlePass,
   expectedInstructions,
   pending,
   onAccepted,
@@ -661,7 +659,7 @@ const Position = ({
   onMutationEnd
 }: {
   step: Step
-  votingOnly: boolean
+  singlePass: boolean
   expectedInstructions: string | null
   pending: boolean
   onAccepted: (nextPosition: number | null) => void
@@ -675,11 +673,11 @@ const Position = ({
     <div className="space-y-6">
       <Suspense fallback={<Skeleton className="h-32 w-full" />}>
         {settled ? (
-          <HeldPosition step={step} votingOnly={votingOnly} />
+          <HeldPosition step={step} singlePass={singlePass} />
         ) : (
           <Candidates
             step={step}
-            votingOnly={votingOnly}
+            singlePass={singlePass}
             expectedInstructions={expectedInstructions}
             pending={pending}
             onAccepted={onAccepted}
@@ -970,7 +968,6 @@ const Finished = ({
     <CompletedStudySummary
       steps={steps}
       earlierSteps={earlierSteps}
-      votingOnly={isVotingStudy(study.slug)}
       onSelect={onSelect}
     />
     <div className="space-y-4 border-t pt-6">
@@ -1002,7 +999,7 @@ export const Walkthrough = ({
   const [walkthrough] = trpc.surveys.get.useSuspenseQuery({ studySlug })
   const utils = trpc.useUtils()
   const { study, steps } = walkthrough
-  const votingOnly = isVotingStudy(study.slug)
+  const singlePass = isSinglePassStudy(study.slug)
   const total = steps.length
   const expectedInstructions =
     steps.find(
@@ -1081,8 +1078,6 @@ export const Walkthrough = ({
       })
   }
 
-  // A refreshed protocol can remove the displayed step. Resume actual work
-  // instead of showing a premature completion screen at an obsolete position.
   const visiblePosition = reachable(position)
     ? position
     : (walkthrough.resumePosition ?? total + 1)
@@ -1100,7 +1095,7 @@ export const Walkthrough = ({
             </div>
             <StudyHelp
               kind={step?.kind}
-              votingOnly={votingOnly}
+              singlePass={singlePass}
               instructions={expectedInstructions}
               sections={helpSections}
             />
@@ -1113,7 +1108,7 @@ export const Walkthrough = ({
                 Step {step.position} of {total}
               </h1>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <Eyebrow>{studyStepLabel(step.kind, votingOnly)}</Eyebrow>
+                <Eyebrow>{KIND_LABEL[step.kind]}</Eyebrow>
                 {step.term && (
                   <span className="text-2xl font-bold font-serif">
                     {step.term}
@@ -1140,7 +1135,6 @@ export const Walkthrough = ({
             <div className="space-y-2">
               <Dots
                 steps={steps}
-                votingOnly={votingOnly}
                 position={visiblePosition}
                 reachable={reachable}
                 navigationLocked={navigationLocked}
@@ -1153,7 +1147,7 @@ export const Walkthrough = ({
                   <span className="font-bold text-primary" aria-hidden>
                     −
                   </span>{" "}
-                  {votingOnly
+                  {singlePass
                     ? "A dash marks a skipped term."
                     : "A skipped term marks both its Position and Review steps."}
                 </p>
@@ -1178,7 +1172,7 @@ export const Walkthrough = ({
               <Position
                 key={step.id}
                 step={step}
-                votingOnly={votingOnly}
+                singlePass={singlePass}
                 expectedInstructions={expectedInstructions}
                 pending={navigationLocked}
                 onAccepted={(nextPosition) => {

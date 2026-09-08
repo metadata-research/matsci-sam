@@ -41,7 +41,7 @@ export function TermCommentBox({
 }: {
   id: number
   revisionId: number
-  // The review step of a walkthrough the comment is posted inside.
+  // The term step of a walkthrough the comment is posted inside.
   surveyStepId?: number
   expectedInstructions?: string | null
   // A surrounding workflow can freeze this control while it completes the

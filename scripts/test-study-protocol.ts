@@ -2,10 +2,10 @@ import assert from "node:assert/strict"
 import {
   activeStudySteps,
   ID4_ROUND_TWO,
-  ID4_VOTING_INSTRUCTIONS,
-  isActiveStudyStep,
-  studyAllowsAct
+  ID4_INSTRUCTIONS,
+  isActiveStudyStep
 } from "../lib/study-protocol"
+import { studyActMatchesStep } from "../lib/study-protocol-actions"
 import { planSteps, DEFAULT_QUESTIONS, resumePosition } from "../lib/surveys"
 
 const stored = planSteps({
@@ -20,16 +20,16 @@ const original = structuredClone(stored)
 const active = activeStudySteps(ID4_ROUND_TWO, stored)
 assert.equal(stored.length, 19)
 assert.deepEqual(stored, original, "Never rewrite the historical protocol")
-assert.equal(active.length, 10)
+assert.equal(active.length, 11)
 assert.deepEqual(
   active.map((step) => step.position),
-  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 )
 assert.deepEqual(
   active.map((step) => step.id),
-  [100, 101, 102, 103, 104, 105, 106, 107, 108, 118]
+  [100, 101, 102, 103, 104, 105, 106, 107, 108, 117, 118]
 )
-assert.equal(active[0].prompt, ID4_VOTING_INSTRUCTIONS)
+assert.equal(active[0].prompt, ID4_INSTRUCTIONS)
 assert.deepEqual(activeStudySteps("another_study", stored), stored)
 assert.equal(resumePosition(active, new Set()), 1)
 assert.equal(
@@ -42,17 +42,45 @@ assert.equal(
   null
 )
 assert.equal(isActiveStudyStep(ID4_ROUND_TWO, stored[9]), false)
-assert.equal(isActiveStudyStep(ID4_ROUND_TWO, stored[17]), false)
+assert.equal(isActiveStudyStep(ID4_ROUND_TWO, stored[17]), true)
+for (const slug of [ID4_ROUND_TWO, "another_study"]) {
+  assert.equal(
+    studyActMatchesStep(slug, { kind: "define", termId: 1 }, stored[1]),
+    true
+  )
+  assert.equal(
+    studyActMatchesStep(
+      slug,
+      { kind: "vote", vote: "up", termId: 1 },
+      stored[1]
+    ),
+    true
+  )
+  assert.equal(
+    studyActMatchesStep(
+      slug,
+      { kind: "vote", vote: "down", termId: 1 },
+      stored[1]
+    ),
+    false
+  )
+}
 assert.equal(
-  studyAllowsAct(ID4_ROUND_TWO, { kind: "define", termId: 1 }),
+  studyActMatchesStep(ID4_ROUND_TWO, { kind: "comment", termId: 1 }, stored[1]),
+  true
+)
+assert.equal(
+  studyActMatchesStep(ID4_ROUND_TWO, { kind: "comment", termId: 2 }, stored[1]),
   false
 )
 assert.equal(
-  studyAllowsAct(ID4_ROUND_TWO, { kind: "vote", vote: "up", termId: 1 }),
-  true
+  studyActMatchesStep(
+    "another_study",
+    { kind: "comment", termId: 1 },
+    stored[1]
+  ),
+  false
 )
-assert.equal(
-  studyAllowsAct("another_study", { kind: "define", termId: 1 }),
-  true
+console.log(
+  "ID4 single-pass protocol, original actions, stable records and resumption passed"
 )
-console.log("ID4 amended protocol, stable records and resumption passed")

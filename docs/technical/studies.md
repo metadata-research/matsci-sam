@@ -105,10 +105,16 @@ the amended instructions too.
 
 `lib/study-protocol.ts` scopes the shortened protocol to `id4_round_two`.
 Its active sequence contains the original instructions and eight define steps,
-followed by the text question. Define steps appear as **Vote** and use
-`acceptPosition` to save one choice and ensure an upvote. Revision proposals
-and new definitions are unavailable in this activity. The Review steps and
-scale question are excluded from both participant reads and mutations.
+followed by the original closing questions. Define steps remain **Position**
+and retain Accept, suggested revisions, new-definition proposals and Skip.
+Only the repeated Review steps are excluded from participant reads and
+mutations. `studyActMatchesStep` additionally permits public comments on the
+retained ID4 Position step. Comments use that real step ID as their context,
+remain separate from its position, and do not complete it. `requireOnePosition`
+counts position acts without comments; the skip guard still counts all acts.
+The invariant permits Position comments only for ID4 and the correct term.
+Comments are read-only after the Position is complete and appear in the
+completed study record.
 
 Stored steps, positions, responses, prompts and contribution contexts remain
 intact. The active sequence uses contiguous display positions while retaining
@@ -125,15 +131,15 @@ or data rewrite. The original stored instructions remain available for analysis.
 The checked-in content file is tested against the amended instruction text.
 
 Previous choices and proposals still complete their original term steps. They
-are not converted into new voting events. Earlier Review activity and rating
-answers appear in the viewer's `earlierSteps` record, even when a Review step
+are not converted into new voting events. Earlier Review activity appears in
+the viewer's `earlierSteps` record, even when a Review step
 had activity but was not completed. Raw completion counts include historical
 steps and must not be used as the denominator for the shortened activity.
 Analysis must distinguish work under the original instructions from work after
 the amendment's release on each host. No general study-builder redesign is
 implied by this one-study amendment.
 
-`test:study-protocol-db` exercises the actual ID4 slug with synthetic new and
+`test:id4-protocol-db` exercises the actual ID4 slug with synthetic new and
 returning participants in an empty migrated scratch database. It refuses a
 populated database. CI clones the clean schema into a separate temporary
 database for this test and drops it afterwards.
@@ -167,11 +173,13 @@ two existing outcomes. A prior position or study-scoped Review act conflicts
 with the skip, and a skipped outcome prevents later study-scoped Position,
 vote, or comment acts. The skip is therefore final within that walkthrough.
 
-`actMatchesStep` says which step an act may name. A comment names the review
-step of its term. A vote names the review step whatever its kind, and the
+`studyActMatchesStep` applies the shared `actMatchesStep` rules and ID4's
+Position-comment exception. A comment names the Review step of its term, or
+the Position step in the amended ID4 study. A vote names the Review step
+whatever its kind, and the
 define step only as an upvote. A definition names the define step of its term.
 `requireStepForAct` runs `requireParticipation`, which requires a live membership
-and an open study, then `actMatchesStep`. `requireOnePosition` runs inside the
+and an open study, then `studyActMatchesStep`. `requireOnePosition` runs inside the
 transaction that writes a vote, acceptance, or definition in a define step.
 The `definitions.create` input contract rejects `surveyStepId` together with
 `replacesDefinitionId`: a Position proposal belongs to the term as a whole,

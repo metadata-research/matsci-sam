@@ -18,7 +18,11 @@ import {
   votesTable
 } from "@yamz/db"
 import type { ActorKind, GenerationStampInput } from "@/lib/participation"
-import { activeStudySteps, studyInstructions } from "./study-protocol"
+import {
+  activeStudySteps,
+  studyInstructions,
+  isSinglePassStudy
+} from "./study-protocol"
 import {
   recordCompletion,
   resumePosition,
@@ -86,7 +90,11 @@ const protocolStepsOfStudy = async (executor: Executor, studyId: number) => {
       where: eq(studiesTable.id, studyId)
     })
   ])
-  return { stored: steps, active: activeStudySteps(study?.slug ?? "", steps) }
+  return {
+    stored: steps,
+    active: activeStudySteps(study?.slug ?? "", steps),
+    slug: study?.slug ?? ""
+  }
 }
 
 // One step with the study it belongs to, which is what every participation
@@ -672,7 +680,8 @@ export const hasPosition = async (
 export const actNamesStep = async (
   executor: Executor,
   stepId: number,
-  userId: number
+  userId: number,
+  { includeComments = true }: { includeComments?: boolean } = {}
 ): Promise<boolean> => {
   const [row] = await executor
     .select({ found: sql<number>`1` })
@@ -692,11 +701,13 @@ export const actNamesStep = async (
               and r."editorId" = ${userId}
               and r.version = 1
           )`,
-          sql`exists (
+          includeComments
+            ? sql`exists (
             select 1 from ${commentsTable} c
             where c."surveyStepId" = ${surveyStepsTable.id}
               and c."userId" = ${userId}
           )`
+            : undefined
         )
       )
     )
@@ -770,8 +781,8 @@ export type WalkthroughStep = StepWithTerm & {
     valueText: string | null
     valueScale: number | null
   } | null
-  // The viewer's vote events and comments that explicitly name a review
-  // step. Null outside review steps and for a signed-out viewer.
+  // The viewer's vote events and comments naming this term step.
+  // Null outside term steps and for a signed-out viewer.
   reviewRecord: ReviewRecord | null
 }
 
@@ -787,10 +798,11 @@ export const walkthroughOf = async (
   studyId: number,
   userId: number | null
 ) => {
-  const { stored: steps, active } = await protocolStepsOfStudy(
-    executor,
-    studyId
-  )
+  const {
+    stored: steps,
+    active,
+    slug
+  } = await protocolStepsOfStudy(executor, studyId)
   if (userId === null)
     return {
       steps: active.map((step) => ({
@@ -813,9 +825,10 @@ export const walkthroughOf = async (
   const questionStepIds = steps
     .filter((step) => step.kind === "question")
     .map((step) => step.id)
-  const reviewStepIds = steps
-    .filter((step) => step.kind === "review")
-    .map((step) => step.id)
+  const hasDiscussionRecord = (step: Step) =>
+    step.kind === "review" ||
+    (isSinglePassStudy(slug) && step.kind === "define")
+  const reviewStepIds = steps.filter(hasDiscussionRecord).map((step) => step.id)
   const responseRows = questionStepIds.length
     ? executor
         .select(responseColumns)
@@ -862,10 +875,9 @@ export const walkthroughOf = async (
               : null
           })()
         : null,
-    reviewRecord:
-      step.kind === "review"
-        ? (reviewRecords.get(step.id) ?? { votes: [], comments: [] })
-        : null
+    reviewRecord: hasDiscussionRecord(step)
+      ? (reviewRecords.get(step.id) ?? { votes: [], comments: [] })
+      : null
   })
   const activeIds = new Set(active.map((step) => step.id))
   return {

@@ -25,7 +25,7 @@ export const useCreateComment = ({
   onMutationEnd
 }: {
   definitionId: number
-  // The review step of a walkthrough the comment is posted inside. Sent with
+  // The term step of a walkthrough the comment is posted inside. Sent with
   // every comment posted through this hook, so the surfaces keep calling
   // mutate with the comment alone.
   surveyStepId?: number

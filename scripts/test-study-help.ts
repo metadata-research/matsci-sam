@@ -12,8 +12,8 @@ async function main() {
   const guide = await renderDoc("guide", "studies")
   assert.ok(guide)
   const sections = studyHelpFromHtml(guide.html)
-  assert.equal(sections.length, 9)
-  assert.equal(new Set(sections.map((section) => section.id)).size, 9)
+  assert.equal(sections.length, 7)
+  assert.equal(new Set(sections.map((section) => section.id)).size, 7)
   for (const kind of ["define", "review", "question", undefined] as const) {
     const section = sections.find((entry) => entry.id === studyHelpTopic(kind))
     assert.ok(section, `Missing help for ${kind ?? "completion"}`)
@@ -28,21 +28,15 @@ async function main() {
     }
   }
   assert.equal(studyHelpTopic("instructions"), "instructions")
-  assert.equal(studyHelpTopic("define", true), "voting-on-the-terms")
-  assert.equal(studyHelpTopic("question", true), "written-feedback")
-  const voting = studyHelpSectionsFor(sections, true)
-  assert.ok(voting.some((section) => section.id === "voting-on-the-terms"))
+  const singlePass = studyHelpSectionsFor(sections, true)
+  assert.ok(singlePass.some((section) => section.id === "the-position-step"))
   assert.ok(
-    voting.every(
-      (section) =>
-        !["the-position-step", "reviewing-the-definitions"].includes(section.id)
-    )
+    singlePass.some((section) => section.id === "the-closing-questions")
   )
   assert.ok(
-    studyHelpSectionsFor(sections, false).every(
-      (section) => section.id !== "voting-on-the-terms"
-    )
+    singlePass.every((section) => section.id !== "reviewing-the-definitions")
   )
+  assert.deepEqual(studyHelpSectionsFor(sections, false), sections)
   assert.deepEqual(studyHelpFromHtml("<p>Guide unavailable</p>"), [])
   console.log(
     "Study help topics, guide boundaries, and draft-preserving links passed"
