@@ -1,58 +1,36 @@
 # Discussion
 
-The **Discussion** page lists the eight most recently added terms. Each card
-shows one definition, the number of comments on that definition, a summary
-of contributors, and controls for commenting or requesting a suggested
-revision.
+**Discussion** shows recent terms in the vocabulary selected under **Working
+in**, with up to eight cards. **Everything** includes all hosted vocabularies.
+Each card uses a model-authored definition when one is available, otherwise
+the highest-scoring definition. The term name and comment count open the term
+page.
 
-The feed selects a model-authored definition when a term has one. Otherwise,
-it selects the highest-scored definition. The term name and comment count
-link to the full term page.
-
-You can read the feed without signing in. To comment, request a suggestion, or
-publish a suggested revision you must be signed in with a name on your profile.
-Until you set one the application answers with "Complete your profile before
-contributing."
+Anyone can read the feed. Sign in and complete your profile name to contribute.
 
 ## Suggest a revision
 
-Under **Suggest a revision**, enter feedback about the displayed definition and
-select **Draft revision with a language model**. The application sends the
-term, exact source definition, and your feedback to the configured language
-model. The returned definition appears as an editable preview on the same card.
+Select **Suggest a revision**, describe what should change, and request a
+model draft. Edit the preview, then select **Publish revision** to create a
+separate candidate credited to you and the model. **Discard draft** publishes
+nothing. The original stays available.
 
-Before the preview is returned, the application stores the exact source
-revision, feedback, model, prompt, and suggested definition.
-
-- **Publish revision** creates another voteable definition for the term. You
-  are the author, the named model is a coauthor, and the new candidate records
-  its derivation from the source revision.
-- **Discard draft** closes the preview without publishing vocabulary content.
-- **Comment** is a separate action. Use it when your text should remain
-  discussion rather than become instructions for a revision.
-
-Any signed-in contributor can use this action. It is the same revision action
-available on a definition page and in a study. [AI-assisted
-suggestions](/docs/ai-refinement) describes the complete flow.
-
-The request targets the displayed source revision. If that definition changes
-before you publish, the application asks you to review the latest revision and
-request another suggestion.
+The application stores the source revision, critique, model output, and
+prompt. Request another draft if the source changes before publication.
+[AI-assisted suggestions](/docs/ai-refinement) explains the shared action.
 
 ## Post an ordinary comment
 
-Select **Post comment** to post your text unchanged. The comment records the
-displayed revision. It remains a discussion comment regardless of who authored
-the definition. It does not create a candidate, revise the definition, or
-start model work.
+Write in the separate comment box and select **Post comment**. The comment
+records your text against the displayed revision. It does not request a draft
+or change the definition.
 
 Open the full definition page to **Propose a replacement** or **Add example**.
-Those remain separate actions so their intent and provenance are explicit.
 
 ## Review history
 
-The expandable **History** area appears when a term has more than one recorded
-event. It lists revisions and comments in date order. Each revision line names
-its source as an initial, author, AI-generated, AI-assisted, or restored
-revision. The [provenance](/docs/provenance) page adds votes, accepted AI
-suggestions, and the broader recorded history.
+Expand **History** to read revisions and comments in date order. It appears
+when the term has more than one recorded event. Revision entries identify
+their source, including author edits, model-generated or assisted work, and
+restorations. The [provenance page](/docs/provenance) also includes vote events,
+examples, and published AI suggestions.

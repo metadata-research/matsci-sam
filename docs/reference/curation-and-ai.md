@@ -1,153 +1,83 @@
 # Curation and AI
 
-MatSci-SAM extends the human-in-the-loop vocabulary workflow evaluated in
-MatSci-YAMZ
-([Greenberg et al., 2025](https://arxiv.org/abs/2512.09895v1)). The application
-records human, model, and simulated contributions as distinct acts with
-attribution and provenance.
+MatSci-SAM extends the vocabulary workflow evaluated in MatSci-YAMZ
+([Greenberg et al., 2025](https://arxiv.org/abs/2512.09895v1)). Its
+human-in-the-group AI workflow combines contributor review with model drafting.
+Human, model, and simulated activity receive distinct attribution.
 
 ## Contributor and administrator roles
 
-Contributors create terms and definitions and may add separately attributed
-examples of use. A term created with a community selected belongs to that
-community's vocabulary; a term created with **Everything** selected belongs to
-the default MatSci-SAM vocabulary. Contributors may create topics and attach
-them to definitions they wrote. A contributor who created a topic may link it
-to an equivalent vocabulary term when the scheme permits the link.
+Contributors create terms and definitions, add examples, and manage topics
+on their own definitions. New terms use the selected community vocabulary
+or the default vocabulary under **Everything**. A topic creator can link
+the topic to an equivalent term when the scheme permits it.
 
-Administrators assign facets to terms and manage tags. They may edit a tag
-definition, scope note, and alternative labels, link bridgeable tags to
-equivalent terms, and merge tags. Each scheme specifies whether its concepts
-may be linked to terms.
+Administrators assign facets, edit tag definitions and scope notes, and merge
+tags. Collection changes follow the stored membership policy. Administrator
+collections accept administrator changes. Contributor collections accept
+changes from signed-in contributors when that creation mode is enabled.
+It is disabled by default.
 
-Collection membership follows the policy set when the collection is created.
-An administrator-created collection accepts changes from administrators only. A
-contributor-created collection accepts changes from any signed-in contributor.
-A deployment setting controls contributor collection creation and is disabled
-by default.
-
-Terms belong to one vocabulary scheme. The same label may identify distinct
-concepts in different schemes. A collection may reference a term from another
-scheme without changing where that term is defined. Contributors manage topics
-on definitions they wrote, and administrators manage facets on terms.
-
-Every assertion made through the application records who made it and when. A
-retraction preserves the original assertion and records who withdrew it and
-when. Statements migrated from earlier tagging tables are marked as migrated.
-Some omit an asserter because the earlier tables did not record one.
+Application assertions record author and time. Retractions preserve those
+facts and add the retracting author and time. Migrated tagging records may
+lack an author because the earlier tables did not store one.
 
 ## Tags and semantic change
 
-A tag has a preferred label and may also have alternative labels, a definition,
-a scope note, and a link to an equivalent term. The scope note states what
-belongs under the tag in classification.
+A tag retains its identifier and preferred label. Administrators can edit
+its definition, scope note, and alternative labels. A semantic replacement
+uses a merge. The original is retired, its identifier redirects, and active
+statements are retracted and asserted for the replacement. Both records remain.
 
-The identifier and preferred label of a tag remain stable. Administrators may
-edit the definition, scope note, and alternative labels. They can represent a
-semantic replacement by merging the original tag into its replacement. The
-merge operation retires the original tag, redirects its identifier, retracts
-its active statements, and asserts the corresponding statements for the
-replacement. The ledger retains both records.
-
-A tag-to-term link identifies the term, so it follows the current definitions
-of that term. An administrator may retract the link when those definitions no
-longer fit the intended classification.
-
-Each definition revision records the size of its change. The Tag drift report
-lists linked tags whose term definitions changed by at least 25 percent after
-classification statements were first filed under them.
+An equivalent-term link follows the definitions of the linked term.
+Administrators can retract the link if the meaning no longer fits the tag.
+The Tag drift report lists linked tags whose term definitions changed by at
+least 25 percent after classification began.
 
 ## Contribution actions and language-model drafting
 
-MatSci-SAM uses five general vocabulary contribution actions. Each action has
-the same meaning wherever it appears on a vocabulary page or in Discussion.
+The [five contribution actions](/docs/adding-terms#the-five-contribution-actions)
+create a new term, suggest a revision, propose a replacement, comment, or add
+an example. Model drafting is confined to **New term** and **Suggest a
+revision**. Both generate definition text only.
 
-- **New term** creates a vocabulary term and its first definition.
-- **Suggest a revision** creates a separate candidate derived from an exact
-  source revision.
-- **Propose a replacement** creates a separate candidate linked to the
-  definition it is intended to supersede.
-- **Comment** records discussion against the visible revision without changing
-  vocabulary content.
-- **Add example** attaches a separately attributed usage example to one
-  definition.
+The application stores the draft, prompt, and model tag before the contributor
+reviews it. Publication attributes the definition to the contributor and model.
+A suggested revision creates a separate candidate linked to the exact source
+revision and critique. Discarded drafts remain outside the vocabulary.
 
-A study Position step reuses **Suggest a revision**, but also has three
-study-specific choices. **Accept** records one available definition as the
-participant's position. **Propose a new definition** records an initial
-definition against the step without naming one earlier definition as a
-replacement target. The target-specific **Propose a replacement** action
-remains available from a particular definition outside the Position step.
-**Skip this term** records no opinion and skips the term's Position and Review
-steps without creating a definition or vote.
+Examples have independent contribution records. A featured example controls
+compact display while the full active set remains in the metadata. Example
+selection leaves definition revisions and votes unchanged.
 
-Language-model drafting is available only inside **New term** and **Suggest a
-revision**. **Draft with a language model** generates editable text for a new
-term. For a revision, the contributor first states what is wrong or missing,
-then selects **Draft revision with a language model**. The application sends
-that critique with the exact source definition and returns an editable draft.
-Both are drafting controls within an existing contribution action. Publishing
-either draft attributes the definition to the contributor and the named model.
-A suggested revision remains separately voteable and leaves its source
-unchanged.
-
-Comments, replacement proposals, and examples do not trigger model work.
-Examples have their own immutable contribution records, so one definition can
-retain several. One example may be featured in compact views. The full list
-remains available, and changing the featured selection does not affect the
-definition revision or its votes.
-
-Each contributing model has a profile at `/models/{model}`. The profile records
-the exact runtime tag, publisher, model family, parameter size, authored
-definitions, and prompts recorded for its revisions. One profile corresponds
-to one runtime tag. Display names begin with `MatBot` to identify model
-accounts.
-
-The application stores each model output before the contributor acts on it,
-together with the exact prompt and model tag. The contributor reviews and may
-edit the draft before deciding whether it becomes published vocabulary
-content.
-
-The [provenance model](/docs/reference/provenance-model) connects each
-accepted revision suggestion to its source revision, critique, prompt, stored
-output, decision, and published candidate. The record identifies the generated
-text and the human action that published it. New-term suggestions use the same
-generation stamp without a source revision.
+Model profiles at `/models/{model}` identify a runtime tag, inferred publisher
+and family, parameter size when available, directly authored definitions,
+and recorded prompts. Model-account display names begin with `MatBot`.
+The tag records the requested model configuration.
 
 ## Studies and support
 
-A community may conduct a study over a collection of terms with an ordered
-walkthrough. The protocol asks each participant to accept an available
-definition, suggest a revision to the closest one, propose a new definition,
-or skip an unfamiliar term.
-Acceptance ensures an upvote without duplicating one already held. Publishing
-an alternative records the position without casting a vote. A suggested revision uses the critique-driven
-language-model drafting control and creates a definition whose first revision
-names the source revision. A new definition names the Position step but has no
-derivation or replacement target.
+A study records ordered participation over a collection. A Position accepts
+an existing definition, publishes an AI-assisted alternative, or proposes a
+new definition. A participant may also skip before contributing.
 
-The [study guide](/docs/studies#study-and-vocabulary-workflows) distinguishes
-these actions from ordinary vocabulary work, including the Position screen's
-presentation order and the separation of positions from support scores.
+Accept records or retains an upvote. A published proposal completes Position
+without a vote. A suggested revision names its source revision. An independent
+proposal has no derivation or replacement target.
 
-Votes, comments, and definitions created through the walkthrough name the
-study step that prompted them. Step completions and closing answers form
-separate attributed records.
+ID4 round two permits comments during Position and omits the repeated Review
+round. Other studies may have Review steps for additional votes and comments.
+See [Studies](/docs/studies#study-and-vocabulary-workflows).
 
-The study overview does not select or display a consensus definition. Votes
-cast during the activity continue to affect support on the ordinary definition
-pages, while study-step links identify the activity produced through the
-walkthrough.
+Contributions made in the activity identify their step. Completions and
+closing answers are separate records. Vocabulary support can include votes
+from outside the study, and the overview does not publish it as consensus.
 
-A membership episode records the period from the addition of a person to a
-community through removal. A member may act in a study while that episode and
-the study are open. The RDF dataset publishes the study as an activity with
-its window and collection. Community rosters and invitations remain private
-application data.
+Participation requires an active membership episode and an open study.
+The RDF describes the study window and collection, while rosters and
+invitations remain private application data.
 
-A simulated participant uses a separate account whose display name identifies
-it as simulated. Model-generated definitions, comments, and text answers
-record the model tag and prompt. Votes, comments, and answers record the
-`simulated` actor kind, while definitions are attributed to the account. The
-actor-kind record separates human activity, direct model authorship, and
-simulated participation in the provenance graph.
+Simulated participants use separately labeled accounts. Generated definitions,
+comments, and text answers record their model tag and prompt. Votes, comments,
+and answers identify the `simulated` actor kind.
+[The provenance model](/docs/reference/provenance-model) specifies their export.

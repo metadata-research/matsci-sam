@@ -1,69 +1,54 @@
 # AI-assisted suggestions
 
-AI is an optional drafting aid inside two contribution actions: **New term**
-and **Suggest a revision**. It is not a separate publication workflow.
-Comments, replacement proposals, and examples never start model work.
+MatSci-SAM provides model drafts within **New term** and **Suggest a revision**.
+You review and edit the text before publication. This human-in-the-group AI
+workflow records the contributor and model behind a published draft.
 
 ## Suggest a definition for a new term
 
-On **Contribute**, enter a term that is not already in the selected vocabulary.
-You may write the definition yourself or select **Draft with a language
-model**. If you have started writing, that text is sent as contributor context.
+Enter a term on **Contribute** and select **Draft with a language model**.
+Any definition text you already entered is sent as context. The result appears
+in the editable definition field.
 
-The suggested definition appears in the editable definition field. Nothing is
-published until you review the draft and select **Publish new term**. If you
-publish using the suggestion, the resulting definition credits you and the
-named model. Select **Remove model draft** to discard it and continue without the
-suggestion.
-
-The model drafts only the definition. You may write an optional first example
-in the same contribution form, but the application does not send it to the
-model. Publishing records it as a separately attributed example linked to the
-new definition's first revision. More examples can be added from the published
-definition page.
+Select **Publish new term** after reviewing the draft, or **Remove model
+draft** to continue without it. A published model draft credits you and the
+named model. An optional example you write receives separate attribution.
+The model generates definition text only.
 
 ## Suggest a revision to a definition
 
-Open a current definition and select **Suggest a revision**. This action is
-also available on the **Discussion** page and inside a study position step.
+Open a current definition and select **Suggest a revision**. The action is
+also available in **Discussion** and study Position steps.
 
-1. In **What should change?**, identify the error, ambiguity, or missing
-   distinction.
-2. Select **Draft revision with a language model**. The application sends the
-   term, exact source definition, and your critique to the configured model.
-3. Review and edit the returned definition. The model and its exact version
-   are shown beside the draft.
-4. Select **Publish revision** to create a separately voteable candidate, or
-   **Discard draft** to publish nothing.
+1. Describe the error, ambiguity, or missing distinction in **What should
+   change?**
+2. Select **Draft revision with a language model**. The request includes the
+   term, source revision, and your critique.
+3. Review and edit the returned definition. Check the model tag shown beside
+   the draft.
+4. Select **Publish revision** or **Discard draft**.
 
-The source definition remains available for comparison and voting. The new
-candidate records the exact source revision, your critique, the stored model
-output, the prompt, and the model identity. It is attributed to you with the
-model as a coauthor.
+Publication creates a separate candidate credited to you and the model.
+The original remains available. The record links the candidate to its exact
+source revision, critique, prompt, and stored model output. Request a new
+draft if the source revision changes before publication.
 
-In a study Position step, publishing this separate definition also records
-your Position and completes the step. It does not cast a vote; voting and
-comments follow in Review. Begin with **Revise this definition** on the option
-you want to improve. The button **Publish revision** here does not edit
-the original definition in place. Editing your own existing definition is a
-different action described in [Community review and revisions](/docs/community#editing-and-proposing-definitions).
-
-The source revision must still be current when the suggestion is requested and
-published. If it changes, review the latest wording and request a new draft.
+In a study, begin with **Revise this definition**. Publication also records
+your Position and completes the step without casting a vote. ID4 round two
+then advances to the next unfinished step. Studies with a separate Review
+round allow votes and comments there. See
+[the Position step](/docs/studies#the-position-step).
 
 ## Keep the actions distinct
 
-- Use **Comment** to post discussion text unchanged. It never revises a
-  definition or prompts a language model.
-- Use **Propose a replacement** to write a different human-authored candidate
-  that should supersede the current one. This action does not prompt a language
-  model. Its optional first example is also written by the contributor.
-- Use **Add example** to contribute an example of use. Examples have their own
-  attribution and do not change the definition revision or its votes.
-- In a study, use **Propose a new definition** to write an independent
-  alternative for the current term. It does not invoke AI or name a
-  replacement target. See [the Position step](/docs/studies#the-position-step).
+**Suggest a revision** creates a separate candidate. **Edit** on your own
+definition appends a revision under its existing identifier. Both forms use
+**Publish revision** as the final button.
 
-[Community review and revisions](/docs/community) explains candidate voting
-and immutable revision history. [Provenance](/docs/provenance) explains the
-record retained for accepted AI-assisted contributions.
+Use **Comment** for discussion, **Propose a replacement** for a candidate you
+write to supersede another, and **Add example** for an example of use. These
+actions do not request model output. A study proposal is an independent
+definition for the current term.
+
+[Community review and revisions](/docs/community#editing-and-proposing-definitions)
+explains editing. [Provenance](/docs/provenance) describes the published record.

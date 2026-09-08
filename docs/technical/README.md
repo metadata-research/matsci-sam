@@ -1,28 +1,29 @@
 # Technical documentation
 
-These notes are for developers changing the code and assume the setup in the
-[developer guide](../../developing.md). They are repository documentation. The
-served documentation is divided between the user guide in `docs/guide/` and
-the knowledge organization reference in `docs/reference/`.
+These notes describe implementation contracts for developers. Begin with the
+[development setup](../../developing.md). The [documentation index](../README.md)
+links to contributor instructions and the metadata reference.
 
-- [The statement ledger](knowledge-organization-ledger.md) covers the schema,
-  the checks, the invariants, the predicate registry, the export, and the
-  tests that verify their consistency.
-- [The LLM layer](llm-layer.md) covers the client, the prompt registry, the
-  provenance stamp, model identities, and how to add a structured call.
-- [Examples of use](examples.md) covers independent example contributions,
-  featured-example history, compatibility projections, legacy records, and the
-  tests that protect those contracts.
-- [The graph layer](graph-layer.md) covers the named graphs, the projector
-  and its hooks, running the Fuseki store and the Jena validators locally,
-  the SHACL shapes, what CI checks, and the paper queries.
-- [Studies and the walkthrough](studies.md) covers the study and survey
-  tables, the plan of a walkthrough, the position rule and where it is
-  enforced, the vote event backfill, the support-based outcome, and the tests.
-- [Pilot tooling](pilot-tooling.md) covers the curation script and its
-  manifest, the driver and its checkpointing, the persona accounts and
-  prompts, the environment, and the verifier.
+## Data and publication
 
-Read the statement-ledger note before changing a ledger table. Several rules
-are enforced in more than one layer, and the tests verify that those layers
-agree.
+- [Statement ledger](knowledge-organization-ledger.md): schema, authorization,
+  invariants, and RDF export.
+- [Examples of use](examples.md): immutable contributions and featured-selection
+  history.
+- [Graph layer](graph-layer.md): projection, Fuseki, SHACL, and graph checks.
+- [Canonical definitions and identifiers](w3id-canonical-term-proposal.md):
+  ordering, readable routes, content negotiation, and compatibility limits.
+
+## Contributions and studies
+
+- [LLM layer](llm-layer.md): prompts, model identities, generation stamps, and
+  publication boundaries.
+- [Studies and walkthrough](studies.md): steps, Position recording, protocol
+  amendments, exclusions, and invariants.
+- [Study help and workflow](study-help-and-workflow.md): shared guide excerpts,
+  authentication return paths, and draft state.
+- [Pilot tooling](pilot-tooling.md): curation manifests, simulated participants,
+  checkpoints, and verification.
+
+Read the relevant contracts before changing a write path. Schema checks,
+application rules, and release invariants often enforce the same relationship.

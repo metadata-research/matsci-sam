@@ -1,73 +1,50 @@
 # Adding a term
 
-Sign in and give your name in the profile editor, then open **Contribute**
-under **Participate** in the navigation bar. Complete the account name before
-submitting a contribution.
-
-The **Working in** selection determines the vocabulary. A selected community
-publishes the term in its own scheme. **Everything** publishes it in the
-default MatSci-SAM scheme at `/vocabulary`. The form names that destination
-before publication.
+Sign in, complete your name in the profile editor, and open **Contribute**
+under **Participate**. Check the destination vocabulary on the form.
+**Working in** selects a community vocabulary. **Everything** uses the
+default MatSci-SAM vocabulary.
 
 ## New term
 
-- **Term.** The new word or phrase you are defining. If it already exists in
-  the destination vocabulary, the form points to that term instead of creating
-  another. The same label in another vocabulary is a separate concept and does
-  not block publication.
-- **Definition.** Name the broader class, then what distinguishes the term.
-  For austenite, "A face-centered cubic phase of iron and its alloys,
-  able to dissolve considerably more carbon than ferrite."
-- **Example of use (optional).** Show how the proposed definition is used in a
-  materials science context. The example keeps its own contributor credit even
-  though you can publish it from the same form.
+Enter the term and a definition. Name the broader class, then the
+characteristics that distinguish the concept. An optional example can show
+how the definition is used in materials science.
 
-Select **Draft with a language model** to generate editable text. Review and
-edit the draft before publishing. The published definition is attributed to
-you and the named model.
+The form links to the existing term when its label is already defined in the
+destination vocabulary. The same label in another vocabulary identifies a
+separate concept.
 
-Select **Publish new term** to create the vocabulary term and its first
-numbered definition. If you supplied an example, the same publication action
-also creates example 1 as a separate contribution linked to that exact first
-revision. You and other contributors can add more examples from the definition
-page later.
+You may request editable definition text with **Draft with a language model**.
+Review the text before selecting **Publish new term**. A published model draft
+credits you and the named model. The model does not receive or rewrite the
+example you supply.
+
+Publication creates the term and its first numbered definition. An optional
+example is stored as a separate contribution linked to revision 1. You can
+add further examples from the definition page.
 
 ## The five contribution actions
 
-MatSci-SAM separates vocabulary contributions into five actions. **New term**
-begins on Contribute. Each of the other four actions applies to a current
-definition. Discussion and studies present the actions available in those
-contexts.
+| Action                | Result                                                                          |
+| --------------------- | ------------------------------------------------------------------------------- |
+| New term              | A term and its first definition, with optional model drafting                   |
+| Suggest a revision    | A separate candidate drafted by a model from your critique of a source revision |
+| Propose a replacement | A candidate you write, linked to the definition it should supersede             |
+| Comment               | Discussion text attached to the displayed revision                              |
+| Add example           | A separately attributed example of use                                          |
 
-A study adds **Propose a new definition** for its current term. That action
-creates an independent definition without a replacement target and records
-the participant’s Position. It does not create a new term. See
+**New term** starts on Contribute. The other actions start from a current
+definition. A suggested revision or replacement leaves the original
+available for comparison and voting. Comments and examples leave the
+definition text unchanged. Only **New term** and **Suggest a revision**
+provide model drafting.
+
+A study also has **Propose a new definition** for an existing term. It records
+your Position without a replacement target. See
 [Study and vocabulary workflows](/docs/studies#study-and-vocabulary-workflows).
 
-- **New term** creates a vocabulary term and its first definition. The optional
-  **Draft with a language model** control generates editable definition text.
-  A contributor-written first example may accompany publication.
-- **Suggest a revision** starts from a particular current definition. Tell the
-  application what is wrong or missing, then select **Draft revision with a
-  language model**. Review and edit the returned draft before publishing. The
-  result is a separately voteable candidate linked to the exact definition
-  revision it came from. The source remains available.
-- **Propose a replacement** lets you write a different candidate that should
-  supersede the current one. Both remain visible for comparison and voting. An
-  optional contributor-written first example may accompany the replacement.
-- **Comment** posts exactly the comment you wrote. It does not revise a
-  definition or start model work.
-- **Add example** contributes an example of use to one definition. Definitions
-  can have multiple examples. One may be featured in compact views, while the
-  complete list remains visible on the definition page.
-
-Language-model drafting is available only within **New term** and **Suggest a
-revision**, and it drafts definition text only. It never receives or rewrites
-the optional example. Replacing a definition, commenting, and adding an example
-are distinct human actions. Adding or featuring an example does not create a
-new definition revision or reset its votes.
-
-The definition keeps the same identifier and URL when its author publishes
-later revisions. You can also [tag your contribution](/docs/tags).
-[Community review and revisions](/docs/community) explains voting, comments,
-and provenance.
+The primary author can edit a published definition under its existing
+identifier. [Community review and revisions](/docs/community) explains that
+action, voting, and examples. [AI-assisted suggestions](/docs/ai-refinement)
+gives the model-drafting steps.

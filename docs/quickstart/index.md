@@ -1,120 +1,91 @@
 # Quick start
 
-MatSci-SAM is a collaborative dictionary for materials science terminology.
-The steps below take a new term from contribution to its recorded history.
-Each section links to the corresponding page of the user guide.
+MatSci-SAM (Semantic Alignment and Standardization) is a collaborative
+dictionary for materials science terminology. Contributors publish
+definitions, compare alternatives, and record their discussion and revisions.
 
-**Taking part in a study?** Open the study activity and follow its instructions.
-The [study guide](/docs/studies) explains Position, Review, and saved progress;
-**Study help** opens that guidance inside the activity. The workflow below
-describes ordinary vocabulary contributions, which do not complete study steps.
+To participate in a study, begin from the study link. **Study help** explains
+the controls inside the activity. The [study guide](/docs/studies) covers
+joining and saved progress. Contributions outside the activity do not complete
+study steps.
 
 ## Sign in
 
-Select **Login** in the navigation bar and choose an available sign-in
-method. If you have contributed before, use the same account to keep your
-work and community memberships together. You can link an ORCID iD to the
-account later when that option is available.
-Anyone can read the dictionary without an account. An account is required to
-add a definition or example, vote, or comment.
+Select **Login** and choose an available sign-in method. Use the same account
+as before to retain your contributions and memberships. Anyone can read the
+dictionary. You need an account to contribute, vote, or comment.
 
-[Account access](/docs/account-access) describes the sign-in methods and linked
-ORCID iDs.
+[Account access](/docs/account-access) covers email, Google, and linked ORCID iDs.
 
 ## Add a term
 
-Open **Contribute** and fill in the new term and its definition. Name the
-broader class first, then what distinguishes the term from its neighbours.
-If the term already exists, open its vocabulary page and choose one of the
-actions there instead.
+Open **Contribute** and check the destination vocabulary shown on the form.
+Enter the term and a definition. Name the broader class, then the distinguishing
+characteristics. You may also add an example of use.
 
-Select **Draft with a language model** to generate editable text. Review and
-edit the draft before publishing. The published definition is attributed to
-you and the named model.
+**Draft with a language model** generates an editable definition. Review it
+before selecting **Publish new term**. A published model draft credits you and
+the named model. An example you write receives separate attribution.
 
-![The New term form with its definition field and optional AI suggestion control](/images/docs/quickstart-contribute.png)
+![New term form with optional model drafting](/images/docs/quickstart-contribute.png)
 
-[Adding a term](/docs/adding-terms) covers the contribution actions and the
-form in detail.
+Use the existing term page for further contributions when the term is already
+defined. [Adding a term](/docs/adding-terms) explains the available actions.
 
 ## Compare the definitions
 
-A term can have several definitions from different contributors. The term page
-orders them from highest to lowest score, with the vote arrows to the left of
-each card.
+A term can have several competing definitions. The highest-scoring definition
+appears first on the term page and is labeled canonical. Vote arrows support
+or oppose the current revision. Select the same arrow again to withdraw your
+vote.
 
-![The term page for passivation, with three definitions, vote arrows, status chips, and the model attribution on the model-authored definition](/images/docs/quickstart-term.png)
+![Competing definitions with votes and attribution](/images/docs/quickstart-term.png)
 
-A definition written by a model names that model and its exact version, so a
-reader can tell machine text from human text. The chip beside each definition
-reports the net score of the current revision as proposed, community-reviewed,
-or stable. Those labels summarize voting activity. Scientific
-assessment comes from the definitions and their discussion.
-
-[Community review and revisions](/docs/community) explains voting, score, and
-status.
+The proposed, community-reviewed, and stable labels summarize vote scores.
+Assess the wording and discussion to judge scientific quality.
+[Community review and revisions](/docs/community) explains scores and ordering.
 
 ## Comment on a definition
 
-Each definition includes a comment thread. The application records every
-comment against the revision visible when it was posted.
+Use the comment box to discuss a definition. Each comment records the revision
+shown when you posted it.
 
-![A definition page scrolled to its comment thread](/images/docs/quickstart-comments.png)
-
-A comment stores exactly the text you post. It does not alter the definition
-or start model work.
+![A definition comment thread](/images/docs/quickstart-comments.png)
 
 ## Ask for a revision
 
-On a current definition, select **Suggest a revision**, explain what is wrong
-or missing, and prompt the configured language model to draft new wording. The
-application sends the term, source definition, and your feedback to the model.
-The editable preview appears before anything is published. The same action is
-available in the **Discussion** feed and in a study walkthrough.
+Select **Suggest a revision** on a current definition. Explain what should
+change, request a model draft, and edit the result. **Publish revision** creates
+a separate candidate linked to the source revision and credited to you and
+the model. **Discard draft** publishes nothing.
 
-![The Discussion page, with separate Suggest a revision and Comment controls](/images/docs/quickstart-revise.png)
+![Revision and comment controls in Discussion](/images/docs/quickstart-revise.png)
 
-Publish the reviewed draft to create a separate voteable candidate, linked to
-the exact source revision. The source remains available. The new candidate is
-credited to you, with the named model as a coauthor. Discarding the draft
-publishes nothing. Use the separate **Comment** action when the feedback should
-remain discussion only.
-
-[Discussion](/docs/discussion) covers the feed, and [AI-assisted
-suggestions](/docs/ai-refinement) covers the two contribution actions that can
-prompt a language model for a draft.
+The action is also available in [Discussion](/docs/discussion) and study
+Position steps. [AI-assisted suggestions](/docs/ai-refinement) gives the steps.
 
 ## Replace or illustrate a definition
 
-Select **Propose a replacement** when you want to write a different candidate
-that should supersede the current definition. The proposal and its target both
-remain visible for comparison and voting.
+**Propose a replacement** publishes a candidate you write and identifies the
+definition it should supersede. Both remain available for comparison.
 
-Select **Add example** to contribute a usage example to a particular
-definition. A definition can have several examples. Its page shows all of
-them, while one featured example represents the definition in compact views.
-Adding or featuring an example does not create a definition revision or reset
-its votes.
+**Add example** contributes a usage example to a definition. The definition
+page lists all examples. One featured example appears in compact views. An
+example change leaves the definition revision and votes unchanged.
 
 ## Follow the record
 
-The application records term creation, definition publication, derivation and
-replacement links, AI suggestions that are used, examples, comments, and
-votes. The provenance page for a term presents the published history as a
-timeline and as a W3C PROV-O graph available for download.
+Open **Provenance** on a term page for its contribution timeline and graph.
+The record includes revisions, comments, vote events, examples, and published
+AI-assisted work. It is also available as W3C PROV-O data.
 
-![The provenance graph for passivation, including definitions, examples, AI-assisted activity, comments, and the timeline](/images/docs/quickstart-provenance.png)
+![A term provenance graph and timeline](/images/docs/quickstart-provenance.png)
 
-Definitions and revisions keep stable addresses, so a citation continues to
-resolve to the exact text it referred to.
-
-[Provenance](/docs/provenance) describes the recorded history, and
-[Identifiers and citation](/docs/identifiers) describes the address scheme.
+Cite a revision link to identify exact definition text. A definition link
+follows later edits. [Identifiers and citation](/docs/identifiers) explains
+the choices and [Provenance](/docs/provenance) describes the recorded history.
 
 ## Where to go next
 
-The [User guide](/docs/guide) covers search, tagging, communities and
-studies, contributor profiles, and metadata downloads in full. The
-[Knowledge organization](/docs/reference) pages describe the model behind
-terms, tags, and collections, together with the SKOS and PROV-O vocabularies
-used to publish it.
+Use the [user guide](/docs/guide) for a specific task and the
+[knowledge organization reference](/docs/reference) for the metadata model.
