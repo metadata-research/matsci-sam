@@ -26,10 +26,22 @@ import {
   getServiceHealth
 } from "@/lib/admin/integration-readiness"
 import { adminStudiesRouter } from "./admin-studies"
+import {
+  getInferenceTestConfiguration,
+  testInference
+} from "@/lib/llm/diagnostic"
+import { inferenceTestInput } from "@/lib/llm/test-options"
 
 export const adminRouter = createTRPCRouter({
   studies: adminStudiesRouter,
   inference: adminProcedure.query(() => getInferenceHealth()),
+  inferenceTestConfiguration: adminProcedure.query(() =>
+    getInferenceTestConfiguration()
+  ),
+  inferenceTest: adminProcedure
+    .meta({ marksGraphs: false })
+    .input(inferenceTestInput)
+    .mutation(({ input }) => testInference(input)),
   serviceHealth: adminProcedure.query(() => getServiceHealth()),
   feedbackInbox: adminProcedure
     .input(

@@ -76,7 +76,7 @@ jobs:
         run: |
           pnpm db:invariants
 
-      - name: Test inference provenance across provider switching
+      - name: Test admin inference diagnostics and provenance across provider switching
         env:
           PGPASSWORD: postgres
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_inference_ci

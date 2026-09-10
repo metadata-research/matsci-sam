@@ -1,6 +1,6 @@
 import { HydrateClient, trpc } from "@/trpc/server"
 import { Suspense } from "react"
-import { TestInference } from "./inference"
+import { InferenceHealthCard } from "./inference"
 import { WolframCard } from "./wolfram"
 import { AdminPageHeader } from "../page-header"
 import { AiSubnav } from "../ai-subnav"
@@ -55,7 +55,7 @@ export default async function AdminIntegrationsPage() {
         </section>
 
         <Suspense fallback={<IntegrationLoading label="Inference" />}>
-          <TestInference />
+          <InferenceHealthCard />
         </Suspense>
         <WolframCard configured={integrations.wolfram.configured} />
       </div>
