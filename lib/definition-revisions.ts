@@ -1,3 +1,4 @@
+import type { InferenceMetadata } from "./llm/types"
 import { DiffOp } from "diff-match-patch-ts"
 import {
   db,
@@ -48,6 +49,7 @@ interface PublishDefinitionRevisionInput {
   changeNote: string
   source: DefinitionRevisionSource
   expectedRevisionId?: number
+  inference?: InferenceMetadata | null
   model?: string | null
   prompt?: string | null
   derivedFromRevisionId?: number | null
@@ -68,6 +70,7 @@ export interface CreateDefinitionWithInitialRevisionInput {
     DefinitionRevisionSource,
     "initial" | "ai_assisted" | "ai_refinement" | "ai_generation"
   >
+  inference?: InferenceMetadata | null
   model?: string | null
   prompt?: string | null
   refinedFromId?: number | null
@@ -121,6 +124,7 @@ export async function createDefinitionWithInitialRevision(
       definition: input.definition,
       example: input.example,
       model: input.model ?? null,
+      inference: input.inference ?? null,
       prompt: input.prompt ?? null,
       refinedFromId: input.refinedFromId ?? null,
       replacesDefinitionId: input.replacesDefinitionId ?? null,
@@ -143,6 +147,7 @@ export async function createDefinitionWithInitialRevision(
       changeNote: input.changeNote.trim(),
       source: input.source,
       model: input.model ?? null,
+      inference: input.inference ?? null,
       prompt: input.prompt ?? null,
       derivedFromRevisionId: input.derivedFromRevisionId ?? null,
       sourceRefinementId: input.sourceRefinementId ?? null,
@@ -171,7 +176,11 @@ export async function createDefinitionWithInitialRevision(
       // by the model that may have drafted the definition.
       generation: initialExample
         ? undefined
-        : exampleStampFromLegacyGeneration(input.model, input.prompt)
+        : exampleStampFromLegacyGeneration(
+            input.model,
+            input.prompt,
+            input.inference
+          )
     })
   }
 
@@ -246,6 +255,7 @@ export async function publishDefinitionRevision(
       // Attribution belongs to this exact revision. Human edits and rollbacks
       // must not inherit an earlier model stamp.
       model: input.model ?? null,
+      inference: input.inference ?? null,
       prompt: input.prompt ?? null,
       derivedFromRevisionId: input.derivedFromRevisionId ?? null,
       sourceRefinementId: input.sourceRefinementId ?? null,
@@ -262,6 +272,7 @@ export async function publishDefinitionRevision(
       definition: input.definition,
       example: input.example!,
       model: revision.model,
+      inference: revision.inference,
       prompt: revision.prompt,
       score: 0
     })

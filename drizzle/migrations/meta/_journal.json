@@ -393,6 +393,13 @@
       "when": 1788608378791,
       "tag": "0055_study_definition_exclusions",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1789069508924,
+      "tag": "0056_selectable_inference",
+      "breakpoints": true
     }
   ]
 }

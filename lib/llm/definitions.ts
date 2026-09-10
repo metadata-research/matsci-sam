@@ -10,9 +10,8 @@ import {
 import { and, asc, eq, isNull } from "drizzle-orm"
 import { UpsertAIDefinition } from "../crud"
 import { runLLM } from "./client"
-import { OllamaModel } from "./model"
 import { LLMSystemPrompt } from "./prompts"
-import { generationStamp } from "./stamp"
+import { makeGenerationStamp } from "./stamp"
 import {
   buildRevisionMessages,
   needsReconstructedDefinitionContext
@@ -62,8 +61,9 @@ export const reviseDefinition = async (termId: number) => {
   )
   if (!result) throw new Error("Something went wrong")
 
-  await UpsertAIDefinition(termId, result, {
-    model: OllamaModel,
+  await UpsertAIDefinition(termId, result.output, {
+    model: result.inference.model,
+    inference: result.inference,
     prompt: LLMSystemPrompt
   })
 
@@ -71,11 +71,17 @@ export const reviseDefinition = async (termId: number) => {
     .insert(chatsTable)
     .values({
       role: "system",
-      message: `<definition>\n${result?.definition}\n\n<example>\n${result.example}`,
+      message: `<definition>\n${result.output.definition}\n\n<example>\n${result.output.example}`,
       termId,
-      ...generationStamp
+      ...makeGenerationStamp(
+        process.env.SYSTEM_PROMPT
+          ? null
+          : (process.env.SYSTEM_PROMPT_KEY ?? null),
+        LLMSystemPrompt,
+        result.inference
+      )
     })
     .returning()
 
-  return { result, insertedChat }
+  return { result: result.output, insertedChat }
 }

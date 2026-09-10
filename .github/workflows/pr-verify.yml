@@ -76,6 +76,17 @@ jobs:
         run: |
           pnpm db:invariants
 
+      - name: Test inference provenance across provider switching
+        env:
+          PGPASSWORD: postgres
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_inference_ci
+          SYSTEM_PROMPT_KEY: materials-reference
+        run: |
+          createdb --host=localhost --username=postgres --template=matsci_sam_ci matsci_sam_inference_ci
+          trap 'dropdb --host=localhost --username=postgres matsci_sam_inference_ci' EXIT
+          pnpm test:inference-db
+          pnpm db:invariants
+
       - name: Test amended ID4 protocol with synthetic participants
         env:
           PGPASSWORD: postgres
@@ -434,6 +445,9 @@ jobs:
       - name: Test Interface State
         run: |
           pnpm test:interface
+
+      - name: Test Inference Providers
+        run: pnpm test:inference
 
       - name: Test Ollama Revision Context
         run: |

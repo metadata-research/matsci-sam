@@ -1,3 +1,4 @@
+import type { InferenceMetadata } from "../lib/llm/types"
 import type { Diff } from "diff-match-patch-ts"
 import { relations, sql } from "drizzle-orm"
 import {
@@ -467,6 +468,7 @@ export const definitionsTable = pgTable(
     example: text().notNull(),
     // LLM that generated this definition; null for human-authored definitions
     model: text(),
+    inference: jsonb().$type<InferenceMetadata>(),
     // System prompt the LLM ran with; null for human-authored definitions
     // (or AI definitions that predate prompt tracking)
     prompt: text(),
@@ -734,6 +736,7 @@ export const definitionRevisionsTable = pgTable(
     legacyIncomplete: boolean().notNull().default(false),
     source: definitionRevisionSourceEnum().notNull(),
     model: text(),
+    inference: jsonb().$type<InferenceMetadata>(),
     prompt: text(),
     // Exact non-chronological source when this content restores or derives
     // from another revision. previousRevisionId remains the linear history
@@ -901,6 +904,7 @@ export const definitionExamplesTable = pgTable(
     promptHash: text(),
     promptText: text(),
     model: text(),
+    inference: jsonb().$type<InferenceMetadata>(),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull(),
@@ -1179,6 +1183,7 @@ export const aiContributionSuggestionsTable = pgTable(
     promptHash: text().notNull(),
     promptText: text().notNull(),
     model: text().notNull(),
+    inference: jsonb().$type<InferenceMetadata>(),
     status: aiContributionStatusEnum().notNull().default("generated"),
     outputDefinitionId: integer().references(() => definitionsTable.id),
     createdAt: timestamp({ mode: "string", withTimezone: true })
@@ -1466,6 +1471,7 @@ export const commentsTable = pgTable(
     promptHash: text(),
     promptText: text(),
     model: text(),
+    inference: jsonb().$type<InferenceMetadata>(),
     // The review step the comment was posted inside, when it was posted from
     // a walkthrough. See surveySteps.
     surveyStepId: integer().references((): AnyPgColumn => surveyStepsTable.id),
@@ -2356,6 +2362,7 @@ export const surveyResponsesTable = pgTable(
     promptHash: text(),
     promptText: text(),
     model: text(),
+    inference: jsonb().$type<InferenceMetadata>(),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .default(sql`now()`)
       .notNull()
@@ -2622,6 +2629,7 @@ export const chatsTable = pgTable("chats", {
   promptHash: text(),
   promptText: text(),
   model: text(),
+  inference: jsonb().$type<InferenceMetadata>(),
   createdAt: timestamp({ mode: "string", withTimezone: true })
     .default(sql`now()`)
     .notNull()

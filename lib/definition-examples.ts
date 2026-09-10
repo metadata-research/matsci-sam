@@ -1,3 +1,4 @@
+import type { InferenceMetadata } from "./llm/types"
 import { createHash } from "node:crypto"
 import {
   aiModelsTable,
@@ -17,6 +18,7 @@ export type ExampleActorKind = NonNullable<
 >
 
 export type ExampleGenerationStamp = {
+  inference?: InferenceMetadata
   promptKey: string | null
   promptHash: string
   promptText: string
@@ -88,7 +90,8 @@ export const exampleActorKindForUser = async (
  */
 export const exampleStampFromLegacyGeneration = (
   model: string | null | undefined,
-  promptText: string | null | undefined
+  promptText: string | null | undefined,
+  inference?: InferenceMetadata | null
 ): ExampleGenerationStamp | undefined => {
   if (!model?.trim() || !promptText?.trim()) return undefined
   return {
@@ -98,6 +101,7 @@ export const exampleStampFromLegacyGeneration = (
       .digest("hex")
       .slice(0, 16),
     promptText,
+    ...(inference ? { inference } : {}),
     model
   }
 }

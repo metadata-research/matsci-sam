@@ -4,8 +4,8 @@ import { isDevAuthEnabled, getDevAuthUsers } from "@/lib/dev-auth"
 import { isEmailAuthEnabled } from "@/lib/email-auth"
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
 import { isGoogleAuthConfigured } from "@/lib/apis/google"
-import { Ollama } from "ollama"
-import { OllamaModel } from "@/lib/llm/model"
+import { getInferenceHealth } from "@/lib/llm/health"
+export { getInferenceHealth } from "@/lib/llm/health"
 
 export type ServiceStatus =
   | "ready"
@@ -116,45 +116,7 @@ export const getConfiguredServiceHealth = () => {
   return { google, email, orcid, development, wolfram }
 }
 
-export const getOllamaHealth = async (timeoutMs = 3000) => {
-  const host = process.env.OLLAMA_HOST?.trim()
-  if (!host)
-    return {
-      status: "not_configured" as const,
-      checkedAt: new Date().toISOString()
-    }
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const client = new Ollama({
-      host,
-      fetch: (input, init) =>
-        fetch(input, { ...init, signal: controller.signal })
-    })
-    const model = await client.show({ model: OllamaModel })
-
-    return {
-      status: "ready" as const,
-      checkedAt: new Date().toISOString(),
-      model: {
-        name: OllamaModel,
-        family: model.details.family,
-        parameterSize: model.details.parameter_size
-      }
-    }
-  } catch {
-    return {
-      status: "unreachable" as const,
-      checkedAt: new Date().toISOString()
-    }
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
 export const getServiceHealth = async () => ({
   ...getConfiguredServiceHealth(),
-  ollama: await getOllamaHealth()
+  inference: await getInferenceHealth()
 })

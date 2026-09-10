@@ -1,3 +1,4 @@
+import { inferenceProperties } from "./llm/types"
 import "server-only"
 
 import { createHash } from "node:crypto"
@@ -223,6 +224,7 @@ export const buildTermProvenance = async (
             legacyIncomplete: definitionRevisionsTable.legacyIncomplete,
             source: definitionRevisionsTable.source,
             model: definitionRevisionsTable.model,
+            inference: definitionRevisionsTable.inference,
             prompt: definitionRevisionsTable.prompt,
             derivedFromRevisionId:
               definitionRevisionsTable.derivedFromRevisionId,
@@ -262,6 +264,7 @@ export const buildTermProvenance = async (
             promptKey: commentsTable.promptKey,
             promptHash: commentsTable.promptHash,
             model: commentsTable.model,
+            inference: commentsTable.inference,
             author: {
               id: usersTable.id,
               name: usersTable.name,
@@ -698,6 +701,7 @@ export const buildTermProvenance = async (
       if (revision.editorId !== null) meta.editorId = revision.editorId
       if (revision.editor?.name) meta.editor = revision.editor.name
       if (revision.changeNote !== null) meta.changeNote = revision.changeNote
+      Object.assign(meta, inferenceProperties(revision.inference))
       if (revision.model !== null) meta.model = revision.model
       if (revision.prompt !== null) meta.prompt = revision.prompt
       if (revision.sourceRefinementId !== null)
@@ -1001,7 +1005,8 @@ export const buildTermProvenance = async (
             withdrawnAt: example.withdrawnAt,
             actorKind: example.actorKind,
             legacyBackfill: "no",
-            model: example.model
+            model: example.model,
+            ...inferenceProperties(example.inference)
           }
         : {
             definitionNumber: definition.definitionNumber,
@@ -1026,7 +1031,8 @@ export const buildTermProvenance = async (
             at: example.createdAt,
             actorKind: example.actorKind,
             legacyBackfill: "no",
-            model: example.model
+            model: example.model,
+            ...inferenceProperties(example.inference)
           }
         : {
             legacyBackfill: "yes",
@@ -1225,7 +1231,8 @@ export const buildTermProvenance = async (
       type: "activity",
       meta: {
         at: matchedRevision?.createdAt ?? chat.createdAt,
-        model: chat.model
+        model: chat.model,
+        ...inferenceProperties(chat.inference)
       }
     })
 
@@ -1481,6 +1488,7 @@ export const buildTermProvenance = async (
         at: suggestion.createdAt,
         intent: suggestion.intent,
         model: suggestion.model,
+        ...inferenceProperties(suggestion.inference),
         status: suggestion.status,
         acceptedAt: suggestion.decidedAt,
         sourceRevisionId: suggestion.sourceRevisionId,
@@ -1541,6 +1549,7 @@ export const buildTermProvenance = async (
         intent: suggestion.intent,
         termText: suggestion.termText,
         model: suggestion.model,
+        ...inferenceProperties(suggestion.inference),
         status: suggestion.status,
         generatedAt: suggestion.createdAt,
         acceptedAt: suggestion.decidedAt,
@@ -1599,6 +1608,7 @@ export const buildTermProvenance = async (
           : "AI generated a revision suggestion",
       detail: excerpt(suggestion.suggestedDefinition),
       model: suggestion.model,
+      ...inferenceProperties(suggestion.inference),
       promptRef: suggestion.promptKey ?? suggestion.promptHash
     })
   }
@@ -1761,6 +1771,7 @@ export const buildTermProvenance = async (
       legacyAssociationInferred: comment.migratedLegacy ? "yes" : "no"
     }
     if (revision) commentMeta.version = revision.version
+    Object.assign(commentMeta, inferenceProperties(comment.inference))
     if (comment.model) commentMeta.model = comment.model
     if (comment.promptKey) commentMeta.promptKey = comment.promptKey
     if (comment.promptHash) commentMeta.promptHash = comment.promptHash

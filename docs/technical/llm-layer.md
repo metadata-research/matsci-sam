@@ -8,10 +8,10 @@ so readiness checks can run without a working prompt registry.
 
 | Module under `lib/llm/` | Responsibility                                                   |
 | ----------------------- | ---------------------------------------------------------------- |
-| `model.ts`              | Import-free `OllamaModel` runtime tag                            |
+| `model.ts`              | Import-free historical/default Ollama model tag                            |
 | `prompts.ts`            | Named prompts resolved from `lib/prompts.json` at import         |
 | `stamp.ts`              | `{ promptKey, promptHash, promptText, model }` generation stamps |
-| `client.ts`             | Ollama client, structured output, and response validation        |
+| `client.ts`             | Shared structured generation entry point        |
 | `revision-context.ts`   | Pure reconstruction of legacy chat context                       |
 | `definitions.ts`        | Retained administrator term-generation path                      |
 | `model-identity.ts`     | Pure derivation of model slug and display metadata               |
@@ -21,8 +21,10 @@ contribution drafting. `LLMSystemPrompt` supports retained administrator
 term generation. Historical refinement rows retain their recorded stamps.
 The retired refinement workflow has no executable router or model call.
 
-`runLLM(messages, systemPrompt, schema)` sends a Zod-derived JSON schema to
-Ollama and validates the response. Public drafts use `DefinitionTextOutput`.
+`runLLM(messages, systemPrompt, schema)` snapshots the selected provider, sends
+a Zod-derived JSON schema, and returns `{ output, inference }` after validation.
+See [inference providers](inference-providers.md) for configuration, token
+renewal, diagnostics, and switching. Public drafts use `DefinitionTextOutput`.
 The default `DefinitionOutput` includes an example for older callers and pilot
 tooling. Invalid output returns `undefined`. Transport failures propagate to
 the caller, which controls retries.
@@ -78,13 +80,17 @@ migration if a changed identity rule requires stored data updates.
 ## Adding a structured call
 
 Add a prompt key to `lib/prompts.json`, export the resolved prompt and stamp,
-and define a Zod response schema. Call `runLLM` with that schema. Store the
-output and stamp before a person acts on the result.
+and define a Zod response schema. Call `runLLM` with that schema. Pass the returned `inference` metadata to
+`makeGenerationStamp` and store the validated `output` and stamp before a person
+acts on the result. Static legacy stamps are for retained fixtures, not new
+generations against a selectable provider.
 
 A public draft must fit a supported contribution action. Keep comments,
 replacements, and examples free of generation side effects.
 
-`test:ollama-context` checks pure message reconstruction.
+`test:inference` checks adapters, authentication, configuration, and snapshots.
+`test:inference-db` checks publication and historical attribution in an empty
+scratch database. `test:ollama-context` checks pure message reconstruction.
 `test:featured-provenance` checks exact output linkage and attribution.
 These run in CI. `scripts/test-prompt.ts` is a separate manual diagnostic that
 calls the configured model with the legacy definition-and-example response

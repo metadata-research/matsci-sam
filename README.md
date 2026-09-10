@@ -2,7 +2,7 @@
 
 MatSci-SAM is a community metadata dictionary for materials science
 terminology. The application uses Next.js, PostgreSQL, Drizzle ORM, tRPC, and
-an optional Ollama service for AI-assisted definition work.
+optional inference through Ollama or an OAuth-authenticated, OpenAI-compatible service.
 
 ## Local development
 
@@ -17,8 +17,8 @@ version is recorded in `package.json`.
 5. Start the development server with `pnpm dev`.
 6. Open <http://localhost:3000>.
 
-PostgreSQL is required. Ollama is required only when a contributor requests an
-AI draft for a new term or suggested revision. A Jena Fuseki store is optional, and
+PostgreSQL is required. An inference service is needed only when a contributor requests an
+AI draft for a new term or suggested revision. See [inference configuration](docs/technical/inference-providers.md) for provider selection and checks. A Jena Fuseki store is optional, and
 `docs/technical/graph-layer.md` says how to run one.
 
 ## Verification
@@ -33,6 +33,7 @@ pnpm test:identifiers
 pnpm test:revisions
 pnpm test:interface
 pnpm test:ollama-context
+pnpm test:inference
 pnpm test:kos
 pnpm test:graph
 pnpm test:communities

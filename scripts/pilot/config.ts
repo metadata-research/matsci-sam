@@ -1,3 +1,4 @@
+import { getInferenceConfig } from "../../lib/llm/config"
 /*
  * Pilot driver configuration.
  *
@@ -22,7 +23,12 @@ export type PilotArgs = {
 }
 
 export const parseArgs = (argv: string[]): PilotArgs => {
-  const args: PilotArgs = { suffix: "", dryRun: false, resume: false, steps: null }
+  const args: PilotArgs = {
+    suffix: "",
+    dryRun: false,
+    resume: false,
+    steps: null
+  }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === "--") continue // pnpm forwards the separator itself
@@ -106,7 +112,7 @@ export const pilotBaseUrl = (
 export const requireEnv = () => {
   const missing: string[] = []
   if (!process.env.DATABASE_URL) missing.push("DATABASE_URL")
-  if (!process.env.OLLAMA_HOST) missing.push("OLLAMA_HOST")
+  getInferenceConfig()
   if (!process.env.SYSTEM_PROMPT_KEY && !process.env.SYSTEM_PROMPT)
     missing.push("SYSTEM_PROMPT_KEY")
   if (!operatorEmail) missing.push("PILOT_OPERATOR_EMAIL")
