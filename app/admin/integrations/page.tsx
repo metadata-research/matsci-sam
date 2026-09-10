@@ -1,6 +1,6 @@
 import { HydrateClient, trpc } from "@/trpc/server"
 import { Suspense } from "react"
-import { TestOllama } from "./ollama"
+import { TestInference } from "./inference"
 import { WolframCard } from "./wolfram"
 import { AdminPageHeader } from "../page-header"
 import { AiSubnav } from "../ai-subnav"
@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils"
 
 export default async function AdminIntegrationsPage() {
-  void trpc.admin.ollama.prefetch()
+  void trpc.admin.inference.prefetch()
   const integrationsPromise = trpc.admin.integrations()
   const integrations = await integrationsPromise
 
@@ -54,8 +54,8 @@ export default async function AdminIntegrationsPage() {
           </ul>
         </section>
 
-        <Suspense fallback={<IntegrationLoading label="Ollama" />}>
-          <TestOllama />
+        <Suspense fallback={<IntegrationLoading label="Inference" />}>
+          <TestInference />
         </Suspense>
         <WolframCard configured={integrations.wolfram.configured} />
       </div>

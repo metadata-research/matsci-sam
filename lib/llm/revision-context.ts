@@ -1,4 +1,4 @@
-import type { Message } from "ollama"
+import type { InferenceMessage as Message } from "./types"
 
 export interface RevisionChatMessage {
   role: "system" | "user"

@@ -1,3 +1,4 @@
+import type { InferenceMetadata } from "./llm/types"
 import { and, eq, sql } from "drizzle-orm"
 import {
   commentsTable,
@@ -22,6 +23,7 @@ type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 export type ActorKind = "human" | "model" | "simulated"
 
 export type GenerationStampInput = {
+  inference?: InferenceMetadata
   promptKey: string | null
   promptHash: string
   promptText: string

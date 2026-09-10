@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { OllamaModel } from "./model"
+import type { InferenceMetadata } from "./types"
 import {
   LLMSystemPrompt,
   NewTermPromptKey,
@@ -14,7 +15,8 @@ import {
 // unchanged key and raw SYSTEM_PROMPT text (where promptKey is null).
 export const makeGenerationStamp = (
   promptKey: string | null,
-  promptText: string
+  promptText: string,
+  inference?: InferenceMetadata
 ) => ({
   promptKey,
   promptHash: createHash("sha256")
@@ -22,7 +24,8 @@ export const makeGenerationStamp = (
     .digest("hex")
     .slice(0, 16),
   promptText,
-  model: OllamaModel
+  model: inference?.model ?? OllamaModel,
+  ...(inference ? { inference } : {})
 })
 
 export const generationStamp = makeGenerationStamp(

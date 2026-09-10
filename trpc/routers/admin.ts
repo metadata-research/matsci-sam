@@ -22,14 +22,14 @@ import { and, asc, desc, eq, inArray, lt, ne, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import {
   getConfiguredServiceHealth,
-  getOllamaHealth,
+  getInferenceHealth,
   getServiceHealth
 } from "@/lib/admin/integration-readiness"
 import { adminStudiesRouter } from "./admin-studies"
 
 export const adminRouter = createTRPCRouter({
   studies: adminStudiesRouter,
-  ollama: adminProcedure.query(() => getOllamaHealth()),
+  inference: adminProcedure.query(() => getInferenceHealth()),
   serviceHealth: adminProcedure.query(() => getServiceHealth()),
   feedbackInbox: adminProcedure
     .input(

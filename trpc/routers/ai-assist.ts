@@ -20,10 +20,7 @@ import {
   RevisionSuggestionPromptKey,
   RevisionSuggestionSystemPrompt
 } from "@/lib/llm/prompts"
-import {
-  newTermGenerationStamp,
-  revisionSuggestionGenerationStamp
-} from "@/lib/llm/stamp"
+import { makeGenerationStamp } from "@/lib/llm/stamp"
 import { createTRPCRouter } from "../init"
 import { contributorProcedure } from "../procedures"
 import { discardAiContributionSuggestion } from "@/lib/ai-contribution-suggestions"
@@ -84,9 +81,10 @@ export const aiAssistRouter = createTRPCRouter({
         NewTermSystemPrompt,
         DefinitionTextOutput
       )
-      const suggestedDefinition = result?.definition.trim()
+      const suggestedDefinition = result?.output.definition.trim()
 
       if (
+        !result ||
         !suggestedDefinition ||
         suggestedDefinition.length > DEFINITION_MAX_LENGTH
       )
@@ -104,10 +102,12 @@ export const aiAssistRouter = createTRPCRouter({
           termText: term,
           inputDefinition: input.context?.trim() || null,
           suggestedDefinition,
-          promptKey: newTermGenerationStamp.promptKey ?? NewTermPromptKey,
-          promptHash: newTermGenerationStamp.promptHash,
-          promptText: newTermGenerationStamp.promptText,
-          model: newTermGenerationStamp.model
+          ...makeGenerationStamp(
+            NewTermPromptKey,
+            NewTermSystemPrompt,
+            result.inference
+          ),
+          promptKey: NewTermPromptKey
         })
         .returning()
 
@@ -163,9 +163,10 @@ export const aiAssistRouter = createTRPCRouter({
         RevisionSuggestionSystemPrompt,
         DefinitionTextOutput
       )
-      const suggestedDefinition = result?.definition.trim()
+      const suggestedDefinition = result?.output.definition.trim()
 
       if (
+        !result ||
         !suggestedDefinition ||
         suggestedDefinition.length > DEFINITION_MAX_LENGTH
       )
@@ -200,12 +201,12 @@ export const aiAssistRouter = createTRPCRouter({
             feedback: input.feedback.trim(),
             inputDefinition: source.definition,
             suggestedDefinition,
-            promptKey:
-              revisionSuggestionGenerationStamp.promptKey ??
+            ...makeGenerationStamp(
               RevisionSuggestionPromptKey,
-            promptHash: revisionSuggestionGenerationStamp.promptHash,
-            promptText: revisionSuggestionGenerationStamp.promptText,
-            model: revisionSuggestionGenerationStamp.model
+              RevisionSuggestionSystemPrompt,
+              result.inference
+            ),
+            promptKey: RevisionSuggestionPromptKey
           })
           .returning()
       })

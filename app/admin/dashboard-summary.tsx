@@ -31,6 +31,8 @@ type Status =
   | "not_configured"
   | "misconfigured"
   | "unreachable"
+  | "authentication_failed"
+  | "model_missing"
 
 const statusText: Record<Status, string> = {
   ready: "Ready",
@@ -38,12 +40,19 @@ const statusText: Record<Status, string> = {
   disabled: "Disabled",
   not_configured: "Not configured",
   misconfigured: "Needs attention",
-  unreachable: "Unreachable"
+  unreachable: "Unreachable",
+  authentication_failed: "Authentication failed",
+  model_missing: "Model unavailable"
 }
 
 const statusClass = (status: Status) => {
   if (status === "ready" || status === "configured") return styles.statusReady
-  if (status === "unreachable" || status === "misconfigured")
+  if (
+    status === "unreachable" ||
+    status === "misconfigured" ||
+    status === "authentication_failed" ||
+    status === "model_missing"
+  )
     return styles.statusWarning
   return styles.statusMuted
 }
@@ -56,7 +65,12 @@ const StatusSymbol = ({ status }: { status: Status }) => {
         className={cn(styles.statusIcon, styles.statusIconReady)}
       />
     )
-  if (status === "unreachable" || status === "misconfigured")
+  if (
+    status === "unreachable" ||
+    status === "misconfigured" ||
+    status === "authentication_failed" ||
+    status === "model_missing"
+  )
     return (
       <TriangleAlertIcon
         aria-hidden
@@ -119,7 +133,7 @@ export function DashboardSummary({
             </li>
           ) : (
             <li className={cn(styles.statusRow, styles.statusRowCompact)}>
-              {health.ollama.status === "ready" ? (
+              {health.inference.status === "ready" ? (
                 <CheckCircle2Icon
                   aria-hidden
                   className={cn(styles.statusIcon, styles.statusIconReady)}
@@ -131,9 +145,9 @@ export function DashboardSummary({
                 />
               )}
               <span>
-                {health.ollama.status === "ready"
-                  ? "Ollama is ready for AI assistance"
-                  : "Ollama is unavailable in this environment"}
+                {health.inference.status === "ready"
+                  ? "Inference is ready for AI assistance"
+                  : "Inference needs attention in this environment"}
               </span>
             </li>
           )}
@@ -188,8 +202,8 @@ export function DashboardSummary({
         </div>
         <ul className={styles.statusList}>
           <ServiceRow
-            name="Ollama"
-            status={health.ollama.status}
+            name={health.inference.profile ?? "Inference"}
+            status={health.inference.status}
             mark={<BotIcon aria-hidden />}
           />
           <ServiceRow

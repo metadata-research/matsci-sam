@@ -34,6 +34,8 @@
 // first. dotenv never overrides a variable already set, so a host that
 // exports them is unaffected.
 import "dotenv/config"
+import { assertSameInference } from "../../lib/llm/config"
+import type { InferenceMetadata } from "../../lib/llm/types"
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -69,6 +71,7 @@ const main = async () => {
 
   type Manifest = {
     study: string
+    inference?: InferenceMetadata
     // When the first unit was checkpointed.
     startedAt?: string
     personaUserIds: Record<number, number>
@@ -84,6 +87,7 @@ const main = async () => {
         promptKey: string | null
         promptHash: string
         model: string
+        inference?: InferenceMetadata
       }
     >
     completed: string[]
@@ -95,6 +99,14 @@ const main = async () => {
   const manifest: Manifest = existsSync(manifestPath)
     ? { positions: {}, ...JSON.parse(readFileSync(manifestPath, "utf8")) }
     : { study: names.study, personaUserIds: {}, positions: {}, completed: [] }
+  if (
+    manifest.startedAt ||
+    manifest.completed.length ||
+    Object.keys(manifest.positions).length
+  )
+    assertSameInference(manifest.inference, steps.pilotInferenceMetadata)
+  manifest.inference = steps.pilotInferenceMetadata
+
   const checkpoint = () => {
     manifest.startedAt ??= new Date().toISOString()
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
@@ -254,7 +266,8 @@ const main = async () => {
               ...answer,
               promptKey: positionStamp.promptKey,
               promptHash: positionStamp.promptHash,
-              model: positionStamp.model
+              model: answer.inference.model,
+              inference: answer.inference
             }
             manifest.positions[key] = decision
             checkpoint()
@@ -303,7 +316,9 @@ const main = async () => {
           }
           const prior = await steps.stepVoteOf(userId(p), reviewStep)
           let target = prior
-            ? candidates.find((candidate) => candidate.id === prior.definitionId)
+            ? candidates.find(
+                (candidate) => candidate.id === prior.definitionId
+              )
             : undefined
           if (!target) {
             const amendedFrom = await steps.amendedFromOf(term.id, userId(p))
@@ -331,7 +346,13 @@ const main = async () => {
             )
           }
           if (commenters.has(p))
-            await steps.commentAct(persona, userId(p), term.term, target, reviewStep)
+            await steps.commentAct(
+              persona,
+              userId(p),
+              term.term,
+              target,
+              reviewStep
+            )
         })
       }
 

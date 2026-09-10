@@ -1,3 +1,6 @@
+import { getInferenceConfig } from "../../lib/llm/config"
+import { makeGenerationStamp } from "../../lib/llm/stamp"
+import { InferenceError, type InferenceMetadata } from "../../lib/llm/types"
 /*
  * The protocol steps the driver can perform, one act per function, every
  * act an ordinary application write through the same lib/ paths the routers
@@ -81,6 +84,9 @@ const PositionOutput = z
  * double from two seconds, and the last failure propagates with what was
  * tried.
  */
+const pilotInference = getInferenceConfig()
+export const pilotInferenceMetadata = pilotInference.metadata
+
 const GENERATION_ATTEMPTS = 4
 const RETRY_DELAY_MS = 2000
 const generate = async <T extends z.ZodTypeAny>(
@@ -90,10 +96,13 @@ const generate = async <T extends z.ZodTypeAny>(
 ) => {
   for (let attempt = 1; ; attempt++) {
     try {
-      return await runLLM(messages, systemPrompt, schema)
+      return await runLLM(messages, systemPrompt, schema, pilotInference)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      if (attempt >= GENERATION_ATTEMPTS)
+      if (
+        (error instanceof InferenceError && !error.retryable) ||
+        attempt >= GENERATION_ATTEMPTS
+      )
         throw new Error(
           `Generation failed after ${attempt} attempts: ${message}`,
           { cause: error }
@@ -156,7 +165,9 @@ export const draftOf = async (termId: number) => {
 
 type Draft = NonNullable<Awaited<ReturnType<typeof draftOf>>>
 
-export type PositionDecision = z.infer<typeof PositionOutput>
+export type PositionDecision = z.infer<typeof PositionOutput> & {
+  inference: InferenceMetadata
+}
 
 /*
  * The persona's position on the draft, decided by the persona: one
@@ -185,10 +196,20 @@ export const decidePosition = async (
     }
   ]
   const first = await generate(messages, positionPrompt, PositionOutput)
-  if (first) return { ...first, reason: first.reason.trim() }
+  if (first)
+    return {
+      ...first.output,
+      reason: first.output.reason.trim(),
+      inference: first.inference
+    }
   console.log(`malformed position answer for ${term.term}; asking once more`)
   const second = await generate(messages, positionPrompt, PositionOutput)
-  if (second) return { ...second, reason: second.reason.trim() }
+  if (second)
+    return {
+      ...second.output,
+      reason: second.output.reason.trim(),
+      inference: second.inference
+    }
   throw new Error(
     `Position generation failed for ${term.term}: two malformed answers`
   )
@@ -335,11 +356,12 @@ export const amendAct = async (
     const created = await createDefinitionWithInitialRevision(tx, {
       termId,
       authorId: personaUserId,
-      definition: result.definition,
-      example: result.example,
+      definition: result.output.definition,
+      example: result.output.example,
       changeNote: "Amendment of the draft, simulated participant",
       source: "ai_generation",
-      model: amendStamp.model,
+      model: result.inference.model,
+      inference: result.inference,
       prompt: amendStamp.promptText,
       derivedFromRevisionId: sourceRevisionId,
       surveyStepId: step.id
@@ -492,9 +514,13 @@ export const commentAct = async (
       definitionId: target.id,
       revisionId: target.currentRevisionId!,
       userId: personaUserId,
-      message: result.comment,
+      message: result.output.comment,
       actorKind: "simulated",
-      stamp: commentStamp,
+      stamp: makeGenerationStamp(
+        commentStamp.promptKey,
+        commentStamp.promptText,
+        result.inference
+      ),
       surveyStepId: step.id
     })
     await recordCompletion(tx, { stepId: step.id, userId: personaUserId })
@@ -595,11 +621,18 @@ export const walkthroughProgressStep = async (
         surveyPrompt,
         AnswerOutput
       )
-      if (!result?.answer.trim())
+      if (!result?.output.answer.trim())
         throw new Error(
           `Answer generation failed for question step ${step.position}`
         )
-      value = { valueText: result.answer.trim(), stamp: surveyStamp }
+      value = {
+        valueText: result.output.answer.trim(),
+        stamp: makeGenerationStamp(
+          surveyStamp.promptKey,
+          surveyStamp.promptText,
+          result.inference
+        )
+      }
     }
 
     await db.transaction(async (tx) => {

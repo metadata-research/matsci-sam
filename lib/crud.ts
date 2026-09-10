@@ -1,3 +1,4 @@
+import type { InferenceMetadata } from "./llm/types"
 import { aiModelsTable, db, definitionsTable, usersTable } from "@yamz/db"
 import { and, eq } from "drizzle-orm"
 import { cache } from "react"
@@ -64,7 +65,7 @@ export const GetModelUser = async (model: string) => {
 export const upsertAIDefinitionRecord = async (
   termId: number,
   data: { definition: string; example: string },
-  generation: { model: string; prompt: string }
+  generation: { model: string; prompt: string; inference?: InferenceMetadata }
 ) => {
   // The model that produced this text is the author, not a single anonymous
   // "AI user": one identity per tag, so a Gemma 3 contribution and a Gemma 4
@@ -93,7 +94,8 @@ export const upsertAIDefinitionRecord = async (
           source: "ai_generation",
           expectedRevisionId: existingDef.currentRevisionId ?? undefined,
           model: generation.model,
-          prompt: generation.prompt
+          prompt: generation.prompt,
+          inference: generation.inference
         })
       } catch (error) {
         // An identical regeneration is still present in the chat/refinement
@@ -113,7 +115,8 @@ export const upsertAIDefinitionRecord = async (
       changeNote: "Initial AI-generated definition",
       source: "ai_generation",
       model: generation.model,
-      prompt: generation.prompt
+      prompt: generation.prompt,
+      inference: generation.inference
     })
   })
   // The generation path runs outside tRPC, so the mutation hook there does
@@ -126,7 +129,7 @@ export const upsertAIDefinitionRecord = async (
 export const UpsertAIDefinition = async (
   termId: number,
   data: { definition: string; example: string },
-  generation: { model: string; prompt: string }
+  generation: { model: string; prompt: string; inference?: InferenceMetadata }
 ) => {
   const result = await upsertAIDefinitionRecord(termId, data, generation)
 
