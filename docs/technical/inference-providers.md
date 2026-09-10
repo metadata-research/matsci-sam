@@ -45,6 +45,28 @@ them. The application never prints token responses or raw invalid model output.
 
 ## Check readiness and structured output
 
+Administrators can open **AI & services → Service health** to inspect and
+refresh the active provider's readiness. **Inference testing** opens an editable
+prompt panel at `/admin/inference`. Choose **Short answer** for an `answer`
+field or **Definition and example** for the application's definition system
+prompt with `definition` and `example` fields. Both exercise the same structured
+generation transport as the application and require nonempty strings.
+
+Each explicit test reports the submitted prompt, validated output, elapsed
+time, profile, provider, and requested/returned model identity. A passed test
+confirms response format, not factual quality. Errors distinguish invalid
+output from configuration, authentication, or service failures. The panel uses
+the server-selected provider; it does not change that selection or accept
+endpoint URLs or credentials from the browser.
+
+Prompts are limited to 4,000 characters. Tests use the configured request
+timeout and compatible-service token limit, with no automatic UI retry. Results
+remain in the page for inspection; the diagnostic creates no terms, definitions,
+suggestions, study responses, or graph updates. The prompt is still sent to the
+configured inference provider.
+
+The terminal diagnostics remain available:
+
 ```bash
 pnpm inference:check
 pnpm inference:check --live

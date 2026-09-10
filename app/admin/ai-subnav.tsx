@@ -6,6 +6,7 @@ import styles from "./admin.module.css"
 
 const links = [
   { href: "/admin/integrations", label: "Service health" },
+  { href: "/admin/inference", label: "Inference testing" },
   { href: "/admin/prompts", label: "Prompt registry" }
 ]
 

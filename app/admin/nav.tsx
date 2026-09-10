@@ -71,7 +71,7 @@ const SECTIONS = [
     label: "AI & services",
     icon: SparklesIcon,
     ai: true,
-    matches: ["/admin/integrations", "/admin/prompts"]
+    matches: ["/admin/integrations", "/admin/inference", "/admin/prompts"]
   },
   {
     href: "/admin/audit",

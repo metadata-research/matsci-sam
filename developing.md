@@ -15,7 +15,8 @@ knowledge organization layer. Keep those three apart.
 - **Styling**: Tailwind CSS 4 + shadcn/ui components
 - **Auth**: Google OAuth and optional verified-email links with iron-session;
   dormant ORCID plumbing is feature-gated
-- **AI**: Ollama for LLM-powered features
+- **AI**: Selectable Ollama or OAuth-authenticated OpenAI-compatible inference;
+  see [inference providers](docs/technical/inference-providers.md)
 
 ---
 
@@ -171,4 +172,3 @@ environment.
 server are a separate maintainer operation and are not run from this
 repository.
 ---
-
