@@ -31,10 +31,12 @@ import {
   testInference
 } from "@/lib/llm/diagnostic"
 import { inferenceTestInput } from "@/lib/llm/test-options"
+import { getInferenceEndpointsHealth } from "@/lib/llm/health"
 
 export const adminRouter = createTRPCRouter({
   studies: adminStudiesRouter,
   inference: adminProcedure.query(() => getInferenceHealth()),
+  inferenceEndpoints: adminProcedure.query(() => getInferenceEndpointsHealth()),
   inferenceTestConfiguration: adminProcedure.query(() =>
     getInferenceTestConfiguration()
   ),

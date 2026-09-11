@@ -2,8 +2,9 @@
 
 MatSci-SAM supports Ollama and an OpenAI-compatible chat-completion service
 that uses OAuth client credentials. Selection is server configuration in this
-release. The admin **AI & services** page reports the selected profile and
-model availability. Contributor controls are the same for both providers.
+release. The admin **AI & services** page reports the selected endpoint and an
+optional alternate, with independent model-availability checks. Contributor
+controls are the same for both providers.
 
 ## Configure a provider
 
@@ -46,7 +47,13 @@ them. The application never prints token responses or raw invalid model output.
 ## Check readiness and structured output
 
 Administrators can open **AI & services → Service health** to inspect and
-refresh the active provider's readiness. **Inference testing** opens an editable
+refresh both endpoints' readiness. **In use** identifies the endpoint receiving
+application requests; **Alternate** is checked separately and never receives
+automatic failover traffic. Each shows its profile, provider, requested model,
+status, and check time. An unconfigured alternate is labeled **Not configured**;
+its absence or failure does not change the active endpoint's health.
+
+**Inference testing** opens an editable
 prompt panel at `/admin/inference`. Choose **Short answer** for an `answer`
 field or **Definition and example** for the application's definition system
 prompt with `definition` and `example` fields. Both exercise the same structured
@@ -87,8 +94,42 @@ be published as a suggestion. Zod validation remains local to the app.
 
 ## Switching and provenance
 
+### Monitor an alternate endpoint
+
+In the protected server environment file, configure the alternate with the
+same settings as an active provider, replacing `INFERENCE_` with
+`INFERENCE_ALTERNATE_`. For an Ollama alternate, its host setting is
+`INFERENCE_ALTERNATE_OLLAMA_HOST`. The alternate must specify its provider and
+all required connection settings; it inherits no active endpoint settings.
+The provider-specific model defaults and validation rules still apply.
+
+For example, while Ollama is in use, stage a compatible endpoint for monitoring:
+
+```dotenv
+INFERENCE_ALTERNATE_PROVIDER=openai-compatible
+INFERENCE_ALTERNATE_PROFILE=research-cluster
+INFERENCE_ALTERNATE_MODEL=your-model-id
+INFERENCE_ALTERNATE_BASE_URL=https://inference.example.org/v1
+INFERENCE_ALTERNATE_TOKEN_URL=https://identity.example.org/token
+INFERENCE_ALTERNATE_CLIENT_ID=your-application-client
+INFERENCE_ALTERNATE_CLIENT_SECRET=your-protected-credential
+```
+
+Restart the application after editing the file. Health checks run in parallel
+with independent deadlines. The compatible endpoint exchanges credentials for
+a token and lists models; Ollama is asked for model details. Neither check
+generates text. Credentials, endpoint URLs, and raw service errors are never
+returned to the admin page. Readiness is measured from the application server,
+so the alternate must be reachable and authorized from that server.
+
+### Change the endpoint in use
+
 Set the provider, profile, and model together, retaining the settings for the
 previous provider. Restart the application after changing its environment.
+To promote the alternate, copy its settings into the active settings and put
+the previous active settings into the alternate group if continued monitoring
+is desired. The page cannot edit these settings. Merely changing
+`INFERENCE_ALTERNATE_PROVIDER` does not change application routing.
 To return to Ollama, set `INFERENCE_PROVIDER=ollama`, set an appropriate profile,
 and set `INFERENCE_MODEL=gemma4:26b` or remove the model override. Retain the
 original `OLLAMA_HOST`. Leaving a cluster model override in place would ask

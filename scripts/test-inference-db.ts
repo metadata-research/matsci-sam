@@ -116,6 +116,7 @@ async function main() {
       [admin, "FORBIDDEN"]
     ] as const) {
       await assert.rejects(caller.inferenceTestConfiguration(), { code })
+      await assert.rejects(caller.inferenceEndpoints(), { code })
       await assert.rejects(caller.inferenceTest(testInput), { code })
     }
     assert.equal(

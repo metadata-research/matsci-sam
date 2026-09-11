@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils"
 
 export default async function AdminIntegrationsPage() {
-  void trpc.admin.inference.prefetch()
+  void trpc.admin.inferenceEndpoints.prefetch()
   const integrationsPromise = trpc.admin.integrations()
   const integrations = await integrationsPromise
 

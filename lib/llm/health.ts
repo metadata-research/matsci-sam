@@ -18,22 +18,25 @@ export type InferenceHealth = {
 }
 
 export const getInferenceHealth = async (
-  timeoutMs = 3000
+  timeoutMs = 3000,
+  env: Record<string, string | undefined> = process.env
 ): Promise<InferenceHealth> => {
   const checkedAt = new Date().toISOString()
-  if (
-    (!process.env.INFERENCE_PROVIDER ||
-      process.env.INFERENCE_PROVIDER === "ollama") &&
-    !process.env.OLLAMA_HOST?.trim()
-  )
-    return { status: "not_configured", checkedAt }
+  const provider = env.INFERENCE_PROVIDER?.trim() || "ollama"
+  if (provider === "ollama" && !env.OLLAMA_HOST?.trim())
+    return { status: "not_configured", checkedAt, provider }
   let config
   try {
-    config = getInferenceConfig()
+    config = getInferenceConfig(env)
   } catch {
     return { status: "misconfigured", checkedAt }
   }
-  const base = { checkedAt, profile: config.profile, provider: config.provider }
+  const base = {
+    checkedAt,
+    profile: config.profile,
+    provider: config.provider,
+    model: { name: config.model }
+  }
   try {
     const signal = AbortSignal.timeout(timeoutMs)
     if (config.provider === "ollama") {
@@ -86,4 +89,51 @@ export const getInferenceHealth = async (
           : "unreachable"
     }
   }
+}
+
+// The alternate has its own settings: never borrow the active model, transport,
+// or credentials, and never mutate process.env to perform a readiness check.
+const alternateSettings = [
+  "PROVIDER",
+  "PROFILE",
+  "MODEL",
+  "BASE_URL",
+  "TOKEN_URL",
+  "CLIENT_ID",
+  "CLIENT_SECRET",
+  "TIMEOUT_MS",
+  "MAX_TOKENS",
+  "OLLAMA_HOST"
+] as const
+
+const getAlternateInferenceHealth = (
+  timeoutMs: number,
+  env: Record<string, string | undefined>
+): Promise<InferenceHealth> => {
+  const checkedAt = new Date().toISOString()
+  if (
+    !alternateSettings.some((key) => env[`INFERENCE_ALTERNATE_${key}`]?.trim())
+  )
+    return Promise.resolve({ status: "not_configured", checkedAt })
+  if (!env.INFERENCE_ALTERNATE_PROVIDER?.trim())
+    return Promise.resolve({ status: "misconfigured", checkedAt })
+  const alternateEnv = Object.fromEntries(
+    alternateSettings.map((key) => [
+      key === "OLLAMA_HOST" ? key : `INFERENCE_${key}`,
+      env[`INFERENCE_ALTERNATE_${key}`]
+    ])
+  )
+  return getInferenceHealth(timeoutMs, alternateEnv)
+}
+
+export const getInferenceEndpointsHealth = async (
+  timeoutMs = 3000,
+  env: Record<string, string | undefined> = process.env
+) => {
+  const snapshot = { ...env }
+  const [active, alternate] = await Promise.all([
+    getInferenceHealth(timeoutMs, snapshot),
+    getAlternateInferenceHealth(timeoutMs, snapshot)
+  ])
+  return { active, alternate }
 }
