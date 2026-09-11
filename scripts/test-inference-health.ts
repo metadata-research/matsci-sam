@@ -34,8 +34,15 @@ async function main() {
       assert.equal(JSON.parse(init?.body as string).model, "ollama-model")
       assert.equal(new Headers(init?.headers).get("Authorization"), null)
       if (holdActive)
-        await new Promise<void>((resolve) => {
-          releaseActive = resolve
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error("The alternate did not start concurrently")),
+            1000
+          )
+          releaseActive = () => {
+            clearTimeout(timer)
+            resolve()
+          }
         })
       return Response.json({
         details: { family: "fixture", parameter_size: "26B" }
