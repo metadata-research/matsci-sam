@@ -99,6 +99,27 @@ steps but remains in the vocabulary. Earlier participant records are retained.
 **Restore to this study** makes it available again. The history records reasons,
 administrator, and time for each change.
 
+## Inference services
+
+Open **AI & services → Service health** to check inference. **In use** is the
+endpoint handling application requests. **Alternate** is an optional second
+endpoint monitored independently. **Refresh inference health** checks both;
+each shows its status, model, profile, and check time. An alternate marked
+**Not configured** needs its own server settings before it can be checked.
+
+Readiness confirms that the configured model is available from the server.
+Use **Inference testing** to send a prompt through the endpoint in use and
+validate its JSON response. Tests create no vocabulary or study records.
+A passed test confirms the response format, not factual accuracy.
+
+To switch endpoints, an operator edits the protected server environment file
+and restarts the application. Update the provider, profile, model, and
+connection settings together. Alternate settings use `INFERENCE_ALTERNATE_*`
+and do not change application routing. The interface cannot edit either
+configuration and provides no automatic fallback. The repository's
+[inference configuration reference](https://github.com/metadata-research/matsci-sam/blob/dev/docs/technical/inference-providers.md)
+lists the settings and switching steps.
+
 ## Site-wide controls on public pages
 
 Administrators can create, rename, retire, and restore communities and

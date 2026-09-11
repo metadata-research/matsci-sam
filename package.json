@@ -60,7 +60,7 @@
     "test:canonical-db": "tsx --conditions=react-server scripts/test-canonical-definition-db.ts",
     "test:vocabulary-http": "tsx scripts/test-vocabulary-http.ts",
     "test:id4-protocol-db": "tsx --conditions=react-server scripts/test-id4-protocol-db.ts",
-    "test:inference": "tsx scripts/test-inference.ts",
+    "test:inference": "tsx scripts/test-inference.ts && tsx scripts/test-inference-health.ts",
     "test:inference-db": "tsx --conditions=react-server scripts/test-inference-db.ts",
     "inference:check": "tsx scripts/check-inference.ts"
   },
