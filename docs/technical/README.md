@@ -16,6 +16,8 @@ links to contributor instructions and the metadata reference.
 
 ## Contributions and studies
 
+- [Inference providers](inference-providers.md): provider settings, OAuth,
+  readiness, structured-output testing, switching, and generation provenance.
 - [LLM layer](llm-layer.md): prompts, model identities, generation stamps, and
   publication boundaries.
 - [Studies and walkthrough](studies.md): steps, Position recording, protocol
