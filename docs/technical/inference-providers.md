@@ -6,6 +6,12 @@ release. The admin **AI & services** page reports the selected endpoint and an
 optional alternate, with independent model-availability checks. Contributor
 controls are the same for both providers.
 
+This reference describes application behavior. Keep host-specific setup,
+credential provisioning, protected backups, and recovery commands in the
+deployment's operations repository. Record live release and provider checks
+in its private environment record. Neither belongs in contributor-facing
+documentation.
+
 ## Configure a provider
 
 Existing installations need no new settings: `OLLAMA_HOST` still selects the
@@ -124,6 +130,11 @@ so the alternate must be reachable and authorized from that server.
 
 ### Change the endpoint in use
 
+Deploying application code and selecting an inference provider are separate
+operations. A code update does not select the alternate unless the deployment
+also changes the protected provider settings. Verify the selection in the
+running application's health panel after its restart.
+
 Set the provider, profile, and model together, retaining the settings for the
 previous provider. Restart the application after changing its environment.
 To promote the alternate, copy its settings into the active settings and put
@@ -134,6 +145,11 @@ To return to Ollama, set `INFERENCE_PROVIDER=ollama`, set an appropriate profile
 and set `INFERENCE_MODEL=gemma4:26b` or remove the model override. Retain the
 original `OLLAMA_HOST`. Leaving a cluster model override in place would ask
 Ollama for that different model name.
+
+Changing provider settings affects subsequent requests. It does not migrate
+or replace the database, alter saved study responses, or relabel earlier
+contributions. Any database migration required by an application release is
+a separate deployment operation.
 
 A request snapshots its configuration before network I/O. Its result includes
 validated output and metadata for the provider that actually answered. The
