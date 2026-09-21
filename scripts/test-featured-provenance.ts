@@ -94,11 +94,13 @@ assert.match(
   "canonical provenance requires accepted status and exact output linkage"
 )
 
-const homepageSource = readFileSync(resolve("app/page.tsx"), "utf8")
+// The homepage showcase was removed; the term provenance builder still owns
+// the accepted-round gate and exact publication linkage for legacy refinements.
+const provenanceSource = readFileSync(resolve("lib/provenance.ts"), "utf8")
 assert.match(
-  homepageSource,
-  /eq\(refinementsTable\.id, outputRevision\.sourceRefinementId\),[\s\S]*eq\(refinementsTable\.status, "accepted"\)/,
-  "legacy refinement provenance requires an accepted source round"
+  provenanceSource,
+  /if \(round\.status === "accepted"\) \{\s*const publishedRevision = revisions\.find\(\s*\(revision\) => revision\.sourceRefinementId === round\.id\s*\)\s*if \(publishedRevision\) \{[\s\S]*?addEdge\(publishedVersion, suggestionId, "wasDerivedFrom"\)/,
+  "legacy refinement provenance requires an accepted round and its exact published revision"
 )
 
 console.log("Featured provenance routing checks passed.")
