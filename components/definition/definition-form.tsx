@@ -38,7 +38,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { AutoComplete } from "@/components/autocomplete"
+import { TermAutocomplete } from "@/components/term-autocomplete"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -976,20 +976,11 @@ const DefinitionFormOwner = ({
                     <FormItem>
                       <FormLabel>Term</FormLabel>
                       <FormControl>
-                        <AutoComplete
+                        <TermAutocomplete
                           key={entryKey}
                           defaultValue={field.value}
                           onValueChange={field.onChange}
                           options={terms ?? []}
-                          searchKeys={["vocabularyTitle"]}
-                          renderFn={(option) => (
-                            <span className="flex w-full items-baseline justify-between gap-3">
-                              <span>{option.value}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {option.vocabularyTitle}
-                              </span>
-                            </span>
-                          )}
                           placeholder="Start typing a materials science term…"
                           maxLength={TERM_MAX_LENGTH}
                           disabled={busy}

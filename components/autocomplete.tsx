@@ -51,7 +51,7 @@ export const AutoComplete = ({
   const [width] = useSize(inputRef.current)
 
   const [isOpen, setOpen] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState<number>(0)
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1)
   const [inputValue, setInputValue] = useState<string>(defaultValue || "")
 
   const [parentNode, setParentNode] = useState<HTMLDivElement | null>(null)
@@ -85,51 +85,58 @@ export const AutoComplete = ({
         return
       }
 
-      // Keep the options displayed when the user is typing
-      if (!isOpen) {
-        setOpen(true)
-      }
+      if (event.nativeEvent.isComposing) return
 
-      // This is not a default behaviour of the <input /> field
       if (event.key === "Enter") {
-        event.preventDefault()
-        const optionToSelect = filteredOptions[selectedIndex]
+        const optionToSelect = isOpen && filteredOptions[selectedIndex]
 
         if (optionToSelect) {
+          event.preventDefault()
           setInputValue(optionToSelect.value)
           onValueChange?.(optionToSelect.value)
-        } else onValueChange?.(input.value)
+        }
 
+        // Without an explicitly highlighted suggestion, preserve free text
+        // and let the containing form handle its normal Enter submission.
         setOpen(false)
-        setSelectedIndex(0)
+        setSelectedIndex(-1)
+        return
       }
 
-      if (
-        event.key === "ArrowDown" &&
-        selectedIndex < filteredOptions.length - 1
-      )
-        setSelectedIndex(selectedIndex + 1)
-
-      if (event.key === "ArrowUp" && selectedIndex > 0)
-        setSelectedIndex(selectedIndex - 1)
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault()
+        setOpen(true)
+        if (filteredOptions.length === 0) return
+        const next =
+          event.key === "ArrowDown"
+            ? Math.min(
+                (isOpen ? selectedIndex : -1) + 1,
+                filteredOptions.length - 1
+              )
+            : !isOpen || selectedIndex < 0
+              ? filteredOptions.length - 1
+              : Math.max(selectedIndex - 1, 0)
+        setSelectedIndex(next)
+        rowVirtualizer.scrollToIndex(next)
+      }
 
       if (event.key === "Escape") {
         input.blur()
       }
     },
-    [isOpen, filteredOptions, onValueChange, selectedIndex]
+    [isOpen, filteredOptions, onValueChange, selectedIndex, rowVirtualizer]
   )
 
   const blur = useCallback(() => {
     setOpen(false)
-    setSelectedIndex(0)
+    setSelectedIndex(-1)
     onValueChange?.(inputRef.current?.value || "")
   }, [onValueChange])
 
   const select = useCallback(
     (option: string) => {
       setOpen(false)
-      setSelectedIndex(0)
+      setSelectedIndex(-1)
       setInputValue(option)
       onValueChange?.(option)
     },
@@ -148,6 +155,8 @@ export const AutoComplete = ({
               onKeyDown={handleKeyDown}
               onChange={(event) => {
                 setInputValue(event.target.value)
+                setSelectedIndex(-1)
+                setOpen(true)
                 onValueChange?.(event.target.value)
               }}
               onBlur={() => blur()}
