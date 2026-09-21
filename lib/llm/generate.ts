@@ -1,3 +1,4 @@
+import { generateAgentOne } from "./agent-one"
 import { Ollama } from "ollama"
 import { z } from "zod"
 import zodToJsonSchema from "zod-to-json-schema"
@@ -20,6 +21,20 @@ export const generateStructured = async <T extends z.ZodTypeAny>(
   } = {}
 ): Promise<InferenceResult<z.infer<T>> | undefined> => {
   const fetcher = dependencies.fetcher ?? fetch
+  if (config.provider === "wolfram-agent-one") {
+    const result = await generateAgentOne(
+      config,
+      messages,
+      systemPrompt,
+      fetcher
+    )
+    if (!result) return undefined
+    // SAM uses a definition field internally; Agent One returns ordinary text.
+    const parsed = schema.safeParse({ definition: result.output })
+    return parsed.success
+      ? { output: parsed.data, inference: result.inference }
+      : undefined
+  }
   const tokens = dependencies.tokens ?? inferenceTokens
   const signal = AbortSignal.timeout(config.timeoutMs)
   const conversation = [{ role: "system", content: systemPrompt }, ...messages]

@@ -17,11 +17,13 @@ type Action = "choose" | "revise" | "replace"
 export function DefinitionContributionActions({
   term,
   definitionId,
-  revisionId
+  revisionId,
+  sourceDefinition
 }: {
   term: string
   definitionId: number
   revisionId: number
+  sourceDefinition: string
 }) {
   const [action, setAction] = useState<Action>("choose")
   const [childBusy, setChildBusy] = useState(false)
@@ -33,6 +35,7 @@ export function DefinitionContributionActions({
           term={term}
           definitionId={definitionId}
           sourceRevisionId={revisionId}
+          sourceDefinition={sourceDefinition}
           onBusyChange={setChildBusy}
         />
         <Button
@@ -72,23 +75,37 @@ export function DefinitionContributionActions({
     )
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setAction("revise")}
-      >
-        <SparklesIcon aria-hidden />
-        Suggest a revision
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setAction("replace")}
-      >
-        <ReplaceIcon aria-hidden />
-        Propose a replacement
-      </Button>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          aria-describedby="alternative-outcome"
+          onClick={() => setAction("revise")}
+        >
+          <SparklesIcon aria-hidden />
+          Suggest an alternative
+        </Button>
+        <p id="alternative-outcome" className="text-sm text-muted-foreground">
+          Creates a separate definition based on this one. Both remain available
+          for comparison and voting.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          aria-describedby="replacement-outcome"
+          onClick={() => setAction("replace")}
+        >
+          <ReplaceIcon aria-hidden />
+          Propose a replacement
+        </Button>
+        <p id="replacement-outcome" className="text-sm text-muted-foreground">
+          Write a separate definition that you propose should supersede this
+          one.
+        </p>
+      </div>
     </div>
   )
 }

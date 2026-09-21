@@ -1,7 +1,32 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  ReferenceCitations,
+  ReferenceStatus,
+  ReferenceTools,
+  useTermReferenceWorkspace,
+  selectedModelReferenceIds,
+  selectedRevisionReferences,
+  type DraftReferenceSelection
+} from "./chebi-reference-panel"
 import { useForm, useWatch } from "react-hook-form"
+import {
+  ModelReferenceEvidence,
+  modelPromptReferenceSummary
+} from "./model-reference-evidence"
+import { ModelDraftingStatus } from "./model-drafting-status"
+import {
+  ModelPromptInputs,
+  type ModelPromptInputItem
+} from "./model-prompt-inputs"
+import {
+  DefinitionAssistantSelector,
+  useDefinitionAssistant
+} from "./definition-assistant-selector"
+import { referenceLookups } from "./term-reference-workspace"
+import { ContributionWorkspace } from "./contribution-workspace"
+import type { ReferenceProvider } from "@/lib/reference-types"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   CircleAlertIcon,
@@ -9,13 +34,21 @@ import {
   PlusCircleIcon,
   SendIcon,
   SparklesIcon,
-  XIcon
+  Undo2Icon
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { AutoComplete } from "@/components/autocomplete"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import {
   Form,
   FormControl,
@@ -77,7 +110,7 @@ function TermGuidance({
           >
             Open it
           </Link>{" "}
-          to suggest a revision, propose a replacement, comment, or add an
+          to suggest an alternative, propose a replacement, comment, or add an
           example.
         </span>
       </span>
@@ -113,16 +146,64 @@ function TermGuidance({
 
 export type PublishedDefinition = RouterOutput["definitions"]["create"]
 
-/*
- * The definition form, shared by /add and the define step of a
- * walkthrough. On /add the contributor picks the term. In the walkthrough
- * the step fixes the term. A suggested revision opens with the text of the
- * candidate it derives from; a proposed replacement opens empty. /add
- * navigates to the published definition, while the walkthrough advances. A
- * new term or replacement may publish an independently attributed first
- * example in the same action.
- */
-export const DefinitionForm = ({
+type Step = "confirm" | "write" | "review"
+type WritingSnapshot = {
+  definition: string
+  references: DraftReferenceSelection[]
+}
+type ModelDraft = RouterOutput["aiAssist"]["suggestNewTerm"] & {
+  term: string
+  contextKey: string
+  baseline: WritingSnapshot
+  promptInputs: ModelPromptInputItem[]
+}
+type UndoPoint = WritingSnapshot & {
+  kind: "source" | "model"
+  appliedDraft: ModelDraft | null
+  label: string
+}
+type ConfirmedTerm = {
+  term: string
+  vocabularySlug?: string
+  vocabularyTitle?: string
+}
+
+const copySelections = (selections: DraftReferenceSelection[]) =>
+  selections.map((selection) => ({
+    ...selection,
+    citedReferenceIds: [...selection.citedReferenceIds],
+    modelReferenceIds: [...selection.modelReferenceIds]
+  }))
+
+type DefinitionFormProps = {
+  initialTerm?: string
+  initialDefinition?: string
+  lockedTerm?: string
+  surveyStepId?: number
+  expectedInstructions?: string | null
+  derivedFromRevisionId?: number
+  replacesDefinitionId?: number
+  onPublished?: (published: PublishedDefinition) => void
+  onBusyChange?: (busy: boolean) => void
+} & MutationActivityCallbacks
+
+/** A new inherited action gets its own editor, receipt and model state. */
+export function DefinitionForm(props: DefinitionFormProps) {
+  return (
+    <DefinitionFormOwner
+      key={JSON.stringify([
+        props.lockedTerm ?? null,
+        props.surveyStepId ?? null,
+        props.derivedFromRevisionId ?? null,
+        props.replacesDefinitionId ?? null
+      ])}
+      {...props}
+    />
+  )
+}
+
+/** Shared contribution flow; inherited actions retain their source/study semantics. */
+const DefinitionFormOwner = ({
   initialTerm = "",
   initialDefinition = "",
   lockedTerm,
@@ -134,26 +215,13 @@ export const DefinitionForm = ({
   onBusyChange,
   onMutationStart,
   onMutationEnd
-}: {
-  initialTerm?: string
-  // What the fields open with: the text of the candidate being revised.
-  initialDefinition?: string
-  // The term is decided before the form opens, so the field is not shown and
-  // the vocabulary list is not loaded.
-  lockedTerm?: string
-  // The define step the definition is written inside.
-  surveyStepId?: number
-  expectedInstructions?: string | null
-  // The current revision of the candidate this definition revises.
-  derivedFromRevisionId?: number
-  // The stable candidate this separately voteable proposal would supersede.
-  replacesDefinitionId?: number
-  // Where a publish leads when it is not the term page.
-  onPublished?: (published: PublishedDefinition) => void
-  // Lets an enclosing action shell keep this form mounted during a request.
-  onBusyChange?: (busy: boolean) => void
-} & MutationActivityCallbacks) => {
+}: DefinitionFormProps) => {
   const router = useRouter()
+  const assistant = useDefinitionAssistant({
+    enabled: lockedTerm === undefined
+  })
+  const [submittedAssistant, setSubmittedAssistant] = useState<string>()
+  const modelContextRef = useRef<HTMLDivElement>(null)
   const activity = useMutationActivity({
     onBusyChange,
     onMutationStart,
@@ -165,42 +233,62 @@ export const DefinitionForm = ({
     (lockedTerm === undefined ||
       replacesDefinitionId !== undefined ||
       surveyStepId !== undefined)
-  const [aiDraft, setAiDraft] = useState<{
-    suggestionId: number
-    definition: string
-    model: string
-    term: string
-  } | null>(null)
-
   const form = useForm<DefineTerm>({
     resolver: zodResolver(DefineTermSchema),
-    defaultValues: {
-      term,
-      definition: initialDefinition,
-      initialExample: ""
+    defaultValues: { term, definition: initialDefinition, initialExample: "" }
+  })
+  const [step, setStep] = useState<Step>(
+    lockedTerm === undefined ? "confirm" : "write"
+  )
+  const [confirmed, setConfirmed] = useState<ConfirmedTerm | null>(
+    lockedTerm === undefined ? null : { term: lockedTerm }
+  )
+  const [entryKey, setEntryKey] = useState(0)
+  const [references, setReferences] = useState<DraftReferenceSelection[]>([])
+  const [preview, setPreview] = useState<ModelDraft | null>(null)
+  const [appliedDraft, setAppliedDraft] = useState<ModelDraft | null>(null)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [includeDefinition, setIncludeDefinition] = useState(true)
+  const [includeExample, setIncludeExample] = useState(false)
+  const [submittedInputs, setSubmittedInputs] = useState<
+    ModelPromptInputItem[]
+  >([])
+  const [undo, setUndo] = useState<UndoPoint | null>(null)
+  const clearSourceUndo = () =>
+    setUndo((current) => (current?.kind === "source" ? null : current))
+  const [reworkIntent, setReworkIntent] = useState<"draft" | "term" | null>(
+    null
+  )
+  const [notice, setNotice] = useState("")
+  const [contextOpen, setContextOpen] = useState(false)
+  const [provider, setProvider] = useState<ReferenceProvider>("chebi")
+  const editorRef = useRef<HTMLTextAreaElement | null>(null)
+  const exampleRef = useRef<HTMLTextAreaElement | null>(null)
+  const assistantRef = useRef<HTMLDivElement | null>(null)
+  const reworkRef = useRef<HTMLDivElement | null>(null)
+  const headingRef = useRef<HTMLHeadingElement | null>(null)
+  const mounted = useRef(true)
+  const generation = useRef(0)
+  const modelRequest = useRef<{
+    generation: number
+    contextKey: string
+    baseline: WritingSnapshot
+    promptInputs: ModelPromptInputItem[]
+  } | null>(null)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      generation.current += 1
     }
-  })
+  }, [])
 
-  const mutation = trpc.definitions.create.useMutation({
-    onSuccess: (published) => {
-      const { definition, term } = published
-      if (onPublished) {
-        onPublished(published)
-        return
-      }
-      router.push(
-        definitionPath(
-          term.slug,
-          definition.definitionNumber,
-          term.vocabularySlug
-        )
-      )
-    },
-    onSettled: activity.end
-  })
-
-  const { data: vocabularyContext, isLoading: termsAreLoading } =
-    trpc.terms.list.useQuery(undefined, { enabled: lockedTerm === undefined })
+  const {
+    data: vocabularyContext,
+    isLoading: termsAreLoading,
+    error: vocabularyError,
+    refetch: refetchVocabulary
+  } = trpc.terms.list.useQuery(undefined, { enabled: lockedTerm === undefined })
   const terms = vocabularyContext?.terms
   const targetVocabulary = vocabularyContext?.targetVocabulary
   const termValue = useWatch({
@@ -208,51 +296,126 @@ export const DefinitionForm = ({
     name: "term",
     defaultValue: term
   })
+  const definitionValue = useWatch({
+    control: form.control,
+    name: "definition",
+    defaultValue: initialDefinition
+  })
+  const exampleValue =
+    useWatch({
+      control: form.control,
+      name: "initialExample",
+      defaultValue: ""
+    }) ?? ""
   const normalizedTerm = termValue.trim().toLowerCase()
   const matchingTerms = useMemo(
     () =>
       (terms ?? []).filter(
-        (term) => term.value.trim().toLowerCase() === normalizedTerm
+        (item) => item.value.trim().toLowerCase() === normalizedTerm
       ),
     [terms, normalizedTerm]
   )
   const existingTerm = matchingTerms.find(
-    (term) => term.vocabularySlug === targetVocabulary?.slug
+    (item) => item.vocabularySlug === targetVocabulary?.slug
   )
   const otherMatches = useMemo(
     () =>
       Array.from(
         new Map(
           matchingTerms
-            .filter((term) => term.vocabularySlug !== targetVocabulary?.slug)
-            .map((term) => [term.vocabularySlug, term])
+            .filter((item) => item.vocabularySlug !== targetVocabulary?.slug)
+            .map((item) => [item.vocabularySlug, item])
         ).values()
       ),
     [matchingTerms, targetVocabulary?.slug]
   )
-  const isExistingTerm = normalizedTerm.length > 0 && Boolean(existingTerm)
+  const contextKey = confirmed
+    ? [
+        confirmed.term.trim().toLowerCase(),
+        confirmed.vocabularySlug ?? "inherited",
+        surveyStepId ?? "",
+        derivedFromRevisionId ?? "",
+        replacesDefinitionId ?? ""
+      ].join(":")
+    : "unconfirmed"
+  const workspace = useTermReferenceWorkspace({
+    term: confirmed?.term ?? "",
+    contextKey,
+    enabled: confirmed !== null,
+    selection: references,
+    onSelectionChange: setReferences,
+    onSelectionEdit: clearSourceUndo
+  })
+  const destinationChanged =
+    lockedTerm === undefined &&
+    confirmed !== null &&
+    targetVocabulary !== undefined &&
+    confirmed.vocabularySlug !== targetVocabulary.slug
 
-  const discardAiDraft = trpc.aiAssist.discard.useMutation({
-    onSuccess: (_, variables) => {
-      if (aiDraft?.suggestionId !== variables.suggestionId) return
-      setAiDraft(null)
-      form.setValue("definition", "", {
-        shouldDirty: true,
-        shouldValidate: true
-      })
+  const mutation = trpc.definitions.create.useMutation({
+    onSuccess: (published) => {
+      if (onPublished) return onPublished(published)
+      router.push(
+        definitionPath(
+          published.term.slug,
+          published.definition.definitionNumber,
+          published.term.vocabularySlug
+        )
+      )
     },
+    onSettled: activity.end
+  })
+  const discardAiDraft = trpc.aiAssist.discard.useMutation({
     onSettled: activity.end
   })
   const suggestAiDraft = trpc.aiAssist.suggestNewTerm.useMutation({
     onSuccess: (suggestion, variables) => {
-      setAiDraft({
+      const request = modelRequest.current
+      if (
+        !mounted.current ||
+        !request ||
+        request.generation !== generation.current
+      )
+        return
+      const promptInputs: ModelPromptInputItem[] = [
+        ...(suggestion.requestInputs.definition
+          ? [
+              {
+                id: "definition",
+                label: "Definition draft",
+                text: suggestion.requestInputs.definition,
+                included: true
+              }
+            ]
+          : []),
+        ...(suggestion.requestInputs.example
+          ? [
+              {
+                id: "example",
+                label: "Example of use",
+                text: suggestion.requestInputs.example,
+                included: true
+              }
+            ]
+          : []),
+        ...suggestion.referenceInputs.map((reference) => ({
+          id: reference.referenceId,
+          label:
+            request.promptInputs.find(
+              (item) => item.id === reference.referenceId
+            )?.label ?? `${reference.source}: ${reference.term}`,
+          text: reference.definition,
+          included: true
+        }))
+      ]
+      setSubmittedInputs(promptInputs)
+      setSubmittedAssistant(suggestion.assistantLabel)
+      setPreview({
         ...suggestion,
-        term: variables.term.trim().toLowerCase()
-      })
-      form.setValue("definition", suggestion.definition, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true
+        term: variables.term.trim().toLowerCase(),
+        contextKey: request.contextKey,
+        baseline: request.baseline,
+        promptInputs
       })
     },
     onError: (error) => {
@@ -261,262 +424,1205 @@ export const DefinitionForm = ({
     },
     onSettled: activity.end
   })
-
-  const clearAiDraft = () => {
-    if (!aiDraft || discardAiDraft.isPending) return
-    activity.start()
-    discardAiDraft.mutate({ suggestionId: aiDraft.suggestionId })
-  }
-
   const busy =
     activity.busy ||
     mutation.isPending ||
     suggestAiDraft.isPending ||
     discardAiDraft.isPending
-  const aiDraftMatchesTerm = aiDraft?.term === normalizedTerm
+  const appliedMatches = !appliedDraft || appliedDraft.contextKey === contextKey
+  const canUseModel =
+    lockedTerm === undefined && !appliedDraft && !destinationChanged
+
+  const modelReferenceItems: ModelPromptInputItem[] = (
+    ["chebi", "wolfram"] as const
+  ).flatMap((sourceProvider) =>
+    referenceLookups(workspace.providers[sourceProvider]).flatMap(
+      (lookup, index) =>
+        lookup.references
+          .filter((reference) =>
+            references.some(
+              (selection) =>
+                selection.lookupId === lookup.lookupId &&
+                selection.modelReferenceIds.includes(reference.id)
+            )
+          )
+          .map((reference) => ({
+            id: reference.id,
+            label: `${reference.source}: ${reference.term}${sourceProvider === "wolfram" ? ` · lookup ${index + 1}` : ` · release ${reference.version}`}`,
+            text: reference.definition,
+            included: true,
+            onIncludedChange: (included: boolean) =>
+              workspace.changeSelection(
+                sourceProvider,
+                reference.id,
+                "modelReferenceIds",
+                included
+              )
+          }))
+    )
+  )
+  const optionalPromptInputs: ModelPromptInputItem[] = [
+    {
+      id: "definition",
+      label: "Definition draft",
+      text: definitionValue.trim(),
+      included: includeDefinition,
+      onIncludedChange: setIncludeDefinition
+    },
+    ...(acceptsInitialExample
+      ? [
+          {
+            id: "example",
+            label: "Example of use",
+            text: exampleValue.trim(),
+            included: includeExample,
+            onIncludedChange: setIncludeExample
+          }
+        ]
+      : []),
+    ...modelReferenceItems
+  ]
+  const sourcesTooLong =
+    modelReferenceItems.reduce((size, item) => size + item.text.length, 0) >
+    24000
+  const clearOptionalInputs = () => {
+    clearSourceUndo()
+    setIncludeDefinition(false)
+    setIncludeExample(false)
+    setReferences((current) =>
+      current.map((selection) => ({ ...selection, modelReferenceIds: [] }))
+    )
+  }
+  const focusExample = () =>
+    requestAnimationFrame(() => {
+      exampleRef.current?.focus()
+      exampleRef.current?.scrollIntoView({ block: "nearest" })
+    })
+
+  const focusEditor = (start?: number, end?: number) => {
+    requestAnimationFrame(() => {
+      const editor = editorRef.current
+      editor?.focus()
+      if (editor && start !== undefined)
+        editor.setSelectionRange(start, end ?? start)
+      editor?.scrollIntoView({ block: "nearest" })
+    })
+  }
+  const focusHeading = () =>
+    requestAnimationFrame(() => {
+      headingRef.current?.focus()
+      headingRef.current?.scrollIntoView({ block: "nearest" })
+    })
+  const snapshot = (): WritingSnapshot => ({
+    definition: form.getValues("definition"),
+    references: copySelections(references)
+  })
+  const restoreSelections = (saved: DraftReferenceSelection[]) => {
+    // Passive arrivals keep their receipt; undo restores choices for receipts that existed before the edit.
+    setReferences((current) =>
+      current.map(
+        (selection) =>
+          saved.find((item) => item.lookupId === selection.lookupId) ??
+          selection
+      )
+    )
+  }
+  const restoreWriting = (saved: WritingSnapshot) => {
+    form.setValue("definition", saved.definition, {
+      shouldDirty: true,
+      shouldValidate: false
+    })
+    // An empty working draft is valid here; validate when entering Review.
+    form.clearErrors("definition")
+    restoreSelections(saved.references)
+  }
+  const discardThen = (draft: ModelDraft, next: () => void) => {
+    if (busy) return
+    const requestGeneration = generation.current
+    activity.start()
+    discardAiDraft.mutate(
+      { suggestionId: draft.suggestionId },
+      {
+        onSuccess: () => {
+          if (mounted.current && requestGeneration === generation.current)
+            next()
+        }
+      }
+    )
+  }
+  const confirmTerm = async () => {
+    if (
+      busy ||
+      termsAreLoading ||
+      existingTerm ||
+      !targetVocabulary ||
+      vocabularyError
+    )
+      return
+    if (!(await form.trigger("term"))) return
+    const next = {
+      term: termValue.trim(),
+      vocabularySlug: targetVocabulary.slug,
+      vocabularyTitle: targetVocabulary.title
+    }
+    const changed =
+      !confirmed ||
+      confirmed.term.trim().toLowerCase() !== next.term.toLowerCase() ||
+      confirmed.vocabularySlug !== next.vocabularySlug
+    if (changed) {
+      if (appliedDraft || preview) return
+      generation.current += 1
+      setReferences([])
+      setUndo(null)
+      setNotice(
+        confirmed
+          ? "Term updated. Your writing is preserved; source choices have been cleared."
+          : ""
+      )
+    }
+    form.setValue("term", next.term)
+    setConfirmed(next)
+    setStep("write")
+    setContextOpen(false)
+    setProvider("chebi")
+    focusEditor()
+  }
+  const editTerm = () => {
+    if (busy || assistantOpen) return
+    if (appliedDraft) {
+      setReworkIntent("term")
+      requestAnimationFrame(() => {
+        reworkRef.current?.focus()
+        reworkRef.current?.scrollIntoView({ block: "nearest" })
+      })
+      return
+    }
+    setStep("confirm")
+    setContextOpen(false)
+    focusHeading()
+  }
+  const returnToEarlierWriting = () => {
+    if (!appliedDraft) return
+    const intent = reworkIntent
+    discardThen(appliedDraft, () => {
+      restoreWriting(appliedDraft.baseline)
+      setAppliedDraft(null)
+      setPreview(null)
+      setUndo(null)
+      setReworkIntent(null)
+      setAssistantOpen(false)
+      setNotice(
+        "Restored your writing from before the model draft was applied."
+      )
+      if (intent === "term") {
+        setStep("confirm")
+        setContextOpen(false)
+        focusHeading()
+      } else {
+        setStep("write")
+        focusEditor()
+      }
+    })
+  }
+  const undoChange = () => {
+    if (!undo || busy || assistantOpen) return
+    const saved = undo
+    const restore = () => {
+      restoreWriting(saved)
+      setAppliedDraft(saved.appliedDraft)
+      setUndo(null)
+      setAssistantOpen(false)
+      setContextOpen(false)
+      setNotice("Previous writing and attribution restored.")
+      focusEditor()
+    }
+    if (
+      appliedDraft &&
+      appliedDraft.suggestionId !== saved.appliedDraft?.suggestionId
+    )
+      discardThen(appliedDraft, restore)
+    else restore()
+  }
+  const addReference = (text: string) => {
+    if (busy || assistantOpen || step !== "write") return false
+    const before = snapshot()
+    const next = before.definition.trim()
+      ? `${before.definition}\n\n${text}`
+      : text
+    if (next.length > DEFINITION_MAX_LENGTH) return false
+    setUndo({
+      ...before,
+      kind: "source",
+      appliedDraft,
+      label: "Undo source insertion"
+    })
+    form.setValue("definition", next, {
+      shouldDirty: true,
+      shouldValidate: true
+    })
+    setContextOpen(false)
+    setNotice(
+      "Source text added and its citation attached. You can remove the citation during review."
+    )
+    focusEditor(next.length - text.length, next.length)
+    return true
+  }
+  const requestModelDraft = () => {
+    if (
+      !confirmed ||
+      !canUseModel ||
+      !assistant.available ||
+      busy ||
+      preview ||
+      sourcesTooLong
+    )
+      return
+    const promptInputs = optionalPromptInputs
+      .filter((item) => item.included && item.text.trim())
+      .map(({ id, label, text, included }) => ({ id, label, text, included }))
+    setSubmittedInputs(promptInputs)
+    setSubmittedAssistant(assistant.label)
+    modelRequest.current = {
+      generation: generation.current,
+      contextKey,
+      baseline: snapshot(),
+      promptInputs
+    }
+    setAssistantOpen(true)
+    setContextOpen(false)
+    setNotice("")
+    requestAnimationFrame(() => {
+      assistantRef.current?.focus()
+      assistantRef.current?.scrollIntoView({ block: "nearest" })
+    })
+    activity.start()
+    suggestAiDraft.mutate({
+      assistantProfile: assistant.profile,
+      term: confirmed.term,
+      context: includeDefinition
+        ? form.getValues("definition") || undefined
+        : undefined,
+      example:
+        includeExample && acceptsInitialExample
+          ? form.getValues("initialExample") || undefined
+          : undefined,
+      referenceIds: selectedModelReferenceIds(references, confirmed.term),
+      expectedVocabularySlug: confirmed.vocabularySlug
+    })
+  }
+  const usePreview = () => {
+    if (!preview || preview.contextKey !== contextKey || busy) return
+    discardAiDraft.reset()
+    const beforeApply = snapshot()
+    setUndo({
+      ...beforeApply,
+      kind: "model",
+      appliedDraft,
+      label: "Undo model draft"
+    })
+    form.setValue("definition", preview.definition, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true
+    })
+    setAppliedDraft({ ...preview, baseline: beforeApply })
+    setPreview(null)
+    setAssistantOpen(false)
+    setContextOpen(false)
+    setReferences((current) =>
+      current.map((selection) => ({ ...selection, citedReferenceIds: [] }))
+    )
+    setNotice(
+      "Model draft applied. Earlier draft citations were cleared; you can attach relevant citations during review. Model attribution stays with this contribution."
+    )
+    focusEditor(0, preview.definition.length)
+  }
+  const keepWriting = () => {
+    const close = () => {
+      setPreview(null)
+      setAssistantOpen(false)
+      suggestAiDraft.reset()
+      setContextOpen(false)
+      focusEditor()
+    }
+    if (preview) discardThen(preview, close)
+    else if (!busy) close()
+  }
+  const reviewDefinition = async () => {
+    if (
+      busy ||
+      !confirmed ||
+      assistantOpen ||
+      !appliedMatches ||
+      destinationChanged
+    )
+      return
+    if (!(await form.trigger(["term", "definition", "initialExample"]))) return
+    setStep("review")
+    setContextOpen(false)
+    setNotice("")
+    focusHeading()
+  }
+  const publish = form.handleSubmit((data) => {
+    if (
+      step !== "review" ||
+      busy ||
+      !confirmed ||
+      !appliedMatches ||
+      destinationChanged ||
+      preview
+    )
+      return
+    activity.start()
+    mutation.mutate({
+      ...data,
+      term: confirmed.term,
+      surveyStepId,
+      expectedInstructions,
+      derivedFromRevisionId,
+      replacesDefinitionId,
+      expectedVocabularySlug:
+        lockedTerm === undefined ? confirmed.vocabularySlug : undefined,
+      references: selectedRevisionReferences(references, confirmed.term),
+      aiSuggestionId: appliedDraft?.suggestionId
+    })
+  })
+  const openTool = (nextProvider: ReferenceProvider) => {
+    setProvider(nextProvider)
+    setContextOpen(true)
+  }
+  const context = confirmed ? (
+    <ReferenceTools
+      workspace={workspace}
+      provider={provider}
+      disabled={busy}
+      canAdd={step === "write" && !assistantOpen}
+      onAdd={addReference}
+      allowModelInputs={step === "write" && canUseModel && !assistantOpen}
+      onModelInputAdded={() => {
+        setContextOpen(false)
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            modelContextRef.current?.focus()
+            modelContextRef.current?.scrollIntoView({ block: "nearest" })
+          })
+        )
+      }}
+      onBack={() => setContextOpen(false)}
+      onProviderChange={setProvider}
+    />
+  ) : undefined
+  const publishLabel = derivedFromRevisionId
+    ? "Publish alternative"
+    : replacesDefinitionId
+      ? "Publish replacement proposal"
+      : surveyStepId !== undefined
+        ? "Publish new definition"
+        : "Publish new term"
 
   return (
     <Card className="py-0">
-      <CardContent className="p-5 sm:p-6">
+      <CardContent className="p-4 sm:p-6">
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((data) => {
-              activity.start()
-              mutation.mutate({
-                ...data,
-                surveyStepId,
-                expectedInstructions,
-                derivedFromRevisionId,
-                replacesDefinitionId,
-                aiSuggestionId:
-                  aiDraft?.term === normalizedTerm
-                    ? aiDraft.suggestionId
-                    : undefined
-              })
-            })}
+            className="flex flex-col gap-5"
+            onSubmit={(event) => {
+              if (step === "review") void publish(event)
+              else {
+                event.preventDefault()
+                if (step === "confirm") void confirmTerm()
+                else void reviewDefinition()
+              }
+            }}
             onChange={() => {
               if (mutation.error) mutation.reset()
             }}
-            className="space-y-6"
           >
-            {lockedTerm === undefined && (
-              <FormField
-                control={form.control}
-                name="term"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Term</FormLabel>
-                    <FormControl>
-                      <AutoComplete
-                        defaultValue={field.value}
-                        onValueChange={(value) => {
-                          const nextTerm = value.trim().toLowerCase()
-                          if (aiDraft && nextTerm !== aiDraft.term) {
-                            if (
-                              !discardAiDraft.isPending &&
-                              !discardAiDraft.isError
-                            ) {
-                              activity.start()
-                              discardAiDraft.mutate({
-                                suggestionId: aiDraft.suggestionId
-                              })
-                            }
-                          }
-                          field.onChange(value)
-                        }}
-                        options={terms ?? []}
-                        searchKeys={["vocabularyTitle"]}
-                        renderFn={(option) => (
-                          <span className="flex w-full items-baseline justify-between gap-3">
-                            <span>{option.value}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {option.vocabularyTitle}
-                            </span>
-                          </span>
-                        )}
-                        placeholder="Start typing a materials science term…"
-                        maxLength={TERM_MAX_LENGTH}
-                        disabled={busy}
-                      />
-                    </FormControl>
-                    <FormDescription aria-live="polite">
-                      <TermGuidance
-                        normalizedTerm={normalizedTerm}
-                        isLoading={termsAreLoading}
-                        existingTerm={existingTerm}
-                        otherMatches={otherMatches}
-                        targetVocabulary={targetVocabulary}
-                      />
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
+            <ol
+              aria-label="Contribution progress"
+              className="flex flex-wrap gap-x-4 gap-y-2 border-b pb-4 text-sm"
+            >
+              {(
+                [
+                  ["confirm", "Confirm term"],
+                  ["write", "Write definition"],
+                  ["review", "Review and publish"]
+                ] as const
+              ).map(([value, label], index) => (
+                <li
+                  key={value}
+                  aria-current={step === value ? "step" : undefined}
+                  className={
+                    step === value
+                      ? "font-semibold text-foreground"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {index + 1}. {label}
+                </li>
+              ))}
+            </ol>
+
+            {confirmed && step !== "confirm" && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">{confirmed.term}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {confirmed.vocabularyTitle ??
+                      "Term fixed by this contribution"}
+                    {replacesDefinitionId
+                      ? " · Replacement proposal"
+                      : derivedFromRevisionId
+                        ? " · Suggested alternative"
+                        : surveyStepId !== undefined
+                          ? " · Study contribution"
+                          : ""}
+                  </p>
+                </div>
+                {lockedTerm === undefined && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy || assistantOpen}
+                    onClick={editTerm}
+                  >
+                    Edit term
+                  </Button>
                 )}
-              />
+              </div>
             )}
 
-            <FormField
-              control={form.control}
-              name="definition"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Definition</FormLabel>
-                  <FormDescription>
-                    Describe what it is, then what sets it apart.
-                  </FormDescription>
-                  <FormControl>
-                    <Textarea
-                      className="min-h-24"
-                      maxLength={DEFINITION_MAX_LENGTH}
-                      disabled={busy}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {lockedTerm === undefined && (!isExistingTerm || aiDraft) ? (
-              <div className="space-y-3 rounded-lg border border-ai/30 bg-ai/5 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="flex items-center gap-1.5 font-medium text-ai">
-                      <SparklesIcon className="size-4" aria-hidden />
-                      Optional language model assistance
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Prompt the configured language model for an editable
-                      definition draft. Nothing is published until you review
-                      and submit it.
-                    </p>
-                  </div>
-                  {aiDraft ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={clearAiDraft}
-                    >
-                      <XIcon aria-hidden />
-                      Remove model draft
-                    </Button>
-                  ) : null}
-                </div>
-
-                {aiDraft ? (
-                  aiDraftMatchesTerm ? (
-                    <p className="text-xs text-muted-foreground" role="status">
-                      Drafted by{" "}
-                      <span className="font-mono">{aiDraft.model}</span>. You
-                      can edit it before publishing; the model will remain
-                      credited as a coauthor.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-destructive" role="alert">
-                      This model draft was written for “{aiDraft.term}”. Remove
-                      it before publishing a different term.
-                    </p>
-                  )
-                ) : (
+            {destinationChanged && step !== "confirm" && (
+              <div
+                role="alert"
+                className="rounded-md border border-destructive/30 p-3 text-sm"
+              >
+                Your destination vocabulary has changed. Confirm the term in the
+                current vocabulary before continuing.
+                <Button
+                  type="button"
+                  variant="link"
+                  disabled={busy || assistantOpen}
+                  onClick={editTerm}
+                >
+                  Review term
+                </Button>
+              </div>
+            )}
+            {reworkIntent && appliedDraft && (
+              <div
+                ref={reworkRef}
+                tabIndex={-1}
+                role="alert"
+                className="flex flex-col gap-3 rounded-md border border-ai/30 bg-ai/5 p-4"
+              >
+                <p className="text-sm">
+                  This writing includes an applied model draft. Keep this
+                  contribution, or return to your earlier writing
+                  {reworkIntent === "term"
+                    ? " before changing the term."
+                    : " before requesting a new draft."}{" "}
+                  Your edits to the model draft will be removed only if you
+                  choose to return.
+                </p>
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={!normalizedTerm || termsAreLoading || busy}
-                    onClick={() => {
-                      activity.start()
-                      suggestAiDraft.mutate({
-                        term: termValue,
-                        context: form.getValues("definition") || undefined
-                      })
-                    }}
+                    disabled={busy}
+                    onClick={returnToEarlierWriting}
                   >
-                    <SparklesIcon aria-hidden />
-                    {suggestAiDraft.isPending
-                      ? "Drafting…"
-                      : "Draft with a language model"}
+                    Return to my earlier writing
                   </Button>
-                )}
-
-                {suggestAiDraft.error || discardAiDraft.error ? (
-                  <p className="text-sm text-destructive" role="alert">
-                    {(suggestAiDraft.error ?? discardAiDraft.error)?.message}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {acceptsInitialExample ? (
-              <FormField
-                control={form.control}
-                name="initialExample"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Example of use (optional)</FormLabel>
-                    <FormDescription>
-                      Show how this definition is used in a materials science
-                      context. The example is recorded as a separate
-                      contribution credited to you.
-                      {lockedTerm === undefined
-                        ? " Language-model drafting affects only the definition."
-                        : " It remains separate from the definition's revision history and votes."}
-                    </FormDescription>
-                    <FormControl>
-                      <Textarea
-                        className="min-h-20"
-                        maxLength={EXAMPLE_MAX_LENGTH}
-                        disabled={busy}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ) : null}
-
-            {mutation.error ? (
-              <div
-                role="alert"
-                className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm"
-              >
-                <CircleAlertIcon
-                  className="mt-0.5 size-4 shrink-0 text-destructive"
-                  aria-hidden
-                />
-                <div className="space-y-1">
-                  <p className="font-medium text-destructive">
-                    This definition could not be published.
-                  </p>
-                  <p className="text-muted-foreground">
-                    {mutation.error.message}
-                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => setReworkIntent(null)}
+                  >
+                    Keep this contribution
+                  </Button>
                 </div>
               </div>
-            ) : null}
+            )}
+            {discardAiDraft.error && !assistantOpen && (
+              <p role="alert" className="text-sm text-destructive">
+                The model draft could not be discarded. Your writing and
+                attribution are unchanged. {discardAiDraft.error.message}
+              </p>
+            )}
 
-            <Button
-              type="submit"
-              size="lg"
-              disabled={
-                busy ||
-                Boolean(aiDraft && !aiDraftMatchesTerm) ||
-                (lockedTerm === undefined && termsAreLoading) ||
-                (lockedTerm === undefined && isExistingTerm)
-              }
-              className="w-full"
-            >
-              <SendIcon aria-hidden />
-              {mutation.isPending
-                ? "Publishing…"
-                : derivedFromRevisionId
-                  ? "Publish suggested revision"
-                  : replacesDefinitionId
-                    ? "Publish replacement proposal"
-                    : surveyStepId !== undefined
-                      ? "Publish new definition"
-                      : "Publish new term"}
-            </Button>
+            {step === "confirm" ? (
+              <section
+                className="flex flex-col gap-4"
+                aria-label="Confirm term"
+              >
+                <h2
+                  ref={headingRef}
+                  tabIndex={-1}
+                  className="text-lg font-semibold"
+                >
+                  Confirm your term
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Destination:{" "}
+                  {targetVocabulary?.title ?? "Loading vocabulary…"}
+                </p>
+                <FormField
+                  control={form.control}
+                  name="term"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Term</FormLabel>
+                      <FormControl>
+                        <AutoComplete
+                          key={entryKey}
+                          defaultValue={field.value}
+                          onValueChange={field.onChange}
+                          options={terms ?? []}
+                          searchKeys={["vocabularyTitle"]}
+                          renderFn={(option) => (
+                            <span className="flex w-full items-baseline justify-between gap-3">
+                              <span>{option.value}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {option.vocabularyTitle}
+                              </span>
+                            </span>
+                          )}
+                          placeholder="Start typing a materials science term…"
+                          maxLength={TERM_MAX_LENGTH}
+                          disabled={busy}
+                        />
+                      </FormControl>
+                      <FormDescription aria-live="polite">
+                        <TermGuidance
+                          normalizedTerm={normalizedTerm}
+                          isLoading={termsAreLoading}
+                          existingTerm={existingTerm}
+                          otherMatches={otherMatches}
+                          targetVocabulary={targetVocabulary}
+                        />
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {vocabularyError && (
+                  <p role="alert" className="text-sm text-destructive">
+                    The destination vocabulary could not be loaded.
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={() => void refetchVocabulary()}
+                    >
+                      Retry
+                    </Button>
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Confirmation opens the editor and searches ChEBI. No source is
+                  cited or sent to a model automatically.
+                </p>
+                {confirmed && definitionValue.trim() && (
+                  <p className="text-sm text-muted-foreground">
+                    Your earlier writing will be kept. Changing the term clears
+                    its source choices.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    disabled={
+                      busy ||
+                      termsAreLoading ||
+                      !normalizedTerm ||
+                      !!existingTerm ||
+                      !targetVocabulary ||
+                      !!vocabularyError
+                    }
+                    onClick={() => void confirmTerm()}
+                  >
+                    Confirm term and find references
+                  </Button>
+                  {confirmed && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        form.setValue("term", confirmed.term)
+                        setEntryKey((value) => value + 1)
+                        setStep("write")
+                        focusEditor()
+                      }}
+                    >
+                      Cancel term edit
+                    </Button>
+                  )}
+                </div>
+              </section>
+            ) : (
+              <>
+                <ReferenceStatus
+                  workspace={workspace}
+                  onOpen={openTool}
+                  disabled={busy || assistantOpen}
+                />
+                <ContributionWorkspace
+                  context={assistantOpen ? undefined : context}
+                  contextOpen={contextOpen}
+                  onContextOpenChange={setContextOpen}
+                  contextTitle={
+                    provider === "chebi" ? "ChEBI references" : "Wolfram lookup"
+                  }
+                >
+                  {step === "write" ? (
+                    <section
+                      className="flex flex-col gap-4"
+                      aria-label="Write definition"
+                    >
+                      <h2
+                        ref={headingRef}
+                        tabIndex={-1}
+                        className="text-lg font-semibold"
+                      >
+                        Write your definition
+                      </h2>
+                      <div className="@container">
+                        <div
+                          className={cn(
+                            "grid min-w-0 items-start gap-4",
+                            assistantOpen && "@min-[48rem]:grid-cols-2"
+                          )}
+                        >
+                          <div className="flex min-w-0 flex-col gap-4">
+                            <FormField
+                              control={form.control}
+                              name="definition"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <FormLabel>Definition</FormLabel>
+                                    {lockedTerm === undefined &&
+                                      !includeDefinition &&
+                                      definitionValue.trim() &&
+                                      !appliedDraft && (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          disabled={busy || assistantOpen}
+                                          onClick={() =>
+                                            setIncludeDefinition(true)
+                                          }
+                                        >
+                                          Include my draft in assistant context
+                                        </Button>
+                                      )}
+                                  </div>
+                                  <FormDescription>
+                                    Describe what it is, then what sets it
+                                    apart.
+                                  </FormDescription>
+                                  <FormControl>
+                                    <Textarea
+                                      {...field}
+                                      onChange={(event) => {
+                                        clearSourceUndo()
+                                        field.onChange(event)
+                                        if (form.formState.errors.definition)
+                                          void form.trigger("definition")
+                                      }}
+                                      ref={(node) => {
+                                        field.ref(node)
+                                        editorRef.current = node
+                                      }}
+                                      className="h-40 max-h-80 resize-y field-sizing-fixed"
+                                      maxLength={DEFINITION_MAX_LENGTH}
+                                      disabled={
+                                        mutation.isPending ||
+                                        discardAiDraft.isPending
+                                      }
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            {acceptsInitialExample && (
+                              <FormField
+                                control={form.control}
+                                name="initialExample"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <FormLabel>
+                                        Example of use (optional)
+                                      </FormLabel>
+                                      {lockedTerm === undefined &&
+                                        !appliedDraft &&
+                                        (includeExample &&
+                                        exampleValue.trim() ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            Included in assistant context
+                                          </span>
+                                        ) : (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            disabled={
+                                              busy ||
+                                              assistantOpen ||
+                                              !exampleValue.trim()
+                                            }
+                                            onClick={() =>
+                                              setIncludeExample(true)
+                                            }
+                                          >
+                                            Include in assistant context
+                                          </Button>
+                                        ))}
+                                    </div>
+                                    <FormDescription>
+                                      Show how this term is used. The example is
+                                      published separately and credited to you.
+                                    </FormDescription>
+                                    <FormControl>
+                                      <Textarea
+                                        {...field}
+                                        ref={(node) => {
+                                          field.ref(node)
+                                          exampleRef.current = node
+                                        }}
+                                        className="h-24 max-h-48 resize-y field-sizing-fixed"
+                                        maxLength={EXAMPLE_MAX_LENGTH}
+                                        disabled={
+                                          mutation.isPending ||
+                                          discardAiDraft.isPending
+                                        }
+                                        placeholder="A sentence or short scenario that illustrates the meaning."
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+                            {lockedTerm === undefined && (
+                              <ModelPromptInputs
+                                focusRef={modelContextRef}
+                                assistantControls={
+                                  <DefinitionAssistantSelector
+                                    assistant={assistant}
+                                    disabled={
+                                      busy || assistantOpen || !!appliedDraft
+                                    }
+                                  />
+                                }
+                                assistantLabel={
+                                  appliedDraft?.assistantLabel ??
+                                  submittedAssistant
+                                }
+                                term={
+                                  confirmed?.term.trim().toLowerCase() ??
+                                  normalizedTerm
+                                }
+                                items={
+                                  assistantOpen
+                                    ? submittedInputs
+                                    : appliedDraft
+                                      ? appliedDraft.promptInputs
+                                      : optionalPromptInputs
+                                }
+                                submitted={assistantOpen || !!appliedDraft}
+                                disabled={
+                                  busy || assistantOpen || !!appliedDraft
+                                }
+                                onClearOptional={clearOptionalInputs}
+                              >
+                                {!assistantOpen && !appliedDraft && (
+                                  <>
+                                    {sourcesTooLong && (
+                                      <p
+                                        role="alert"
+                                        className="text-sm text-destructive"
+                                      >
+                                        The selected sources exceed the model
+                                        input limit. Remove a source before
+                                        requesting a suggestion.
+                                      </p>
+                                    )}
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={
+                                          busy ||
+                                          !canUseModel ||
+                                          !assistant.available ||
+                                          sourcesTooLong
+                                        }
+                                        onClick={requestModelDraft}
+                                      >
+                                        <SparklesIcon aria-hidden />
+                                        Suggest a definition
+                                      </Button>
+                                    </div>
+                                  </>
+                                )}
+                              </ModelPromptInputs>
+                            )}
+                            {!assistantOpen && (
+                              <>
+                                {lockedTerm === undefined && (
+                                  <div className="flex flex-col gap-2">
+                                    {appliedDraft ? (
+                                      <>
+                                        <p className="text-xs text-muted-foreground">
+                                          Model draft applied from{" "}
+                                          {appliedDraft.assistantLabel}.{" "}
+                                          {modelPromptReferenceSummary(
+                                            appliedDraft.referenceCount
+                                          )}{" "}
+                                          Model attribution is retained as you
+                                          edit.
+                                        </p>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          disabled={busy || assistantOpen}
+                                          onClick={() => {
+                                            setReworkIntent("draft")
+                                            requestAnimationFrame(() => {
+                                              reworkRef.current?.focus()
+                                              reworkRef.current?.scrollIntoView(
+                                                {
+                                                  block: "nearest"
+                                                }
+                                              )
+                                            })
+                                          }}
+                                        >
+                                          Rework from my earlier writing
+                                        </Button>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                )}
+                                {undo && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={busy || assistantOpen}
+                                    onClick={undoChange}
+                                  >
+                                    <Undo2Icon aria-hidden />
+                                    {undo.label}
+                                  </Button>
+                                )}
+                                {notice && (
+                                  <p
+                                    role="status"
+                                    className="text-sm text-muted-foreground"
+                                  >
+                                    {notice}
+                                  </p>
+                                )}
+                                <Button
+                                  type="button"
+                                  disabled={
+                                    busy ||
+                                    assistantOpen ||
+                                    !definitionValue.trim() ||
+                                    !appliedMatches ||
+                                    destinationChanged
+                                  }
+                                  onClick={() => void reviewDefinition()}
+                                >
+                                  Review definition
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          {assistantOpen && (
+                            <Card
+                              ref={assistantRef}
+                              tabIndex={-1}
+                              role="region"
+                              aria-label="Model draft preview"
+                              className="min-w-0"
+                            >
+                              <CardHeader>
+                                <CardTitle role="heading" aria-level={3}>
+                                  Model suggestion
+                                </CardTitle>
+                                <CardDescription>
+                                  You can keep editing. Choosing “Use this
+                                  draft” replaces the text currently in your
+                                  editor and clears earlier citations; Undo
+                                  restores both.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="flex min-w-0 flex-col gap-3">
+                                {suggestAiDraft.isPending ? (
+                                  <ModelDraftingStatus
+                                    key={suggestAiDraft.submittedAt}
+                                  />
+                                ) : (
+                                  <p
+                                    role="status"
+                                    className="text-sm text-muted-foreground"
+                                  >
+                                    {preview
+                                      ? "Suggestion ready for review."
+                                      : "A suggestion could not be created."}
+                                  </p>
+                                )}
+                                <label
+                                  htmlFor="new-term-model-preview"
+                                  className="text-sm font-medium"
+                                >
+                                  Proposed definition
+                                </label>
+                                <Textarea
+                                  id="new-term-model-preview"
+                                  readOnly
+                                  aria-busy={suggestAiDraft.isPending}
+                                  value={preview?.definition ?? ""}
+                                  placeholder="The suggestion will appear here."
+                                  className="h-40 max-h-80 resize-y field-sizing-fixed"
+                                />
+                                <div className="flex min-h-16 flex-col gap-2">
+                                  {preview && (
+                                    <>
+                                      <p className="text-xs text-muted-foreground">
+                                        Drafted by {preview.assistantLabel}.{" "}
+                                        {modelPromptReferenceSummary(
+                                          preview.referenceCount
+                                        )}
+                                      </p>
+                                      <ModelReferenceEvidence
+                                        inputs={preview.referenceInputs}
+                                      />
+                                    </>
+                                  )}
+                                  {suggestAiDraft.error && (
+                                    <p
+                                      role="alert"
+                                      className="text-sm text-destructive"
+                                    >
+                                      {suggestAiDraft.error.message}
+                                    </p>
+                                  )}
+                                  {discardAiDraft.error && (
+                                    <p
+                                      role="alert"
+                                      className="text-sm text-destructive"
+                                    >
+                                      The suggestion could not be dismissed.
+                                      Your writing is unchanged.{" "}
+                                      {discardAiDraft.error.message}
+                                    </p>
+                                  )}
+                                </div>
+                              </CardContent>
+                              <CardFooter className="flex flex-wrap gap-2">
+                                <Button
+                                  type="button"
+                                  disabled={
+                                    busy ||
+                                    !preview ||
+                                    preview.contextKey !== contextKey
+                                  }
+                                  onClick={usePreview}
+                                >
+                                  Use this draft
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  disabled={busy}
+                                  onClick={keepWriting}
+                                >
+                                  Keep my writing
+                                </Button>
+                                {suggestAiDraft.error && !preview && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    disabled={busy}
+                                    onClick={requestModelDraft}
+                                  >
+                                    Retry
+                                  </Button>
+                                )}
+                              </CardFooter>
+                            </Card>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  ) : (
+                    <section
+                      className="flex flex-col gap-5"
+                      aria-label="Review and publish"
+                    >
+                      <h2
+                        ref={headingRef}
+                        tabIndex={-1}
+                        className="text-lg font-semibold"
+                      >
+                        Review your contribution
+                      </h2>
+                      <div className="flex flex-col gap-2">
+                        <p className="font-medium">Definition</p>
+                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                          {definitionValue}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="px-0"
+                          disabled={busy}
+                          onClick={() => {
+                            setStep("write")
+                            setContextOpen(false)
+                            focusEditor()
+                          }}
+                        >
+                          Edit definition
+                        </Button>
+                      </div>
+                      {acceptsInitialExample && (
+                        <div className="flex flex-col gap-2">
+                          <p className="font-medium">
+                            Example of use (optional)
+                          </p>
+                          <p className="whitespace-pre-wrap break-words text-sm">
+                            {exampleValue.trim() || "No example added."}
+                          </p>
+                          {exampleValue.trim() && (
+                            <p className="text-xs text-muted-foreground">
+                              Published as your separate example contribution.
+                              Model assistance does not rewrite it.
+                            </p>
+                          )}
+                          <Button
+                            type="button"
+                            variant="link"
+                            className="px-0"
+                            disabled={busy}
+                            onClick={() => {
+                              setStep("write")
+                              setContextOpen(false)
+                              focusExample()
+                            }}
+                          >
+                            {exampleValue.trim()
+                              ? "Edit example"
+                              : "Add an example"}
+                          </Button>
+                        </div>
+                      )}
+                      <div className="flex flex-col gap-1 text-sm">
+                        <p className="font-medium">Model contribution</p>
+                        {appliedDraft ? (
+                          <p className="text-muted-foreground">
+                            Drafted with {appliedDraft.assistantLabel}.{" "}
+                            {modelPromptReferenceSummary(
+                              appliedDraft.referenceCount
+                            )}{" "}
+                            These model inputs are recorded separately from your
+                            citations.
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground">
+                            No model draft is applied to this contribution.
+                          </p>
+                        )}
+                      </div>
+                      {appliedDraft && (
+                        <>
+                          <ModelPromptInputs
+                            assistantLabel={appliedDraft.assistantLabel}
+                            term={appliedDraft.term}
+                            items={appliedDraft.promptInputs}
+                            submitted
+                          />
+                          <ModelReferenceEvidence
+                            inputs={appliedDraft.referenceInputs}
+                          />
+                        </>
+                      )}
+                      <ReferenceCitations
+                        workspace={workspace}
+                        disabled={busy}
+                      />
+                      {mutation.error && (
+                        <div
+                          role="alert"
+                          className="flex items-start gap-2 rounded-md border border-destructive/30 p-3 text-sm"
+                        >
+                          <CircleAlertIcon
+                            className="mt-0.5 size-4 shrink-0 text-destructive"
+                            aria-hidden
+                          />
+                          <div>
+                            <p className="font-medium">
+                              This definition could not be published.
+                            </p>
+                            <p>{mutation.error.message}</p>
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="px-0"
+                              disabled={busy}
+                              onClick={() => {
+                                setStep("write")
+                                setContextOpen(false)
+                                focusEditor()
+                              }}
+                            >
+                              Return to writing
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="submit"
+                          disabled={
+                            busy ||
+                            !appliedMatches ||
+                            destinationChanged ||
+                            !!preview
+                          }
+                        >
+                          <SendIcon aria-hidden />
+                          {mutation.isPending ? "Publishing…" : publishLabel}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => {
+                            setStep("write")
+                            setContextOpen(false)
+                            focusEditor()
+                          }}
+                        >
+                          Back to writing
+                        </Button>
+                      </div>
+                    </section>
+                  )}
+                </ContributionWorkspace>
+              </>
+            )}
           </form>
         </Form>
       </CardContent>

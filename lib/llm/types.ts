@@ -1,4 +1,7 @@
-export type InferenceProvider = "ollama" | "openai-compatible"
+export type InferenceProvider =
+  | "ollama"
+  | "openai-compatible"
+  | "wolfram-agent-one"
 
 export type InferenceMessage = {
   role: "system" | "user" | "assistant"
@@ -12,6 +15,8 @@ export type InferenceMetadata = {
   model: string
   configHash: string
   responseModel?: string
+  responseId?: string
+  toolEvidence?: { type: string; tool?: string; requestId?: string }[]
 }
 
 export type InferenceResult<T> = {
@@ -53,6 +58,10 @@ export const inferenceProperties = (
         inferenceProvider: value.provider,
         inferenceProfile: value.profile,
         inferenceConfigHash: value.configHash,
+        ...(value.responseId ? { inferenceResponseId: value.responseId } : {}),
+        ...(value.toolEvidence?.length
+          ? { inferenceToolEvidence: JSON.stringify(value.toolEvidence) }
+          : {}),
         ...(value.responseModel
           ? { inferenceResponseModel: value.responseModel }
           : {})

@@ -40,7 +40,10 @@ assert.match(createDefinition, /derivedFromRevisionId/)
 assert.match(createDefinition, /replacesDefinitionId/)
 assert.match(createDefinition, /aiSuggestionId/)
 assert.match(createDefinition, /initialExample:\s*input\.initialExample/)
-assert.match(createDefinition, /cannot be both a revision and a replacement/i)
+assert.match(
+  createDefinition,
+  /cannot be both an alternative and a replacement/i
+)
 assert.match(
   createDefinition,
   /surveyStepId === undefined \|\| replacesDefinitionId === undefined/,
@@ -145,17 +148,11 @@ const examples = source("components/definition/examples.tsx")
 
 assert.match(definitionForm, /Publish new term/)
 assert.match(definitionForm, /Example of use \(optional\)/)
-assert.match(
-  definitionForm,
-  /Language-model drafting affects only the definition/
-)
-assert.match(
-  definitionForm,
-  /separate from the definition's revision history and votes/
-)
-assert.match(definitionActions, /Suggest a revision/)
+assert.match(definitionForm, /name="definition"/)
+assert.match(definitionForm, /separate[\s\S]*credited to you/)
+assert.match(definitionActions, /Suggest an alternative/)
 assert.match(definitionActions, /Propose a replacement/)
-assert.match(revisionForm, /Explain what is wrong or missing/)
+assert.match(revisionForm, /What should change/)
 assert.match(commentBox, /Comment/)
 assert.match(examples, /Add example/)
 assert.doesNotMatch(revisionForm, /initialExample/)
@@ -166,7 +163,7 @@ const surveyRules = source("lib/surveys.ts")
 const contributorGuide = source("docs/guide/adding-terms.md")
 for (const label of [
   "New term",
-  "Suggest a revision",
+  "Suggest an alternative",
   "Propose a replacement",
   "Comment",
   "Add example"

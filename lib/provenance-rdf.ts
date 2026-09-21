@@ -136,7 +136,9 @@ export const provenanceBodyTurtle = (
 
   lines.push("")
   for (const e of prov.graph.edges)
-    lines.push(`${node(e.source)} prov:${e.rel} ${node(e.target)} .`)
+    lines.push(
+      `${node(e.source)} ${e.rel === "references" ? "<http://purl.org/dc/terms/references>" : `prov:${e.rel}`} ${node(e.target)} .`
+    )
 
   return lines.join("\n") + "\n"
 }

@@ -9,7 +9,9 @@ and published AI-assisted work. Revisions record text, editor, time, change
 note, and predecessor. A restored revision also identifies the earlier text
 it copies.
 
-A published **Suggest a revision** candidate links to the source revision,
+**Create a new version** adds the next version to the same definition's history
+and preserves its earlier versions. **Suggest an alternative** publishes a
+separate definition starting at version 1. It links to the source revision,
 contributor critique, stored model output, prompt, and model. A replacement
 identifies the definition it should supersede. Discarded model drafts remain
 outside the published vocabulary.
@@ -30,7 +32,7 @@ configuration requested for a run.
 
 ## Votes, comments, and examples
 
-Votes and comments identify a definition revision. An author edit starts a
+Votes and comments identify a definition revision. A new version starts a
 new vote tally. Vote direction changes and withdrawals append events, so the
 record retains their sequence. Study actions also identify the study context.
 

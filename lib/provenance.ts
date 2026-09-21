@@ -1,4 +1,6 @@
 import { inferenceProperties } from "./llm/types"
+import { termReferencesQuery } from "./term-references"
+import { modelPromptInputProvenance } from "./model-prompt-provenance"
 import "server-only"
 
 import { createHash } from "node:crypto"
@@ -55,6 +57,7 @@ export type ProvRelation =
   | "wasAssociatedWith"
   | "wasAttributedTo"
   | "used"
+  | "references"
 
 export type ProvNode = {
   id: string
@@ -208,7 +211,8 @@ export const buildTermProvenance = async (
     discussionSuggestions,
     aiContributionSuggestions,
     definitionExamples,
-    exampleSelections
+    exampleSelections,
+    citedReferences
   ] = await Promise.all([
     definitionIds.length
       ? db
@@ -377,7 +381,8 @@ export const buildTermProvenance = async (
             asc(definitionExampleSelectionsTable.selectedAt),
             asc(definitionExampleSelectionsTable.id)
           )
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    termReferencesQuery(termId)
   ])
 
   // Vote events are the record of every voting act: one row per act from
@@ -1500,6 +1505,40 @@ export const buildTermProvenance = async (
     addEdge(activityId, prompt, "used")
     addEdge(activityId, requestId, "used")
     if (sourceVersion) addEdge(activityId, sourceVersion, "used")
+    for (const reference of suggestion.referenceInputs ?? []) {
+      const id = `model_reference_${suggestion.id}_${reference.referenceId}`
+      addNode({
+        id,
+        type: "entity",
+        label: `${reference.source}: ${reference.term} (model input)`,
+        rdfBlankNode: `model_reference_${createHash("sha256").update(id).digest("hex")}`,
+        detail: reference.definition,
+        meta: {
+          source: reference.source,
+          sourceIri: reference.sourceIri,
+          release: reference.version,
+          license: reference.license,
+          kind: reference.kind,
+          usageStatus: reference.usageStatus,
+          retrievedAt: reference.retrievedAt,
+          contentHash: reference.contentHash,
+          context: reference.context,
+          responseUuid: reference.responseUuid,
+          evidenceBasis: "model_input"
+        }
+      })
+      addEdge(activityId, id, "used")
+    }
+    if (suggestion.referencePrompt) {
+      const id = `reference_prompt_${suggestion.id}`
+      addNode({
+        id,
+        type: "entity",
+        label: "Exact reference block supplied to the model",
+        detail: suggestion.referencePrompt
+      })
+      addEdge(activityId, id, "used")
+    }
 
     if (suggestion.inputDefinition !== null) {
       const inputId = `ai_contribution_input_${suggestion.id}`
@@ -1518,6 +1557,17 @@ export const buildTermProvenance = async (
         addEdge(inputId, requester, "wasAttributedTo")
       else if (sourceVersion) addEdge(inputId, sourceVersion, "wasDerivedFrom")
     }
+
+    const promptInputs = modelPromptInputProvenance({
+      suggestionId: suggestion.id,
+      intent: suggestion.intent,
+      requester,
+      inputExample: suggestion.inputExample,
+      userPrompt: suggestion.userPrompt
+    })
+    for (const node of promptInputs.nodes) addNode(node)
+    for (const edge of promptInputs.edges)
+      addEdge(edge.source, edge.target, edge.rel)
 
     if (suggestion.feedback !== null) {
       const feedbackId = `ai_contribution_feedback_${suggestion.id}`
@@ -1858,6 +1908,38 @@ export const buildTermProvenance = async (
               definition?.author?.isAi ? "AI-authored " : ""
             }${revision ? revisionCoordinate(revision) : "definition"}`
     })
+  }
+
+  // A citation is a contributor declaration. Retrieval/copying alone never
+  // yields a public edge and this does not assert model grounding or derivation.
+  for (const reference of citedReferences) {
+    const revision = revisionById.get(reference.revisionId)
+    if (!revision) continue
+    const id = `reference_${reference.id}`
+    addNode({
+      id,
+      type: "entity",
+      label: `${reference.source}: ${reference.term} (contributor-declared)`,
+      rdfBlankNode: `reference_${createHash("sha256").update(reference.id).digest("hex")}`,
+      detail: reference.definition,
+      meta: {
+        source: reference.source,
+        sourceIri: reference.sourceIri,
+        release: reference.version,
+        license: reference.license,
+        retrievedAt: reference.retrievedAt,
+        contentHash: reference.contentHash,
+        citationBasis: reference.basis,
+        kind: reference.kind,
+        usageStatus: reference.usageStatus,
+        responseUuid: reference.responseUuid
+      }
+    })
+    addEdge(
+      revisionNodeId(revision.definitionId, revision.version),
+      id,
+      "references"
+    )
   }
 
   events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())

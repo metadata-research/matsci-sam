@@ -14,6 +14,7 @@ export type InferenceConfig = Readonly<{
   tokenUrl?: string
   clientId?: string
   clientSecret?: string
+  apiKey?: string
   timeoutMs: number
   maxTokens: number
   metadata: Readonly<InferenceMetadata>

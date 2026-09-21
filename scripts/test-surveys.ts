@@ -129,9 +129,9 @@ const main = async () => {
     /agreed|group's reference|nobody corrects|drafts are wrong/i
   )
   assert.match(plan[1].prompt ?? "", /closest to what you consider correct/i)
-  assert.match(plan[1].prompt ?? "", /revision to make it more accurate/i)
+  assert.match(plan[1].prompt ?? "", /alternative linked to it/i)
   assert.match(plan[1].prompt ?? "", /accept it as written/i)
-  assert.match(plan[1].prompt ?? "", /suggest a revision/i)
+  assert.match(plan[1].prompt ?? "", /suggest an alternative/i)
   assert.match(plan[1].prompt ?? "", /propose a new definition/i)
   assert.match(plan[1].prompt ?? "", /do not know the term.*skip it/i)
   assert.doesNotMatch(

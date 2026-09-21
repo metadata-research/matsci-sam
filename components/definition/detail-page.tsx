@@ -1,3 +1,4 @@
+import { ReferenceSnapshot } from "./reference-snapshot"
 import { EditDefinitionDialog } from "@/components/definition/edit-dialog"
 import { DefinitionExamples } from "@/components/definition/examples"
 import { DefinitionContributionActions } from "@/components/definition/contribution-actions"
@@ -117,7 +118,7 @@ export async function DefinitionDetailPage({
               readOnly={!definition.isCurrentRevision}
             />
             <article className="min-w-0 flex-1">
-              <header className="flex items-start justify-between gap-4 border-b pb-5">
+              <header className="flex flex-col items-start justify-between gap-4 border-b pb-5 sm:flex-row">
                 <div className="min-w-0 space-y-1">
                   <Eyebrow>Definition {definition.definitionNumber}</Eyebrow>
                   <h1 className="font-serif text-4xl font-bold leading-tight tracking-tight">
@@ -127,13 +128,14 @@ export async function DefinitionDetailPage({
                     {displayedResourceUri}
                   </code>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex min-w-0 max-w-full flex-wrap items-start gap-2">
                   {definition.authorId === sesh.id &&
                     definition.isCurrentRevision && (
                       <EditDefinitionDialog
                         defaultValues={{
                           definition: definition.definition
                         }}
+                        term={definition.term}
                         definitionId={definition.id}
                         expectedRevisionId={definition.revisionId}
                       />
@@ -157,12 +159,47 @@ export async function DefinitionDetailPage({
                   </p>
                 </section>
 
+                {definition.references.length > 0 && (
+                  <section
+                    aria-label="Cited references"
+                    className="flex flex-col gap-3"
+                  >
+                    <Eyebrow>Cited references</Eyebrow>
+                    <p className="text-sm text-muted-foreground">
+                      Sources the contributor declared using for this revision.
+                    </p>
+                    {definition.references.map((reference) => (
+                      <ReferenceSnapshot
+                        key={reference.id}
+                        reference={reference}
+                      />
+                    ))}
+                  </section>
+                )}
+
+                {definition.modelReferences.length > 0 && (
+                  <section
+                    aria-label="Sources supplied to the model"
+                    className="flex flex-col gap-3"
+                  >
+                    <Eyebrow>Sources supplied to the model</Eyebrow>
+                    <p className="text-sm text-muted-foreground">
+                      These sources were included in the model request that
+                      produced this draft. Their inclusion does not show which
+                      facts the model used or verify its answer.
+                    </p>
+                    {definition.modelReferences.map((reference) => (
+                      <ReferenceSnapshot
+                        key={reference.referenceId}
+                        reference={reference}
+                      />
+                    ))}
+                  </section>
+                )}
+
                 <Suspense
                   fallback={
-                    <p
-                      className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground"
-                      role="status"
-                    >
+                    <p className="text-sm text-muted-foreground" role="status">
                       Loading examples…
                     </p>
                   }
@@ -254,7 +291,7 @@ export async function DefinitionDetailPage({
                     <Badge className="border-ai/30 bg-ai/15 text-ai">
                       {definition.model
                         ? `AI-assisted revision · ${definition.model}`
-                        : "Suggested revision"}
+                        : "Suggested alternative"}
                     </Badge>
                   )}
                   {definition.replacesDefinitionId && (
@@ -350,14 +387,15 @@ export async function DefinitionDetailPage({
                   Propose a change
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Suggest a revision to this candidate, or propose a separate
-                  replacement for people to compare and vote on.
+                  Contributions stay linked to this definition so readers can
+                  compare them.
                 </p>
               </header>
               <DefinitionContributionActions
                 term={definition.term}
                 definitionId={definition.id}
                 revisionId={definition.revisionId}
+                sourceDefinition={definition.definition}
               />
             </section>
           )}

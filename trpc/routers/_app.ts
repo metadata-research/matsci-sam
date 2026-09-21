@@ -11,7 +11,9 @@ import { termsRouter } from "./terms"
 import { discussionRouter } from "./discussion"
 import { surveysRouter } from "./surveys"
 import { examplesRouter } from "./examples"
+import { definitionAssistantsRouter } from "./definition-assistants"
 import { aiAssistRouter } from "./ai-assist"
+import { termReferencesRouter } from "./term-references"
 import { z } from "zod"
 import {
   aiModelsTable,
@@ -83,6 +85,8 @@ export const appRouter = createTRPCRouter({
   surveys: surveysRouter,
   examples: examplesRouter,
   aiAssist: aiAssistRouter,
+  definitionAssistants: definitionAssistantsRouter,
+  termReferences: termReferencesRouter,
   me: authenticatedProcedure.query(async ({ ctx }) => {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.id, ctx.userId)

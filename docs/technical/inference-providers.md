@@ -1,10 +1,12 @@
 # Inference providers
 
 MatSci-SAM supports Ollama and an OpenAI-compatible chat-completion service
-that uses OAuth client credentials. Selection is server configuration in this
-release. The admin **AI & services** page reports the selected endpoint and an
-optional alternate, with independent model-availability checks. Contributor
-controls are the same for both providers.
+that uses OAuth client credentials. Server settings choose the deployment
+assistant and optional monitored alternate. Contributors can also choose a
+separately configured, validated and enabled Wolfram Agent One profile for
+ordinary definition requests. The admin **AI & services** page manages that
+profile and reports deployment endpoint readiness; credentials remain on the
+server.
 
 This reference describes application behavior. Keep host-specific setup,
 credential provisioning, protected backups, and recovery commands in the
@@ -180,7 +182,82 @@ model, endpoint, or generation options requires a new rehearsal suffix. Older
 manifests without a configuration record also refuse automatic resume: their
 inference setup cannot be established from the manifest alone.
 
-Credentials may rotate without changing the configuration hash. Requests still
-need valid credentials at runtime. The first version has no contributor picker
-or saved study-specific provider setting; those can be introduced using the
-same request snapshot and provenance contract.
+Credentials may rotate without changing the public configuration hash; they
+must still be valid at runtime. The contributor picker described below applies
+to ordinary definition requests. Pilot runs and study requests retain the
+deployment configuration; they have no saved per-study provider override.
+
+## Contributor assistant choice and Wolfram Agent One
+
+The `default` definition-assistant profile continues to use the deployment's
+existing `INFERENCE_*` / `OLLAMA_HOST` settings. Its visible label comes from the
+configured model, so an OAuth/FLAME deployment is never automatically labelled
+Gemma. The separate `agent-one` profile uses Wolfram's documented fixed endpoint
+`https://services.wolfram.com/api/agent-one/v1/chat/completions` and a dedicated
+server-only `WOLFRAM_AGENT_ONE_API_KEY`. It never borrows `WOLFRAM_API_KEY`, which
+continues to belong to factual reference lookups. The optional
+`WOLFRAM_AGENT_ONE_TIMEOUT_MS` defaults to 90 seconds and is bounded to 1–300
+seconds. No client-supplied endpoint, model tag, or credential is accepted.
+
+After configuring the dedicated key, an administrator must run the definition
+validation test in **AI & services** and explicitly enable Agent One. Validation
+is tied to the adapter configuration and credential using a private stored
+digest; rotating the key or changing its request configuration invalidates
+readiness. The digest and credentials are never returned to the browser or
+included in generation provenance. A failed retest removes readiness. The
+administrative free-text sandbox is separate and does not grant readiness.
+
+Administrators set the default assistant. Contributors can select an available
+assistant per request and save their preference. Explicit and saved choices are
+validated on the server; an unavailable selection produces an actionable error,
+with no automatic call to another provider. Configuration is snapshotted before
+asynchronous request work. The resulting suggestion retains its generating
+service even if defaults or preferences later change. Study revision requests
+retain the existing deployment assistant, and Agent One suggestions cannot be
+published into study steps.
+
+Agent One accepts user/assistant messages and raw API-key authorization. SAM
+sends provider-specific plain-text instructions followed by the contributor's
+exact user message. Those same instructions are stored in generation provenance.
+Agent One's final answer becomes the editable suggestion directly: SAM does not
+request or parse a JSON definition, recover a JSON fragment, strip citation
+footers, or call another model to rewrite the answer. Markdown and source links
+remain part of that answer for the contributor to review. They do not become
+independently retrieved reference receipts or automatically attached citations.
+
+Only a complete leading `<think>…</think>` block and surrounding whitespace are
+removed. Empty answers, incomplete reasoning blocks, explicit refusals, truncated
+responses, and answers longer than 10,000 characters are rejected. The HTTP JSON
+envelope is still decoded to read the final assistant message and safe provenance
+metadata. The response body is bounded to 1 MiB, redirects are refused, and
+provider errors never expose response bodies. No unsupported `response_format`
+or underlying model name is sent. Other inference providers retain their
+structured-output contracts, and the separate Wolfram reference lookup is
+unchanged. The legacy administrator sandbox uses the same plain-text transport.
+
+Generation attribution identifies the producing service as `wolfram-agent-one`
+(Wolfram Agent One), without guessing its underlying LLM. The returned service
+model label, response UUID and bounded tool identity/request identifiers are
+retained when supplied. Thought text, tool arguments and full tool output are
+not retained in inference metadata. These identities supplement the exact
+contributor input and definition output already retained with the suggestion.
+
+Migration `0060_definition_assistants.sql` adds the singleton assistant policy
+and each contributor's nullable preferred profile. Existing users and deployments
+retain the `default` profile without enabling Agent One. `scripts/test-agent-one.ts`
+checks the adapter with controlled responses; it makes no provider request or
+database write.
+
+`scripts/test-agent-one-db.ts` exercises actual database/router authorization,
+readiness, preference routing, exact input/provenance, study restrictions, key
+rotation and overlapping validation-test ordering with controlled responses.
+It requires explicit `ALLOW_ASSISTANT_POLICY_TEST=true`. Run it only against an
+intended local test database after migrations, with exclusive control of the
+assistant policy: the script temporarily replaces the singleton settings row,
+then restores its original contents (or absence) and deletes its own fixtures.
+Do not run concurrent administrator settings changes or live application
+requests against that temporary policy. This is not a transaction-only read
+check or a live Agent One readiness test. Use the established process-tree
+memory cap and check the restoration readback before resuming the preview.
+
+Protocol reference: [Wolfram Agent One API](https://www.wolfram.com/apis/documentation/cag/wolfram-agent-one-api/).

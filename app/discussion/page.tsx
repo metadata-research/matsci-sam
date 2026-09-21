@@ -18,24 +18,31 @@ import {
 
 import { revisionSourceLabels } from "@/lib/revision-sources"
 import { getActiveCommunity } from "@/lib/community-queries"
+import { getCurrentUser } from "@/lib/current-user"
 
 export const metadata: Metadata = {
   title: `Discussion | ${SITE_NAME}`,
   description:
-    "Suggest an AI-assisted revision or post a comment on recently added definitions."
+    "Suggest an AI-assisted alternative or post a comment on recently added definitions."
 }
 
 /*
  * Lightweight discussion feed: the most-recent terms, each with the definition
- * under discussion and two explicit actions. A revision request gets an
+ * under discussion and two explicit actions. An alternative request gets an
  * editable language-model draft; a comment is stored as-is and never triggers
  * model work.
  */
 export default async function DiscussionPage() {
-  const [items, activeCommunity] = await Promise.all([
+  const [items, activeCommunity, user] = await Promise.all([
     trpc.discussion.recent({ limit: 8 }),
-    getActiveCommunity()
+    getActiveCommunity(),
+    getCurrentUser()
   ])
+  const contributorAccess = !user
+    ? "anonymous"
+    : user.name?.trim()
+      ? "ready"
+      : "profile-required"
 
   return (
     <main className="px-4 py-8">
@@ -43,8 +50,8 @@ export default async function DiscussionPage() {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold">Discussion</h1>
           <p className="text-muted-foreground">
-            Suggest a revision by explaining what is wrong, or post a comment
-            without changing the definition.
+            Suggest an alternative by explaining what should change, or post a
+            comment without changing the definition.
           </p>
           {activeCommunity && (
             <p className="text-sm text-muted-foreground">
@@ -227,7 +234,9 @@ export default async function DiscussionPage() {
                 <DiscussionCommentBox
                   definitionId={item.def.definitionId}
                   revisionId={item.def.revisionId}
+                  sourceDefinition={item.def.definition}
                   term={item.term}
+                  contributorAccess={contributorAccess}
                 />
               </div>
 

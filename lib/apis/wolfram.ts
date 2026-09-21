@@ -1,54 +1,28 @@
 import "server-only"
+import { generateAgentOne, getAgentOneConfig } from "../llm/agent-one"
+import { InferenceError } from "../llm/types"
 
-// Wolfram AgentOne chat completions API. Mirrors the OntServe integration:
-// raw API key in the Authorization header, OpenAI-style message payload.
-// https://www.wolfram.com/apis/documentation/cag/wolfram-agent-one-api/
-const AGENTONE_ENDPOINT =
-  "https://services.wolfram.com/api/agent-one/v1/chat/completions"
-
-export const wolframConfigured = () => Boolean(process.env.WOLFRAM_API_KEY)
-
-// Masked key for admin display, e.g. "****abcd"
+// The Agent One credential is deliberately distinct from the CAG lookup key.
+export const wolframConfigured = () =>
+  Boolean(process.env.WOLFRAM_AGENT_ONE_API_KEY?.trim())
 export const wolframMaskedKey = () => {
-  const key = process.env.WOLFRAM_API_KEY
-  if (!key) return null
-
-  return `****${key.slice(-4)}`
+  const key = process.env.WOLFRAM_AGENT_ONE_API_KEY?.trim()
+  return key ? `****${key.slice(-4)}` : null
 }
-
 export type WolframMessage = { role: "user" | "assistant"; content: string }
 
+// Legacy administrative sandbox. Readiness for contribution requests is tested
+// separately against the actual definition contract in definitionAssistants.
 export const wolframQuery = async (
   message: string,
   history: WolframMessage[] = []
 ) => {
-  const apiKey = process.env.WOLFRAM_API_KEY
-  if (!apiKey) throw new Error("WOLFRAM_API_KEY is not configured")
-
-  const res = await fetch(AGENTONE_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: apiKey
-    },
-    body: JSON.stringify({
-      messages: [...history, { role: "user", content: message }],
-      stream: false
-    })
-  })
-
-  if (res.status === 403)
-    throw new Error("Invalid or missing Wolfram API key (HTTP 403)")
-  if (res.status === 501)
-    throw new Error("Wolfram could not process the input (HTTP 501)")
-  if (!res.ok)
-    throw new Error(
-      `Wolfram API returned HTTP ${res.status}: ${(await res.text()).slice(0, 500)}`
-    )
-
-  const data = await res.json()
-  const content: string | undefined = data.choices?.[0]?.message?.content
-  if (!content) throw new Error("Empty response from Wolfram AgentOne")
-
-  return content
+  const config = getAgentOneConfig()
+  const result = await generateAgentOne(
+    config,
+    [...history, { role: "user", content: message }],
+    "Answer the user concisely in plain text. Do not wrap the answer in JSON or a code block."
+  )
+  if (!result) throw new InferenceError("unsupported_format")
+  return result.output
 }

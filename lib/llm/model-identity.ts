@@ -75,6 +75,15 @@ const displayNameOf = (tag: string, family: string | null) => {
 
 export const modelIdentity = (tag: string): ModelIdentity => {
   const trimmed = tag.trim()
+  if (trimmed === "wolfram-agent-one")
+    return {
+      tag: trimmed,
+      slug: "wolfram_agent_one",
+      displayName: "MatBot Wolfram Agent One",
+      vendor: "Wolfram",
+      family: "Agent One",
+      parameterSize: null
+    }
   const known = VENDORS.find((entry) => entry.match.test(trimmed))
   const family = known?.family ?? null
 

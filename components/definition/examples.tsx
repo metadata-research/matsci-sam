@@ -118,11 +118,11 @@ export function DefinitionExamples({
       ) : null}
 
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-          {readOnly
-            ? "No examples have been contributed."
-            : "No examples yet — add one."}
-        </p>
+        readOnly ? (
+          <p className="text-sm text-muted-foreground">
+            No examples have been contributed.
+          </p>
+        ) : null
       ) : (
         <ol className="overflow-hidden rounded-xl border bg-card">
           {items.map((example) => {

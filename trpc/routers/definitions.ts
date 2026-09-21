@@ -28,6 +28,12 @@ import {
   contributorProcedure
 } from "../procedures"
 import { revalidatePath } from "next/cache"
+import {
+  attachRevisionReferences,
+  bindModelReferenceLookups,
+  referenceSelectionsSchema,
+  revisionReferencesQuery
+} from "@/lib/term-references"
 import { TRPCError } from "@trpc/server"
 import {
   createDefinitionWithInitialRevision,
@@ -80,6 +86,7 @@ export const definitionsRouter = createTRPCRouter({
             .trim()
             .min(1, "Term is required")
             .max(TERM_MAX_LENGTH),
+          expectedVocabularySlug: z.string().trim().min(1).max(200).optional(),
           definition: z
             .string()
             .trim()
@@ -101,7 +108,8 @@ export const definitionsRouter = createTRPCRouter({
           replacesDefinitionId: z.number().int().positive().optional(),
           // An explicit, persisted AI preview generated inside either New term
           // or Suggest revision. The server consumes it exactly once.
-          aiSuggestionId: z.number().int().positive().optional()
+          aiSuggestionId: z.number().int().positive().optional(),
+          references: referenceSelectionsSchema.optional()
         })
         .refine(
           ({ derivedFromRevisionId, replacesDefinitionId }) =>
@@ -109,7 +117,7 @@ export const definitionsRouter = createTRPCRouter({
             replacesDefinitionId === undefined,
           {
             message:
-              "A contribution cannot be both a revision and a replacement"
+              "A contribution cannot be both an alternative and a replacement"
           }
         )
         .refine(
@@ -117,7 +125,7 @@ export const definitionsRouter = createTRPCRouter({
             !initialExample || derivedFromRevisionId === undefined,
           {
             message:
-              "An initial example can accompany a new term or replacement, not a suggested revision"
+              "An initial example can accompany a new term or replacement, not an alternative"
           }
         )
         .refine(
@@ -152,6 +160,7 @@ export const definitionsRouter = createTRPCRouter({
                 requestedById: true,
                 vocabularySlug: true,
                 model: true,
+                inference: true,
                 status: true
               },
               where: eq(aiContributionSuggestionsTable.id, input.aiSuggestionId)
@@ -161,6 +170,15 @@ export const definitionsRouter = createTRPCRouter({
       ])
       const contributionVocabularySlug =
         activeCommunity?.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG
+      if (
+        input.expectedVocabularySlug !== undefined &&
+        input.expectedVocabularySlug !== contributionVocabularySlug
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The contribution vocabulary changed. Confirm the term in the current vocabulary before publishing."
+        })
       if (
         input.aiSuggestionId &&
         (!suggestionPreview ||
@@ -179,6 +197,15 @@ export const definitionsRouter = createTRPCRouter({
           code: "CONFLICT",
           message:
             "The contribution vocabulary changed. Request a new language model draft in the current vocabulary."
+        })
+      if (
+        input.surveyStepId !== undefined &&
+        suggestionPreview?.inference?.provider === "wolfram-agent-one"
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "This study uses the deployment assistant. Request a new suggestion within the study."
         })
       const modelUser = suggestionPreview
         ? await GetModelUser(suggestionPreview.model)
@@ -258,6 +285,15 @@ export const definitionsRouter = createTRPCRouter({
               message:
                 "The contribution vocabulary changed. Request a new language model draft in the current vocabulary."
             })
+          if (
+            input.surveyStepId !== undefined &&
+            aiSuggestion?.inference?.provider === "wolfram-agent-one"
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "This study uses the deployment assistant. Request a new suggestion within the study."
+            })
           if (aiSuggestion?.intent === "new_term") {
             if (
               input.derivedFromRevisionId !== undefined ||
@@ -267,7 +303,7 @@ export const definitionsRouter = createTRPCRouter({
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:
-                  "A new-term suggestion cannot publish a revision or replacement"
+                  "A new-term suggestion cannot publish an alternative or replacement"
               })
           }
           if (aiSuggestion?.intent === "revise_definition") {
@@ -280,7 +316,7 @@ export const definitionsRouter = createTRPCRouter({
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:
-                  "That AI suggestion does not match this revision action"
+                  "That AI suggestion does not match this alternative action"
               })
           }
 
@@ -317,7 +353,7 @@ export const definitionsRouter = createTRPCRouter({
           if (isRevision && !source)
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "A revision must target an existing term"
+              message: "An alternative must target an existing term"
             })
           if (
             aiSuggestion?.intent === "revise_definition" &&
@@ -373,12 +409,13 @@ export const definitionsRouter = createTRPCRouter({
             throw new TRPCError({
               code: "CONFLICT",
               message:
-                "That term is already in this vocabulary. Open it to suggest a revision or propose a replacement."
+                "That term is already in this vocabulary. Open it to suggest an alternative or propose a replacement."
             })
           if (!dbTerm && !isNewTerm)
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "A revision or replacement must target an existing term"
+              message:
+                "An alternative or replacement must target an existing term"
             })
           if (!dbTerm) {
             // First time this term has been defined, so create it -- with its
@@ -498,7 +535,20 @@ export const definitionsRouter = createTRPCRouter({
               surveyStepId: input.surveyStepId ?? null
             })
 
+          await attachRevisionReferences(tx, {
+            selection: input.references,
+            authorId,
+            termId: dbTerm.id,
+            revisionId: insertedRevision.id
+          })
+
           if (aiSuggestion && modelUser) {
+            await bindModelReferenceLookups(tx, {
+              references: aiSuggestion.referenceInputs ?? [],
+              authorId,
+              termId: dbTerm.id,
+              revisionId: insertedRevision.id
+            })
             await tx.insert(coauthorsTable).values({
               definitionId: insertedDefinition.id,
               userId: modelUser.id
@@ -593,13 +643,14 @@ export const definitionsRouter = createTRPCRouter({
           .trim()
           .min(3, "Briefly describe what changed")
           .max(CHANGE_NOTE_MAX_LENGTH),
-        expectedRevisionId: z.number()
+        expectedRevisionId: z.number(),
+        references: referenceSelectionsSchema.optional()
       })
     )
     .mutation(
       async ({
         ctx: { userId },
-        input: { id, definition, changeNote, expectedRevisionId }
+        input: { id, definition, changeNote, expectedRevisionId, references }
       }) => {
         try {
           const result = await db.transaction(async (tx) => {
@@ -617,7 +668,7 @@ export const definitionsRouter = createTRPCRouter({
                 message: "Definition doesn't exist or isn't yours"
               })
 
-            return publishDefinitionRevision(tx, {
+            const published = await publishDefinitionRevision(tx, {
               definitionId: id,
               editorId: userId,
               definition,
@@ -628,6 +679,13 @@ export const definitionsRouter = createTRPCRouter({
               source: "author_edit",
               expectedRevisionId
             })
+            await attachRevisionReferences(tx, {
+              selection: references,
+              authorId: userId,
+              termId: published.definition.termId,
+              revisionId: published.revision.id
+            })
+            return published
           })
 
           revalidatePath("/terms")
@@ -902,6 +960,17 @@ export const definitionsRouter = createTRPCRouter({
         })
       ])
 
+      const acceptedSuggestion =
+        selectedRevision.version === 1
+          ? await db.query.aiContributionSuggestionsTable.findFirst({
+              columns: { referenceInputs: true },
+              where: and(
+                eq(aiContributionSuggestionsTable.outputDefinitionId, def.id),
+                eq(aiContributionSuggestionsTable.status, "accepted")
+              )
+            })
+          : null
+
       const currentVersion =
         revisions.find((revision) => revision.id === def.currentRevisionId)
           ?.version ?? selectedRevision.version
@@ -929,6 +998,8 @@ export const definitionsRouter = createTRPCRouter({
         legacyIncomplete: selectedRevision.legacyIncomplete,
         editor: selectedRevision.editor,
         comparison,
+        references: await revisionReferencesQuery([selectedRevision.id]),
+        modelReferences: acceptedSuggestion?.referenceInputs ?? [],
         // Listed rather than spread: previousRevisionId and
         // derivedFromRevisionId in the select feed the server-side comparison
         // and stay out of the response, because internal row IDs remain

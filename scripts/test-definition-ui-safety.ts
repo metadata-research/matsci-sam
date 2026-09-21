@@ -48,21 +48,25 @@ assert.match(
 // Discard is server-confirmed: a failed request leaves the draft and its ID in
 // place, so the same control can retry it.
 const definitionForm = source("components/definition/definition-form.tsx")
-const clearAiDraft = section(
+const discardThen = section(
   definitionForm,
-  "const clearAiDraft =",
+  "const discardThen =",
+  "const confirmTerm ="
+)
+assert.match(discardThen, /discardAiDraft\.mutate/)
+assert.match(discardThen, /onSuccess:[\s\S]*next\(\)/)
+assert.match(discardThen, /activity\.start\(\)/)
+const suggestionResult = section(
+  definitionForm,
+  "const suggestAiDraft =",
   "const busy ="
 )
-assert.doesNotMatch(clearAiDraft, /setAiDraft\(null\)/)
-assert.match(
-  definitionForm,
-  /discardAiDraft[\s\S]*onSuccess:[\s\S]*setAiDraft\(null\)/
-)
-assert.match(definitionForm, /suggestAiDraft\.error \|\| discardAiDraft\.error/)
-assert.match(definitionForm, /activity\.start\(\)[\s\S]*discardAiDraft\.mutate/)
+assert.match(suggestionResult, /setPreview/)
+assert.doesNotMatch(suggestionResult, /form\.setValue/)
+assert.match(definitionForm, /discardAiDraft\.error/)
 assert.match(definitionForm, /onSettled: activity\.end/)
 assert.match(definitionForm, /name="initialExample"/)
-assert.match(definitionForm, /separate[\s\S]*contribution credited to you/)
+assert.match(definitionForm, /separate[\s\S]*credited to you/)
 
 const revisionForm = source(
   "components/definition/revision-suggestion-form.tsx"
@@ -74,10 +78,23 @@ const clearRevisionDraft = section(
   "return ("
 )
 assert.doesNotMatch(clearRevisionDraft, /setDraft\(null\)/)
-assert.match(revisionForm, /discard[\s\S]*onSuccess: \(\) => setDraft\(null\)/)
+const revisionDiscard = section(
+  revisionForm,
+  "const discard =",
+  "const suggest ="
+)
+assert.match(revisionDiscard, /onSuccess:[\s\S]*setDraft\(null\)/)
+assert.doesNotMatch(revisionDiscard, /setReferences\(\[\]\)/)
+const revisionResponse = section(
+  revisionForm,
+  "const suggest =",
+  "const publish ="
+)
+assert.match(revisionResponse, /setPreview\(result\)/)
+assert.doesNotMatch(revisionResponse, /setDraft\(result\)/)
 assert.match(revisionForm, /activity\.start\(\)[\s\S]*discard\.mutate/)
 assert.match(revisionForm, /onSettled: activity\.end/)
-assert.match(revisionForm, /Revision draft/)
+assert.match(revisionForm, /Alternative draft/)
 assert.doesNotMatch(revisionForm, /Proposed definition|separate candidate/)
 
 // Shell navigation stays disabled for the full child mutation lifecycle.
@@ -89,7 +106,7 @@ assert.match(contributionActions, /disabled={childBusy}/)
 
 const walkthrough = source("components/studies/walkthrough.tsx")
 assert.match(walkthrough, /const interaction = useMutationActivity\(\)/)
-assert.match(walkthrough, /You suggested this revision as your position/)
+assert.match(walkthrough, /You suggested this alternative as your position/)
 assert.match(walkthrough, /Publishing it did not cast a vote/)
 assert.match(walkthrough, /Accepting it also recorded an upvote/)
 assert.match(
@@ -111,9 +128,9 @@ assert.match(candidates, /showStatus={false}/)
 assert.doesNotMatch(candidates, />Draft</)
 assert.doesNotMatch(candidates, /Proposed so far/)
 assert.match(candidates, /Accept this definition/)
-assert.match(candidates, /Revise this definition/)
+assert.match(candidates, /Suggest an alternative, option/)
 assert.doesNotMatch(candidates, /Accept as written/)
-assert.match(candidates, /Suggest a revision/)
+assert.match(candidates, /Suggest an alternative/)
 assert.match(candidates, /None is close enough\?/)
 assert.match(candidates, /Propose a new definition/)
 assert.doesNotMatch(candidates, /Propose a replacement/)
@@ -198,7 +215,7 @@ assert.match(
 const completedSummary = source(
   "components/studies/completed-study-summary.tsx"
 )
-assert.match(completedSummary, /Suggested a revision recorded as/)
+assert.match(completedSummary, /Suggested an alternative recorded as/)
 assert.match(
   position,
   /settled \? \([\s\S]*<HeldPosition step=\{step\}[^>]*\/>[\s\S]*\) : \([\s\S]*<Candidates[\s\S]*onSkip=\{onSkip\}/

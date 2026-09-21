@@ -8,16 +8,13 @@ export function AddTermPageContent({
   vocabularyTitle: string
 }) {
   return (
-    <main className="flex-1 px-4 py-8 sm:py-10">
-      <div className="mx-auto max-w-2xl space-y-6">
-        <section className="max-w-xl space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Add a new term
-          </h1>
+    <main className="flex-1 px-4 py-5 sm:py-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4">
+        <section className="flex max-w-2xl flex-col gap-2">
+          <h1 className="text-3xl font-bold tracking-tight">Add a new term</h1>
           <p className="leading-7 text-muted-foreground">
-            Add a term and its first definition to the {vocabularyTitle}{" "}
-            vocabulary. Write the definition or prompt a language model for an
-            editable draft.
+            Confirm a term in {vocabularyTitle}, write its definition, then
+            review and publish.
           </p>
         </section>
         <DefineTermForm initialTerm={initialTerm} />
