@@ -19,8 +19,13 @@
     "test:contributions": "tsx scripts/test-contribution-actions.ts",
     "test:router-surface": "tsx --conditions=react-server scripts/test-public-router-surface.ts",
     "test:definition-ui-safety": "tsx scripts/test-definition-ui-safety.ts",
+    "test:discussion-action-gate": "tsx scripts/test-discussion-action-gate.ts",
+    "test:reference-workflows-ui": "tsx scripts/test-reference-workflows-ui.ts",
     "test:featured-provenance": "tsx scripts/test-featured-provenance.ts",
+    "test:contribution-provenance": "tsx scripts/test-contribution-provenance.ts",
+    "test:reported-sources": "tsx --conditions=react-server scripts/test-provider-reported-sources.ts",
     "test:ai-contribution-discard-db": "tsx scripts/test-ai-contribution-discard-db.ts",
+    "test:model-prompt-inputs": "tsx scripts/test-model-prompt-inputs.ts",
     "test:examples-db": "tsx scripts/test-definition-examples-db.ts",
     "test:example-provenance-upgrade-db": "tsx scripts/test-example-provenance-upgrade-db.ts",
     "test:definition-source-lock": "tsx scripts/test-definition-source-lock.ts",
@@ -62,7 +67,13 @@
     "test:id4-protocol-db": "tsx --conditions=react-server scripts/test-id4-protocol-db.ts",
     "test:inference": "tsx scripts/test-inference.ts && tsx scripts/test-inference-health.ts",
     "test:inference-db": "tsx --conditions=react-server scripts/test-inference-db.ts",
-    "inference:check": "tsx scripts/check-inference.ts"
+    "inference:check": "tsx scripts/check-inference.ts",
+    "test:references": "tsx scripts/test-chebi-references.ts && tsx scripts/test-wolfram-references.ts && tsx scripts/test-wolfram-options.ts",
+    "test:ontology-context": "tsx --conditions=react-server scripts/test-ontology-context.ts",
+    "test:wolfram-options": "tsx scripts/test-wolfram-options.ts",
+    "test:references-db": "tsx --conditions=react-server scripts/test-term-references-db.ts",
+    "test:agent-one": "tsx scripts/test-agent-one.ts",
+    "test:source-context": "tsx scripts/test-source-context-limits.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

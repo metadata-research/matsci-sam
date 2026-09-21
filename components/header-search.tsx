@@ -11,8 +11,8 @@ import styles from "./header.module.css"
  * page. The primary navigation also links to /search directly so the complete
  * interface remains discoverable without submitting a query.
  *
- * Hidden on /search itself: that page owns a full search field plus the filter
- * panel. Below the md breakpoint the field collapses to a plain icon link --
+ * Hidden on the home and search pages, which have their own search fields.
+ * Below the md breakpoint the field collapses to a plain icon link --
  * the pill nav has no room for an input beside the primary tasks.
  */
 export const HeaderSearch = () => {
@@ -20,7 +20,7 @@ export const HeaderSearch = () => {
   const router = useRouter()
   const [query, setQuery] = useState("")
 
-  if (pathname === "/search") return null
+  if (pathname === "/" || pathname === "/search") return null
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()

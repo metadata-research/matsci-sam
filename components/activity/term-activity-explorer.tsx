@@ -11,6 +11,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { ActivityEventTable } from "./activity-event-table"
 import {
   formatActivityDateTime,
+  activityEventFilters,
+  matchesActivityEventFilter,
   isRevisionActivityEvent,
   revisionSelection,
   validActivityDefinitionNumber
@@ -35,11 +37,15 @@ export function TermActivityExplorer({
         (definition) => definition.number === filteredDefinition
       )
     : activity.definitions
-  const visibleEvents = filteredDefinition
-    ? activity.events.filter(
-        (event) => event.definitionNumber === filteredDefinition
-      )
-    : activity.events
+  const requestedEventFilter = searchParams.get("events")
+  const eventFilter =
+    activityEventFilters.find((filter) => filter.value === requestedEventFilter)
+      ?.value ?? "all"
+  const visibleEvents = activity.events.filter(
+    (event) =>
+      (!filteredDefinition || event.definitionNumber === filteredDefinition) &&
+      matchesActivityEventFilter(event, eventFilter)
+  )
   const visibleRevisions = visibleEvents.filter(isRevisionActivityEvent)
   const requestedRevision = searchParams.get("revision")
   const selectedRevision =
@@ -86,27 +92,49 @@ export function TermActivityExplorer({
               inspect its wording below.
             </p>
           </div>
-          <label className="space-y-1 text-sm font-medium sm:w-56">
-            Definition
-            <select
-              value={filteredDefinition ?? "all"}
-              onChange={(event) =>
-                navigate({
-                  definition:
-                    event.target.value === "all" ? null : event.target.value,
-                  revision: null
-                })
-              }
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            >
-              <option value="all">All definitions</option>
-              {activity.definitions.map((definition) => (
-                <option key={definition.number} value={definition.number}>
-                  Definition {definition.number}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex flex-wrap gap-3">
+            <label className="space-y-1 text-sm font-medium sm:w-48">
+              Definition
+              <select
+                value={filteredDefinition ?? "all"}
+                onChange={(event) =>
+                  navigate({
+                    definition:
+                      event.target.value === "all" ? null : event.target.value,
+                    revision: null
+                  })
+                }
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="all">All definitions</option>
+                {activity.definitions.map((definition) => (
+                  <option key={definition.number} value={definition.number}>
+                    Definition {definition.number}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium sm:w-56">
+              Event type
+              <select
+                value={eventFilter}
+                onChange={(event) =>
+                  navigate({
+                    events:
+                      event.target.value === "all" ? null : event.target.value,
+                    revision: null
+                  })
+                }
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                {activityEventFilters.map((filter) => (
+                  <option key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </header>
 
         <p className="text-sm" aria-live="polite">

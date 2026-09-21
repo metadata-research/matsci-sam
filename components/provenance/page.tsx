@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 import { ProvenanceGraph } from "@/components/provenance/graph"
 import { ProvenanceTimeline } from "@/components/provenance/timeline"
+import { ContributionEvidencePanel } from "./contribution-evidence"
 
 // Public, read-only PROV-O view of a term's history. Voter identities are
 // anonymized server-side (see terms.provenance).
@@ -44,6 +45,11 @@ export async function TermProvenancePage({ termId }: { termId: number }) {
         <ProvenanceGraph
           nodes={provenance.graph.nodes}
           edges={provenance.graph.edges}
+        />
+        <ContributionEvidencePanel
+          contributions={provenance.contributions}
+          termSlug={provenance.term.slug}
+          vocabularySlug={provenance.term.vocabularySlug}
         />
         <h2 className="text-xl font-semibold pt-2">Timeline</h2>
         <ProvenanceTimeline events={provenance.events} />

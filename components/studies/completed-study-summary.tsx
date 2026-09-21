@@ -43,7 +43,7 @@ const PositionRecord = ({ step }: { step: Step }) => {
         {step.held.kind === "accepted"
           ? "Accepted"
           : step.held.refinedFromId
-            ? "Suggested a revision recorded as"
+            ? "Suggested an alternative recorded as"
             : "Proposed"}{" "}
         <DefinitionRevisionLink
           step={step}

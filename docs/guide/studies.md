@@ -45,14 +45,17 @@ A Position records your choice. Canonical order follows
 [vote scores and tie-breaks](/docs/community#definition-order), which may
 change as people contribute. A support score is not a count of study positions.
 
-**Suggest a revision** creates a separate definition with its own history.
-An edit by the primary author creates a revision of the existing definition.
+**Suggest an alternative** creates a separate definition starting at version 1,
+linked to its source. **Create a new version**, available to the primary author
+on vocabulary pages, adds the next version to the existing definition's
+history and preserves earlier versions.
 
 ## The study activity
 
 ID4 round two has instructions, one Position step for each of eight terms,
-and closing questions. You can accept, revise, propose, comment, or skip during
-the Position steps. There is no repeated Review round.
+and closing questions. You can accept a definition, suggest an alternative,
+propose a new definition, comment, or skip during the Position steps. There is
+no repeated Review round.
 
 Other studies may have a separate Review round for votes and comments.
 The progress indicators show completed steps and your first unfinished step.
@@ -77,13 +80,17 @@ completes the step. It adds an upvote, changes your downvote to an upvote, or
 retains your existing upvote without adding another point. An upvote cast
 outside the study does not complete this choice.
 
-### Suggest a revision
+<a id="suggest-a-revision"></a>
 
-Select **Revise this definition**, explain what should change, and request a
-language-model draft. Review and edit the result. **Publish revision** creates
-a separate candidate credited to you and the model, records your Position,
-and completes the step. The original remains available. Publication does not
-cast a vote.
+### Suggest an alternative
+
+Select **Suggest an alternative**, explain what should change, and select
+**Draft alternative with a language model**. Inspect the preview and select
+**Use this draft** to edit it. Select **Review alternative**, then
+**Publish alternative** to create a separate definition starting at version 1,
+credited to you and the model and linked to its source. Publication records
+your Position and completes the step. The original remains available.
+Publication does not cast a vote.
 
 **Discard draft** publishes nothing. Before a draft exists, you can accept the
 source or return to the definitions. Use **Propose a new definition** to write
@@ -107,7 +114,8 @@ ordinary definition page is a separate action for superseding another candidate.
 ID4 round two has a comment box beneath each definition. Select **Post
 comment** before accepting or publishing a Position. The comment saves your
 text without requesting a model draft or completing the step. You can still
-accept, revise, or propose afterward.
+accept a definition, suggest an alternative, or propose a new definition
+afterward.
 
 Studies with a separate Review round provide comment boxes there. The thread
 may also include discussion from outside the study.
@@ -174,13 +182,13 @@ in the vocabulary and its [provenance](/docs/provenance).
 Use the activity to record study participation. Ordinary vocabulary pages
 use the same definitions and revisions but do not complete study steps.
 
-| Action   | Vocabulary pages                     | ID4 round two                                                  |
-| -------- | ------------------------------------ | -------------------------------------------------------------- |
-| Choose   | Compare and vote                     | Accept, revise, propose, or skip                               |
-| Publish  | Add a definition or author revision  | Record a suggested revision or new definition as your Position |
-| Vote     | Support, oppose, change, or withdraw | Accept records or retains an upvote. A proposal adds no vote   |
-| Comment  | Discuss a definition                 | Comment before completing Position                             |
-| Progress | No required sequence                 | One pass through the terms, then closing questions             |
+| Action   | Vocabulary pages                            | ID4 round two                                            |
+| -------- | ------------------------------------------- | -------------------------------------------------------- |
+| Choose   | Compare and vote                            | Accept, suggest an alternative, propose, or skip          |
+| Publish  | Add a definition or a new version of your own | Record an alternative or new definition as your Position |
+| Vote     | Support, oppose, change, or withdraw         | Accept records or retains an upvote. A proposal adds no vote |
+| Comment  | Discuss a definition                        | Comment before completing Position                       |
+| Progress | No required sequence                        | One pass through the terms, then closing questions        |
 
 Studies with a Review round allow additional votes and comments after
 Position. Study contributions retain their step context.

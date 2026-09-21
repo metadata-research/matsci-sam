@@ -217,7 +217,7 @@ const PositionTarget = ({
       <p className="text-sm text-muted-foreground">
         {step.held?.kind === "proposed"
           ? step.held.refinedFromId
-            ? "You suggested this revision as your position. Publishing it did not cast a vote."
+            ? "You suggested this alternative as your position. Publishing it did not cast a vote."
             : "You proposed this definition as your position. Publishing it did not cast a vote."
           : "You accepted this definition as written. Accepting it also recorded an upvote."}{" "}
         {!singlePass &&
@@ -352,16 +352,14 @@ const Candidates = ({
     return (
       <div className="space-y-4">
         <h2 ref={moveHeadingRef} tabIndex={-1} className="sr-only">
-          Suggest a revision
+          Suggest an alternative
         </h2>
         <p className="text-sm text-muted-foreground">
-          Revise the closest definition to make it more accurate. Your revision
-          will be added as a separate option. The original remains available.
+          Use the closest definition as the source for a more accurate
+          alternative. Your alternative will be added as a separate definition
+          linked to this source.
         </p>
-        <DefinitionReference
-          definition={candidate}
-          label="Definition you are revising"
-        />
+        <DefinitionReference definition={candidate} label="Source definition" />
         <p className="text-sm text-muted-foreground">
           If this definition works as written, accept it below.{" "}
           {positionAcceptanceExplanation(candidate.vote)}{" "}
@@ -373,6 +371,7 @@ const Candidates = ({
           term={step.term!}
           definitionId={candidate.id}
           sourceRevisionId={candidate.revisionId}
+          sourceDefinition={candidate.definition}
           surveyStepId={step.id}
           expectedInstructions={expectedInstructions}
           renderInitialActions={(formBusy) => (
@@ -438,10 +437,10 @@ const Candidates = ({
         <h2 className="font-semibold">Choose the closest definition</h2>
         <p className="text-sm text-muted-foreground">
           Choose the definition closest to what you consider correct. Accept it
-          as written, or suggest a revision to make it more accurate. You may
-          choose your own definition. Propose a new definition if none is close
-          enough. Accept records your choice and adds an upvote if you have not
-          already upvoted that revision.
+          as written, or suggest a more accurate alternative linked to it. You
+          may choose your own definition. Propose a new definition if none is
+          close enough. Accept records your choice and adds an upvote if you
+          have not already upvoted that revision.
           {singlePass &&
             " Post any public comments before accepting or publishing, which completes this term."}
         </p>
@@ -566,9 +565,9 @@ const Candidates = ({
                           event.currentTarget
                         )
                       }
-                      aria-label={`Revise this definition, option ${index + 1}`}
+                      aria-label={`Suggest an alternative, option ${index + 1}`}
                     >
-                      Revise this definition
+                      Suggest an alternative
                     </Button>
                   </div>
                   {(singlePass || (candidate.comments ?? 0) > 0) && (

@@ -958,7 +958,7 @@
   display: grid;
   gap: 1rem;
   color: var(--foreground);
-  font-family: var(--font-plex-serif);
+  font-family: var(--font-plex-sans);
   font-size: 0.95rem;
   line-height: 1.65;
   white-space: pre-line;

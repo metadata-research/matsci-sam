@@ -10,7 +10,7 @@ export async function generateMetadata({
 }) {
   const { slug } = await params
   const doc = await renderDoc("guide", slug)
-  return { title: `${doc?.title ?? "Documentation"} | ${SITE_NAME}` }
+  return { title: `${doc?.title ?? "Help & Guides"} | ${SITE_NAME}` }
 }
 
 export default async function DocPage({

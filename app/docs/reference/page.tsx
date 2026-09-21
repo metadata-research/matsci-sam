@@ -5,7 +5,7 @@ import { listAllDocs, renderDoc } from "@/lib/docs"
 import { DocsShell } from "../shell"
 
 export const metadata: Metadata = {
-  title: `Knowledge organization | ${SITE_NAME}`
+  title: `Technical reference | ${SITE_NAME}`
 }
 
 export default async function ReferenceIndexPage() {

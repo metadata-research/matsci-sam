@@ -9,7 +9,9 @@ and published AI-assisted work. Revisions record text, editor, time, change
 note, and predecessor. A restored revision also identifies the earlier text
 it copies.
 
-A published **Suggest a revision** candidate links to the source revision,
+**Create a new version** adds the next version to the same definition's history
+and preserves its earlier versions. **Suggest an alternative** publishes a
+separate definition starting at version 1. It links to the source revision,
 contributor critique, stored model output, prompt, and model. A replacement
 identifies the definition it should supersede. Discarded model drafts remain
 outside the published vocabulary.
@@ -28,9 +30,44 @@ configuration requested for a run.
 
 ![A model profile with recorded authorship](/images/docs/model-profile.png)
 
+## References and AI assistance
+
+ChEBI and Wolfram lookup provide reference material. Gemma (or the configured
+deployment model) and Wolfram Agent One draft definitions. The Wolfram lookup
+and Agent One are separate services with separate evidence records.
+
+Published records distinguish three kinds of source evidence:
+
+- **Cited references** are sources the contributor attached to the published
+  revision. They retain the retrieved text and available source, release,
+  licence, retrieval time and response identifier.
+- **Sources supplied to the model** are the exact reference snapshots included
+  in an accepted suggestion's request. Inclusion does not establish which
+  facts the model used or whether its answer is correct.
+- **Sources reported by the assistant** are links returned in the assistant's
+  answer, such as Agent One's Wolfram Sources. They are provider claims, not
+  independently verified sources or automatically attached citations.
+
+Accepted AI work preserves the submitted draft, example and references when
+included, the stored prompts, the assistant's original final answer, and its
+relationship to the contributor's published wording. Edits before publication
+do not rewrite the original suggestion. Recorded service and model identities
+describe the request and available response metadata; Agent One does not imply
+a known underlying language model.
+
+Lookups and unused or discarded suggestions stay private unless their evidence
+is attached to a published contribution. Successful Copy and Add to definition
+actions can record private interaction timestamps. Those actions do not prove
+that the person read, retained or used the text. Revealing a definition alone
+does not create a citation or public activity.
+
+The ontology context panel previews terms and their asserted parents in
+MatSci-ONT. Opening the panel or switching ontologies does not save a mapping
+or assert that the SAM term is equivalent to a matched term.
+
 ## Votes, comments, and examples
 
-Votes and comments identify a definition revision. An author edit starts a
+Votes and comments identify a definition revision. A new version starts a
 new vote tally. Vote direction changes and withdrawals append events, so the
 record retains their sequence. Study actions also identify the study context.
 
@@ -38,6 +75,11 @@ Examples identify the stable definition and the revision displayed when
 added. The featured-example history records who selected an example and the
 interval it was featured. Example selection leaves definition text and votes
 unchanged.
+
+Timelines include example contributions and the recorded start and end of
+featured-example intervals. Unknown historical dates remain unknown rather
+than becoming reconstructed events. A change in which definition ranks first
+is a computed outcome, not another edit or an approval activity.
 
 ## Imported records
 

@@ -47,7 +47,8 @@ const EDGE_STYLE: Record<
   wasGeneratedBy: { stroke: "#ef4444" },
   wasAssociatedWith: { stroke: "#22c55e", dashed: true },
   wasAttributedTo: { stroke: "#a855f7", dashed: true },
-  used: { stroke: "#6b7280" }
+  used: { stroke: "#6b7280" },
+  references: { stroke: "#6b7280", dashed: true }
 }
 
 const NODE_WIDTH = 190

@@ -1,5 +1,7 @@
 import { findDefinitionAtRank } from "@/lib/public-definition-resolution"
 import { DefinitionList } from "@/app/terms/[termId]/definitions"
+import { TermDefaultDefinition } from "@/components/definition/term-default-definition"
+import { OntologyContextPanel } from "@/components/ontology-context-panel"
 import { Badge } from "@/components/ui/badge"
 import { FacetEditor } from "@/components/tags/facet-editor"
 import { TermFacets, TermFacetsFallback } from "@/components/tags/term-facets"
@@ -285,7 +287,7 @@ export async function VocabularyTermPage({
         dangerouslySetInnerHTML={{ __html: jsonLd }}
       />
       <main className="px-4 py-8">
-        <section className="mx-auto w-full max-w-4xl">
+        <section className="mx-auto w-full max-w-6xl">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>Source vocabulary</span>
             <Link
@@ -352,12 +354,30 @@ export async function VocabularyTermPage({
             </Suspense>
           </div>
 
-          <div className="space-y-2">
-            <DefinitionList
-              termId={term.id}
-              termSlug={term.slug}
-              termVocabularySlug={term.vocabularySlug}
-            />
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="min-w-0">
+              {topDefinition ? (
+                <TermDefaultDefinition definitionId={topDefinition.id} />
+              ) : (
+                <p className="rounded-lg border bg-card p-6 text-muted-foreground">
+                  No definitions have been added yet.
+                </p>
+              )}
+            </div>
+            <aside className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+              <OntologyContextPanel term={term.term} />
+            </aside>
+            {topDefinition && (
+              <div className="min-w-0 lg:col-start-1">
+                <DefinitionList
+                  key={term.id}
+                  termId={term.id}
+                  termSlug={term.slug}
+                  termVocabularySlug={term.vocabularySlug}
+                  defaultDefinitionId={topDefinition.id}
+                />
+              </div>
+            )}
           </div>
         </section>
       </main>

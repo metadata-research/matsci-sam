@@ -10,7 +10,9 @@ export const DefinitionOutput = z.object({
   example: z.string()
 })
 export type DefinitionTextOutput = z.infer<typeof DefinitionTextOutput>
-export const DefinitionTextOutput = z.object({ definition: z.string() })
+export const DefinitionTextOutput = z
+  .object({ definition: z.string().trim().min(1).max(10000) })
+  .strict()
 
 // Snapshot configuration before awaiting I/O. Output and provenance come from
 // the same request, including when the configured default changes meanwhile.

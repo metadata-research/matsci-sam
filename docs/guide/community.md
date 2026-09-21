@@ -2,7 +2,7 @@
 
 A term can have competing definitions. Each has a permanent identifier,
 revision history, and score for the current revision. Sign in to vote or
-comment. The primary author can publish edits.
+comment. The primary author can publish new versions of their definition.
 
 This guide covers vocabulary pages. Use the [study activity](/docs/studies)
 to record study participation and complete its steps.
@@ -40,7 +40,7 @@ revision, and authors may vote on their own definitions.
 | Up              | Change to down    |              -2 |
 | Down            | Change to up      |              +2 |
 
-An author edit starts a new revision at zero. Earlier votes stay with the
+A new version by the primary author starts at zero. Earlier votes stay with the
 revision they evaluated. Historical revisions are read-only. Each separate
 candidate has its own score. Featured examples provide context and have
 independent contribution records.
@@ -74,16 +74,20 @@ and discussion to judge scientific quality.
 
 ## Editing and proposing definitions
 
-The primary author can edit definition text. **Publish revision** appends an
-immutable revision under the existing definition identifier. It records the
-editor, time, change note, and predecessor. A restore appends a revision that
-copies earlier text and preserves the intervening history.
+The primary author can select **Create a new version** to update their
+definition. Edit the text, select **Review new version**, then
+**Publish new version**. Publication keeps the definition identifier and adds the next
+numbered version. Previous versions remain in its history. The record includes
+the editor, time, change note, and predecessor. A restore also adds a new
+version, copying earlier text while preserving the intervening history.
 
-**Suggest a revision** also ends with **Publish revision**, but creates a
-separate candidate from a model draft. **Propose a replacement** creates a
-candidate you write and identifies the definition it should supersede.
-Both retain the original for comparison. See
-[AI-assisted suggestions](/docs/ai-refinement).
+Select **Suggest an alternative** to draft a separate definition with a model.
+After **Review alternative**, **Publish alternative** creates a new definition
+starting at version 1, linked to its source. The original remains available
+for comparison and voting. See [AI-assisted suggestions](/docs/ai-refinement).
+
+**Propose a replacement** creates a candidate you write and identifies the
+definition it should supersede. It also retains the original for comparison.
 
 Review the latest wording and submit again if the source changes before you
 publish. Topics remain on the stable definition. Votes evaluate a revision.
@@ -114,7 +118,7 @@ empty. [Provenance](/docs/provenance) explains them.
 
 Post a comment to discuss the revision displayed. It remains part of the
 shared definition thread after later edits. Comments do not request model
-output. Use **Suggest a revision** to turn a critique into a draft candidate.
+output. Use **Suggest an alternative** to turn a critique into a draft candidate.
 [Discussion](/docs/discussion) provides the same actions for recent terms.
 
 ## Administrative cleanup

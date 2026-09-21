@@ -8,11 +8,15 @@ page.
 
 Anyone can read the feed. Sign in and complete your profile name to contribute.
 
-## Suggest a revision
+<a id="suggest-a-revision"></a>
 
-Select **Suggest a revision**, describe what should change, and request a
-model draft. Edit the preview, then select **Publish revision** to create a
-separate candidate credited to you and the model. **Discard draft** publishes
+## Suggest an alternative
+
+Select **Suggest an alternative**, describe what should change, and select
+**Draft alternative with a language model**. Inspect the preview and select
+**Use this draft** to edit it. Select **Review alternative**, then
+**Publish alternative** to create a separate definition starting at version 1, credited
+to you and the model and linked to its source. **Discard draft** publishes
 nothing. The original stays available.
 
 The application stores the source revision, critique, model output, and

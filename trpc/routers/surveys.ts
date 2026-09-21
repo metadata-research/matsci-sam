@@ -845,7 +845,7 @@ export const surveysRouter = createTRPCRouter({
                   throw new TRPCError({
                     code: "PRECONDITION_FAILED",
                     message:
-                      "Choose Accept as written, Suggest a revision, or Propose a new definition to record this position."
+                      "Choose Accept this definition, Suggest an alternative, or Propose a new definition to record this position."
                   })
                 await recordPositionCompletion(tx, {
                   stepId: step.id,

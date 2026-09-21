@@ -7,7 +7,7 @@ export const ACTIVITY_TIMELINE_WIDTH = 920
 export const ACTIVITY_TIMELINE_LEFT = 112
 export const ACTIVITY_TIMELINE_RIGHT = 36
 export const ACTIVITY_TIMELINE_TOP = 48
-export const ACTIVITY_TIMELINE_ROW_HEIGHT = 72
+export const ACTIVITY_TIMELINE_ROW_HEIGHT = 128
 export const ACTIVITY_TIMELINE_BOTTOM = 50
 
 export type ActivityTimelineMark = {
@@ -26,10 +26,13 @@ export type ActivityTimelineGeometry = {
 }
 
 const laneOffset: Record<TermActivityEvent["kind"], number> = {
-  publication: -18,
-  revision: -18,
-  comment: 3,
-  vote: 22
+  publication: -40,
+  revision: -40,
+  "example-publication": -20,
+  "example-featured": 0,
+  "example-unfeatured": 20,
+  comment: 40,
+  vote: 60
 }
 
 const uniqueTimes = (values: number[]) => Array.from(new Set(values))
@@ -40,7 +43,7 @@ export function buildActivityTimelineGeometry(
 ): ActivityTimelineGeometry {
   const rows = definitions.map((definition, index) => ({
     definitionNumber: definition.number,
-    y: ACTIVITY_TIMELINE_TOP + index * ACTIVITY_TIMELINE_ROW_HEIGHT + 28
+    y: ACTIVITY_TIMELINE_TOP + index * ACTIVITY_TIMELINE_ROW_HEIGHT + 50
   }))
   const height =
     ACTIVITY_TIMELINE_TOP +

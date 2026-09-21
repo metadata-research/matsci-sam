@@ -1376,6 +1376,38 @@ const main = async () => {
   }
 
   const bodyAlone = provenanceBodyTurtle(prov)
+  // Human source declarations are citations, not inferred derivation or
+  // evidence that an inference model consumed the retrieved text.
+  const cited = structuredClone(prov)
+  cited.graph.nodes.push({
+    id: "chebi_fixture",
+    type: "entity",
+    label: "ChEBI reference",
+    rdfBlankNode: "chebi_fixture",
+    detail: "Stored reference definition.",
+    meta: { citationBasis: "contributor_declared", release: "254" }
+  })
+  cited.graph.edges.push({
+    id: "chebi_citation",
+    source: "def_10_v1",
+    target: "chebi_fixture",
+    rel: "references"
+  })
+  const citedGraph = parse(
+    TTL_PREFIXES + provenanceBodyTurtle(cited),
+    "reference citation"
+  )
+  assert.equal(
+    citedGraph.filter(
+      (q) => q.predicate.value === "http://purl.org/dc/terms/references"
+    ).length,
+    1
+  )
+  assert.equal(
+    citedGraph.filter((q) => q.predicate.value === `${PROV}references`).length,
+    0
+  )
+  assert.match(provenanceBodyTurtle(cited), /contributor_declared/)
   const bodyInGraph = provenanceBodyTurtle(prov, { vocabularyTriples: false })
   const alone = parse(TTL_PREFIXES + bodyAlone, "per-term body")
   const inGraph = parse(TTL_PREFIXES + bodyInGraph, "per-term body in graph")

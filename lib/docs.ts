@@ -11,7 +11,7 @@ import { marked } from "marked"
  *   docs/quickstart/ one page at /docs, the landing page: the ordinary path
  *                    from a new term to its recorded history
  *   docs/guide/      the user guide, at /docs/<slug>: how to use the site
- *   docs/reference/  knowledge organization, at /docs/reference/<slug>: what
+ *   docs/reference/  technical reference, at /docs/reference/<slug>: what
  *                    the vocabulary, the tags and the metadata mean, for a
  *                    curator or a metadata consumer
  *
@@ -64,7 +64,7 @@ const SECTIONS: Record<DocSection, SectionConfig> = {
   },
   reference: {
     dir: path.join(process.cwd(), "docs", "reference"),
-    title: "Knowledge organization",
+    title: "Technical reference",
     order: [
       "knowledge-organization",
       "skos-and-metadata",
@@ -95,8 +95,8 @@ export const sectionTitle = (section: DocSection) => SECTIONS[section].title
 // apart before opening any of them.
 export const sectionBlurb: Record<DocSection, string> = {
   quickstart: "The whole workflow, start to finish",
-  guide: "Every feature in detail",
-  reference: "The model, SKOS, and identifiers"
+  guide: "Contribute, compare, and discuss",
+  reference: "Vocabulary structure, identifiers, and provenance"
 }
 
 const slugifyHeading = (text: string) =>

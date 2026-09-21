@@ -1,4 +1,15 @@
 import { inferenceProperties } from "./llm/types"
+import { termReferencesQuery } from "./term-references"
+import { modelPromptInputProvenance } from "./model-prompt-provenance"
+import {
+  buildContributionEvidence,
+  contributionEvidenceAnchor
+} from "./contribution-evidence"
+import { providerReportedSources } from "./provider-reported-sources"
+import {
+  examplePublicationEvent,
+  exampleSelectionEvents
+} from "./example-provenance-events"
 import "server-only"
 
 import { createHash } from "node:crypto"
@@ -21,8 +32,10 @@ import { asc, eq, getTableColumns, inArray } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
   definitionUri,
+  definitionPath,
   modelUri,
   revisionUri,
+  termPath,
   termUri
 } from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
@@ -55,6 +68,7 @@ export type ProvRelation =
   | "wasAssociatedWith"
   | "wasAttributedTo"
   | "used"
+  | "references"
 
 export type ProvNode = {
   id: string
@@ -102,6 +116,9 @@ export type ProvEvent = {
     | "refine-accepted"
     | "refine-kept"
     | "refine-failed"
+    | "example-published"
+    | "example-featured"
+    | "example-unfeatured"
   actor: string
   actorKind: "person" | "software" | "unknown"
   // The recorded three-way category of the act where the row carries one:
@@ -114,6 +131,7 @@ export type ProvEvent = {
   detail?: string
   model?: string | null
   promptRef?: string | null
+  href?: string
 }
 
 const excerpt = (text: string, max = 240) =>
@@ -208,7 +226,8 @@ export const buildTermProvenance = async (
     discussionSuggestions,
     aiContributionSuggestions,
     definitionExamples,
-    exampleSelections
+    exampleSelections,
+    citedReferences
   ] = await Promise.all([
     definitionIds.length
       ? db
@@ -377,7 +396,8 @@ export const buildTermProvenance = async (
             asc(definitionExampleSelectionsTable.selectedAt),
             asc(definitionExampleSelectionsTable.id)
           )
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    termReferencesQuery(termId)
   ])
 
   // Vote events are the record of every voting act: one row per act from
@@ -985,6 +1005,20 @@ export const buildTermProvenance = async (
     )
     const activityId = `act_${id}`
     const hasObservedOrigin = !example.legacyBackfill
+    events.push(
+      ...examplePublicationEvent({
+        ...example,
+        id: activityId,
+        definitionNumber: definition.definitionNumber,
+        version: sourceRevision.version,
+        href:
+          definitionPath(
+            term.slug,
+            definition.definitionNumber,
+            term.vocabularySlug
+          ) + "#examples-heading"
+      })
+    )
     const hasGenerationStamp =
       hasObservedOrigin &&
       example.promptHash !== null &&
@@ -1087,6 +1121,20 @@ export const buildTermProvenance = async (
     const selectionActivityId = `act_feature_${selectionCoordinate}`
     const featuredStateId = `featured_${selectionCoordinate}`
     const hasObservedSelection = !selection.legacyBackfill
+    events.push(
+      ...exampleSelectionEvents({
+        ...selection,
+        id: selectionActivityId,
+        definitionNumber: definition.definitionNumber,
+        exampleNumber: example.exampleNumber,
+        href:
+          definitionPath(
+            term.slug,
+            definition.definitionNumber,
+            term.vocabularySlug
+          ) + "#examples-heading"
+      })
+    )
 
     addNode({
       id: selectionActivityId,
@@ -1500,6 +1548,44 @@ export const buildTermProvenance = async (
     addEdge(activityId, prompt, "used")
     addEdge(activityId, requestId, "used")
     if (sourceVersion) addEdge(activityId, sourceVersion, "used")
+    for (const reference of suggestion.referenceInputs ?? []) {
+      const id = `model_reference_${suggestion.id}_${reference.referenceId}`
+      addNode({
+        id,
+        type: "entity",
+        label: `${reference.source}: ${reference.term} (model input)`,
+        rdfBlankNode: `model_reference_${createHash("sha256").update(id).digest("hex")}`,
+        detail: reference.definition,
+        meta: {
+          source: reference.source,
+          sourceIri: reference.sourceIri,
+          release: reference.version,
+          license: reference.license,
+          kind: reference.kind,
+          usageStatus: reference.usageStatus,
+          retrievedAt: reference.retrievedAt,
+          contentHash: reference.contentHash,
+          context: reference.context,
+          query: reference.query ?? null,
+          lookupOptions: reference.request
+            ? JSON.stringify(reference.request.options)
+            : null,
+          responseUuid: reference.responseUuid,
+          evidenceBasis: "model_input"
+        }
+      })
+      addEdge(activityId, id, "used")
+    }
+    if (suggestion.referencePrompt) {
+      const id = `reference_prompt_${suggestion.id}`
+      addNode({
+        id,
+        type: "entity",
+        label: "Exact reference block supplied to the model",
+        detail: suggestion.referencePrompt
+      })
+      addEdge(activityId, id, "used")
+    }
 
     if (suggestion.inputDefinition !== null) {
       const inputId = `ai_contribution_input_${suggestion.id}`
@@ -1518,6 +1604,17 @@ export const buildTermProvenance = async (
         addEdge(inputId, requester, "wasAttributedTo")
       else if (sourceVersion) addEdge(inputId, sourceVersion, "wasDerivedFrom")
     }
+
+    const promptInputs = modelPromptInputProvenance({
+      suggestionId: suggestion.id,
+      intent: suggestion.intent,
+      requester,
+      inputExample: suggestion.inputExample,
+      userPrompt: suggestion.userPrompt
+    })
+    for (const node of promptInputs.nodes) addNode(node)
+    for (const edge of promptInputs.edges)
+      addEdge(edge.source, edge.target, edge.rel)
 
     if (suggestion.feedback !== null) {
       const feedbackId = `ai_contribution_feedback_${suggestion.id}`
@@ -1562,6 +1659,26 @@ export const buildTermProvenance = async (
     })
     addEdge(suggestionId, activityId, "wasGeneratedBy")
     addEdge(suggestionId, model, "wasAttributedTo")
+    for (const [index, source] of providerReportedSources(
+      suggestion.inference,
+      suggestion.suggestedDefinition
+    ).entries()) {
+      const id = `reported_source_${suggestion.id}_${index + 1}`
+      addNode({
+        id,
+        type: "entity",
+        label: source.title ?? "Source reported by the assistant",
+        detail: source.url,
+        meta: {
+          sourceIri: source.url,
+          evidenceBasis: "provider_reported",
+          reportedBy: suggestion.model,
+          qualification:
+            "Reported in the original model response; not independently verified or declared by the contributor"
+        }
+      })
+      addEdge(suggestionId, id, "references")
+    }
     if (sourceVersion) addEdge(suggestionId, sourceVersion, "wasDerivedFrom")
 
     if (outputRevision && outputVersion) {
@@ -1609,7 +1726,12 @@ export const buildTermProvenance = async (
       detail: excerpt(suggestion.suggestedDefinition),
       model: suggestion.model,
       ...inferenceProperties(suggestion.inference),
-      promptRef: suggestion.promptKey ?? suggestion.promptHash
+      promptRef: suggestion.promptKey ?? suggestion.promptHash,
+      ...(outputRevision
+        ? {
+            href: `${termPath(term.slug, term.vocabularySlug)}/provenance#${contributionEvidenceAnchor(definitionById.get(outputRevision.definitionId)!.definitionNumber, outputRevision.version)}`
+          }
+        : {})
     })
   }
 
@@ -1860,6 +1982,43 @@ export const buildTermProvenance = async (
     })
   }
 
+  // A citation is a contributor declaration. Retrieval/copying alone never
+  // yields a public edge and this does not assert model grounding or derivation.
+  for (const reference of citedReferences) {
+    const revision = revisionById.get(reference.revisionId)
+    if (!revision) continue
+    const id = `reference_${reference.id}`
+    addNode({
+      id,
+      type: "entity",
+      label: `${reference.source}: ${reference.term} (contributor-declared)`,
+      rdfBlankNode: `reference_${createHash("sha256").update(reference.id).digest("hex")}`,
+      detail: reference.definition,
+      meta: {
+        source: reference.source,
+        sourceIri: reference.sourceIri,
+        release: reference.version,
+        license: reference.license,
+        retrievedAt: reference.retrievedAt,
+        contentHash: reference.contentHash,
+        citationBasis: reference.basis,
+        kind: reference.kind,
+        usageStatus: reference.usageStatus,
+        responseUuid: reference.responseUuid,
+        query: reference.query,
+        context: reference.context,
+        lookupOptions: reference.request
+          ? JSON.stringify(reference.request.options)
+          : null
+      }
+    })
+    addEdge(
+      revisionNodeId(revision.definitionId, revision.version),
+      id,
+      "references"
+    )
+  }
+
   events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
 
   return {
@@ -1872,6 +2031,12 @@ export const buildTermProvenance = async (
       vocabularySlug: term.vocabularySlug
     },
     events,
+    contributions: buildContributionEvidence({
+      definitions,
+      revisions,
+      citations: citedReferences,
+      suggestions: aiContributionSuggestions
+    }),
     graph: { nodes, edges }
   }
 }

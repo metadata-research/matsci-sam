@@ -45,6 +45,27 @@ export const DEFAULT_INSTRUCTIONS =
   "This study asks you to review a collection of terms. Definitions may come " +
   "from vocabulary work, preparation for this study, or other participants.\n\n" +
   "1. For each term, take a position: choose the definition closest to what " +
+  "you consider correct. Accept it as written or use Suggest an alternative to " +
+  "request and review a language-model draft of a separate definition linked " +
+  "to the source.\n" +
+  "2. If none is close enough, or there is no definition yet, use Propose a " +
+  "new definition to write your own. If you do not know a term well enough " +
+  "to choose, skip it.\n" +
+  "3. After the Position steps, review the definitions, vote on each, and " +
+  "comment where you disagree or can add information. You can review a term " +
+  "with just one definition.\n" +
+  "4. Answer any closing questions.\n\n" +
+  "Accepting records your position and ensures an upvote. Publishing an " +
+  "alternative or a new definition records your position without " +
+  "casting a vote. A skip records no opinion and skips both steps for that " +
+  "term. Completed steps are saved between visits. Use Study help to reread " +
+  "these instructions or learn how an action works."
+
+// Preserve the exact preceding default for studies that have stored it.
+const PREVIOUS_DEFAULT_INSTRUCTIONS =
+  "This study asks you to review a collection of terms. Definitions may come " +
+  "from vocabulary work, preparation for this study, or other participants.\n\n" +
+  "1. For each term, take a position: choose the definition closest to what " +
   "you consider correct. Accept it as written or use Suggest a revision to " +
   "request and review a language-model draft of an alternative.\n" +
   "2. If none is close enough, or there is no definition yet, use Propose a " +
@@ -91,6 +112,7 @@ const SECOND_ROUND_INSTRUCTIONS =
  * the text its participants were shown and locked against.
  */
 const LEGACY_DEFAULT_INSTRUCTIONS = [
+  PREVIOUS_DEFAULT_INSTRUCTIONS,
   SECOND_ROUND_INSTRUCTIONS,
   "This study is a second round on a terminology list. Each term may have " +
     "definitions, examples, and comments from earlier work.\n\n" +
@@ -183,7 +205,7 @@ export const planSteps = (input: {
     ...input.terms.map((term) => ({
       kind: "define" as const,
       termId: term.id,
-      prompt: `Choose the definition of ${term.term} closest to what you consider correct. Accept it as written, suggest a revision to make it more accurate, or propose a new definition if none is close enough. If you do not know the term well enough to choose, skip it.`,
+      prompt: `Choose the definition of ${term.term} closest to what you consider correct. Accept it as written, suggest an alternative linked to it to offer more accurate wording, or propose a new definition if none is close enough. If you do not know the term well enough to choose, skip it.`,
       responseKind: null
     })),
     ...input.terms.map((term) => ({

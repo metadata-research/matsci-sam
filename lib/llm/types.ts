@@ -1,17 +1,27 @@
-export type InferenceProvider = "ollama" | "openai-compatible"
+export type InferenceProvider =
+  | "ollama"
+  | "openai-compatible"
+  | "wolfram-agent-one"
 
 export type InferenceMessage = {
   role: "system" | "user" | "assistant"
   content: string
 }
 
-// Safe to persist and return with a suggestion. Never include URLs or credentials.
+export type ProviderReportedSource = { url: string; title?: string }
+
+// Safe to persist and return with a suggestion. Never include credentials or
+// service endpoints. reportedSources contains only sanitized public citation URLs.
 export type InferenceMetadata = {
   provider: InferenceProvider
   profile: string
   model: string
   configHash: string
   responseModel?: string
+  responseId?: string
+  toolEvidence?: { type: string; tool?: string; requestId?: string }[]
+  // Links reported in the final answer, not verified evidence or request inputs.
+  reportedSources?: ProviderReportedSource[]
 }
 
 export type InferenceResult<T> = {
@@ -53,6 +63,10 @@ export const inferenceProperties = (
         inferenceProvider: value.provider,
         inferenceProfile: value.profile,
         inferenceConfigHash: value.configHash,
+        ...(value.responseId ? { inferenceResponseId: value.responseId } : {}),
+        ...(value.toolEvidence?.length
+          ? { inferenceToolEvidence: JSON.stringify(value.toolEvidence) }
+          : {}),
         ...(value.responseModel
           ? { inferenceResponseModel: value.responseModel }
           : {})

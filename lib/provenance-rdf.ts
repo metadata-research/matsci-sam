@@ -17,7 +17,11 @@ import { lit } from "./rdf-literal"
 // one body per term. provenanceTurtle, the per-term route, is their
 // concatenation and its output does not change.
 
-type Provenance = NonNullable<Awaited<ReturnType<typeof buildTermProvenance>>>
+type BuiltProvenance = NonNullable<
+  Awaited<ReturnType<typeof buildTermProvenance>>
+>
+type Provenance = Pick<BuiltProvenance, "term" | "graph"> &
+  Partial<Pick<BuiltProvenance, "events">>
 
 export const PROVENANCE_PREFIXES = `@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -61,8 +65,10 @@ export const provenanceBodyTurtle = (
   const metaProperty = (key: string) => `<${applicationMetadataUri(key)}>`
   // Database identifiers support the private graph builder but are not part
   // of the public metadata contract. Public resources are identified by their
-  // term-scoped definition and revision IRIs instead.
-  const isPublicMetadataProperty = (key: string) => !key.endsWith("Id")
+  // term-scoped definition and revision IRIs instead. The inference response
+  // identifier belongs to the external provider, not our database.
+  const isPublicMetadataProperty = (key: string) =>
+    key === "inferenceResponseId" || !key.endsWith("Id")
 
   // Whether a revision node states the triples the vocabulary graph also
   // states: alone, every revision does; in the graph, only a revision the
@@ -136,7 +142,9 @@ export const provenanceBodyTurtle = (
 
   lines.push("")
   for (const e of prov.graph.edges)
-    lines.push(`${node(e.source)} prov:${e.rel} ${node(e.target)} .`)
+    lines.push(
+      `${node(e.source)} ${e.rel === "references" ? "<http://purl.org/dc/terms/references>" : `prov:${e.rel}`} ${node(e.target)} .`
+    )
 
   return lines.join("\n") + "\n"
 }

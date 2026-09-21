@@ -63,14 +63,51 @@ export const usersTable = pgTable(
       (): AnyPgColumn => communitiesTable.id
     ),
     createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-    notifications: boolean().default(false)
+    notifications: boolean().default(false),
+    preferredDefinitionAssistant: text().$type<"default" | "agent-one">()
   },
   (table) => [
     // Authentication treats email case-insensitively. AI identities do not
     // authenticate and are excluded from this human-account constraint.
+    check(
+      "users_definition_assistant_valid",
+      sql`${table.preferredDefinitionAssistant} IS NULL OR ${table.preferredDefinitionAssistant} IN ('default', 'agent-one')`
+    ),
     uniqueIndex("users_human_email_normalized_unique")
       .on(sql`lower(${table.email})`)
       .where(sql`${table.email} IS NOT NULL AND NOT ${table.isAi}`)
+  ]
+)
+
+// A single server-owned policy row. Credentials never enter this table. The
+// private validation digest binds an explicit successful test to this exact key
+// and adapter configuration; only its matching status is exposed by the API.
+export const definitionAssistantSettingsTable = pgTable(
+  "definitionAssistantSettings",
+  {
+    id: integer().primaryKey().default(1),
+    agentOneEnabled: boolean().notNull().default(false),
+    defaultProfile: text()
+      .$type<"default" | "agent-one">()
+      .notNull()
+      .default("default"),
+    agentOneTestedAt: timestamp({ mode: "string", withTimezone: true }),
+    agentOneValidationHash: text(),
+    agentOneValidatedAt: timestamp({ mode: "string", withTimezone: true }),
+    updatedAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    check("definition_assistant_settings_singleton", sql`${t.id} = 1`),
+    check(
+      "definition_assistant_default_valid",
+      sql`${t.defaultProfile} IN ('default', 'agent-one')`
+    ),
+    check(
+      "definition_assistant_validation_pair",
+      sql`(${t.agentOneValidationHash} IS NULL) = (${t.agentOneValidatedAt} IS NULL)`
+    )
   ]
 )
 
@@ -817,6 +854,88 @@ export const definitionRevisionsTable = pgTable(
   ]
 )
 
+// Retrieved references are evidence, not authored definitions or term mappings.
+// A lookup may precede creation of a SAM term. Publication binds it once.
+export const termReferenceLookupsTable = pgTable(
+  "termReferenceLookups",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    requestedById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    termText: text().notNull(),
+    termId: integer().references(() => termsTable.id, { onDelete: "set null" }),
+    provider: text().notNull().default("chebi"),
+    context: text(),
+    endpoint: text(),
+    responseUuid: text(),
+    responseBody: text(),
+    responseHash: text(),
+    retrievedAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (table) => [
+    index("term_reference_lookups_requester_idx").on(table.requestedById),
+    index("term_reference_lookups_term_idx").on(table.termId),
+    check(
+      "term_reference_lookups_term_nonblank",
+      sql`btrim(${table.termText}) <> ''`
+    )
+  ]
+)
+
+export const termReferenceEntriesTable = pgTable(
+  "termReferenceEntries",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    lookupId: uuid()
+      .notNull()
+      .references(() => termReferenceLookupsTable.id, { onDelete: "cascade" }),
+    term: text().notNull(),
+    definition: text().notNull(),
+    source: text().notNull(),
+    sourceIri: text().notNull(),
+    sourceKey: text().notNull(),
+    kind: text().notNull().default("definition"),
+    usageStatus: text().notNull().default("open"),
+    version: text().notNull(),
+    license: text(),
+    contentHash: text().notNull(),
+    // Client-reported interaction times, never assertions of actual use.
+    copiedAt: timestamp({ mode: "string", withTimezone: true }),
+    addedToDraftAt: timestamp({ mode: "string", withTimezone: true })
+  },
+  (table) => [
+    uniqueIndex("term_reference_entries_lookup_iri_unique").on(
+      table.lookupId,
+      table.sourceIri
+    )
+  ]
+)
+
+export const definitionRevisionReferencesTable = pgTable(
+  "definitionRevisionReferences",
+  {
+    revisionId: integer()
+      .notNull()
+      .references(() => definitionRevisionsTable.id, { onDelete: "cascade" }),
+    referenceId: uuid()
+      .notNull()
+      .references(() => termReferenceEntriesTable.id),
+    // This is a contributor's declaration, not inferred quotation or AI grounding.
+    basis: text().notNull().default("contributor_declared")
+  },
+  (table) => [
+    primaryKey({ columns: [table.revisionId, table.referenceId] }),
+    index("definition_revision_references_entry_idx").on(table.referenceId),
+    check(
+      "definition_revision_references_basis",
+      sql`${table.basis} = 'contributor_declared'`
+    )
+  ]
+)
+
 export const definitionRevisionsTableRelations = relations(
   definitionRevisionsTable,
   ({ one, many }) => ({
@@ -1178,6 +1297,17 @@ export const aiContributionSuggestionsTable = pgTable(
     sourceRevisionId: integer(),
     feedback: text(),
     inputDefinition: text(),
+    // Optional contributor-selected example context, separate from the
+    // independently authored example eventually published with a definition.
+    inputExample: text(),
+    // Exact user message sent for this generation. Legacy rows remain null;
+    // request text is never reconstructed from later contributor edits.
+    userPrompt: text(),
+    // Server-built copies of exactly the selected evidence sent to this model.
+    // Null on legacy and ungrounded suggestions; never backfilled by similarity.
+    referenceInputs:
+      jsonb().$type<import("../lib/reference-types").ModelReferenceInput[]>(),
+    referencePrompt: text(),
     suggestedDefinition: text().notNull(),
     promptKey: text().notNull(),
     promptHash: text().notNull(),
@@ -1245,6 +1375,17 @@ export const aiContributionSuggestionsTable = pgTable(
           AND (${table.inputDefinition} IS NULL
             OR (btrim(${table.inputDefinition}) <> ''
               AND char_length(${table.inputDefinition}) <= 10000))`
+    ),
+    check(
+      "ai_contribution_suggestions_example_input",
+      sql`${table.inputExample} IS NULL
+          OR (${table.intent} = 'new_term'
+            AND btrim(${table.inputExample}) <> ''
+            AND char_length(${table.inputExample}) <= 5000)`
+    ),
+    check(
+      "ai_contribution_suggestions_user_prompt",
+      sql`${table.userPrompt} IS NULL OR btrim(${table.userPrompt}) <> ''`
     ),
     check(
       "ai_contribution_suggestions_decision_ordered",

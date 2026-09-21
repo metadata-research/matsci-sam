@@ -1,11 +1,8 @@
 import type { InvitationOutcome } from "@/lib/communities"
+import { communityDisplayName } from "@/lib/community-names"
 
 const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-
-const COMMUNITY_INVITATION_NAMES: Record<string, string> = {
-  id4: "NSF Institute for Data-Driven Dynamical Design (ID4)"
-}
 
 const vocabularyCommunityLabel = ({
   communitySlug,
@@ -14,7 +11,10 @@ const vocabularyCommunityLabel = ({
   communitySlug: string
   communityTitle: string
 }) => {
-  const name = COMMUNITY_INVITATION_NAMES[communitySlug] ?? communityTitle
+  const name = communityDisplayName({
+    slug: communitySlug,
+    title: communityTitle
+  })
   if (/vocabulary community$/i.test(name)) return name
   if (/community$/i.test(name))
     return `${name.replace(/ community$/i, "")} Vocabulary Community`

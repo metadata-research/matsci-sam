@@ -99,7 +99,7 @@ async function main() {
       await invalid.arrayBuffer()
       const html = await read(term)
       assert.equal(html.status, 200)
-      assert.ok((await html.text()).includes("Canonical definition"))
+      assert.ok((await html.text()).includes("Default definition"))
     }
     console.log("Production vocabulary HTTP checks passed directly and behind HTTPS forwarding")
   } catch (error) {

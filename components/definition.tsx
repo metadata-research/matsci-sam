@@ -226,8 +226,8 @@ export const Definition = ({
             className={definition.model ? "border-ai/30 text-ai" : undefined}
           >
             {definition.model
-              ? `AI-assisted revision · ${definition.model}`
-              : "Suggested revision"}
+              ? `AI-assisted alternative · ${definition.model}`
+              : "Suggested alternative"}
           </Badge>
         )}
         {definition.replacesDefinitionId && (

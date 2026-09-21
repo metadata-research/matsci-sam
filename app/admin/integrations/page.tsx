@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 
 export default async function AdminIntegrationsPage() {
   void trpc.admin.inferenceEndpoints.prefetch()
+  void trpc.definitionAssistants.settings.prefetch()
   const integrationsPromise = trpc.admin.integrations()
   const integrations = await integrationsPromise
 
@@ -57,7 +58,11 @@ export default async function AdminIntegrationsPage() {
         <Suspense fallback={<IntegrationLoading label="Inference" />}>
           <InferenceHealthCard />
         </Suspense>
-        <WolframCard configured={integrations.wolfram.configured} />
+        <Suspense
+          fallback={<IntegrationLoading label="definition assistants" />}
+        >
+          <WolframCard />
+        </Suspense>
       </div>
     </HydrateClient>
   )

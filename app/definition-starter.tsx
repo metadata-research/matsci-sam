@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { BookOpenIcon, FilePlus2Icon } from "lucide-react"
+import { FilePlus2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TERM_MAX_LENGTH } from "@/lib/input-limits"
@@ -16,7 +16,6 @@ export function DefinitionStarter({
     <>
       <p className={styles.contributionIntro}>
         Add a term and its first definition to the {vocabularyTitle} vocabulary.
-        Open an existing term to add a definition, example, or comment.
       </p>
 
       {signedIn ? (
@@ -43,27 +42,15 @@ export function DefinitionStarter({
           </p>
         </form>
       ) : (
-        <p className={styles.contributionNote}>
-          Sign in to add a term and its first definition.
-        </p>
-      )}
-
-      <div className={styles.contributionActions}>
-        {signedIn ? null : (
+        <div className={styles.contributionActions}>
           <Button asChild>
             <Link href="/login">
               <FilePlus2Icon aria-hidden />
               Sign in to contribute
             </Link>
           </Button>
-        )}
-        <Button asChild variant="outline">
-          <Link href="/terms">
-            <BookOpenIcon aria-hidden />
-            Browse terms
-          </Link>
-        </Button>
-      </div>
+        </div>
+      )}
     </>
   )
 }

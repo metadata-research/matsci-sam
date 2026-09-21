@@ -1,33 +1,26 @@
 import Image from "next/image"
 import Link from "next/link"
-import {
-  ArrowRightIcon,
-  MessageSquareTextIcon,
-  NetworkIcon,
-  SearchIcon,
-  SparklesIcon,
-  ThumbsUpIcon
-} from "lucide-react"
+import { ArrowRightIcon, SearchIcon } from "lucide-react"
 import {
   commentsTable,
   db,
   definitionRevisionsTable,
   definitionsTable,
-  refinementsTable,
   termsTable,
   usersTable,
   vocabulariesTable
 } from "@yamz/db"
-import { and, asc, desc, eq, exists, inArray, or, sql } from "drizzle-orm"
+import { and, desc, eq, exists, or, sql } from "drizzle-orm"
 import { DefinitionStarter } from "./definition-starter"
-import { SITE_NAME } from "@/lib/site"
+import { SITE_FULL_NAME, SITE_NAME } from "@/lib/site"
 import { getSession } from "@/lib/session"
 import { getActiveCommunity } from "@/lib/community-queries"
+import { communityDisplayName } from "@/lib/community-names"
 import { communityReferenceScope, vocabularyTermScope } from "@/lib/search"
 import { formatDate } from "@/lib/date"
 import { HydrateClient } from "@/trpc/server"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { PublicProfileName } from "@/components/public-profile-name"
 import styles from "./home.module.css"
 import {
@@ -36,16 +29,6 @@ import {
   termPath,
   vocabularyPath
 } from "@/lib/public-identifiers"
-import {
-  acceptedAiSuggestionsForOutputs,
-  acceptedLegacyDiscussionSuggestionsForOutputs
-} from "@/lib/ai-contribution-provenance"
-import { resolveFeaturedActivity } from "@/lib/featured-provenance"
-
-const MILLISECONDS_PER_DAY = 86_400_000
-const FEATURED_SHOWCASE_SLUGS = ["fatigue", "martensite", "sintering"] as const
-
-type FeaturedDefinition = Awaited<ReturnType<typeof getFeaturedDefinition>>
 
 export default async function Home() {
   const sessionPromise = getSession()
@@ -64,19 +47,13 @@ export default async function Home() {
         activeCommunity.vocabularySlug
       )
     : Promise.resolve(0)
-  const [
-    latestTerms,
-    recentDiscussion,
-    featured,
-    personalWork,
-    referenceCount
-  ] = await Promise.all([
-    getLatestTerms(vocabularySlug),
-    getRecentDiscussion(vocabularySlug),
-    getFeaturedDefinition(vocabularySlug),
-    personalWorkPromise,
-    referenceCountPromise
-  ])
+  const [latestTerms, recentDiscussion, personalWork, referenceCount] =
+    await Promise.all([
+      getLatestTerms(vocabularySlug),
+      getRecentDiscussion(vocabularySlug),
+      personalWorkPromise,
+      referenceCountPromise
+    ])
   const emptyCommunity =
     activeCommunity && latestTerms.length === 0 ? activeCommunity : null
 
@@ -86,180 +63,195 @@ export default async function Home() {
         <div className={styles.shell}>
           <section className={styles.hero} aria-labelledby="home-title">
             <h1 id="home-title" className={styles.heroTitle}>
-              Shared terminology for materials science data
+              {SITE_FULL_NAME}
             </h1>
             <p className={styles.heroLead}>
-              {SITE_NAME} is a community dictionary for materials science terms.
-              Compare definitions, add examples of use, and see how definitions
-              change over time.
-            </p>
-            <p className={styles.projectLine}>
-              {SITE_NAME} (Semantic Alignment Metadata) is a project of the{" "}
-              <a
-                href="https://mrc.cci.drexel.edu/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Metadata Research Center at Drexel University
-              </a>
-              .
+              A community dictionary for materials science terminology. Draft
+              definitions with optional AI assistance and look up terms in
+              community vocabularies and the ChEBI ontology.
             </p>
           </section>
 
+          <nav className={styles.helpLinks} aria-label="Getting started">
+            <Link href="/docs" className={styles.textLink}>
+              Quick Start
+              <ArrowRightIcon aria-hidden />
+            </Link>
+            <Link href="/about" className={styles.textLink}>
+              About {SITE_NAME}
+              <ArrowRightIcon aria-hidden />
+            </Link>
+          </nav>
+
           {activeCommunity && (
-            <p className={styles.scopeNotice}>
-              Viewing the{" "}
+            <p className={styles.communityName}>
               <Link href={vocabularyPath(activeCommunity.vocabularySlug)}>
-                {activeCommunity.title}
-              </Link>{" "}
-              vocabulary. Terms referenced from other vocabularies are listed
-              separately on the community page.
+                {communityDisplayName(activeCommunity)}
+              </Link>
             </p>
           )}
 
-          <div className={styles.heroPanels}>
-            <div className={styles.startColumn}>
-              <section
-                id="contribute"
-                className={styles.contributionPanel}
-                aria-labelledby="contribution-heading"
+          <div className={styles.actionPanels}>
+            <section
+              className={styles.findPanel}
+              aria-labelledby="find-heading"
+            >
+              <h2 id="find-heading">Find a term</h2>
+              <form
+                action="/search"
+                method="get"
+                role="search"
+                aria-label="Find a term"
               >
-                <h2 id="contribution-heading">Add a new term</h2>
-                <DefinitionStarter
-                  signedIn={Boolean(sesh.id)}
-                  vocabularyTitle={activeCommunity?.title ?? SITE_NAME}
-                />
-                <Link
-                  href="/about#definition-workflow"
-                  className={styles.textLink}
-                >
-                  How contributions work
-                  <ArrowRightIcon aria-hidden />
-                </Link>
-              </section>
-
-              {!emptyCommunity && (
-                <section
-                  className={styles.recentTerms}
-                  aria-labelledby="recent-terms-heading"
-                >
-                  <h2 id="recent-terms-heading">Recently added</h2>
-                  <ul className={styles.activityList}>
-                    {latestTerms.map(
-                      ({
-                        id,
-                        term,
-                        slug,
-                        vocabularySlug,
-                        vocabularyTitle,
-                        count,
-                        createdAt
-                      }) => (
-                        <li key={id}>
-                          <Link
-                            href={termPath(slug, vocabularySlug)}
-                            className={styles.termActivity}
-                          >
-                            <span className={styles.termIdentity}>
-                              <span className={styles.termName}>{term}</span>
-                              {!activeCommunity && (
-                                <small>Defined in {vocabularyTitle}</small>
-                              )}
-                            </span>
-                            <span>
-                              {count === 1
-                                ? "1 definition"
-                                : `${count} definitions`}
-                            </span>
-                            <time dateTime={createdAt}>
-                              {formatDate(createdAt)}
-                            </time>
-                          </Link>
-                        </li>
-                      )
-                    )}
-                  </ul>
-                  <Link href="/terms" className={styles.textLink}>
-                    Browse terms
-                    <ArrowRightIcon aria-hidden />
-                  </Link>
-                </section>
+                <label htmlFor="home-search" className="sr-only">
+                  Search terms and definitions
+                </label>
+                <div className={styles.searchRow}>
+                  <Input
+                    id="home-search"
+                    name="q"
+                    type="search"
+                    placeholder="Search terms and definitions"
+                  />
+                  <Button type="submit">
+                    <SearchIcon aria-hidden />
+                    Search
+                  </Button>
+                </div>
+              </form>
+              {activeCommunity && (
+                <p className={styles.contributionNote}>
+                  Search includes all vocabularies.
+                </p>
               )}
-            </div>
-
-            {emptyCommunity ? (
-              <CommunityEmptyState
-                community={emptyCommunity}
-                referenceCount={referenceCount}
+              <Link href="/terms" className={styles.textLink}>
+                Browse terms
+                <ArrowRightIcon aria-hidden />
+              </Link>
+            </section>
+            <section
+              id="contribute"
+              className={styles.contributionPanel}
+              aria-labelledby="contribution-heading"
+            >
+              <h2 id="contribution-heading">Add a new term</h2>
+              <DefinitionStarter
+                signedIn={Boolean(sesh.id)}
+                vocabularyTitle={activeCommunity?.title ?? SITE_NAME}
               />
-            ) : (
-              <FeaturedRecord
-                featured={featured}
-                showVocabulary={!activeCommunity}
-              />
-            )}
+            </section>
           </div>
 
-          {!emptyCommunity && (
-            <section
-              className={styles.communitySection}
-              aria-labelledby="community-heading"
-            >
-              <div className={styles.sectionHeading}>
-                <div>
-                  <h2 id="community-heading">Recent discussion</h2>
-                </div>
-                <Link href="/discussion" className={styles.textLink}>
-                  View discussion
-                  <ArrowRightIcon aria-hidden />
-                </Link>
-              </div>
-
-              {recentDiscussion.length ? (
-                <ul className={styles.discussionList}>
-                  {recentDiscussion.map((comment) => (
-                    <li key={comment.id}>
-                      <Link
-                        href={`${definitionPath(
-                          comment.termSlug,
-                          comment.definitionNumber,
-                          comment.vocabularySlug
-                        )}#discussion`}
-                        className={styles.discussionActivity}
-                      >
-                        <span className={styles.termIdentity}>
-                          <span className={styles.termName}>
-                            {comment.term}
+          {emptyCommunity ? (
+            <CommunityEmptyState
+              community={emptyCommunity}
+              referenceCount={referenceCount}
+            />
+          ) : (
+            <div className={styles.activityPanels}>
+              <section
+                className={styles.recentTerms}
+                aria-labelledby="recent-terms-heading"
+              >
+                <h2 id="recent-terms-heading">Recently added</h2>
+                <ul className={styles.activityList}>
+                  {latestTerms.map(
+                    ({
+                      id,
+                      term,
+                      slug,
+                      vocabularySlug,
+                      vocabularyTitle,
+                      count,
+                      createdAt
+                    }) => (
+                      <li key={id}>
+                        <Link
+                          href={termPath(slug, vocabularySlug)}
+                          className={styles.termActivity}
+                        >
+                          <span className={styles.termIdentity}>
+                            <span className={styles.termName}>{term}</span>
+                            {!activeCommunity && (
+                              <small>Defined in {vocabularyTitle}</small>
+                            )}
                           </span>
-                          {!activeCommunity && (
-                            <small>Defined in {comment.vocabularyTitle}</small>
-                          )}
-                        </span>
-                        <span className={styles.commentExcerpt}>
-                          {comment.message}
-                        </span>
-                      </Link>
-                      <span className={styles.activityByline}>
-                        <PublicProfileName
-                          user={{
-                            id: comment.authorId,
-                            name: comment.author,
-                            isAi: comment.authorIsAi,
-                            isProfilePublic: comment.authorProfilePublic
-                          }}
-                          fallback="Community member"
-                        />
-                        <time dateTime={comment.createdAt}>
-                          {formatDate(comment.createdAt)}
-                        </time>
-                      </span>
-                    </li>
-                  ))}
+                          <span>
+                            {count === 1
+                              ? "1 definition"
+                              : `${count} definitions`}
+                          </span>
+                          <time dateTime={createdAt}>
+                            {formatDate(createdAt)}
+                          </time>
+                        </Link>
+                      </li>
+                    )
+                  )}
                 </ul>
-              ) : (
-                <p className={styles.emptyActivity}>No comments yet.</p>
-              )}
-            </section>
+              </section>
+              <section
+                className={styles.communitySection}
+                aria-labelledby="community-heading"
+              >
+                <div className={styles.sectionHeading}>
+                  <div>
+                    <h2 id="community-heading">Recent discussion</h2>
+                  </div>
+                  <Link href="/discussion" className={styles.textLink}>
+                    View discussion
+                    <ArrowRightIcon aria-hidden />
+                  </Link>
+                </div>
+
+                {recentDiscussion.length ? (
+                  <ul className={styles.discussionList}>
+                    {recentDiscussion.map((comment) => (
+                      <li key={comment.id}>
+                        <Link
+                          href={`${definitionPath(
+                            comment.termSlug,
+                            comment.definitionNumber,
+                            comment.vocabularySlug
+                          )}#discussion`}
+                          className={styles.discussionActivity}
+                        >
+                          <span className={styles.termIdentity}>
+                            <span className={styles.termName}>
+                              {comment.term}
+                            </span>
+                            {!activeCommunity && (
+                              <small>
+                                Defined in {comment.vocabularyTitle}
+                              </small>
+                            )}
+                          </span>
+                          <span className={styles.commentExcerpt}>
+                            {comment.message}
+                          </span>
+                        </Link>
+                        <span className={styles.activityByline}>
+                          <PublicProfileName
+                            user={{
+                              id: comment.authorId,
+                              name: comment.author,
+                              isAi: comment.authorIsAi,
+                              isProfilePublic: comment.authorProfilePublic
+                            }}
+                            fallback="Community member"
+                          />
+                          <time dateTime={comment.createdAt}>
+                            {formatDate(comment.createdAt)}
+                          </time>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={styles.emptyActivity}>No comments yet.</p>
+                )}
+              </section>
+            </div>
           )}
 
           {sesh.id && !emptyCommunity && (
@@ -325,8 +317,8 @@ function CommunityEmptyState({
   referenceCount: number
 }) {
   return (
-    <article className={styles.featuredRecord}>
-      <div className={styles.featuredEmpty}>
+    <article className={styles.communityEmpty}>
+      <div>
         <SearchIcon aria-hidden />
         <h2>No terms in {community.title}&apos;s vocabulary</h2>
         <p>
@@ -345,206 +337,6 @@ function CommunityEmptyState({
         <Link href="/terms?scope=all" className={styles.textLink}>
           Browse everything
           <ArrowRightIcon aria-hidden />
-        </Link>
-      </div>
-    </article>
-  )
-}
-
-function FeaturedRecord({
-  featured,
-  showVocabulary
-}: {
-  featured: FeaturedDefinition
-  showVocabulary: boolean
-}) {
-  if (!featured) {
-    return (
-      <article className={styles.featuredRecord}>
-        <div className={styles.featuredEmpty}>
-          <SearchIcon aria-hidden />
-          <h2>Browse definitions</h2>
-          <p>
-            Open a term to compare definitions and review examples of use,
-            comments, and provenance.
-          </p>
-          <Button asChild variant="outline">
-            <Link href="/terms">Browse terms</Link>
-          </Button>
-        </div>
-      </article>
-    )
-  }
-
-  const sourceDate = featured.sourceCreatedAt ?? featured.createdAt
-  const suggestionDate = featured.suggestedAt ?? featured.createdAt
-  const acceptedDate = featured.decidedAt ?? featured.createdAt
-  const isAiAssisted =
-    featured.activityKind === "canonical-ai" ||
-    featured.activityKind === "legacy-ai"
-  const isAiRevision = isAiAssisted && featured.aiIntent !== "new_term"
-
-  return (
-    <article className={styles.featuredRecord}>
-      <div className={styles.featuredHeader}>
-        <div>
-          <div className={styles.featuredTitleRow}>
-            <h2>
-              <Link href={termPath(featured.slug, featured.vocabularySlug)}>
-                {featured.term}
-              </Link>
-            </h2>
-            <Badge variant="outline">
-              {featured.definitionCount}{" "}
-              {featured.definitionCount === 1 ? "definition" : "definitions"}
-            </Badge>
-            {showVocabulary && (
-              <Badge variant="secondary">
-                Defined in {featured.vocabularyTitle}
-              </Badge>
-            )}
-          </div>
-          <p>Featured definition</p>
-        </div>
-        {isAiAssisted && (
-          <span className={styles.aiMarker}>
-            <SparklesIcon aria-hidden />
-            {isAiRevision ? "AI-assisted revision" : "AI-assisted contribution"}
-          </span>
-        )}
-      </div>
-
-      <p className={styles.featuredDefinition}>{featured.definition}</p>
-
-      <dl className={styles.featuredMetadata}>
-        <div>
-          <dt>Contributed by</dt>
-          <dd>
-            {featured.authorIsAi && (
-              <SparklesIcon
-                aria-hidden
-                style={{
-                  display: "inline",
-                  width: "0.8em",
-                  height: "0.8em",
-                  marginRight: "0.3em",
-                  color: "var(--ai)"
-                }}
-              />
-            )}
-            <PublicProfileName
-              user={{
-                id: featured.authorId,
-                name: featured.author,
-                isAi: featured.authorIsAi,
-                isProfilePublic: featured.authorProfilePublic
-              }}
-              className={featured.authorIsAi ? "text-ai font-mono" : undefined}
-              fallback="Community contributor"
-            />
-          </dd>
-        </div>
-        <div>
-          <dt>Score</dt>
-          <dd>
-            <ThumbsUpIcon aria-hidden />
-            {featured.score}
-          </dd>
-        </div>
-        <div>
-          <dt>Comments</dt>
-          <dd>
-            <MessageSquareTextIcon aria-hidden />
-            {featured.comments}
-          </dd>
-        </div>
-        <div>
-          <dt>Updated</dt>
-          <dd>{formatDate(featured.updatedAt ?? featured.createdAt)}</dd>
-        </div>
-      </dl>
-
-      {isAiAssisted ? (
-        <div className={styles.provenanceTrace}>
-          <h3>{isAiRevision ? "Revision history" : "Contribution history"}</h3>
-          <ol>
-            {isAiRevision && (
-              <li>
-                <span className={styles.timelineMarker} aria-hidden />
-                <time dateTime={sourceDate}>{formatDate(sourceDate)}</time>
-                <span>Source definition published</span>
-              </li>
-            )}
-            <li>
-              <span
-                className={`${styles.timelineMarker} ${styles.timelineMarkerAi}`}
-                aria-hidden
-              >
-                <SparklesIcon />
-              </span>
-              <time dateTime={suggestionDate}>
-                {formatDate(suggestionDate)}
-              </time>
-              <span>
-                {featured.activityModel
-                  ? `${featured.activityModel} generated a suggestion`
-                  : "The model generated a suggestion"}
-              </span>
-            </li>
-            <li>
-              <span
-                className={`${styles.timelineMarker} ${styles.timelineMarkerAccepted}`}
-                aria-hidden
-              />
-              <time dateTime={acceptedDate}>{formatDate(acceptedDate)}</time>
-              <span>
-                {isAiRevision
-                  ? "Contributor published the revision"
-                  : "Contributor published the definition"}
-              </span>
-            </li>
-          </ol>
-        </div>
-      ) : featured.refinedFromId ? (
-        <div className={styles.provenanceTrace}>
-          <h3>Revision history</h3>
-          <ol>
-            <li>
-              <span className={styles.timelineMarker} aria-hidden />
-              <time dateTime={sourceDate}>{formatDate(sourceDate)}</time>
-              <span>Source definition published</span>
-            </li>
-            <li>
-              <span
-                className={`${styles.timelineMarker} ${styles.timelineMarkerAccepted}`}
-                aria-hidden
-              />
-              <time dateTime={acceptedDate}>{formatDate(acceptedDate)}</time>
-              <span>Contributor published the revision</span>
-            </li>
-          </ol>
-        </div>
-      ) : (
-        <div className={styles.provenanceTrace}>
-          <h3>Definition history</h3>
-          <p>Definition published {formatDate(featured.createdAt)}.</p>
-        </div>
-      )}
-
-      <div className={styles.featuredLinks}>
-        <Link
-          href={termPath(featured.slug, featured.vocabularySlug)}
-          className={styles.textLink}
-        >
-          Open term
-          <ArrowRightIcon aria-hidden />
-        </Link>
-        <Link
-          href={`/terms/${featured.termId}/provenance`}
-          className={styles.textLink}
-        >
-          <NetworkIcon aria-hidden />
-          View provenance
         </Link>
       </div>
     </article>
@@ -600,7 +392,9 @@ function PersonalWorkSection({
                 <span className={styles.personalTerm}>
                   <strong>{item.term}</strong>
                   <small>
-                    {item.refinedFromId ? "Suggested revision" : "Definition"}
+                    {item.refinedFromId
+                      ? "Suggested alternative"
+                      : "Definition"}
                     {showVocabulary
                       ? ` · Defined in ${item.vocabularyTitle}`
                       : ""}
@@ -820,162 +614,4 @@ async function getPersonalWork(userId: number, vocabularySlug?: string) {
   }
 
   return latest
-}
-
-async function getFeaturedDefinition(vocabularySlug?: string) {
-  const candidateTerms = await db
-    .select({
-      termId: termsTable.id,
-      vocabularySlug: termsTable.vocabularySlug,
-      definitionCount:
-        sql<number>`cast(count(${definitionsTable.id}) as int)`.mapWith(Number)
-    })
-    .from(termsTable)
-    .innerJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
-    .where(
-      vocabularySlug
-        ? vocabularyTermScope(vocabularySlug)
-        : inArray(termsTable.slug, FEATURED_SHOWCASE_SLUGS)
-    )
-    .groupBy(termsTable.id)
-    // Identical term slugs may exist in several vocabularies. The complete
-    // ordering keeps the day-based rotation stable in Everything mode.
-    .orderBy(
-      asc(termsTable.slug),
-      asc(termsTable.vocabularySlug),
-      asc(termsTable.id)
-    )
-
-  if (!candidateTerms.length) return null
-
-  // A UTC-day index gives everyone the same featured term for the day. In
-  // Everything, rotate through the reviewed showcase records; in a selected
-  // community, rotate through that vocabulary so the card never leaks another
-  // community or appears empty merely because no showcase slug belongs to it.
-  const rotationIndex =
-    Math.floor(Date.now() / MILLISECONDS_PER_DAY) % candidateTerms.length
-  const candidate = candidateTerms[rotationIndex]
-
-  const buildQuery = () =>
-    db
-      .select({
-        termId: termsTable.id,
-        term: termsTable.term,
-        slug: termsTable.slug,
-        vocabularySlug: termsTable.vocabularySlug,
-        vocabularyTitle: vocabulariesTable.title,
-        definitionId: definitionsTable.id,
-        definition: definitionsTable.definition,
-        authorId: usersTable.id,
-        author: usersTable.name,
-        authorIsAi: usersTable.isAi,
-        authorProfilePublic: usersTable.isProfilePublic,
-        score: definitionsTable.score,
-        refinedFromId: definitionsTable.refinedFromId,
-        createdAt: definitionsTable.createdAt,
-        updatedAt: definitionsTable.updatedAt,
-        comments: sql<number>`cast(count(${commentsTable.id}) as int)`.mapWith(
-          Number
-        )
-      })
-      .from(definitionsTable)
-      .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-      .innerJoin(
-        vocabulariesTable,
-        eq(vocabulariesTable.slug, termsTable.vocabularySlug)
-      )
-      .leftJoin(usersTable, eq(usersTable.id, definitionsTable.authorId))
-      .leftJoin(
-        commentsTable,
-        eq(commentsTable.definitionId, definitionsTable.id)
-      )
-
-  const preferred = await buildQuery()
-    .where(eq(termsTable.id, candidate.termId))
-    .groupBy(
-      definitionsTable.id,
-      termsTable.id,
-      usersTable.id,
-      vocabulariesTable.slug
-    )
-    .orderBy(
-      desc(
-        sql<number>`case when ${definitionsTable.refinedFromId} is not null then 1 else 0 end`
-      ),
-      desc(definitionsTable.score),
-      desc(definitionsTable.createdAt)
-    )
-
-  const featured = preferred[0]
-  if (!featured) return null
-
-  // Read publication provenance from exact foreign keys. A source definition
-  // can have many unrelated legacy refinement rounds, so "newest round on the
-  // source" is not evidence that a particular output accepted that round.
-  const [
-    canonicalSuggestions,
-    legacyDiscussionSuggestions,
-    outputRevision,
-    sourceDefinition
-  ] = await Promise.all([
-    acceptedAiSuggestionsForOutputs([featured.definitionId]),
-    acceptedLegacyDiscussionSuggestionsForOutputs([featured.definitionId]),
-    db.query.definitionRevisionsTable.findFirst({
-      columns: {
-        sourceRefinementId: true,
-        derivedFromRevisionId: true
-      },
-      where: and(
-        eq(definitionRevisionsTable.definitionId, featured.definitionId),
-        eq(definitionRevisionsTable.version, 1)
-      )
-    }),
-    featured.refinedFromId
-      ? db.query.definitionsTable.findFirst({
-          columns: { createdAt: true },
-          where: eq(definitionsTable.id, featured.refinedFromId)
-        })
-      : Promise.resolve(undefined)
-  ])
-
-  const canonicalSuggestion = canonicalSuggestions[0]
-  const legacyDiscussionSuggestion = legacyDiscussionSuggestions[0]
-  const [sourceRevision, legacyRefinement] = await Promise.all([
-    outputRevision?.derivedFromRevisionId
-      ? db.query.definitionRevisionsTable.findFirst({
-          columns: { createdAt: true },
-          where: eq(
-            definitionRevisionsTable.id,
-            outputRevision.derivedFromRevisionId
-          )
-        })
-      : Promise.resolve(undefined),
-    !canonicalSuggestion &&
-    !legacyDiscussionSuggestion &&
-    outputRevision?.sourceRefinementId
-      ? db.query.refinementsTable.findFirst({
-          columns: { suggestedAt: true, decidedAt: true, model: true },
-          where: and(
-            eq(refinementsTable.id, outputRevision.sourceRefinementId),
-            eq(refinementsTable.status, "accepted")
-          )
-        })
-      : Promise.resolve(undefined)
-  ])
-
-  const activity = resolveFeaturedActivity({
-    canonicalSuggestion,
-    legacyDiscussionSuggestion,
-    legacyRefinement,
-    refinedFromId: featured.refinedFromId,
-    createdAt: featured.createdAt
-  })
-
-  return {
-    ...featured,
-    definitionCount: candidate.definitionCount,
-    ...activity,
-    sourceCreatedAt:
-      sourceRevision?.createdAt ?? sourceDefinition?.createdAt ?? null
-  }
 }
