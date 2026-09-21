@@ -16,11 +16,11 @@ a task below.
 
 - [Adding a term](/docs/adding-terms): publish a term and choose a contribution
   action.
-- [Community review and revisions](/docs/community): vote, edit your
-  definitions, compare candidates, and manage your public profile.
+- [Community review and revisions](/docs/community): vote, create new versions
+  of your definitions, compare candidates, and manage your public profile.
 - [AI-assisted suggestions](/docs/ai-refinement): request and review a model
   draft before publication.
-- [Discussion](/docs/discussion): comment on recent terms or suggest a revision.
+- [Discussion](/docs/discussion): comment on recent terms or suggest an alternative.
 
 ## Finding and citing content
 
@@ -36,9 +36,11 @@ a task below.
 [Administration and stewardship](/docs/administration) lists the controls
 for community stewards, moderators, and site administrators.
 
-## Knowledge organization
+<a id="knowledge-organization"></a>
 
-The [reference](/docs/reference) explains concepts, identifiers, SKOS,
+## Technical reference
+
+The [technical reference](/docs/reference) explains concepts, identifiers, SKOS,
 PROV-O, and curation for readers who use the published metadata.
 
 ## Metadata models

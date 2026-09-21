@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { Fragment } from "react"
 import { SITE_NAME } from "@/lib/site"
 import { ThemeMenu, ThemeToggle } from "./theme-provider"
 import { getCurrentUser } from "@/lib/current-user"
@@ -26,33 +27,35 @@ import { Button, buttonVariants } from "./ui/button"
 import { ChevronDownIcon, UserCircleIcon, UsersIcon } from "lucide-react"
 import { LogoutButton } from "./logout"
 import { HeaderSearch } from "./header-search"
+import { HeaderNavLink, HeaderNavMenuTrigger } from "./header-navigation"
 import { MobileNavigationMenu } from "./mobile-navigation-menu"
 import { cn } from "@/lib/utils"
 import styles from "./header.module.css"
 
 /*
- * The primary navigation is two groups and a link: the vocabulary (what is
- * published) and taking part (what a person does), with the documentation
- * on its own. The community a person is working in has its own control
+ * The primary navigation groups the vocabulary (what is published) and
+ * taking part (what a person does), with help and project information
+ * alongside them. The community a person is working in has its own control
  * beside the account, with room for its name, because that standing choice
  * scopes what the pages show and was easy to miss inside the account menu.
  */
 const VOCABULARY: Entry[] = [
   { href: "/terms", label: "Browse" },
-  { href: tagsIndexPath, label: "Tags" },
+  { href: "/search", label: "Search" },
   { href: collectionsIndexPath, label: "Collections" },
   { href: modelsIndexPath, label: "Models" },
-  { href: "/search", label: "Search" }
+  { href: tagsIndexPath, label: "Tags", secondary: true }
 ]
 
 const TAKE_PART: Entry[] = [
+  { href: "/docs", label: "Quick Start" },
   { href: "/add", label: "Contribute" },
   { href: "/discussion", label: "Discussion" },
-  { href: studiesIndexPath, label: "Studies" },
-  { href: communitiesIndexPath, label: "Communities" }
+  { href: communitiesIndexPath, label: "Communities" },
+  { href: studiesIndexPath, label: "Studies" }
 ]
 
-type Entry = { href: string; label: string }
+type Entry = { href: string; label: string; secondary?: boolean }
 type Community = { id: number; slug: string; title: string }
 
 export const Header = async () => {
@@ -92,9 +95,12 @@ export const Header = async () => {
         <nav className={styles.navLinks} aria-label="Primary">
           <NavMenu label="Vocabulary" entries={VOCABULARY} />
           <NavMenu label="Participate" entries={TAKE_PART} />
-          <Link href="/docs" className={styles.navButton}>
-            Documentation
-          </Link>
+          <HeaderNavLink href="/docs" className={styles.navButton}>
+            Help &amp; Guides
+          </HeaderNavLink>
+          <HeaderNavLink href="/about" className={styles.navButton}>
+            About
+          </HeaderNavLink>
           {memberships.length > 0 && (
             <CommunityMenu scope={scope} memberships={memberships} />
           )}
@@ -106,17 +112,28 @@ export const Header = async () => {
             <nav aria-label="Mobile">
               <span className={styles.mobileLabel}>Vocabulary</span>
               {VOCABULARY.map((entry) => (
-                <Link key={entry.href} href={entry.href}>
+                <HeaderNavLink
+                  key={entry.href}
+                  href={entry.href}
+                  className={
+                    entry.secondary ? styles.secondaryNavLink : undefined
+                  }
+                >
                   {entry.label}
-                </Link>
+                </HeaderNavLink>
               ))}
               <span className={styles.mobileLabel}>Participate</span>
               {TAKE_PART.map((entry) => (
-                <Link key={entry.href} href={entry.href}>
+                <HeaderNavLink
+                  key={entry.href}
+                  href={entry.href}
+                  exact={entry.href === "/docs"}
+                >
                   {entry.label}
-                </Link>
+                </HeaderNavLink>
               ))}
-              <Link href="/docs">Documentation</Link>
+              <HeaderNavLink href="/docs">Help &amp; Guides</HeaderNavLink>
+              <HeaderNavLink href="/about">About</HeaderNavLink>
             </nav>
             {memberships.length > 0 && (
               <div className={styles.mobileUtility}>
@@ -176,20 +193,34 @@ export const HeaderStrip = async () => {
   )
 }
 
-// A group of the primary navigation: a trigger in the bar, its entries in a
-// menu. The links are plain anchors, so a server component can render it.
+// Only the links and trigger read the route; the menu structure stays here
+// alongside the server-rendered header and account controls.
 const NavMenu = ({ label, entries }: { label: string; entries: Entry[] }) => (
   <DropdownMenu>
-    <DropdownMenuTrigger className={styles.navButton}>
+    <HeaderNavMenuTrigger
+      className={styles.navButton}
+      activePaths={entries
+        .filter((entry) => entry.href !== "/docs")
+        .map((entry) => entry.href)}
+    >
       {label}
       <ChevronDownIcon className={styles.navChevron} aria-hidden />
-    </DropdownMenuTrigger>
+    </HeaderNavMenuTrigger>
     <DropdownMenuContent align="start">
       <DropdownMenuGroup>
         {entries.map((entry) => (
-          <DropdownMenuItem key={entry.href} asChild>
-            <Link href={entry.href}>{entry.label}</Link>
-          </DropdownMenuItem>
+          <Fragment key={entry.href}>
+            {entry.secondary && <DropdownMenuSeparator />}
+            <DropdownMenuItem asChild>
+              <HeaderNavLink
+                href={entry.href}
+                className={styles.menuLink}
+                exact={entry.href === "/docs"}
+              >
+                {entry.label}
+              </HeaderNavLink>
+            </DropdownMenuItem>
+          </Fragment>
         ))}
       </DropdownMenuGroup>
     </DropdownMenuContent>
@@ -260,9 +291,17 @@ const AccountMenu = ({
   if (user)
     return (
       <DropdownMenu>
-        <DropdownMenuTrigger className={buttonVariants({ variant: "outline" })}>
+        <DropdownMenuTrigger
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            styles.accountButton
+          )}
+        >
           <UserCircleIcon aria-hidden />
-          <span className={showName ? undefined : "hidden sm:block"}>
+          <span
+            className={cn("min-w-0 truncate", !showName && "hidden sm:block")}
+            title={user.name ?? undefined}
+          >
             {user.name}
           </span>
         </DropdownMenuTrigger>

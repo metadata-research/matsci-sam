@@ -85,6 +85,7 @@
 .mobileMenu summary:hover,
 .mobileMenu[open] summary {
   background: var(--accent);
+  color: var(--primary);
 }
 
 .mobileMenu summary::-webkit-details-marker {
@@ -126,6 +127,25 @@
 
 .mobileMenuPanel nav a:hover {
   background: var(--accent);
+  color: var(--primary);
+}
+
+.mobileMenuPanel nav a[data-active],
+.menuLink[data-active] {
+  background: var(--accent);
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.menuLink {
+  cursor: pointer;
+}
+
+.mobileMenuPanel nav .secondaryNavLink {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 /* A labelled control of the phone panel: the label above the control, so
@@ -235,7 +255,7 @@
   height: 36px;
   padding: 0 14px;
   font-size: 14px;
-  color: var(--muted-foreground);
+  color: color-mix(in oklab, var(--primary) 75%, var(--muted-foreground));
   font-family: var(--font-plex-sans);
   display: flex;
   align-items: center;
@@ -246,9 +266,25 @@
     color 120ms ease;
 }
 
-.navButton:hover {
+.navButton:hover,
+.navButton[data-state="open"],
+.navButton[data-active] {
   background: var(--accent);
-  color: var(--accent-foreground);
+  color: var(--primary);
+}
+
+.navButton[data-active] {
+  font-weight: 500;
+}
+
+.navButton:focus-visible,
+.menuLink:focus-visible,
+.mobileMenu summary:focus-visible,
+.mobileMenuPanel nav a:focus-visible,
+.searchLink:focus-visible,
+.logoHome:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .navButton:active {
@@ -292,14 +328,23 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
 }
 
-/* The chevron of a menu trigger, muted like the label it follows. */
+/* Keep the full account name accessible while allowing it to share the bar
+   with navigation and a community name on narrower screens. */
+.accountButton {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 14rem;
+}
+
+/* The chevron follows the trigger's current, open, and hover treatment. */
 .navChevron {
   width: 14px;
   height: 14px;
   margin-left: 2px;
-  color: var(--muted-foreground);
+  color: currentColor;
 }
 
 /* The community a person is working in, with room for its name. The bar
@@ -313,6 +358,16 @@
 }
 
 @media (max-width: 1200px) {
+  /* Keep the added help and About links clear of the community and account
+     controls before the full mobile navigation takes over. */
+  .searchForm {
+    display: none;
+  }
+
+  .searchLink {
+    display: flex;
+  }
+
   .scopePill {
     max-width: 11rem;
   }

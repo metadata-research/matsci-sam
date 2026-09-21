@@ -1,8 +1,12 @@
-# Knowledge organization
+# Technical reference
 
-Use this reference to interpret the vocabulary and its published metadata.
-The [user guide](/docs/guide) gives task instructions. Developer documentation
-is in the repository under `docs/technical/`.
+This section explains how MatSci-SAM represents vocabulary structure,
+identifiers, and contribution history in its published metadata.
+For instructions on adding terms, comparing definitions, voting, or commenting,
+use [Quick Start](/docs) or the [user guide](/docs/guide).
+
+Implementation details, service configuration, and development procedures are
+documented separately in the repository under `docs/technical/`.
 
 | Topic                                                                    | Covers                                                          |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------- |

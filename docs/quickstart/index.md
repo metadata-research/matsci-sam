@@ -1,8 +1,13 @@
 # Quick start
 
-MatSci-SAM (Semantic Alignment and Standardization) is a collaborative
+MatSci-SAM (Materials Science Semantic Alignment Metadata) is a collaborative
 dictionary for materials science terminology. Contributors publish
 definitions, compare alternatives, and record their discussion and revisions.
+
+This guide follows the contribution process. The [user guide](/docs/guide)
+covers individual tasks; [About MatSci-SAM](/about) explains the purpose and features.
+
+[See an example term](/vocabulary/mrc/martensite).
 
 To participate in a study, begin from the study link. **Study help** explains
 the controls inside the activity. The [study guide](/docs/studies) covers
@@ -19,15 +24,21 @@ dictionary. You need an account to contribute, vote, or comment.
 
 ## Add a term
 
-Open **Contribute** and check the destination vocabulary shown on the form.
-Enter the term and a definition. Name the broader class, then the distinguishing
-characteristics. You may also add an example of use.
+Open **Contribute**, check the destination vocabulary, and enter the term.
+Select **Confirm term and find references** to open the editor and look up
+ChEBI. Write a definition, naming the broader class and distinguishing
+characteristics, then select **Review definition**.
 
-**Draft with a language model** generates an editable definition. Review it
-before selecting **Publish new term**. A published model draft credits you and
-the named model. An example you write receives separate attribution.
+For help starting or refining your writing, select **Suggest a definition**
+beside the editor. The model returns a preview. **Use this draft** applies it;
+**Keep my writing** leaves your text intact. You can edit an applied draft or
+undo its application.
 
-![New term form with optional model drafting](/images/docs/quickstart-contribute.png)
+During review, check the definition, model attribution and **Sources I used**.
+Add an optional example, then select **Publish new term**. A published model
+draft credits you and the named model; an example you write receives separate
+attribution. Retrieving, copying or adding reference text does not select a
+citation automatically.
 
 Use the existing term page for further contributions when the term is already
 defined. [Adding a term](/docs/adding-terms) explains the available actions.
@@ -52,14 +63,24 @@ shown when you posted it.
 
 ![A definition comment thread](/images/docs/quickstart-comments.png)
 
-## Ask for a revision
+## Create a new version
 
-Select **Suggest a revision** on a current definition. Explain what should
-change, request a model draft, and edit the result. **Publish revision** creates
-a separate candidate linked to the source revision and credited to you and
-the model. **Discard draft** publishes nothing.
+On your own definition, select **Create a new version** and update the text.
+Select **Review new version**, then **Publish new version**. Publication keeps
+the same definition identifier and adds the next numbered version. Previous
+versions remain available in its history.
 
-![Revision and comment controls in Discussion](/images/docs/quickstart-revise.png)
+<a id="ask-for-a-revision"></a>
+
+## Suggest an alternative
+
+Select **Suggest an alternative** on a current definition. Explain what should
+change, then select **Draft alternative with a language model**. Inspect the
+preview and choose **Use this draft** to edit it, or **Keep my feedback** to
+discard the preview. Select **Review alternative**, check the sources and
+attribution, then **Publish alternative**. Publication creates a separate
+definition starting at version 1, linked to the source revision and credited
+to you and the model. The original remains available.
 
 The action is also available in [Discussion](/docs/discussion) and study
 Position steps. [AI-assisted suggestions](/docs/ai-refinement) gives the steps.
@@ -88,4 +109,4 @@ the choices and [Provenance](/docs/provenance) describes the recorded history.
 ## Where to go next
 
 Use the [user guide](/docs/guide) for a specific task and the
-[knowledge organization reference](/docs/reference) for the metadata model.
+[technical reference](/docs/reference) for the metadata model.

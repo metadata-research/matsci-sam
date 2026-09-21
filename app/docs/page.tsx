@@ -4,7 +4,9 @@ import { SITE_NAME } from "@/lib/site"
 import { listAllDocs, renderDoc } from "@/lib/docs"
 import { DocsShell } from "./shell"
 
-export const metadata: Metadata = { title: `Documentation | ${SITE_NAME}` }
+export const metadata: Metadata = {
+  title: `Quick Start · Help & Guides | ${SITE_NAME}`
+}
 
 // /docs is the quick start. Somebody arriving from the navigation bar wants
 // the shortest complete account of the workflow, not a table of contents.

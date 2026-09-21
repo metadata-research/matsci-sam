@@ -10,7 +10,7 @@ export async function generateMetadata({
 }) {
   const { slug } = await params
   const doc = await renderDoc("reference", slug)
-  return { title: `${doc?.title ?? "Knowledge organization"} | ${SITE_NAME}` }
+  return { title: `${doc?.title ?? "Technical reference"} | ${SITE_NAME}` }
 }
 
 export default async function ReferenceDocPage({

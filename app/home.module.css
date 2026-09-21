@@ -8,76 +8,111 @@
   margin-inline: auto;
 }
 
-/* The introduction spans the shell and closes on a hairline, so the page
-   opens with the same fine-rule language the records and lists use rather
-   than stacking another bordered card. */
+/* A restrained accent marks the introduction and its starting points. */
 .hero {
-  padding: 1.25rem 0 2rem;
-  border-bottom: 1px solid var(--border);
+  padding: 1rem 1.5rem;
+  border-inline-start: 3px solid var(--primary);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    105deg,
+    color-mix(in oklab, var(--accent) 60%, transparent),
+    transparent
+  );
+}
+
+.helpLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin-top: 1.5rem;
 }
 
 /* One fluid scale for every viewport; when the line no longer fits,
    text-wrap keeps the break even, so no per-breakpoint caps are needed. */
 .heroTitle {
   font-family: var(--font-plex-serif);
-  font-size: clamp(2.25rem, 2vw + 1.9rem, 3.5rem);
+  font-size: clamp(2rem, 3.5vw, 2.5rem);
   font-weight: 700;
   line-height: 1.02;
   letter-spacing: -0.04em;
   text-wrap: balance;
 }
 
-/* A deck, not body copy: it shares the headline's full width. Normal wrapping
-   lets each line use the available shell instead of forcing two short,
-   artificially balanced lines. */
 .heroLead {
-  margin-top: 1.35rem;
+  margin-top: 0.5rem;
   color: var(--muted-foreground);
-  font-size: clamp(1.05rem, 1.7vw, 1.5rem);
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
   line-height: 1.5;
   text-wrap: wrap;
 }
 
-.heroPanels {
+.actionPanels {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 1.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3rem;
   align-items: start;
+  margin-top: 1.5rem;
+}
+
+.findPanel,
+.contributionPanel {
+  min-width: 0;
+}
+
+.findPanel h2,
+.contributionPanel h2 {
+  margin-bottom: 0.85rem;
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
+.searchRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.findPanel > .textLink {
+  margin-top: 0.85rem;
+}
+
+.activityPanels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 3rem;
   margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
 }
 
-.projectLine {
-  margin-top: 1rem;
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.6;
+.activityPanels > section {
+  min-width: 0;
 }
 
-.scopeNotice {
+.communityName {
   width: fit-content;
-  margin-top: 1.25rem;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: color-mix(in oklab, var(--card) 80%, var(--accent));
-  color: var(--muted-foreground);
-  font-size: 0.8rem;
+  margin-top: 1.5rem;
+  font-family: var(--font-plex-sans);
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+  font-weight: 600;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
-.scopeNotice a {
-  color: var(--foreground);
+.communityName a {
+  color: var(--primary);
   font-weight: 600;
   text-decoration: underline;
   text-decoration-color: var(--border);
   text-underline-offset: 0.2em;
 }
 
-.scopeNotice + .heroPanels {
+.communityName + .actionPanels {
   margin-top: 1.25rem;
 }
 
-.projectLine a,
 .footer a {
   color: var(--foreground);
   text-decoration: underline;
@@ -88,29 +123,15 @@
     text-decoration-color 120ms ease;
 }
 
-.projectLine a:hover,
 .footer a:hover {
   color: var(--primary);
   text-decoration-color: currentColor;
-}
-
-/* Open blocks divided by hairlines, not another bordered card. The featured
-   record stays the only card on the page so it reads as the specimen. */
-.startColumn {
-  min-width: 0;
 }
 
 .contributionPanel {
   scroll-margin-top: 1rem;
 }
 
-.recentTerms {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
-}
-
-.contributionPanel h2,
 .recentTerms h2 {
   margin-bottom: 0.7rem;
   font-family: var(--font-plex-sans);
@@ -126,8 +147,6 @@
 
 .definitionStarter {
   margin-top: 0.9rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--border);
 }
 
 .definitionStarter label {
@@ -156,12 +175,6 @@
   flex-wrap: wrap;
   gap: 0.65rem;
   margin-top: 0.85rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border);
-}
-
-.contributionPanel > .textLink {
-  margin-top: 0.9rem;
 }
 
 .textLink {
@@ -181,235 +194,45 @@
   text-underline-offset: 0.22em;
 }
 
+.textLink:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
 .textLink svg {
   width: 0.9rem;
   height: 0.9rem;
   flex: none;
 }
 
-.featuredRecord {
-  overflow: hidden;
-  min-width: 0;
+.communityEmpty {
+  margin-top: 2rem;
+  padding: 1.5rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--card);
-  box-shadow: 0 12px 38px rgb(0 0 0 / 0.05);
-}
-
-.featuredHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.4rem 1.5rem 0;
-}
-
-.featuredTitleRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.featuredTitleRow h2 {
-  font-family: var(--font-plex-serif);
-  font-size: 2rem;
-  font-weight: 650;
-  line-height: 1.1;
-}
-
-.featuredTitleRow h2 a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.featuredTitleRow h2 a:hover,
-.featuredTitleRow h2 a:focus-visible {
-  text-decoration: underline;
-  text-decoration-thickness: 0.07em;
-  text-underline-offset: 0.14em;
-}
-
-.featuredHeader > div > p {
-  margin-top: 0.35rem;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.aiMarker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--ai);
-  font-size: 0.8rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.aiMarker svg {
-  width: 0.95rem;
-  height: 0.95rem;
-}
-
-.featuredDefinition {
-  padding: 1.25rem 1.5rem 1.4rem;
-  font-size: 1.03rem;
-  line-height: 1.65;
-}
-
-.featuredMetadata {
-  display: grid;
-  grid-template-columns: 1.45fr 0.65fr 0.75fr 0.9fr;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
-.featuredMetadata > div {
-  min-width: 0;
-  padding: 0.85rem 0.9rem;
-}
-
-.featuredMetadata > div + div {
-  border-left: 1px solid var(--border);
-}
-
-.featuredMetadata dt {
-  color: var(--muted-foreground);
-  font-size: 0.7rem;
-}
-
-.featuredMetadata dd {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  overflow: hidden;
-  margin-top: 0.25rem;
-  font-size: 0.8rem;
-  font-weight: 550;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.featuredMetadata dd svg {
-  width: 0.85rem;
-  height: 0.85rem;
-  flex: none;
-}
-
-.provenanceTrace {
-  padding: 1.15rem 1.5rem;
-}
-
-.provenanceTrace h3 {
-  margin-bottom: 0.8rem;
-  font-size: 0.8rem;
-  font-weight: 650;
-}
-
-.provenanceTrace > p {
-  color: var(--muted-foreground);
-  font-size: 0.8rem;
-}
-
-.provenanceTrace ol {
-  position: relative;
-  display: grid;
-  gap: 0.7rem;
-}
-
-.provenanceTrace ol::before {
-  position: absolute;
-  top: 0.5rem;
-  bottom: 0.5rem;
-  left: 0.34rem;
-  width: 1px;
-  background: var(--border);
-  content: "";
-}
-
-.provenanceTrace li {
-  position: relative;
-  display: grid;
-  grid-template-columns: 0.75rem 5.4rem 1fr;
-  gap: 0.5rem;
-  align-items: center;
-  min-width: 0;
-  color: var(--muted-foreground);
-  font-size: 0.76rem;
-  line-height: 1.35;
-}
-
-.provenanceTrace time {
-  color: var(--foreground);
-  font-variant-numeric: tabular-nums;
-}
-
-.timelineMarker {
-  z-index: 1;
-  display: block;
-  width: 0.7rem;
-  height: 0.7rem;
-  border: 1.5px solid var(--muted-foreground);
-  border-radius: 999px;
+  border-radius: var(--radius-lg);
   background: var(--card);
 }
 
-.timelineMarkerAi {
+.communityEmpty > div {
   display: grid;
-  width: 0.8rem;
-  height: 0.8rem;
-  place-items: center;
-  border-color: var(--ai);
-  color: var(--ai);
-}
-
-.timelineMarkerAi svg {
-  width: 0.5rem;
-  height: 0.5rem;
-}
-
-.timelineMarkerAccepted {
-  border: 3px solid var(--card);
-  background: var(--primary);
-  box-shadow: 0 0 0 1.5px var(--primary);
-}
-
-.featuredLinks {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.9rem 1.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.featuredEmpty {
-  display: grid;
-  min-height: 25rem;
-  place-items: center;
-  align-content: center;
+  justify-items: start;
   gap: 0.9rem;
-  padding: 2rem;
-  text-align: center;
 }
 
-.featuredEmpty > svg {
-  width: 2rem;
-  height: 2rem;
+.communityEmpty > div > svg {
+  width: 1.25rem;
+  height: 1.25rem;
   color: var(--muted-foreground);
 }
 
-.featuredEmpty h2 {
-  font-family: var(--font-plex-sans);
-  font-size: 1.5rem;
+.communityEmpty h2 {
+  font-size: 1.25rem;
   font-weight: 650;
 }
 
-.featuredEmpty p {
-  max-width: 24rem;
+.communityEmpty p {
+  max-width: 42rem;
   color: var(--muted-foreground);
   line-height: 1.6;
 }
@@ -534,10 +357,13 @@
   font-size: 0.875rem;
 }
 
-.communitySection {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
+.communitySection .sectionHeading {
+  align-items: baseline;
+  margin-bottom: 0.7rem;
+}
+
+.communitySection h2 {
+  font-size: 1.15rem;
 }
 
 .activityList {
@@ -548,15 +374,11 @@
   border-top: 1px solid var(--border);
 }
 
-/* Two columns keep the entries dense now that the discussion owns the full
-   shell width. Every row carries its own rule, so both columns start level. */
 .discussionList {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 3rem;
 }
 
-.discussionList > li {
+.discussionList > li + li {
   border-top: 1px solid var(--border);
 }
 
@@ -703,14 +525,6 @@
 }
 
 @media (max-width: 1020px) {
-  .heroPanels {
-    grid-template-columns: 1fr;
-  }
-
-  .featuredRecord {
-    max-width: 42rem;
-  }
-
   .footer {
     grid-template-columns: 1fr 1fr;
   }
@@ -734,36 +548,20 @@
     font-size: 1rem;
   }
 
-  .heroPanels {
-    margin-top: 1.5rem;
+  .actionPanels,
+  .activityPanels {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
-  .featuredHeader {
-    display: grid;
+  .hero {
+    padding-inline: 1rem;
   }
 
-  .aiMarker {
-    white-space: normal;
-  }
-
-  .featuredMetadata {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .featuredMetadata > div:nth-child(3) {
-    border-left: 0;
-  }
-
-  .featuredMetadata > div:nth-child(n + 3) {
-    border-top: 1px solid var(--border);
-  }
-
-  .provenanceTrace li {
-    grid-template-columns: 0.75rem 1fr;
-  }
-
-  .provenanceTrace li > span:last-child {
-    grid-column: 2;
+  .communitySection .sectionHeading {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .sectionHeading {
@@ -804,10 +602,6 @@
 }
 
 @media (max-width: 440px) {
-  .featuredHeader,
-  .featuredDefinition,
-  .provenanceTrace,
-  .featuredLinks,
   .personalSection {
     padding-right: 1rem;
     padding-left: 1rem;
@@ -819,11 +613,6 @@
 
   .definitionStarterRow {
     grid-template-columns: 1fr;
-  }
-
-  .featuredLinks {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .termActivity {
