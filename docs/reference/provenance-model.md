@@ -26,13 +26,69 @@ suggestion record. Discarded drafts remain outside the vocabulary.
 An example identifies the stable definition and the exact revision displayed
 at contribution time. Its text and attribution are immutable. A featured
 selection records the selector and its active interval. The active example
-set can change independently of definition revisions.
+set can change independently of definition revisions. The timeline includes
+observed example contributions and the start and end of recorded featured
+intervals. It does not invent an activity date for undated legacy records.
 
 Imported records state their limitations. Partial revisions can lack an
 editor or change note. Legacy examples lack independent author, exact source
 revision, publication time, and selection provenance. Imported comments use
 an inferred revision association from the recorded time. Imported votes use
 the revision current at migration. Unknown facts remain omitted.
+
+## Reference and assistant evidence
+
+ChEBI and Wolfram CAG lookups create contributor-owned receipts and source
+snapshots. ChEBI snapshots retain their ontology release and licence. Wolfram
+receipts retain the effective query, optional context, units and interpretation
+options, retrieval time, exact response and hash, and provider response UUID
+when supplied. Wolfram prototype evidence has no asserted open licence.
+Raw response envelopes and uncited lookup history remain private.
+
+Public evidence has distinct roles:
+
+| Evidence                                        | Meaning in the record                                                                                         |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Contributor-declared citation                   | The revision has `dcterms:references` to a stored source snapshot.                                            |
+| Reference supplied to an accepted model request | The generation activity has `prov:used` pointing to the exact input snapshot.                                 |
+| Source link reported in an assistant answer     | Part of the retained model output; a provider-reported source, not automatically a citation or a model input. |
+
+Provider-reported source entities are linked from the original model answer
+with `dcterms:references`. That edge does not connect the source to the published
+revision as a contributor citation or to the generation activity as `prov:used`.
+
+Reference inputs and citations retain the publisher text, content hash,
+retrieval time, source IRI, release, licence and available provider response
+identifier. Model inputs also retain their supplied context. A reference can
+have either role or both; neither role proves every fact was used or verified.
+Copy and Add timestamps are private reports of successful interface actions,
+not assertions of derivation or cognitive use. Merely revealing a reference
+does not add a persisted interaction event.
+
+For accepted Gemma/deployment-model and Agent One suggestions, the activity
+uses the stored system prompt, exact user message and included draft, example
+and reference inputs. The original final answer remains a separate entity from
+the published revision, which is derived from it and preserves the final
+contributor wording. Publication identifies the contributor and recorded
+decision time; the record does not claim a separate timestamp for applying a
+preview in the editor. Later revisions retain their own text and attribution
+without implying a new model request. Missing historical prompt fields are
+not reconstructed.
+
+Model metadata includes the requested assistant profile, provider, model tag
+and available returned model identity. Agent One's external response UUID is
+exported as `matsci:inferenceResponseId`; Wolfram CAG snapshots use
+`matsci:responseUuid` when available. These identify provider responses, not
+private database rows. Credentials, credential-validation digests and internal
+database IDs in metadata are excluded from the RDF. Provider reasoning and
+raw tool payloads are not retained as the final answer.
+
+The ontology context panel on term pages and in the lab is a read-only preview.
+It creates no saved relationship or provenance activity. A future explicit
+ontology-link contribution would need its own attributed assertion, source
+IRI and release; browsing and label matching cannot stand in for that act.
+The default definition's ranking is likewise derived, not a publication,
+editorial approval or independent contribution event.
 
 ## People and models
 

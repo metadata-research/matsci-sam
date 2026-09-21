@@ -33,6 +33,30 @@ const MarkShape = ({ mark }: { mark: ActivityTimelineMark }) => {
         className="fill-amber-600 dark:fill-amber-400"
       />
     )
+  if (mark.event.kind === "example-publication")
+    return (
+      <rect
+        x="-6"
+        y="-6"
+        width="12"
+        height="12"
+        className="fill-sky-700 dark:fill-sky-300"
+      />
+    )
+  if (mark.event.kind === "example-featured")
+    return (
+      <path
+        d="M 0 -8 L 8 7 L -8 7 Z"
+        className="fill-emerald-700 dark:fill-emerald-300"
+      />
+    )
+  if (mark.event.kind === "example-unfeatured")
+    return (
+      <path
+        d="M 0 8 L 8 -7 L -8 -7 Z"
+        className="fill-rose-700 dark:fill-rose-300"
+      />
+    )
   return (
     <path
       d="M -7 -2 H -2 V -7 H 2 V -2 H 7 V 2 H 2 V 7 H -2 V 2 H -7 Z"
@@ -63,7 +87,7 @@ export function ActivityTimeline({
   if (events.length === 0)
     return (
       <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-        No recorded activity matches this definition filter.
+        No recorded activity matches these filters.
       </div>
     )
 
@@ -83,6 +107,22 @@ export function ActivityTimeline({
         <li className="flex items-center gap-2">
           <span aria-hidden className="size-2.5 rounded-full bg-primary" />
           Later revision
+        </li>
+        <li className="flex items-center gap-2">
+          <span aria-hidden className="size-2.5 bg-sky-700 dark:bg-sky-300" />
+          Example published
+        </li>
+        <li className="flex items-center gap-2">
+          <span aria-hidden className="text-emerald-700 dark:text-emerald-300">
+            ▲
+          </span>
+          Example featured
+        </li>
+        <li className="flex items-center gap-2">
+          <span aria-hidden className="text-rose-700 dark:text-rose-300">
+            ▼
+          </span>
+          Example feature ended
         </li>
         <li className="flex items-center gap-2">
           <span
@@ -113,17 +153,19 @@ export function ActivityTimeline({
           <desc id={descriptionId}>
             Time runs from left to right in UTC. Each definition has one row.
             Diamonds mark publications, circles later revisions, triangles
-            comments, and plus signs voting acts. The table after the chart
-            contains every event and exact value.
+            comments, squares example publications, upward and downward
+            triangles example feature starts and ends, and plus signs voting
+            acts. The table after the chart contains every event and exact
+            value.
           </desc>
 
           {geometry.rows.map((row, index) => (
             <g key={row.definitionNumber}>
               <rect
                 x="0"
-                y={row.y - 32}
+                y={row.y - 50}
                 width={geometry.width}
-                height="64"
+                height="120"
                 className={index % 2 === 0 ? "fill-muted/25" : "fill-card"}
               />
               <line

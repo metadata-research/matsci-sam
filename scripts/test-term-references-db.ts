@@ -23,6 +23,8 @@ import {
   publishDefinitionRevision
 } from "../lib/definition-revisions"
 import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
+import { WOLFRAM_RESULTS_ENDPOINT } from "../lib/wolfram-reference-provider"
+import { buildWolframQuery } from "../lib/wolfram-query"
 
 class Rollback extends Error {}
 async function main() {
@@ -122,12 +124,21 @@ async function main() {
         await revisionReferencesQuery([initial.revision.id], tx),
         []
       )
+      const requestEndpoint = new URL(WOLFRAM_RESULTS_ENDPOINT)
+      requestEndpoint.searchParams.set(
+        "input",
+        buildWolframQuery(term.term, "chemical compound")
+      )
+      requestEndpoint.searchParams.set("units", "metric")
+      requestEndpoint.searchParams.set("assumption", "fixture-interpretation")
+      requestEndpoint.searchParams.set("unrelated-private-field", "omit-me")
       const [wolframLookup] = await tx
         .insert(termReferenceLookupsTable)
         .values({
           requestedById: author.id,
           termText: term.term,
           provider: "wolfram",
+          endpoint: requestEndpoint.href,
           context: "chemical compound",
           responseBody: "Assuming water is a chemical compound",
           responseHash: "b".repeat(64),
@@ -161,6 +172,15 @@ async function main() {
         tx
       )
       assert.equal(modelInputs.length, 2)
+      const wolframInput = modelInputs.find((r) => r.sourceKey === "wolfram")!
+      assert.equal(wolframInput.query, term.term)
+      assert.deepEqual(wolframInput.request, {
+        input: buildWolframQuery(term.term, "chemical compound"),
+        context: "chemical compound",
+        options: { units: "metric", assumptions: ["fixture-interpretation"] }
+      })
+      assert.equal("endpoint" in wolframInput, false)
+      assert.ok(!JSON.stringify(wolframInput).includes("omit-me"))
       assert.equal(
         modelInputs.find((r) => r.sourceKey === "wolfram")?.context,
         "chemical compound"
@@ -212,7 +232,10 @@ async function main() {
         ]).success,
         false
       )
-      const refinements = []
+      const refinements: {
+        lookup: typeof termReferenceLookupsTable.$inferSelect
+        entry: typeof termReferenceEntriesTable.$inferSelect
+      }[] = []
       for (const [index, description] of [
         "A second result used only as model evidence.",
         "A third result explicitly cited by the contributor."
@@ -318,6 +341,17 @@ async function main() {
       const cited = await revisionReferencesQuery([published.revision.id], tx)
       assert.equal(cited.length, 3)
       assert.deepEqual(
+        cited.find((r) => r.id === wolframEntry.id)?.request,
+        wolframInput.request,
+        "Model inputs and citations retain the same safe lookup parameters"
+      )
+      assert.equal(
+        cited.find((r) => r.id === refinements[1].entry.id)?.request,
+        undefined,
+        "Legacy receipts do not acquire invented lookup parameters"
+      )
+      assert.ok(!JSON.stringify(cited).includes("omit-me"))
+      assert.deepEqual(
         cited
           .filter((r) => r.sourceKey === "wolfram")
           .map((r) => r.id)
@@ -334,7 +368,8 @@ async function main() {
         "requestedById",
         "lookupId",
         "copiedAt",
-        "addedToDraftAt"
+        "addedToDraftAt",
+        "endpoint"
       ])
         assert.equal(privateField in cited[0], false)
       const third = await publishDefinitionRevision(tx, {

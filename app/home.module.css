@@ -1,5 +1,5 @@
 .main {
-  padding: 1.5rem 1rem 4rem;
+  padding: 2.75rem 1rem 4rem;
 }
 
 .shell {
@@ -8,16 +8,10 @@
   margin-inline: auto;
 }
 
-/* A restrained accent marks the introduction and its starting points. */
+/* Align the introduction with the page; a rule separates its starting points. */
 .hero {
-  padding: 1rem 1.5rem;
-  border-inline-start: 3px solid var(--primary);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(
-    105deg,
-    color-mix(in oklab, var(--accent) 60%, transparent),
-    transparent
-  );
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .helpLinks {
@@ -27,21 +21,21 @@
   margin-top: 1.5rem;
 }
 
-/* One fluid scale for every viewport; when the line no longer fits,
-   text-wrap keeps the break even, so no per-breakpoint caps are needed. */
+/* About's sans styling, with a smaller title for the full name on desktop. */
 .heroTitle {
-  font-family: var(--font-plex-serif);
+  font-family: var(--font-plex-sans);
   font-size: clamp(2rem, 3.5vw, 2.5rem);
   font-weight: 700;
-  line-height: 1.02;
-  letter-spacing: -0.04em;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
 .heroLead {
-  margin-top: 0.5rem;
-  color: var(--muted-foreground);
-  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  margin-top: 1rem;
+  color: var(--foreground);
+  font-family: var(--font-plex-sans);
+  font-size: clamp(1.2rem, 2.3vw, 1.5rem);
   line-height: 1.5;
   text-wrap: wrap;
 }
@@ -537,25 +531,13 @@
 
 @media (max-width: 680px) {
   .main {
-    padding-top: 1rem;
-  }
-
-  .hero {
-    padding-top: 1rem;
-  }
-
-  .heroLead {
-    font-size: 1rem;
+    padding-top: 1.5rem;
   }
 
   .actionPanels,
   .activityPanels {
     grid-template-columns: 1fr;
     gap: 1.5rem;
-  }
-
-  .hero {
-    padding-inline: 1rem;
   }
 
   .communitySection .sectionHeading {

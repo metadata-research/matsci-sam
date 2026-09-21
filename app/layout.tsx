@@ -10,8 +10,8 @@ import { Toaster } from "@/components/ui/sonner"
 import { getCurrentUser } from "@/lib/current-user"
 import localFont from "next/font/local"
 
-// One designed family across roles: Plex Sans for body and UI, Plex Serif
-// for term headwords and the logo, Plex Mono for model names, prompt keys,
+// One designed family across roles: Plex Sans for body, headings and UI,
+// Plex Serif for term headwords only, Plex Mono for model names, prompt keys,
 // and hashes. Bundle the licensed files so release builds do not fetch fonts.
 const plexSans = localFont({
   src: [

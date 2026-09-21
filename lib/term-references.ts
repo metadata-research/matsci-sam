@@ -16,6 +16,7 @@ import {
   type ModelReferenceInput
 } from "./reference-types"
 import { WOLFRAM_LOOKUP_LIMIT } from "./wolfram-query"
+import { wolframRequestFromEndpoint } from "./wolfram-reference-provider"
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 export const referenceSelectionSchema = z
@@ -115,12 +116,12 @@ export async function attachRevisionReferences(
 }
 
 /** Only cited evidence is public. The clipboard and uncited lookup history stay private. */
-export function revisionReferencesQuery(
+export async function revisionReferencesQuery(
   revisionIds: number[],
   reader: typeof db | Transaction = db
 ) {
   if (!revisionIds.length) return Promise.resolve([])
-  return reader
+  const rows = await reader
     .select({
       revisionId: definitionRevisionReferencesTable.revisionId,
       basis: definitionRevisionReferencesTable.basis,
@@ -136,7 +137,11 @@ export function revisionReferencesQuery(
       license: termReferenceEntriesTable.license,
       contentHash: termReferenceEntriesTable.contentHash,
       retrievedAt: termReferenceLookupsTable.retrievedAt,
-      responseUuid: termReferenceLookupsTable.responseUuid
+      responseUuid: termReferenceLookupsTable.responseUuid,
+      query: termReferenceLookupsTable.termText,
+      context: termReferenceLookupsTable.context,
+      provider: termReferenceLookupsTable.provider,
+      endpoint: termReferenceLookupsTable.endpoint
     })
     .from(definitionRevisionReferencesTable)
     .innerJoin(
@@ -152,6 +157,18 @@ export function revisionReferencesQuery(
     )
     .where(inArray(definitionRevisionReferencesTable.revisionId, revisionIds))
     .orderBy(asc(termReferenceEntriesTable.term))
+  return rows.map(({ endpoint, provider, ...reference }) => ({
+    ...reference,
+    ...(provider === "wolfram"
+      ? {
+          request: wolframRequestFromEndpoint(
+            endpoint,
+            reference.query,
+            reference.context
+          )
+        }
+      : {})
+  }))
 }
 
 export async function termReferencesQuery(termId: number) {
@@ -195,6 +212,8 @@ export async function loadModelReferences(
       context: termReferenceLookupsTable.context,
       responseUuid: termReferenceLookupsTable.responseUuid,
       query: termReferenceLookupsTable.termText,
+      provider: termReferenceLookupsTable.provider,
+      endpoint: termReferenceLookupsTable.endpoint,
       boundTermId: termReferenceLookupsTable.termId
     })
     .from(termReferenceEntriesTable)
@@ -242,7 +261,17 @@ export async function loadModelReferences(
     contentHash: row.contentHash,
     retrievedAt: row.retrievedAt,
     context: row.context,
-    responseUuid: row.responseUuid
+    responseUuid: row.responseUuid,
+    query: row.query,
+    ...(row.provider === "wolfram"
+      ? {
+          request: wolframRequestFromEndpoint(
+            row.endpoint,
+            row.query,
+            row.context
+          )
+        }
+      : {})
   }))
 }
 

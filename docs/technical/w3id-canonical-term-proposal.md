@@ -21,9 +21,23 @@ separate vocabularies have independent identifiers and candidates.
 `drizzle/schema.ts` enforces normalized-label and slug uniqueness within a
 vocabulary. Definition numbers are permanent within each term.
 
-The term page displays the canonical candidate first. `/provenance` describes
-the term history. It remains a history resource when a different candidate
-becomes canonical.
+The term page presents the selected candidate as the **Default definition**,
+with its own revision identity, references, attribution, featured example and
+voting controls. Other candidates appear as compact excerpts that readers can
+expand. They are alternatives, not successive revisions of the default.
+Definition addresses retain the full contribution, discussion and revision
+history views; no resource addresses or RDF predicates change with this layout.
+
+The default and alternative order stay in place during a page visit, even as
+votes update. A new page load uses the latest ranking. This avoids replacing
+the text being read or closing an expanded alternative. The default label is
+a display choice, not a statement of community approval; score ties still use
+the selection rule below.
+
+The term-level ontology panel previews exact label matches, with an explicit
+option to explore similar names. It neither validates a definition nor records
+an ontology mapping. `/provenance` describes the term history and remains a
+history resource when a different candidate becomes canonical.
 
 ## Canonical selection
 

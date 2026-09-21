@@ -3,6 +3,7 @@ import { PublicProfileName } from "@/components/public-profile-name"
 import { ProvDetail } from "./detail"
 import type { ProvEvent } from "@/lib/provenance"
 import { formatDateTime } from "@/lib/date"
+import Link from "next/link"
 import {
   BotIcon,
   CheckIcon,
@@ -37,7 +38,10 @@ const KIND: Record<ProvEvent["kind"], { icon: LucideIcon; color: string }> = {
   "refine-suggested": { icon: SparklesIcon, color: "text-ai" },
   "refine-accepted": { icon: CheckIcon, color: "text-green-600" },
   "refine-kept": { icon: UndoIcon, color: "text-muted-foreground" },
-  "refine-failed": { icon: TriangleAlertIcon, color: "text-destructive" }
+  "refine-failed": { icon: TriangleAlertIcon, color: "text-destructive" },
+  "example-published": { icon: FilePlusIcon, color: "text-primary" },
+  "example-featured": { icon: CheckIcon, color: "text-primary" },
+  "example-unfeatured": { icon: UndoIcon, color: "text-muted-foreground" }
 }
 
 export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
@@ -100,6 +104,16 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
               text={event.detail}
               className="mt-1 p-2 bg-accent rounded-md"
             />
+          )}
+          {event.href && (
+            <Link
+              href={event.href}
+              className="mt-2 inline-block text-sm text-primary underline"
+            >
+              {event.kind.startsWith("example-")
+                ? "View examples"
+                : "Inspect sources and model evidence"}
+            </Link>
           )}
         </li>
       )

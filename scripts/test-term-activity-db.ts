@@ -47,6 +47,22 @@ const main = async () => {
     activity.summary.voteActs,
     activity.events.filter((event) => event.kind === "vote").length
   )
+  assert.equal(
+    activity.summary.examplePublications,
+    activity.events.filter((event) => event.kind === "example-publication")
+      .length
+  )
+  assert.equal(
+    activity.summary.exampleFeatureStarts,
+    activity.events.filter((event) => event.kind === "example-featured").length
+  )
+  assert.equal(
+    activity.summary.exampleFeatureEnds,
+    activity.events.filter((event) => event.kind === "example-unfeatured")
+      .length
+  )
+  assert.ok(activity.summary.unknownExamplePublicationTimes >= 0)
+  assert.ok(activity.summary.unknownExampleFeatureStartTimes >= 0)
 
   const serialized = JSON.stringify(activity)
   for (const privateField of [

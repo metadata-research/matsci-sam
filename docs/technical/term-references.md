@@ -80,9 +80,65 @@ not replace contributor access checks. Existing source-revision and study
 validation remain authoritative for inherited actions. The source-action changes require no migration. Assistant configuration and
 preferences use the separate migration described below.
 
-Clarification exchanges (9d) and on-page ontology graphs are later increments.
+Clarification exchanges (9d) and contribution-page ontology integration are later increments.
 The current model response contract returns a definition, not a conversation
 turn; retrieving a ChEBI candidate does not establish a SAM placement.
+
+## Ontology context preview
+
+The reusable `OntologyContextPanel` appears beside the default definition on
+published term pages and beside a local draft on `/labs/ontology-context`.
+The term page searches its fixed term when the panel opens. In the lab,
+**Find matches** confirms the search term; typing alone does not search.
+Matching ignores case and surrounding whitespace, while preserving chemical
+punctuation and words. Only sources with exact labels appear in the default
+selector. A second selector disambiguates multiple candidates within a source.
+An empty result says **No exact label match found**.
+
+**Search similar names** explicitly switches to whole-word label matches that
+are not exact. These are name-search results, not inferred semantic neighbors.
+Even a single similar candidate requires an explicit **Choose a term** selection
+before a hierarchy request starts. **Back to exact matches** restores the
+default search; switching modes clears candidate choices. Query keys include
+the mode so a late exploratory response cannot replace exact results.
+Selection is identified by both source key and entity IRI. Within a mode,
+switching sources remembers that source's explicit candidate choice and leaves
+the draft unchanged. Changing the confirmed term resets to exact matching.
+
+Neither identical labels nor similar names assert `skos:exactMatch` or
+`skos:closeMatch`. Exact alternative-name lookup remains a separate extension:
+the current index has one selected label per source/entity, and ChEBI CORE
+does not supply FULL's synonym content.
+
+The initial hierarchy shows up to three immediate named parents, followed by
+the matched term. Additional parents expand inside a bounded list. These are
+asserted relationships: `rdfs:subClassOf`, `skos:broader`, and inverse
+`skos:narrower`. Missing parent labels use the identifier; absent named parents
+are not presented as evidence that a concept is a root. Anonymous superclass
+expressions are indicated without expanding a graph. Release and license stay
+with the selected source, with an optional link to the full ONT entity page.
+
+SAM reads ONT's `/candidates` and `/hierarchy` endpoints through the server-only
+`MATSCI_ONT_URL`, passing `mode=exact` or `mode=similar` explicitly. The response
+mode must agree with the request and every candidate's match classification.
+`MATSCI_ONT_PUBLIC_URL` independently controls the optional
+browser link; the transport URL is never sent to the browser. Each request has
+a 15-second deadline and a 128 KiB response limit. Candidates are capped at five
+per source and 32 sources; parent assertions are capped at 50 with explicit truncation.
+The panel groups multiple assertions about the same parent into one row.
+ONT excludes mirrors and sources not cleared for publication, and searches
+labeled classes and concepts even when they have no definition.
+
+This preview has no persistence: queries and source selections create no
+lookup receipts, citations, mappings, model context, interaction events or
+database records. The test draft remains local to the lab. Integration into
+the contribution workspace remains a later phase. Any future saved ontology
+link must be an explicit contribution with its own attribution and source
+release, rather than a consequence of opening the panel or matching a label.
+
+Run `pnpm test:ontology-context` for bounded transport and identity checks using
+mock responses. ONT's `pnpm test:preview` checks source isolation, per-source
+limits and asserted hierarchy semantics against isolated Jena fixtures.
 
 ## Wolfram lookup and refinement
 
@@ -125,6 +181,13 @@ the prototype arrangement without inventing an open licence. Retention has no
 automatic expiry. ChEBI keeps its release and CC-BY-4.0 metadata. Owners can
 reopen a receipt through `termReferences.getLookup`, filtered by provider;
 raw response bodies and uncited history are not public.
+
+ChEBI receipts similarly retain the requested term and retrieval time with
+each publisher-text snapshot, source IRI, release, licence and content hash.
+The first successful Copy and Add reports can record `copiedAt` and
+`addedToDraftAt` separately. These private timestamps describe client-reported
+interactions, not continued use, citation or a complete interaction history.
+Revealing and hiding source text adds no persisted event.
 
 ChEBI display, Copy and Add convert supported formula formatting to plain
 text, for example `TiO<small><sub>2</sub></small>` becomes `TiO₂`. This does
@@ -186,6 +249,19 @@ Later revisions do not inherit declarations or claim another model request;
 their original revision keeps its evidence. Legacy suggestions are not
 backfilled.
 
+Agent One's final answer may also contain a **Wolfram Sources** section. Those
+returned links are provider-reported output evidence. They are distinct from
+the reference snapshots SAM supplied to the request and from citations the
+contributor attached at publication. Showing those links does not validate
+them, assert that every fact is supported, or create contributor declarations.
+The provenance graph links their provider-reported entities from the original
+answer with `dcterms:references`, never as request inputs or revision citations.
+The stored original answer preserves them even if the contributor edits the
+definition before publication. Public accepted-suggestion evidence relates
+that original answer to the final revision and identifies the publishing
+contributor. The stored acceptance decision occurs at publication; it is not
+a separate record of the editor's **Use this draft** click.
+
 ## Definition assistant profiles
 
 `default` preserves the deployment's Ollama/FLAME configuration and displays
@@ -210,9 +286,18 @@ to the deployment profile, enforced on the server. Configuration is captured
 before asynchronous policy reads; the request keeps its producing profile,
 service and available returned model identity in stored inference metadata.
 A response is attributed to Wolfram Agent One without guessing an undisclosed
-underlying LLM. Provider output must validate against the definition schema
-before it can become a suggestion. Keys and private validation digests are
-excluded from client responses and provenance.
+underlying LLM. Agent One returns ordinary definition text, including its
+returned source links; SAM wraps that text in its internal definition field
+and validates its bounds. The adapter excludes provider reasoning. The exact
+stored final answer remains available independently of presentation formatting
+and subsequent contributor edits. This protocol is separate from the CAG
+lookup response format.
+
+Available Agent One response UUIDs are public inference metadata under
+`matsci:inferenceResponseId`, while CAG source snapshots retain their own
+`matsci:responseUuid`. Sanitized tool identity evidence may also be retained;
+raw tool arguments and payloads are excluded. Keys, private validation digests
+and internal database IDs in RDF metadata remain excluded.
 
 Agent One availability depends on the dedicated server credential and a
 successful administrator validation for the current adapter configuration.

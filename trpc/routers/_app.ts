@@ -14,6 +14,7 @@ import { examplesRouter } from "./examples"
 import { definitionAssistantsRouter } from "./definition-assistants"
 import { aiAssistRouter } from "./ai-assist"
 import { termReferencesRouter } from "./term-references"
+import { ontologyContextRouter } from "./ontology-context"
 import { z } from "zod"
 import {
   aiModelsTable,
@@ -87,6 +88,7 @@ export const appRouter = createTRPCRouter({
   aiAssist: aiAssistRouter,
   definitionAssistants: definitionAssistantsRouter,
   termReferences: termReferencesRouter,
+  ontologyContext: ontologyContextRouter,
   me: authenticatedProcedure.query(async ({ ctx }) => {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.id, ctx.userId)

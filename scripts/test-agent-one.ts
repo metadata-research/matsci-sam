@@ -177,6 +177,7 @@ async function main() {
   for (const unsafe of [secret, "Private analysis", "Private full response"])
     assert(!JSON.stringify(result).includes(unsafe))
   assert(!JSON.stringify(result?.inference).includes("https://"))
+  assert.deepEqual(result?.inference.reportedSources, [])
   assert.equal(
     inferenceProperties(result?.inference).inferenceResponseId,
     result?.inference.responseId
@@ -209,8 +210,10 @@ async function main() {
           sourced?.inference.responseId,
           result?.inference.responseId
         )
-        for (const uri of [sourceUri, documentationUri])
-          assert(!JSON.stringify(sourced?.inference).includes(uri))
+        assert.deepEqual(sourced?.inference.reportedSources, [
+          { url: sourceUri },
+          { url: documentationUri }
+        ])
         for (const unsafe of [
           secret,
           "Private analysis",
@@ -227,7 +230,47 @@ async function main() {
     async () => json(envelope(finalText + sourceFooter))
   )
   assert.equal(direct?.output, finalText + sourceFooter)
-  assert.deepEqual(direct?.inference, result?.inference)
+  assert.deepEqual(direct?.inference, {
+    ...result?.inference,
+    reportedSources: [{ url: sourceUri }, { url: documentationUri }]
+  })
+
+  const suppliedSource = "https://example.test/source-supplied-in-the-prompt"
+  const distinctSources = await generateAgentOne(
+    config,
+    [{ role: "user", content: `Use this source: ${suppliedSource}` }],
+    instructions,
+    async () => json(envelope(finalText + sourceFooter))
+  )
+  assert.deepEqual(distinctSources?.inference.reportedSources, [
+    { url: sourceUri },
+    { url: documentationUri }
+  ])
+  assert(
+    !JSON.stringify(distinctSources?.inference.reportedSources).includes(
+      suppliedSource
+    ),
+    "provider-reported response sources are separate from prompt inputs"
+  )
+  const escapedFooterAnswer = String.raw`Ceric oxide has formula CeO₂.
+
+---
+
+#### Wolfram Sources
+
+- Wolfram|Alpha: [\[1\]](${sourceUri}) [\[2\]](${documentationUri})`
+  const escapedFooterResult = await generate(envelope(escapedFooterAnswer))
+  assert.equal(escapedFooterResult?.output.definition, escapedFooterAnswer)
+  assert.deepEqual(escapedFooterResult?.inference.reportedSources, [
+    { url: sourceUri },
+    { url: documentationUri }
+  ])
+  const unsafeFooterAnswer =
+    finalText +
+    "\n\n#### Wolfram Sources\n\n- [Unsafe](javascript:alert(1))\n- [Private](https://user:password@example.test/source)"
+  const unsafeFooterResult = await generate(envelope(unsafeFooterAnswer))
+  assert.equal(unsafeFooterResult?.output.definition, unsafeFooterAnswer)
+  assert.deepEqual(unsafeFooterResult?.inference.reportedSources, [])
 
   // Source annotations never gate or rewrite the final answer.
   for (const annotation of [

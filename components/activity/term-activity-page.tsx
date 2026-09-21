@@ -18,7 +18,13 @@ const summaryItems = (activity: TermActivityData) => [
   { label: "Publications", value: activity.summary.publications },
   { label: "Later revisions", value: activity.summary.laterRevisions },
   { label: "Comments", value: activity.summary.comments },
-  { label: "Vote acts", value: activity.summary.voteActs }
+  { label: "Vote acts", value: activity.summary.voteActs },
+  { label: "Examples published", value: activity.summary.examplePublications },
+  { label: "Examples featured", value: activity.summary.exampleFeatureStarts },
+  {
+    label: "Example features ended",
+    value: activity.summary.exampleFeatureEnds
+  }
 ]
 
 export function TermActivityPage({ activity }: { activity: TermActivityData }) {
@@ -55,7 +61,8 @@ export function TermActivityPage({ activity }: { activity: TermActivityData }) {
             </h1>
             <p className="max-w-3xl text-muted-foreground">
               Compare exact published wording and inspect when definitions,
-              revisions, comments, and voting acts were recorded.
+              revisions, example publications and feature changes, comments, and
+              voting acts were recorded.
             </p>
           </div>
         </header>
@@ -74,7 +81,7 @@ export function TermActivityPage({ activity }: { activity: TermActivityData }) {
               </span>
             ) : null}
           </div>
-          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {summaryItems(activity).map((item) => (
               <Card key={item.label} className="py-3">
                 <CardContent>
@@ -88,6 +95,16 @@ export function TermActivityPage({ activity }: { activity: TermActivityData }) {
               </Card>
             ))}
           </dl>
+          {activity.summary.unknownExamplePublicationTimes > 0 ||
+          activity.summary.unknownExampleFeatureStartTimes > 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Imported example history has unknown times:{" "}
+              {activity.summary.unknownExamplePublicationTimes} publication
+              records and {activity.summary.unknownExampleFeatureStartTimes}{" "}
+              feature starts are omitted from the timeline and event counts.
+              Observed feature ends remain included.
+            </p>
+          ) : null}
         </section>
 
         {activity.events.length ? (

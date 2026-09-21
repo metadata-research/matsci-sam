@@ -1,6 +1,15 @@
 import { inferenceProperties } from "./llm/types"
 import { termReferencesQuery } from "./term-references"
 import { modelPromptInputProvenance } from "./model-prompt-provenance"
+import {
+  buildContributionEvidence,
+  contributionEvidenceAnchor
+} from "./contribution-evidence"
+import { providerReportedSources } from "./provider-reported-sources"
+import {
+  examplePublicationEvent,
+  exampleSelectionEvents
+} from "./example-provenance-events"
 import "server-only"
 
 import { createHash } from "node:crypto"
@@ -23,8 +32,10 @@ import { asc, eq, getTableColumns, inArray } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
   definitionUri,
+  definitionPath,
   modelUri,
   revisionUri,
+  termPath,
   termUri
 } from "./public-identifiers"
 import { diffToStringSimple } from "./definition-revisions"
@@ -105,6 +116,9 @@ export type ProvEvent = {
     | "refine-accepted"
     | "refine-kept"
     | "refine-failed"
+    | "example-published"
+    | "example-featured"
+    | "example-unfeatured"
   actor: string
   actorKind: "person" | "software" | "unknown"
   // The recorded three-way category of the act where the row carries one:
@@ -117,6 +131,7 @@ export type ProvEvent = {
   detail?: string
   model?: string | null
   promptRef?: string | null
+  href?: string
 }
 
 const excerpt = (text: string, max = 240) =>
@@ -990,6 +1005,20 @@ export const buildTermProvenance = async (
     )
     const activityId = `act_${id}`
     const hasObservedOrigin = !example.legacyBackfill
+    events.push(
+      ...examplePublicationEvent({
+        ...example,
+        id: activityId,
+        definitionNumber: definition.definitionNumber,
+        version: sourceRevision.version,
+        href:
+          definitionPath(
+            term.slug,
+            definition.definitionNumber,
+            term.vocabularySlug
+          ) + "#examples-heading"
+      })
+    )
     const hasGenerationStamp =
       hasObservedOrigin &&
       example.promptHash !== null &&
@@ -1092,6 +1121,20 @@ export const buildTermProvenance = async (
     const selectionActivityId = `act_feature_${selectionCoordinate}`
     const featuredStateId = `featured_${selectionCoordinate}`
     const hasObservedSelection = !selection.legacyBackfill
+    events.push(
+      ...exampleSelectionEvents({
+        ...selection,
+        id: selectionActivityId,
+        definitionNumber: definition.definitionNumber,
+        exampleNumber: example.exampleNumber,
+        href:
+          definitionPath(
+            term.slug,
+            definition.definitionNumber,
+            term.vocabularySlug
+          ) + "#examples-heading"
+      })
+    )
 
     addNode({
       id: selectionActivityId,
@@ -1523,6 +1566,10 @@ export const buildTermProvenance = async (
           retrievedAt: reference.retrievedAt,
           contentHash: reference.contentHash,
           context: reference.context,
+          query: reference.query ?? null,
+          lookupOptions: reference.request
+            ? JSON.stringify(reference.request.options)
+            : null,
           responseUuid: reference.responseUuid,
           evidenceBasis: "model_input"
         }
@@ -1612,6 +1659,26 @@ export const buildTermProvenance = async (
     })
     addEdge(suggestionId, activityId, "wasGeneratedBy")
     addEdge(suggestionId, model, "wasAttributedTo")
+    for (const [index, source] of providerReportedSources(
+      suggestion.inference,
+      suggestion.suggestedDefinition
+    ).entries()) {
+      const id = `reported_source_${suggestion.id}_${index + 1}`
+      addNode({
+        id,
+        type: "entity",
+        label: source.title ?? "Source reported by the assistant",
+        detail: source.url,
+        meta: {
+          sourceIri: source.url,
+          evidenceBasis: "provider_reported",
+          reportedBy: suggestion.model,
+          qualification:
+            "Reported in the original model response; not independently verified or declared by the contributor"
+        }
+      })
+      addEdge(suggestionId, id, "references")
+    }
     if (sourceVersion) addEdge(suggestionId, sourceVersion, "wasDerivedFrom")
 
     if (outputRevision && outputVersion) {
@@ -1659,7 +1726,12 @@ export const buildTermProvenance = async (
       detail: excerpt(suggestion.suggestedDefinition),
       model: suggestion.model,
       ...inferenceProperties(suggestion.inference),
-      promptRef: suggestion.promptKey ?? suggestion.promptHash
+      promptRef: suggestion.promptKey ?? suggestion.promptHash,
+      ...(outputRevision
+        ? {
+            href: `${termPath(term.slug, term.vocabularySlug)}/provenance#${contributionEvidenceAnchor(definitionById.get(outputRevision.definitionId)!.definitionNumber, outputRevision.version)}`
+          }
+        : {})
     })
   }
 
@@ -1932,7 +2004,12 @@ export const buildTermProvenance = async (
         citationBasis: reference.basis,
         kind: reference.kind,
         usageStatus: reference.usageStatus,
-        responseUuid: reference.responseUuid
+        responseUuid: reference.responseUuid,
+        query: reference.query,
+        context: reference.context,
+        lookupOptions: reference.request
+          ? JSON.stringify(reference.request.options)
+          : null
       }
     })
     addEdge(
@@ -1954,6 +2031,12 @@ export const buildTermProvenance = async (
       vocabularySlug: term.vocabularySlug
     },
     events,
+    contributions: buildContributionEvidence({
+      definitions,
+      revisions,
+      citations: citedReferences,
+      suggestions: aiContributionSuggestions
+    }),
     graph: { nodes, edges }
   }
 }

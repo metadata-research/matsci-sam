@@ -8,7 +8,10 @@ export type InferenceMessage = {
   content: string
 }
 
-// Safe to persist and return with a suggestion. Never include URLs or credentials.
+export type ProviderReportedSource = { url: string; title?: string }
+
+// Safe to persist and return with a suggestion. Never include credentials or
+// service endpoints. reportedSources contains only sanitized public citation URLs.
 export type InferenceMetadata = {
   provider: InferenceProvider
   profile: string
@@ -17,6 +20,8 @@ export type InferenceMetadata = {
   responseModel?: string
   responseId?: string
   toolEvidence?: { type: string; tool?: string; requestId?: string }[]
+  // Links reported in the final answer, not verified evidence or request inputs.
+  reportedSources?: ProviderReportedSource[]
 }
 
 export type InferenceResult<T> = {

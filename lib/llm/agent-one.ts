@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { providerReportedSources } from "../provider-reported-sources"
 import type { InferenceConfig } from "./config"
 import {
   InferenceError,
@@ -231,7 +232,11 @@ export async function generateAgentOne(
     if (answer === undefined) return undefined
     return {
       output: answer,
-      inference: { ...config.metadata, ...agentOneEvidence(data, message) }
+      inference: {
+        ...config.metadata,
+        ...agentOneEvidence(data, message),
+        reportedSources: providerReportedSources(config.metadata, answer)
+      }
     }
   } catch (error) {
     if (error instanceof InferenceError) throw error

@@ -94,7 +94,7 @@ export async function DefinitionDetailPage({
             href={termPath(definition.termSlug, definition.termVocabularySlug)}
           >
             <ArrowLeftIcon className="size-4" aria-hidden />
-            Other definitions for {definition.term}
+            Back to {definition.term}
           </Link>
 
           {!definition.isCurrentRevision && (

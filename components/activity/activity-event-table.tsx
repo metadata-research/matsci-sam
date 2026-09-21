@@ -10,7 +10,6 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
-import { revisionPath } from "@/lib/public-identifiers"
 import type {
   TermActivityData,
   TermActivityEvent,
@@ -19,8 +18,11 @@ import type {
 import Link from "next/link"
 import {
   activityEventDetail,
+  activityEventHref,
+  activityEvidenceHref,
   activityEventName,
   formatActivityDateTime,
+  isExampleActivityEvent,
   isRevisionActivityEvent
 } from "./activity-presenters"
 
@@ -47,7 +49,7 @@ export function ActivityEventTable({
         </h2>
         <p className="text-sm text-muted-foreground">
           The same events as the plot, newest first, with exact UTC times and
-          links to the revision each act concerned.
+          links to the revision or independent example each act concerned.
         </p>
       </div>
       <Table>
@@ -75,15 +77,13 @@ export function ActivityEventTable({
               </TableCell>
               <TableCell>
                 <Link
-                  href={revisionPath(
-                    term.slug,
-                    event.definitionNumber,
-                    event.version,
-                    term.vocabularySlug
-                  )}
+                  href={activityEventHref(term, event)}
                   className="font-medium text-primary hover:underline"
                 >
-                  Definition {event.definitionNumber} · revision {event.version}
+                  Definition {event.definitionNumber}
+                  {isExampleActivityEvent(event)
+                    ? ` · example ${event.exampleNumber}`
+                    : ` · revision ${event.version}`}
                 </Link>
               </TableCell>
               <TableCell>
@@ -99,6 +99,36 @@ export function ActivityEventTable({
                     </button>
                   ) : null}
                 </div>
+                {event.actor ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    By{" "}
+                    {event.actor.profileHref ? (
+                      <Link
+                        href={event.actor.profileHref}
+                        className="text-primary hover:underline"
+                      >
+                        {event.actor.name}
+                      </Link>
+                    ) : (
+                      event.actor.name
+                    )}
+                  </p>
+                ) : null}
+                {isRevisionActivityEvent(event) && event.evidence ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {event.evidence.model || event.evidence.provider
+                      ? `${[event.evidence.model, event.evidence.provider].filter(Boolean).join(" · ")} · `
+                      : ""}
+                    {event.evidence.citedReferenceCount} cited references ·{" "}
+                    {event.evidence.modelInputCount} model input references.{" "}
+                    <Link
+                      href={activityEvidenceHref(term, event)}
+                      className="text-primary hover:underline"
+                    >
+                      View revision evidence
+                    </Link>
+                  </p>
+                ) : null}
               </TableCell>
               <TableCell className="min-w-60 whitespace-normal">
                 <div className="flex flex-wrap items-center gap-2">
