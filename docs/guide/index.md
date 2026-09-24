@@ -1,49 +1,56 @@
 # User guide
 
-Start with the [quick start](/docs) for the contribution workflow, or choose
-a task below.
-
-## Accounts and studies
-
-- [Account access](/docs/account-access): sign in, create an email account,
-  or connect an ORCID iD.
-- [Communities and scope](/docs/communities): join a community and select
-  the vocabulary you work in.
-- [Studies](/docs/studies): begin an activity, record a Position, and return
-  to saved progress.
+Follow the [quick start](/docs) to make a contribution in Simple view. Choose a
+guide below for a specific task.
 
 ## Contributions and review
 
-- [Adding a term](/docs/adding-terms): publish a term and choose a contribution
-  action.
-- [Community review and revisions](/docs/community): vote, create new versions
-  of your definitions, compare candidates, and manage your public profile.
-- [AI-assisted suggestions](/docs/ai-refinement): request and review a model
-  draft before publication.
-- [Discussion](/docs/discussion): comment on recent terms or suggest an alternative.
+- [Adding a term](/docs/adding-terms) covers the writing form, Simple and
+  Advanced views, review and publication.
+- [Reading and reviewing terms](/docs/community) covers definitions, voting,
+  comments, examples and revisions.
+- [References and citations](/docs/references) explains ontology matches,
+  Wolfram lookup, citations and reference inputs for an assistant.
+- [AI-assisted suggestions](/docs/ai-refinement) explains how to request,
+  review and apply a draft.
+- [Files and examples](/docs/files-and-examples) explains attachments and
+  publication choices.
+- [Term metadata](/docs/term-metadata) explains usage notes, field associations
+  and related concepts.
+- [Discussion](/docs/discussion) covers comments and alternatives on recent terms.
+
+## Accounts and studies
+
+- [Account access](/docs/account-access) covers sign-in and profile settings.
+- [Communities and scope](/docs/communities) explains memberships and the
+  vocabulary selected for a contribution.
+- [Studies](/docs/studies) covers joining an activity and returning to saved work.
 
 ## Finding and citing content
 
-- [Search and browse](/docs/search): find terms, definitions, and examples.
-- [Tags](/docs/tags): classify content and manage collections.
-- [Provenance](/docs/provenance): inspect contribution history and attribution.
-- [Identifiers and citation](/docs/identifiers): choose a term, definition,
-  or revision link.
-- [Metadata access](/docs/metadata-access): download RDF or query a graph store.
+- [Search and browse](/docs/search) helps you find terms and definitions.
+- [Tags](/docs/tags) explains classification and collections.
+- [Provenance](/docs/provenance) explains contribution history and attribution.
+- [Identifiers and citation](/docs/identifiers) helps you choose a term,
+  definition or revision link.
+- [Metadata access](/docs/metadata-access) explains published data downloads.
 
 ## Administration
 
-[Administration and stewardship](/docs/administration) lists the controls
-for community stewards, moderators, and site administrators.
+[Administration and stewardship](/docs/administration) describes the controls
+available to community stewards, moderators and site administrators.
 
 <a id="knowledge-organization"></a>
 
 ## Technical reference
 
-The [technical reference](/docs/reference) explains concepts, identifiers, SKOS,
-PROV-O, and curation for readers who use the published metadata.
+The [reference pages](/docs/reference) explain the meaning of concepts,
+identifiers and published metadata. Implementation details are in the
+[repository documentation](https://github.com/metadata-research/matsci-sam/blob/dev/docs/technical/README.md).
 
 ## Metadata models
 
-[MatCore metadata](/metadata/matcore) presents the Minimal and DFT elements
-from the preliminary 2025 MatCore paper and a labeled synthetic example.
+Use the [field catalog](/metadata/fields) to find metadata fields and
+[examples](/metadata/examples) to distinguish a concept, a field and a value.
+[MatCore and the vocabulary](/docs/reference/matcore-and-the-vocabulary)
+explains their relationship.

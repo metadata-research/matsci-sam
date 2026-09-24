@@ -14,7 +14,7 @@ attribution. It does not filter term results. A matching term name includes
 its definitions. Otherwise, a definition result requires matching definition
 text or an example.
 
-**PSPP facet** narrows both result types by term-level Processing, Structure,
+**PSPP facet** narrows both result types by Processing, Structure,
 Properties, or Performance assignments. Multiple selected facets match any
 of them. No facet is selected initially, so unclassified terms remain in the
 results. Definition topics are browsable under [Tags](/docs/tags).
@@ -49,3 +49,6 @@ applies the full search engine before the list loads. **Show all terms**
 removes that search.
 
 [Tags](/docs/tags) provides another route through facets, topics, and collections.
+
+Open a result to [read and compare definitions](/docs/community). The term
+page also links to [Metadata](/docs/term-metadata) for descriptions of its use.

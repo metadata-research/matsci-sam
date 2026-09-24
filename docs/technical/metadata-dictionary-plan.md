@@ -1,92 +1,131 @@
-# Metadata dictionary implementation plan
+# Metadata dictionary implementation
 
-Status: implemented.
+MatSci-SAM stores attributed metadata about dictionary entries. Definitions,
+classification, usage notes, field associations and related concepts retain
+separate scope and history. PostgreSQL is authoritative. RDF and named graphs
+are projections of those records.
+
+This document describes the implemented contract and deferred extensions.
+The filename remains unchanged for existing links.
 
 ## Intended outcome
 
-MatSci-SAM describes dictionary entries and how they are used in metadata. A
-human-readable definition remains part of each entry. A separate Metadata view
-makes classification, usage, sources, optional semantic links, and attribution
-visible without requiring contributors to author raw RDF.
+The Metadata page presents information about a term and its definitions without
+requiring a contributor to author RDF. It uses `/terms/{id}/metadata` as an
+application route. Term and revision identifiers remain unchanged.
 
-The metadata dictionary uses the existing architecture:
-PostgreSQL is authoritative; RDF and named graphs remain projections. Existing
-term identities, competing definition candidates and immutable revisions remain.
+Metadata can apply to a whole term or one exact definition revision. A later
+revision does not inherit assertions from earlier wording. The page can show
+classification and provenance alongside dictionary metadata without changing
+the scope of those records.
 
 ## Sources and decisions
 
-- Greenberg et al., _Towards MatCore: A Unified Metadata Standard for Materials
-  Science_, arXiv:2502.07106v1, 10 February 2025. The Minimal and DFT profiles appear in Figures 3 and 5. Existing 27-element catalog
-  remains explicitly pinned to this preliminary snapshot.
-- MatCore's current website presents version 0.3.0. Updating the existing
-  transcription to that different specification is a separate versioned import;
-  this change does not silently replace the 2025 identifiers or definitions.
-- The MatCore reference page already distinguishes dictionary concepts,
-  classification concepts, and metadata properties. Maintain that distinction.
-- ICoN-PCL supplies realistic experimental examples, not an adopted schema.
-  Processing method and deposition temperature are marked as local proposals.
-- Previewing an ontology creates no saved assertion. Saving a related concept
-  is optional and never implicitly claims equivalence, class membership, or an
-  inherited classification.
+The MatCore catalog represents the 27 elements of the Minimal and DFT profiles
+in Greenberg et al., *Towards MatCore: A Unified Metadata Standard for Materials
+Science*, [arXiv:2502.07106v1](https://arxiv.org/abs/2502.07106v1), February 10,
+2025. Figures 3 and 5 specify the fields and requirement markers. This
+preliminary source remains a distinct versioned specification.
+
+Processing method and deposition temperature are local experimental proposals
+with version `proposal-1`. The catalog labels them separately. They are not
+adopted ICoN-PCL or MatCore requirements. DFT and atomic layer deposition examples
+illustrate field associations without creating research records or vocabulary
+contributions.
+
+A field specification describes the field. A contributor's source supports
+their assertion about a term. Selecting a catalog field does not attribute
+the assertion to the authors of that specification.
 
 ## Implementation sequence
 
-1. **Field registry and examples.** Describe the small supported set of entry
-   metadata. List the pinned MatCore fields and separately labeled experimental
-   proposals. Explain concepts, fields, and actual research records using DFT
-   and atomic layer deposition. These examples are illustrative, not published
-   research records or seeded vocabulary contributions.
-2. **Assertions and permissions.** Store usage notes, alternative labels, field
-   usage, field descriptions, and related external concepts as attributed
-   assertions. Scope each to a whole term or an exact definition revision.
-   Contributors propose; curators accept or reject. Authors and curators can
-   retract assertions. Independent authors and source attestations remain
-   distinguishable. Unreviewed proposals do not appear in public RDF.
-3. **Metadata page and editor.** Assemble existing identity, definitions,
-   classification and provenance; add the focused editor with Simple and
-   Advanced views. Use `/terms/{id}/metadata` as an application view, avoiding
-   conflicts with community terms named `metadata`. Canonical entity identifiers
-   remain unchanged. Link from term and definition pages and the field catalog.
-4. **RDF and provenance.** Export accepted active assertions in Turtle and
-   JSON-LD at their correct scope. Preserve accepted assertion histories,
-   sources and retractions in provenance. A vocabulary is a concept scheme,
-   not a range class: correct the old MatCore value-scheme guidance accordingly.
-5. **Validation.** Check authorization, review/retraction lifecycle, revision
-   ownership by term, value validation, independent attestations, public/private
-   filtering, RDF equivalence and local database constraints. Run build and
-   browser checks for term → Metadata → add/propose → display/history/export.
+### Field registry and interface
+
+`lib/dictionary-metadata.ts` defines five supported fields and the catalog.
+`usageNote`, `usedAsValueFor` and `describesMetadataField` appear in Simple.
+`alternateLabel` and `relatedConcept` are additional Advanced controls.
+Simple includes source name and link. Advanced adds source version and language
+for text values. View changes preserve the same draft and selections.
+
+Field associations accept catalog IRIs. Related concepts accept an explicit
+external HTTP or HTTPS IRI. Text values support optional language tags.
+`lib/term-metadata-validation.ts` validates types, source identifiers and source
+version requirements. Related-concept metadata makes no equivalence, subclass
+or class-membership assertion.
+
+### Assertions and permissions
+
+Migration `0062_term_metadata_assertions.sql` creates attributed assertions
+with immutable term or revision scope, field, value and source details.
+The database verifies that a selected revision belongs to the term. Independent
+authors and source attestations remain separate records. The same author cannot
+repeat an active assertion with the same value, scope and source.
+
+Contributors with a completed profile can propose metadata. Site administrators
+can accept or decline proposals. Administrator additions are accepted on
+submission. Moderators and community stewards have no separate metadata review
+permission. Authors and site administrators can withdraw assertions.
+
+The interface labels review actions **Accept** and **Decline**. Stored statuses
+are `proposed`, `accepted` and `rejected`. Review resolves a proposal once.
+Accepted contents remain immutable, and withdrawal records its actor and time.
+Corrections require a separate assertion.
+
+Anonymous readers see accepted metadata and its withdrawal history. A signed-in
+contributor can also see their own proposals and declined submissions.
+Site administrators can see the review queue. Unreviewed and rejected records
+are excluded from public RDF, including provenance.
+
+### RDF and provenance
+
+`lib/term-metadata-rdf.ts` serializes facts and independently attributed
+assertions. Accepted active facts appear at the term IRI or exact revision IRI.
+Current vocabulary documents include current revision metadata. Historical
+revision metadata remains with its historical revision and provenance.
+
+Accepted assertion histories retain sources, versions, review and retraction
+attribution. Ordinary RDF 1.1 reification provides equivalent Turtle and
+JSON-LD representations. Identical facts can collapse to one RDF triple while
+independent assertion entities remain distinct.
+
+`lib/dictionary-metadata-export.ts` publishes the custom predicates and local
+experimental properties in the vocabulary graph. The MatCore graph contains
+the preliminary source specification. `matsci:recommendedValueScheme` expresses
+project guidance about field values. It does not make a concept scheme an RDF
+range class or impose a requirement from the MatCore paper.
+
+[Metadata publication](metadata-publication.md) contains the property tables,
+source semantics and named-graph contracts.
 
 ## Boundaries of the first implementation
 
-Actual datasets, samples, experiments and calculations are separate described
-resources, not dictionary terms. This feature does not create those records.
-MatCore requirements describe a selected dataset profile, not compulsory fields
-on every term. Dictionary authorship/date/license must not become dataset
-creator/date/license by default.
+Metadata editing is separate from definition publication. ChEBI and ontology
+previews, Wolfram lookups and assistant requests do not implicitly save semantic
+relationships. Contributors publish related concepts through the metadata
+workflow. Preview selections remain unsaved.
 
-The existing Add editor, Simple/Advanced layout, ChEBI/ontology context,
-Wolfram, AI assistance, attachments and definition revision publication remain
-available. Metadata editing is a separate explicit action so source browsing and
-ordinary definition publication never silently publish semantic assertions.
+The feature does not create datasets, samples, experiments or calculations.
+MatCore requirements apply to a dataset profile. Dictionary authorship, dates
+and licenses do not become dataset creator, date or license values.
 
-General ontology equivalence/subclass editing, editable arbitrary predicates,
-full HIVE ingestion and a current MatCore 0.3.0 import remain future extensions.
-The new catalog and assertion contract are designed to accommodate them without
-changing existing concept identities.
+Deferred work includes arbitrary predicate editing, general ontology
+equivalence and subclass editing, full HIVE ingestion, and imports of later
+MatCore specifications, including version 0.3.0. Such imports require their own
+versioned catalog definitions. They do not replace the preliminary 2025
+identifiers or descriptions silently.
 
 ## Verification
 
-The automated checks cover value validation, authorization, review and
-retraction, immutable revision scope, independent source attestations, deletion,
-and migration constraints. RDF checks cover accepted-only output, current and
-historical assertions, Turtle/JSON-LD equivalence, and named-graph separation.
+- `pnpm test:dictionary-metadata` checks the field catalog and representation.
+- `pnpm test:term-metadata` checks input validation.
+- `pnpm test:term-metadata-db` checks authorization, review, withdrawal,
+  immutable scope, independent attestations and migration constraints against
+  a migrated local database.
+- `pnpm test:term-metadata-rdf` and `pnpm test:term-metadata-rdf-db` check public
+  filtering, current and historical scope, independent provenance,
+  Turtle/JSON-LD equivalence and named-graph separation.
 
-Browser checks cover metadata publication and history, view switching without
-losing field or source selections, desktop and mobile layouts, and the existing
-source insertion and Undo workflow. Illustrative catalog examples do not seed
-contributions into a deployment's database.
-
-Simple is the default presentation. Advanced exposes more controls without
-changing draft identity or implicitly saving a relationship. The toolbar remains
-below the main Add form, with source matches and hierarchy in the right column
-at desktop widths. On narrow screens the metadata sidebar follows the editor.
+Browser checks cover term to Metadata navigation, submission, administrator
+review, withdrawal history and Simple/Advanced switching without losing draft
+values. Existing definition tools and publication remain separate regression
+checks. The [contributor guide](../guide/term-metadata.md) describes the public task.

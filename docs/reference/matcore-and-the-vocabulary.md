@@ -1,101 +1,67 @@
 # MatCore and the vocabulary
 
-MatSci-SAM publishes vocabulary concepts and MatCore metadata elements.
+A vocabulary concept explains an idea. A metadata field specifies information
+to record about something. A field value supplies that information for a
+particular record.
 
-| Family           | What it describes                         | Identifier pattern                                       |
-| ---------------- | ----------------------------------------- | -------------------------------------------------------- |
-| Terms            | materials science terminology             | `/vocabulary/{term}` or `/vocabulary/{community}/{term}` |
-| Concepts         | topics on definitions and facets on terms | `/tags/{scheme}/{concept}`                               |
-| MatCore elements | metadata fields for describing a dataset  | `/metadata/matcore#{element}`                            |
-
-Terms and classification tags are SKOS concepts. Topics classify definitions,
-and facets classify terms. MatCore elements are fields for computational
-dataset metadata ([Greenberg et al., 2025](https://arxiv.org/abs/2502.07106v1)).
+For example, density functional theory is a concept that can be defined in
+MatSci-SAM. Method is a field in a computational dataset description. A
+researcher can record density functional theory as the method used for a
+particular calculation. The concept, field and calculation record have
+different identities.
 
 ## MatCore profiles
 
-Greenberg et al. present MatCore as a two-tier metadata model for computational
-materials datasets. The Minimal MatCore Metadata profile provides fields common
-to every dataset. The second tier adds fields for density functional theory
-(DFT), classical molecular dynamics, GW/BSE, machine learning, and derivative
-methods (see Figure 1). MatSci-SAM represents the Minimal and DFT profiles from
-the preliminary `arXiv:2502.07106v1` snapshot dated February 10, 2025.
+MatCore describes metadata for computational materials datasets.
+[Greenberg et al. (2025)](https://arxiv.org/abs/2502.07106v1) present a Minimal
+profile and additional profiles for particular computational methods.
+MatSci-SAM includes the Minimal and density functional theory profiles from
+the preliminary February 10, 2025 version, `arXiv:2502.07106v1`.
 
-The Minimal profile contains 18 elements. The 13 required elements are
-`creator`, `title`, `date`, `description`, `material`, `calculation-type`,
-`simulation-conditions`, `method`, `software-code`, `matcore-version`,
-`matcore-id`, `matcore-date`, and `license`. The five optional elements are
-`disclaimer`, `software-files`, `Source-citation`, `doi`, and `funding` (see
-Figure 3).
-
-The DFT profile is the optional second tier for density functional theory. Its
-three required elements are `xc-functional`, `potential`, and `basis-set`. The
-six optional elements are `calculation-physics`, `k-points`, `k-smearing`,
-`Self-consistent-field-convergence`, `state-occupations`, and
-`relaxation-convergence` (see Figure 5).
+The Minimal profile contains 18 elements, of which 13 are required and five
+optional in that source. The DFT profile adds nine elements, of which three
+are required and six optional. These requirements apply to the corresponding
+dataset descriptions. They do not require a contributor to fill those fields
+when defining a vocabulary term.
 
 ## MatSci-SAM representation
 
-[MatCore metadata](/metadata/matcore) presents the 27 element definitions and
-one synthetic DFT example. The catalog preserves the source spelling of each
-key and its requirement marker. The descriptions are concise paraphrases of
-the source tables.
+[MatCore metadata](/metadata/matcore) lists the 27 elements, their source keys
+and requirement markers. It also includes a synthetic DFT example.
+The [field catalog](/metadata/fields) identifies the source version for each
+field specification.
 
-MatSci-SAM assigns each element a normalized identifier under
-`/metadata/matcore#` and publishes it as an `rdf:Property` with an English label
-and comment. The RDF also records the source key, requirement status, and
-profile membership. The Minimal and DFT profiles are `matsci:MetadataProfile`
-resources, and a `dcterms:Standard` resource identifies the source snapshot.
-
-The MatCore element set is available as a named graph at
-[`/graphs/matcore`](/graphs/matcore) and as part of
-[`/dataset.ttl`](/dataset.ttl).
+The catalog also lists a separate [experimental proposal](/metadata/experimental)
+for processing method and deposition temperature. Those fields are local
+proposals for discussing experimental metadata. They are not requirements
+adopted by MatCore or ICoN-PCL.
 
 ## Vocabulary and Dublin Core
 
-MatCore elements identify fields in computational dataset metadata. Vocabulary
-terms identify materials science concepts. MatSci-SAM suggests its vocabulary as a source of concepts for the `material`
-element using `matsci:recommendedValueScheme`. This is project guidance, not
-a controlled-value requirement from the paper.
+MatSci-SAM recommends its vocabulary as one source of concepts for the MatCore
+Material field. This is project guidance. The preliminary MatCore source does
+not require that vocabulary for field values.
 
-```turtle
-<…/metadata/matcore#material> a rdf:Property ;
-  rdfs:label "Material"@en ;
-  matsci:recommendedValueScheme <…/vocabulary> .
-```
-
-This recommendation names the default MatSci-SAM concept scheme at `/vocabulary`.
-Community vocabularies have separate scheme IRIs at
-`/vocabulary/{community}`.
-
-The MatSci-SAM RDF layer also maps seven general MatCore elements to Dublin
-Core.
-
-| Element           | Dublin Core property            | Relation                 |
-| ----------------- | ------------------------------- | ------------------------ |
-| `creator`         | `dcterms:creator`               | `owl:equivalentProperty` |
-| `title`           | `dcterms:title`                 | `owl:equivalentProperty` |
-| `date`            | `dcterms:date`                  | `owl:equivalentProperty` |
-| `description`     | `dcterms:description`           | `owl:equivalentProperty` |
-| `source-citation` | `dcterms:bibliographicCitation` | `owl:equivalentProperty` |
-| `doi`             | `dcterms:identifier`            | `rdfs:subPropertyOf`     |
-| `license`         | `dcterms:license`               | `rdfs:subPropertyOf`     |
+Some general MatCore fields correspond to Dublin Core properties, including
+creator, title and description. The exported metadata records those mappings.
+The [publication contracts](https://github.com/metadata-research/matsci-sam/blob/dev/docs/technical/metadata-publication.md)
+provide the mapping table and profile representation.
 
 ## Dictionary metadata
 
-The [metadata field catalog](/metadata/fields) brings together this frozen
-MatCore snapshot and a separately labeled [experimental proposal](/metadata/experimental).
-[Examples](/metadata/examples) distinguish a concept, a field describing a
-research record, and a value recorded for a particular dataset or activity.
+The **Metadata** page on a term supports two field associations. **Used as a
+value for** identifies a field where the concept can supply a value.
+**Describes a metadata field** links an explanatory entry to the specification
+of that field. Neither action creates a dataset, sample or calculation record.
 
-Each term has a Metadata page with Simple and Advanced views. Simple provides
-usage notes and links to fields. Advanced exposes source details and optional
-related concepts. Information can describe the whole term or one exact
-definition revision; revising a definition does not silently move its metadata.
-Contributors propose additions, and curators decide what to publish.
+A contribution can apply to a whole term or an exact definition revision.
+Simple view includes usage notes, field associations, source name and source
+link. Advanced adds alternative labels, related external concepts, source
+version and language. Changing views preserves the draft.
 
-A term used as a field value remains a vocabulary concept. A dictionary entry
-explaining a metadata field links to its specification; it does not become that
-property. Ontology previews do not create relationships. Saved related-concept
-links are explicit, independently sourced, and do not assert equivalence or
-class membership.
+Contributors submit proposals for site administrator review. A field
+specification explains the field, while evidence supplied with a contribution
+supports the particular claim about a term. The two sources can differ.
+[Term metadata](/docs/term-metadata) explains submission and review.
+[Metadata examples](/metadata/examples) show field associations for DFT and
+atomic layer deposition.

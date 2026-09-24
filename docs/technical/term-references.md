@@ -144,9 +144,10 @@ labeled classes and concepts even when they have no definition.
 This preview has no persistence: queries and source selections create no
 lookup receipts, citations, mappings, model context, interaction events or
 database records. The test draft remains local to the lab. The contribution
-variant has the same read-only semantics. Any future saved ontology link must
-be an explicit contribution with its own attribution and source
-release, rather than a consequence of opening the panel or matching a label.
+variant has the same read-only semantics. A saved related-concept link uses
+the separate dictionary metadata workflow, with its own scope, attribution
+and optional source version. It does not assert equivalence or class membership.
+Opening the panel or matching a label creates no such contribution.
 
 Run `pnpm test:ontology-context` for bounded transport and identity checks using
 mock responses. ONT's `pnpm test:preview` checks source isolation, per-source
@@ -327,7 +328,7 @@ and internal database IDs in RDF metadata remain excluded.
 
 Agent One availability depends on the dedicated server credential and a
 successful administrator validation for the current adapter configuration.
-CURRENT-DEV-STATE records the local validation and activation state.
+Host validation and activation records belong in private operations documentation.
 
 ## Limits and verification
 

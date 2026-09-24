@@ -1,83 +1,72 @@
 # Curation and AI
 
-MatSci-SAM extends the vocabulary workflow evaluated in MatSci-YAMZ
-([Greenberg et al., 2025](https://arxiv.org/abs/2512.09895v1)). Its
-human-in-the-group AI workflow combines contributor review with model drafting.
-Human, model, and simulated activity receive distinct attribution.
+Contributors publish definitions and supporting information in MatSci-SAM.
+Optional assistants generate draft text for review. Attribution distinguishes
+human contributions, model output and simulated study activity.
+The workflow extends the vocabulary work evaluated in
+[MatSci-YAMZ](https://arxiv.org/abs/2512.09895v1).
 
 ## Contributor and administrator roles
 
-Contributors create terms and definitions, add examples, and manage topics
-on their own definitions. New terms use the selected community vocabulary
-or the default vocabulary under **Everything**. A topic creator can link
-the topic to an equivalent term when the scheme permits it.
+Contributors create terms and definitions, add examples, comment and vote.
+They can assign topics to their own definitions. New terms belong to the
+selected community vocabulary or the default vocabulary under **Everything**.
 
-Administrators assign facets, edit tag definitions and scope notes, and merge
-tags. Collection changes follow the stored membership policy. Administrator
+Site administrators assign facets and manage tag definitions and merges.
+Collection changes follow the policy of the collection. Administrator
 collections accept administrator changes. Contributor collections accept
 changes from signed-in contributors when that creation mode is enabled.
-It is disabled by default.
 
-Application assertions record author and time. Retractions preserve those
-facts and add the retracting author and time. Migrated tagging records may
-lack an author because the earlier tables did not store one.
+[Term metadata](/docs/term-metadata) has a separate review process.
+Contributors propose additions. Only site administrators can **Accept** or
+**Decline** proposals, and administrator additions are accepted on submission.
+A contributor can withdraw their own metadata. Site administrators can also
+withdraw it. Accepted records retain their history after withdrawal.
 
 ## Tags and semantic change
 
-A tag retains its identifier and preferred label. Administrators can edit
-its definition, scope note, and alternative labels. A semantic replacement
-uses a merge. The original is retired, its identifier redirects, and active
-statements are retracted and asserted for the replacement. Both records remain.
+A tag retains its identifier when its definition, scope note or alternative
+labels change. A merge retires the original tag and identifies its replacement.
+The earlier classification history remains available.
 
-An equivalent-term link follows the definitions of the linked term.
-Administrators can retract the link if the meaning no longer fits the tag.
-The Tag drift report lists linked tags whose term definitions changed by at
-least 25 percent after classification began.
+An equivalent-term link displays the definitions of the linked term.
+Administrators can withdraw the link if those definitions no longer fit the
+tag. The Tag drift report helps administrators find changes that may need
+review.
 
 ## Contribution actions and language-model drafting
 
-The [five contribution actions](/docs/adding-terms#the-five-contribution-actions)
-create a new term, suggest a revision, propose a replacement, comment, or add
-an example. Model drafting is confined to **New term** and **Suggest a
-revision**. Both generate definition text only.
+**Create a new version** changes the wording of an existing definition and
+preserves its revision history. **Suggest an alternative** uses a selected
+revision and contributor guidance to draft a separate definition.
+**Propose a replacement** identifies a definition that the proposed candidate
+should supersede. The original remains available.
 
-The application stores the draft, prompt, and model tag before the contributor
-reviews it. Publication attributes the definition to the contributor and model.
-A suggested revision creates a separate candidate linked to the exact source
-revision and critique. Discarded drafts remain outside the vocabulary.
+A new term creates a concept in the selected vocabulary. Comments and examples
+are separate contributions. They do not create definition revisions.
+[Adding terms](/docs/adding-terms), [discussion](/docs/discussion) and
+[files and examples](/docs/files-and-examples) explain these actions.
 
-Examples have independent contribution records. A featured example controls
-compact display while the full active set remains in the metadata. Example
-selection leaves definition revisions and votes unchanged.
-
-Model profiles at `/models/{model}` identify a runtime tag, inferred publisher
-and family, parameter size when available, directly authored definitions,
-and recorded prompts. Model-account display names begin with `MatBot`.
-The tag records the requested model configuration.
+An assistant request saves the submitted inputs and original answer. The
+contributor reviews and edits the text before publication. An accepted
+suggestion attributes the published definition to the contributor and the
+recorded model or service. Discarded drafts remain outside the vocabulary.
+References supplied to an assistant and citations on a definition are separate
+choices. See [AI-assisted suggestions](/docs/ai-refinement) and
+[References](/docs/references).
 
 ## Studies and support
 
-A study records ordered participation over a collection. A Position accepts
-an existing definition, publishes an AI-assisted alternative, or proposes a
-new definition. A participant may also skip before contributing.
+Studies organize participation over a collection. A participant can accept an
+existing definition, publish an assisted alternative or propose a definition.
+Accept records or retains an upvote. A published proposal completes the
+Position step without adding a vote. Available discussion and review steps
+depend on the study.
 
-Accept records or retains an upvote. A published proposal completes Position
-without a vote. A suggested revision names its source revision. An independent
-proposal has no derivation or replacement target.
+Study contributions identify their step. Vocabulary support can include votes
+from outside the study, so the overview does not present those totals as study
+consensus. Simulated participants have separately labeled accounts and model
+attribution. Rosters and invitations remain private application data.
 
-ID4 round two permits comments during Position and omits the repeated Review
-round. Other studies may have Review steps for additional votes and comments.
-See [Studies](/docs/studies#study-and-vocabulary-workflows).
-
-Contributions made in the activity identify their step. Completions and
-closing answers are separate records. Vocabulary support can include votes
-from outside the study, and the overview does not publish it as consensus.
-
-Participation requires an active membership episode and an open study.
-The RDF describes the study window and collection, while rosters and
-invitations remain private application data.
-
-Simulated participants use separately labeled accounts. Generated definitions,
-comments, and text answers record their model tag and prompt. Votes, comments,
-and answers identify the `simulated` actor kind.
-[The provenance model](/docs/reference/provenance-model) specifies their export.
+[The provenance model](/docs/reference/provenance-model) explains attribution
+and history. [Studies](/docs/studies) describes participation.

@@ -1,112 +1,80 @@
 # Quick start
 
-MatSci-SAM (Materials Science Semantic Alignment Metadata) is a collaborative
-dictionary for materials science terminology. Contributors publish
-definitions, compare alternatives, and record their discussion and revisions.
+MatSci-SAM is a metadata dictionary for materials science. Read and contribute
+definitions, then describe how terms are used through examples, sources and
+metadata. You can complete a contribution in **Simple** view. **Advanced** adds
+reference tools and further details.
 
-This guide follows the contribution process. The [user guide](/docs/guide)
-covers individual tasks; [About MatSci-SAM](/about) explains the purpose and features.
+## Find a term
 
-[See an example term](/vocabulary/mrc/martensite).
+Search for the term before adding it. Open a result to read its **Default
+definition** and expand **Other definitions** to compare alternatives. Each
+definition shows its contributors and examples. The **Metadata** link opens
+information about how the term is used.
 
-To participate in a study, begin from the study link. **Study help** explains
-the controls inside the activity. The [study guide](/docs/studies) covers
-joining and saved progress. Contributions outside the activity do not complete
-study steps.
+<a id="compare-the-definitions"></a>
+
+![A term in Simple view with its default definition, other definitions and Metadata link](/images/docs/help-term-simple.png)
+
+<a id="comment-on-a-definition"></a>
+
+You can vote or comment after signing in. Votes apply to the displayed version
+of a definition. [Reading and reviewing terms](/docs/community) explains these
+actions and the Advanced view.
 
 ## Sign in
 
-Select **Login** and choose an available sign-in method. Use the same account
-as before to retain your contributions and memberships. Anyone can read the
-dictionary. You need an account to contribute, vote, or comment.
+Select **Login** and choose an available sign-in method. Use your existing
+account to retain your contributions and community memberships. Complete your
+name in your profile before publishing.
 
-[Account access](/docs/account-access) covers email, Google, and linked ORCID iDs.
+[Account access](/docs/account-access) explains sign-in options. For a study,
+start from its study link and follow [study help](/docs/studies) inside the
+activity.
 
 ## Add a term
 
-Open **Contribute**, check the destination vocabulary, and enter the term.
-Select **Confirm term and find references** to open the editor and look up
-ChEBI. Write a definition, naming the broader class and distinguishing
-characteristics, then select **Review definition**.
+Open **Participate**, then **Contribute**. Check the destination vocabulary,
+enter the term and select **Confirm term and find references**. Use the existing
+term page if the term is already defined in that vocabulary.
 
-For help starting or refining your writing, select **Suggest a definition**
-beside the editor. The model returns a preview. **Use this draft** applies it;
-**Keep my writing** leaves your text intact. You can edit an applied draft or
-undo its application.
+Write a definition in **Simple** view. Describe what the term means in the
+context where you use it. Name its broader class and the characteristics that
+distinguish it. **Add an example** lets you illustrate that meaning.
 
-During review, check the definition, model attribution and **Sources I used**.
-Add an optional example, then select **Publish new term**. A published model
-draft credits you and the named model; an example you write receives separate
-attribution. Retrieving, copying or adding reference text does not select a
-citation automatically.
+![The Simple contribution form with a definition and optional example, citation and file controls](/images/docs/help-add-simple.png)
 
-Use the existing term page for further contributions when the term is already
-defined. [Adding a term](/docs/adding-terms) explains the available actions.
+Use **Help me write** for an optional assistant draft. **Add a citation** and
+**Attach a file** add supporting material. These are optional. The [adding
+guide](/docs/adding-terms) explains the form, and the [references
+guide](/docs/references) explains the tools in Advanced.
 
-## Compare the definitions
+## Review and publish
 
-A term can have several competing definitions. The highest-scoring definition
-appears first on the term page and is labeled canonical. Vote arrows support
-or oppose the current revision. Select the same arrow again to withdraw your
-vote.
+Select **Review definition**. Check your wording, the example, attribution and
+**Citations**. Select the files you want to publish if you attached any.
+**Add to definition** attaches a reference citation when it inserts source text.
+Copying text alone does not.
 
-![Competing definitions with votes and attribution](/images/docs/quickstart-term.png)
+Use **Back to writing** for changes. Select **Publish new term** when the
+contribution is ready. It will be available on the term page.
 
-The proposed, community-reviewed, and stable labels summarize vote scores.
-Assess the wording and discussion to judge scientific quality.
-[Community review and revisions](/docs/community) explains scores and ordering.
+## Read or add metadata
 
-## Comment on a definition
+Open **Metadata** on a term page. Choose whether your addition describes the
+whole term or one definition version. You can propose a usage note or identify
+a metadata field for which the term supplies a value. For example, density
+functional theory can be a value for a calculation-type field.
 
-Use the comment box to discuss a definition. Each comment records the revision
-shown when you posted it.
+[Term metadata](/docs/term-metadata) explains the choices, supporting sources
+and review. Advanced includes optional links to related ontology concepts.
 
-![A definition comment thread](/images/docs/quickstart-comments.png)
-
-## Create a new version
-
-On your own definition, select **Create a new version** and update the text.
-Select **Review new version**, then **Publish new version**. Publication keeps
-the same definition identifier and adds the next numbered version. Previous
-versions remain available in its history.
-
+<a id="create-a-new-version"></a>
 <a id="ask-for-a-revision"></a>
+<a id="suggest-an-alternative"></a>
+<a id="replace-or-illustrate-a-definition"></a>
+<a id="follow-the-record"></a>
+<a id="where-to-go-next"></a>
 
-## Suggest an alternative
-
-Select **Suggest an alternative** on a current definition. Explain what should
-change, then select **Draft alternative with a language model**. Inspect the
-preview and choose **Use this draft** to edit it, or **Keep my feedback** to
-discard the preview. Select **Review alternative**, check the sources and
-attribution, then **Publish alternative**. Publication creates a separate
-definition starting at version 1, linked to the source revision and credited
-to you and the model. The original remains available.
-
-The action is also available in [Discussion](/docs/discussion) and study
-Position steps. [AI-assisted suggestions](/docs/ai-refinement) gives the steps.
-
-## Replace or illustrate a definition
-
-**Propose a replacement** publishes a candidate you write and identifies the
-definition it should supersede. Both remain available for comparison.
-
-**Add example** contributes a usage example to a definition. The definition
-page lists all examples. One featured example appears in compact views. An
-example change leaves the definition revision and votes unchanged.
-
-## Follow the record
-
-Open **Provenance** on a term page for its contribution timeline and graph.
-The record includes revisions, comments, vote events, examples, and published
-AI-assisted work. It is also available as W3C PROV-O data.
-
-![A term provenance graph and timeline](/images/docs/quickstart-provenance.png)
-
-Cite a revision link to identify exact definition text. A definition link
-follows later edits. [Identifiers and citation](/docs/identifiers) explains
-the choices and [Provenance](/docs/provenance) describes the recorded history.
-
-## Where to go next
-
-Use the [user guide](/docs/guide) for a specific task and the
-[technical reference](/docs/reference) for the metadata model.
+Use the [user guide](/docs/guide) to revise a definition, propose an alternative,
+add an example or inspect contribution history.

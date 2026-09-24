@@ -9,6 +9,10 @@ links to contributor instructions and the metadata reference.
 - [Metadata dictionary](metadata-dictionary-plan.md): source versions, term/revision
   scope, Simple/Advanced views, curation and exports.
 
+- [Metadata publication](metadata-publication.md): document endpoints, RDF
+  mappings, named graphs, source evidence and historical attribution.
+- [Contribution files](contribution-files.md): upload validation, private pending
+  files, publication scope, downloads and cleanup.
 - [Statement ledger](knowledge-organization-ledger.md): schema, authorization,
   invariants, and RDF export.
 - [Examples of use](examples.md): immutable contributions and featured-selection

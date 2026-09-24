@@ -1,104 +1,68 @@
 # Identifiers and citation
 
-Choose an identifier according to what you want to cite.
+Choose a link for what you want to cite. A term, one definition, and an exact
+revision identify different resources.
 
-| Resource   | Use                                               |
-| ---------- | ------------------------------------------------- |
-| Term       | The concept, with its changing set of definitions |
-| Definition | One candidate, following later edits              |
-| Revision   | Exact definition text at a recorded version       |
-
-## Identifier paths
-
-The default vocabulary uses `/vocabulary`. Community vocabularies add a
-community slug. Definition and revision paths extend the term path.
-
-```text
-/vocabulary/{term}
-/vocabulary/{community}/{term}
-/vocabulary/{community}/{term}/definitions/{number}
-/vocabulary/{community}/{term}/definitions/{number}/revisions/{version}
-```
-
-Omit `{community}/` for a term in the default vocabulary. Two vocabularies
-can use the same label for distinct concepts with independent definitions.
-A collection reference retains the identifier of the owning vocabulary.
-
-## Term slugs
-
-A term receives a readable slug at creation. For example, "density functional
-theory (DFT)" becomes `density_functional_theory_dft`. A suffix such as `_2`
-distinguishes a collision within one vocabulary. It is not a rank.
-The assigned slug remains fixed when a display label changes.
-
-[Identifier policy](/docs/reference/identifier-policy#slugs) specifies the
-normalization and namespace rules.
-
-## Definition and revision numbers
-
-Definitions receive permanent creation-order numbers within a term.
-Each definition has its own revision sequence, so Definition 1 and Definition 2
-can each have revision 1. An author edit or restoration increments the revision
-number and retains the definition number. Votes and model attribution do not
-change these numbers.
-
-Numeric legacy routes, such as `/definition/{id}`, redirect to readable paths.
-Use the readable identifier in new citations.
-
-## Tags, facets and collections
-
-```text
-/tags/{scheme}
-/tags/{scheme}/{tag}
-/collections/{collection}
-```
-
-For example, `/tags/pspp/processing` identifies the Processing facet.
-Community topics use `/tags/topics`. Slugs remain fixed. A merged tag
-redirects to its replacement, and a retired tag without a replacement
-retains a status page. Numeric legacy tag links redirect to readable paths.
-
-## Live rank lookup
-
-Append `/rank/{rank}` to a term path to open the candidate at that rank.
-For example, `/vocabulary/id4/data/rank/1` follows the leading candidate.
-The destination can change with votes and new revisions. Use a definition or
-revision identifier for a citation that must identify one candidate.
+| Resource | Use |
+| --- | --- |
+| Term | A concept with its changing set of definitions |
+| Definition | One candidate, including later revisions |
+| Revision | Exact definition text at a recorded version |
 
 ## Citation
 
-Retain the persistent `https://w3id.org/matsci-sam` identifier shown on the
-page. These patterns illustrate the three citation choices.
+1. Open the term or definition you want to cite. Select **Advanced** on a term
+   page to see its identifier.
+2. Open the required revision when quoting exact wording.
+3. Copy the persistent identifier displayed for that resource. Retain it if
+   the browser redirects to a different website address.
 
-```text
-https://w3id.org/matsci-sam/vocabulary/id4/data
-https://w3id.org/matsci-sam/vocabulary/id4/data/definitions/{number}
-https://w3id.org/matsci-sam/vocabulary/id4/data/definitions/{number}/revisions/{version}
-```
+MatSci-SAM identifiers use `https://w3id.org/matsci-sam`. Cite the term when
+using a dictionary concept as a field value. Cite a revision for a quotation
+or a reproducible comparison of definition text. A revision fixes the wording,
+while its page may also display examples added later.
 
-Replace placeholders with the displayed numbers. Cite the term for a dataset
-field or glossary concept. Cite a revision for a quotation or reproducible
-analysis of exact wording. A revision fixes definition text, while the page
-may also display examples added later.
+## Identifier paths
+
+Default-vocabulary terms have addresses under `/vocabulary`. Community terms
+include the community name in the path. Two communities can define the same
+label as separate concepts. A collection reference retains the identifier of
+the owning vocabulary.
+
+## Term slugs
+
+The readable part of a term address is assigned when the term is created.
+It remains fixed when a display label changes. A numbered suffix distinguishes
+otherwise identical addresses and does not indicate rank.
+
+## Definition and revision numbers
+
+Definition numbers are permanent within a term. Each definition has its own
+revision sequence, so Definition 1 and Definition 2 can both have revision 1.
+An edit or restoration adds a revision and preserves earlier versions.
+Voting does not change either number.
+
+## Tags, facets and collections
+
+Tag and collection pages also have stable addresses. A merged tag redirects
+to its replacement. A retired tag without a replacement retains a status page.
+See [Tags](/docs/tags).
+
+## Live rank lookup
+
+A rank link opens the definition currently at that position. Its destination
+can change with votes and new revisions. Use a definition or revision
+identifier to cite one candidate consistently.
 
 ## Machine-readable forms
 
-Request `text/turtle` or `application/ld+json` at a readable vocabulary,
-term, definition, or revision address. A 303 response points to the matching
-`/skos.ttl` or `/skos.jsonld` document. Term history uses `/provenance`,
-`/provenance.ttl`, and `/provenance.jsonld`.
-
-The RDF names the canonical candidate with `matsci:canonicalDefinition` and
-its active revision with `matsci:currentRevision`.
-[Metadata access](/docs/metadata-access) lists other exports.
+[Metadata access](/docs/metadata-access) lists vocabulary and history downloads.
+The downloaded descriptions use the same persistent resource identifiers.
 
 ## Persistent resolution
 
-The w3id namespace redirects to the website serving MatSci-SAM. Retain the
-w3id in citations even when the browser displays a different website address.
-The website location can change independently of the identifier.
-
-Ordinary edits preserve definition and revision addresses. Exceptional
-administrator cleanup permanently removes test definitions and revisions.
-Removed numbers are not reassigned. See the
-[stability policy](/docs/reference/identifier-policy#stability).
+The website serving an identifier can change while the identifier remains the
+same. Ordinary edits preserve term, definition, and revision addresses.
+Exceptional administrator cleanup permanently removes test definitions and
+revisions. Removed numbers are not reused. See the
+[identifier policy](/docs/reference/identifier-policy#stability).
