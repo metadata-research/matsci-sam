@@ -1,142 +1,118 @@
-# Community review and revisions
+# Reading and reviewing terms
 
-A term can have competing definitions. Each has a permanent identifier,
-revision history, and score for the current revision. Sign in to vote or
-comment. The primary author can publish new versions of their definition.
-
-This guide covers vocabulary pages. Use the [study activity](/docs/studies)
-to record study participation and complete its steps.
-
-## Contributor profiles
-
-Profiles are private by default. Publish yours from [Edit profile](/profile/edit)
-to display your name, affiliation, linked ORCID iD, and contributed terms.
-Email addresses and sign-in details remain private.
-
-The setting controls access to the profile and links from your name.
-Your name remains on contributions and provenance for attribution even with
-a private profile. [Account access](/docs/account-access) explains linked
-sign-in methods.
-
-## Interface feedback
-
-Use **Feedback** on any page to report a problem or suggest an improvement.
-It records your comment, the page path without query parameters or fragments,
-and submission time. Signed-in submissions identify your account. Others are
-recorded as Anonymous. Administrators can resolve and reopen feedback.
-
-## Voting and score
-
-An upvote adds one point and a downvote subtracts one. The support score is
-upvotes minus downvotes. Each account has one vote of equal weight per
-revision, and authors may vote on their own definitions.
-
-| Starting choice | Action            | Change to score |
-| --------------- | ----------------- | --------------: |
-| No vote         | Select up         |              +1 |
-| No vote         | Select down       |              -1 |
-| Up              | Select up again   |              -1 |
-| Down            | Select down again |              +1 |
-| Up              | Change to down    |              -2 |
-| Down            | Change to up      |              +2 |
-
-A new version by the primary author starts at zero. Earlier votes stay with the
-revision they evaluated. Historical revisions are read-only. Each separate
-candidate has its own score. Featured examples provide context and have
-independent contribution records.
+Open a term to read its definitions, compare interpretations, and contribute.
+Each definition has a permanent number, revision history, and score for its
+current wording. Sign in to vote or comment. Use the
+[study activity](/docs/studies) when your contribution should complete a study
+step.
 
 ## Term page views
 
-Term pages open in **Simple** view. Read the default definition, its examples
-and attribution, vote, or expand other definitions. The **Metadata** link is
-available in both views.
+Term pages open in **Simple** view. Read the **Default definition**, its
+attribution, cited sources, and examples. Expand **Other definitions** to
+compare candidates. **Metadata** opens descriptions of the term and its use.
 
-Select **Advanced** under **View** to see the ontology context beside the
-reader, the term identifier, provenance and activity links, RDF downloads, and
-curator classification controls. Cited sources remain available in Simple.
-Switching views keeps expanded definitions and selected ontology matches in
-place; it does not publish or change a relationship.
+![A term in Simple view with its Default definition, Other definitions, and Metadata link](/images/docs/help-term-simple.png)
+
+Choose **Advanced** under **View** to open ontology context beside the reader,
+plus the term identifier, **Changes & activity**, **Provenance**, and downloads.
+Site administrators also get facet editing controls. Ontology context moves
+below the main column on small screens.
+
+View changes preserve expanded definitions and selected ontology matches.
+A preview saves no relationship. Use [term metadata](/docs/term-metadata) to
+propose a usage note, field association, or related external concept.
+
+## Voting and score
+
+Select the up arrow to support a revision or the down arrow to oppose it.
+Select the same arrow again to withdraw your vote, or the other arrow to
+change direction. Each account has one vote per revision. Authors may vote
+on their own definitions.
+
+The score is upvotes minus downvotes. A new revision starts at zero, and
+previous votes stay with the wording they evaluated. Historical revisions
+are available for reading.
 
 ## Definition order
 
-Term pages rank candidates by net score, then newest candidate creation time,
-then higher permanent definition number. An edit changes the revision, not
-the candidate creation time. The leading candidate is labeled canonical and
-supplies the description embedded in the term page.
+The highest-ranked candidate appears as **Default definition**. Ranking uses
+net score, then newer candidate creation time, then higher definition number.
+A new revision leaves the original candidate creation time unchanged.
+Permanent definition numbers remain fixed when ranking changes.
 
-Permanent definition numbers stay fixed as votes change the order. A
-`/rank/{number}` link follows the candidate at that rank when opened.
-Use a [definition or revision link](/docs/identifiers#citation) for citation.
-
-Search orders by relevance. Discussion prefers a model-authored definition.
-[Study Position](/docs/studies#the-position-step) uses its own presentation
-order, and Review keeps cards in place while you vote.
+A rank link follows the candidate currently at that position. Use a
+[definition or revision link](/docs/identifiers#citation) to cite one candidate.
+Search, Discussion, and studies have their own presentation order.
 
 ## Definition status
 
-| Status             | Current revision score |
-| ------------------ | ---------------------: |
-| proposed           |             1 or lower |
-| community-reviewed |                 2 to 4 |
-| stable             |            5 or higher |
+| Status | Current revision score |
+| --- | ---: |
+| proposed | 1 or lower |
+| community-reviewed | 2 to 4 |
+| stable | 5 or higher |
 
-These labels summarize voting activity. Votes can raise or lower the status.
-The metadata exports publish it on the revision resource. Assess the wording
-and discussion to judge scientific quality.
+These labels summarize voting activity. Assess the wording, sources, and
+discussion to judge scientific quality.
 
 ## Editing and proposing definitions
 
-The primary author can select **Create a new version** to update their
-definition. Edit the text, select **Review new version**, then
-**Publish new version**. Publication keeps the definition identifier and adds the next
-numbered version. Previous versions remain in its history. The record includes
-the editor, time, change note, and predecessor. A restore also adds a new
-version, copying earlier text while preserving the intervening history.
+The primary author can update a definition with **Create a new version**.
+Edit the wording, enter a change note, select **Review new version**, then
+**Publish new version**. Earlier versions remain available under the same
+definition identifier. **Restore this revision** copies earlier wording into
+a new revision and preserves the intervening history.
 
-Select **Suggest an alternative** to draft a separate definition with a model.
-After **Review alternative**, **Publish alternative** creates a new definition
-starting at version 1, linked to its source. The original remains available
-for comparison and voting. See [AI-assisted suggestions](/docs/ai-refinement).
+**Suggest an alternative** requests a separate model draft from your critique.
+Review and publish it with its source link and attribution. The original
+remains available. See [AI-assisted suggestions](/docs/ai-refinement).
 
-**Propose a replacement** creates a candidate you write and identifies the
-definition it should supersede. It also retains the original for comparison.
+**Propose a replacement** opens a candidate you write to supersede another
+candidate. It also retains the original for comparison. Review the latest
+wording and submit again if the source changes before publication.
 
-Review the latest wording and submit again if the source changes before you
-publish. Topics remain on the stable definition. Votes evaluate a revision.
-Comments share a thread with revision labels for context.
+Topics remain attached to the definition across revisions. Votes and comments
+identify the revision shown at contribution time.
 
 ## Examples of use
 
-Any contributor can select **Add example**. Each example records its author,
-publication time, and the definition revision shown when it was added.
-A new term or replacement can include a first example in the publication form.
-The application stores and attributes it separately from the definition.
+Select **Add example** on a definition to contribute an example. It records
+your authorship, publication time, and the displayed revision. An example in a
+new-term or replacement form has the same separate attribution.
 
-The first example is featured automatically. The definition author, a
-moderator, or an administrator can feature another. Compact cards display
-that example. The definition page lists all active examples, including on a
-historical revision page. Example changes leave definition text and votes
-unchanged.
+The first example is featured automatically. The definition author, a moderator,
+or a site administrator can select **Make featured** on another example.
+Compact cards show the featured example. Definition pages list all active
+examples, including examples added after a historical revision. Example changes
+leave definition wording and votes unchanged.
+
+[Files and examples](/docs/files-and-examples) explains attachments.
 
 ### Imported revision history
 
-Imported pilot records retain stored definition text but may lack editors,
-change notes, or reliable example provenance. Imported comments use an
-inferred revision association. Older votes were linked to the revision current
-at migration. The interface labels these limitations and leaves unknown values
-empty. [Provenance](/docs/provenance) explains them.
+Some imported records lack editors, change notes, or reliable example history.
+The interface labels those limitations and leaves unknown values empty.
+[Provenance](/docs/provenance#imported-records) explains them.
 
 ## Comments
 
-Post a comment to discuss the revision displayed. It remains part of the
-shared definition thread after later edits. Comments do not request model
-output. Use **Suggest an alternative** to turn a critique into a draft candidate.
-[Discussion](/docs/discussion) provides the same actions for recent terms.
+Select **Post comment** to discuss the displayed revision. The comment remains
+in the definition thread after later edits. Comments do not request a model
+draft. [Discussion](/docs/discussion) also provides comment and alternative
+controls for recent terms.
+
+## Contributor profiles
+
+[Profile visibility](/docs/account-access#profile-visibility) controls public
+profile access. Contributions retain your name for attribution.
+
+## Interface feedback
+
+Use **Feedback** to report a site problem. See
+[Account access](/docs/account-access#interface-feedback).
 
 ## Administrative cleanup
 
-Administrators can permanently remove test definitions and dependent records,
-including revisions, votes, comments, examples, and derived definitions.
-The term and numbering ledger remain, so removed numbers are not reused.
-Purged definitions and revisions no longer resolve. This action cannot be
-undone. Ordinary published content remains in its revision history.
+Permanent test-data deletion is restricted to site administrators. See
+[Administration](/docs/administration#site-wide-controls-on-public-pages).

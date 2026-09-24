@@ -1,75 +1,64 @@
 # SKOS and metadata
 
-MatSci-SAM uses SKOS for concepts and relations, Dublin Core for attribution
-and subject, OWL for deprecation, and PROV-O for history. Application-specific
-classes and properties use `{identifier-base}/metadata#`.
+Published metadata describes the vocabulary in a form that other software can
+use. It identifies terms, their definitions, classification and sources.
+The same records can be downloaded independently of the pages used to read
+and contribute them.
+
+MatSci-SAM uses SKOS, the Simple Knowledge Organization System, for vocabulary
+concepts and their relationships. Dublin Core describes attribution and
+references. PROV-O describes contribution history. Application properties add
+information such as definition numbers and metadata field associations.
 
 ## Documents
 
-[Metadata access](/docs/metadata-access) lists the downloads and named graphs.
-`/vocabulary.ttl` includes the vocabulary and classification records.
-`/tags.ttl` includes tag schemes, concepts, and collections. Per-term documents
-include the owning vocabulary and referenced tags and schemes.
+A term document describes a concept in its owning vocabulary, with its
+current definitions and referenced categories. Vocabulary downloads collect
+these descriptions across terms. Separate provenance downloads describe
+revisions and contribution activities.
 
-Readable `/skos.ttl` and `/skos.jsonld` paths describe the same RDF graph.
-The JSON-LD form is an expanded array of nodes. Legacy numeric JSON-LD
-endpoints retain their earlier representation. Provenance is available
-separately from current vocabulary content.
+Turtle and JSON-LD are two formats for RDF, the underlying graph of statements.
+The readable term, definition and revision downloads express equivalent
+statements in either format. [Metadata access](/docs/metadata-access) explains
+how to find and download the documents.
 
 ## Classes and properties
 
-| Resource   | Class                       | Principal properties                                                                                           |
-| ---------- | --------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Vocabulary | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `dcterms:publisher`                                                    |
-| Term       | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `skos:definition`, `matsci:canonicalDefinition`                             |
-| Tag scheme | `skos:ConceptScheme`        | `dcterms:title`, `dcterms:description`, `skos:hasTopConcept`                                                   |
-| Tag        | `skos:Concept`              | `skos:inScheme`, `skos:prefLabel`, `skos:altLabel`, `skos:definition`, `skos:scopeNote`                        |
-| Collection | `skos:Collection`           | `skos:prefLabel`, `dcterms:description`, `skos:member`                                                         |
-| Definition | `matsci:Definition`         | `dcterms:isPartOf`, `matsci:definitionNumber`, `matsci:currentRevision`, `dcterms:hasVersion`                  |
-| Revision   | `matsci:DefinitionRevision` | `rdf:value`, `skos:example`, `dcterms:isVersionOf`, `prov:specializationOf`, `matsci:version`, `matsci:status` |
+The exported resources retain distinct meanings. A vocabulary is a concept
+scheme. A term is a concept in that scheme. A definition is a contributed
+interpretation, and a revision fixes the text of one version. Topics and
+facets are classification concepts. Collections group existing terms.
 
-Term records also publish contributors and creation dates. Definitions and
-revisions retain creation dates, and revisions list creators. Terms and
-definitions use `dcterms:subject` for classification.
+Metadata on dictionary entries can add a usage note, an alternative label,
+a field association or a related external concept. A field association can
+say that a term supplies a possible value for a metadata field, or that an
+entry explains that field. It does not create a dataset record.
+
+Each metadata contribution applies to a whole term or one exact definition
+revision. Accepted statements are public. Unreviewed and declined proposals
+remain outside public RDF. A withdrawn accepted statement retains its public
+history while ceasing to be a current fact.
 
 ## Conventions
 
-A term belongs to the default `/vocabulary` scheme or a community scheme at
-`/vocabulary/{community}`. Same-label terms in different schemes retain
-separate IRIs and definitions.
+A term can have several definitions. The **Default definition** reflects the
+ranking of those definitions. Each definition has its own current revision,
+so a change in ranking does not change the identity of any definition.
 
-`skos:definition` links a term to each current definition revision.
-`matsci:canonicalDefinition` identifies the highest-ranked stable candidate,
-and `matsci:currentRevision` identifies its current wording. The
-[ordering rule](/docs/community#definition-order) uses score, candidate
-creation time, and permanent number.
+A topic applies to a definition and is also reported on its containing term.
+A facet applies directly to the term. Collection membership records inclusion
+in a set without asserting a semantic relationship between the members.
 
-A facet appears on a term. A topic appears on a definition and is derived
-on the containing term. The tag identifies its scheme with `skos:inScheme`.
+An explicit equivalence link has a stronger meaning than a related-concept
+link. Ontology previews show source labels and hierarchy without saving either
+kind of relationship. **Related external concept** metadata records a separate,
+attributed association and does not assert equivalence or class membership.
 
-Hierarchy uses `skos:broader` and derived `skos:narrower`. Association uses
-symmetric `skos:related`. Active tags without a broader tag in the same
-scheme are top concepts. Full classification documents use
-`skos:hasTopConcept` and `skos:topConceptOf`. Vocabulary-page JSON-LD also
-lists top terms. Per-term documents describe tag schemes without enumerating
-all their top concepts.
+Text examples and their featured display choice are separate contributions.
+The metadata includes all active text examples, even when the page shows one
+featured example. Historical revisions and their scoped metadata remain
+available through their exact identifiers.
 
-Retired tags retain their IRI, scheme, and label with `owl:deprecated true`.
-Merged tags also name a replacement with `dcterms:isReplacedBy`.
-
-External mapping assertions use `skos:exactMatch`, `skos:closeMatch`,
-`skos:broadMatch`, `skos:narrowMatch`, or `skos:relatedMatch` with an absolute
-IRI outside the identifier base. Internal relations use typed references.
-A topic-to-term equivalence uses `skos:exactMatch` in both directions and is
-one-to-one. Collection membership uses `skos:member` and does not imply a
-semantic mapping.
-
-Labels, titles, descriptions, definition text, examples, and scope notes use
-English-tagged literals. Names, publisher, and status are untagged.
-Definition and revision numbers are `xsd:positiveInteger`. Dates use
-`xsd:dateTime`, except term creation dates, which use `xsd:date`. The legacy
-numeric JSON-LD term document retains an untyped creation-date string.
-
-Each active example appears as a separate `skos:example` on the current
-revision. The featured selection does not limit the export.
-[Identifier policy](/docs/reference/identifier-policy) specifies resource paths.
+See [Term metadata](/docs/term-metadata) for contributions and
+[the RDF publication contracts](https://github.com/metadata-research/matsci-sam/blob/dev/docs/technical/metadata-publication.md)
+for property tables, language conventions and named graphs.

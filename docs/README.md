@@ -31,3 +31,16 @@ The seven help sections in `guide/studies.md` also appear inside the study
 activity. Their IDs are selected by `lib/study-help.ts`. Run
 `pnpm test:surveys` after editing that page to check rendered excerpts and links.
 Check local links, images, and heading IDs after reorganizing any page.
+
+## Screenshots
+
+Capture the current interface with a representative example. Crop to the task
+controls and exclude private account details. Place static RGB or RGBA PNG files
+under `public/images/docs/` and give each image descriptive alternative text.
+Use a new filename when replacing a published image to avoid cached copies.
+Keep essential instructions in text so a screenshot is never the only way to
+follow a task.
+
+Keep the quick start near 500 words. Most task guides should fit within
+400 to 800 words. Split a longer guide when its tasks can stand alone. Preserve
+existing links and embedded study sections when reorganizing content.

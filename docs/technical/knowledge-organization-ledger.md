@@ -77,6 +77,32 @@ concept-to-term equivalence shape.
 assignment and bridge permissions. Scheme restrictions also apply to
 administrators. `isAbsoluteHttpIri` and `isExternalIri` check mapping targets.
 
+## Semantic change
+
+An administrator can edit a tag definition, scope note or alternative labels.
+A merge retires the original tag, redirects its identifier and retracts active
+statements before asserting replacements. Both records remain in history.
+An equivalent-term link follows the linked definitions. Administrators can
+retract a link when the meanings diverge. The Tag drift report lists linked
+tags whose term definitions changed by at least 25 percent after classification
+began.
+
+## Published relations
+
+| Relation          | Predicate               | Permitted resources                           |
+| ----------------- | ----------------------- | --------------------------------------------- |
+| Classification    | `dcterms:subject`       | Term or definition to tag                     |
+| Hierarchy         | `skos:broader`          | Terms in one vocabulary or tags in one scheme |
+| Association       | `skos:related`          | Resources of the same kind and scheme         |
+| Membership        | `skos:member`           | Collection to term in any hosted vocabulary   |
+| External mapping  | SKOS mapping properties | Term or tag to external IRI                   |
+| Topic equivalence | `skos:exactMatch`       | Topic to term                                 |
+
+The export derives `skos:narrower`, the reverse of `skos:related`, term-level
+topics, and the reverse topic-equivalence link from stored assertions.
+Those derived triples have no independent assertion rows.
+
+
 ## Reads and exports
 
 `lib/kos-queries.ts` provides page queries. Keep LEFT JOIN liveness and

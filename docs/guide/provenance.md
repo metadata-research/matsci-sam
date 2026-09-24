@@ -1,102 +1,84 @@
 # Provenance
 
-Open **Provenance** near a term heading to inspect its contribution history
-as a graph and timeline. Select a graph node for details or download the
-record as W3C PROV-O data.
+Open a term, select **Advanced** under **View**, then **Provenance** to inspect
+its contribution graph and timeline. Select a graph node for details. Use a
+revision link to open the exact definition wording recorded at that point.
 
-The record includes definition revisions, comments, vote events, examples,
-and published AI-assisted work. Revisions record text, editor, time, change
-note, and predecessor. A restored revision also identifies the earlier text
-it copies.
-
-**Create a new version** adds the next version to the same definition's history
-and preserves its earlier versions. **Suggest an alternative** publishes a
-separate definition starting at version 1. It links to the source revision,
-contributor critique, stored model output, prompt, and model. A replacement
-identifies the definition it should supersede. Discarded model drafts remain
-outside the published vocabulary.
+A new version retains earlier revisions of the same definition. An alternative
+is a separate definition linked to its source revision. A replacement
+identifies the candidate it should supersede. The record includes editors,
+publication times, and change notes when available.
 
 ## People and models
 
-Definitions and examples are entities, publication events are activities,
-and people and models are agents. The record attributes contributions to
-their authors. The per-term view labels votes "A community member". The
-[dataset graph uses a separate voter-visibility rule](/docs/reference/provenance-model#people-and-models).
+Definitions, examples, and other contributions identify their authors. Names
+remain attributed even when a profile is private. The term provenance view
+labels votes "A community member". See the
+[provenance model](/docs/reference/provenance-model#people-and-models) for voter
+visibility in data exports.
 
-A model profile identifies the recorded runtime tag, publisher, directly
-authored definitions, and their prompts. Coauthored definitions credit the
-contributor and model on the definition page. A tag identifies the model
-configuration requested for a run.
-
-![A model profile with recorded authorship](/images/docs/model-profile.png)
+A definition based on an applied model draft credits both the contributor and
+model. Model profiles identify recorded model configurations and directly
+authored definitions. Editing an applied draft preserves model attribution.
 
 ## References and AI assistance
 
-ChEBI and Wolfram lookup provide reference material. Gemma (or the configured
-deployment model) and Wolfram Agent One draft definitions. The Wolfram lookup
-and Agent One are separate services with separate evidence records.
+A published record distinguishes the sources attached as citations from
+reference material sent to an assistant.
 
-Published records distinguish three kinds of source evidence:
+| Evidence | Meaning |
+| --- | --- |
+| Cited reference | A source the contributor attached to the published revision |
+| Source supplied to the model | Material included in the accepted model request |
+| Source reported by the assistant | A link returned in the assistant answer |
 
-- **Cited references** are sources the contributor attached to the published
-  revision. They retain the retrieved text and available source, release,
-  licence, retrieval time and response identifier.
-- **Sources supplied to the model** are the exact reference snapshots included
-  in an accepted suggestion's request. Inclusion does not establish which
-  facts the model used or whether its answer is correct.
-- **Sources reported by the assistant** are links returned in the assistant's
-  answer, such as Agent One's Wolfram Sources. They are provider claims, not
-  independently verified sources or automatically attached citations.
+Assistant-reported links do not automatically become contributor citations.
+The recorded request establishes what was submitted, not which facts were used
+or whether they are correct. Accepted model work retains the original answer
+separately from the edited wording that the contributor published.
 
-Accepted AI work preserves the submitted draft, example and references when
-included, the stored prompts, the assistant's original final answer, and its
-relationship to the contributor's published wording. Edits before publication
-do not rewrite the original suggestion. Recorded service and model identities
-describe the request and available response metadata; Agent One does not imply
-a known underlying language model.
+Wolfram lookup and Wolfram Agent One have separate roles. The lookup provides
+reference material. Agent One drafts definitions when available. See
+[References](/docs/references) and [AI-assisted suggestions](/docs/ai-refinement).
 
-Lookups and unused or discarded suggestions stay private unless their evidence
-is attached to a published contribution. Successful Copy and Add to definition
-actions can record private interaction timestamps. Those actions do not prove
-that the person read, retained or used the text. Revealing a definition alone
-does not create a citation or public activity.
-
-The ontology context panel in a term page’s **Advanced** view previews terms
-and their asserted parents in MatSci-ONT. Opening the panel or switching ontologies does not save a mapping
-or assert that the SAM term is equivalent to a matched term.
+Unused lookups and discarded suggestions remain private. Viewing a reference
+or ontology match creates no citation or public relationship. A published
+citation retains the saved source text and available source information.
 
 ## Votes, comments, and examples
 
-Votes and comments identify a definition revision. A new version starts a
-new vote tally. Vote direction changes and withdrawals append events, so the
-record retains their sequence. Study actions also identify the study context.
+Votes and comments identify the displayed revision. A new version starts a
+new vote tally. Vote changes and withdrawals remain in the history. Study
+contributions also identify their study context.
 
-Examples identify the stable definition and the revision displayed when
-added. The featured-example history records who selected an example and the
-interval it was featured. Example selection leaves definition text and votes
-unchanged.
+An example identifies its contributor and the revision shown when added.
+Featured-example history records who selected it and when. A different
+featured example leaves definition text and votes unchanged. Current example
+lists may include contributions added after an earlier definition revision.
 
-Timelines include example contributions and the recorded start and end of
-featured-example intervals. Unknown historical dates remain unknown rather
-than becoming reconstructed events. A change in which definition ranks first
-is a computed outcome, not another edit or an approval activity.
+A published example file has its own attribution. A published source file
+supports the exact revision to which it was attached. See
+[Files and examples](/docs/files-and-examples).
+
+## Metadata history
+
+Open **Metadata** from the term to inspect descriptions of its use. Each
+addition has a scope, author, and date, with optional source information.
+Accepted additions become public. Withdrawal removes a current description
+while preserving its history under **Metadata history** in Advanced view.
+
+A description attached to one revision stays with that wording. An ontology
+preview records no relationship. A related-concept contribution is a separate
+addition with its own evidence and review. See [Term metadata](/docs/term-metadata).
 
 ## Imported records
 
-Some pilot records lack facts that the earlier schema did not store.
+Some pilot records lack editors, change notes, or example authorship and dates.
+Earlier comments and votes can have inferred revision associations. A recorded
+standing vote may be the earliest available event even if voting began before
+that record.
 
-| Record                         | Limitation                                                                                               |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| Partial revision               | Editor or change note may be unknown                                                                     |
-| Legacy example                 | Independent author, exact source revision, contribution time, and selection provenance were not recorded |
-| Imported comment or refinement | Revision association is inferred from the recorded time                                                  |
-| Imported vote                  | Revision association uses the revision current at migration                                              |
-| Backfilled vote event          | One event reconstructs a standing vote when event recording began                                        |
-
-The interface labels imported records and leaves unknown provenance empty.
-A backfilled event does not reconstruct all earlier vote changes.
-
-[The provenance model](/docs/reference/provenance-model) describes the RDF
-properties and privacy rules. [Metadata access](/docs/metadata-access) lists
-downloads. [Community review and revisions](/docs/community) explains editing
-and restoration.
+The interface labels these limitations and leaves unknown values empty. A
+change in definition rank is a calculated result, not a publication or approval.
+[Metadata access](/docs/metadata-access) lists downloads, and the
+[provenance model](/docs/reference/provenance-model) explains their meaning.
