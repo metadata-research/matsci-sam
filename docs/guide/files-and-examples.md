@@ -14,8 +14,6 @@ Files remain private until selected for publication during review.
 4. Select **Attach example** or **Attach source**. Repeat for another file if
    needed.
 
-![The attachment form with a file selector, Example or Source role, title, explanation, and optional source citation](/images/docs/help-files.png)
-
 Check the title and explanation before attaching. Open an attached file to
 inspect it. Remove an unused file with the remove control beside its title.
 Attachments are not sent to the definition assistant.
@@ -27,6 +25,8 @@ to publish**, select the **Publish example** or **Publish and cite** checkbox
 for each file you want readers to download.
 An unchecked file stays private and is omitted from that contribution.
 Publish the definition to publish the selected files with it.
+
+![Files to publish with a source file selected under Publish and cite, its citation and download link, and the Publish new term button](/images/docs/help-files-review.png)
 
 A published source file also becomes a citation for that exact definition
 revision. An example file has a separate example contribution credited to you.
