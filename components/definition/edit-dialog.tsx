@@ -339,6 +339,7 @@ function RevisionEditor({
                                   ) ?? reference
                               )
                             )
+                            workspace.clearNotices()
                             setUndo(null)
                             focusEditor()
                           }}

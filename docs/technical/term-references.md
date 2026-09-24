@@ -24,11 +24,19 @@ The form owns both provider states above responsive and contextual views.
 Switching tools does not refetch or lose receipts. Generation guards reject
 stale callbacks after the term, vocabulary or source revision changes. The
 responsive shell uses available container width, including embedded forms.
-Narrow tool views replace the main area. A status strip remains in the active
-writing or review step. Pending-provider completion never navigates, inserts
-text, selects evidence or silently adds citation rows.
+New-term Add uses `AddDefinitionWorkspace`: Simple and Advanced share one
+mounted form, with identical column sizing. Advanced reveals persistent ChEBI
+and ontology context panels to the right, stacking at narrow container widths.
+`DefinitionToolbox` merges the selected tool and toolbar beneath the form.
+Simple opens individual tools from optional form actions. Inherited contribution
+forms keep the earlier responsive workspace, narrow tool views and status
+strip. Pending-provider completion never navigates, inserts text, selects
+evidence or silently adds citation rows.
 
-ChEBI initially shows the closest candidate's name and **Show definition**.
+ChEBI in Advanced Add reveals the first candidate once per visible lookup;
+this makes it locally consulted without selecting it as a citation or model
+input. Hiding it or switching views preserves that choice. Inherited forms
+initially show the closest candidate's name and **Show definition**.
 Each candidate behind **Other matches** has its own reveal action. Reveal and
 consulted-entry state live in the workspace owner, so responsive remounts
 preserve them. Show/Hide changes no model input or citation. Wolfram becomes
@@ -56,10 +64,11 @@ assert concept equivalence.
 
 **Suggest a definition** reserves a preview area when the request starts and
 keeps the current definition editor visible and editable through loading and
-preview. Editor and suggestion sit side by side in the full writing area on
-wide screens and stack on narrow screens. The same layout supports an empty
-editor. Reference tool launchers are disabled during comparison; provider
-state remains owned by the form and is preserved.
+preview. New-term Add pins the assistant tool below the editor during loading
+and comparison, including when switching views. Inherited forms retain their
+side-by-side preview on wide screens and stacked preview on narrow screens.
+The same layout supports an empty editor. Tool launchers are disabled during
+comparison; provider state remains owned by the form and is preserved.
 
 Request-time contributor text and source snapshots remain immutable. A model
 response never overwrites subsequent editor changes. **Use this draft**
@@ -80,14 +89,17 @@ not replace contributor access checks. Existing source-revision and study
 validation remain authoritative for inherited actions. The source-action changes require no migration. Assistant configuration and
 preferences use the separate migration described below.
 
-Clarification exchanges (9d) and contribution-page ontology integration are later increments.
+Clarification exchanges (9d) remain a later increment.
 The current model response contract returns a definition, not a conversation
 turn; retrieving a ChEBI candidate does not establish a SAM placement.
 
 ## Ontology context preview
 
 The reusable `OntologyContextPanel` appears beside the default definition on
-published term pages and beside a local draft on `/labs/ontology-context`.
+published term pages, beside a local draft on `/labs/ontology-context`, and
+in Advanced Add. Its contribution variant shows grouped matching terms and
+the selected hierarchy as separate persistent cards. Queries begin only when
+Advanced is visible and the term is confirmed; hidden panels retain choices.
 The term page searches its fixed term when the panel opens. In the lab,
 **Find matches** confirms the search term; typing alone does not search.
 Matching ignores case and surrounding whitespace, while preserving chemical
@@ -131,9 +143,9 @@ labeled classes and concepts even when they have no definition.
 
 This preview has no persistence: queries and source selections create no
 lookup receipts, citations, mappings, model context, interaction events or
-database records. The test draft remains local to the lab. Integration into
-the contribution workspace remains a later phase. Any future saved ontology
-link must be an explicit contribution with its own attribution and source
+database records. The test draft remains local to the lab. The contribution
+variant has the same read-only semantics. Any future saved ontology link must
+be an explicit contribution with its own attribution and source
 release, rather than a consequence of opening the panel or matching a label.
 
 Run `pnpm test:ontology-context` for bounded transport and identity checks using
@@ -158,15 +170,28 @@ citations and model-input selections by receipt identity. New results start
 unselected. The consulted-source shortlist gate also applies to refinements.
 Changing the confirmed contribution context still clears its workspace state.
 
-The result view puts interpretation and assumptions first, then renders
-recognized headings and property/value rows. Unrecognized content remains
-readable text, and **Original response** exposes the complete returned source
-text. Formatting is deterministic presentation, not a generated summary or a
-change to stored evidence. **Copy section** includes the source interpretation
-and assumptions with that section. It does not create an excerpt reference or
-select a citation. Each complete response remains one reference and one model
-input; section copying does not reduce the source text sent when that reference
-is selected for a model request.
+The reading view puts interpretation and actual assumptions first. Its
+**Overview** selects identity, basic properties and principal-result sections;
+other substantive sections remain individually expandable under **More
+properties**. Visual-only sections point to the full Wolfram website, using
+the saved reference IRI rather than the current editable query. The link opens
+a live query, not an immutable copy of the saved response.
+
+The parser recognizes plain and Markdown headings, property tables, multiple
+columns and continuation rows. Conservative scientific-notation formatting
+makes common subscripts and exponents readable without rewriting identifiers.
+Unknown content remains escaped text. Graphics URLs, Wolfram code, website
+footers and machine interpretation instructions are omitted from the reading
+view; **Original response** and **Copy original response** retain them exactly.
+
+**Copy section** and section-level **Add to definition** use readable text
+including the source interpretation, actual assumptions, and local conditions.
+Adding goes through the normal insertion/citation/Undo path; copying never
+selects a citation. Neither creates an excerpt reference. Formatting is
+deterministic presentation, with no AI summary or change to stored evidence.
+Every complete response remains one reference and one model input; section
+copying or insertion does not reduce the source text sent when that reference
+is selected for a model request. ChEBI retains its full-definition actions.
 
 ## Stored provider evidence
 
@@ -208,8 +233,9 @@ Before a model request, **Assistant context** lists included items beside the
 model action. **Inspect input text** expands their read-only text. New-term
 requests require the confirmed term. A nonblank draft defaults to included;
 a removed draft can be restored with its Include action. The optional example
-is excluded until **Include in assistant context** is clicked beside its
-editor. Revision requests require the term, exact source definition and
+is excluded until **Use my example** is selected in Add's assistant tool
+(or **Include in assistant context** in inherited forms). Add also provides
+**Use my definition draft** to restore a removed draft input. Revision requests require the term, exact source definition and
 critique. **Clear feedback** explicitly erases critique; Remove and **Clear
 optional context** never erase writing, saved receipts or citations.
 

@@ -1,4 +1,12 @@
 import "server-only"
+import {
+  isPublicMetadataAssertion,
+  metadataAssertionFact,
+  metadataAssertionUri,
+  metadataAssertionEvidenceTurtle,
+  type MetadataAssertionRow,
+  type MetadataAssertionEvidence
+} from "../term-metadata-rdf"
 
 import {
   aiModelsTable,
@@ -10,6 +18,7 @@ import {
   definitionRevisionsTable,
   definitionsTable,
   statementsTable,
+  termMetadataAssertionsTable,
   studiesTable,
   surveyStepsTable,
   termsTable,
@@ -152,6 +161,7 @@ export type ProvenanceDatasetData = {
   concepts: GraphConcept[]
   collections: GraphCollection[]
   assertions: AssertionRow[]
+  metadataAssertions?: MetadataAssertionRow[]
   voteEvents: VoteEventRow[]
   walkthroughComments: WalkthroughCommentRow[]
   studies: StudyRow[]
@@ -187,6 +197,7 @@ const dateTime = (value: string) =>
 
 export class ProvenanceDatasetView {
   readonly assertions: AssertionRow[]
+  readonly metadataAssertions: MetadataAssertionRow[]
   readonly voteEvents: VoteEventRow[]
   readonly walkthroughComments: WalkthroughCommentRow[]
   readonly studies: StudyRow[]
@@ -203,6 +214,9 @@ export class ProvenanceDatasetView {
     // Row id order throughout, so two projections of one database are
     // byte-identical whatever order the rows arrived in.
     this.assertions = [...data.assertions].sort((a, b) => a.id - b.id)
+    this.metadataAssertions = [...(data.metadataAssertions ?? [])]
+      .filter(isPublicMetadataAssertion)
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     this.voteEvents = [...data.voteEvents].sort((a, b) => a.id - b.id)
     this.walkthroughComments = [...data.walkthroughComments].sort(
       (a, b) => a.id - b.id
@@ -376,6 +390,47 @@ export class ProvenanceDatasetView {
     )
   }
 
+  metadataAssertionAgent(row: MetadataAssertionRow, userId: number): AgentRef {
+    return this.agent(userId, { term: this.term(row.termId) })
+  }
+
+  metadataAssertionEvidence(
+    row: MetadataAssertionRow
+  ): MetadataAssertionEvidence {
+    const term = this.term(row.termId)
+    const revision =
+      row.definitionRevisionId === null
+        ? null
+        : this.revision(row.definitionRevisionId)
+    const definition = revision ? this.definition(revision.definitionId) : null
+    const fact = metadataAssertionFact(
+      row,
+      term,
+      revision && definition
+        ? {
+            id: revision.id,
+            termId: definition.termId,
+            definitionNumber: definition.definitionNumber,
+            version: revision.version
+          }
+        : undefined
+    )
+    return {
+      row,
+      fact,
+      uri: metadataAssertionUri(fact.subject, row.id),
+      authorIri: this.metadataAssertionAgent(row, row.assertedById).iri,
+      reviewerIri:
+        row.reviewedById === null
+          ? null
+          : this.metadataAssertionAgent(row, row.reviewedById).iri,
+      retractorIri:
+        row.retractedById === null
+          ? null
+          : this.metadataAssertionAgent(row, row.retractedById).iri
+    }
+  }
+
   voteAgent(act: VoteAct): AgentRef {
     const revision = this.revision(act.revisionId)
     return this.agent(act.userId, {
@@ -421,6 +476,13 @@ export class ProvenanceDatasetView {
         add(this.assertionAgent(row, row.assertedById))
       if (row.retractedById !== null)
         add(this.assertionAgent(row, row.retractedById))
+    }
+    for (const row of this.metadataAssertions) {
+      add(this.metadataAssertionAgent(row, row.assertedById))
+      if (row.reviewedById !== null)
+        add(this.metadataAssertionAgent(row, row.reviewedById))
+      if (row.retractedById !== null)
+        add(this.metadataAssertionAgent(row, row.retractedById))
     }
     for (const act of this.voteActs())
       if (this.voteAgentIsPublic(act)) add(this.voteAgent(act))
@@ -548,6 +610,9 @@ export const agentBlockTurtle = (agent: AgentRef) =>
 export const provenanceDatasetBlocksTurtle = (view: ProvenanceDatasetView) =>
   [
     ...view.assertions.map((row) => assertionBlockTurtle(view, row)),
+    ...view.metadataAssertions.map((row) =>
+      metadataAssertionEvidenceTurtle(view.metadataAssertionEvidence(row))
+    ),
     ...view.voteActs().map((act) => voteEventBlockTurtle(view, act)),
     ...view.walkthroughComments.map((row) =>
       walkthroughCommentBlockTurtle(view, row)
@@ -573,6 +638,7 @@ export const loadProvenanceDatasetData =
       collections,
       models,
       assertions,
+      metadataAssertions,
       voteEvents,
       walkthroughComments,
       studies
@@ -639,6 +705,14 @@ export const loadProvenanceDatasetData =
         .from(statementsTable)
         .orderBy(asc(statementsTable.id)),
       db
+        .select()
+        .from(termMetadataAssertionsTable)
+        .where(eq(termMetadataAssertionsTable.status, "accepted"))
+        .orderBy(
+          asc(termMetadataAssertionsTable.createdAt),
+          asc(termMetadataAssertionsTable.id)
+        ),
+      db
         .select({
           id: voteEventsTable.id,
           definitionId: voteEventsTable.definitionId,
@@ -686,6 +760,11 @@ export const loadProvenanceDatasetData =
     const userIds = [
       ...new Set([
         ...assertions.flatMap((s) => [s.assertedById, s.retractedById]),
+        ...metadataAssertions.flatMap((s) => [
+          s.assertedById,
+          s.reviewedById,
+          s.retractedById
+        ]),
         ...voteEvents.map((e) => e.userId)
       ])
     ].filter((id): id is number => id !== null)
@@ -713,6 +792,7 @@ export const loadProvenanceDatasetData =
         ...s,
         predicate: s.predicate as Predicate
       })),
+      metadataAssertions,
       voteEvents,
       walkthroughComments,
       studies

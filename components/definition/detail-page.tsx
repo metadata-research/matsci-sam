@@ -1,3 +1,4 @@
+import { ContributionFileDownloads } from "./contribution-file-downloads"
 import { ReferenceSnapshot } from "./reference-snapshot"
 import { EditDefinitionDialog } from "@/components/definition/edit-dialog"
 import { DefinitionExamples } from "@/components/definition/examples"
@@ -97,6 +98,17 @@ export async function DefinitionDetailPage({
             Back to {definition.term}
           </Link>
 
+          <p className="text-sm text-muted-foreground">
+            Describe how this term is used in{" "}
+            <Link
+              href={`/terms/${definition.termId}/metadata`}
+              className="text-primary underline"
+            >
+              its metadata record
+            </Link>
+            . You can add context for the whole term or a particular definition.
+          </p>
+
           {!definition.isCurrentRevision && (
             <aside className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
               <span>
@@ -159,6 +171,18 @@ export async function DefinitionDetailPage({
                   </p>
                 </section>
 
+                {definition.attachments.some(
+                  (file) => file.role === "source"
+                ) ? (
+                  <section aria-label="Uploaded sources" className="space-y-3">
+                    <Eyebrow>Uploaded sources</Eyebrow>
+                    <ContributionFileDownloads
+                      files={definition.attachments.filter(
+                        (file) => file.role === "source"
+                      )}
+                    />
+                  </section>
+                ) : null}
                 {definition.references.length > 0 && (
                   <section
                     aria-label="Cited references"

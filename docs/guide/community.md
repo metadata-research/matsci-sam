@@ -45,6 +45,18 @@ revision they evaluated. Historical revisions are read-only. Each separate
 candidate has its own score. Featured examples provide context and have
 independent contribution records.
 
+## Term page views
+
+Term pages open in **Simple** view. Read the default definition, its examples
+and attribution, vote, or expand other definitions. The **Metadata** link is
+available in both views.
+
+Select **Advanced** under **View** to see the ontology context beside the
+reader, the term identifier, provenance and activity links, RDF downloads, and
+curator classification controls. Cited sources remain available in Simple.
+Switching views keeps expanded definitions and selected ontology matches in
+place; it does not publish or change a relationship.
+
 ## Definition order
 
 Term pages rank candidates by net score, then newest candidate creation time,

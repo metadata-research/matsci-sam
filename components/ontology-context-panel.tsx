@@ -5,6 +5,14 @@ import { ExternalLinkIcon, LoaderCircleIcon } from "lucide-react"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
+import { FieldLegend, FieldSet } from "@/components/ui/field"
 
 type Hierarchy = RouterOutput["ontologyContext"]["hierarchy"]
 const SUBCLASS = "http://www.w3.org/2000/01/rdf-schema#subClassOf"
@@ -26,21 +34,40 @@ function localName(iri: string) {
   }
 }
 
-/** Preview owner: term changes reset selection; source changes retain per-source choices. */
-export function OntologyContextPanel({ term }: { term: string }) {
+type OntologyContextPanelProps = {
+  term: string
+  variant?: "compact" | "contribution"
+  matchesTitle?: string
+  enabled?: boolean
+}
+
+/** Preview owner: term changes reset selection; presentation changes preserve it. */
+export function OntologyContextPanel({
+  term,
+  ...props
+}: OntologyContextPanelProps) {
   return (
-    <OntologyContextOwner key={term.trim().toLowerCase()} term={term.trim()} />
+    <OntologyContextOwner
+      key={term.trim().toLowerCase()}
+      term={term.trim()}
+      {...props}
+    />
   )
 }
 
-function OntologyContextOwner({ term }: { term: string }) {
+function OntologyContextOwner({
+  term,
+  variant = "compact",
+  matchesTitle = "Matching terms",
+  enabled = true
+}: OntologyContextPanelProps) {
   const id = useId()
   const [mode, setMode] = useState<"exact" | "similar">("exact")
   const [sourceKey, setSourceKey] = useState("")
   const [choices, setChoices] = useState<Record<string, string>>({})
   const matches = trpc.ontologyContext.candidates.useQuery(
     { term, mode },
-    { ...queryOptions, enabled: Boolean(term) }
+    { ...queryOptions, enabled: enabled && Boolean(term) }
   )
   const sources = matches.data?.sources ?? []
   const selected =
@@ -51,8 +78,172 @@ function OntologyContextOwner({ term }: { term: string }) {
     ) ?? (mode === "exact" ? selected?.candidates[0] : undefined)
   const hierarchy = trpc.ontologyContext.hierarchy.useQuery(
     { source: selected?.source.key ?? "", iri: candidate?.iri ?? "" },
-    { ...queryOptions, enabled: Boolean(candidate && selected) }
+    { ...queryOptions, enabled: enabled && Boolean(candidate && selected) }
   )
+
+  const changeMode = () => {
+    // Exploring a name never inherits the automatic exact match.
+    setMode(mode === "exact" ? "similar" : "exact")
+    setSourceKey("")
+    setChoices({})
+  }
+
+  if (variant === "contribution") {
+    const count = sources.reduce(
+      (total, group) => total + group.candidates.length,
+      0
+    )
+    return (
+      <div className="flex min-w-0 flex-col gap-4" data-ontology-context>
+        <Card role="region" aria-labelledby={`${id}-matches-title`}>
+          <CardHeader className="px-4">
+            <CardTitle>
+              <h2 id={`${id}-matches-title`}>{matchesTitle}</h2>
+            </CardTitle>
+            <CardDescription>
+              {mode === "exact" ? "Exact label matches" : "Similar names"}
+              {term ? (
+                <>
+                  {" "}
+                  for <strong>{term}</strong>
+                </>
+              ) : null}
+              {matches.isSuccess
+                ? ` · ${count}${sources.some((group) => group.truncated) ? "+" : ""} ${count === 1 ? "match" : "matches"}`
+                : null}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex min-w-0 flex-col gap-3 px-4">
+            {!term ? (
+              <p className="text-sm text-muted-foreground">
+                Confirm a term to find matches.
+              </p>
+            ) : matches.isPending ? (
+              <Loading>
+                Finding{" "}
+                {mode === "exact" ? "exact label matches" : "similar names"}…
+              </Loading>
+            ) : matches.error ? (
+              <LookupError
+                message={matches.error.message}
+                busy={matches.isFetching}
+                onRetry={() => void matches.refetch()}
+              />
+            ) : sources.length === 0 ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                {mode === "exact"
+                  ? "No exact label match found."
+                  : "No similar names found."}
+              </p>
+            ) : (
+              <div className="flex max-h-80 min-w-0 flex-col gap-4 overflow-y-auto overscroll-contain">
+                {sources.map(({ source, candidates, truncated }) => (
+                  <FieldSet key={source.key} className="min-w-0 gap-2">
+                    <FieldLegend variant="label" className="mb-1 break-words">
+                      {source.title}
+                    </FieldLegend>
+                    {candidates.map((match) => {
+                      const checked =
+                        selected?.source.key === source.key &&
+                        candidate?.iri === match.iri
+                      return (
+                        <label
+                          key={match.iri}
+                          className="flex min-w-0 cursor-pointer items-start gap-2 rounded-md border p-3 has-[:checked]:border-primary has-[:checked]:bg-accent"
+                        >
+                          <input
+                            type="radio"
+                            name={`${id}-matching-term`}
+                            value={`${source.key}:${match.iri}`}
+                            checked={checked}
+                            onChange={() => {
+                              setSourceKey(source.key)
+                              setChoices((previous) => ({
+                                ...previous,
+                                [source.key]: match.iri
+                              }))
+                            }}
+                            className="mt-1 shrink-0 accent-primary"
+                          />
+                          <span className="flex min-w-0 flex-col gap-1">
+                            <span className="break-words text-sm font-medium">
+                              {match.label}
+                            </span>
+                            <span
+                              className="break-words text-xs text-muted-foreground"
+                              title={match.iri}
+                            >
+                              {localName(match.iri)}
+                            </span>
+                          </span>
+                        </label>
+                      )
+                    })}
+                    {truncated ? (
+                      <p className="text-xs text-muted-foreground">
+                        First {candidates.length} matches in this source.
+                      </p>
+                    ) : null}
+                  </FieldSet>
+                ))}
+              </div>
+            )}
+            {term && (mode === "similar" || matches.isSuccess) ? (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto justify-start self-start whitespace-normal px-0 text-left"
+                onClick={changeMode}
+              >
+                {mode === "exact"
+                  ? "Search similar names"
+                  : "Back to exact matches"}
+              </Button>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Selecting a match previews its source hierarchy. It does not place
+              your term in an ontology.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card role="region" aria-labelledby={`${id}-hierarchy-title`}>
+          <CardHeader className="px-4">
+            <CardTitle>
+              <h2 id={`${id}-hierarchy-title`}>Ontology context</h2>
+            </CardTitle>
+            {selected && candidate ? (
+              <CardDescription>
+                {selected.source.title} · Selected match
+              </CardDescription>
+            ) : null}
+          </CardHeader>
+          <CardContent className="flex min-w-0 flex-col gap-3 px-4">
+            {!candidate ? (
+              <p className="text-sm text-muted-foreground">
+                Select a matching term to see its hierarchy.
+              </p>
+            ) : hierarchy.isPending ? (
+              <Loading>Loading parents…</Loading>
+            ) : hierarchy.error ? (
+              <LookupError
+                message={hierarchy.error.message}
+                busy={hierarchy.isFetching}
+                onRetry={() => void hierarchy.refetch()}
+              />
+            ) : hierarchy.data ? (
+              <HierarchyPreview
+                key={`${selected?.source.key}:${candidate.iri}`}
+                hierarchy={hierarchy.data}
+                similar={candidate.match !== "exact"}
+              />
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <section
@@ -182,12 +373,7 @@ function OntologyContextOwner({ term }: { term: string }) {
           <button
             type="button"
             className="text-xs font-medium text-primary underline underline-offset-2"
-            onClick={() => {
-              // Exploring a name never inherits the automatic exact match.
-              setMode(mode === "exact" ? "similar" : "exact")
-              setSourceKey("")
-              setChoices({})
-            }}
+            onClick={changeMode}
           >
             {mode === "exact"
               ? "Search similar names"

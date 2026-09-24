@@ -102,6 +102,7 @@ export type TermReferenceWorkspace = {
   enabled: boolean
   providers: WorkspaceState["providers"]
   selection: DraftReferenceSelection[]
+  clearNotices: () => void
   retrieve: (provider: ReferenceProvider) => Promise<void>
   setWolframContext: (context: string) => void
   setWolframOptions: (options: WolframLookupOptions) => void
@@ -131,7 +132,8 @@ export type TermReferenceWorkspace = {
   add: (
     provider: ReferenceProvider,
     referenceId: string,
-    onAdd: (text: string) => boolean
+    onAdd: (text: string) => boolean,
+    text?: string
   ) => boolean
 }
 
@@ -361,6 +363,7 @@ export function useTermReferenceWorkspace({
     // Adding text and its citation is one undoable action. Later explicit
     // choices invalidate that action's snapshot; passive receipts do not.
     if (!fromInsertion) onSelectionEdit?.()
+    if (!checked) update(found.current, provider, { notice: "" })
     onSelectionChange((prior) => {
       if (owner.current !== found.current) return prior
       const previous = prior.find(
@@ -396,6 +399,15 @@ export function useTermReferenceWorkspace({
     enabled,
     providers: state.key === key ? state.providers : emptyState(key).providers,
     selection,
+    // Undo supersedes transient action feedback, but keeps lookup snapshots and
+    // recorded copy/add events: those interactions still happened.
+    clearNotices() {
+      const current = owner.current
+      if (current.key !== key) return
+      for (const provider of ["chebi", "wolfram"] as const)
+        if (current.providers[provider].notice)
+          update(current, provider, { notice: "" })
+    },
     retrieve,
     setWolframContext(context) {
       const current = owner.current
@@ -561,10 +573,12 @@ export function useTermReferenceWorkspace({
         update(found.current, provider, { clipboardBusy: false })
       }
     },
-    add(provider, referenceId, onAdd) {
+    add(provider, referenceId, onAdd, text) {
       const found = getCurrent(provider, referenceId)
       if (!found) return false
-      if (!onAdd(referenceText(found.reference))) {
+      const insertion = text ?? referenceText(found.reference)
+      if (!insertion.trim()) return false
+      if (!onAdd(insertion)) {
         update(found.current, provider, {
           notice:
             "This source would exceed the definition length limit. Copy a relevant portion instead."

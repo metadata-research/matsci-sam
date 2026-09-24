@@ -428,6 +428,20 @@
       "when": 1789903952830,
       "tag": "0060_definition_assistants",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1790249760962,
+      "tag": "0061_contribution_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1790262307727,
+      "tag": "0062_term_metadata_assertions",
+      "breakpoints": true
     }
   ]
 }

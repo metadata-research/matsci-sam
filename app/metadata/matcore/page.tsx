@@ -35,6 +35,7 @@ export default function MatCoreMetadataPage() {
       <div className={styles.shell}>
         <div className={styles.content}>
           <header className={styles.introduction}>
+            <Link href="/metadata/fields">Metadata fields</Link>
             <h1>MatCore metadata</h1>
             <p className={styles.lead}>
               A preliminary two-level metadata model for computational materials
@@ -139,7 +140,7 @@ export default function MatCoreMetadataPage() {
                   or validating a dataset record here.
                 </span>
                 <Link
-                  href="/vocabulary/density_functional_theory_dft"
+                  href="/vocabulary/id4/density_functional_theory_dft"
                   className={styles.vocabularyLink}
                 >
                   Open DFT in the vocabulary
@@ -214,7 +215,7 @@ function FieldProfile({
             </span>
             <div className={styles.fieldBody}>
               <p className={styles.fieldDescription}>{element.description}</p>
-              {(element.crosswalk || element.rangeIsVocabulary) && (
+              {(element.crosswalk || element.recommendsVocabularyValues) && (
                 <p className={styles.fieldNotes}>
                   {element.crosswalk && (
                     <span className={styles.fieldNote}>
@@ -224,9 +225,9 @@ function FieldProfile({
                       <code>{element.crosswalk.property}</code>
                     </span>
                   )}
-                  {element.rangeIsVocabulary && (
+                  {element.recommendsVocabularyValues && (
                     <span className={styles.fieldNote}>
-                      Values come from the{" "}
+                      Suggested value source: the{" "}
                       <Link href="/vocabulary">MatSci-SAM vocabulary</Link>
                     </span>
                   )}

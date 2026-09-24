@@ -1,5 +1,6 @@
 import {
   coauthorsTable,
+  contributionFilesTable,
   commentsTable,
   aiContributionSuggestionsTable,
   db,
@@ -11,13 +12,14 @@ import {
   editsTable,
   refinementsTable,
   statementsTable,
+  termMetadataAssertionsTable,
   surveyStepPositionsTable,
   studyDefinitionExclusionsTable,
   tagsToDefinitions,
   voteEventsTable,
   votesTable
 } from "@yamz/db"
-import { eq, or } from "drizzle-orm"
+import { eq, or, inArray } from "drizzle-orm"
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -88,6 +90,32 @@ export const deleteDefinitionRows = async (
   await tx.delete(refinementsTable).where(eq(refinementsTable.definitionId, id))
 
   await tx.delete(coauthorsTable).where(eq(coauthorsTable.definitionId, id))
+
+  await tx
+    .delete(contributionFilesTable)
+    .where(
+      inArray(
+        contributionFilesTable.publishedRevisionId,
+        tx
+          .select({ id: definitionRevisionsTable.id })
+          .from(definitionRevisionsTable)
+          .where(eq(definitionRevisionsTable.definitionId, id))
+      )
+    )
+
+  // Revision-qualified metadata follows the exceptional hard purge. Normal
+  // correction retracts an assertion and preserves its original evidence.
+  await tx
+    .delete(termMetadataAssertionsTable)
+    .where(
+      inArray(
+        termMetadataAssertionsTable.definitionRevisionId,
+        tx
+          .select({ id: definitionRevisionsTable.id })
+          .from(definitionRevisionsTable)
+          .where(eq(definitionRevisionsTable.definitionId, id))
+      )
+    )
 
   // Feature intervals reference examples, and examples reference the exact
   // source revision, so both must go before the revision history.

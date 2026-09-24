@@ -54,16 +54,17 @@ The MatCore element set is available as a named graph at
 ## Vocabulary and Dublin Core
 
 MatCore elements identify fields in computational dataset metadata. Vocabulary
-terms identify materials science concepts. MatSci-SAM connects the `material`
-element to the vocabulary with `rdfs:range`.
+terms identify materials science concepts. MatSci-SAM suggests its vocabulary as a source of concepts for the `material`
+element using `matsci:recommendedValueScheme`. This is project guidance, not
+a controlled-value requirement from the paper.
 
 ```turtle
 <…/metadata/matcore#material> a rdf:Property ;
   rdfs:label "Material"@en ;
-  rdfs:range <…/vocabulary> .
+  matsci:recommendedValueScheme <…/vocabulary> .
 ```
 
-This range names the default MatSci-SAM concept scheme at `/vocabulary`.
+This recommendation names the default MatSci-SAM concept scheme at `/vocabulary`.
 Community vocabularies have separate scheme IRIs at
 `/vocabulary/{community}`.
 
@@ -79,3 +80,22 @@ Core.
 | `source-citation` | `dcterms:bibliographicCitation` | `owl:equivalentProperty` |
 | `doi`             | `dcterms:identifier`            | `rdfs:subPropertyOf`     |
 | `license`         | `dcterms:license`               | `rdfs:subPropertyOf`     |
+
+## Dictionary metadata
+
+The [metadata field catalog](/metadata/fields) brings together this frozen
+MatCore snapshot and a separately labeled [experimental proposal](/metadata/experimental).
+[Examples](/metadata/examples) distinguish a concept, a field describing a
+research record, and a value recorded for a particular dataset or activity.
+
+Each term has a Metadata page with Simple and Advanced views. Simple provides
+usage notes and links to fields. Advanced exposes source details and optional
+related concepts. Information can describe the whole term or one exact
+definition revision; revising a definition does not silently move its metadata.
+Contributors propose additions, and curators decide what to publish.
+
+A term used as a field value remains a vocabulary concept. A dictionary entry
+explaining a metadata field links to its specification; it does not become that
+property. Ontology previews do not create relationships. Saved related-concept
+links are explicit, independently sourced, and do not assert equivalence or
+class membership.

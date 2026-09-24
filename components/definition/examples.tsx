@@ -1,5 +1,6 @@
 "use client"
 
+import { ContributionFileDownloads } from "./contribution-file-downloads"
 import { useState } from "react"
 import Link from "next/link"
 import { PlusIcon, SparklesIcon, StarIcon, UserIcon } from "lucide-react"
@@ -179,6 +180,10 @@ export function DefinitionExamples({
                   {example.text}
                 </p>
 
+                <ContributionFileDownloads
+                  files={example.attachments}
+                  showCaption={false}
+                />
                 {example.legacyBackfill ? (
                   <p className="text-xs text-muted-foreground">
                     Origin and contribution date not recorded

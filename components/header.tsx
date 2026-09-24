@@ -44,6 +44,7 @@ const VOCABULARY: Entry[] = [
   { href: "/search", label: "Search" },
   { href: collectionsIndexPath, label: "Collections" },
   { href: modelsIndexPath, label: "Models" },
+  { href: "/metadata/fields", label: "Metadata fields" },
   { href: tagsIndexPath, label: "Tags", secondary: true }
 ]
 

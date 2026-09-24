@@ -31,6 +31,7 @@ function LookupSelect({
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <select
         id={id}
+        aria-label={label}
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

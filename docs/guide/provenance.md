@@ -61,8 +61,8 @@ actions can record private interaction timestamps. Those actions do not prove
 that the person read, retained or used the text. Revealing a definition alone
 does not create a citation or public activity.
 
-The ontology context panel previews terms and their asserted parents in
-MatSci-ONT. Opening the panel or switching ontologies does not save a mapping
+The ontology context panel in a term page’s **Advanced** view previews terms
+and their asserted parents in MatSci-ONT. Opening the panel or switching ontologies does not save a mapping
 or assert that the SAM term is equivalent to a matched term.
 
 ## Votes, comments, and examples

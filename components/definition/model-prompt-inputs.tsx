@@ -1,6 +1,7 @@
 "use client"
 
 import { useId, useRef, type ReactNode, type Ref } from "react"
+import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,6 +33,7 @@ type ModelPromptInputsProps = {
   assistantLabel?: string
   focusRef?: Ref<HTMLDivElement>
   children?: ReactNode
+  embedded?: boolean
 }
 
 /** Shows either the next request's context or an immutable submitted snapshot. */
@@ -44,7 +46,8 @@ export function ModelPromptInputs({
   assistantControls,
   assistantLabel,
   focusRef,
-  children
+  children,
+  embedded = false
 }: ModelPromptInputsProps) {
   const instanceId = useId()
   const contextRef = useRef<HTMLDivElement>(null)
@@ -81,11 +84,14 @@ export function ModelPromptInputs({
     <Card
       ref={focusRef}
       tabIndex={-1}
-      className="min-w-0 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        "min-w-0 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        embedded && "border-0 p-0 shadow-none"
+      )}
       role="region"
       aria-labelledby={headingId}
     >
-      <CardHeader className="min-w-0">
+      <CardHeader className={cn("min-w-0", embedded && "px-0")}>
         {!submitted && assistantControls ? (
           <div className="mb-3 min-w-0">{assistantControls}</div>
         ) : null}
@@ -103,7 +109,9 @@ export function ModelPromptInputs({
             : "Removing context keeps your writing and citations."}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-3">
+      <CardContent
+        className={cn("flex min-w-0 flex-col gap-3", embedded && "px-0")}
+      >
         <div
           ref={contextRef}
           role="group"
@@ -203,7 +211,9 @@ export function ModelPromptInputs({
         </div>
       </CardContent>
       {children ? (
-        <CardFooter className="flex-wrap gap-2">{children}</CardFooter>
+        <CardFooter className={cn("flex-wrap gap-2", embedded && "px-0")}>
+          {children}
+        </CardFooter>
       ) : null}
     </Card>
   )

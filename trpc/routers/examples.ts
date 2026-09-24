@@ -1,3 +1,4 @@
+import { exampleContributionFiles } from "@/lib/contribution-files"
 import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
 import { z } from "zod"
@@ -145,7 +146,14 @@ export const examplesRouter = createTRPCRouter({
           asc(definitionExamplesTable.exampleNumber)
         )
 
-      return { items, canFeature }
+      const files = await exampleContributionFiles(items.map((item) => item.id))
+      return {
+        items: items.map((item) => ({
+          ...item,
+          attachments: files.filter((file) => file.exampleId === item.id)
+        })),
+        canFeature
+      }
     }),
 
   create: contributorProcedure

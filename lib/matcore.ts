@@ -43,10 +43,9 @@ export type MatCoreElement<Key extends string = string> = Readonly<{
   // Absent where no Dublin Core property carries the same meaning, which is
   // the case for every method-specific element.
   crosswalk?: MatCoreCrosswalk
-  // Set where the value should be drawn from the MatSci-SAM vocabulary rather
-  // than written free-text. This is the join between the metadata standard and
-  // the dictionary.
-  rangeIsVocabulary?: boolean
+  // Project guidance: this field can use concepts from the vocabulary.
+  // This is not a controlled-value restriction in the 2025 paper.
+  recommendsVocabularyValues?: boolean
 }>
 
 export type MatCoreProfile = Readonly<{
@@ -121,7 +120,7 @@ export const minimalMatCoreElements = [
     required: true,
     description:
       "Material represented by the data, including composition or chemistry range, structure, and microstructure.",
-    rangeIsVocabulary: true
+    recommendsVocabularyValues: true
   },
   {
     sourceKey: "calculation-type",

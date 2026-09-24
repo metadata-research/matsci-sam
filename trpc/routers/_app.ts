@@ -8,6 +8,7 @@ import { commentsRouter } from "./comments"
 import { feedbackRouter } from "./feedback"
 import { adminRouter } from "./admin"
 import { termsRouter } from "./terms"
+import { termMetadataRouter } from "./term-metadata"
 import { discussionRouter } from "./discussion"
 import { surveysRouter } from "./surveys"
 import { examplesRouter } from "./examples"
@@ -79,6 +80,7 @@ export const appRouter = createTRPCRouter({
   definitions: definitionsRouter,
   votes: votesRouter,
   terms: termsRouter,
+  termMetadata: termMetadataRouter,
   comments: commentsRouter,
   feedback: feedbackRouter,
   admin: adminRouter,

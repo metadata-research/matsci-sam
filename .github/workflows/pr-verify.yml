@@ -123,6 +123,14 @@ jobs:
         run: |
           pnpm test:examples-db
 
+      - name: Test contribution files and term metadata
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:contribution-files-db
+          pnpm test:term-metadata-db
+          pnpm test:term-metadata-rdf-db
+
       # Proves global vocabulary scope, direct definition evidence, highlighted
       # snippets, and PSPP facet filtering inside one rolled-back transaction.
       - name: Test search behavior
@@ -456,6 +464,15 @@ jobs:
       - name: Test KOS Registry and Exports
         run: |
           pnpm test:kos
+
+      - name: Test reference tools, contribution files and metadata
+        run: |
+          pnpm test:references
+          pnpm test:source-context
+          pnpm test:contribution-files
+          pnpm test:term-metadata
+          pnpm test:term-metadata-rdf
+          pnpm test:dictionary-metadata
 
       - name: Test Graph Layer
         run: |

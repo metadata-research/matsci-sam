@@ -1,4 +1,5 @@
 import "server-only"
+import { metadataAssertionEvidenceTurtle } from "./term-metadata-rdf"
 
 import type { buildTermProvenance } from "./provenance"
 import {
@@ -23,7 +24,10 @@ type BuiltProvenance = NonNullable<
 type Provenance = Pick<BuiltProvenance, "term" | "graph"> &
   Partial<Pick<BuiltProvenance, "events">>
 
-export const PROVENANCE_PREFIXES = `@prefix prov: <http://www.w3.org/ns/prov#> .
+export const PROVENANCE_PREFIXES = `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix matsci: <${applicationMetadataNamespaceUri}> .
 
@@ -56,7 +60,19 @@ export const provenanceBodyTurtle = (
     prov.term.slug,
     prov.term.vocabularySlug
   )}/provenance#`
-  const nodeById = new Map(prov.graph.nodes.map((node) => [node.id, node]))
+  const privateMetadataIds = new Set(
+    prov.graph.nodes
+      .filter(
+        (node) =>
+          node.metadataAssertion &&
+          node.metadataAssertion.row.status !== "accepted"
+      )
+      .map((node) => node.id)
+  )
+  const publicNodes = prov.graph.nodes.filter(
+    (node) => !privateMetadataIds.has(node.id)
+  )
+  const nodeById = new Map(publicNodes.map((node) => [node.id, node]))
   const node = (id: string) => {
     const graphNode = nodeById.get(id)
     if (graphNode?.rdfBlankNode) return `_:${graphNode.rdfBlankNode}`
@@ -77,7 +93,7 @@ export const provenanceBodyTurtle = (
     vocabularyTriples || n.meta?.current !== "yes"
 
   const stableDefinitions = new Set(
-    prov.graph.nodes.flatMap((node) =>
+    publicNodes.flatMap((node) =>
       node.publicResource?.specializationOf
         ? [node.publicResource.specializationOf]
         : []
@@ -86,7 +102,7 @@ export const provenanceBodyTurtle = (
 
   const lines: string[] = []
 
-  for (const n of prov.graph.nodes) {
+  for (const n of publicNodes) {
     const isExplicitStableDefinition =
       n.publicResource?.uri !== undefined &&
       stableDefinitions.has(n.publicResource.uri)
@@ -107,10 +123,12 @@ export const provenanceBodyTurtle = (
           statements.push(`${metaProperty(key)} ${lit(String(value))}`)
 
     lines.push(`${node(n.id)} ${statements.join(" ;\n  ")} .`)
+    if (n.metadataAssertion)
+      lines.push(metadataAssertionEvidenceTurtle(n.metadataAssertion))
   }
 
   const explicitlyRenderedResources = new Set(
-    prov.graph.nodes.flatMap((node) =>
+    publicNodes.flatMap((node) =>
       node.publicResource?.uri ? [node.publicResource.uri] : []
     )
   )
@@ -122,7 +140,7 @@ export const provenanceBodyTurtle = (
           : `<${uri}> a prov:Entity .`
       )
 
-  for (const n of prov.graph.nodes) {
+  for (const n of publicNodes) {
     const resource = n.publicResource
     if (!resource) continue
 
@@ -141,7 +159,11 @@ export const provenanceBodyTurtle = (
   }
 
   lines.push("")
-  for (const e of prov.graph.edges)
+  for (const e of prov.graph.edges.filter(
+    (edge) =>
+      !privateMetadataIds.has(edge.source) &&
+      !privateMetadataIds.has(edge.target)
+  ))
     lines.push(
       `${node(e.source)} ${e.rel === "references" ? "<http://purl.org/dc/terms/references>" : `prov:${e.rel}`} ${node(e.target)} .`
     )
