@@ -98,16 +98,41 @@ async function main() {
     })
   })
 
-  async function addSource(scope: Locator) {
-    await scope
-      .getByRole("button", { name: "View references", exact: true })
-      .click()
-    const reveal = scope.getByRole("button", {
-      name: "Show definition",
-      exact: true
-    })
-    if (await reveal.count()) await reveal.click()
-    await scope
+  type EditorKind = "add" | "revision"
+  const sourceAddedNotice =
+    "Added to your definition with a citation. You can remove the citation during review."
+
+  async function showReferences(scope: Locator, kind: EditorKind) {
+    if (kind === "add") {
+      await scope.getByRole("tab", { name: "Advanced", exact: true }).click()
+      await expect(
+        scope.getByText("ChEBI matching terms", { exact: true })
+      ).toBeVisible()
+    } else {
+      await scope
+        .getByRole("button", { name: "View references", exact: true })
+        .click()
+    }
+    const references = scope.locator('[aria-label="ChEBI reference resources"]')
+    await expect(references).toBeVisible()
+    await expect(
+      references.getByText("Reference test material", { exact: true })
+    ).toBeVisible()
+    return references
+  }
+
+  async function addSource(scope: Locator, kind: EditorKind) {
+    const references = await showReferences(scope, kind)
+    // Add reveals its first match automatically; revision editing keeps the
+    // deliberate reveal action. Scope the action to ChEBI, not adjacent tools.
+    if (kind === "revision") {
+      const reveal = references.getByRole("button", {
+        name: "Show definition",
+        exact: true
+      })
+      if (await reveal.count()) await reveal.click()
+    }
+    await references
       .getByRole("button", { name: "Add to definition", exact: true })
       .click()
   }
@@ -116,7 +141,8 @@ async function main() {
     scope: Locator,
     undoName: string,
     reviewName: string,
-    backName: string
+    backName: string,
+    kind: EditorKind
   ) {
     const editor = scope.getByRole("textbox", {
       name: "Definition",
@@ -124,17 +150,43 @@ async function main() {
     })
     const undo = scope.getByRole("button", { name: undoName, exact: true })
     await editor.fill(original)
-    await addSource(scope)
+    await addSource(scope, kind)
     await expect(editor).toHaveValue(`${original}\n\n${sourceText}`)
     await expect(undo).toBeVisible()
+    if (kind === "add") {
+      const beforeToggle = lookups
+      await scope.getByRole("tab", { name: "Simple", exact: true }).click()
+      await expect(editor).toHaveValue(`${original}\n\n${sourceText}`)
+      await expect(undo).toBeVisible()
+      await expect(
+        scope.locator('[aria-label="ChEBI reference resources"]')
+      ).toBeHidden()
+      await scope.getByRole("tab", { name: "Advanced", exact: true }).click()
+      await expect(editor).toHaveValue(`${original}\n\n${sourceText}`)
+      assert.equal(
+        lookups,
+        beforeToggle,
+        "changing views must reuse the source lookup"
+      )
+    }
     await undo.click()
     await expect(editor).toHaveValue(original)
-    await addSource(scope)
+    const references = await showReferences(scope, kind)
+    await expect(
+      references.getByText(sourceAddedNotice, { exact: true })
+    ).toHaveCount(0)
+    await expect(
+      references.getByRole("button", {
+        name: "Cite without inserting",
+        exact: true
+      })
+    ).toBeEnabled()
+    await addSource(scope, kind)
     const later = `${original}\n\n${sourceText}\nA sentence written afterward.`
     await editor.fill(later)
     await expect(undo).toHaveCount(0)
     await expect(editor).toHaveValue(later)
-    await addSource(scope)
+    await addSource(scope, kind)
     await expect(undo).toBeVisible()
     const withSecondSource = await editor.inputValue()
     await scope.getByRole("button", { name: reviewName, exact: true }).click()
@@ -217,7 +269,8 @@ async function main() {
       page.locator("main"),
       "Undo source insertion",
       "Review definition",
-      "Back to writing"
+      "Back to writing",
+      "add"
     )
     await page.goto(`${base}${fixture.path}`)
     await page
@@ -227,7 +280,13 @@ async function main() {
     await dialog
       .getByRole("textbox", { name: "Change note", exact: true })
       .fill("Test an insertion and subsequent editing")
-    await checkUndo(dialog, "Undo", "Review new version", "Back to editing")
+    await checkUndo(
+      dialog,
+      "Undo",
+      "Review new version",
+      "Back to editing",
+      "revision"
+    )
     assert.deepEqual(
       unexpected,
       [],

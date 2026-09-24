@@ -1,6 +1,8 @@
 "use client"
 
+import { cn } from "@/lib/utils"
 import { referenceText } from "@/lib/reference-text"
+import { WOLFRAM_LOOKUP_LIMIT } from "@/lib/wolfram-query"
 import {
   type Dispatch,
   type SetStateAction,
@@ -125,7 +127,10 @@ export function ReferenceTools({
   allowModelInputs = false,
   onProviderChange,
   onModelInputAdded,
-  visible = true
+  visible = true,
+  embedded = false,
+  revealFirst = false,
+  title
 }: {
   workspace: TermReferenceWorkspace
   provider: ReferenceProvider
@@ -137,8 +142,13 @@ export function ReferenceTools({
   onProviderChange: (provider: ReferenceProvider) => void
   onModelInputAdded?: () => void
   visible?: boolean
+  embedded?: boolean
+  revealFirst?: boolean
+  title?: string
 }) {
   const id = useId()
+  const initiallyRevealedLookup = useRef<string | null>(null)
+  const wolframOptionsRef = useRef<HTMLDivElement>(null)
   const state = workspace.providers[provider]
   const result = provider === "wolfram" && state.editing ? null : state.result
   const name = providerName(provider)
@@ -157,12 +167,26 @@ export function ReferenceTools({
         result.references.map((reference) => reference.id)
       )
   }, [visible, provider, result, workspace])
+  useEffect(() => {
+    const first = result?.references[0]
+    if (
+      !visible ||
+      !revealFirst ||
+      provider !== "chebi" ||
+      !result ||
+      !first ||
+      initiallyRevealedLookup.current === result.lookupId
+    )
+      return
+    initiallyRevealedLookup.current = result.lookupId
+    workspace.setReferenceRevealed(provider, first.id, true)
+  }, [visible, revealFirst, provider, result, workspace])
   return (
     <Card
       aria-label={`${name} reference resources`}
-      className="min-w-0 gap-4 shadow-none"
+      className={cn("min-w-0 gap-4 shadow-none", embedded && "border-0 p-0")}
     >
-      <CardHeader>
+      <CardHeader hidden={embedded}>
         {provider === "wolfram" && (
           <Button
             type="button"
@@ -177,9 +201,10 @@ export function ReferenceTools({
         )}
         <CardTitle className="flex items-center gap-2">
           <BookOpenIcon className="size-4" aria-hidden />
-          {provider === "chebi"
-            ? "ChEBI references"
-            : "Wolfram factual context"}
+          {title ??
+            (provider === "chebi"
+              ? "ChEBI references"
+              : "Wolfram factual context")}
         </CardTitle>
         <CardDescription>
           {provider === "chebi"
@@ -187,12 +212,16 @@ export function ReferenceTools({
             : "Retrieve facts and interpretations from Wolfram|Alpha. Results are stored for this prototype."}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-4">
+      <CardContent
+        className={cn("flex min-w-0 flex-col gap-4", embedded && "px-0")}
+      >
         <p className="break-words text-sm">
           Term: <strong>{workspace.term}</strong>
         </p>
         {provider === "wolfram" && (
-          <WolframLookupOptionsForm workspace={workspace} disabled={busy} />
+          <div ref={wolframOptionsRef}>
+            <WolframLookupOptionsForm workspace={workspace} disabled={busy} />
+          </div>
         )}
         {state.status === "pending" && (
           <p
@@ -267,14 +296,16 @@ export function ReferenceTools({
                           : "Another possible match"}
                       </p>
                     )}
-                    <a
-                      href={reference.sourceIri}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="break-words font-medium text-primary underline underline-offset-4"
-                    >
-                      {reference.term}
-                    </a>
+                    {provider === "chebi" && (
+                      <a
+                        href={reference.sourceIri}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-words font-medium text-primary underline underline-offset-4"
+                      >
+                        {reference.term}
+                      </a>
+                    )}
                     {provider === "chebi" && (
                       <Button
                         type="button"
@@ -306,18 +337,47 @@ export function ReferenceTools({
                             {state.history.findIndex(
                               (lookup) => lookup.lookupId === result.lookupId
                             ) + 1}{" "}
-                            · Actions apply to this complete response.
+                            · Citations and assistant context use the complete
+                            saved response.
                           </p>
                         )}
                         {provider === "wolfram" ? (
                           <div
-                            className="max-h-[32rem] min-w-0 overflow-y-auto pr-1"
+                            className="min-w-0"
                             aria-label="Wolfram result content"
-                            tabIndex={0}
                           >
                             <WolframResult
+                              key={reference.id}
                               text={reference.definition}
+                              sourceUrl={reference.sourceIri}
+                              onChangeInterpretation={() => {
+                                workspace.refineWolfram()
+                                requestAnimationFrame(() => {
+                                  const target =
+                                    wolframOptionsRef.current?.querySelector<HTMLSelectElement>(
+                                      '[aria-label="Wolfram interpretation"]'
+                                    )
+                                  target?.focus()
+                                  target?.scrollIntoView({ block: "nearest" })
+                                })
+                              }}
+                              changeDisabled={
+                                busy ||
+                                state.history.length >= WOLFRAM_LOOKUP_LIMIT
+                              }
                               copyDisabled={providerBusy}
+                              addDisabled={busy || !canAdd}
+                              onCopyOriginal={() =>
+                                void workspace.copy(provider, reference.id)
+                              }
+                              onAddSection={(text) =>
+                                workspace.add(
+                                  provider,
+                                  reference.id,
+                                  onAdd,
+                                  text
+                                )
+                              }
                               onCopySection={(text) =>
                                 void workspace.copy(
                                   provider,
@@ -352,32 +412,34 @@ export function ReferenceTools({
                             "Prototype use; long-term terms under discussion"
                           )}
                         </p>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={busy || !canAdd}
-                            onClick={() =>
-                              workspace.add(provider, reference.id, onAdd)
-                            }
-                          >
-                            <PlusIcon data-icon="inline-start" aria-hidden />
-                            Add to definition
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={providerBusy}
-                            onClick={() =>
-                              void workspace.copy(provider, reference.id)
-                            }
-                          >
-                            <CopyIcon data-icon="inline-start" aria-hidden />
-                            Copy
-                          </Button>
-                        </div>
+                        {provider === "chebi" && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={busy || !canAdd}
+                              onClick={() =>
+                                workspace.add(provider, reference.id, onAdd)
+                              }
+                            >
+                              <PlusIcon data-icon="inline-start" aria-hidden />
+                              Add to definition
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={providerBusy}
+                              onClick={() =>
+                                void workspace.copy(provider, reference.id)
+                              }
+                            >
+                              <CopyIcon data-icon="inline-start" aria-hidden />
+                              Copy
+                            </Button>
+                          </div>
+                        )}
                         {!canAdd && (
                           <p className="text-xs text-muted-foreground">
                             Return to writing before adding source text.
@@ -474,7 +536,9 @@ export function ReferenceTools({
           </Alert>
         )}
       </CardContent>
-      <CardFooter className="text-xs text-muted-foreground">
+      <CardFooter
+        className={cn("text-xs text-muted-foreground", embedded && "px-0")}
+      >
         Add to definition attaches a removable citation. Viewing and copying do
         not attach citations or add assistant context.
       </CardFooter>

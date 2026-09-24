@@ -28,6 +28,24 @@ Use per-term provenance downloads or the provenance graph for histories.
 [MatCore metadata](/metadata/matcore) presents the preliminary Minimal and DFT
 profiles and a synthetic example.
 
+## Metadata on dictionary entries
+
+Use the Metadata link on a term page to read or contribute metadata. Simple
+view offers usage notes and metadata-field usage; Advanced adds alternative
+labels, related external concepts, language, source details and RDF inspection.
+Changing views keeps the same draft and stored statements. Existing definitions,
+classification tags and provenance are presented with their original scope.
+
+Contributors propose additions; curators publish them. Public RDF includes only
+accepted assertions. Withdrawing an accepted assertion removes its current fact
+while preserving its attribution and history. Each contribution may apply to the
+whole term or one exact definition revision. It is never carried to a newer
+revision automatically.
+
+The [field catalog](/metadata/fields) identifies versioned field specifications;
+[examples](/metadata/examples) illustrate how terms can supply values or explain
+a field. This interface does not store experimental or computational records.
+
 ## Named graphs
 
 | Graph        | Content                                                       |
@@ -72,6 +90,11 @@ redirects to this guide.
 
 | Term                        | Meaning                                                 |
 | --------------------------- | ------------------------------------------------------- |
+| `usedAsValueFor`            | Field for which a term or definition can supply a value |
+| `describesMetadataField`    | Field specification explained by an entry or definition |
+| `relatedConcept`            | Explicit context link without equivalence or membership |
+| `recommendedValueScheme`    | Project recommendation of a vocabulary for field values |
+| `MetadataAssertion`         | Independently attributed metadata contribution          |
 | `Definition`                | A stable contributed candidate                          |
 | `DefinitionRevision`        | One immutable definition version                        |
 | `definitionNumber`          | Permanent number within the term                        |

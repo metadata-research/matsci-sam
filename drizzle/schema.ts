@@ -19,7 +19,8 @@ import {
   jsonb,
   numeric,
   unique,
-  uuid
+  uuid,
+  customType
 } from "drizzle-orm/pg-core"
 
 export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"])
@@ -2786,3 +2787,168 @@ export const chatsTableRelations = relations(chatsTable, ({ one }) => ({
     references: [usersTable.id]
   })
 }))
+
+// Small contribution files stay in the same backup/restore boundary as their
+// immutable revision evidence. Ordinary queries explicitly omit the bytes.
+const contributionFileBytes = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return "bytea"
+  }
+})
+export const contributionFilesTable = pgTable(
+  "contributionFiles",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    uploadedById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    termText: text().notNull(),
+    vocabularySlug: text()
+      .notNull()
+      .references(() => vocabulariesTable.slug),
+    filename: text().notNull(),
+    mediaType: text().notNull(),
+    byteSize: integer().notNull(),
+    contentHash: text().notNull(),
+    bytes: contributionFileBytes().notNull(),
+    role: text().$type<"example" | "source">().notNull(),
+    title: text().notNull(),
+    caption: text().notNull(),
+    citation: text(),
+    page: text(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    publishedRevisionId: integer().references(
+      () => definitionRevisionsTable.id
+    ),
+    exampleId: integer().references(() => definitionExamplesTable.id),
+    publishedAt: timestamp({ mode: "string", withTimezone: true })
+  },
+  (t) => [
+    index("contribution_files_owner_pending_idx")
+      .on(t.uploadedById, t.createdAt)
+      .where(sql`${t.publishedRevisionId} IS NULL`),
+    index("contribution_files_revision_idx").on(t.publishedRevisionId),
+    index("contribution_files_example_idx").on(t.exampleId),
+    check(
+      "contribution_files_size",
+      sql`${t.byteSize} > 0 AND ${t.byteSize} <= 5242880 AND octet_length(${t.bytes}) = ${t.byteSize}`
+    ),
+    check(
+      "contribution_files_media_type",
+      sql`${t.mediaType} IN ('application/pdf', 'image/png', 'image/jpeg')`
+    ),
+    check("contribution_files_role", sql`${t.role} IN ('example', 'source')`),
+    check("contribution_files_hash", sql`${t.contentHash} ~ '^[a-f0-9]{64}$'`),
+    check(
+      "contribution_files_metadata",
+      sql`btrim(${t.title}) <> '' AND char_length(${t.title}) <= 200 AND btrim(${t.caption}) <> '' AND char_length(${t.caption}) <= 2000 AND char_length(${t.filename}) BETWEEN 1 AND 180 AND char_length(${t.termText}) BETWEEN 1 AND 200 AND (${t.citation} IS NULL OR char_length(${t.citation}) <= 1000) AND (${t.page} IS NULL OR char_length(${t.page}) <= 100)`
+    ),
+    check(
+      "contribution_files_publication",
+      sql`(${t.publishedRevisionId} IS NULL AND ${t.publishedAt} IS NULL AND ${t.exampleId} IS NULL) OR (${t.publishedRevisionId} IS NOT NULL AND ${t.publishedAt} IS NOT NULL AND ${t.publishedAt} >= ${t.createdAt} AND ((${t.role} = 'source' AND ${t.exampleId} IS NULL) OR (${t.role} = 'example' AND ${t.exampleId} IS NOT NULL)))`
+    )
+  ]
+)
+
+// --- DICTIONARY METADATA ASSERTIONS ---
+// These describe a dictionary entry or one exact definition revision. They
+// never capture a dataset's field values. Source attestations and contributors
+// remain separate even when their visible values agree.
+export const termMetadataAssertionsTable = pgTable(
+  "termMetadataAssertions",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    termId: integer()
+      .references(() => termsTable.id)
+      .notNull(),
+    definitionRevisionId: integer().references(
+      () => definitionRevisionsTable.id
+    ),
+    fieldKey: text()
+      .$type<
+        | "alternateLabel"
+        | "usageNote"
+        | "usedAsValueFor"
+        | "describesMetadataField"
+        | "relatedConcept"
+      >()
+      .notNull(),
+    valueType: text().$type<"text" | "iri">().notNull(),
+    value: text().notNull(),
+    language: text(),
+    sourceIri: text(),
+    sourceLabel: text(),
+    sourceVersion: text(),
+    assertedById: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    status: text()
+      .$type<"proposed" | "accepted" | "rejected">()
+      .notNull()
+      .default("proposed"),
+    reviewedById: integer().references(() => usersTable.id),
+    reviewedAt: timestamp({ mode: "string", withTimezone: true }),
+    retractedById: integer().references(() => usersTable.id),
+    retractedAt: timestamp({ mode: "string", withTimezone: true })
+  },
+  (t) => [
+    check(
+      "term_metadata_field_shape",
+      sql`(${t.fieldKey} IN ('alternateLabel', 'usageNote') AND ${t.valueType} = 'text') OR (${t.fieldKey} IN ('usedAsValueFor', 'describesMetadataField', 'relatedConcept') AND ${t.valueType} = 'iri')`
+    ),
+    check(
+      "term_metadata_value_nonblank",
+      sql`btrim(${t.value}) <> '' AND char_length(${t.value}) <= 4000`
+    ),
+    check(
+      "term_metadata_value_iri",
+      sql`${t.valueType} <> 'iri' OR (${t.value} ~ '^https?://[^[:space:][:cntrl:]<>"{}|^\`\\\\]+$' AND char_length(${t.value}) <= 2048)`
+    ),
+    check(
+      "term_metadata_language",
+      sql`${t.language} IS NULL OR (${t.valueType} = 'text' AND ${t.language} ~ '^[a-z]{2,8}(-[a-z0-9]{1,8})*$' AND char_length(${t.language}) <= 64)`
+    ),
+    check(
+      "term_metadata_source_iri",
+      sql`${t.sourceIri} IS NULL OR (${t.sourceIri} ~ '^https?://[^[:space:][:cntrl:]<>"{}|^\`\\\\]+$' AND char_length(${t.sourceIri}) <= 2048)`
+    ),
+    check(
+      "term_metadata_source_text",
+      sql`(${t.sourceLabel} IS NULL OR (btrim(${t.sourceLabel}) <> '' AND char_length(${t.sourceLabel}) <= 200)) AND (${t.sourceVersion} IS NULL OR (btrim(${t.sourceVersion}) <> '' AND char_length(${t.sourceVersion}) <= 200 AND (${t.sourceLabel} IS NOT NULL OR ${t.sourceIri} IS NOT NULL)))`
+    ),
+    check(
+      "term_metadata_review",
+      sql`(${t.status} = 'proposed' AND ${t.reviewedById} IS NULL AND ${t.reviewedAt} IS NULL) OR (${t.status} IN ('accepted', 'rejected') AND ${t.reviewedById} IS NOT NULL AND ${t.reviewedAt} IS NOT NULL AND ${t.reviewedAt} >= ${t.createdAt})`
+    ),
+    check(
+      "term_metadata_retraction",
+      sql`(${t.retractedById} IS NULL AND ${t.retractedAt} IS NULL) OR (${t.retractedById} IS NOT NULL AND ${t.retractedAt} IS NOT NULL AND ${t.retractedAt} >= ${t.createdAt})`
+    ),
+    uniqueIndex("term_metadata_active_author_claim_unique")
+      .on(
+        t.termId,
+        sql`coalesce(${t.definitionRevisionId}, 0)`,
+        t.fieldKey,
+        t.valueType,
+        sql`md5(${t.value})`,
+        sql`coalesce(${t.language}, '')`,
+        t.assertedById,
+        sql`md5(coalesce(${t.sourceIri}, ''))`,
+        sql`md5(coalesce(${t.sourceLabel}, ''))`,
+        sql`md5(coalesce(${t.sourceVersion}, ''))`
+      )
+      .where(
+        sql`${t.retractedAt} IS NULL AND ${t.status} IN ('proposed', 'accepted')`
+      ),
+    index("term_metadata_term_idx").on(t.termId, t.createdAt),
+    index("term_metadata_revision_idx").on(t.definitionRevisionId),
+    index("term_metadata_author_idx").on(t.assertedById)
+  ]
+)
+export type TermMetadataAssertion =
+  typeof termMetadataAssertionsTable.$inferSelect

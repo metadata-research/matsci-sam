@@ -1,3 +1,8 @@
+import { contributionFilePublicationsSchema } from "@/lib/contribution-file-types"
+import {
+  publishContributionFiles,
+  revisionContributionFiles
+} from "@/lib/contribution-files"
 import {
   currentDefinitionRevision,
   publicDefinitionAuthor,
@@ -109,7 +114,8 @@ export const definitionsRouter = createTRPCRouter({
           // An explicit, persisted AI preview generated inside either New term
           // or Suggest revision. The server consumes it exactly once.
           aiSuggestionId: z.number().int().positive().optional(),
-          references: referenceSelectionsSchema.optional()
+          references: referenceSelectionsSchema.optional(),
+          attachments: contributionFilePublicationsSchema.optional()
         })
         .refine(
           ({ derivedFromRevisionId, replacesDefinitionId }) =>
@@ -145,6 +151,17 @@ export const definitionsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Reload the walkthrough before contributing."
+        })
+      if (
+        input.attachments?.length &&
+        (input.derivedFromRevisionId !== undefined ||
+          input.replacesDefinitionId !== undefined ||
+          input.surveyStepId !== undefined)
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "File attachments are currently available when adding a new term."
         })
       // normalize the term
       const term = input.term.trim().toLowerCase()
@@ -334,6 +351,13 @@ export const definitionsRouter = createTRPCRouter({
             lockedWalkthroughStep !== null && !isRevision && !isReplacement
           const isNewTerm =
             !isRevision && !isReplacement && lockedWalkthroughStep === null
+
+          if (input.attachments?.length && !isNewTerm)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "File attachments are currently available when adding a new term."
+            })
 
           if (
             input.initialExample &&
@@ -537,6 +561,13 @@ export const definitionsRouter = createTRPCRouter({
 
           await attachRevisionReferences(tx, {
             selection: input.references,
+            authorId,
+            termId: dbTerm.id,
+            revisionId: insertedRevision.id
+          })
+
+          await publishContributionFiles(tx, {
+            attachments: input.attachments,
             authorId,
             termId: dbTerm.id,
             revisionId: insertedRevision.id
@@ -999,6 +1030,7 @@ export const definitionsRouter = createTRPCRouter({
         editor: selectedRevision.editor,
         comparison,
         references: await revisionReferencesQuery([selectedRevision.id]),
+        attachments: await revisionContributionFiles([selectedRevision.id]),
         modelReferences: acceptedSuggestion?.referenceInputs ?? [],
         // Listed rather than spread: previousRevisionId and
         // derivedFromRevisionId in the select feed the server-side comparison

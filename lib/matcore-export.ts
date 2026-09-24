@@ -15,11 +15,9 @@ import {
 /*
  * MatCore as RDF.
  *
- * The dictionary describes terminology. MatCore describes the datasets that
- * terminology is used about, so the two meet at exactly one point: an element
- * whose value should be drawn from the vocabulary rather than written as free
- * text. That join is stated with rdfs:range, and `material` is the element
- * that carries it.
+ * The dictionary supplies concepts that may be used in research metadata.
+ * Our recommended value scheme is project guidance, not a class range and
+ * not a constraint stated by the paper. A ConceptScheme is not an RDF class.
  *
  * Elements are rdf:Property rather than owl:DatatypeProperty or
  * owl:ObjectProperty. The paper gives no datatypes, so committing to either
@@ -53,7 +51,8 @@ const elementBlock = (element: MatCoreElement, profile: MatCoreProfile) => {
         : `rdfs:subPropertyOf ${element.crosswalk.property}`
     )
 
-  if (element.rangeIsVocabulary) pairs.push(`rdfs:range <${schemeUri}>`)
+  if (element.recommendsVocabularyValues)
+    pairs.push(`matsci:recommendedValueScheme <${schemeUri}>`)
 
   return turtleBlock(matCoreElementUri(element.key), pairs)
 }

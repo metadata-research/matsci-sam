@@ -73,7 +73,15 @@
     "test:wolfram-options": "tsx scripts/test-wolfram-options.ts",
     "test:references-db": "tsx --conditions=react-server scripts/test-term-references-db.ts",
     "test:agent-one": "tsx scripts/test-agent-one.ts",
-    "test:source-context": "tsx scripts/test-source-context-limits.ts"
+    "test:source-context": "tsx scripts/test-source-context-limits.ts",
+    "test:contribution-files": "tsx scripts/test-contribution-files.ts",
+    "test:contribution-files-db": "tsx --conditions=react-server scripts/test-contribution-files-db.ts",
+    "files:cleanup": "tsx scripts/cleanup-contribution-files.ts",
+    "test:term-metadata": "tsx scripts/test-term-metadata.ts",
+    "test:term-metadata-db": "tsx --conditions=react-server scripts/test-term-metadata-db.ts",
+    "test:term-metadata-rdf": "tsx --conditions=react-server scripts/test-term-metadata-rdf.ts",
+    "test:term-metadata-rdf-db": "tsx --conditions=react-server scripts/test-term-metadata-rdf-db.ts",
+    "test:dictionary-metadata": "tsx scripts/test-dictionary-metadata.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

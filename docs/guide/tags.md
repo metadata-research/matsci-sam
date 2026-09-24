@@ -34,7 +34,8 @@ The classification follows [Greenberg et al. (2023)](https://doi.org/10.1007/978
 
 Read the scope note on the facet page before assigning it. A term may have
 several facets. Administrators assign them with the pencil beside the facet
-chips on a term page. Select an assigned facet again to remove it.
+chips in a term page’s **Advanced** view. Select an assigned facet again to
+remove it.
 
 ![Facets assigned to a term](/images/docs/term-facets.png)
 ![Terms classified under a facet](/images/docs/facet-page.png)

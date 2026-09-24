@@ -1,7 +1,11 @@
 import { findDefinitionAtRank } from "@/lib/public-definition-resolution"
 import { DefinitionList } from "@/app/terms/[termId]/definitions"
 import { TermDefaultDefinition } from "@/components/definition/term-default-definition"
-import { OntologyContextPanel } from "@/components/ontology-context-panel"
+import {
+  TermPageView,
+  TermAdvancedDetails,
+  TermOntologyContext
+} from "@/components/term/term-page-view"
 import { Badge } from "@/components/ui/badge"
 import { FacetEditor } from "@/components/tags/facet-editor"
 import { TermFacets, TermFacetsFallback } from "@/components/tags/term-facets"
@@ -300,85 +304,106 @@ export async function VocabularyTermPage({
               <Badge variant="outline">Retired</Badge>
             ) : null}
           </div>
-          <div className="mb-1 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="font-serif text-4xl font-bold">{term.term}</h1>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <TermPageView
+            key={term.id}
+            heading={
+              <h1 className="break-words font-serif text-4xl font-bold">
+                {term.term}
+              </h1>
+            }
+          >
+            <nav
+              aria-label="Term information"
+              className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+            >
               <Link
-                href={termActivityPath(term.slug, term.vocabularySlug)}
-                className="flex items-center gap-1 text-primary"
+                href={`/terms/${term.id}/metadata`}
+                className="text-primary hover:underline"
               >
-                <ActivityIcon className="size-4" aria-hidden /> Changes &amp;
-                activity
+                Metadata
               </Link>
-              <Link
-                href={termPath(term.slug, term.vocabularySlug) + "/provenance"}
-                className="flex items-center gap-1 text-primary"
-              >
-                <NetworkIcon className="size-4" /> Provenance
-              </Link>
-              <span className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-                <a
-                  href={termPath(term.slug, term.vocabularySlug) + "/skos.ttl"}
-                  className="hover:text-primary"
+              <TermAdvancedDetails className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link
+                  href={termActivityPath(term.slug, term.vocabularySlug)}
+                  className="flex items-center gap-1 text-primary"
                 >
-                  SKOS
-                </a>
-                <a
+                  <ActivityIcon className="size-4" aria-hidden /> Changes &amp;
+                  activity
+                </Link>
+                <Link
                   href={
-                    termPath(term.slug, term.vocabularySlug) + "/skos.jsonld"
+                    termPath(term.slug, term.vocabularySlug) + "/provenance"
                   }
-                  className="hover:text-primary"
+                  className="flex items-center gap-1 text-primary"
                 >
-                  JSON-LD
-                </a>
+                  <NetworkIcon className="size-4" aria-hidden /> Provenance
+                </Link>
+                <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                  <a
+                    href={
+                      termPath(term.slug, term.vocabularySlug) + "/skos.ttl"
+                    }
+                    className="hover:text-primary"
+                  >
+                    SKOS
+                  </a>
+                  <a
+                    href={
+                      termPath(term.slug, term.vocabularySlug) + "/skos.jsonld"
+                    }
+                    className="hover:text-primary"
+                  >
+                    JSON-LD
+                  </a>
+                </span>
+              </TermAdvancedDetails>
+            </nav>
+
+            <TermAdvancedDetails className="mb-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                IRI
               </span>
+              <code className="break-all text-sm font-mono text-muted-foreground select-all">
+                {termUri(term.slug, term.vocabularySlug)}
+              </code>
+            </TermAdvancedDetails>
+
+            <div className="mb-6">
+              <Suspense fallback={<TermFacetsFallback />}>
+                <TermFacets termId={term.id}>
+                  {isCurator ? (
+                    <TermAdvancedDetails>
+                      <FacetEditor termId={term.id} options={options} />
+                    </TermAdvancedDetails>
+                  ) : null}
+                </TermFacets>
+              </Suspense>
             </div>
-          </div>
 
-          <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              IRI
-            </span>
-            <code className="break-all text-sm font-mono text-muted-foreground select-all">
-              {termUri(term.slug, term.vocabularySlug)}
-            </code>
-          </div>
-
-          <div className="mb-6">
-            <Suspense fallback={<TermFacetsFallback />}>
-              <TermFacets termId={term.id}>
-                {isCurator ? (
-                  <FacetEditor termId={term.id} options={options} />
-                ) : null}
-              </TermFacets>
-            </Suspense>
-          </div>
-
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="min-w-0">
-              {topDefinition ? (
-                <TermDefaultDefinition definitionId={topDefinition.id} />
-              ) : (
-                <p className="rounded-lg border bg-card p-6 text-muted-foreground">
-                  No definitions have been added yet.
-                </p>
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+              <div className="min-w-0">
+                {topDefinition ? (
+                  <TermDefaultDefinition definitionId={topDefinition.id} />
+                ) : (
+                  <p className="rounded-lg border bg-card p-6 text-muted-foreground">
+                    No definitions have been added yet.
+                  </p>
+                )}
+              </div>
+              <TermOntologyContext term={term.term} />
+              {topDefinition && (
+                <div className="min-w-0 lg:col-start-1">
+                  <DefinitionList
+                    key={term.id}
+                    termId={term.id}
+                    termSlug={term.slug}
+                    termVocabularySlug={term.vocabularySlug}
+                    defaultDefinitionId={topDefinition.id}
+                  />
+                </div>
               )}
             </div>
-            <aside className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-              <OntologyContextPanel term={term.term} />
-            </aside>
-            {topDefinition && (
-              <div className="min-w-0 lg:col-start-1">
-                <DefinitionList
-                  key={term.id}
-                  termId={term.id}
-                  termSlug={term.slug}
-                  termVocabularySlug={term.vocabularySlug}
-                  defaultDefinitionId={topDefinition.id}
-                />
-              </div>
-            )}
-          </div>
+          </TermPageView>
         </section>
       </main>
     </HydrateClient>

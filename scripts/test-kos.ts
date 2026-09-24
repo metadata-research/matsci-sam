@@ -938,14 +938,25 @@ const main = async () => {
     "no MatCore resource may be typed skos:Concept"
   )
 
-  // `material` is the join to the vocabulary.
-  const range = matCoreQuads.filter(
-    (q: Quad) =>
-      q.predicate.value === "http://www.w3.org/2000/01/rdf-schema#range"
+  // Value-scheme guidance is not an RDF class range.
+  assert.ok(
+    !matCoreQuads.some(
+      (q: Quad) =>
+        q.predicate.value === "http://www.w3.org/2000/01/rdf-schema#range"
+    ),
+    "a concept scheme must not be used as an RDF class range"
   )
-  assert.equal(range.length, 1)
-  assert.equal(range[0].subject.value, elementUri("material"))
-  assert.equal(range[0].object.value, defaultVocabularyUri)
+  const { applicationMetadataNamespaceUri } = await import(
+    "../lib/public-identifiers"
+  )
+  const guidance = matCoreQuads.filter(
+    (q: Quad) =>
+      q.predicate.value ===
+      `${applicationMetadataNamespaceUri}recommendedValueScheme`
+  )
+  assert.equal(guidance.length, 1)
+  assert.equal(guidance[0].subject.value, elementUri("material"))
+  assert.equal(guidance[0].object.value, defaultVocabularyUri)
 
   console.log("KOS ledger tests passed")
 }

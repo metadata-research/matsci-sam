@@ -1,8 +1,17 @@
 import {
+  isCurrentMetadataAssertion,
+  metadataAssertionFact,
+  metadataFactsTurtle,
+  metadataJsonLdProperties,
+  type MetadataFact,
+  type MetadataAssertionRow
+} from "./term-metadata-rdf"
+import {
   currentDefinitionRevision,
   publicDefinitionAuthor
 } from "@/lib/canonical-definition-query"
 import { compareDefinitions } from "./canonical-definition"
+import { generateDictionaryMetadataDefinitionsTurtle } from "./dictionary-metadata-export"
 import "server-only"
 
 import {
@@ -14,11 +23,21 @@ import {
   definitionRevisionsTable,
   definitionsTable,
   statementsTable,
+  termMetadataAssertionsTable,
   termsTable,
   usersTable,
   vocabulariesTable
 } from "@yamz/db"
-import { asc, desc, eq, inArray, isNull, ne } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNull,
+  ne
+} from "drizzle-orm"
 import { SITE_NAME, SITE_URL } from "./site"
 import { definitionStatus } from "./status"
 import {
@@ -103,6 +122,7 @@ export type TermSkos = {
   narrower: TermRef[]
   related: TermRef[]
   mappings: Mapping[]
+  metadata?: MetadataFact[]
 }
 
 // --- Loading ---
@@ -192,6 +212,12 @@ export type TermSkosRows = {
   definitions: DefinitionRow[]
   coauthors: CoauthorRow[]
   examples?: ActiveDefinitionExampleText[]
+  metadata?: {
+    assertion: MetadataAssertionRow
+    definitionNumber: number | null
+    revisionVersion: number | null
+    currentRevisionId: number | null
+  }[]
 }
 
 // Pure assembly of TermSkos records from loaded rows and a KOS snapshot.
@@ -319,7 +345,35 @@ export const assembleTermSkos = (
       broader: view.termBroader(term.id),
       narrower: view.termNarrower(term.id),
       related: view.termRelated(term.id),
-      mappings: view.termMappings(term.id)
+      mappings: view.termMappings(term.id),
+      metadata: (rows.metadata ?? []).flatMap((item) => {
+        const row = item.assertion
+        if (row.termId !== term.id || !isCurrentMetadataAssertion(row))
+          return []
+        if (row.definitionRevisionId === null)
+          return [metadataAssertionFact(row, term)]
+        if (
+          row.definitionRevisionId !== item.currentRevisionId ||
+          item.definitionNumber === null ||
+          item.revisionVersion === null ||
+          // Metadata is loaded independently, so retain the same public
+          // definition boundary as both current-revision serializers.
+          !definitions.some(
+            (definition) =>
+              definition.definitionNumber === item.definitionNumber &&
+              definition.currentRevision.version === item.revisionVersion
+          )
+        )
+          return []
+        return [
+          metadataAssertionFact(row, term, {
+            id: row.definitionRevisionId,
+            termId: term.id,
+            definitionNumber: item.definitionNumber,
+            version: item.revisionVersion
+          })
+        ]
+      })
     }
   })
 }
@@ -383,7 +437,43 @@ export const buildTermsSkos = async (
       ])
     : [[], []]
 
-  return assembleTermSkos({ terms, definitions, coauthors, examples }, kos)
+  const metadata = await db
+    .select({
+      assertion: getTableColumns(termMetadataAssertionsTable),
+      definitionNumber: definitionsTable.definitionNumber,
+      revisionVersion: definitionRevisionsTable.version,
+      currentRevisionId: definitionsTable.currentRevisionId
+    })
+    .from(termMetadataAssertionsTable)
+    .leftJoin(
+      definitionRevisionsTable,
+      eq(
+        termMetadataAssertionsTable.definitionRevisionId,
+        definitionRevisionsTable.id
+      )
+    )
+    .leftJoin(
+      definitionsTable,
+      eq(definitionRevisionsTable.definitionId, definitionsTable.id)
+    )
+    .where(
+      and(
+        inArray(
+          termMetadataAssertionsTable.termId,
+          terms.map((term) => term.id)
+        ),
+        eq(termMetadataAssertionsTable.status, "accepted"),
+        isNull(termMetadataAssertionsTable.retractedAt)
+      )
+    )
+    .orderBy(
+      asc(termMetadataAssertionsTable.createdAt),
+      asc(termMetadataAssertionsTable.id)
+    )
+  return assembleTermSkos(
+    { terms, definitions, coauthors, examples, metadata },
+    kos
+  )
 }
 
 export const buildTermSkos = async (
@@ -479,6 +569,8 @@ const conceptTurtle = (skos: TermSkos) => {
     )
   }
 
+  const metadata = metadataFactsTurtle(skos.metadata ?? [])
+  if (metadata) blocks.push(metadata)
   return blocks.join("\n")
 }
 
@@ -554,7 +646,11 @@ export const renderVocabularyTurtle = ({
     return turtleBlock(vocabularyUri(vocabulary.slug), pairs)
   })
 
-  return [...schemes, ...records.map(conceptTurtle)].join("\n")
+  return [
+    ...schemes,
+    generateDictionaryMetadataDefinitionsTurtle(),
+    ...records.map(conceptTurtle)
+  ].join("\n")
 }
 
 // The whole dictionary as one document: the scheme, every term concept, then
@@ -599,6 +695,9 @@ export const termJsonLd = (skos: TermSkos, kos: KosData) => {
     "@type": "skos:Concept",
     "skos:inScheme": idRef(vocabularyUri(skos.vocabularySlug)),
     "skos:prefLabel": { "@value": skos.prefLabel, "@language": "en" },
+    ...metadataJsonLdProperties(
+      (skos.metadata ?? []).filter((fact) => fact.subject === skos.uri)
+    ),
     ...(skos.canonicalDefinition
       ? { "matsci:canonicalDefinition": { "@id": skos.canonicalDefinition } }
       : {}),
@@ -608,6 +707,9 @@ export const termJsonLd = (skos: TermSkos, kos: KosData) => {
       return {
         "@id": revision.uri,
         "@type": "matsci:DefinitionRevision",
+        ...metadataJsonLdProperties(
+          (skos.metadata ?? []).filter((fact) => fact.subject === revision.uri)
+        ),
         "rdf:value": { "@value": revision.text, "@language": "en" },
         ...(revision.examples.length
           ? {

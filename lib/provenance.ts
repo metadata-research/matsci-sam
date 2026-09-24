@@ -1,3 +1,10 @@
+import {
+  metadataAssertionFact,
+  metadataAssertionUri,
+  type MetadataAssertionEvidence
+} from "./term-metadata-rdf"
+import { contributionFileSelection } from "./contribution-files"
+import { contributionFilePath } from "./contribution-file-types"
 import { inferenceProperties } from "./llm/types"
 import { termReferencesQuery } from "./term-references"
 import { modelPromptInputProvenance } from "./model-prompt-provenance"
@@ -19,16 +26,18 @@ import {
   commentsTable,
   db,
   definitionExamplesTable,
+  contributionFilesTable,
   definitionExampleSelectionsTable,
   definitionRevisionsTable,
   definitionsTable,
   refinementsTable,
   termsTable,
+  termMetadataAssertionsTable,
   usersTable,
   voteEventsTable,
   votesTable
 } from "@yamz/db"
-import { asc, eq, getTableColumns, inArray } from "drizzle-orm"
+import { and, asc, eq, getTableColumns, inArray } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
   definitionUri,
@@ -48,6 +57,9 @@ import {
   acceptedLegacyDiscussionSuggestionsForOutputs
 } from "./ai-contribution-provenance"
 
+const metadataAuthors = alias(usersTable, "metadataAuthors")
+const metadataReviewers = alias(usersTable, "metadataReviewers")
+const metadataRetractors = alias(usersTable, "metadataRetractors")
 const exampleSelectedByUsers = alias(usersTable, "exampleSelectedByUsers")
 const exampleEndedByUsers = alias(usersTable, "exampleEndedByUsers")
 
@@ -89,6 +101,7 @@ export type ProvNode = {
   detail?: string
   meta?: Record<string, string | number | null>
   comparison?: DefinitionComparisonView
+  metadataAssertion?: MetadataAssertionEvidence
 }
 
 export type ProvEdge = {
@@ -227,7 +240,9 @@ export const buildTermProvenance = async (
     aiContributionSuggestions,
     definitionExamples,
     exampleSelections,
-    citedReferences
+    citedReferences,
+    publishedFiles,
+    metadataAssertions
   ] = await Promise.all([
     definitionIds.length
       ? db
@@ -397,7 +412,72 @@ export const buildTermProvenance = async (
             asc(definitionExampleSelectionsTable.id)
           )
       : Promise.resolve([]),
-    termReferencesQuery(termId)
+    termReferencesQuery(termId),
+    db
+      .select({
+        ...contributionFileSelection,
+        definitionId: definitionRevisionsTable.definitionId,
+        version: definitionRevisionsTable.version,
+        uploadedById: contributionFilesTable.uploadedById
+      })
+      .from(contributionFilesTable)
+      .innerJoin(
+        definitionRevisionsTable,
+        eq(
+          contributionFilesTable.publishedRevisionId,
+          definitionRevisionsTable.id
+        )
+      )
+      .innerJoin(
+        definitionsTable,
+        eq(definitionRevisionsTable.definitionId, definitionsTable.id)
+      )
+      .where(eq(definitionsTable.termId, termId)),
+    db
+      .select({
+        assertion: getTableColumns(termMetadataAssertionsTable),
+        author: {
+          id: metadataAuthors.id,
+          name: metadataAuthors.name,
+          isAi: metadataAuthors.isAi,
+          isProfilePublic: metadataAuthors.isProfilePublic
+        },
+        reviewer: {
+          id: metadataReviewers.id,
+          name: metadataReviewers.name,
+          isAi: metadataReviewers.isAi,
+          isProfilePublic: metadataReviewers.isProfilePublic
+        },
+        retractor: {
+          id: metadataRetractors.id,
+          name: metadataRetractors.name,
+          isAi: metadataRetractors.isAi,
+          isProfilePublic: metadataRetractors.isProfilePublic
+        }
+      })
+      .from(termMetadataAssertionsTable)
+      .innerJoin(
+        metadataAuthors,
+        eq(termMetadataAssertionsTable.assertedById, metadataAuthors.id)
+      )
+      .leftJoin(
+        metadataReviewers,
+        eq(termMetadataAssertionsTable.reviewedById, metadataReviewers.id)
+      )
+      .leftJoin(
+        metadataRetractors,
+        eq(termMetadataAssertionsTable.retractedById, metadataRetractors.id)
+      )
+      .where(
+        and(
+          eq(termMetadataAssertionsTable.termId, termId),
+          eq(termMetadataAssertionsTable.status, "accepted")
+        )
+      )
+      .orderBy(
+        asc(termMetadataAssertionsTable.createdAt),
+        asc(termMetadataAssertionsTable.id)
+      )
   ])
 
   // Vote events are the record of every voting act: one row per act from
@@ -1984,6 +2064,113 @@ export const buildTermProvenance = async (
 
   // A citation is a contributor declaration. Retrieval/copying alone never
   // yields a public edge and this does not assert model grounding or derivation.
+  // Only accepted metadata attestations enter public history. Retractions
+  // retain their original scope, source/version and independent author identity.
+  for (const entry of metadataAssertions) {
+    const row = entry.assertion
+    const revision =
+      row.definitionRevisionId === null
+        ? undefined
+        : revisionById.get(row.definitionRevisionId)
+    const definition = revision
+      ? definitionById.get(revision.definitionId)
+      : undefined
+    const fact = metadataAssertionFact(
+      row,
+      term,
+      revision && definition
+        ? {
+            id: revision.id,
+            termId,
+            definitionNumber: definition.definitionNumber,
+            version: revision.version
+          }
+        : undefined
+    )
+    const agent = (user: ProfileCapableUser) => {
+      const slug = modelIdentities ? modelSlugByUserId.get(user.id) : undefined
+      const nodeId = slug
+        ? modelNode(
+            modelIdentities.find((model) => model.userId === user.id)!.tag,
+            user.id
+          )
+        : personNode(user)
+      return {
+        nodeId,
+        iri: slug
+          ? modelUri(slug)
+          : `${termUri(term.slug, term.vocabularySlug)}/provenance#${encodeURIComponent(nodeId)}`
+      }
+    }
+    const author = agent(entry.author)
+    const reviewer = entry.reviewer ? agent(entry.reviewer) : null
+    const retractor = entry.retractor ? agent(entry.retractor) : null
+    const uri = metadataAssertionUri(fact.subject, row.id)
+    const id = `metadata_${row.id}`
+    addNode({
+      id,
+      label: `${row.fieldKey} (${row.retractedAt ? "retracted" : "accepted"})`,
+      type: "entity",
+      publicResource: { uri },
+      detail: row.value,
+      meta: {
+        fieldKey: row.fieldKey,
+        valueType: row.valueType,
+        language: row.language,
+        sourceLabel: row.sourceLabel,
+        sourceVersion: row.sourceVersion
+      },
+      metadataAssertion: {
+        row,
+        fact,
+        uri,
+        authorIri: author.iri,
+        reviewerIri: reviewer?.iri ?? null,
+        retractorIri: retractor?.iri ?? null
+      }
+    })
+    addEdge(id, author.nodeId, "wasAttributedTo")
+  }
+
+  // Public attachment evidence records the contributor's explicit publication,
+  // not a provider lookup or an assistant input. Pending files are not queried.
+  for (const file of publishedFiles) {
+    const id = `file_${file.id}`
+    const definition = definitionById.get(file.definitionId)
+    if (!definition) continue
+    addNode({
+      id,
+      label: file.title,
+      type: "entity",
+      detail: file.caption,
+      meta: {
+        role: file.role,
+        filename: file.filename,
+        mediaType: file.mediaType,
+        byteSize: file.byteSize,
+        contentHash: file.contentHash,
+        citation: file.citation,
+        page: file.page,
+        published: file.publishedAt,
+        download: contributionFilePath(file.id),
+        evidenceBasis: "contributor_uploaded"
+      }
+    })
+    if (definition.author)
+      addEdge(id, personNode(definition.author), "wasAttributedTo")
+    if (file.role === "source") {
+      addEdge(revisionNodeId(file.definitionId, file.version), id, "references")
+    } else if (file.exampleId !== null) {
+      const example = exampleById.get(file.exampleId)
+      if (example)
+        addEdge(
+          exampleNodeId(definition.definitionNumber, example.exampleNumber),
+          id,
+          "references"
+        )
+    }
+  }
+
   for (const reference of citedReferences) {
     const revision = revisionById.get(reference.revisionId)
     if (!revision) continue

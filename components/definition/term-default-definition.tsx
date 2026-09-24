@@ -125,10 +125,6 @@ export async function TermDefaultDefinition({
             <p className="whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">
               {definition.example}
             </p>
-            <p className="text-xs text-muted-foreground">
-              Supporting context. Example contributions retain their own credit
-              and history.
-            </p>
           </section>
         )}
 
@@ -143,9 +139,6 @@ export async function TermDefaultDefinition({
             >
               Cited references
             </h3>
-            <p className="text-xs text-muted-foreground">
-              Sources the contributor declared using for this revision.
-            </p>
             {definition.references.map((reference) => (
               <ReferenceSnapshot key={reference.id} reference={reference} />
             ))}
@@ -157,10 +150,6 @@ export async function TermDefaultDefinition({
             <summary className="cursor-pointer font-sans text-sm font-semibold">
               Sources supplied to the model
             </summary>
-            <p className="text-xs text-muted-foreground">
-              These sources were included in the model request. Their inclusion
-              does not show which facts the model used or verify the answer.
-            </p>
             {definition.modelReferences.map((reference) => (
               <ReferenceSnapshot
                 key={reference.referenceId}

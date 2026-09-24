@@ -6,6 +6,9 @@ links to contributor instructions and the metadata reference.
 
 ## Data and publication
 
+- [Metadata dictionary](metadata-dictionary-plan.md): source versions, term/revision
+  scope, Simple/Advanced views, curation and exports.
+
 - [Statement ledger](knowledge-organization-ledger.md): schema, authorization,
   invariants, and RDF export.
 - [Examples of use](examples.md): immutable contributions and featured-selection

@@ -44,9 +44,6 @@ export const DefinitionList = ({
       <h2 id="other-definitions-heading" className="text-lg font-semibold">
         Other definitions ({alternatives.length})
       </h2>
-      <p className="text-sm text-muted-foreground">
-        Alternative definitions of this term. Each has its own revision history.
-      </p>
       <div className="space-y-3">
         {alternatives.map((definition) => (
           <AlternativeDefinition
