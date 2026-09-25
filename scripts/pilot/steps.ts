@@ -71,7 +71,7 @@ import { z } from "zod"
 const CommentOutput = z.object({ comment: z.string() })
 const AnswerOutput = z.object({ answer: z.string() })
 // The position answer, parsed strictly: one of the two moves and a reason,
-// nothing else. A draft is accepted or amended; the driver replaces none.
+// nothing else. A draft is accepted or amended. The driver replaces none.
 const PositionOutput = z
   .object({ position: z.enum(["accept", "amend"]), reason: z.string().min(1) })
   .strict()
@@ -79,7 +79,7 @@ const PositionOutput = z
 /*
  * One generation against the inference host, with a bounded retry on a
  * transport failure. runLLM propagates a dropped connection and resolves to
- * undefined on a malformed response; only the first is retried, because the
+ * undefined on a malformed response. Only the first is retried, because the
  * second is the model's answer and a second ask is a second act. The delays
  * double from two seconds, and the last failure propagates with what was
  * tried.
@@ -141,7 +141,7 @@ const lockPilotStep = async (tx: DatabaseTransaction, step: StepRef) => {
 /*
  * The draft of a term: its definition under a model identity, an aiModels
  * row, the earliest where there is more than one. The 2025 drafts are the
- * MatBot Gemma 3 definitions; a term without one has no draft to take a
+ * MatBot Gemma 3 definitions. A term without one has no draft to take a
  * position on, and the run stops rather than inventing one.
  */
 export const draftOf = async (termId: number) => {
@@ -175,7 +175,7 @@ export type PositionDecision = z.infer<typeof PositionOutput> & {
  * amend with one sentence of reason. The answer is parsed strictly. A
  * malformed answer is asked for once more, and a second one fails the
  * unit, because the position is the persona's and the driver takes none
- * on its behalf. The decision is not a row of the record; the act it leads
+ * on its behalf. The decision is not a row of the record. The act it leads
  * to is, and the orchestrator keeps the decision and its stamp in the
  * manifest so a resumed unit acts on the decision it already holds.
  */
@@ -220,7 +220,7 @@ export const decidePosition = async (
  * before the persona is asked: a unit re-run without its manifest, from a
  * fresh state directory or on another machine, takes no second decision and
  * asks the model nothing. A standing vote alone is not treated as that exact
- * record; the persona still chooses which candidate is its position.
+ * record. The persona still chooses which candidate is its position.
  */
 export const holdsPosition = async (personaUserId: number, step: StepRef) => {
   const held = (await positionsOf(db, [step.id], personaUserId)).get(step.id)
@@ -577,7 +577,7 @@ export const pressStep = (personaUserId: number, step: StepRef) =>
  * One persona walks the steps no act of the protocol completes: the
  * instructions, pressed through, and each closing question, answered as a
  * simulated act. A scale answer arrives from the seeded structure and is a
- * drawn number, so it has no stamp; a text answer is generated in the
+ * drawn number, so it has no stamp. A text answer is generated in the
  * persona's voice under the survey prompt and is stamped on the row, as a
  * simulated comment is. The answer and the completion are one transaction,
  * the pairing the invariants require of a response.

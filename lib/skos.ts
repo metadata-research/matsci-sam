@@ -83,7 +83,7 @@ export { schemeUri, termUri } from "./public-identifiers"
  * dcterms:subject for topics (lifted onto the term as a derived triple so
  * discovery keeps working), skos:broader / narrower / related between terms,
  * and skos:*Match to external ontology IRIs. The SKOS record describes
- * current state; history belongs to the PROV-O serialization.
+ * current state. History belongs to the PROV-O serialization.
  */
 
 export type TermSkos = {
@@ -526,8 +526,8 @@ const conceptTurtle = (skos: TermSkos) => {
       (d) => `skos:definition <${d.currentRevision.uri}>`
     ),
     ...contributors.map((c) => `dcterms:contributor ${lit(c)}`),
-    // Facets are stored against the term; topics are lifted from its
-    // definitions (a derived triple; the stored rows are on the definitions).
+    // Facets are stored against the term. Topics are lifted from its
+    // definitions (a derived triple, with stored rows on the definitions).
     ...skos.facets.map((c) => `dcterms:subject <${c.uri}>`),
     ...skos.topics.map((c) => `dcterms:subject <${c.uri}>`),
     ...skos.broader.map((t) => `skos:broader <${t.uri}>`),

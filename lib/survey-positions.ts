@@ -42,7 +42,7 @@ export class SurveyPositionTargetError extends Error {
  * Complete a Position step and retain the exact candidate in the same
  * transaction as the act that selected or created it. Completion is written
  * first because the position row has a composite foreign key to it. A retry
- * of the same target converges; a different target is a real conflict.
+ * of the same target converges. A different target is a real conflict.
  */
 export const recordPositionCompletion = async (
   tx: DatabaseTransaction,

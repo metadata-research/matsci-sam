@@ -12,7 +12,7 @@ export const revisionSourceLabels = {
 
 export type RevisionSource = keyof typeof revisionSourceLabels
 
-// The sources produced by the model rather than a person; used to pick the
+// The sources produced by the model rather than a person. Used to pick the
 // gold AI treatment in revision lists.
 export const aiRevisionSources: ReadonlySet<string> = new Set([
   "ai_assisted",

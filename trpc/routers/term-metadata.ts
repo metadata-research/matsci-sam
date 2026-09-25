@@ -15,7 +15,7 @@ import { termMetadataInputSchema } from "@/lib/term-metadata-validation"
 import { markGraphsDirty } from "@/lib/graph/projector"
 
 // Proposals and rejected suggestions never reach a public graph. Mark only
-// accepted changes; a retracted accepted assertion still has public history.
+// accepted changes. A retracted accepted assertion still has public history.
 export const termMetadataRouter = createTRPCRouter({
   get: baseProcedure
     .input(z.object({ termId: z.number().int().positive() }))

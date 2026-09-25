@@ -1,7 +1,7 @@
 /*
  * Static contract checks for migration 0045's legacy-example provenance
- * repair. The database-backed example test proves the final guards and index;
- * this test protects the one-time upgrade statement itself, including the
+ * repair. The database-backed example test proves the final guards and index.
+ * This test protects the one-time upgrade statement itself, including the
  * narrow exception to the immutable-row triggers.
  */
 

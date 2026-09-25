@@ -25,7 +25,7 @@ import {
 
 export const termReferencesRouter = createTRPCRouter({
   // Reopen a known receipt without making another provider call. Raw provider
-  // bodies remain server-side; owner and provider are checked together.
+  // bodies remain server-side. Owner and provider are checked together.
   getLookup: contributorProcedure
     .input(
       z

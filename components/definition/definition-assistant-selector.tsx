@@ -7,7 +7,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 
 type AssistantProfile = "default" | "agent-one"
 
-/** Explicit choices override preferences; a stale choice never silently falls back. */
+/** Explicit choices override preferences. A stale choice never silently falls back. */
 export function useDefinitionAssistant({
   enabled = true,
   study = false
@@ -83,7 +83,7 @@ export function DefinitionAssistantSelector({
               disabled={!profile.available}
             >
               {profile.label}
-              {!profile.available ? " — unavailable" : ""}
+              {!profile.available ? " (unavailable)" : ""}
             </option>
           )) ?? <option value="default">Loading assistants…</option>}
         </select>

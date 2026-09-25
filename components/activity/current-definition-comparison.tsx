@@ -74,7 +74,7 @@ export function CurrentDefinitionComparison({
         </h2>
         <p className="text-sm text-muted-foreground">
           Select two current candidates to see their exact wording differences.
-          Removed text belongs to the first selection; added text belongs to the
+          Removed text belongs to the first selection. Added text belongs to the
           second.
         </p>
       </header>

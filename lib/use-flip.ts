@@ -6,7 +6,7 @@ import { RefObject, useLayoutEffect, useRef } from "react"
  * FLIP layout animation for a reorderable list, no dependency.
  *
  * Each animated child carries a `data-flip-key`. We keep the last measured
- * position of every key in a ref; on the render after the order changes, the
+ * position of every key in a ref. On the render after the order changes, the
  * stored position is the element's *old* spot and its current box is the *new*
  * one. Playing the inverse transform out to zero makes the browser animate the
  * move (First-Last-Invert-Play).

@@ -216,7 +216,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
   )
 }
 
-/** Shared contribution flow; inherited actions retain their source/study semantics. */
+/** Shared contribution flow. Inherited actions retain their source/study semantics. */
 const DefinitionFormOwner = ({
   initialTerm = "",
   initialDefinition = "",
@@ -541,7 +541,7 @@ const DefinitionFormOwner = ({
     references: copySelections(references)
   })
   const restoreSelections = (saved: DraftReferenceSelection[]) => {
-    // Passive arrivals keep their receipt; undo restores choices for receipts that existed before the edit.
+    // Passive arrivals keep their receipt. Undo restores choices for receipts that existed before the edit.
     setReferences((current) =>
       current.map(
         (selection) =>
@@ -555,7 +555,7 @@ const DefinitionFormOwner = ({
       shouldDirty: true,
       shouldValidate: false
     })
-    // An empty working draft is valid here; validate when entering Review.
+    // An empty working draft is valid here. Validate when entering Review.
     form.clearErrors("definition")
     restoreSelections(saved.references)
   }
@@ -600,7 +600,7 @@ const DefinitionFormOwner = ({
       setUndo(null)
       setNotice(
         confirmed
-          ? "Term updated. Your writing is preserved; source and file choices have been cleared."
+          ? "Term updated. Your writing is preserved. Source and file choices have been cleared."
           : ""
       )
     }
@@ -759,7 +759,7 @@ const DefinitionFormOwner = ({
       current.map((selection) => ({ ...selection, citedReferenceIds: [] }))
     )
     setNotice(
-      "Model draft applied. Earlier draft citations were cleared; you can attach relevant citations during review. Model attribution stays with this contribution."
+      "Model draft applied. Earlier draft citations were cleared. You can attach relevant citations during review. Model attribution stays with this contribution."
     )
     focusEditor(0, preview.definition.length)
   }
@@ -947,8 +947,8 @@ const DefinitionFormOwner = ({
           Model suggestion
         </CardTitle>
         <CardDescription>
-          You can keep editing. Choosing “Use this draft” replaces the text
-          currently in your editor and clears earlier citations; Undo restores
+          You can keep editing. Choosing Use this draft replaces the text
+          currently in your editor and clears earlier citations. Undo restores
           both.
         </CardDescription>
       </CardHeader>
@@ -1749,7 +1749,7 @@ const DefinitionFormOwner = ({
             tools={
               confirmed ? (
                 // Keep unfinished tool inputs when reviewing or cancelling a
-                // term edit; a newly confirmed term gets a fresh tool workspace.
+                // term edit. A newly confirmed term gets a fresh tool workspace.
                 <div key={contextKey} hidden={step !== "write"}>
                   <DefinitionToolbox
                     view={view}

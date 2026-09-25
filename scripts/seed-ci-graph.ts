@@ -264,7 +264,7 @@ const main = async () => {
       .returning({ id: collectionsTable.id, slug: collectionsTable.slug })
 
     // The community and its worklist, as communities.createStudy writes
-    // them. Membership is rows of its own and reaches no graph; the
+    // them. Membership is rows of its own and reaches no graph. The
     // simulated accounts work in the community, so a vote below resolves
     // its context through activeCommunityFor the way the router does.
     const communitySlug = slugify("CI graph fixture community")

@@ -74,7 +74,7 @@ export const Definition = ({
     vote?: "up" | "down" | null
     isAi: boolean
     authorModelSlug?: string | null
-    // author display name; pages that don't fetch it omit the attribution
+    // author display name. Pages that don't fetch it omit the attribution
     author?: string | null
     authorProfilePublic?: boolean
     comments?: number | null

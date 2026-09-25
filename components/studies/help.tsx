@@ -73,7 +73,7 @@ export function StudyHelp({
             onChange={(event) => setTopic(event.target.value)}
             className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
           >
-            <option value="instructions">This study’s instructions</option>
+            <option value="instructions">Instructions for this study</option>
             {relevantSections.map((section) => (
               <option key={section.id} value={section.id}>
                 {section.title}
@@ -89,7 +89,7 @@ export function StudyHelp({
         >
           {topic === "instructions" ? (
             <div className="flex flex-col gap-4 text-sm">
-              <h2 className="font-semibold">This study’s instructions</h2>
+              <h2 className="font-semibold">Instructions for this study</h2>
               {instructions ? (
                 <StudyInstructionContent text={instructions} />
               ) : (

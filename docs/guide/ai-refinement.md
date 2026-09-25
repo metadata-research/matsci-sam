@@ -36,7 +36,7 @@ example.
 ## Assistant choice and context
 
 **Definition assistant** lists the configured assistants, including Wolfram
-Agent One when enabled. Unavailable choices show their status. SAM remembers
+Agent One when enabled. Unavailable choices show their status. SAM saves
 your preference for later requests. A study may specify its own assistant.
 The assistant selected for a submitted request stays attached to its response
 and published attribution.

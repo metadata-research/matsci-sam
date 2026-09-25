@@ -2,15 +2,15 @@
  * Knowledge-organization export: the concept schemes, concepts, collections
  * and the statements between them, rendered as SKOS Turtle and JSON-LD.
  *
- * Pure module. Everything here works from an in-memory KosData snapshot; the
+ * Pure module. Everything here works from an in-memory KosData snapshot. The
  * database loader (loadKos in lib/skos.ts) is injected by the routes, and
  * scripts/test-kos.ts builds documents from fixtures. Concept, scheme and
  * collection blocks are emitted once per document, so callers pass the whole
  * snapshot and say which concepts a document should describe.
  *
  * Derived triples (the skos:related mirror, every skos:narrower, the lifted
- * term-level dcterms:subject) have no stored row and therefore no reifier;
- * the reifier (slice D) describes the stored direction only.
+ * term-level dcterms:subject) have no stored row and therefore no reifier.
+ * The reifier (slice D) describes the stored direction only.
  */
 
 import {
@@ -120,7 +120,7 @@ export class KosView {
 
   constructor(data: KosData) {
     this.schemes = [...data.schemes].sort((a, b) => a.id - b.id)
-    // A proposed concept is not published anywhere; the loader excludes it
+    // A proposed concept is not published anywhere. The loader excludes it
     // and the view excludes it again so a fixture cannot leak one.
     this.concepts = data.concepts
       .filter((c) => c.status !== "proposed")
@@ -400,8 +400,8 @@ export const en = (value: string) => `${lit(value)}@en`
 export const turtleBlock = (subject: string, pairs: string[]) =>
   `<${subject}> ${pairs.join(" ;\n  ")} .\n`
 
-// Scheme block. Top concepts are listed only when asked (whole-KOS documents);
-// a term document describes the scheme without enumerating it.
+// Whole-KOS documents list the requested top concepts. A term document
+// describes the scheme without enumerating it.
 export const schemeBlockTurtle = (
   view: KosView,
   scheme: KosScheme,
@@ -477,7 +477,7 @@ export const collectionBlockTurtle = (
 
 // The scheme, concept and collection blocks of a document, each once. With
 // `conceptIds` only those concepts and their schemes are described (a term
-// document); without it, the whole KOS (tags.ttl, vocabulary.ttl).
+// document). Without it, the whole KOS (tags.ttl, vocabulary.ttl).
 export const kosBlocksTurtle = (
   view: KosView,
   conceptIds?: Iterable<number>

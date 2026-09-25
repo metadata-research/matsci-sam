@@ -55,8 +55,8 @@ import {
  * A define step is labelled Position and shows one set of definitions from
  * earlier work, with the model-authored definition first when there is one.
  * Accepting atomically retains the selected definition, preserves or adds its
- * upvote, and completes the step; suggesting a revision names the exact source
- * revision; proposing a new definition is a term-level alternative when none
+ * upvote, and completes the step. Suggesting a revision names the exact source
+ * revision. Proposing a new definition is a term-level alternative when none
  * of the earlier definitions is close. A review step compares the definitions
  * where there is more than one.
  *
@@ -191,7 +191,7 @@ const orderCandidates = (definitions: Candidate[]) => {
 
 /*
  * The exact candidate a position names, as a record. A legacy completion or
- * a purged contribution may have no surviving target; it is not inferred from
+ * a purged contribution may have no surviving target. It is not inferred from
  * a different standing vote. Support remains visible as noninteractive
  * context, while voting itself belongs to Review.
  */
@@ -275,7 +275,7 @@ type Move =
 /*
  * The definitions of the term and the three moves. Accepting records the exact
  * definition and its upvote. A suggested revision names one definition as its
- * source; a new proposal belongs to the term as a whole. Both publish separate
+ * source. A new proposal belongs to the term as a whole. Both publish separate
  * definitions and record the completion in the same transaction.
  */
 const Candidates = ({
@@ -459,7 +459,7 @@ const Candidates = ({
         <Card className="gap-4 bg-muted/20 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <h2 id="skip-term-heading" className="font-semibold">
-              Don’t know this term well enough to choose?
+              Not familiar enough with this term to choose?
             </h2>
             <p className="text-sm text-muted-foreground">
               You can record no opinion and move to the next term.
@@ -482,7 +482,7 @@ const Candidates = ({
                 <DialogDescription>
                   {singlePass
                     ? "No position or vote will be recorded for this term."
-                    : "You won’t be asked to choose or review a definition for this term."}
+                    : "You will not be asked to choose or review a definition for this term."}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>

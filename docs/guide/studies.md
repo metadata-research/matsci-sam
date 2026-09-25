@@ -38,8 +38,8 @@ version** on vocabulary pages updates your own definition and keeps its history.
 
 ID4 round two has instructions, one Position step for each of eight terms,
 and closing questions. Other studies may include a Review round.
-Numbered buttons show your place in the study. A check marks a completed step;
-a dash marks a skipped step. Select an available number to revisit that step.
+Numbered buttons show your place in the study. A check marks a completed step.
+A dash marks a skipped step. Select an available number to revisit that step.
 Later unfinished steps remain locked. Completed and skipped steps open for
 reading.
 

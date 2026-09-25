@@ -171,7 +171,7 @@ export function ModelPromptInputs({
             </summary>
             <div className="mt-3 max-h-64 min-w-0 overflow-y-auto overscroll-contain rounded-md border p-3 text-sm">
               <p className="mb-3 text-muted-foreground">
-                SAM’s definition-writing instructions are sent with these
+                The definition instructions for MatSci-SAM are sent with these
                 inputs.
               </p>
               <dl className="flex min-w-0 flex-col gap-3">

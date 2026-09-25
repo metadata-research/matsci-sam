@@ -106,9 +106,7 @@ export async function TermMetadataPage({
           </div>
           <h1 className="font-serif text-4xl font-bold">{term.term}</h1>
           <p className="max-w-3xl text-muted-foreground">
-            Describe this term and how people use it. A field link explains
-            where the term fits in metadata; it does not create a sample,
-            measurement, or dataset record.
+            Describe how this term is used or link it to a metadata field.
           </p>
           <nav
             aria-label="Metadata resources"
@@ -142,7 +140,6 @@ export async function TermMetadataPage({
                 <CardTitle>
                   <h2>Already recorded</h2>
                 </CardTitle>
-                <CardDescription>From this dictionary entry.</CardDescription>
               </CardHeader>
               <CardContent>
                 <dl className="flex flex-col gap-3 text-sm">
@@ -173,9 +170,6 @@ export async function TermMetadataPage({
                 <CardTitle>
                   <h2>Definitions</h2>
                 </CardTitle>
-                <CardDescription>
-                  Each contribution keeps its own history.
-                </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 {definitions.length ? (

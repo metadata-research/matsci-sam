@@ -368,17 +368,13 @@ export function MetadataEditor({
             <CardTitle>
               <h2>Published metadata</h2>
             </CardTitle>
-            <CardDescription>
-              Accepted descriptions of this term and its use.
-            </CardDescription>
           </CardHeader>
           <CardContent>
             {published.length ? (
               <AssertionList assertions={published} {...assertionProps} />
             ) : (
               <p className="text-sm text-muted-foreground">
-                No additional metadata has been published. The dictionary
-                information alongside this page is already recorded.
+                No additional metadata has been published.
               </p>
             )}
           </CardContent>
@@ -409,8 +405,8 @@ export function MetadataEditor({
             </CardTitle>
             <CardDescription>
               {record.permissions.isAdmin
-                ? "Publish an attributed description of the term or one definition."
-                : "Suggest how this term is used. A curator reviews contributions before publication."}
+                ? "Your addition will be public immediately."
+                : "An administrator reviews your contribution before publication."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -568,8 +564,8 @@ export function MetadataEditor({
                           {catalogField.status === "proposed"
                             ? " · Proposed extension"
                             : " · Preliminary snapshot"}
-                          . This identifies the field; it does not supply
-                          evidence for your contribution.
+                          . Add evidence for your contribution under Source
+                          (optional).
                         </span>
                       </FieldDescription>
                     ) : null}
@@ -697,9 +693,6 @@ export function MetadataEditor({
               <CardTitle>
                 <h2>Metadata history</h2>
               </CardTitle>
-              <CardDescription>
-                Withdrawn descriptions retain their attribution.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <details>
@@ -718,19 +711,6 @@ export function MetadataEditor({
               </details>
             </CardContent>
           </Card>
-        ) : null}
-        {advanced ? (
-          <p className="text-sm text-muted-foreground">
-            Ontology matches shown by the source tools are previews. They become
-            metadata only through an explicit contribution; a related concept
-            link does not assert equivalence.{" "}
-            <Link
-              href="/docs/metadata-access"
-              className="text-primary underline"
-            >
-              Metadata access and exports
-            </Link>
-          </p>
         ) : null}
       </TabsContent>
     </Tabs>

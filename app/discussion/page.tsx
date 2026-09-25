@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 /*
  * Lightweight discussion feed: the most-recent terms, each with the definition
  * under discussion and two explicit actions. An alternative request gets an
- * editable language-model draft; a comment is stored as-is and never triggers
+ * editable language-model draft. A comment is stored as-is and never triggers
  * model work.
  */
 export default async function DiscussionPage() {

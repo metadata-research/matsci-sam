@@ -8,7 +8,7 @@ export const createTRPCContext = cache(async () => {
   return { session };
 });
 // Procedure metadata. marksGraphs is false on a mutation whose rows reach no
-// graph, so it does not mark the graphs for a rebuild; every other mutation
+// graph, so it does not mark the graphs for a rebuild. Every other mutation
 // marks them.
 type Meta = { marksGraphs?: boolean };
 
@@ -33,7 +33,7 @@ export const baseProcedure = t.procedure.use(async (opts) => {
     },
   });
   // Every successful mutation may have changed what the graphs state, unless
-  // its meta says its rows reach no graph. The mark is a flag; the
+  // its meta says its rows reach no graph. The mark is a flag. The
   // projection runs later and cannot fail this call.
   if (
     opts.type === "mutation" &&

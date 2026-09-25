@@ -21,7 +21,7 @@ import { definitionPath, modelUri } from "@/lib/public-identifiers"
  * person does. This page says which model that author is: the exact tag it
  * runs under, who publishes it, and what it has contributed. The tag is the
  * identity, because a generation is only reproducible against the exact
- * version; the name above it is presentation.
+ * version. The name above it is presentation.
  *
  * Unlike a person's profile there is no visibility setting, since a model has
  * no privacy interest to protect and cannot consent to publication.

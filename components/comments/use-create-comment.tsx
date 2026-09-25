@@ -13,7 +13,7 @@ import {
  * offers one (the definition detail page and the discussion page). Whatever
  * the entry point, posting behaves identically: the same success and error
  * messages, the same login prompt, and the same comment-list refresh. Posting
- * a comment never requests or publishes model output; AI-assisted revision is
+ * a comment never requests or publishes model output. AI-assisted revision is
  * an explicit contribution path of its own.
  */
 export const useCreateComment = ({

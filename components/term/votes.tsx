@@ -26,7 +26,7 @@ interface Props extends MutationActivityCallbacks {
   // one reason the definition pages have.
   readOnlyTitle?: string
   // Fired whenever this definition's score changes, so a parent list can
-  // re-sort. Optional; most callers do not reorder.
+  // re-sort. Optional. Most callers do not reorder.
   onScoreChange?: (score: number) => void
   // The review step of a walkthrough the vote is cast inside, passed through
   // to votes.vote, which checks it against the act.
@@ -90,7 +90,7 @@ export const TermVotes = ({
   )
 
   // Report score changes up without re-subscribing the effect on every render:
-  // the callback lives in a ref, the effect depends only on the score.
+  // the callback is stored in a ref, the effect depends only on the score.
   //
   // votes.get computes score as SUM(...), a bigint the driver returns as a
   // string (and null when a definition has no votes), so coerce it. null means

@@ -30,7 +30,7 @@ export function TagModal() {
   const [open, setOpen] = useState(false)
   const [tagName, setTagName] = useState("")
   // A tag whose name matches a term is very likely the same concept. The
-  // application says so and lets the author decide; it never links on its own.
+  // application says so and lets the author decide. It never links on its own.
   const [offer, setOffer] = useState<{
     conceptId: number
     label: string

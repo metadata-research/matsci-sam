@@ -345,7 +345,7 @@ export const definitionsRouter = createTRPCRouter({
           const isReplacement = input.replacesDefinitionId !== undefined
           // A Position step may publish a term-level candidate when none of
           // the existing definitions is close enough. It deliberately has no
-          // fabricated revision or replacement target; the trusted step is its
+          // fabricated revision or replacement target. The trusted step is its
           // creation context and the proposed position names the new revision.
           const isStudyProposal =
             lockedWalkthroughStep !== null && !isRevision && !isReplacement
@@ -447,7 +447,7 @@ export const definitionsRouter = createTRPCRouter({
             // (for example, "C" and "C++"), so check what is taken and let
             // uniqueSlug() number the collision the way OED numbers homographs.
             // Read inside the transaction so a concurrent insert cannot slip a
-            // colliding slug in between; the unique index is the backstop.
+            // colliding slug in between. The unique index is the backstop.
             const conflicting = await tx
               .select({ slug: termsTable.slug })
               .from(termsTable)
@@ -492,7 +492,7 @@ export const definitionsRouter = createTRPCRouter({
 
           // A suggested revision derives from what a reader can see now: the current
           // revision of a definition of this term. A revision of another
-          // term, or none, is no candidate here; an older revision of a
+          // term, or none, is no candidate here. An older revision of a
           // candidate is refused with a reload, because the text has moved
           // on. Neither is recorded as the source of a definition it was not.
           let sourceDefinitionId: number | null = null

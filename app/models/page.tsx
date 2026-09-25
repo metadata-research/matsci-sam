@@ -13,7 +13,7 @@ import { modelPath } from "@/lib/public-identifiers"
 
 /*
  * The models that have contributed, each under the identity its contributions
- * record. The profile page carries the detail; this index makes /models
+ * record. The profile page carries the detail. This index makes /models
  * resolve, so a reader arriving from a model IRI can see the whole registry.
  */
 

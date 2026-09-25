@@ -357,7 +357,7 @@ export const syntheticSiliconDftRecord = {
       description:
         "Static DFT relaxation of a periodic two-atom primitive silicon cell to estimate its equilibrium lattice parameter.",
       disclaimer:
-        "Synthetic teaching example; not validated benchmark data and not suitable for quantitative comparison.",
+        "Synthetic teaching example. The values are not validated benchmark data and should not be used for quantitative comparison.",
       material:
         "Elemental silicon, Si; diamond-cubic crystal structure, space group Fd-3m; periodic primitive cell; no microstructure represented.",
       "calculation-type": "Static structural relaxation",
@@ -368,31 +368,31 @@ export const syntheticSiliconDftRecord = {
       "software-files":
         "Input deck, pseudopotential file identifier and checksum, relaxed structure, and text output would accompany a real deposit.",
       "source-citation":
-        "None; synthetic example. A real record would cite the dataset or publication.",
-      doi: "None; synthetic example.",
-      funding: "None; synthetic example.",
+        "None in this synthetic example. A real record would cite the dataset or publication.",
+      doi: "None in this synthetic example.",
+      funding: "None in this synthetic example.",
       "matcore-version":
-        "Greenberg-2025-preliminary — local snapshot label, not an official MatCore release number",
+        "Greenberg-2025-preliminary (local snapshot label)",
       "matcore-id":
-        "example:si-pbe-relax-001 — illustrative, nonpersistent identifier",
+        "example:si-pbe-relax-001 (illustrative, nonpersistent identifier)",
       "matcore-date": "2026-07-24",
       license: "CC-BY-4.0"
     },
     dft: {
       "xc-functional": "PBE generalized-gradient approximation",
       potential:
-        "PBE ultrasoft pseudopotential for silicon with four valence electrons; an exact file identifier and checksum would be supplied with a real record.",
+        "PBE ultrasoft pseudopotential for silicon with four valence electrons. An exact file identifier and checksum would be supplied with a real record.",
       "calculation-physics":
         "Non-spin-polarized calculation using a scalar-relativistic pseudopotential.",
       "basis-set":
         "Plane waves; 40 Ry wave-function cutoff and 320 Ry charge-density cutoff.",
       "k-points": "Gamma-centered 8 × 8 × 8 mesh.",
       "k-smearing":
-        "No smearing; fixed occupations appropriate to the insulating state.",
+        "No smearing. Fixed occupations appropriate to the insulating state.",
       "self-consistent-field-convergence":
-        "Linear mixing with mixing factor 0.7; electronic energy threshold 1 × 10⁻¹⁰ Ry.",
+        "Linear mixing with mixing factor 0.7. Electronic energy threshold 1 × 10⁻¹⁰ Ry.",
       "state-occupations":
-        "Fixed occupations; eight valence electrons in the two-atom primitive cell.",
+        "Fixed occupations with eight valence electrons in the two-atom primitive cell.",
       "relaxation-convergence":
         "Maximum force below 1 × 10⁻⁴ Ry/Bohr, total-energy change below 1 × 10⁻⁵ Ry, and residual pressure below 0.5 kbar."
     }

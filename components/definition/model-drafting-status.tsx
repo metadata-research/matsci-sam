@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { LoaderCircleIcon } from "lucide-react"
 
-/** Mount for one pending request; keep the ticking state out of the editor. */
+/** Mount for one pending request. Keep the ticking state out of the editor. */
 export function ModelDraftingStatus({
   label = "Drafting a definition…"
 }: {

@@ -93,7 +93,7 @@ export const findDefinitionRevisionByPublicNumber = cache(
 
 /**
  * Resolve a private legacy row id to its public identity. This is only used by
- * compatibility redirects; new links should never expose the row id.
+ * compatibility redirects. New links should never expose the row id.
  */
 export const findDefinitionPublicIdentity = cache(
   async (definitionId: number) => {

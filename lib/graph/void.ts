@@ -65,7 +65,7 @@ export const metaGraphTurtle = ({ projectedAt, counts }: MetaGraphInput) => {
     `sd:namedGraph ${[...contentIris, `<${graphIri("meta")}>`].join(", ")}`
   ])
 
-  // The endpoint is at the application origin; lib/graph/names.ts says why.
+  // The endpoint is at the application origin. See lib/graph/names.ts for the reason.
   const service = turtleBlock(sparqlEndpointUrl, [
     "a sd:Service",
     `sd:endpoint <${sparqlEndpointUrl}>`,

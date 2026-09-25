@@ -363,7 +363,7 @@ const main = async () => {
     statements: [
       // term-level facet
       statement(1, "dcterms:subject", { subjectTermId: 1, objectConceptId: 1 }),
-      // definition-level topics: both definitions carry steel; one also metals
+      // definition-level topics: both definitions carry steel. One also metals
       statement(2, "dcterms:subject", {
         subjectDefinitionId: 10,
         objectConceptId: 5
@@ -592,7 +592,7 @@ const main = async () => {
   )
 
   // Whole-vocabulary document. The graph layer projects its two halves as
-  // separate named graphs; their concatenation is the route document, byte
+  // separate named graphs. Their concatenation is the route document, byte
   // for byte.
   const vocabularies = [
     {

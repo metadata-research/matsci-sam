@@ -4,7 +4,7 @@ import { buildAllGraphs, lastProjectedGraphs } from "@/lib/graph/projector"
 
 // One named graph of the dataset as Turtle, so a consumer without SPARQL can
 // fetch exactly one graph. With a projection in this process it is the
-// document the projector wrote to the store under this IRI; without one it
+// document the projector wrote to the store under this IRI. Without one it
 // is built from the database on request, and only that graph is built,
 // except for the meta graph, which counts the other four.
 export async function GET(

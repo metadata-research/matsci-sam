@@ -29,7 +29,7 @@ export const generateStructured = async <T extends z.ZodTypeAny>(
       fetcher
     )
     if (!result) return undefined
-    // SAM uses a definition field internally; Agent One returns ordinary text.
+    // SAM uses a definition field internally. Agent One returns ordinary text.
     const parsed = schema.safeParse({ definition: result.output })
     return parsed.success
       ? { output: parsed.data, inference: result.inference }
@@ -134,7 +134,7 @@ export const generateStructured = async <T extends z.ZodTypeAny>(
       }
     }
   } catch {
-    // Never log raw model responses; they can contain private contributor input.
+    // Never log raw model responses. They can contain private contributor input.
     return undefined
   }
 }

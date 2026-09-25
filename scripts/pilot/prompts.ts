@@ -26,13 +26,13 @@ export const amendPrompt = entry("pilot-persona-amend")
 export const commentPrompt = entry("pilot-persona-comment")
 export const surveyPrompt = entry("pilot-persona-survey")
 // The define and rebuttal acts left the protocol when it became "settle the
-// list"; their prompts stay registered for scripts/seed-ci-graph.ts, which
+// list". Their prompts stay registered for scripts/seed-ci-graph.ts, which
 // stamps its fixture rows with them.
 export const definePrompt = entry("pilot-persona-define")
 export const rebuttalPrompt = entry("pilot-persona-rebuttal")
 
 // The position decision is not a row of the record, so its stamp goes to
-// the manifest of the run; the other stamps go on the rows they produced.
+// the manifest of the run. The other stamps go on the rows they produced.
 export const positionStamp = makeGenerationStamp(
   "pilot-persona-position",
   positionPrompt

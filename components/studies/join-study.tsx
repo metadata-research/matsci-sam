@@ -26,7 +26,7 @@ export function JoinStudy({
   return (
     <div className="space-y-3">
       <p className="text-sm">
-        You’re welcome to take part. Joining adds you to {communityTitle} and
+        Join to take part. This adds you to {communityTitle} and
         opens the study. No invitation is needed.
       </p>
       <Button

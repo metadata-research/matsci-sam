@@ -60,7 +60,7 @@ const communitySchema = z
     // Stable term slugs to move into this community's vocabulary. A qualified
     // entry also fixes the expected source vocabulary once duplicate slugs
     // exist. Omit the field when the manifest only manages the roster. The
-    // curation preserves the term row and everything that refers to it; it
+    // curation preserves the term row and everything that refers to it. It
     // changes only the namespace and records the former route as an alias.
     terms: z.array(z.union([slugSchema, termReferenceSchema])).optional(),
     members: z.array(memberSchema).default([])

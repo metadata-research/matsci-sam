@@ -44,7 +44,7 @@ export const AcceptInvitation = ({
                 : "You are in"
       )
       // A study invitation lands on the study, where the walkthrough
-      // starts; a community invitation lands on the community.
+      // starts. A community invitation lands on the community.
       router.push(studySlug ? studyPath(studySlug) : communityPath(slug))
     },
     onError: (error) => toast.error(error.message)

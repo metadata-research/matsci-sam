@@ -1448,7 +1448,7 @@ export const communitiesRouter = createTRPCRouter({
             sql`${usersTable.name} ilike ${term}`,
             // A model contributes definitions but does not belong to a lab.
             // Nothing forbids it in the schema, because a panel of models is
-            // plausible later; this is only the affordance.
+            // plausible later. This is only the affordance.
             eq(usersTable.isAi, false)
           )
         )

@@ -68,7 +68,7 @@ export const dictionaryMetadataFields: readonly DictionaryMetadataField[] = [
 export const metadataFieldByKey = (key: string) =>
   dictionaryMetadataFields.find((field) => field.key === key)
 
-/** The caller supplies the server's identifier base; clients must use its output. */
+/** The caller supplies the server's identifier base. Clients must use its output. */
 export const metadataPredicateIri = (
   key: MetadataFieldKey,
   identifierBase: string

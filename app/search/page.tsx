@@ -39,7 +39,7 @@ export default function SuspenseSearchPage() {
  * Filters are declared as data so adding one is a matter of extending this
  * list plus its state key, not restructuring the panel. Result type is a
  * multi-select (both kinds can show at once, which the old Tabs could not
- * express); author is single-select.
+ * express). Author is single-select.
  */
 const AUTHORS: { value: SearchAuthor; label: string }[] = [
   { value: "all", label: "Anyone" },

@@ -34,7 +34,7 @@ const redirectLegacyTag = async (segment: string) => {
   if (!start) notFound()
 
   // Follow replacement pointers to the final concept. The invariant keeps
-  // this a single hop; the loop guard is for a broken chain, never for
+  // this a single hop. The loop guard is for a broken chain, never for
   // normal data.
   let current = start
   for (let hop = 0; current.replacedById !== null && hop < 8; hop++) {

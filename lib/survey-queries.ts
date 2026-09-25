@@ -35,7 +35,7 @@ import {
 /*
  * Reads for the walkthrough, and the two multi-row writes the router and the
  * pilot driver share: replacing the steps of a study and answering a
- * question. The rules are in lib/surveys.ts; this module loads the facts
+ * question. The rules are in lib/surveys.ts. This module loads the facts
  * those rules take and writes the rows they describe. Nothing here gates on
  * the viewer: the router and the pages check membership and the study state
  * before calling in, and the driver acts under its persona accounts.
@@ -58,7 +58,7 @@ const stepColumns = {
 }
 
 // A step with the name of the term it is about, for the define and review
-// steps. The shell shows the name; the rules take the id.
+// steps. The shell shows the name. The rules take the id.
 export type StepWithTerm = Step & {
   term: string | null
   termSlug: string | null
@@ -136,7 +136,7 @@ export const stepWithStudy = async (executor: Executor, stepId: number) => {
 /*
  * Hold the study and both parents in one explicit order for the rest of the
  * transaction. Participant acts, lifecycle edits and step generation all
- * start with the study; community and collection retirement then either land
+ * start with the study. Community and collection retirement then either land
  * before this authoritative read or wait until the transaction commits.
  */
 export const lockStudy = async (tx: DatabaseTransaction, studyId: number) => {
@@ -331,7 +331,7 @@ export const walkthroughUsageOfStudy = async (
  * have an explicit surveyStepPositions row, including acceptance through a
  * vote that predated the study. The act-derived reads remain as a legacy
  * fallback for records written before that table existed. Explicit records
- * always win; an administrative definition purge removes one while leaving
+ * always win. An administrative definition purge removes one while leaving
  * the completion itself intact.
  */
 export type Position = {
@@ -617,7 +617,7 @@ export const reviewRecordsOf = async (
  * event by the person naming the step, an initial revision of theirs naming
  * it, or a standing upvote of theirs on the current revision of a
  * definition of the term. The standing vote satisfies the gate because the
- * vote path toggles, so it cannot be cast again inside the step; a vote on
+ * vote path toggles, so it cannot be cast again inside the step. A vote on
  * a superseded revision is not one, because the person can neither see it
  * on the candidates nor recast it. A downvote, a withdrawal, and a vote on
  * a definition of another term are no position.
@@ -744,7 +744,7 @@ export const responseOf = async (
 
 /*
  * The gate of a step for one person, with its facts loaded: what
- * completeStep refuses on. The rule is stepGate (lib/surveys.ts); this
+ * completeStep refuses on. The rule is stepGate (lib/surveys.ts). This
  * loads the position for a define step and the answer for a question, so
  * the router and scripts/test-kos-db.ts evaluate the gate the same way.
  */
@@ -768,7 +768,7 @@ export type WalkthroughStep = StepWithTerm & {
   // the walkthrough has no signed-in viewer.
   completionOutcome: CompletionOutcome | null
   // For a define step, whether the viewer holds a position on the term, the
-  // fact the gate takes (stepsWithPosition); false elsewhere and for a
+  // fact the gate takes (stepsWithPosition). False elsewhere and for a
   // signed-out viewer.
   hasPosition: boolean
   // The act of the viewer naming the step, when there is one. Null where the
@@ -964,11 +964,11 @@ export const appendQuestionStep = async (
 /*
  * Answer a question step and complete it, in one transaction, which is the
  * pairing drizzle/invariants.sql requires of a response. A second answer by
- * the same person refuses on the unique pair; the router turns that into
+ * the same person refuses on the unique pair. The router turns that into
  * CONFLICT. The value columns are written as given, so the CHECKs on the
  * table, and not this function, decide what a well-formed answer is. A
  * simulated text answer arrives with its generation stamp, as a simulated
- * comment does through insertComment; a human answer has none.
+ * comment does through insertComment. A human answer has none.
  */
 export const recordResponse = async (
   tx: DatabaseTransaction,
@@ -1001,7 +1001,7 @@ export const recordResponse = async (
  * completed out of the total, and per step, how many participants have
  * completed it. Participants are the live members of the community, AI
  * identities included, with the name and the public flag the roster renders
- * through. No page renders the matrix; the community page reads the
+ * through. No page renders the matrix. The community page reads the
  * "k of n participants have finished" line from the participants.
  */
 export const studyProgress = async (executor: Executor, studyId: number) => {

@@ -64,7 +64,7 @@ const exampleSelectedByUsers = alias(usersTable, "exampleSelectedByUsers")
 const exampleEndedByUsers = alias(usersTable, "exampleEndedByUsers")
 
 // Read-only PROV-O mapping over the domain tables. Definition revisions are
-// the canonical version record; the mutable definitions row is used only for
+// the canonical version record. The mutable definitions row is used only for
 // the stable contribution identity, author, term, and current-revision pointer.
 
 export type ProvNodeType =
@@ -150,7 +150,7 @@ export type ProvEvent = {
 const excerpt = (text: string, max = 240) =>
   text.length > max ? `${text.slice(0, max)}…` : text
 
-// terms.createdAt is stored without a timezone (it is UTC); normalize to ISO
+// terms.createdAt is stored without a timezone (it is UTC). Normalize to ISO
 // so it sorts correctly against the timezone-aware tables
 const naiveUtcToIso = (ts: string) =>
   /[zZ]|[+-]\d\d(:?\d\d)?$/.test(ts) ? ts : `${ts.replace(" ", "T")}Z`
@@ -899,7 +899,7 @@ export const buildTermProvenance = async (
           )
       }
 
-      // The chronological predecessor records sequence; this independently
+      // The chronological predecessor records sequence. This independently
       // stored pointer records the exact content source for restores and
       // cross-definition derivations.
       if (revision.derivedFromRevisionId !== null) {
@@ -1127,7 +1127,7 @@ export const buildTermProvenance = async (
             exampleNumber: example.exampleNumber,
             legacyBackfill: "yes",
             origin:
-              "Imported legacy example; exact source, actor, and time were not recorded",
+              "Imported legacy example. Exact source, actor, and time were not recorded",
             withdrawnAt: example.withdrawnAt
           }
     })
@@ -1150,7 +1150,7 @@ export const buildTermProvenance = async (
           }
         : {
             legacyBackfill: "yes",
-            origin: "Legacy import; publication time was not recorded"
+            origin: "Legacy import. Publication time was not recorded"
           }
     })
     addEdge(id, activityId, "wasGeneratedBy")
@@ -1754,7 +1754,7 @@ export const buildTermProvenance = async (
           evidenceBasis: "provider_reported",
           reportedBy: suggestion.model,
           qualification:
-            "Reported in the original model response; not independently verified or declared by the contributor"
+            "Reported in the original model response. Not independently verified or declared by the contributor"
         }
       })
       addEdge(suggestionId, id, "references")
@@ -1781,7 +1781,7 @@ export const buildTermProvenance = async (
       profileUserId: publicProfileUserId(suggestion.requester),
       summary:
         suggestion.intent === "new_term"
-          ? `AI assistance requested for new term “${suggestion.termText}”`
+          ? `AI assistance requested for new term "${suggestion.termText}"`
           : sourceRevision
             ? `Revision guidance submitted for ${revisionCoordinate(sourceRevision)}`
             : "Revision guidance submitted",
@@ -2008,7 +2008,7 @@ export const buildTermProvenance = async (
   // One activity per vote event: cast, change, withdrawal, and the one act
   // the backfill wrote for a vote cast before the record began. A migrated
   // row discloses its inferred binding, and a backfilled row says so, the
-  // same way; an event written by a vote says neither.
+  // same way. An event written by a vote says neither.
   for (const [voteIndex, act] of voteEvents.entries()) {
     const revision = revisionById.get(act.revisionId)
     const definition = definitionById.get(act.definitionId)

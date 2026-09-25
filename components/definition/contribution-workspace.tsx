@@ -5,7 +5,7 @@ import { ArrowLeftIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/** The controller belongs to the form; changing visible panels never owns a lookup. */
+/** The controller belongs to the form. Changing visible panels never owns a lookup. */
 export function ContributionWorkspace({
   children,
   context,

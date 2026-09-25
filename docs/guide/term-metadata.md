@@ -57,9 +57,8 @@ language, **View semantic statement**, and **Metadata history**. Source name
 and link are available in either view. Switching views preserves your draft
 and selected scope. It does not publish or change saved descriptions.
 
-Definitions and ontology relationships can use different sources. Browsing an
-ontology preview saves no metadata. Use an explicit related-concept
-contribution when you want a link reviewed for publication.
+Choose **Related external concept** to submit an ontology link for review.
+An ontology preview does not save the link.
 
 ## Review and withdrawal
 

@@ -4,7 +4,7 @@
  *
  * Backslash first, then the quote and the C0 controls that would otherwise
  * end or corrupt the literal: newline, carriage return, tab, and every other
- * control character as a \uXXXX escape (Turtle ECHAR covers \t \n \r; the
+ * control character as a \uXXXX escape (Turtle ECHAR covers \t \n \r. The
  * rest use UCHAR). DEL (0x7f) is legal inside a literal and is left alone.
  */
 export const lit = (value: string) =>

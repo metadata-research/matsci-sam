@@ -39,10 +39,10 @@ export type PredicateSpec = {
   iri: string
   subject: readonly SubjectKind[]
   object: readonly ObjectKind[]
-  // The inverse property in the export; never stored (skos:narrower is
+  // The inverse property in the export. Never stored (skos:narrower is
   // derived from the stored skos:broader row).
   inverse?: string
-  // Stored once, canonical order (smaller id first); the mirror is derived.
+  // Stored once, canonical order (smaller id first). The mirror is derived.
   symmetric?: true
   // Subject and object must be the same kind (term-term or concept-concept).
   sameKind?: true
@@ -203,7 +203,7 @@ export const objectOf = (s: StatementEnds): ObjectRef => {
 }
 
 // Does the predicate accept this subject kind and object kind at all? This is
-// the TypeScript twin of statements_predicate_shape; scripts/test-kos-db.ts
+// the TypeScript twin of statements_predicate_shape. scripts/test-kos-db.ts
 // checks every combination against the database.
 export const predicateAccepts = (
   predicate: Predicate,
@@ -281,7 +281,7 @@ export const schemeAttachesAt = (scheme: Pick<SchemePolicy, "attachesAt">) =>
 
 /*
  * Whether this caller may assert into a grouping that states an `assertableBy`
- * policy. A contributor grouping accepts anybody signed in; a curator grouping
+ * policy. A contributor grouping accepts anybody signed in. A curator grouping
  * accepts an administrator. Both concept schemes and collections carry the
  * column, so this is not scheme-specific.
  */

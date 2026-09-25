@@ -148,7 +148,7 @@ const main = async () => {
   // The run-once guard seen from the record: the clean cohort has acted in
   // this study and no manifest here says so, which is a public run made
   // elsewhere or one whose state directory is gone. A rehearsal under a
-  // suffix is not guarded; its units are idempotent.
+  // suffix is not guarded. Its units are idempotent.
   if (
     !args.suffix &&
     manifest.completed.length === 0 &&
@@ -198,7 +198,7 @@ const main = async () => {
     })
   }
 
-  // A dry run has no minted ids; resolve them for planning output only.
+  // A dry run has no minted ids. Resolve them for planning output only.
   if (Object.keys(manifest.personaUserIds).length === 0 && !args.dryRun) {
     const minted = await ensurePersonas(args.suffix)
     for (const [n, user] of minted) manifest.personaUserIds[n] = user.id

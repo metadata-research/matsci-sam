@@ -533,7 +533,7 @@ export const InvitePerson = ({
           <p className="text-xs text-muted-foreground">
             {createdInvitation.sent
               ? "Email sent."
-              : "Link only—no email was sent."}{" "}
+              : "Link created. No email was sent."}{" "}
             Expires {createdInvitation.expiresLabel}.
           </p>
           <CopyableLink
@@ -633,7 +633,7 @@ export const InvitationActions = ({
 }: {
   invitationId: number
   live: boolean
-  // A revoked or expired record nobody redeemed may be deleted; a redeemed
+  // A revoked or expired record nobody redeemed may be deleted. A redeemed
   // one records that its person arrived and carries no action at all.
   deletable?: boolean
 }) => {
@@ -981,7 +981,7 @@ export const CreateWorklistCollection = ({
  * the steward leaves them out. The steps are replaced wholesale until
  * somebody completes one, and are then only added to, because a
  * participant's place is a position in the list. The router refuses past
- * that point, and on a retired study; here the button gives way to the
+ * that point, and on a retired study. Here the button gives way to the
  * count.
  */
 export const GenerateWalkthrough = ({

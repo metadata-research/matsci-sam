@@ -438,11 +438,9 @@ export default async function CommunityPage({
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">Invitations</h2>
             <p className="text-sm text-muted-foreground">
-              An invitation admits whoever opens the link and signs in, once. It
-              is not tied to the address it was sent to, so someone whose
-              institutional and personal addresses differ is not stranded.
-              Inviting someone here joins them to the community; a participant
-              invitation to a study is created beside that study above.
+              Each link admits one person who opens it and signs in. It works
+              with any sign-in address. Use the invitation controls beside a
+              study to invite a participant to that study.
             </p>
             <InvitePerson communityId={community.id} />
 

@@ -68,7 +68,7 @@ export default async function Home() {
             <p className={styles.heroLead}>
               A community dictionary for materials science terminology. Draft
               definitions with optional AI assistance and look up terms in
-              community vocabularies and the ChEBI ontology.
+              community vocabularies and reference ontologies.
             </p>
           </section>
 

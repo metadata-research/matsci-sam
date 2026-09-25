@@ -95,7 +95,7 @@ export const mayViewRoster = (viewer: Viewer, membership: Membership) => {
 }
 
 /*
- * How long a per-person invitation lives. Fourteen days covers the two-week
+ * How long an invitation remains valid. Fourteen days covers the two-week
  * task window the ID4 study ran in, and a lapsed invitation is reissued rather
  * than extended, so nothing depends on getting this exactly right.
  */

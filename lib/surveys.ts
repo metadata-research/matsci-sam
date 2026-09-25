@@ -16,7 +16,7 @@ import {
  * step is a position step: the participant accepts one of the definitions of
  * the term with an upvote, suggests a revision to one, or proposes a new
  * source-free definition when none is close enough, or explicitly skips the
- * term with no opinion. The kind stays "define" in the schema; the shell
+ * term with no opinion. The kind stays "define" in the schema. The shell
  * labels it "Position". Progress is the set of completions and their outcome.
  * Resumption is the lowest position without one, and a gate is a rule over
  * the acts a step asked for, so there is no status column to drift from the

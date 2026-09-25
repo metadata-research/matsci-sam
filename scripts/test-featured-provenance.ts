@@ -94,7 +94,7 @@ assert.match(
   "canonical provenance requires accepted status and exact output linkage"
 )
 
-// The homepage showcase was removed; the term provenance builder still owns
+// The homepage showcase was removed. The term provenance builder still owns
 // the accepted-round gate and exact publication linkage for legacy refinements.
 const provenanceSource = readFileSync(resolve("lib/provenance.ts"), "utf8")
 assert.match(

@@ -5,7 +5,7 @@ that uses OAuth client credentials. Server settings choose the deployment
 assistant and optional monitored alternate. Contributors can also choose a
 separately configured, validated and enabled Wolfram Agent One profile for
 ordinary definition requests. The admin **AI & services** page manages that
-profile and reports deployment endpoint readiness; credentials remain on the
+profile and reports deployment endpoint readiness. Credentials remain on the
 server.
 
 This reference describes application behavior. Keep host-specific setup,
@@ -22,15 +22,15 @@ Ollama endpoint, and the default model remains `gemma4:26b`.
 | Setting | Meaning |
 | --- | --- |
 | `INFERENCE_PROVIDER` | `ollama` (default) or `openai-compatible` |
-| `INFERENCE_PROFILE` | Non-secret label recorded with generations; defaults to the provider name |
-| `INFERENCE_MODEL` | Exact requested model; defaults to `gemma4:26b` for Ollama and is required for the compatible service |
+| `INFERENCE_PROFILE` | Non-secret label recorded with generations. Defaults to the provider name |
+| `INFERENCE_MODEL` | Exact requested model. Defaults to `gemma4:26b` for Ollama and is required for the compatible service |
 | `OLLAMA_HOST` | Existing Ollama endpoint |
-| `INFERENCE_BASE_URL` | HTTPS API base, including its version path; compatible service only |
-| `INFERENCE_TOKEN_URL` | HTTPS OAuth token endpoint; compatible service only |
-| `INFERENCE_CLIENT_ID` | Application registration identifier; compatible service only |
-| `INFERENCE_CLIENT_SECRET` | Protected application credential; compatible service only |
-| `INFERENCE_TIMEOUT_MS` | Total generation deadline, default 90000; allowed 1000–300000 |
-| `INFERENCE_MAX_TOKENS` | Compatible-service output limit, default 2048; allowed 64–32768 |
+| `INFERENCE_BASE_URL` | HTTPS API base, including its version path. Compatible service only |
+| `INFERENCE_TOKEN_URL` | HTTPS OAuth token endpoint. Compatible service only |
+| `INFERENCE_CLIENT_ID` | Application registration identifier. Compatible service only |
+| `INFERENCE_CLIENT_SECRET` | Protected application credential. Compatible service only |
+| `INFERENCE_TIMEOUT_MS` | Total generation deadline, default 90000. Allowed 1000–300000 |
+| `INFERENCE_MAX_TOKENS` | Compatible-service output limit, default 2048. Allowed 64–32768 |
 
 Use a profile such as `research-cluster` to distinguish deployments. Profile
 names contain lowercase letters, digits, hyphens, or underscores and are at
@@ -43,7 +43,7 @@ access tokens, and `response_format` with a JSON schema. It does not send the
 client secret as an API key. The token manager obtains and caches a token,
 uses its returned lifetime, and refreshes shortly before expiry. Concurrent
 requests share the refresh within a process. A model-endpoint 401 permits one
-new-token retry; a repeated failure is reported. No SSH agent or browser login
+new-token retry. A repeated failure is reported. No SSH agent or browser login
 is required by the application after its credentials are provisioned.
 
 Keep credentials in protected server settings, never `NEXT_PUBLIC_*`
@@ -56,10 +56,10 @@ them. The application never prints token responses or raw invalid model output.
 
 Administrators can open **AI & services → Service health** to inspect and
 refresh both endpoints' readiness. **In use** identifies the endpoint receiving
-application requests; **Alternate** is checked separately and never receives
+application requests. **Alternate** is checked separately and never receives
 automatic failover traffic. Each shows its profile, provider, requested model,
-status, and check time. An unconfigured alternate is labeled **Not configured**;
-its absence or failure does not change the active endpoint's health.
+status, and check time. An unconfigured alternate is labeled **Not configured**.
+Its absence or failure does not change the active endpoint's health.
 
 **Inference testing** opens an editable
 prompt panel at `/admin/inference`. Choose **Short answer** for an `answer`
@@ -71,12 +71,12 @@ Each explicit test reports the submitted prompt, validated output, elapsed
 time, profile, provider, and requested/returned model identity. A passed test
 confirms response format, not factual quality. Errors distinguish invalid
 output from configuration, authentication, or service failures. The panel uses
-the server-selected provider; it does not change that selection or accept
+the server-selected provider. It does not change that selection or accept
 endpoint URLs or credentials from the browser.
 
 Prompts are limited to 4,000 characters. Tests use the configured request
 timeout and compatible-service token limit, with no automatic UI retry. Results
-remain in the page for inspection; the diagnostic creates no terms, definitions,
+remain in the page for inspection. The diagnostic creates no terms, definitions,
 suggestions, study responses, or graph updates. The prompt is still sent to the
 configured inference provider.
 
@@ -108,7 +108,7 @@ In the protected server environment file, configure the alternate with the
 same settings as an active provider, replacing `INFERENCE_` with
 `INFERENCE_ALTERNATE_`. For an Ollama alternate, its host setting is
 `INFERENCE_ALTERNATE_OLLAMA_HOST`. The alternate must specify its provider and
-all required connection settings; it inherits no active endpoint settings.
+all required connection settings. It inherits no active endpoint settings.
 The provider-specific model defaults and validation rules still apply.
 
 For example, while Ollama is in use, stage a compatible endpoint for monitoring:
@@ -125,7 +125,7 @@ INFERENCE_ALTERNATE_CLIENT_SECRET=your-protected-credential
 
 Restart the application after editing the file. Health checks run in parallel
 with independent deadlines. The compatible endpoint exchanges credentials for
-a token and lists models; Ollama is asked for model details. Neither check
+a token and lists models. Ollama is asked for model details. Neither check
 generates text. Credentials, endpoint URLs, and raw service errors are never
 returned to the admin page. Readiness is measured from the application server,
 so the alternate must be reachable and authorized from that server.
@@ -157,20 +157,20 @@ A request snapshots its configuration before network I/O. Its result includes
 validated output and metadata for the provider that actually answered. The
 metadata records provider, profile, requested model, a configuration hash,
 and the returned model identity when supplied. The hash covers endpoint and
-generation options, excluding credentials; it is an audit fingerprint, not a
+generation options, excluding credentials. It is an audit fingerprint, not a
 model-weight digest. Keep the corresponding configuration in the private
 operational record if later reproduction is needed.
 
 Public suggestions persist their generation metadata before preview and carry
 it to the published definition and initial revision. Publishing after a switch
 retains the original generator. Human edits clear generation metadata on the
-new revision; historical revisions retain theirs. JSON and RDF provenance
-include provider information where recorded. Existing rows have null metadata;
-the migration does not infer a historical provider or rewrite model identities.
+new revision. Historical revisions retain theirs. JSON and RDF provenance
+include provider information where recorded. Existing rows have null metadata.
+The migration does not infer a historical provider or rewrite model identities.
 
 There is no automatic cross-provider fallback. A failed request leaves the
 contribution workflow available without claiming another service produced it.
-Provider failures and invalid model output remain distinct; callers control
+Provider failures and invalid model output remain distinct. Callers control
 transport retries, and the compatible adapter only handles the bounded token
 retry internally.
 
@@ -182,10 +182,10 @@ model, endpoint, or generation options requires a new rehearsal suffix. Older
 manifests without a configuration record also refuse automatic resume: their
 inference setup cannot be established from the manifest alone.
 
-Credentials may rotate without changing the public configuration hash; they
+Credentials may rotate without changing the public configuration hash. They
 must still be valid at runtime. The contributor picker described below applies
 to ordinary definition requests. Pilot runs and study requests retain the
-deployment configuration; they have no saved per-study provider override.
+deployment configuration. They have no saved per-study provider override.
 
 ## Contributor assistant choice and Wolfram Agent One
 
@@ -202,14 +202,14 @@ seconds. No client-supplied endpoint, model tag, or credential is accepted.
 After configuring the dedicated key, an administrator must run the definition
 validation test in **AI & services** and explicitly enable Agent One. Validation
 is tied to the adapter configuration and credential using a private stored
-digest; rotating the key or changing its request configuration invalidates
+digest. Rotating the key or changing its request configuration invalidates
 readiness. The digest and credentials are never returned to the browser or
 included in generation provenance. A failed retest removes readiness. The
 administrative free-text sandbox is separate and does not grant readiness.
 
 Administrators set the default assistant. Contributors can select an available
 assistant per request and save their preference. Explicit and saved choices are
-validated on the server; an unavailable selection produces an actionable error,
+validated on the server. An unavailable selection produces an actionable error,
 with no automatic call to another provider. Configuration is snapshotted before
 asynchronous request work. The resulting suggestion retains its generating
 service even if defaults or preferences later change. Study revision requests
@@ -245,7 +245,7 @@ contributor input and definition output already retained with the suggestion.
 Migration `0060_definition_assistants.sql` adds the singleton assistant policy
 and each contributor's nullable preferred profile. Existing users and deployments
 retain the `default` profile without enabling Agent One. `scripts/test-agent-one.ts`
-checks the adapter with controlled responses; it makes no provider request or
+checks the adapter with controlled responses. It makes no provider request or
 database write.
 
 `scripts/test-agent-one-db.ts` exercises actual database/router authorization,

@@ -1,5 +1,5 @@
 // Requires a running local SAM preview and its local database. Provider and
-// publication mutations are intercepted; only the owned fixtures touch the DB.
+// publication mutations are intercepted. Only the owned fixtures touch the DB.
 import "dotenv/config"
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
@@ -123,7 +123,7 @@ async function main() {
 
   async function addSource(scope: Locator, kind: EditorKind) {
     const references = await showReferences(scope, kind)
-    // Add reveals its first match automatically; revision editing keeps the
+    // Add reveals its first match automatically. Revision editing keeps the
     // deliberate reveal action. Scope the action to ChEBI, not adjacent tools.
     if (kind === "revision") {
       const reveal = references.getByRole("button", {

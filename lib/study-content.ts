@@ -65,7 +65,7 @@ export const readStudyContent = (
   if (!body) throw new Error(`Study content ${parsedKey} is blank`)
   if (body.length > WELCOME_MAX)
     throw new Error(
-      `Study content ${parsedKey} is ${body.length} characters; the limit is ${WELCOME_MAX}`
+      `Study content ${parsedKey} is ${body.length} characters. The limit is ${WELCOME_MAX}`
     )
 
   return {

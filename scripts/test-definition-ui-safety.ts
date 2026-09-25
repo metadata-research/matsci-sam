@@ -32,7 +32,7 @@ assert.match(examples, /current revision/)
 assert.match(examples, /example\.legacyBackfill \? \(/)
 assert.match(examples, /Origin and contribution date not recorded/)
 
-// Rollback restores only definition text; examples have independent history.
+// Rollback restores only definition text. Examples have independent history.
 const historyControls = section(detailPage, "definition.revisions.map", "</ol>")
 assert.doesNotMatch(historyControls, /revision\.exampleDiff/)
 assert.match(historyControls, /revision\.restorable/)
@@ -151,7 +151,7 @@ assert.equal(
   1,
   "the Position choice state has one skip trigger"
 )
-assert.match(skipTermChoice, /Don’t know this term well enough to choose\?/)
+assert.match(skipTermChoice, /Not familiar enough with this term to choose\?/)
 assert.match(skipTermChoice, /record no opinion and move to the next term/)
 assert.match(
   skipTermChoice,
@@ -159,7 +159,7 @@ assert.match(
 )
 assert.match(
   skipTermChoice,
-  /You won’t be asked to choose or review a definition for this[\s\S]*term\./
+  /You will not be asked to choose or review a definition for this[\s\S]*term\./
 )
 assert.match(skipTermChoice, /Go back/)
 assert.match(skipTermChoice, /onClick=\{onSkip\}[\s\S]*Skip this term/)

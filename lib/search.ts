@@ -20,7 +20,7 @@ import {
  *
  *   1. Full-text over term names, definition bodies, and featured examples.
  *      The legacy definition expression remains byte-identical to its GIN
- *      index; a separate branch admits normalized featured examples.
+ *      index. A separate branch admits normalized featured examples.
  *   2. Trigram similarity on term names, which catches typos and partial words
  *      that full-text misses -- FTS matches whole lexemes, so "austenit" finds
  *      nothing without it.
@@ -35,8 +35,7 @@ import {
  * Term names outrank definition bodies because the ranked vector applies weight
  * 'A' to the term and the definition vector is stored at 'B'/'C'. ts_rank's
  * default weight array ({0.1, 0.2, 0.4, 1.0} for D,C,B,A) does the rest, so
- * relative importance lives in the weights rather than in hand-tuned
- * multipliers.
+ * the weights determine relative importance.
  */
 
 // `%` and `_` are LIKE metacharacters. The query is parameterized, but the
@@ -56,7 +55,7 @@ const currentDefinitionVector = () =>
 
 // websearch_to_tsquery never throws on user input -- it handles quoted phrases,
 // OR, and leading `-`, and degrades to an empty query rather than erroring on
-// punctuation soup. plainto_tsquery would drop the operators; to_tsquery throws.
+// punctuation soup. plainto_tsquery would drop the operators, while to_tsquery throws.
 const tsQuery = (query: string) =>
   sql`websearch_to_tsquery('english', ${query})`
 
@@ -235,7 +234,7 @@ export const termFacets = () => sql<SearchFacet[]>`coalesce((
 ), '[]'::jsonb)`
 
 // Multiple concepts in the same facet scheme are alternatives. The current
-// PSPP scheme is the only term-level scheme; when another is added this helper
+// PSPP scheme is the only term-level scheme. When another is added this helper
 // can be extended to AND the scheme groups while retaining OR within each.
 export const facetTermScope = (facetKeys: string[]) => {
   if (facetKeys.length === 0) return undefined
@@ -297,7 +296,7 @@ export const searchOrderGrouped = (query: string) => [
 
 /*
  * Terms owned by one vocabulary namespace. The active-community homepage and
- * Browse view use this boundary; a collection can still reference terms from
+ * Browse view use this boundary. A collection can still reference terms from
  * other namespaces without making them local.
  */
 export const vocabularyTermScope = (vocabularySlug: string) =>
