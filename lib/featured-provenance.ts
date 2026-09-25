@@ -26,7 +26,7 @@ type LegacyRefinement = {
 /**
  * Resolve the small homepage activity summary from exact publication links.
  * New canonical records take precedence, followed by accepted rows from the
- * two retired workflows; a derived definition without one is human-authored.
+ * two retired workflows. A derived definition without one is human-authored.
  */
 export function resolveFeaturedActivity({
   canonicalSuggestion,

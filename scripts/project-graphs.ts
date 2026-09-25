@@ -6,7 +6,7 @@
  *
  * Run as tsx --conditions=react-server so the "server-only" imports resolve.
  * Projecting needs GRAPH_PROJECTION_ENABLED=true, FUSEKI_DATASET_URL and the
- * credentials; exporting needs only the database, and is what CI validates
+ * credentials. Exporting needs only the database, and is what CI validates
  * with the Jena CLI. Exported Turtle can hold real names and is ignored by
  * git.
  */

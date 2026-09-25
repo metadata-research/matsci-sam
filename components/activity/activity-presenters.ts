@@ -102,7 +102,7 @@ export const activityEventDetail = (event: TermActivityEvent) => {
   if (isExampleActivityEvent(event)) {
     const source =
       event.kind === "example-publication" && event.version !== null
-        ? `; supplied against revision ${event.version}`
+        ? `. Supplied against revision ${event.version}`
         : ""
     return `Example ${event.exampleNumber}${source}: ${event.text}`
   }
@@ -114,12 +114,12 @@ export const activityEventDetail = (event: TermActivityEvent) => {
         : event.action === "up"
           ? "Upvote recorded"
           : "Downvote recorded"
-    return event.backfilled ? `${action}; imported historical act` : action
+    return event.backfilled ? `${action}. Imported historical act` : action
   }
   const label =
     revisionSourceLabels[event.source as keyof typeof revisionSourceLabels] ??
     event.source
-  return event.legacyIncomplete ? `${label}; partial legacy record` : label
+  return event.legacyIncomplete ? `${label}. Partial legacy record` : label
 }
 
 export const activityEventAriaLabel = (event: TermActivityEvent) => {

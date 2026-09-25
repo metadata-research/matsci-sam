@@ -52,7 +52,7 @@ const StudyItem = ({ study }: { study: Listed & { saved?: number } }) => {
 /*
  * Studies run here. A study joins one community to one collection and says
  * what its participants are being asked to do. A signed-in member sees the
- * studies of their communities first, with their saved progress; the public
+ * studies of their communities first, with their saved progress. The public
  * list below is the same for everyone. Retired studies are not listed, and
  * their addresses keep resolving.
  */

@@ -71,7 +71,7 @@ const commands = [
   { value: "files", label: "Attach file", icon: PaperclipIcon }
 ] as const
 
-/** Tool labels name the mounted panels; switching never resets tool inputs. */
+/** Tool labels name the mounted panels. Switching never resets tool inputs. */
 export function DefinitionToolbox({
   view,
   active,

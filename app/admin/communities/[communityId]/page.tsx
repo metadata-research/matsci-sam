@@ -56,7 +56,7 @@ function outcomeDetail(
 /*
  * Membership of one community, for an administrator: the roster with role
  * controls, the invitations that admit people, and the open join link. The
- * studies of the community are managed on the study pages; this page owns
+ * studies of the community are managed on the study pages. This page owns
  * who is in the group.
  */
 export default async function AdminCommunityPage({

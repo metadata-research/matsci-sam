@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 /*
  * The collections index. A collection is a curated named set of terms,
- * published as a skos:Collection. Retired collections are not listed; their
+ * published as a skos:Collection. Retired collections are not listed. Their
  * addresses still resolve.
  */
 // Per-viewer, because the list narrows to the community the reader is working

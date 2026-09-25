@@ -1,6 +1,6 @@
 /*
  * Exercises the populated 0044 -> 0045 example-provenance upgrade without
- * touching the migrated application schema. The fixture lives in a uniquely
+ * touching the migrated application schema. The fixture is in a uniquely
  * named schema inside one transaction, the real 0045 SQL is applied to it,
  * and the transaction is always rolled back.
  */

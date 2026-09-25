@@ -11,7 +11,7 @@ const resolvePromptKey = (key: string) => {
 }
 
 // System prompt selection: SYSTEM_PROMPT_KEY picks a named prompt from
-// lib/prompts.json; SYSTEM_PROMPT (raw text) still works and takes precedence
+// lib/prompts.json. SYSTEM_PROMPT (raw text) still works and takes precedence
 // so existing deployments are unaffected.
 const resolveSystemPrompt = () => {
   if (process.env.SYSTEM_PROMPT) return process.env.SYSTEM_PROMPT
@@ -33,7 +33,7 @@ export const NewTermPromptKey =
 export const NewTermSystemPrompt = resolvePromptKey(NewTermPromptKey)
 
 // The explicit critique-driven suggestion in the canonical Revise action.
-// Like New term, it returns definition text only; examples are independent.
+// Like New term, it returns definition text only. Examples are independent.
 export const RevisionSuggestionPromptKey =
   process.env.REVISION_SUGGESTION_PROMPT_KEY ?? "revision-suggestion"
 export const RevisionSuggestionSystemPrompt = resolvePromptKey(

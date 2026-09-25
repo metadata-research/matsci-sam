@@ -724,7 +724,7 @@ const main = async () => {
   }
 
   // The two owners can be allocated from separate requests at the same time.
-  // Exactly one may commit; the shared route primary key serializes the race.
+  // Exactly one may commit. The shared route primary key serializes the race.
   const raceSlug = `vocab_race_${stamp}`
   let raceResults: PromiseSettledResult<unknown>[] = []
   try {

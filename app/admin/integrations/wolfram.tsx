@@ -88,8 +88,8 @@ export const WolframCard = () => {
       <div className="flex min-w-0 flex-col gap-5 px-5 py-4 text-sm">
         <p className="text-muted-foreground">
           Enable assistants for definition requests and choose the default.
-          Contributors can choose another available assistant; study requests
-          follow their study’s assistant policy.
+          Contributors can choose another available assistant. Study requests
+          follow the assistant policy of the study.
         </p>
         <section
           aria-labelledby={`${id}-agent-one`}
@@ -236,7 +236,7 @@ export const WolframCard = () => {
                   disabled={!available(profile.id)}
                 >
                   {profile.label}
-                  {!available(profile.id) ? " — unavailable" : ""}
+                  {!available(profile.id) ? " (unavailable)" : ""}
                 </option>
               ))}
             </select>

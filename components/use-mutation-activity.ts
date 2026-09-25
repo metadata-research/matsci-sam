@@ -52,8 +52,8 @@ export function useMutationActivity(options: MutationActivityOptions = {}) {
   useEffect(
     () => () => {
       // A successful mutation can navigate before TanStack Query invokes its
-      // settled callback. Release every lifecycle owned by this component;
-      // any later callback sees zero and is therefore harmless.
+      // settled callback. Release every lifecycle owned by this component.
+      // Any later callback sees zero and is therefore harmless.
       const pending = pendingRef.current
       pendingRef.current = 0
       for (let index = 0; index < pending; index += 1)

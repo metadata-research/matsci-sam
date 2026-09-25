@@ -18,7 +18,7 @@ import {
  * Collections: a named set of terms, gathered for a purpose.
  *
  * Separate from the tags router because a collection is not a tag. A tag
- * classifies a term; a collection groups terms without saying anything about
+ * classifies a term. A collection groups terms without saying anything about
  * what they mean. They share only the statements table.
  *
  * Every membership change follows the same shape as tags.setFacet: load the

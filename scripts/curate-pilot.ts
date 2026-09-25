@@ -391,8 +391,8 @@ const main = async () => {
     refuse("retiring a community, a study or a collection is a curator's act")
 
   // The retire section is one transaction. Take every study row before any
-  // parent row, matching lockStudy's study -> community -> collection order;
-  // otherwise retiring a parent and one of its studies can deadlock with a
+  // parent row, matching lockStudy's study -> community -> collection order.
+  // Otherwise retiring a parent and one of its studies can deadlock with a
   // participant who already holds the study and is waiting for the parent.
   for (const slug of manifest.retire.studies) {
     const row = studies.get(slug)
@@ -761,7 +761,7 @@ const main = async () => {
         write: async (tx) => {
           // As communities.create, with the slug the manifest gives rather
           // than one minted from the title. ON CONFLICT makes simultaneous
-          // runs converge on the same pair; the readback refuses a different
+          // runs converge on the same pair. The readback refuses a different
           // or retired row rather than silently adopting it.
           await tx
             .insert(vocabulariesTable)
@@ -1123,7 +1123,7 @@ const main = async () => {
 
   // Refuse before the first write when an ownership plan would strand an
   // active term hierarchy/relation across vocabularies. The database repeats
-  // this as a deferred constraint at commit; doing it here preserves the
+  // this as a deferred constraint at commit. Doing it here preserves the
   // curation command's all-preflight-errors-before-any-write contract.
   if (ownershipPlans.length) {
     const termRelations = await db
@@ -1210,7 +1210,7 @@ const main = async () => {
         }
 
         // The alias follows the update in this same transaction. A deferred
-        // guard refuses commit if a former route is missing; readback refuses
+        // guard refuses commit if a former route is missing. Readback refuses
         // an alias that a concurrent transaction assigned to another term.
         await tx
           .insert(termRouteAliasesTable)
@@ -1289,7 +1289,7 @@ const main = async () => {
       // Never try to lock a newly discovered study after holding the
       // collection, either. Generation could already hold that study while
       // waiting for this collection. The collection row blocks a later study
-      // insert through its foreign-key lock; a study committed in the gap is
+      // insert through its foreign-key lock. A study committed in the gap is
       // detected below and makes this section retry from preflight.
       if (input.exact && input.hasChanges) await lockLinkedStudies()
       const lockedCollection = await lockCollectionMembershipRow(
@@ -1468,8 +1468,8 @@ const main = async () => {
         const why = exactMembershipChangeRefusal(true, {
           slug: study.slug,
           // Retirement is the first curation section. A study explicitly
-          // retired by this manifest is no longer live when collections run;
-          // participant activity still refuses independently.
+          // retired by this manifest is no longer live when collections run.
+          // Participant activity still refuses independently.
           retiredAt: retiring.studies.has(study.slug)
             ? "planned-retirement"
             : study.retiredAt,
@@ -1769,7 +1769,7 @@ const main = async () => {
   }
 
   // The ledger registry agrees that a collection may hold a term. It does,
-  // and the database CHECK says the same; the assertion is the statement
+  // and the database CHECK says the same. The assertion is the statement
   // that this script consulted it.
   if (!predicateAccepts("skos:member", "collection", "term"))
     refuse("lib/kos.ts does not accept skos:member from a collection to a term")

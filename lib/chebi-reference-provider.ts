@@ -85,7 +85,7 @@ export async function retrieveChebiDefinitions(
   }
 }
 
-// A bounded per-process guard; no open transaction while waiting on ONT.
+// A bounded per-process guard. No open transaction while waiting on ONT.
 const requests = new Map<
   string,
   { at: number; count: number; pending: boolean }

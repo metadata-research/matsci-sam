@@ -144,7 +144,7 @@ export const aiAssistRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
           message:
             assistant.config.provider === "wolfram-agent-one"
-              ? "Agent One did not return a complete text response. Try again; your draft is unchanged."
+              ? "Agent One did not return a complete text response. Try again. Your draft is unchanged."
               : "The model returned an invalid definition"
         })
 
@@ -277,7 +277,7 @@ export const aiAssistRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
           message:
             assistant.config.provider === "wolfram-agent-one"
-              ? "Agent One did not return a complete text response. Try again; your draft is unchanged."
+              ? "Agent One did not return a complete text response. Try again. Your draft is unchanged."
               : "The model returned an invalid definition"
         })
 

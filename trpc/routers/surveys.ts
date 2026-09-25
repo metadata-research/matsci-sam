@@ -61,7 +61,7 @@ import { joinOpenStudy } from "@/lib/study-enrollment"
 
 /*
  * The survey walkthrough: the ordered steps of a study, and a participant's
- * way through them. A steward generates and extends the steps; a member of
+ * way through them. A steward generates and extends the steps. A member of
  * the community walks them while the study is open. The acts a step asks
  * for are the ordinary writes in votes, comments and definitions, which
  * take the step as context and check it through requireStepForAct below.
@@ -156,7 +156,7 @@ const requireParticipation = async (
 /*
  * Serialize every walkthrough act with study edits and step generation. The
  * caller's first read gives us the study id needed to take the lock in the
- * common study-first order; the second read is authoritative after any writer
+ * common study-first order. The second read is authoritative after any writer
  * that was already holding the lock has committed.
  */
 export const lockParticipation = async (
@@ -191,7 +191,7 @@ export const lockParticipation = async (
  * For votes.vote, comments.create and definitions.create: the step an act
  * names must be one the caller may act in, and must be a step for that act
  * on that term: an upvote accepts a candidate in a define step, and a vote
- * of either kind compares in a review step. Checked before the write;
+ * of either kind compares in a review step. Checked before the write.
  * drizzle/invariants.sql proves afterwards that it held.
  */
 const notForThisAct = () =>
@@ -550,8 +550,8 @@ export const surveysRouter = createTRPCRouter({
 
   /*
    * Accept one exact candidate as the participant's position. Unlike the
-   * general vote toggle, Accept preserves an upvote already on the candidate;
-   * no vote becomes up and a downvote changes to up. The vote state, explicit
+   * general vote toggle, Accept preserves an upvote already on the candidate.
+   * No vote becomes up and a downvote changes to up. The vote state, explicit
    * position record and step completion commit together.
    */
   acceptPosition: contributorProcedure

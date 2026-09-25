@@ -21,7 +21,7 @@ import { vocabularyTermScope } from "@/lib/search"
  *
  * The feed keeps a consistent discussion target for each term: its model draft
  * when one exists, otherwise its highest-supported definition. Commenting is a
- * comment-only act; requesting a language-model revision draft remains an
+ * comment-only act. Requesting a language-model revision draft remains an
  * explicit action.
  */
 export const discussionRouter = createTRPCRouter({
@@ -234,8 +234,8 @@ export const discussionRouter = createTRPCRouter({
       /*
        * Everyone who has contributed to a term, in the order they first did:
        * the original definition's author leads, then later authors and
-       * commenters. Human contributors are deduplicated by stable account id;
-       * models and unattributed legacy events use their displayed label.
+       * commenters. Human contributors are deduplicated by stable account id.
+       * Models and unattributed legacy events use their displayed label.
        */
       const contributorsFrom = (history: ReturnType<typeof historyFor>) => {
         const seen = new Set<string>()
@@ -265,7 +265,7 @@ export const discussionRouter = createTRPCRouter({
         return contributors
       }
 
-      // Keep recency order; drop the rare term with no definitions at all.
+      // Keep recency order. Drop the rare term with no definitions at all.
       return terms
         .map((t) => {
           const history = historyFor(t.id)

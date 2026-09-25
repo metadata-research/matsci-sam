@@ -731,7 +731,7 @@ function RevisionSuggestionWorkspace({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Applying the model draft clears earlier citations.
-                            Attach sources used in the new text during review;
+                            Attach sources used in the new text during review.
                             Undo restores your earlier citations.
                           </p>
                           <div className="flex flex-wrap gap-2">

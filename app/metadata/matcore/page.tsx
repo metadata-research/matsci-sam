@@ -58,7 +58,7 @@ export default function MatCoreMetadataPage() {
             <p className={styles.notice}>
               <InfoIcon aria-hidden />
               <span>
-                Preliminary snapshot—not an official or current MatCore release.
+                Preliminary snapshot from the 2025 paper. This is not an official MatCore release.
               </span>
             </p>
             <p className={styles.machineNote}>
@@ -135,10 +135,6 @@ export default function MatCoreMetadataPage() {
                 />
               </div>
               <div className={styles.exampleFooter}>
-                <span>
-                  This example demonstrates structure; MatSci-SAM is not storing
-                  or validating a dataset record here.
-                </span>
                 <Link
                   href="/vocabulary/id4/density_functional_theory_dft"
                   className={styles.vocabularyLink}

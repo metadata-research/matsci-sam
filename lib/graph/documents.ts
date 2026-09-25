@@ -25,11 +25,11 @@ import {
  * and the provenance graph the PROV-O record. The per-term provenance body
  * leaves the typing of the definition and of its current revision, and the
  * specializationOf link of that revision, to the vocabulary graph, which
- * states them (vocabularyTriples: false); every other revision keeps them,
+ * states them (vocabularyTriples: false). Every other revision keeps them,
  * because nothing else states them. scripts/test-graph.ts proves the
  * disjointness on fixtures.
  *
- * The pure renderers take what the loaders return; the loaders are the same
+ * The pure renderers take what the loaders return. The loaders are the same
  * queries the Turtle routes run. buildContentGraphs is what the projector
  * calls, and buildContentGraph what a route without a projection calls.
  */

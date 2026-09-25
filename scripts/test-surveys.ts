@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs"
 
 const main = async () => {
   // lib/surveys.ts holds one database write, so importing it opens the pool
-  // lazily; a placeholder keeps that harmless without a database, as
+  // lazily. A placeholder keeps that harmless without a database, as
   // scripts/test-definition-revisions.ts does.
   process.env.DATABASE_URL ??= "postgresql:///survey-rule-test"
   const {

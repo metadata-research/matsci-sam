@@ -42,7 +42,7 @@ const examples = [
     record:
       "Example processing activity → Processing method → Atomic layer deposition",
     caveat:
-      "Inspired by ICoN-PCL’s experimental setting. This example is a local proposal, not an official ICoN-PCL metadata record."
+      "Inspired by the experimental setting described by ICoN-PCL. This example is a local proposal, not an official ICoN-PCL metadata record."
   },
   {
     id: "deposition-temperature",

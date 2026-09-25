@@ -63,7 +63,7 @@ export function ReferenceSnapshot({
             </a>
           ) : (
             (reference.license ??
-            "Prototype use; long-term terms under discussion")
+            "Prototype use")
           )}
         </p>
         <a
@@ -76,7 +76,7 @@ export function ReferenceSnapshot({
         </a>
         <p className="text-xs text-muted-foreground">
           Retrieved {formatDate(reference.retrievedAt)}. The stored source text
-          is separate from the contributor’s wording above.
+          is separate from the wording of the contributor above.
         </p>
         {reference.responseUuid && (
           <p className="break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">

@@ -18,7 +18,7 @@ export type ModelReferenceInput = {
   retrievedAt: string
   context: string | null
   responseUuid: string | null
-  // Absent on older request snapshots; do not reconstruct historical options.
+  // Absent on older request snapshots. Do not reconstruct historical options.
   query?: string
   request?: WolframLookupRequest
 }

@@ -168,7 +168,7 @@ async function getJson(url: URL, fetcher: typeof fetch) {
   ) as unknown
 }
 
-/** Read-only discovery; matching labels never establish a SAM mapping. */
+/** Read-only discovery. Matching labels never establish a SAM mapping. */
 export async function fetchOntologyCandidates(
   term: string,
   options: TransportOptions & { mode?: z.infer<typeof candidateMode> } = {}

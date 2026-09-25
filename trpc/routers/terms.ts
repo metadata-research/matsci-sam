@@ -7,7 +7,7 @@ import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 import { asc, eq } from "drizzle-orm"
 
 export const termsRouter = createTRPCRouter({
-  // Public read-only PROV-O view; voter identities are withheld (the admin
+  // Public read-only PROV-O view. Voter identities are withheld (the admin
   // endpoint admin.provenance keeps full detail)
   provenance: baseProcedure
     .input(z.number())

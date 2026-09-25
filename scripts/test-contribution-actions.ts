@@ -158,7 +158,7 @@ assert.match(examples, /Add example/)
 assert.doesNotMatch(revisionForm, /initialExample/)
 
 // Default participant guidance and the contributor guide name the same
-// actions; the former "amend" and automatic-comparison workflows stay gone.
+// actions. The former "amend" and automatic-comparison workflows stay gone.
 const surveyRules = source("lib/surveys.ts")
 const contributorGuide = source("docs/guide/adding-terms.md")
 for (const label of [

@@ -164,7 +164,7 @@ export const modelPath = (slug: string) =>
 export const modelUri = (slug: string) => absoluteIdentifier(modelPath(slug))
 
 // The reifier IRI for one stored statement. The subject IRI is already
-// absolute; the key is the statement's opaque uuid.
+// absolute. The key is the statement's opaque uuid.
 export const statementUri = (subjectIri: string, key: string) => {
   if (!subjectIri) throw new RangeError("Subject IRI must not be empty")
   if (!key) throw new RangeError("Statement key must not be empty")
@@ -173,7 +173,7 @@ export const statementUri = (subjectIri: string, key: string) => {
 
 /*
  * Application-specific RDF classes and properties share one namespace.
- * Resource identities remain under /vocabulary; this namespace is only for
+ * Resource identities remain under /vocabulary. This namespace is only for
  * metadata terms that SKOS, Dublin Core, and PROV-O do not provide.
  */
 export const applicationMetadataNamespaceUri = `${identifierBaseUrl}/metadata#`

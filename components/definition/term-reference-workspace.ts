@@ -176,7 +176,7 @@ export function modelInputAvailability(
   return { allowed: true, reason: null }
 }
 
-/** Own this hook above steps and responsive views; tools only render its state. */
+/** Own this hook above steps and responsive views. Tools only render its state. */
 export function useTermReferenceWorkspace({
   term,
   contextKey,
@@ -361,7 +361,7 @@ export function useTermReferenceWorkspace({
     const found = getCurrent(provider, referenceId)
     if (!found) return
     // Adding text and its citation is one undoable action. Later explicit
-    // choices invalidate that action's snapshot; passive receipts do not.
+    // choices invalidate that action's snapshot. Passive receipts do not.
     if (!fromInsertion) onSelectionEdit?.()
     if (!checked) update(found.current, provider, { notice: "" })
     onSelectionChange((prior) => {
@@ -561,7 +561,7 @@ export function useTermReferenceWorkspace({
         if (!mounted.current || owner.current !== found.current) return
         update(found.current, provider, {
           notice:
-            "Copied. Copying does not attach a citation; use Cite without inserting if you use this source."
+            "Copied. To attach a citation, select Cite without inserting."
         })
         void record(found.current, provider, referenceId, "copied")
       } catch {

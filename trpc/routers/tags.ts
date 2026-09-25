@@ -39,7 +39,7 @@ import {
  * the visitor's word for a concept in any scheme: topics (the open scheme,
  * attached by authors to their own definitions) and facets (curator schemes
  * such as PSPP, attached by curators at term level). Every attachment is a
- * dcterms:subject statement; removal retracts the row rather than deleting
+ * dcterms:subject statement. Removal retracts the row rather than deleting
  * it. Curator = admin for now.
  */
 
@@ -79,7 +79,7 @@ const loadConceptWithScheme = async (conceptId: number) => {
   return row ?? null
 }
 
-// drizzle wraps the driver error in DrizzleQueryError; the SQLSTATE is on the
+// drizzle wraps the driver error in DrizzleQueryError. The SQLSTATE is on the
 // cause. 23505 is unique_violation.
 const isUniqueViolation = (error: unknown) => {
   const direct = (error as { code?: unknown })?.code
@@ -131,7 +131,7 @@ const revalidateConcept = (schemeSlug: string, conceptSlug: string) => {
 export const tagsRouter = createTRPCRouter({
   // Find-or-create a topic by normalized label (prefLabel or an altLabel). A
   // retired match with a replacement returns the replacement. Contributors
-  // may create topics directly; they are self-approved (the status quo, plus
+  // may create topics directly. They are self-approved (the status quo, plus
   // normalized uniqueness and the ledger's audit trail).
   create: contributorProcedure
     .input(z.object({ name: z.string().trim().min(1).max(TAG_MAX_LENGTH) }))
@@ -195,7 +195,7 @@ export const tagsRouter = createTRPCRouter({
 
       // Terms with the same normalized label may be distinct concepts in
       // different vocabularies. Report every candidate with its source so a
-      // person can choose deliberately; the application never links one on
+      // person can choose deliberately. The application never links one on
       // its own.
       const matchedTerms = async (conceptId: number) => {
         if (await hasBridge(conceptId)) return []
@@ -276,7 +276,7 @@ export const tagsRouter = createTRPCRouter({
 
   /*
    * The bridge: assert that this tag and this term are the same concept.
-   * A curator may link any open tag; the contributor who created a topic may
+   * A curator may link any open tag. The contributor who created a topic may
    * link that topic. The term keeps the identity of its source vocabulary.
    */
   setLink: authenticatedProcedure
@@ -373,7 +373,7 @@ export const tagsRouter = createTRPCRouter({
           )
 
         // A concept links to one term, so re-linking retracts the old row
-        // first; the partial unique index would refuse it otherwise.
+        // first. The partial unique index would refuse it otherwise.
         for (const row of active)
           if (!on || row.objectTermId !== termId)
             await tx
@@ -575,7 +575,7 @@ export const tagsRouter = createTRPCRouter({
 
           let subject = subjectConceptId
           let object = objectConceptId
-          // skos:related is stored once, smaller id first; re-homing can put
+          // skos:related is stored once, smaller id first. Re-homing can put
           // the pair the wrong way round.
           if (
             row.predicate === "skos:related" &&

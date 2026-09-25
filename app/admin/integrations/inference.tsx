@@ -142,8 +142,8 @@ function EndpointHealth({
       {!ready ? (
         <p className="text-muted-foreground">
           {missing
-            ? "Add this endpoint’s settings to the server environment file to check its health."
-            : "Check this endpoint’s server configuration and connectivity."}
+            ? "Add the settings for this endpoint to the server environment file to check its health."
+            : "Check the server configuration for this endpoint and connectivity."}
         </p>
       ) : null}
       <p className="mt-auto text-xs text-muted-foreground">

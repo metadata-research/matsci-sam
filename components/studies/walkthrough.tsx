@@ -55,14 +55,14 @@ import {
  * A define step is labelled Position and shows one set of definitions from
  * earlier work, with the model-authored definition first when there is one.
  * Accepting atomically retains the selected definition, preserves or adds its
- * upvote, and completes the step; suggesting a revision names the exact source
- * revision; proposing a new definition is a term-level alternative when none
+ * upvote, and completes the step. Suggesting a revision names the exact source
+ * revision. Proposing a new definition is a term-level alternative when none
  * of the earlier definitions is close. A review step compares the definitions
  * where there is more than one.
  *
- * A completed step stays readable from the dots, without its controls: its
- * completion stands. The first incomplete step is open, but a completed
- * paired Review later in the sequence does not open the step after it.
+ * A completed step stays readable from the numbered steps, without its
+ * controls: its completion stands. The first incomplete step is open, but a
+ * completed paired Review later in the sequence does not open the step after it.
  */
 
 type Walkthrough = RouterOutput["surveys"]["get"]
@@ -76,7 +76,7 @@ const KIND_LABEL: Record<Step["kind"], string> = {
   question: "Question"
 }
 
-const Dots = ({
+const StudyStepNavigation = ({
   steps,
   position,
   reachable,
@@ -116,18 +116,28 @@ const Dots = ({
             disabled={!open || navigationLocked}
             onClick={() => onSelect(step.position)}
             className={cn(
-              "flex size-3.5 items-center justify-center rounded-full border text-[11px] font-bold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-30",
-              step.completionOutcome === "skipped"
-                ? "border-primary bg-background text-primary"
+              "relative flex size-10 items-center justify-center rounded-full border text-sm font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+              current
+                ? "border-primary bg-primary text-primary-foreground"
                 : step.completed
-                  ? "border-primary bg-primary"
-                  : "border-muted-foreground/60 bg-background",
-              open && !step.completed && "hover:border-primary",
-              current && "ring-2 ring-ring ring-offset-2 ring-offset-background"
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-muted-foreground/40 bg-background text-muted-foreground",
+              open && !current && "hover:border-primary hover:bg-primary/10"
             )}
           >
-            {step.completionOutcome === "skipped" && (
-              <span aria-hidden="true">−</span>
+            <span aria-hidden="true">{step.position}</span>
+            {(step.completed || step.completionOutcome === "skipped") && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-background text-[10px] font-bold leading-none",
+                  step.completionOutcome === "skipped"
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-primary text-primary-foreground"
+                )}
+              >
+                {step.completionOutcome === "skipped" ? "−" : "✓"}
+              </span>
             )}
           </button>
         </li>
@@ -181,7 +191,7 @@ const orderCandidates = (definitions: Candidate[]) => {
 
 /*
  * The exact candidate a position names, as a record. A legacy completion or
- * a purged contribution may have no surviving target; it is not inferred from
+ * a purged contribution may have no surviving target. It is not inferred from
  * a different standing vote. Support remains visible as noninteractive
  * context, while voting itself belongs to Review.
  */
@@ -265,7 +275,7 @@ type Move =
 /*
  * The definitions of the term and the three moves. Accepting records the exact
  * definition and its upvote. A suggested revision names one definition as its
- * source; a new proposal belongs to the term as a whole. Both publish separate
+ * source. A new proposal belongs to the term as a whole. Both publish separate
  * definitions and record the completion in the same transaction.
  */
 const Candidates = ({
@@ -449,7 +459,7 @@ const Candidates = ({
         <Card className="gap-4 bg-muted/20 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <h2 id="skip-term-heading" className="font-semibold">
-              Don’t know this term well enough to choose?
+              Not familiar enough with this term to choose?
             </h2>
             <p className="text-sm text-muted-foreground">
               You can record no opinion and move to the next term.
@@ -472,7 +482,7 @@ const Candidates = ({
                 <DialogDescription>
                   {singlePass
                     ? "No position or vote will be recorded for this term."
-                    : "You won’t be asked to choose or review a definition for this term."}
+                    : "You will not be asked to choose or review a definition for this term."}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -1132,7 +1142,7 @@ export const Walkthrough = ({
         ) : (
           <>
             <div className="space-y-2">
-              <Dots
+              <StudyStepNavigation
                 steps={steps}
                 position={visiblePosition}
                 reachable={reachable}

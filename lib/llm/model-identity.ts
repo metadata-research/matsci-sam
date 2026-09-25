@@ -21,7 +21,7 @@ export type ModelIdentity = {
 }
 
 // Vendors are recognised by the family name the tag starts with. An
-// unrecognised tag still gets an identity; only the vendor is unknown.
+// unrecognised tag still gets an identity. Only the vendor is unknown.
 const VENDORS: readonly { match: RegExp; vendor: string; family: string }[] = [
   { match: /^gemma/i, vendor: "Google", family: "Gemma" },
   { match: /^gemini/i, vendor: "Google", family: "Gemini" },
@@ -41,7 +41,7 @@ const slugOf = (tag: string) =>
     .replace(/_{2,}/g, "_")
     .replace(/^_+|_+$/g, "") || "model"
 
-// "gemma4:26b" -> 26B; "claude-opus-5" -> none. Only a size suffix counts,
+// "gemma4:26b" -> 26B, "claude-opus-5" -> none. Only a size suffix counts,
 // so a version number is not mistaken for a parameter count.
 const parameterSizeOf = (tag: string) => {
   const match = tag.match(/[:\-_](\d+(?:\.\d+)?)\s*b\b/i)

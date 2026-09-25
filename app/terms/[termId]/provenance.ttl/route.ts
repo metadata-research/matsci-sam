@@ -1,7 +1,7 @@
 import { buildTermProvenance } from "@/lib/provenance"
 import { provenanceTurtle } from "@/lib/provenance-rdf"
 
-// Public serialization; matches the public provenance page (voter
+// Public serialization. Matches the public provenance page (voter
 // identities are event-level and votes do not appear in the graph).
 export async function GET(
   _req: Request,

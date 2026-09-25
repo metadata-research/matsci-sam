@@ -1,10 +1,10 @@
 # Contribution files
 
 The Add flow accepts PDF, PNG and JPEG uploads as **Examples** or **Sources**.
-This increment has no file parsing, preview embedding, OCR or assistant input.
+Uploaded files are downloaded without parsing, embedded previews, OCR or assistant input.
 The application checks file signatures against the declared media type and serves
-all files as downloads. Signature checks establish a supported container type;
-they do not assert that a document is trustworthy or fully well-formed.
+all files as downloads. Signature checks establish a supported container type.
+They do not assert that a document is trustworthy or fully well-formed.
 
 ## Lifecycle and storage
 
@@ -17,7 +17,7 @@ is checked separately. No file content is placed in request headers.
 
 Files are stored in PostgreSQL `bytea` so they follow the existing database
 backup, restore and workstation snapshot boundary. This is deliberately bounded
-small-file storage; it is not a bulk document repository. No release-directory
+small-file storage. It is not a bulk document repository. No release-directory
 filesystem or external storage credentials are required.
 
 An account can retain six pending files (at most 30 MiB). Quota checks serialize
@@ -26,7 +26,7 @@ uploader, expire after 24 hours, and never appear in vocabulary or provenance
 queries. The owner's pending list permits recovery after refresh, a term change,
 or publication with files left unselected. Files from another confirmed context
 can be removed but cannot be attached to the current draft. Expired rows are
-removed when the owner lists or uploads files; the maintenance command
+removed when the owner lists or uploads files. The maintenance command
 `pnpm files:cleanup` removes expired pending rows across accounts.
 
 Upload and removal require the session and configured same origin. Upload also
@@ -43,18 +43,18 @@ At most three distinct files may accompany a contribution. The initial UI scope
 is Add, excluding inherited alternative, replacement and study actions.
 
 Publication locks every selected row and verifies uploader, expiry, confirmed
-term, vocabulary and the target revision's definition author. It binds all files
-inside the ordinary publication transaction. A failure rolls back every binding;
-a pending file can then be retried. The database trigger also validates exact
+term, vocabulary and the definition author for the target revision. It binds all files
+inside the ordinary publication transaction. A failure rolls back every binding.
+A pending file can then be retried. The database trigger also validates exact
 revision/author/term correspondence and prevents overwriting published bytes,
 metadata or linkage. New uploads always start pending.
 
 A **Source** file is an explicit contributor citation for the exact published
-revision. Later revisions retain no implied citation to it; the earlier record
+revision. Later revisions retain no implied citation to it. The earlier record
 and download remain available on that revision. An **Example** also creates an
 ordinary independently attributed `definitionExamples` contribution containing
 its title and caption. The file retains its exact publication revision and
-example ID; the example collection continues unchanged through definition edits.
+example ID. The example collection continues unchanged through definition edits.
 
 Public definition pages show source downloads for that revision. Example cards
 show their associated file. Provenance includes the file's public metadata/hash,
@@ -75,4 +75,4 @@ attachments.
 
 Migration `0061_contribution_files` is required before enabling the new Add UI.
 Existing reverse-proxy configurations allow 10 MiB requests, larger than the
-single-file endpoint's maximum; no proxy change is required for this increment.
+maximum allowed by the single-file endpoint. No proxy change is required for this increment.

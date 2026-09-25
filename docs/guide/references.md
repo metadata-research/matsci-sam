@@ -18,10 +18,9 @@ concept. On small screens these panels appear below the form.
 
 ![Advanced Add with ontology matches and hierarchy beside the form and tools below it](/images/docs/help-add-advanced.png)
 
-An ontology match is a preview. Browsing, changing the selected ontology, or
-using a definition saves no equivalence or class membership. To propose a
-separate link to a related concept, use the
-[Metadata page](/docs/term-metadata#advanced-view).
+Use the [Metadata page](/docs/term-metadata#advanced-view) to propose a link
+to a related concept. Reference tools preview source concepts without saving
+ontology relationships.
 
 Contribution dialogs for existing terms use a compact reference workspace.
 Open a candidate definition there before using its actions.

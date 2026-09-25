@@ -13,7 +13,7 @@ and reference articles use `/docs/reference/{slug}`.
 
 The website labels this area **Help & Guides**. **Participate** links directly
 to Quick Start before Contribute. User instructions and technical reference
-have distinct navigation groups; implementation notes remain in the repository.
+have distinct navigation groups. Implementation notes remain in the repository.
 
 ## Editing
 

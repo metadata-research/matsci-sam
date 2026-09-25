@@ -1,7 +1,7 @@
 /*
  * Static contract checks for migration 0045's legacy-example provenance
- * repair. The database-backed example test proves the final guards and index;
- * this test protects the one-time upgrade statement itself, including the
+ * repair. The database-backed example test proves the final guards and index.
+ * This test protects the one-time upgrade statement itself, including the
  * narrow exception to the immutable-row triggers.
  */
 
@@ -127,7 +127,7 @@ assert.match(
 )
 assert.match(
   provenance,
-  /meta: hasObservedOrigin[\s\S]*published: example\.createdAt[\s\S]*origin:\s*"Imported legacy example; exact source, actor, and time were not recorded"/,
+  /meta: hasObservedOrigin[\s\S]*published: example\.createdAt[\s\S]*origin:\s*"Imported legacy example\. Exact source, actor, and time were not recorded"/,
   "legacy example graph nodes must omit the compatibility publication time"
 )
 assert.match(

@@ -86,7 +86,7 @@ export const commentsRouter = createTRPCRouter({
           }
           let written
           try {
-            // A session comment is a human act; the table CHECK refuses a
+            // A session comment is a human act. The table CHECK refuses a
             // stamp on it, and the AI flag agreement is proven at release.
             written = await insertComment(tx, {
               definitionId: id,

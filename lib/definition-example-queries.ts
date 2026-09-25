@@ -38,7 +38,7 @@ export type ActiveDefinitionExampleText = {
 
 /*
  * Load every active example for a set of definitions in one query. SKOS uses
- * this rather than one query per definition; ordering puts the featured value
+ * this rather than one query per definition. Ordering puts the featured value
  * first while retaining permanent example-number order for the remainder.
  */
 export const activeExampleTextsForDefinitions = async (

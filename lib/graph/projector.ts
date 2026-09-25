@@ -64,7 +64,7 @@ const state = (): ProjectorState => {
 
 // The five documents and the counts the meta graph states. No Fuseki
 // involved: graphs:export writes exactly this to disk. Each content document
-// is parsed once, by the count, and a syntax error names its graph; the
+// is parsed once, by the count, and a syntax error names its graph. The
 // meta graph is parsed once on its own.
 const buildGraphs = async (projectedAt = new Date().toISOString()) => {
   const content = await buildContentGraphs()
@@ -196,7 +196,7 @@ const logFailure = (error: unknown) =>
   )
 
 // Runs one projection after the one in flight, if any, and only while the
-// flag is still set. Failures are logged; the sweep retries while it is set.
+// flag is still set. Failures are logged. The sweep retries while it is set.
 // The chain is released only by the run that holds it, so a run chained
 // behind another is not dropped when the earlier one finishes.
 const runWhenDirty = (): Promise<void> => {
@@ -235,7 +235,7 @@ export const isGraphsDirty = () => state().dirty
 // The periodic retry: a projection that failed in this process is run
 // again while the flag is set. It goes through the same chain as the timer,
 // so a sweep and a debounced projection cannot run at once. A mark made in
-// another process is not seen here; that process projects for itself.
+// another process is not seen here. That process projects for itself.
 export const sweepGraphs = async (): Promise<void> => {
   if (!isGraphProjectionEnabled() || !state().dirty) return
   await runWhenDirty()

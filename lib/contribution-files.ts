@@ -151,7 +151,7 @@ export async function readContributionFile(
   reader: typeof db | Transaction = db
 ) {
   // Read metadata/authorization before fetching bytes. All published definitions
-  // have public read access; pending UUIDs alone grant no access.
+  // have public read access. Pending UUIDs alone grant no access.
   const [file] = await reader
     .select({
       ...contributionFileSelection,

@@ -184,8 +184,7 @@ export function RevisionDiff({
           <p className="flex gap-2 text-xs text-muted-foreground">
             <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             The magnitude runs from 0 for unchanged text to 1 for complete
-            replacement. It measures definition wording only—not authorship,
-            quality, or community impact.
+            replacement. It measures changes to the wording.
           </p>
         ) : null}
         {comparison.caveat ? (

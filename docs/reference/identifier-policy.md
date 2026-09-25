@@ -59,7 +59,7 @@ A withdrawal records the change without erasing the earlier accepted history.
 The **Default definition** can change as votes and contributions change.
 Rank links select whichever definition occupies that rank when requested.
 Use a definition or revision link when a citation must identify a specific
-contribution rather than a changing selection.
+contribution.
 
 ## Authority
 

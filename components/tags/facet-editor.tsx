@@ -28,8 +28,8 @@ const byName = (a: ConceptRow, b: ConceptRow) =>
   a.name.localeCompare(b.name, "en")
 
 /*
- * Curator control for term-level facets. Rendered only for administrators;
- * tags.setFacet is an admin procedure, so this is an affordance rather than
+ * Curator control for term-level facets. Rendered only for administrators.
+ * Tags.setFacet is an admin procedure, so this is an affordance rather than
  * the enforcement. The facet list it writes to is the one the chip row reads.
  */
 export const FacetEditor = ({ termId, options }: Props) => {

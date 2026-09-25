@@ -50,7 +50,7 @@ export function InferenceTester() {
           )}
           <p className="text-sm text-muted-foreground">
             Tests use the provider selected in server configuration. Your prompt
-            is sent to that provider; no terms, definitions, or study responses
+            is sent to that provider. No terms, definitions, or study responses
             are saved in MatSci-SAM.
           </p>
           <div className="space-y-2">

@@ -41,7 +41,7 @@ type OntologyContextPanelProps = {
   enabled?: boolean
 }
 
-/** Preview owner: term changes reset selection; presentation changes preserve it. */
+/** Preview owner: term changes reset selection. Presentation changes preserve it. */
 export function OntologyContextPanel({
   term,
   ...props
@@ -348,7 +348,7 @@ function OntologyContextOwner({
               First {selected.candidates.length}{" "}
               {mode === "exact"
                 ? "matches in this source."
-                : "names; refine the term to narrow the list."}
+                : "names. Refine the term to narrow the list."}
             </p>
           )}
           {!candidate ? null : hierarchy.isPending ? (
@@ -498,7 +498,7 @@ function HierarchyPreview({
         </p>
         {similar && (
           <p className="text-xs text-muted-foreground">
-            Similar name; not an exact label match.
+            Similar name. The labels do not match exactly.
           </p>
         )}
         {hierarchy.hasAnonymousSuperclasses && (

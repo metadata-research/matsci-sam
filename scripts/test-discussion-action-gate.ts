@@ -7,7 +7,7 @@ import { isValidElement, type ReactElement, type ReactNode } from "react"
 import ts from "typescript"
 
 // Exercise the action shell without mounting network-owning children or a DOM.
-// Its real JSX and event handlers run with a small state harness; child markers
+// Its real JSX and event handlers run with a small state harness. Child markers
 // let these checks distinguish an unmounted workspace from a merely hidden one.
 const require = createRequire(import.meta.url)
 const Button = () => null

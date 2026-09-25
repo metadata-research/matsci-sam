@@ -184,7 +184,7 @@ const main = async () => {
   assert.equal(names.graphPath("kos"), "/graphs/kos")
   assert.equal(names.graphIri("kos"), `${identifierBaseUrl}/graphs/kos`)
   assert.equal(names.datasetIri, `${identifierBaseUrl}/dataset`)
-  // The endpoint is at the application origin; names.ts says why.
+  // The endpoint is at the application origin. See lib/graph/names.ts for the reason.
   assert.equal(names.sparqlEndpointUrl, `${SITE_URL}/sparql`)
   assert.equal(studyUri("id4-pilot"), `${identifierBaseUrl}/studies/id4-pilot`)
 
@@ -704,7 +704,7 @@ const main = async () => {
   assert.deepEqual(values(dataset, e3, matsci("voteKind")), ["withdrawn"])
   assert.equal(values(dataset, e3, `${PROV}wasAssociatedWith`).length, 0)
 
-  // A model votes as itself; a simulated persona as its AI identity node.
+  // A model votes as itself. A simulated persona uses its AI identity node.
   const e4 = `${rev102}#vote-event-4`
   assert.deepEqual(values(dataset, e4, matsci("actorKind")), ["model"])
   assert.deepEqual(values(dataset, e4, `${PROV}wasAssociatedWith`), [
@@ -716,8 +716,8 @@ const main = async () => {
     personUnder("martensite", 4)
   ])
 
-  // Backfilled acts: each says so, at the time of its vote; the migrated
-  // ones say their binding was inferred; the model's act is a model act;
+  // Backfilled acts: each says so, at the time of its vote. The migrated
+  // ones say their binding was inferred. The model's act is a model act.
   // the agent rule is the same as for any other act.
   const l1 = `${rev103}#vote-event-7`
   assertTypes(dataset, l1, [`${PROV}Activity`, matsci("VoteEvent")])
@@ -792,8 +792,8 @@ const main = async () => {
   )
 
   // --- The study of an act: on a vote event from a walkthrough, whether
-  // or not its agent is named, and on a comment node of the per-term body;
-  // nowhere on an act taken outside one ---
+  // or not its agent is named, and on a comment node of the per-term body.
+  // They are absent on an act taken outside one ---
 
   assert.deepEqual(values(dataset, e5, matsci("study")), [s1])
   const e6 = `${rev100}#vote-event-6`
@@ -853,7 +853,7 @@ const main = async () => {
     type: "prov:Person",
     label: "User 5"
   })
-  // Bob retracted on martensite, so that node exists; the private voter
+  // Bob retracted on martensite, so that node exists. The private voter
   // Carol is referenced by nothing and has no node anywhere.
   assert.ok(agentByIri.has(personUnder("martensite", 2)))
   assert.ok(!agentByIri.has(personUnder("martensite", 6)))
@@ -1435,7 +1435,7 @@ const main = async () => {
 
   // An accepted canonical AI suggestion remains distinguishable from the
   // published revision. The generation uses its exact request inputs,
-  // immutable source revision and stored prompt; the model output derives
+  // immutable source revision and stored prompt. The model output derives
   // from that activity, and the final human-published revision derives from
   // the model output. Private database identifiers remain out of the public
   // metadata even though the graph retains their public-resource links.
@@ -1577,7 +1577,7 @@ const main = async () => {
   assert.ok(!bodyInGraph.includes("definitionExampleSelections"))
   // A comment states its actor kind as a literal, the spelling the vote
   // events use, and the persona it is associated with is a software agent.
-  // The body states no study; that triple is the dataset blocks' to add.
+  // The body states no study. That triple is the dataset blocks' to add.
   assert.deepEqual(values(inGraph, comment7, matsci("actorKind")), [
     "simulated"
   ])

@@ -34,7 +34,7 @@ import {
 import { and, asc, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm"
 import { authenticatedProcedure } from "../procedures"
 import { votesRouter } from "./votes"
-// Match/order machinery shared with the Browse page; see lib/search.ts for
+// Match/order machinery shared with the Browse page. See lib/search.ts for
 // the full design rationale (FTS + trigram + tiers, index-backed via a
 // term-id UNION).
 import {

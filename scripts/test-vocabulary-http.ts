@@ -89,7 +89,7 @@ async function main() {
         assert.equal(response.headers.get("cache-control"), "no-store")
       }
       // Query parameters cannot turn a published document into another resource
-      // or representation; its path determines the response.
+      // or representation. Its path determines the response.
       const overridden = await read(term + "/skos.jsonld?resource=/bad&format=ttl&provenance=true")
       assert.equal(overridden.status, 200)
       const graph = await overridden.json()

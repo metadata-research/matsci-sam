@@ -4,7 +4,7 @@ import { getInferenceConfig } from "../../lib/llm/config"
  *
  * One place for the names, the seed, and the flags, so a rehearsal and the
  * public run differ only in the --suffix argument. The containers named here
- * are created by the operator through the interface; the driver resolves
+ * are created by the operator through the interface. The driver resolves
  * them and refuses to run when they are missing.
  *
  * The run-once guard: with no --suffix the driver targets the clean public
@@ -48,7 +48,7 @@ export const parseArgs = (argv: string[]): PilotArgs => {
 
 // Container slugs: the ID4 community and its second study, as the curation
 // manifest creates them, so the simulated cohort and the people walk one
-// study. The suffix separates a rehearsal from the one public run; a
+// study. The suffix separates a rehearsal from the one public run. A
 // rehearsal's containers come from a suffixed copy of the manifest.
 export const slugs = (suffix: string) => ({
   community: `id4${suffix}`,

@@ -265,8 +265,7 @@ export function ActivityTimeline({
         </svg>
       </div>
       <p className="text-xs text-muted-foreground">
-        Exact recorded times are retained; the axis is labelled in UTC. Event
-        types are not combined into a weighted activity or impact score.
+        Times are shown in UTC.
       </p>
     </div>
   )

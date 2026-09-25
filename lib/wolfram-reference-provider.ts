@@ -18,7 +18,7 @@ const envelope = z.object({
   uuid: z.string().max(100).optional()
 })
 
-/** Reopen exact request metadata; older receipts did not save their parameters. */
+/** Reopen exact request metadata. Older receipts did not save their parameters. */
 export function wolframRequestFromEndpoint(
   endpoint: string | null,
   term: string,
@@ -88,7 +88,7 @@ export async function retrieveWolframResources(
     let text = raw
     let responseUuid: string | null = null
     let noResult = response.status === 501
-    // The documented Results output is plain text; CAG installations may
+    // The documented Results output is plain text. CAG installations may
     // wrap it in the same JSON envelope as Context. Do not guess other fields.
     if (
       response.headers.get("content-type")?.includes("json") ||

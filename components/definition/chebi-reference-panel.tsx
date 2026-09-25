@@ -158,7 +158,7 @@ export function ReferenceTools({
   const currentSelection = workspace.selection.find(
     (item) => item.lookupId === result?.lookupId
   )
-  // Mounted content can be hidden by a caller; only visible Wolfram results
+  // Mounted content can be hidden by a caller. Only visible Wolfram results
   // enter the locally consulted shortlist. Retrieval alone never does.
   useEffect(() => {
     if (visible && provider === "wolfram" && result)
@@ -260,7 +260,7 @@ export function ReferenceTools({
         {result && result.references.length === 0 && (
           <p role="status" className="text-sm text-muted-foreground">
             No {name} {provider === "chebi" ? "definition" : "resources"} found
-            for “{workspace.term}”. You can continue writing your own
+            for &quot;{workspace.term}&quot;. You can continue writing your own
             definition.
           </p>
         )}
@@ -409,7 +409,7 @@ export function ReferenceTools({
                             </a>
                           ) : (
                             reference.license ||
-                            "Prototype use; long-term terms under discussion"
+                            "Prototype use"
                           )}
                         </p>
                         {provider === "chebi" && (

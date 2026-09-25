@@ -15,7 +15,7 @@ import {
  * these, so an act carries its actor kind and its context however it
  * arrives, and the append-only vote event is written in the same
  * transaction as the tally it explains. Routers translate the typed errors
- * to TRPC codes; the driver lets them stop the run.
+ * to TRPC codes. The driver lets them stop the run.
  */
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -59,7 +59,7 @@ export class CommentRevisionMissingError extends Error {
  * happened in, resolved by the caller inside this same transaction, and
  * surveyStepId the review step it was taken inside, when it was taken from
  * a walkthrough. The caller has checked that the step fits the act
- * (lib/surveys.ts actMatchesStep); drizzle/invariants.sql proves it held.
+ * with actMatchesStep in lib/surveys.ts. drizzle/invariants.sql verifies it.
  */
 export const castVote = async (
   tx: DatabaseTransaction,
@@ -154,7 +154,7 @@ export const castVote = async (
 
 /*
  * One comment on one revision. A human comment carries no stamp and the
- * table CHECK holds it to that; a model or simulated comment arrives with
+ * table CHECK holds it to that. A model or simulated comment arrives with
  * the same generation stamp chats and refinement rounds carry. surveyStepId
  * is the review step the comment was posted inside, when it was posted from
  * a walkthrough, checked against the act by the caller as for castVote.

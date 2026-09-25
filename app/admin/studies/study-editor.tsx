@@ -424,7 +424,7 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
               <dd>
                 {study.steps === 0 ? (
                   <Link href={`/communities/${study.communitySlug}`}>
-                    Not prepared — open community controls
+                    Not prepared. Open community controls.
                   </Link>
                 ) : (
                   `${study.steps} ${study.steps === 1 ? "step" : "steps"}`

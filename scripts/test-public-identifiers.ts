@@ -39,7 +39,7 @@ import {
 import { SITE_URL, resolveIdentifierBase } from "../lib/site"
 
 // The identifier authority is separate from the application origin: set, it
-// replaces the origin in every IRI and nothing else; unset or blank, the
+// replaces the origin in every IRI and nothing else. Unset or blank, the
 // origin stands in. A trailing slash is dropped, and a value that is not an
 // absolute http(s) URL refuses rather than minting malformed identifiers.
 assert.equal(
@@ -178,7 +178,7 @@ assert.throws(() => communityPath(""), RangeError)
 assert.throws(() => invitePath(""), RangeError)
 assert.equal(studiesIndexPath, "/studies")
 assert.equal(studyPath("id4_round_two"), "/studies/id4_round_two")
-// A study is an activity with a published IRI; the people in it have none.
+// A study is an activity with a published IRI. The people in it have none.
 assert.equal(studyUri("id4_round_two"), `${base}/studies/id4_round_two`)
 assert.throws(() => studyPath(""), RangeError)
 assert.throws(() => studyUri(""), RangeError)

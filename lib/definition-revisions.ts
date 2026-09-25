@@ -80,7 +80,7 @@ export interface CreateDefinitionWithInitialRevisionInput {
   createdVia?: (typeof definitionsTable.$inferInsert)["createdVia"]
   // The define step this definition answers, when it was published from a
   // walkthrough. Written on the stable definition and its initial revision,
-  // which is the act the step asked for; later revisions are edits.
+  // which is the act the step asked for. Later revisions are edits.
   surveyStepId?: number | null
 }
 

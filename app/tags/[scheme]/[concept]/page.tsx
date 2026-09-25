@@ -27,7 +27,7 @@ import { conceptRelations } from "@/lib/kos-queries"
  * /tags/<scheme>/<concept>: the skos:Concept IRI a tag or facet is published
  * under. Lists the terms that carry it as a facet (term-level statements)
  * and the definitions that carry it as a topic (definition-level). A merged
- * concept 308s to its replacement; a retired concept without one is a
+ * concept 308s to its replacement. A retired concept without one is a
  * tombstone.
  */
 
@@ -112,7 +112,7 @@ export default async function ConceptPage({
         <h1 className="text-2xl font-bold">{concept.label}</h1>
         <p className="text-sm text-muted-foreground">
           This tag has been retired. It is kept so its identifier still
-          resolves; nothing is filed under it.
+          resolves. Nothing is filed under it.
         </p>
         <code className="text-sm font-mono text-muted-foreground break-all select-all">
           {iri}

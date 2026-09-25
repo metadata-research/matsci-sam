@@ -2,7 +2,7 @@ const subscript = "₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎"
 const superscript = "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾"
 const digits = "0123456789+-=()"
 
-/** Plain-text presentation only; receipts, hashes and model inputs stay original. */
+/** Plain-text presentation only. Receipts, hashes and model inputs stay original. */
 export function referenceText(reference: {
   sourceKey: string
   definition: string

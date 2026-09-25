@@ -9,7 +9,7 @@ const RUN_PAGE = /^\/studies\/[^/]+\/run\/?$/
 
 /*
  * Chooses the header for the route. Both headers arrive server-rendered as
- * nodes; this component only picks one, so the layout stays a server
+ * nodes. This component only picks one, so the layout stays a server
  * component and the choice follows client-side navigation.
  */
 export const HeaderSwitch = ({

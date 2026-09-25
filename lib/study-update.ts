@@ -49,7 +49,7 @@ const throwWindowError = (opensAt: string | null, closesAt: string | null) => {
  * Update the participant-visible parts of a study under one lock.
  *
  * Callers remain responsible for authorization. The optional expected state is
- * the admin editor's optimistic-concurrency guard; legacy steward updates omit
+ * the admin editor's optimistic-concurrency guard. Legacy steward updates omit
  * it but still receive the same activity locks and instructions synchronization.
  */
 export const updateStudyDetails = async (input: StudyUpdate) => {

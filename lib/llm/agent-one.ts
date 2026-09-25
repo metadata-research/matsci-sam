@@ -72,7 +72,7 @@ export function agentOneDefinitionPrompt(systemPrompt: string) {
   )
 }
 
-/** Preserve the final answer, including source links; exclude provider reasoning. */
+/** Preserve the final answer, including source links. Exclude provider reasoning. */
 export function agentOneFinalAnswer(content: string): string | undefined {
   let text = content.trim()
   if (text.startsWith("<think>")) {

@@ -66,7 +66,7 @@ const superscriptCharacters: Record<string, string> = {
   "-": "⁻"
 }
 
-/** Small, unambiguous presentation conversions; unknown scientific syntax stays intact. */
+/** Small, unambiguous presentation conversions. Unknown scientific syntax stays intact. */
 export function wolframReadingText(text: string): string {
   // Never rewrite URLs, code spans, or common structured chemical identifiers.
   return text
@@ -88,7 +88,7 @@ export function wolframReadingText(text: string): string {
         })
         .replace(
           // A word boundary also matches inside decimal or fractional exponents.
-          // Format complete integer powers only; leave unsupported notation intact.
+          // Format complete integer powers only. Leave unsupported notation intact.
           /\b(\d+(?:\.\d+)?|cm|mm|nm|µm|μm|m|s|kg|g|K|mol|Pa|J|W|N|A|V|Hz)\^([+-]?\d+)\b(?![.\d^]|\s*\/\s*[+-]?(?:\d|\.\d))/g,
           (_, base: string, exponent: string) =>
             base +
@@ -280,7 +280,7 @@ export function parseWolframResult(text: string): {
   return { sections, alternatives }
 }
 
-/** Partition by explicit source headings; no generated summary or inferred facts. */
+/** Partition by explicit source headings. No generated summary or inferred facts. */
 export function wolframResultPresentation(
   sections: readonly WolframResultSection[]
 ): {
@@ -360,7 +360,7 @@ function readingSection(section: WolframResultSection): string {
     .join("\n")
 }
 
-/** Human-readable insertion; all original evidence remains in text/copyText. */
+/** Human-readable insertion. All original evidence remains in text/copyText. */
 export function wolframSectionReadingText(
   section: WolframResultSection,
   sections: readonly WolframResultSection[]

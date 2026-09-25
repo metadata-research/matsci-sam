@@ -17,7 +17,7 @@
  */
 
 export type Persona = {
-  // Index 1..6, stable across runs; the manifest records ids against it.
+  // Index 1..6, stable across runs. The manifest records ids against it.
   n: number
   displayName: string
   // The persona's line of work, spoken in first person inside prompts.
@@ -25,7 +25,7 @@ export type Persona = {
 }
 
 // A rehearsal's personas say which rehearsal they belong to, so a reader of
-// a host that holds several can tell the cohorts apart; the public run's
+// a host that holds several can tell the cohorts apart. The public run's
 // personas have no such mark.
 export const personaName = (n: number, suffix: string) =>
   `Simulated Participant ${n} (Gemma 4)${

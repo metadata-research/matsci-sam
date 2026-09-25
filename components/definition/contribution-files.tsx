@@ -358,8 +358,8 @@ export function ContributionFileFields({
                 setRole(event.target.value as "example" | "source")
               }
             >
-              <option value="example">Example — illustrates the meaning</option>
-              <option value="source">Source — supports the definition</option>
+              <option value="example">Example: illustrates the meaning</option>
+              <option value="source">Source: supports the definition</option>
             </select>
           </div>
           <div className="space-y-1">
@@ -480,8 +480,8 @@ export function ContributionFilesReview({
               className="mt-1 size-4"
             />
             <label htmlFor={`${id}-${file.id}`} className="font-medium">
-              Publish {file.role === "source" ? "and cite " : "example "}“
-              {file.title}” as a downloadable file
+              Publish {file.role === "source" ? "and cite " : "example "}&quot;
+              {file.title}&quot; as a downloadable file
             </label>
           </div>
           <p className="whitespace-pre-wrap text-muted-foreground">

@@ -32,7 +32,7 @@ assert.match(examples, /current revision/)
 assert.match(examples, /example\.legacyBackfill \? \(/)
 assert.match(examples, /Origin and contribution date not recorded/)
 
-// Rollback restores only definition text; examples have independent history.
+// Rollback restores only definition text. Examples have independent history.
 const historyControls = section(detailPage, "definition.revisions.map", "</ol>")
 assert.doesNotMatch(historyControls, /revision\.exampleDiff/)
 assert.match(historyControls, /revision\.restorable/)
@@ -151,7 +151,7 @@ assert.equal(
   1,
   "the Position choice state has one skip trigger"
 )
-assert.match(skipTermChoice, /Don’t know this term well enough to choose\?/)
+assert.match(skipTermChoice, /Not familiar enough with this term to choose\?/)
 assert.match(skipTermChoice, /record no opinion and move to the next term/)
 assert.match(
   skipTermChoice,
@@ -159,7 +159,7 @@ assert.match(
 )
 assert.match(
   skipTermChoice,
-  /You won’t be asked to choose or review a definition for this[\s\S]*term\./
+  /You will not be asked to choose or review a definition for this[\s\S]*term\./
 )
 assert.match(skipTermChoice, /Go back/)
 assert.match(skipTermChoice, /onClick=\{onSkip\}[\s\S]*Skip this term/)
@@ -221,12 +221,19 @@ assert.match(
   /settled \? \([\s\S]*<HeldPosition step=\{step\}[^>]*\/>[\s\S]*\) : \([\s\S]*<Candidates[\s\S]*onSkip=\{onSkip\}/
 )
 
-const dots = section(walkthrough, "const Dots =", "const Instructions =")
+const studyStepNavigation = section(
+  walkthrough,
+  "const StudyStepNavigation =",
+  "const Instructions ="
+)
 assert.match(
-  dots,
+  studyStepNavigation,
   /step\.completionOutcome === "skipped"[\s\S]*\? "skipped"[\s\S]*aria-label=\{label\}/
 )
-assert.match(dots, /<span aria-hidden="true">−<\/span>/)
+assert.match(
+  studyStepNavigation,
+  /<span\s+aria-hidden="true"[\s\S]*\{step\.completionOutcome === "skipped" \? "−" : "✓"\}[\s\S]*<\/span>/
+)
 assert.match(
   walkthrough,
   /A skipped term marks both its Position and Review steps\./

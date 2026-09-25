@@ -174,7 +174,11 @@ export async function DefinitionDetailPage({
                 {definition.attachments.some(
                   (file) => file.role === "source"
                 ) ? (
-                  <section aria-label="Uploaded sources" className="space-y-3">
+                  <section
+                    id="uploaded-sources"
+                    aria-label="Uploaded sources"
+                    className="scroll-mt-6 space-y-3"
+                  >
                     <Eyebrow>Uploaded sources</Eyebrow>
                     <ContributionFileDownloads
                       files={definition.attachments.filter(

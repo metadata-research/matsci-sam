@@ -2,7 +2,7 @@ import { ReactNode } from "react"
 
 // Chat and refinement messages are stored with lightweight section markers
 // ("<term>", "<definition>", "<example>", "<feedback>"). Render them as
-// labeled sections instead of leaking the raw markup; text without markers
+// labeled sections instead of leaking the raw markup. Text without markers
 // passes through unchanged.
 const TAG_RE = /<(term|definition|example|feedback)>\s*/g
 

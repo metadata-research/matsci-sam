@@ -84,7 +84,7 @@ const Notice = ({
 
 /*
  * The walkthrough of a study, for a member of the community running it while
- * the study is open. This page decides who may walk and says why not; the
+ * the study is open. This page decides who may walk and says why not. The
  * shell does the walking from what surveys.get returns. The router checks
  * the same rules on every write, so what is decided here is what the viewer
  * is shown, not what they may do.

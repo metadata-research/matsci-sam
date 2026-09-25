@@ -25,7 +25,7 @@ type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /*
  * Delete everything that references a single definition row, then the row.
- * This is the exceptional administrative purge (definitions.delete); nothing
+ * This is the exceptional administrative purge (definitions.delete). Nothing
  * else hard-deletes contributed content, and the act record of the
  * definition, its vote events included, goes with it. Foreign keys are all
  * ON DELETE no action, so the cascade is spelled out here inside the
@@ -82,7 +82,7 @@ export const deleteDefinitionRows = async (
     .where(eq(tagsToDefinitions.definitionId, id))
 
   // Definition-level statements (topics) go with the definition. Retraction
-  // is the rule everywhere else; a purge is the one hard delete.
+  // is the rule everywhere else. A purge is the one hard delete.
   await tx
     .delete(statementsTable)
     .where(eq(statementsTable.subjectDefinitionId, id))
@@ -127,7 +127,7 @@ export const deleteDefinitionRows = async (
     .where(eq(definitionExamplesTable.definitionId, id))
 
   // Preserve separately voteable descendants when their source is
-  // administratively purged; only the now-dangling lineage edge is removed.
+  // administratively purged. Only the now-dangling lineage edge is removed.
   await tx
     .update(definitionsTable)
     .set({ refinedFromId: null })

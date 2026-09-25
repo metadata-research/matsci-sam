@@ -770,7 +770,7 @@ const main = async () => {
         "collection blank title"
       )
 
-      // --- Purge: definition-level statements go with the definition; the
+      // --- Purge: definition-level statements go with the definition. The
       // term-level facet on the same term stays ---
 
       await tx.insert(statementsTable).values({
@@ -1521,7 +1521,7 @@ const main = async () => {
 
       // The define step of termB, taken by accepting a candidate: an upvote
       // naming the step. The position is held without the completion, which
-      // the press records; the step stays where the walkthrough resumes.
+      // the press records. The step stays where the walkthrough resumes.
       await castVote(tx, {
         definitionId: defB.id,
         revisionId: revB.id,

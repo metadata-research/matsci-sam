@@ -1,7 +1,7 @@
 /*
  * Database and store checks for the graph layer. Needs a migrated
  * DATABASE_URL, a Fuseki dataset at FUSEKI_DATASET_URL with FUSEKI_USER and
- * FUSEKI_PASSWORD, and GRAPH_PROJECTION_ENABLED=true; the CI db-invariants
+ * FUSEKI_PASSWORD, and GRAPH_PROJECTION_ENABLED=true. The CI db-invariants
  * job starts an in-memory Fuseki for it. Run as
  *
  *   tsx --conditions=react-server scripts/test-graph-db.ts [--seeded]
@@ -16,7 +16,7 @@
  * entity count must be above zero and every query must answer. The paper
  * queries are written against the union default graph, which the dataset
  * must provide (scripts/fuseki-test-dataset.ttl does), and under the
- * persistent identifier base; a store projected under another base is
+ * persistent identifier base. A store projected under another base is
  * queried with that base in their place.
  */
 

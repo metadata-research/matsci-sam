@@ -50,9 +50,8 @@ export default function MetadataFieldsPage() {
               and 5 of Greenberg et al. (2025).
             </p>
             <p className="text-muted-foreground">
-              The source version stays visible. This catalog represents the
-              paper&apos;s preliminary tables, not a current official MatCore
-              release.
+              These preliminary tables are from the paper, not an official
+              MatCore release.
             </p>
           </CardContent>
           <CardFooter>

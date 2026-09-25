@@ -27,7 +27,7 @@ import { RevisionDiff } from "@/components/definition/revision-diff"
 
 // Visual language borrowed from OntExtract's PROV-O graph. Fills come from
 // the --prov-* variables in globals.css so the graph follows the theme
-// toggle (light: pale fills + dark text; dark: deep fills + light text).
+// toggle (light uses pale fills and dark text, dark uses deep fills and light text).
 const NODE_STYLE: Record<
   ProvNode["type"],
   { background: string; borderRadius: number; border?: string }

@@ -88,8 +88,8 @@ function LegacyRefinementRecords({
             Retired refinement records
           </h2>
           <p className={styles.panelMeta}>
-            Legacy requests retained for audit; this workflow no longer accepts
-            new public actions
+            Legacy requests retained for audit. This workflow no longer accepts
+            new public actions.
           </p>
         </div>
       </div>

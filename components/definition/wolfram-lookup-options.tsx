@@ -129,7 +129,7 @@ export function WolframLookupOptionsForm({
           <p className="text-xs text-muted-foreground">
             Wolfram interprets the query automatically unless you choose one of
             its returned alternatives. Context is a hint, not a filter. Only
-            this query and the selected options are sent; your definition stays
+            this query and the selected options are sent. Your definition stays
             here.
           </p>
           <div className="flex min-w-0 flex-col gap-1 text-sm">

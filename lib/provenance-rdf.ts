@@ -38,7 +38,7 @@ export type ProvenanceBodyOptions = {
   // as matsci:DefinitionRevision, and the prov:specializationOf link from
   // that revision are also stated by the SKOS serializer, which describes
   // the current revision only. A per-term document repeats them so it reads
-  // alone; the dataset-wide provenance graph leaves them to the vocabulary
+  // alone. The dataset-wide provenance graph leaves them to the vocabulary
   // graph so the two graphs stay disjoint, and keeps them for every other
   // revision, which no other graph types or links to its definition.
   vocabularyTriples?: boolean
@@ -87,7 +87,7 @@ export const provenanceBodyTurtle = (
     key === "inferenceResponseId" || !key.endsWith("Id")
 
   // Whether a revision node states the triples the vocabulary graph also
-  // states: alone, every revision does; in the graph, only a revision the
+  // states: alone, every revision does. In the graph, only a revision the
   // vocabulary graph does not describe, which is every non-current one.
   const statesVocabularyTriples = (n: Provenance["graph"]["nodes"][number]) =>
     vocabularyTriples || n.meta?.current !== "yes"

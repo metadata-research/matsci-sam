@@ -65,7 +65,7 @@ export const Header = async () => {
     ? await Promise.all([getActiveCommunity(), myCommunities(user.id)])
     : [null, []]
   // The active community as the switcher lists it, with its slug for the
-  // links; null when the person chose everything or belongs to nothing.
+  // links. Null when the person chose everything or belongs to nothing.
   const scope = active
     ? (memberships.find((m) => m.id === active.id) ?? null)
     : null
@@ -194,7 +194,7 @@ export const HeaderStrip = async () => {
   )
 }
 
-// Only the links and trigger read the route; the menu structure stays here
+// Only the links and trigger read the route. The menu structure stays here
 // alongside the server-rendered header and account controls.
 const NavMenu = ({ label, entries }: { label: string; entries: Entry[] }) => (
   <DropdownMenu>
@@ -230,7 +230,7 @@ const NavMenu = ({ label, entries }: { label: string; entries: Entry[] }) => (
 
 /*
  * The community a person is working in. The trigger names it, or says
- * "Everything" when no scope is chosen; the menu holds the switcher and the
+ * "Everything" when no scope is chosen. The menu holds the switcher and the
  * way into the community's page and studies. Rendered only for a member of
  * at least one community, so a reader with none sees no new chrome.
  */

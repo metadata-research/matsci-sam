@@ -2,7 +2,13 @@ import "server-only"
 
 import { TRPCError } from "@trpc/server"
 import Link from "next/link"
-import { SparklesIcon } from "lucide-react"
+import {
+  BookOpenIcon,
+  HistoryIcon,
+  MessageSquareIcon,
+  PaperclipIcon,
+  SparklesIcon
+} from "lucide-react"
 import { StatusChip } from "@/components/definition"
 import { PublicProfileName } from "@/components/public-profile-name"
 import { TermVotes } from "@/components/term/votes"
@@ -45,6 +51,11 @@ export async function TermDefaultDefinition({
     definition.termVocabularySlug
   )
   const linkClass = "text-primary underline underline-offset-4"
+  const evidenceLinkClass =
+    "inline-flex min-h-9 items-center gap-1.5 rounded-sm text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+  const sourceFileCount = definition.attachments.filter(
+    (file) => file.role === "source"
+  ).length
 
   return (
     <section aria-labelledby={headingId} className="min-w-0">
@@ -111,6 +122,45 @@ export async function TermDefaultDefinition({
           </p>
         </div>
 
+        <nav
+          aria-label={`Definition ${definition.definitionNumber} sources and review`}
+          className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-sm"
+        >
+          {definition.references.length > 0 ? (
+            <a href={`#${headingId}-references`} className={evidenceLinkClass}>
+              <BookOpenIcon aria-hidden className="size-4 shrink-0" />
+              {definition.references.length} cited{" "}
+              {definition.references.length === 1 ? "reference" : "references"}
+            </a>
+          ) : sourceFileCount === 0 ? (
+            <span className="inline-flex min-h-9 items-center gap-1.5 text-muted-foreground">
+              <BookOpenIcon aria-hidden className="size-4 shrink-0" />
+              No citations attached
+            </span>
+          ) : null}
+          {sourceFileCount > 0 && (
+            <Link
+              href={`${href}#uploaded-sources`}
+              className={evidenceLinkClass}
+            >
+              <PaperclipIcon aria-hidden className="size-4 shrink-0" />
+              {sourceFileCount} source{" "}
+              {sourceFileCount === 1 ? "file" : "files"}
+            </Link>
+          )}
+          <Link href={`${href}#discussion`} className={evidenceLinkClass}>
+            <MessageSquareIcon aria-hidden className="size-4 shrink-0" />
+            Discussion
+          </Link>
+          <Link
+            href={`${href}#revision-history-heading`}
+            className={evidenceLinkClass}
+          >
+            <HistoryIcon aria-hidden className="size-4 shrink-0" />
+            Revision history
+          </Link>
+        </nav>
+
         {definition.example?.trim() && (
           <section
             aria-labelledby={`${headingId}-example`}
@@ -135,7 +185,7 @@ export async function TermDefaultDefinition({
           >
             <h3
               id={`${headingId}-references`}
-              className="font-sans text-sm font-semibold"
+              className="scroll-mt-6 font-sans text-sm font-semibold"
             >
               Cited references
             </h3>
@@ -175,15 +225,6 @@ export async function TermDefaultDefinition({
                 Propose a change
               </Link>
             )}
-            <Link
-              href={`${href}#revision-history-heading`}
-              className={linkClass}
-            >
-              Revision history
-            </Link>
-            <Link href={`${href}#discussion`} className={linkClass}>
-              Discussion
-            </Link>
             <Link href={`${href}#examples-heading`} className={linkClass}>
               {definition.example?.trim()
                 ? "View all examples"

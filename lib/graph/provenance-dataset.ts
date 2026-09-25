@@ -45,7 +45,7 @@ import { lit } from "../rdf-literal"
  * The dataset-wide part of the provenance graph: what the per-term PROV-O
  * body does not say. The per-term body (lib/provenance.ts, rendered by
  * lib/provenance-rdf.ts) describes how each revision came to be. This module
- * adds the four things that are only visible across the whole database:
+ * adds the records that are only visible across the database:
  *
  * - an assertion per statement row, active or retracted, reifying the stored
  *   triple with rdf:reifies and an RDF 1.2 triple term, so a consumer can ask
@@ -67,7 +67,7 @@ import { lit } from "../rdf-literal"
  * the term they acted under, the same node the per-term body already uses, so
  * an assertion and the revision history it concerns name one agent. The
  * fragment is the account number, the same on every document, so the acts of
- * one account join across the graph; the number resolves to nothing. A model
+ * one account join across the graph. The number resolves to nothing. A model
  * is a resolvable agent and gets its own IRI.
  */
 
@@ -118,7 +118,7 @@ export type ActorKind = "human" | "model" | "simulated"
 // the 0043 backfill wrote for a vote cast before then (`backfilled`), whose
 // binding to its revision may have been inferred when the record was first
 // migrated (`migratedLegacy`). studyId is the study of the walkthrough step
-// the act names, resolved by the loader; null when the vote was cast
+// the act names, resolved by the loader. Null when the vote was cast
 // outside a walkthrough.
 export type VoteEventRow = {
   id: number
@@ -168,7 +168,7 @@ export type ProvenanceDatasetData = {
 }
 
 // An agent as the graph names it. A model is typed by its aiModels row and
-// labelled by its tag; a user by its account, software when it is an AI
+// labelled by its tag. A user by its account, software when it is an AI
 // identity (a simulated persona is one), a person otherwise.
 export type AgentRef = {
   iri: string
@@ -353,12 +353,12 @@ export class ProvenanceDatasetView {
 
   /*
    * The agent rule. A model is a resolvable agent and is named by its own
-   * IRI wherever it acts. Anyone else is a hash node: on the per-term
-   * provenance document when the act is under a term, so the dataset graph
-   * and the per-term body name one node; on the subject itself when a
-   * statement has no term above it. A user id with no loaded row (a fixture
-   * mistake; the loader reads every referenced account) is a person labelled
-   * by number, which is what the per-term body would show too.
+   * IRI wherever it acts. Anyone else uses a hash node on the per-term
+   * provenance document when the act is under a term. The dataset graph
+   * and per-term body then name the same node. A statement with no term
+   * uses a hash node on its own subject. A user id with no loaded row is
+   * labelled by number, as in the per-term body. This indicates a fixture
+   * error because the loader queries every referenced account.
    */
   agent(userId: number, scope: { term: GraphTerm } | { subjectIri: string }) {
     const model = this.modelByUserId.get(userId)
@@ -440,14 +440,14 @@ export class ProvenanceDatasetView {
 
   // Whether a vote event may name its agent: a model or an AI identity
   // always, a person only with a public profile. The vote itself is always
-  // published; only the association is withheld.
+  // published. Only the association is withheld.
   voteAgentIsPublic(act: VoteAct) {
     const user = this.userById.get(act.userId)
     return user !== undefined && (user.isAi || user.isProfilePublic)
   }
 
   // Every voting act in id order, each named by the id of its row. The id
-  // is assigned once and never reused, so the name is permanent; a vote
+  // is assigned once and never reused, so the name is permanent. A vote
   // cast before the record began has its row from the 0043 backfill.
   voteActs(): VoteAct[] {
     return this.voteEvents.map((e) => ({
@@ -486,7 +486,7 @@ export class ProvenanceDatasetView {
     }
     for (const act of this.voteActs())
       if (this.voteAgentIsPublic(act)) add(this.voteAgent(act))
-    // Code-point order, which every host sorts the same way; a locale
+    // Code-point order, which every host sorts the same way. A locale
     // collation would order "_" and "/" by the locale of the process.
     return [...agents.values()].sort((a, b) =>
       a.iri < b.iri ? -1 : a.iri > b.iri ? 1 : 0
@@ -502,7 +502,7 @@ export class ProvenanceDatasetView {
  * bridge row is <concept> skos:exactMatch <term>. Derived triples (narrower,
  * the related mirror, lifted topics) have no row and so no assertion. A
  * retracted row keeps its assertion and gains the time and agent of the
- * retraction; the triple it reifies is no longer in the kos graph.
+ * retraction. The triple it reifies is no longer in the kos graph.
  */
 export const assertionBlockTurtle = (
   view: ProvenanceDatasetView,
@@ -522,7 +522,7 @@ export const assertionBlockTurtle = (
   if (row.retractedAt !== null) {
     pairs.push(`prov:invalidatedAtTime ${dateTime(row.retractedAt)}`)
     // The database pairs the two columns, so a retracted row always has
-    // its retractor; the guard only keeps a fixture honest.
+    // its retractor. The guard checks fixture consistency.
     if (row.retractedById !== null)
       pairs.push(
         `matsci:retractedBy <${view.assertionAgent(row, row.retractedById).iri}>`
@@ -538,7 +538,7 @@ export const assertionBlockTurtle = (
  * is an activity with an IRI, and the cohort stays unpublished. An act whose
  * binding to the revision was inferred when the row was migrated says so,
  * the same disclosure the per-term body makes, and an act the backfill
- * wrote says that; each flag is stated only when it holds.
+ * wrote says that. Each flag is stated only when it holds.
  */
 export const voteEventBlockTurtle = (
   view: ProvenanceDatasetView,
@@ -599,13 +599,13 @@ export const studyBlockTurtle = (
 }
 
 // One agent block. A person node repeats what the per-term body says about
-// the same node, which is harmless inside one graph; a model node appears
+// the same node, which is harmless inside one graph. A model node appears
 // only here.
 export const agentBlockTurtle = (agent: AgentRef) =>
   turtleBlock(agent.iri, [`a ${agent.type}`, `rdfs:label ${lit(agent.label)}`])
 
 // The dataset-wide blocks, each group once: assertions, vote events, the
-// study of each walkthrough comment, studies, agents. No prefixes; the graph
+// study of each walkthrough comment, studies, agents. No prefixes. The graph
 // document supplies them.
 export const provenanceDatasetBlocksTurtle = (view: ProvenanceDatasetView) =>
   [
@@ -624,10 +624,10 @@ export const provenanceDatasetBlocksTurtle = (view: ProvenanceDatasetView) =>
 // --- Loading ---
 
 // The whole dataset-wide record in a fixed number of queries. Every
-// statement row is read, retracted ones included; only the accounts those
+// statement row is read, retracted ones included. Only the accounts those
 // rows and the vote events name are read, and nothing else about them. A
 // vote event and a comment that name a walkthrough step are joined to the
-// step here, for its study; the step itself reaches no graph.
+// step here, for its study. The step itself reaches no graph.
 export const loadProvenanceDatasetData =
   async (): Promise<ProvenanceDatasetData> => {
     const [

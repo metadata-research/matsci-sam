@@ -222,7 +222,7 @@ export const cohortHasActed = async (studyId: number, suffix: string) => {
 
 /*
  * Persona accounts: users rows with isAi true and no aiModels row, found by
- * exact display name. Creation is idempotent per name; the manifest records
+ * exact display name. Creation is idempotent per name. The manifest records
  * the ids a run used, and a re-run resolves the same accounts.
  */
 export const ensurePersonas = async (suffix: string) => {

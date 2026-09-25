@@ -21,7 +21,7 @@ type Executor = typeof db | DatabaseTransaction
 
 /*
  * Read queries shared by the knowledge-organization pages. A statement is
- * active while retractedAt is null; rows are never deleted, so that is the
+ * active while retractedAt is null. Rows are never deleted, so that is the
  * only liveness test. Counts come from a LEFT JOIN whose predicate and
  * liveness conditions sit in the ON clause: moved into WHERE they would turn
  * the join inner and drop every concept that nothing is filed under.
@@ -202,7 +202,7 @@ export const collectionsWithCounts = async ({
     .orderBy(asc(sql`lower(btrim(${collectionsTable.title}))`))
 
 // Members drive from the statements table, so the liveness conditions belong
-// in WHERE here; there is no outer join to degrade.
+// in WHERE here. There is no outer join to degrade.
 export const collectionMembers = async (
   collectionId: number,
   executor: Executor = db
@@ -247,7 +247,7 @@ export type CommunityCollectionVocabularyCount = {
  * Vocabulary composition for every collection on one community's worklist.
  * This is one batched query rather than one collectionMembers call per card on
  * the community page. A vocabulary other than the community's own is a
- * reference there; the page applies that relative label while this query
+ * reference there. The page applies that relative label while this query
  * returns the source namespace and count.
  */
 export const communityCollectionVocabularyCounts = async (
@@ -297,7 +297,7 @@ export type RelatedConcept = { id: number; slug: string; label: string }
 
 /*
  * The concepts immediately above and below one concept. Only skos:broader is
- * stored; narrower is the same rows read from the other end. Both ends stay
+ * stored. The narrower relation uses the same rows in the opposite direction. Both ends stay
  * inside one scheme, which drizzle/invariants.sql enforces, so the caller
  * already knows the scheme slug.
  */

@@ -122,7 +122,7 @@ const PageFeedbackWidget = ({
           {submitted ? (
             <div className={styles.success} role="status">
               <CheckCircle2Icon aria-hidden />
-              <p>Thanks — your feedback was saved with this page.</p>
+              <p>Your feedback was saved with this page.</p>
               <Button type="button" variant="outline" size="sm" onClick={close}>
                 Done
               </Button>
