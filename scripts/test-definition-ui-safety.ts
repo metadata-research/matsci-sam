@@ -221,12 +221,19 @@ assert.match(
   /settled \? \([\s\S]*<HeldPosition step=\{step\}[^>]*\/>[\s\S]*\) : \([\s\S]*<Candidates[\s\S]*onSkip=\{onSkip\}/
 )
 
-const dots = section(walkthrough, "const Dots =", "const Instructions =")
+const studyStepNavigation = section(
+  walkthrough,
+  "const StudyStepNavigation =",
+  "const Instructions ="
+)
 assert.match(
-  dots,
+  studyStepNavigation,
   /step\.completionOutcome === "skipped"[\s\S]*\? "skipped"[\s\S]*aria-label=\{label\}/
 )
-assert.match(dots, /<span aria-hidden="true">−<\/span>/)
+assert.match(
+  studyStepNavigation,
+  /<span\s+aria-hidden="true"[\s\S]*\{step\.completionOutcome === "skipped" \? "−" : "✓"\}[\s\S]*<\/span>/
+)
 assert.match(
   walkthrough,
   /A skipped term marks both its Position and Review steps\./

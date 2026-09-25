@@ -60,9 +60,9 @@ import {
  * of the earlier definitions is close. A review step compares the definitions
  * where there is more than one.
  *
- * A completed step stays readable from the dots, without its controls: its
- * completion stands. The first incomplete step is open, but a completed
- * paired Review later in the sequence does not open the step after it.
+ * A completed step stays readable from the numbered steps, without its
+ * controls: its completion stands. The first incomplete step is open, but a
+ * completed paired Review later in the sequence does not open the step after it.
  */
 
 type Walkthrough = RouterOutput["surveys"]["get"]
@@ -76,7 +76,7 @@ const KIND_LABEL: Record<Step["kind"], string> = {
   question: "Question"
 }
 
-const Dots = ({
+const StudyStepNavigation = ({
   steps,
   position,
   reachable,
@@ -116,18 +116,28 @@ const Dots = ({
             disabled={!open || navigationLocked}
             onClick={() => onSelect(step.position)}
             className={cn(
-              "flex size-3.5 items-center justify-center rounded-full border text-[11px] font-bold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-30",
-              step.completionOutcome === "skipped"
-                ? "border-primary bg-background text-primary"
+              "relative flex size-10 items-center justify-center rounded-full border text-sm font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+              current
+                ? "border-primary bg-primary text-primary-foreground"
                 : step.completed
-                  ? "border-primary bg-primary"
-                  : "border-muted-foreground/60 bg-background",
-              open && !step.completed && "hover:border-primary",
-              current && "ring-2 ring-ring ring-offset-2 ring-offset-background"
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-muted-foreground/40 bg-background text-muted-foreground",
+              open && !current && "hover:border-primary hover:bg-primary/10"
             )}
           >
-            {step.completionOutcome === "skipped" && (
-              <span aria-hidden="true">−</span>
+            <span aria-hidden="true">{step.position}</span>
+            {(step.completed || step.completionOutcome === "skipped") && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-background text-[10px] font-bold leading-none",
+                  step.completionOutcome === "skipped"
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-primary text-primary-foreground"
+                )}
+              >
+                {step.completionOutcome === "skipped" ? "−" : "✓"}
+              </span>
             )}
           </button>
         </li>
@@ -1132,7 +1142,7 @@ export const Walkthrough = ({
         ) : (
           <>
             <div className="space-y-2">
-              <Dots
+              <StudyStepNavigation
                 steps={steps}
                 position={visiblePosition}
                 reachable={reachable}

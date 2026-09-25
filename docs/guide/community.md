@@ -12,6 +12,9 @@ Term pages open in **Simple** view. Read the **Default definition**, its
 attribution, cited sources, and examples. Expand **Other definitions** to
 compare candidates. **Metadata** opens descriptions of the term and its use.
 
+Below the attribution, open attached citations or source files, **Discussion**,
+or **Revision history**. Citation counts refer to the displayed revision.
+
 ![A term in Simple view with its Default definition, Other definitions, and Metadata link](/images/docs/help-term-simple.png)
 
 Choose **Advanced** under **View** to open ontology context beside the reader,

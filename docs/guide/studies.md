@@ -38,9 +38,10 @@ version** on vocabulary pages updates your own definition and keeps its history.
 
 ID4 round two has instructions, one Position step for each of eight terms,
 and closing questions. Other studies may include a Review round.
-Progress indicators show completed steps and the first unfinished step.
-Later unfinished steps remain locked. Completed and skipped steps can be
-reopened for reading.
+Numbered buttons show your place in the study. A check marks a completed step;
+a dash marks a skipped step. Select an available number to revisit that step.
+Later unfinished steps remain locked. Completed and skipped steps open for
+reading.
 
 ## The Position step
 
