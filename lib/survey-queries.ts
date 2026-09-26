@@ -111,6 +111,7 @@ export const stepWithStudy = async (executor: Executor, stepId: number) => {
         opensAt: studiesTable.opensAt,
         closesAt: studiesTable.closesAt,
         retiredAt: studiesTable.retiredAt,
+        presentation: studiesTable.presentation,
         communityRetiredAt: communitiesTable.retiredAt,
         collectionRetiredAt: collectionsTable.retiredAt
       },
@@ -150,7 +151,8 @@ export const lockStudy = async (tx: DatabaseTransaction, studyId: number) => {
       welcome: studiesTable.welcome,
       opensAt: studiesTable.opensAt,
       closesAt: studiesTable.closesAt,
-      retiredAt: studiesTable.retiredAt
+      retiredAt: studiesTable.retiredAt,
+      presentation: studiesTable.presentation
     })
     .from(studiesTable)
     .where(eq(studiesTable.id, studyId))

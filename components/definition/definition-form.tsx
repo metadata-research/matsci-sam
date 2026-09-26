@@ -41,7 +41,10 @@ import {
   type DefinitionTool
 } from "./add-definition-workspace"
 import { ContributionWorkspace } from "./contribution-workspace"
-import { useViewPreference } from "@/components/interface-view"
+import {
+  usePresentedView,
+  useViewPreference
+} from "@/components/interface-view"
 import type { ReferenceProvider } from "@/lib/reference-types"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
@@ -241,6 +244,10 @@ const DefinitionFormOwner = ({
   const view: DefinitionView = isAdd ? viewPreference.view : "simple"
   const setView = viewPreference.setView
   const simpleAdd = isAdd && view === "simple"
+  // An inherited action follows the page or study that opened it.
+  const presented = usePresentedView()
+  const simpleLocked = !isAdd && presented === "simple"
+  const simple = simpleAdd || simpleLocked
   const [activeTool, setActiveTool] = useState<DefinitionTool | null>(null)
   const [exampleOpen, setExampleOpen] = useState(false)
   const [files, setFiles] = useState<DraftContributionFile[]>([])
@@ -374,6 +381,8 @@ const DefinitionFormOwner = ({
     term: confirmed?.term ?? "",
     contextKey,
     enabled: confirmed !== null,
+    // Simple shows no references, so the lookup waits for Advanced.
+    autoStart: !simple,
     selection: references,
     onSelectionChange: setReferences,
     onSelectionEdit: clearSourceUndo
@@ -1372,7 +1381,7 @@ const DefinitionFormOwner = ({
             </section>
           ) : (
             <>
-              {!isAdd && (
+              {!isAdd && !simpleLocked && (
                 <ReferenceStatus
                   workspace={workspace}
                   onOpen={openTool}
@@ -1380,8 +1389,10 @@ const DefinitionFormOwner = ({
                 />
               )}
               <ContributionWorkspace
-                context={isAdd || assistantOpen ? undefined : context}
-                contextOpen={isAdd ? false : contextOpen}
+                context={
+                  isAdd || assistantOpen || simpleLocked ? undefined : context
+                }
+                contextOpen={isAdd || simpleLocked ? false : contextOpen}
                 onContextOpenChange={setContextOpen}
                 contextTitle={
                   provider === "chebi" ? "ChEBI references" : "Wolfram lookup"
@@ -1696,7 +1707,7 @@ const DefinitionFormOwner = ({
                       </Button>
                     </div>
                     {acceptsInitialExample &&
-                      (!simpleAdd || exampleValue.trim()) && (
+                      (!simple || exampleValue.trim()) && (
                         <div className="flex flex-col gap-2">
                           <p className="font-medium">
                             Example of use (optional)
@@ -1727,7 +1738,7 @@ const DefinitionFormOwner = ({
                           </Button>
                         </div>
                       )}
-                    {(!simpleAdd || appliedDraft) && (
+                    {(!simple || appliedDraft) && (
                       <div className="flex flex-col gap-1 text-sm">
                         <p className="font-medium">Model contribution</p>
                         {appliedDraft && simpleAdd ? (
@@ -1751,7 +1762,7 @@ const DefinitionFormOwner = ({
                         )}
                       </div>
                     )}
-                    {appliedDraft && !simpleAdd && (
+                    {appliedDraft && !simple && (
                       <>
                         <ModelPromptInputs
                           assistantLabel={appliedDraft.assistantLabel}
@@ -1767,7 +1778,7 @@ const DefinitionFormOwner = ({
                     <ReferenceCitations
                       workspace={workspace}
                       disabled={busy}
-                      compact={simpleAdd}
+                      compact={simple}
                       onEmpty={focusHeading}
                     />
                     {isAdd && (

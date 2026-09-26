@@ -10,6 +10,7 @@ import {
 } from "@/lib/study-editor"
 import { lockStudy, walkthroughUsageOfStudy } from "@/lib/survey-queries"
 import { DEFAULT_INSTRUCTIONS, isDefaultInstructions } from "@/lib/surveys"
+import type { StudyPresentation } from "@/lib/study-editor"
 
 export type ExpectedStudyState = {
   title: string
@@ -17,6 +18,7 @@ export type ExpectedStudyState = {
   opensAt: string | null
   closesAt: string | null
   retiredAt: string | null
+  presentation?: StudyPresentation
 }
 
 export type StudyUpdate = {
@@ -25,6 +27,7 @@ export type StudyUpdate = {
   instructions?: string | null
   opensAt?: string | null
   closesAt?: string | null
+  presentation?: StudyPresentation
   expected?: ExpectedStudyState
 }
 
@@ -57,7 +60,8 @@ export const updateStudyDetails = async (input: StudyUpdate) => {
     input.title === undefined &&
     input.instructions === undefined &&
     input.opensAt === undefined &&
-    input.closesAt === undefined
+    input.closesAt === undefined &&
+    input.presentation === undefined
   )
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -79,7 +83,9 @@ export const updateStudyDetails = async (input: StudyUpdate) => {
         study.welcome !== expected.welcome ||
         study.opensAt !== expected.opensAt ||
         study.closesAt !== expected.closesAt ||
-        study.retiredAt !== expected.retiredAt)
+        study.retiredAt !== expected.retiredAt ||
+        (expected.presentation !== undefined &&
+          study.presentation !== expected.presentation))
     )
       throw staleStudy()
 
@@ -106,13 +112,20 @@ export const updateStudyDetails = async (input: StudyUpdate) => {
       input.closesAt === undefined ? study.closesAt : input.closesAt
     throwWindowError(nextOpensAt, nextClosesAt)
 
+    const nextPresentation = (input.presentation ??
+      study.presentation) as StudyPresentation
     const welcomeChanged = nextWelcome !== study.welcome
     const windowChanged =
       nextOpensAt !== study.opensAt || nextClosesAt !== study.closesAt
+    const presentationChanged = nextPresentation !== study.presentation
     let instructionStepId: number | null = null
     let instructionPromptChanged = false
 
-    if (input.instructions !== undefined || windowChanged) {
+    if (
+      input.instructions !== undefined ||
+      windowChanged ||
+      presentationChanged
+    ) {
       const steps = await tx
         .select({
           id: surveyStepsTable.id,
@@ -143,6 +156,13 @@ export const updateStudyDetails = async (input: StudyUpdate) => {
           message:
             "The schedule is locked because this study has recorded activity."
         })
+      // Participants must keep seeing the interface their records came from.
+      if (presentationChanged && editability.activity > 0)
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The participant interface is locked because this study has recorded activity."
+        })
       if (
         input.instructions !== undefined &&
         (welcomeChanged || instructionPromptChanged) &&
@@ -159,11 +179,13 @@ export const updateStudyDetails = async (input: StudyUpdate) => {
       welcome?: string | null
       opensAt?: string | null
       closesAt?: string | null
+      presentation?: StudyPresentation
     } = {}
     if (nextTitle !== study.title) changes.title = nextTitle
     if (welcomeChanged) changes.welcome = nextWelcome
     if (nextOpensAt !== study.opensAt) changes.opensAt = nextOpensAt
     if (nextClosesAt !== study.closesAt) changes.closesAt = nextClosesAt
+    if (presentationChanged) changes.presentation = nextPresentation
     if (Object.keys(changes).length === 0 && !instructionPromptChanged)
       throw new TRPCError({
         code: "BAD_REQUEST",

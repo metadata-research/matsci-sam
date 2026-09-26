@@ -13,7 +13,7 @@ configuration. A missing result leaves you free to write and publish.
    for a candidate you want to inspect.
 
 ChEBI matches and **Matches across ontologies** appear beside the form on a
-wide screen. The hierarchy shows the asserted parents of the selected ontology
+wide screen. Simple starts no lookup. The matches load when Advanced opens. The hierarchy shows the asserted parents of the selected ontology
 concept. On small screens these panels appear below the form.
 
 ![Advanced Add with ontology matches and hierarchy beside the form and tools below it](/images/docs/help-add-advanced.png)

@@ -13,6 +13,7 @@ import { createTRPCRouter } from "../init"
 import { adminProcedure } from "../procedures"
 import {
   STUDY_INSTRUCTIONS_MAX,
+  STUDY_PRESENTATIONS,
   STUDY_TITLE_MAX,
   normalizeStudyInstructions,
   studyWindowError
@@ -29,12 +30,14 @@ import {
 
 const nullableDateTime = z.string().datetime({ offset: true }).nullable()
 const expectedDateTime = z.string().nullable()
+const studyPresentationSchema = z.enum(STUDY_PRESENTATIONS)
 const expectedStudySchema = z.object({
   title: z.string(),
   welcome: z.string().nullable(),
   opensAt: expectedDateTime,
   closesAt: expectedDateTime,
-  retiredAt: expectedDateTime
+  retiredAt: expectedDateTime,
+  presentation: studyPresentationSchema.optional()
 })
 
 const throwWindowError = (opensAt: string | null, closesAt: string | null) => {
@@ -151,6 +154,7 @@ export const adminStudiesRouter = createTRPCRouter({
               welcome,
               opensAt: input.opensAt,
               closesAt: input.closesAt,
+              presentation: "simple",
               createdById: userId
             })
             .onConflictDoNothing()
@@ -193,7 +197,8 @@ export const adminStudiesRouter = createTRPCRouter({
         title: z.string().trim().min(1).max(STUDY_TITLE_MAX).optional(),
         instructions: z.string().max(STUDY_INSTRUCTIONS_MAX).optional(),
         opensAt: nullableDateTime.optional(),
-        closesAt: nullableDateTime.optional()
+        closesAt: nullableDateTime.optional(),
+        presentation: studyPresentationSchema.optional()
       })
     )
     .mutation(async ({ input }) => {
@@ -203,7 +208,8 @@ export const adminStudiesRouter = createTRPCRouter({
         title: input.title,
         instructions: input.instructions,
         opensAt: input.opensAt,
-        closesAt: input.closesAt
+        closesAt: input.closesAt,
+        presentation: input.presentation
       })
 
       revalidateStudyPaths(updated)

@@ -217,11 +217,19 @@ export default async function RunPage({
     (step) => step.position === walkthrough.resumePosition
   )
   if (resume?.termId) {
-    await trpc.definitions.list.prefetch({ termId: resume.termId })
+    // The same input the step's component reads with, or the prefetch is
+    // another entry and the server fetches the list from itself.
+    const input = {
+      termId: resume.termId,
+      surveyStepId: resume.id,
+      ...(resume.kind === "review" ? { includeExcluded: false } : {})
+    }
+    await trpc.definitions.list.prefetch(input)
     const definitions =
-      prefetched<RouterOutput["definitions"]["list"]>(["definitions", "list"], {
-        termId: resume.termId
-      }) ?? []
+      prefetched<RouterOutput["definitions"]["list"]>(
+        ["definitions", "list"],
+        input
+      ) ?? []
     await Promise.all(
       definitions.map((definition) => trpc.comments.get.prefetch(definition.id))
     )

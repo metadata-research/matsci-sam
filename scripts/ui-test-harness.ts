@@ -5,10 +5,23 @@ import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { chromium, type BrowserContext } from "@playwright/test"
 import { sealData } from "iron-session"
-import { eq } from "drizzle-orm"
-import { db, termsTable, usersTable } from "../drizzle"
+import { eq, inArray } from "drizzle-orm"
+import {
+  collectionsTable,
+  communitiesTable,
+  communityMembersTable,
+  db,
+  studiesTable,
+  surveyStepCompletionsTable,
+  surveyStepsTable,
+  termsTable,
+  usersTable,
+  vocabulariesTable
+} from "../drizzle"
 import { createDefinitionWithInitialRevision } from "../lib/definition-revisions"
 import { deleteDefinitionRows } from "../lib/definition-purge"
+import type { StudyPresentation } from "../lib/study-editor"
+import { DEFAULT_QUESTIONS, planSteps, recordCompletion } from "../lib/surveys"
 import {
   INTERFACE_VIEW_COOKIE,
   type InterfaceView
@@ -225,3 +238,142 @@ export const rememberView = (
   view: InterfaceView
 ) =>
   context.addCookies([{ name: INTERFACE_VIEW_COOKIE, value: view, url: base }])
+
+export type StudyFixture = TermFixture & {
+  studyId: number
+  studySlug: string
+  communityId: number
+  collectionId: number
+  stepIds: number[]
+}
+
+/**
+ * A community, its member, one collection with one term and definition, and
+ * an open study whose instructions step the member has completed, so the
+ * activity opens on the Position step.
+ */
+export async function createStudyFixture({
+  stamp,
+  presentation
+}: {
+  stamp: string
+  presentation: StudyPresentation
+}): Promise<StudyFixture> {
+  const userName = `Study view test ${stamp}`
+  const slug = `study_view_${stamp.replaceAll("-", "_")}`
+  return db.transaction(async (tx) => {
+    const [user] = await tx
+      .insert(usersTable)
+      .values({ name: userName, role: "user" })
+      .returning()
+    await tx
+      .insert(vocabulariesTable)
+      .values({ slug, title: `Study view test ${stamp}`, createdById: user.id })
+    const [community] = await tx
+      .insert(communitiesTable)
+      .values({
+        slug,
+        vocabularySlug: slug,
+        title: `Study view test ${stamp}`,
+        createdById: user.id
+      })
+      .returning()
+    await tx.insert(communityMembersTable).values({
+      communityId: community.id,
+      userId: user.id,
+      role: "member",
+      addedById: user.id
+    })
+    const [collection] = await tx
+      .insert(collectionsTable)
+      .values({
+        slug,
+        title: `Study view test ${stamp}`,
+        assertableBy: "curator",
+        createdById: user.id
+      })
+      .returning()
+    const [term] = await tx
+      .insert(termsTable)
+      .values({ term: `study view ${stamp}`, slug, vocabularySlug: slug })
+      .returning()
+    const created = await createDefinitionWithInitialRevision(tx, {
+      termId: term.id,
+      authorId: user.id,
+      definition: "A fixture definition for the study view test.",
+      example: "",
+      changeNote: "UI test fixture",
+      source: "initial"
+    })
+    const [study] = await tx
+      .insert(studiesTable)
+      .values({
+        slug,
+        title: `Study view test ${stamp}`,
+        communityId: community.id,
+        collectionId: collection.id,
+        presentation,
+        createdById: user.id
+      })
+      .returning()
+    const steps = await tx
+      .insert(surveyStepsTable)
+      .values(
+        planSteps({
+          welcome: null,
+          terms: [term],
+          questions: DEFAULT_QUESTIONS
+        }).map((step) => ({ ...step, studyId: study.id }))
+      )
+      .returning()
+    await recordCompletion(tx, { stepId: steps[0].id, userId: user.id })
+    return {
+      userId: user.id,
+      userName,
+      termId: term.id,
+      definitionId: created.definition.id,
+      termPath: termPath(term.slug, term.vocabularySlug),
+      path: definitionPath(
+        term.slug,
+        created.definition.definitionNumber,
+        term.vocabularySlug
+      ),
+      studyId: study.id,
+      studySlug: study.slug,
+      communityId: community.id,
+      collectionId: collection.id,
+      stepIds: steps.map((step) => step.id)
+    }
+  })
+}
+
+export async function removeStudyFixture(fixture: StudyFixture) {
+  await db.transaction(async (tx) => {
+    const user = await tx.query.usersTable.findFirst({
+      where: eq(usersTable.id, fixture.userId)
+    })
+    assert.equal(user?.name, fixture.userName)
+    await tx
+      .delete(surveyStepCompletionsTable)
+      .where(inArray(surveyStepCompletionsTable.stepId, fixture.stepIds))
+    await tx
+      .delete(surveyStepsTable)
+      .where(eq(surveyStepsTable.studyId, fixture.studyId))
+    await tx.delete(studiesTable).where(eq(studiesTable.id, fixture.studyId))
+    await tx
+      .delete(communityMembersTable)
+      .where(eq(communityMembersTable.communityId, fixture.communityId))
+    await tx
+      .delete(collectionsTable)
+      .where(eq(collectionsTable.id, fixture.collectionId))
+    await deleteDefinitionRows(tx, fixture.definitionId)
+    await tx.delete(termsTable).where(eq(termsTable.id, fixture.termId))
+    await tx
+      .delete(communitiesTable)
+      .where(eq(communitiesTable.id, fixture.communityId))
+    await tx
+      .delete(vocabulariesTable)
+      .where(eq(vocabulariesTable.slug, fixture.studySlug))
+    await tx.delete(usersTable).where(eq(usersTable.id, fixture.userId))
+  })
+}

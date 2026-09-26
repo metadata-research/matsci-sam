@@ -36,6 +36,7 @@ const studyColumns = {
   opensAt: studiesTable.opensAt,
   closesAt: studiesTable.closesAt,
   retiredAt: studiesTable.retiredAt,
+  presentation: studiesTable.presentation,
   communityId: studiesTable.communityId,
   communitySlug: communitiesTable.slug,
   communityTitle: communitiesTable.title,

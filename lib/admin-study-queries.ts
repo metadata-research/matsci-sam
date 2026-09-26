@@ -109,6 +109,7 @@ export const adminStudyById = async (id: number) => {
       opensAt: studiesTable.opensAt,
       closesAt: studiesTable.closesAt,
       retiredAt: studiesTable.retiredAt,
+      presentation: studiesTable.presentation,
       createdAt: studiesTable.createdAt,
       communityId: studiesTable.communityId,
       communitySlug: communitiesTable.slug,

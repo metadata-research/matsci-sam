@@ -2242,6 +2242,9 @@ export const studiesTable = pgTable(
     // What participants are asked to do, in their own words. Stored and
     // rendered as plain text, so nothing a curator types becomes markup.
     welcome: text(),
+    // The interface participants see: the full forms the first studies used,
+    // or the Simple view. Fixed per study so every participant sees the same.
+    presentation: text().default("legacy").notNull(),
     // Both dates are optional and derive the study state. Walkthrough
     // participation requires an open study; a study invitation is acceptable
     // before opening and while open, but not after closing or retirement.
@@ -2258,6 +2261,10 @@ export const studiesTable = pgTable(
   (t) => [
     check("studies_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
     check("studies_title_nonblank", sql`btrim(${t.title}) <> ''`),
+    check(
+      "studies_presentation",
+      sql`${t.presentation} IN ('legacy', 'simple')`
+    ),
     check(
       "studies_window_ordered",
       sql`${t.opensAt} IS NULL OR ${t.closesAt} IS NULL OR ${t.closesAt} > ${t.opensAt}`

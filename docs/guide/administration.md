@@ -61,7 +61,9 @@ Use **People** to change site roles, **Feedback** to manage site reports, and
 and revision records. Role changes take effect immediately.
 
 **Studies** contains setup, invitations, activity, and retirement controls.
-Instruction and schedule edits become restricted after participation starts.
+**Participant interface** chooses the Simple view, the default for a new
+study, or the full detail of the first studies. Instruction, schedule and
+interface edits become restricted after participation starts.
 Retirement preserves the study address and contributions. Restore a retired
 community and collection before restoring their study.
 

@@ -6,15 +6,20 @@ import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { expect } from "@playwright/test"
 import { db } from "../drizzle"
+import { eq } from "drizzle-orm"
+import { studiesTable } from "../drizzle"
 import {
   chebiLookup,
+  createStudyFixture,
   createTermFixture,
   launchBrowser,
   localPreviewBase,
   rememberView,
+  removeStudyFixture,
   removeTermFixture,
   signInAs,
   stubTrpc,
+  type StudyFixture,
   type TermFixture
 } from "./ui-test-harness"
 
@@ -33,6 +38,7 @@ async function main() {
   let lookups = 0
   let suggestions = 0
   let fixture: TermFixture | undefined
+  let study: StudyFixture | undefined
   page.on("pageerror", (error) => errors.push(error.message))
   await stubTrpc(context, {
     unexpected,
@@ -230,7 +236,11 @@ async function main() {
     await page
       .getByRole("button", { name: "Confirm term", exact: true })
       .click()
-    await expect.poll(() => lookups).toBe(1)
+    await expect(
+      page.getByRole("button", { name: "Review definition" })
+    ).toBeVisible()
+    await page.waitForTimeout(500)
+    assert.equal(lookups, 0, "Simple starts no lookup")
     await expect(
       page.getByRole("button", { name: "Add a citation" })
     ).toHaveCount(0)
@@ -296,7 +306,9 @@ async function main() {
       })
     ).toBeVisible()
 
-    // A citation added in Advanced stays visible at Simple review.
+    // A citation added in Advanced stays visible at Simple review. The lookup
+    // started when Advanced opened.
+    await expect.poll(() => lookups).toBe(1)
     await page.getByRole("button", { name: "Back to writing" }).click()
     const references = page.locator('[aria-label="ChEBI reference resources"]')
     await expect(references).toBeVisible()
@@ -328,7 +340,6 @@ async function main() {
     await page
       .getByRole("button", { name: "Confirm term", exact: true })
       .click()
-    await expect.poll(() => lookups).toBe(2)
     await editor.fill("My own starting sentence.")
     const help = page.getByRole("button", {
       name: "Help me write",
@@ -376,15 +387,77 @@ async function main() {
     await tab("Simple").click()
     assert.equal(suggestions, 1, "one model request should be made")
 
-    // The change forms keep their full editor, as the study pages do.
+    // The change forms follow the page's view. Simple shows no source tools
+    // and starts no lookup. Advanced shows them and starts one.
     await page.goto(`${base}${fixture.path}`, { waitUntil: "networkidle" })
     await expect(tab("Simple")).toHaveAttribute("aria-selected", "true")
+    const beforeReplacement = lookups
     await page
       .getByRole("button", { name: "Propose a replacement", exact: true })
       .click()
+    const viewReferences = page.getByRole("button", {
+      name: "View references",
+      exact: true
+    })
+    const reviewDefinition = page.getByRole("button", {
+      name: "Review definition",
+      exact: true
+    })
+    await expect(reviewDefinition).toBeVisible()
+    await expect(viewReferences).toHaveCount(0)
+    await page.waitForTimeout(500)
+    assert.equal(
+      lookups,
+      beforeReplacement,
+      "a Simple change form starts no lookup"
+    )
+    await tab("Advanced").click()
+    await expect(viewReferences).toBeVisible()
+    await expect.poll(() => lookups).toBe(beforeReplacement + 1)
+    await tab("Simple").click()
+
+    // A study fixes its interface. This one uses the Simple view.
+    study = await createStudyFixture({ stamp, presentation: "simple" })
+    await signInAs(context, base, study.userId)
+    const beforeStudy = lookups
+    await page.goto(`${base}/studies/${study.studySlug}/run`, {
+      waitUntil: "networkidle"
+    })
+    await expect(page.getByRole("tab", { name: "Advanced" })).toHaveCount(0)
+    await page
+      .getByRole("button", { name: "Propose a new definition", exact: true })
+      .click()
+    await expect(reviewDefinition).toBeVisible()
+    await expect(viewReferences).toHaveCount(0)
+    await page
+      .getByRole("button", { name: "Back to definitions", exact: true })
+      .click()
+    await page
+      .getByRole("button", { name: "Suggest an alternative, option 1" })
+      .click()
     await expect(
-      page.getByRole("button", { name: "View references", exact: true })
+      page.getByText(
+        `Sends the source definition and your feedback to ${assistantLabel}.`,
+        { exact: true }
+      )
     ).toBeVisible()
+    await expect(page.getByLabel("Definition assistant")).toHaveCount(0)
+    await expect(viewReferences).toHaveCount(0)
+    await page.waitForTimeout(500)
+    assert.equal(lookups, beforeStudy, "a Simple study starts no lookup")
+
+    // The legacy interface keeps the full forms of the first studies.
+    await db
+      .update(studiesTable)
+      .set({ presentation: "legacy" })
+      .where(eq(studiesTable.id, study.studyId))
+    await page.reload({ waitUntil: "networkidle" })
+    await page
+      .getByRole("button", { name: "Suggest an alternative, option 1" })
+      .click()
+    await expect(page.getByLabel("Definition assistant")).toBeVisible()
+    await expect(viewReferences).toBeVisible()
+    await expect.poll(() => lookups).toBe(beforeStudy + 1)
 
     assert.deepEqual(
       unexpected,
@@ -393,7 +466,7 @@ async function main() {
     )
     assert.deepEqual(errors, [])
     console.log(
-      "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links, whole-term metadata and its checks, example files, cut-down assistant and citation review."
+      "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links, whole-term metadata and its checks, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
     )
   } finally {
     try {
@@ -402,6 +475,7 @@ async function main() {
       console.error(error)
     }
     try {
+      if (study) await removeStudyFixture(study)
       if (fixture) await removeTermFixture(fixture)
     } finally {
       await db.$client.end()

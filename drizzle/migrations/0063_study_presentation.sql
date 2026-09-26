@@ -1,0 +1,2 @@
+ALTER TABLE "studies" ADD COLUMN "presentation" text DEFAULT 'legacy' NOT NULL;--> statement-breakpoint
+ALTER TABLE "studies" ADD CONSTRAINT "studies_presentation" CHECK ("studies"."presentation" IN ('legacy', 'simple'));

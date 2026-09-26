@@ -25,6 +25,7 @@ import {
 } from "./definition-assistant-selector"
 import { referenceLookups } from "./term-reference-workspace"
 import { ContributionWorkspace } from "./contribution-workspace"
+import { usePresentedView } from "@/components/interface-view"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeftIcon,
@@ -98,6 +99,8 @@ function RevisionSuggestionWorkspace({
   onMutationEnd
 }: Props) {
   const router = useRouter()
+  // A Simple page or study shows no sources or assistant context.
+  const simple = usePresentedView() === "simple"
   const assistant = useDefinitionAssistant({
     study: surveyStepId !== undefined
   })
@@ -141,6 +144,7 @@ function RevisionSuggestionWorkspace({
     term,
     contextKey: `revision:${definitionId}:${sourceRevisionId}:${surveyStepId ?? ""}`,
     enabled: true,
+    autoStart: !simple,
     selection: references,
     onSelectionChange: setReferences,
     onSelectionEdit: () => setInsertionUndo(null)
@@ -290,6 +294,54 @@ function RevisionSuggestionWorkspace({
     return true
   }
 
+  const draftActions = !preview ? (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-auto min-h-9 whitespace-normal"
+        disabled={busy || !critique || !assistant.available}
+        onClick={() => {
+          if (!assistant.available) return
+          setSubmittedAssistant(assistant.label)
+          setContextOpen(false)
+          discard.reset()
+          setSubmittedInputs(
+            promptInputs.map(({ id, label, text, included, required }) => ({
+              id,
+              label,
+              text,
+              included,
+              required
+            }))
+          )
+          activity.start()
+          suggest.mutate({
+            assistantProfile: assistant.profile,
+            surveyStepId,
+            definitionId,
+            sourceRevisionId,
+            feedback: critique,
+            referenceIds: selectedModelReferenceIds(references, term)
+          })
+          requestAnimationFrame(() => {
+            previewRef.current?.focus()
+            previewRef.current?.scrollIntoView({
+              block: "nearest"
+            })
+          })
+        }}
+      >
+        <SparklesIcon aria-hidden />
+        {suggest.isPending
+          ? "Drafting…"
+          : "Draft alternative with a language model"}
+      </Button>
+
+      {!suggest.isPending ? renderInitialActions?.(busy) : null}
+    </>
+  ) : null
+
   return (
     <Card className="min-w-0 py-0">
       <CardContent className="min-w-0 flex flex-col gap-4 p-5 sm:p-6">
@@ -326,21 +378,23 @@ function RevisionSuggestionWorkspace({
             2. Review and publish
           </li>
         </ol>
-        <ReferenceStatus
-          workspace={workspace}
-          onOpen={openReferences}
-          disabled={busy}
-        />
+        {!simple && (
+          <ReferenceStatus
+            workspace={workspace}
+            onOpen={openReferences}
+            disabled={busy}
+          />
+        )}
 
         <ContributionWorkspace
-          contextOpen={contextOpen}
+          contextOpen={contextOpen && !simple}
           onContextOpenChange={setContextOpen}
           contextTitle={
             provider === "wolfram" ? "Wolfram lookup" : "ChEBI references"
           }
           returnLabel={reviewing ? "Back to review" : "Back to definition"}
           context={
-            showTools ? (
+            showTools && !simple ? (
               <ReferenceTools
                 workspace={workspace}
                 provider={provider}
@@ -399,19 +453,27 @@ function RevisionSuggestionWorkspace({
                   Drafted by {draft.assistantLabel}, with your edits.
                 </p>
               </div>
-              <div className="flex flex-col gap-1 rounded-lg border p-3 text-sm">
-                <p className="font-medium">
-                  {modelPromptReferenceSummary(draft.referenceCount)}
-                </p>
-                <p className="text-muted-foreground">
-                  This records references sent to the model. References cited in
-                  its response are separate. Later selections do not change the
-                  recorded inputs.
-                </p>
-              </div>
-              <ModelReferenceEvidence inputs={draft.referenceInputs} />
-              <ReferenceCitations workspace={workspace} disabled={busy} />
-              {submittedInputs && (
+              {!simple && (
+                <div className="flex flex-col gap-1 rounded-lg border p-3 text-sm">
+                  <p className="font-medium">
+                    {modelPromptReferenceSummary(draft.referenceCount)}
+                  </p>
+                  <p className="text-muted-foreground">
+                    This records references sent to the model. References cited
+                    in its response are separate. Later selections do not change
+                    the recorded inputs.
+                  </p>
+                </div>
+              )}
+              {!simple && (
+                <ModelReferenceEvidence inputs={draft.referenceInputs} />
+              )}
+              <ReferenceCitations
+                workspace={workspace}
+                disabled={busy}
+                compact={simple}
+              />
+              {!simple && submittedInputs && (
                 <ModelPromptInputs
                   term={term}
                   items={submittedInputs}
@@ -573,7 +635,7 @@ function RevisionSuggestionWorkspace({
                       Discard draft
                     </Button>
                   </div>
-                  {submittedInputs && (
+                  {!simple && submittedInputs && (
                     <ModelPromptInputs
                       term={term}
                       items={submittedInputs}
@@ -620,86 +682,49 @@ function RevisionSuggestionWorkspace({
                       }}
                     />
                   </div>
-                  <ModelPromptInputs
-                    term={term}
-                    focusRef={modelContextRef}
-                    assistantControls={
-                      <DefinitionAssistantSelector
-                        assistant={assistant}
-                        disabled={busy || !!preview}
-                      />
-                    }
-                    assistantLabel={
-                      preview?.assistantLabel ?? submittedAssistant
-                    }
-                    items={submittedInputs ?? promptInputs}
-                    submitted={!!submittedInputs}
-                    disabled={busy || !!preview}
-                    onClearOptional={() => {
-                      for (const { provider, reference } of modelReferences)
-                        workspace.changeSelection(
-                          provider,
-                          reference.id,
-                          "modelReferenceIds",
-                          false
-                        )
-                    }}
-                  >
-                    {!preview ? (
-                      <>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-auto min-h-9 whitespace-normal"
-                          disabled={busy || !critique || !assistant.available}
-                          onClick={() => {
-                            if (!assistant.available) return
-                            setSubmittedAssistant(assistant.label)
-                            setContextOpen(false)
-                            discard.reset()
-                            setSubmittedInputs(
-                              promptInputs.map(
-                                ({ id, label, text, included, required }) => ({
-                                  id,
-                                  label,
-                                  text,
-                                  included,
-                                  required
-                                })
-                              )
-                            )
-                            activity.start()
-                            suggest.mutate({
-                              assistantProfile: assistant.profile,
-                              surveyStepId,
-                              definitionId,
-                              sourceRevisionId,
-                              feedback: critique,
-                              referenceIds: selectedModelReferenceIds(
-                                references,
-                                term
-                              )
-                            })
-                            requestAnimationFrame(() => {
-                              previewRef.current?.focus()
-                              previewRef.current?.scrollIntoView({
-                                block: "nearest"
-                              })
-                            })
-                          }}
-                        >
-                          <SparklesIcon aria-hidden />
-                          {suggest.isPending
-                            ? "Drafting…"
-                            : "Draft alternative with a language model"}
-                        </Button>
-
-                        {!suggest.isPending
-                          ? renderInitialActions?.(busy)
-                          : null}
-                      </>
-                    ) : null}
-                  </ModelPromptInputs>
+                  {simple ? (
+                    <div className="flex min-w-0 flex-col gap-3">
+                      <p className="text-sm text-muted-foreground">
+                        {assistant.catalog.isPending
+                          ? "Loading assistants…"
+                          : `Sends the source definition and your feedback to ${assistant.label}.`}
+                      </p>
+                      {assistant.selected && !assistant.available && (
+                        <p role="alert" className="text-sm text-destructive">
+                          {assistant.selected.reason}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">{draftActions}</div>
+                    </div>
+                  ) : (
+                    <ModelPromptInputs
+                      term={term}
+                      focusRef={modelContextRef}
+                      assistantControls={
+                        <DefinitionAssistantSelector
+                          assistant={assistant}
+                          disabled={busy || !!preview}
+                        />
+                      }
+                      assistantLabel={
+                        preview?.assistantLabel ?? submittedAssistant
+                      }
+                      items={submittedInputs ?? promptInputs}
+                      submitted={!!submittedInputs}
+                      disabled={busy || !!preview}
+                      onClearOptional={() => {
+                        for (const { provider, reference } of modelReferences)
+                          workspace.changeSelection(
+                            provider,
+                            reference.id,
+                            "modelReferenceIds",
+                            false
+                          )
+                      }}
+                    >
+                      {draftActions}
+                    </ModelPromptInputs>
+                  )}
                   {suggest.isPending || preview ? (
                     <section
                       className="min-w-0 flex flex-col gap-3 rounded-lg border border-ai/30 bg-ai/5 p-4"
@@ -724,16 +749,17 @@ function RevisionSuggestionWorkspace({
                             {preview.definition}
                           </p>
                           <p className="break-words text-xs text-muted-foreground">
-                            Drafted by {preview.assistantLabel}.{" "}
-                            {modelPromptReferenceSummary(
-                              preview.referenceCount
-                            )}
+                            Drafted by {preview.assistantLabel}.
+                            {!simple &&
+                              ` ${modelPromptReferenceSummary(preview.referenceCount)}`}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Applying the model draft clears earlier citations.
-                            Attach sources used in the new text during review.
-                            Undo restores your earlier citations.
-                          </p>
+                          {!simple && (
+                            <p className="text-xs text-muted-foreground">
+                              Applying the model draft clears earlier citations.
+                              Attach sources used in the new text during review.
+                              Undo restores your earlier citations.
+                            </p>
+                          )}
                           <div className="flex flex-wrap gap-2">
                             <Button
                               type="button"

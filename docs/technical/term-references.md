@@ -13,9 +13,11 @@ assistant profile with its own server credential and readiness check.
 
 New terms follow **Confirm term → Write definition → Review and publish**.
 **Confirm term**, labelled **Confirm term and find references** in Advanced,
-commits the client contribution context and starts one ChEBI lookup. Typing does not. Existing-term actions inherit
-their fixed term and source revision. Deliberately opening the action starts
-that lookup. Confirmation neither creates a term nor asserts an ontology
+commits the client contribution context. Advanced starts one ChEBI lookup at
+that point. Simple shows no references, so its lookup waits until Advanced is
+shown, and a Simple study never starts one. Typing does not. Existing-term
+actions inherit their fixed term and source revision. Deliberately opening the
+action in Advanced starts that lookup. Confirmation neither creates a term nor asserts an ontology
 mapping. Wolfram requires its own **Retrieve Wolfram resources** action.
 The Discussion feed opens a workspace only when a contributor selects
 **Start an alternative**. Reading the feed does not initiate lookups.

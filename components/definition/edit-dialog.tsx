@@ -37,6 +37,7 @@ import {
   type DraftReferenceSelection
 } from "./chebi-reference-panel"
 import { ContributionWorkspace } from "./contribution-workspace"
+import { usePresentedView } from "@/components/interface-view"
 import type { ReferenceProvider } from "@/lib/reference-types"
 import {
   CHANGE_NOTE_MAX_LENGTH,
@@ -96,10 +97,13 @@ function RevisionEditor({
     resolver: zodResolver(EditTermSchema),
     defaultValues: { ...defaultValues, changeNote: "" }
   })
+  // A Simple page shows no sources. The lookup waits for Advanced.
+  const simple = usePresentedView() === "simple"
   const workspace = useTermReferenceWorkspace({
     term,
     contextKey: `edit:${definitionId}:${expectedRevisionId}:${session}`,
     enabled: isOpen,
+    autoStart: !simple,
     selection: references,
     onSelectionChange: setReferences,
     onSelectionEdit: () => setUndo(null)
@@ -200,20 +204,22 @@ function RevisionEditor({
         </p>
         <Form {...form}>
           <form onSubmit={publish} className="flex min-w-0 flex-col gap-4">
-            <ReferenceStatus
-              workspace={workspace}
-              onOpen={openTool}
-              disabled={mutation.isPending}
-            />
+            {!simple && (
+              <ReferenceStatus
+                workspace={workspace}
+                onOpen={openTool}
+                disabled={mutation.isPending}
+              />
+            )}
             <ContributionWorkspace
-              contextOpen={contextOpen}
+              contextOpen={contextOpen && !simple}
               onContextOpenChange={setContextOpen}
               contextTitle={
                 provider === "chebi" ? "ChEBI reference" : "Wolfram lookup"
               }
               returnLabel={review ? "Back to review" : "Back to definition"}
               context={
-                !review || contextOpen ? (
+                (!review || contextOpen) && !simple ? (
                   <ReferenceTools
                     workspace={workspace}
                     provider={provider}
@@ -252,6 +258,7 @@ function RevisionEditor({
                     <ReferenceCitations
                       workspace={workspace}
                       disabled={mutation.isPending}
+                      compact={simple}
                     />
                     <p className="text-sm text-muted-foreground">
                       Publishing creates the next version of this definition
