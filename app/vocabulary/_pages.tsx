@@ -1,11 +1,12 @@
 import { findDefinitionAtRank } from "@/lib/public-definition-resolution"
 import { DefinitionList } from "@/app/terms/[termId]/definitions"
 import { TermDefaultDefinition } from "@/components/definition/term-default-definition"
+import { TermOntologyContext } from "@/components/term/term-page-view"
 import {
-  TermPageView,
-  TermAdvancedDetails,
-  TermOntologyContext
-} from "@/components/term/term-page-view"
+  AdvancedOnly,
+  ViewColumns,
+  ViewTabs
+} from "@/components/interface-view"
 import { Badge } from "@/components/ui/badge"
 import { FacetEditor } from "@/components/tags/facet-editor"
 import { TermFacets, TermFacetsFallback } from "@/components/tags/term-facets"
@@ -292,24 +293,29 @@ export async function VocabularyTermPage({
       />
       <main className="px-4 py-8">
         <section className="mx-auto w-full max-w-6xl">
-          <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>Source vocabulary</span>
-            <Link
-              href={vocabularyPath(term.vocabularySlug)}
-              className="font-medium text-primary hover:underline"
-            >
-              {term.vocabularyTitle}
-            </Link>
-            {term.vocabularyRetiredAt ? (
-              <Badge variant="outline">Retired</Badge>
-            ) : null}
-          </div>
-          <TermPageView
+          <ViewTabs
             key={term.id}
+            label="Term view"
+            simpleClassName="max-w-4xl"
+            advancedClassName="max-w-6xl"
             heading={
-              <h1 className="break-words font-serif text-4xl font-bold">
-                {term.term}
-              </h1>
+              <>
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span>Source vocabulary</span>
+                  <Link
+                    href={vocabularyPath(term.vocabularySlug)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {term.vocabularyTitle}
+                  </Link>
+                  {term.vocabularyRetiredAt ? (
+                    <Badge variant="outline">Retired</Badge>
+                  ) : null}
+                </div>
+                <h1 className="break-words font-serif text-4xl font-bold">
+                  {term.term}
+                </h1>
+              </>
             }
           >
             <nav
@@ -322,7 +328,7 @@ export async function VocabularyTermPage({
               >
                 Metadata
               </Link>
-              <TermAdvancedDetails className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <AdvancedOnly className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <Link
                   href={termActivityPath(term.slug, term.vocabularySlug)}
                   className="flex items-center gap-1 text-primary"
@@ -356,31 +362,34 @@ export async function VocabularyTermPage({
                     JSON-LD
                   </a>
                 </span>
-              </TermAdvancedDetails>
+              </AdvancedOnly>
             </nav>
 
-            <TermAdvancedDetails className="mb-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <AdvancedOnly className="mb-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 IRI
               </span>
               <code className="break-all text-sm font-mono text-muted-foreground select-all">
                 {termUri(term.slug, term.vocabularySlug)}
               </code>
-            </TermAdvancedDetails>
+            </AdvancedOnly>
 
             <div className="mb-6">
               <Suspense fallback={<TermFacetsFallback />}>
                 <TermFacets termId={term.id}>
                   {isCurator ? (
-                    <TermAdvancedDetails>
+                    <AdvancedOnly>
                       <FacetEditor termId={term.id} options={options} />
-                    </TermAdvancedDetails>
+                    </AdvancedOnly>
                   ) : null}
                 </TermFacets>
               </Suspense>
             </div>
 
-            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <ViewColumns
+              className="grid items-start gap-6"
+              advancedClassName="lg:grid-cols-[minmax(0,1fr)_20rem]"
+            >
               <div className="min-w-0">
                 {topDefinition ? (
                   <TermDefaultDefinition definitionId={topDefinition.id} />
@@ -402,8 +411,8 @@ export async function VocabularyTermPage({
                   />
                 </div>
               )}
-            </div>
-          </TermPageView>
+            </ViewColumns>
+          </ViewTabs>
         </section>
       </main>
     </HydrateClient>

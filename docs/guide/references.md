@@ -72,9 +72,10 @@ Wolfram lookup provides reference information. Wolfram Agent One is a separate
 ## Citations and assistant inputs
 
 Review **Citations** before publication. **Remove citation** removes a source
-from the published citation list without changing your text. **Add a citation**
-opens previously displayed references, each with a **Cite** action. Use
-**Review newly opened sources** to refresh an already open shortlist.
+from the published citation list without changing your text. In Advanced,
+**Add a citation** opens previously displayed references, each with a **Cite**
+action. Use **Review newly opened sources** to refresh an already open
+shortlist. Simple review lists the attached citations only.
 
 A viewed or copied source is not automatically cited. **Add to definition**
 does attach a citation. Citations belong to the published revision, so choose

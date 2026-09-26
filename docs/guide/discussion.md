@@ -28,7 +28,8 @@ Write in the comment box and select **Post comment**. The comment identifies
 the displayed revision. It does not request a model draft or change the
 definition.
 
-Open the full definition page to **Propose a replacement** or **Add example**.
+Open the full definition page to **Propose a replacement** or **Add an
+example**.
 See [Reading and reviewing terms](/docs/community) for those actions.
 
 ## Review history

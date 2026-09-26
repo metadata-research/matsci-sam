@@ -7,19 +7,22 @@ applied draft retains model attribution when you change its wording.
 ## Suggest a definition for a new term
 
 1. Open **Contribute**, check the destination vocabulary, enter the term, and
-   select **Confirm term and find references**.
+   select **Confirm term**, labelled **Confirm term and find references** in
+   Advanced.
 2. Write a definition or leave the editor empty. Select **Help me write** in
    Simple view or **AI assistance** in Advanced.
-3. Check **Assistant context** and choose an available **Definition assistant**.
-   Select **Suggest a definition**. You can continue writing while it runs.
-4. Inspect the preview below the editor. **Use this draft** replaces your
-   current definition text. **Keep my writing** dismisses the preview and
-   preserves your latest text.
+3. Select **Suggest a definition**. Simple names the assistant and the inputs
+   the request sends. In Advanced, check **Assistant context** and choose an
+   available **Definition assistant** first. You can continue writing while it
+   runs.
+4. Inspect the preview. **Use this draft** replaces your current definition
+   text. **Keep my writing** dismisses the preview and preserves your latest
+   text.
 5. Edit the applied draft, select **Review definition**, and check attribution,
    citations, and any example or files. Select **Publish new term** when ready.
 
-A failed request leaves your writing intact. **Context for this request** shows
-what was submitted, even if you edited the form while waiting. Accept or dismiss
+A failed request leaves your writing intact. In Advanced, **Context for this
+request** shows what was submitted, even if you edited the form while waiting. Accept or dismiss
 an unused preview before switching tools. Reference results and selections
 remain available afterward.
 
@@ -35,8 +38,9 @@ example.
 
 ## Assistant choice and context
 
-**Definition assistant** lists the configured assistants, including Wolfram
-Agent One when enabled. Unavailable choices show their status. SAM saves
+Advanced shows the assistant and context controls. Simple names the assistant
+and the inputs a request sends, including any chosen in Advanced. **Definition assistant** lists the
+configured assistants, including Wolfram Agent One when enabled. Unavailable choices show their status. SAM saves
 your preference for later requests. A study may specify its own assistant.
 The assistant selected for a submitted request stays attached to its response
 and published attribution.

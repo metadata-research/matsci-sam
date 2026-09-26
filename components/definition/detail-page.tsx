@@ -4,7 +4,11 @@ import { EditDefinitionDialog } from "@/components/definition/edit-dialog"
 import { DefinitionExamples } from "@/components/definition/examples"
 import { DefinitionContributionActions } from "@/components/definition/contribution-actions"
 import { EditTags } from "@/components/tags/selector"
-import { TermTags, TermTagsFallback } from "@/components/tags/tags"
+import {
+  DefinitionTagsGate,
+  TermTags,
+  TermTagsFallback
+} from "@/components/tags/tags"
 import { TermCommentBox } from "@/components/term/comment-box"
 import { TermComments } from "@/components/term/comments"
 import { TermVotes } from "@/components/term/votes"
@@ -39,6 +43,7 @@ import {
   termPath
 } from "@/lib/public-identifiers"
 import { RevisionDiff } from "@/components/definition/revision-diff"
+import { AdvancedOnly, ViewTabs } from "@/components/interface-view"
 
 export async function DefinitionDetailPage({
   definitionId,
@@ -89,16 +94,25 @@ export async function DefinitionDetailPage({
   return (
     <HydrateClient>
       <main className="px-4 py-8 sm:py-10">
-        <div className="mx-auto w-full max-w-4xl space-y-8">
-          <Link
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
-            href={termPath(definition.termSlug, definition.termVocabularySlug)}
-          >
-            <ArrowLeftIcon className="size-4" aria-hidden />
-            Back to {definition.term}
-          </Link>
-
-          <p className="text-sm text-muted-foreground">
+        <ViewTabs
+          key={definition.id}
+          label="Definition view"
+          className="max-w-4xl gap-8"
+          contentClassName="flex flex-col gap-8"
+          heading={
+            <Link
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
+              href={termPath(
+                definition.termSlug,
+                definition.termVocabularySlug
+              )}
+            >
+              <ArrowLeftIcon className="size-4" aria-hidden />
+              Back to {definition.term}
+            </Link>
+          }
+        >
+          <AdvancedOnly as="p" className="text-sm text-muted-foreground">
             Describe how this term is used in{" "}
             <Link
               href={`/terms/${definition.termId}/metadata`}
@@ -107,7 +121,7 @@ export async function DefinitionDetailPage({
               its metadata record
             </Link>
             . You can add context for the whole term or a particular definition.
-          </p>
+          </AdvancedOnly>
 
           {!definition.isCurrentRevision && (
             <aside className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
@@ -131,14 +145,17 @@ export async function DefinitionDetailPage({
             />
             <article className="min-w-0 flex-1">
               <header className="flex flex-col items-start justify-between gap-4 border-b pb-5 sm:flex-row">
-                <div className="min-w-0 space-y-1">
+                <div className="flex min-w-0 flex-col gap-1">
                   <Eyebrow>Definition {definition.definitionNumber}</Eyebrow>
                   <h1 className="font-serif text-4xl font-bold leading-tight tracking-tight">
                     {definition.term}
                   </h1>
-                  <code className="block break-all text-xs font-normal text-muted-foreground">
+                  <AdvancedOnly
+                    as="code"
+                    className="block break-all text-xs font-normal text-muted-foreground"
+                  >
                     {displayedResourceUri}
-                  </code>
+                  </AdvancedOnly>
                 </div>
                 <div className="flex min-w-0 max-w-full flex-wrap items-start gap-2">
                   {definition.authorId === sesh.id &&
@@ -189,8 +206,9 @@ export async function DefinitionDetailPage({
                 ) : null}
                 {definition.references.length > 0 && (
                   <section
+                    id="cited-references"
                     aria-label="Cited references"
-                    className="flex flex-col gap-3"
+                    className="flex scroll-mt-6 flex-col gap-3"
                   >
                     <Eyebrow>Cited references</Eyebrow>
                     <p className="text-sm text-muted-foreground">
@@ -206,7 +224,8 @@ export async function DefinitionDetailPage({
                 )}
 
                 {definition.modelReferences.length > 0 && (
-                  <section
+                  <AdvancedOnly
+                    as="section"
                     aria-label="Sources supplied to the model"
                     className="flex flex-col gap-3"
                   >
@@ -222,7 +241,7 @@ export async function DefinitionDetailPage({
                         reference={reference}
                       />
                     ))}
-                  </section>
+                  </AdvancedOnly>
                 )}
 
                 <Suspense
@@ -240,21 +259,37 @@ export async function DefinitionDetailPage({
                   />
                 </Suspense>
 
-                <section aria-labelledby="tags-heading">
-                  <div className="flex items-center gap-1">
-                    <div id="tags-heading">
-                      <Eyebrow>Tags</Eyebrow>
-                    </div>
-                    {definition.authorId === sesh.id && (
-                      <EditTags definitionId={definition.id} />
-                    )}
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <Suspense fallback={<TermTagsFallback />}>
-                      <TermTags definitionId={definition.id} />
-                    </Suspense>
-                  </div>
-                </section>
+                <Suspense
+                  fallback={
+                    <section aria-labelledby="tags-heading">
+                      <div id="tags-heading">
+                        <Eyebrow>Tags</Eyebrow>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <TermTagsFallback />
+                      </div>
+                    </section>
+                  }
+                >
+                  <DefinitionTagsGate
+                    definitionId={definition.id}
+                    editable={definition.authorId === sesh.id}
+                  >
+                    <section aria-labelledby="tags-heading">
+                      <div className="flex items-center gap-1">
+                        <div id="tags-heading">
+                          <Eyebrow>Tags</Eyebrow>
+                        </div>
+                        {definition.authorId === sesh.id && (
+                          <EditTags definitionId={definition.id} />
+                        )}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <TermTags definitionId={definition.id} />
+                      </div>
+                    </section>
+                  </DefinitionTagsGate>
+                </Suspense>
               </div>
 
               <footer className="border-t pt-4">
@@ -270,12 +305,12 @@ export async function DefinitionDetailPage({
                         fallback="AI"
                       />
                       {definition.model && (
-                        <>
+                        <AdvancedOnly as="span" className="contents">
                           <span aria-hidden className="text-ai/50">
                             &middot;
                           </span>
                           <span className="font-mono">{definition.model}</span>
-                        </>
+                        </AdvancedOnly>
                       )}
                     </span>
                   ) : (
@@ -305,23 +340,25 @@ export async function DefinitionDetailPage({
                       ))}
                     </span>
                   )}
-                  <span>Added {formatDate(definition.createdAt)}</span>
-                  <Badge variant="outline">
-                    Definition {definition.definitionNumber} · revision{" "}
-                    {definition.version}
-                    {definition.isCurrentRevision ? " · current" : ""}
-                  </Badge>
-                  <StatusChip score={definition.score} />
-                  <span>
-                    Published {formatDate(definition.revisionCreatedAt)}
-                  </span>
-                  {definition.refinedFromId && (
-                    <Badge className="border-ai/30 bg-ai/15 text-ai">
-                      {definition.model
-                        ? `AI-assisted revision · ${definition.model}`
-                        : "Suggested alternative"}
+                  <AdvancedOnly as="span" className="contents">
+                    <span>Added {formatDate(definition.createdAt)}</span>
+                    <Badge variant="outline">
+                      Definition {definition.definitionNumber} · revision{" "}
+                      {definition.version}
+                      {definition.isCurrentRevision ? " · current" : ""}
                     </Badge>
-                  )}
+                    <StatusChip score={definition.score} />
+                    <span>
+                      Published {formatDate(definition.revisionCreatedAt)}
+                    </span>
+                    {definition.refinedFromId && (
+                      <Badge className="border-ai/30 bg-ai/15 text-ai">
+                        {definition.model
+                          ? `AI-assisted revision · ${definition.model}`
+                          : "Suggested alternative"}
+                      </Badge>
+                    )}
+                  </AdvancedOnly>
                   {definition.replacesDefinitionId && (
                     <Badge variant="outline">Replacement proposal</Badge>
                   )}
@@ -400,7 +437,9 @@ export async function DefinitionDetailPage({
             </article>
           </Card>
 
-          <RevisionDiff comparison={definition.comparison} />
+          <AdvancedOnly>
+            <RevisionDiff comparison={definition.comparison} />
+          </AdvancedOnly>
 
           {definition.isCurrentRevision && (
             <section
@@ -428,7 +467,8 @@ export async function DefinitionDetailPage({
             </section>
           )}
 
-          <section
+          <AdvancedOnly
+            as="section"
             aria-labelledby="revision-history-heading"
             className="space-y-4 border-t pt-8"
           >
@@ -538,7 +578,7 @@ export async function DefinitionDetailPage({
                 )
               })}
             </ol>
-          </section>
+          </AdvancedOnly>
 
           <section
             id="discussion"
@@ -557,13 +597,14 @@ export async function DefinitionDetailPage({
             <TermComments
               id={definition.id}
               definitionNumber={definition.definitionNumber}
+              displayedVersion={definition.version}
             />
             <TermCommentBox
               id={definition.id}
               revisionId={definition.revisionId}
             />
           </section>
-        </div>
+        </ViewTabs>
       </main>
     </HydrateClient>
   )

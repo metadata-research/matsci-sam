@@ -44,8 +44,10 @@ the assertion to the authors of that specification.
 `lib/dictionary-metadata.ts` defines five supported fields and the catalog.
 `usageNote`, `usedAsValueFor` and `describesMetadataField` appear in Simple.
 `alternateLabel` and `relatedConcept` are additional Advanced controls.
-Simple includes source name and link. Advanced adds source version and language
-for text values. View changes preserve the same draft and selections.
+Simple defaults to whole-term scope and shows no source fields. Advanced adds
+the scope choice, source name, link and version, and language for text values.
+View changes preserve one draft. A value set in Advanced still applies in
+Simple, which lists it before submission.
 
 Field associations accept catalog IRIs. Related concepts accept an explicit
 external HTTP or HTTPS IRI. Text values support optional language tags.

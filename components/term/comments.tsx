@@ -10,12 +10,15 @@ import { Button } from "../ui/button"
 import { trpc } from "@/trpc/client"
 import { Skeleton } from "../ui/skeleton"
 import { Card, CardContent } from "../ui/card"
-import { formatDateTime } from "@/lib/date"
+import { formatDate, formatDateTime } from "@/lib/date"
 import { PublicProfileName } from "../public-profile-name"
+import { usePresentedView } from "../interface-view"
 
 interface Props {
   id: number
   definitionNumber: number
+  // The revision on screen. Simple marks a comment about another revision.
+  displayedVersion?: number
   // True where no comment box follows the list, so the empty state does not
   // point at one.
   readOnly?: boolean
@@ -38,9 +41,11 @@ export const TermVotesFallback = () => {
 export const TermComments = ({
   id,
   definitionNumber,
+  displayedVersion,
   readOnly = false
 }: Props) => {
   const [comments] = trpc.comments.get.useSuspenseQuery(id)
+  const advanced = usePresentedView() === "advanced"
 
   if (comments.length === 0) {
     return (
@@ -70,15 +75,34 @@ export const TermComments = ({
                 &middot;
               </span>
               <time className="text-xs text-muted-foreground">
-                {formatDateTime(comment.createdAt)}
+                {advanced
+                  ? formatDateTime(comment.createdAt)
+                  : formatDate(comment.createdAt)}
               </time>
-              <span className="rounded-full border px-2 py-0.5 text-[0.68rem] text-muted-foreground">
-                Definition {definitionNumber} · revision {comment.version}
-                {comment.authorKind !== "human"
-                  ? ` · ${comment.authorKind}`
-                  : ""}
-                {comment.migratedLegacy ? " · imported" : ""}
-              </span>
+              {advanced ? (
+                <span className="rounded-full border px-2 py-0.5 text-[0.68rem] text-muted-foreground">
+                  Definition {definitionNumber} · revision {comment.version}
+                  {comment.authorKind !== "human"
+                    ? ` · ${comment.authorKind}`
+                    : ""}
+                  {comment.migratedLegacy ? " · imported" : ""}
+                </span>
+              ) : comment.authorKind !== "human" ||
+                (displayedVersion !== undefined &&
+                  comment.version !== displayedVersion) ? (
+                // Simple keeps what attributes a comment: a writer that is not a
+                // person, or wording other than the revision on screen.
+                <span className="rounded-full border px-2 py-0.5 text-[0.68rem] text-muted-foreground">
+                  {[
+                    comment.version !== displayedVersion
+                      ? `revision ${comment.version}`
+                      : null,
+                    comment.authorKind !== "human" ? comment.authorKind : null
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              ) : null}
             </header>
             <p className="leading-7">{comment.message}</p>
           </CardContent>

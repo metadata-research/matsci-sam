@@ -6,6 +6,7 @@ import { trpc } from "@/trpc/client"
 import { Badge } from "../ui/badge"
 import { Skeleton } from "../ui/skeleton"
 import { conceptPath } from "@/lib/public-identifiers"
+import { usePresentedView } from "@/components/interface-view"
 
 interface Props {
   termId: number
@@ -30,11 +31,17 @@ export const TermFacetsFallback = () => (
  */
 export const TermFacets = ({ termId, children }: Props) => {
   const [facets] = trpc.tags.facets.useSuspenseQuery({ termId })
+  const simple = usePresentedView() === "simple"
 
   if (facets.length === 0 && !children) return null
 
+  // Simple lists assigned facets only. The empty row stays mounted for the
+  // curator control inside it, so a change of view keeps that control's state.
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      hidden={facets.length === 0 && simple}
+      className="flex flex-wrap items-center gap-2"
+    >
       <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         Facets
       </span>

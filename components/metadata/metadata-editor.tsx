@@ -20,10 +20,11 @@ import {
   FieldLabel
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { usePresentedView } from "@/components/interface-view"
 import { formatDateTime } from "@/lib/date"
 import type { MetadataFieldKey } from "@/lib/dictionary-metadata"
+import { termMetadataInputSchema } from "@/lib/term-metadata-validation"
 import { revisionPath } from "@/lib/public-identifiers"
 import { lit } from "@/lib/rdf-literal"
 import type { TermMetadataRecord } from "@/lib/term-metadata"
@@ -109,11 +110,16 @@ function AssertionList({
               <h3 className="font-medium">
                 {field?.label ?? assertion.fieldKey}
               </h3>
-              <Badge variant="outline">
-                {assertion.retractedAt
-                  ? "Withdrawn"
-                  : statusLabel(assertion.status)}
-              </Badge>
+              {/* The Published metadata heading already states publication. */}
+              {advanced ||
+              assertion.retractedAt ||
+              assertion.status !== "accepted" ? (
+                <Badge variant="outline">
+                  {assertion.retractedAt
+                    ? "Withdrawn"
+                    : statusLabel(assertion.status)}
+                </Badge>
+              ) : null}
             </div>
             {catalog ? (
               <Link
@@ -136,25 +142,27 @@ function AssertionList({
                 {assertion.value}
               </p>
             )}
-            {catalog ? (
+            {catalog && advanced ? (
               <p className="text-xs text-muted-foreground">
                 {catalog.profileLabel} · {catalog.sourceVersion}
                 {catalog.status === "proposed" ? " · Proposed field" : ""}
               </p>
             ) : null}
             <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+              {advanced || assertion.definitionRevisionId !== null ? (
+                <p>
+                  {scope.href ? (
+                    <Link href={scope.href} className="underline">
+                      {scope.label}
+                    </Link>
+                  ) : (
+                    scope.label
+                  )}
+                </p>
+              ) : null}
               <p>
-                {scope.href ? (
-                  <Link href={scope.href} className="underline">
-                    {scope.label}
-                  </Link>
-                ) : (
-                  scope.label
-                )}
-              </p>
-              <p>
-                Added by {assertion.assertedByName ?? "Contributor"} ·{" "}
-                {formatDateTime(assertion.createdAt)}
+                Added by {assertion.assertedByName ?? "Contributor"}
+                {advanced ? ` · ${formatDateTime(assertion.createdAt)}` : ""}
               </p>
               {assertion.sourceIri ? (
                 <p>
@@ -167,22 +175,22 @@ function AssertionList({
                   >
                     {assertion.sourceLabel ?? assertion.sourceIri}
                   </a>
-                  {assertion.sourceVersion
+                  {advanced && assertion.sourceVersion
                     ? ` · ${assertion.sourceVersion}`
                     : ""}
                 </p>
               ) : assertion.sourceLabel ? (
                 <p>
                   Source: {assertion.sourceLabel}
-                  {assertion.sourceVersion
+                  {advanced && assertion.sourceVersion
                     ? ` · ${assertion.sourceVersion}`
                     : ""}
                 </p>
               ) : null}
-              {assertion.reviewedAt ? (
+              {advanced && assertion.reviewedAt ? (
                 <p>Reviewed {formatDateTime(assertion.reviewedAt)}</p>
               ) : null}
-              {assertion.retractedAt ? (
+              {advanced && assertion.retractedAt ? (
                 <p>Withdrawn {formatDateTime(assertion.retractedAt)}</p>
               ) : null}
             </div>
@@ -254,14 +262,17 @@ export function MetadataEditor({
     { termId: initialRecord.term.id },
     { initialData: initialRecord }
   )
-  const [view, setView] = useState("simple")
+  const view = usePresentedView()
   const [fieldKey, setFieldKey] = useState<MetadataFieldKey>("usageNote")
-  const [scope, setScope] = useState("")
+  // Simple describes the whole term. Advanced can choose a definition revision.
+  const [scope, setScope] = useState("term")
   const [value, setValue] = useState("")
   const [sourceIri, setSourceIri] = useState("")
   const [sourceLabel, setSourceLabel] = useState("")
   const [sourceVersion, setSourceVersion] = useState("")
   const [language, setLanguage] = useState("en")
+  // Unmounted in Simple, so a hidden invalid link cannot block submission.
+  const [sourceOpen, setSourceOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const advanced = view === "advanced"
   const field = record.fields.find((item) => item.key === fieldKey)!
@@ -279,6 +290,12 @@ export function MetadataEditor({
         definitionNumber: definition.definitionNumber
       }))
   )
+  // A revision removed by a refresh falls back to the whole term.
+  const effectiveScope = currentRevisions.some(
+    (revision) => String(revision.id) === scope
+  )
+    ? scope
+    : "term"
 
   const refresh = async () => {
     await utils.termMetadata.get.invalidate({ termId: record.term.id })
@@ -331,13 +348,22 @@ export function MetadataEditor({
     (assertion) => assertion.status !== "accepted"
   )
 
+  // Fields that only Advanced shows. Simple names where to correct them.
+  const advancedFields = [
+    "definitionRevisionId",
+    "language",
+    "sourceIri",
+    "sourceLabel",
+    "sourceVersion"
+  ]
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (busy || !scope || !value.trim()) return
+    if (busy || !value.trim()) return
     setError(null)
-    add.mutate({
+    const input = {
       termId: record.term.id,
-      definitionRevisionId: scope === "term" ? undefined : Number(scope),
+      definitionRevisionId:
+        effectiveScope === "term" ? undefined : Number(effectiveScope),
       fieldKey,
       value: value.trim(),
       language:
@@ -345,24 +371,43 @@ export function MetadataEditor({
       sourceIri: sourceIri.trim() || undefined,
       sourceLabel: sourceLabel.trim() || undefined,
       sourceVersion: sourceVersion.trim() || undefined
-    })
+    }
+    // The same rules as the server, so a field hidden here is named here.
+    const checked = termMetadataInputSchema.safeParse(input)
+    if (!checked.success) {
+      const issue = checked.error.issues[0]
+      const hidden = !advanced && advancedFields.includes(String(issue.path[0]))
+      setError(
+        hidden ? `${issue.message} Open Advanced to change it.` : issue.message
+      )
+      return
+    }
+    add.mutate(input)
   }
 
+  // Values chosen in Advanced still apply in Simple, so Simple names them.
+  const advancedValues = [
+    ...(effectiveScope !== "term"
+      ? [scopeOf(record, Number(effectiveScope), false).label]
+      : []),
+    ...(sourceLabel.trim() || sourceIri.trim() || sourceVersion.trim()
+      ? ["a source"]
+      : []),
+    ...(field.valueType === "text" &&
+    language.trim() &&
+    language.trim() !== "en"
+      ? [`language ${language.trim()}`]
+      : [])
+  ]
+
   return (
-    <Tabs value={view} onValueChange={setView} className="flex flex-col gap-5">
-      <div className="flex flex-col items-end gap-1">
-        <span className="text-xs font-medium text-muted-foreground">View</span>
-        <TabsList aria-label="Metadata view">
-          <TabsTrigger value="simple">Simple</TabsTrigger>
-          <TabsTrigger value="advanced">Advanced</TabsTrigger>
-        </TabsList>
-      </div>
-      <TabsContent value={view} forceMount className="m-0 flex flex-col gap-5">
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
+    <div className="flex flex-col gap-5">
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {published.length || advanced ? (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -379,40 +424,42 @@ export function MetadataEditor({
             )}
           </CardContent>
         </Card>
-        {proposals.length ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <h2>
-                  {record.permissions.isAdmin
-                    ? "Contributor proposals"
-                    : "Your proposals"}
-                </h2>
-              </CardTitle>
-              <CardDescription>
-                These are separate from published metadata until accepted.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AssertionList assertions={proposals} {...assertionProps} />
-            </CardContent>
-          </Card>
-        ) : null}
+      ) : null}
+      {proposals.length ? (
         <Card>
           <CardHeader>
             <CardTitle>
-              <h2>Add metadata</h2>
+              <h2>
+                {record.permissions.isAdmin
+                  ? "Contributor proposals"
+                  : "Your proposals"}
+              </h2>
             </CardTitle>
             <CardDescription>
-              {record.permissions.isAdmin
-                ? "Your addition will be public immediately."
-                : "An administrator reviews your contribution before publication."}
+              These are separate from published metadata until accepted.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {record.permissions.canPropose ? (
-              <form onSubmit={submit}>
-                <FieldGroup>
+            <AssertionList assertions={proposals} {...assertionProps} />
+          </CardContent>
+        </Card>
+      ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2>Add metadata</h2>
+          </CardTitle>
+          <CardDescription>
+            {record.permissions.isAdmin
+              ? "Your addition will be public immediately."
+              : "An administrator reviews your contribution before publication."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {record.permissions.canPropose ? (
+            <form onSubmit={submit}>
+              <FieldGroup>
+                {advanced ? (
                   <Field>
                     <FieldLabel htmlFor={`${id}-scope`}>
                       What does this describe?
@@ -420,14 +467,11 @@ export function MetadataEditor({
                     <MetadataSelect
                       id={`${id}-scope`}
                       aria-describedby={`${id}-scope-help`}
-                      value={scope}
+                      value={effectiveScope}
                       onChange={(event) => setScope(event.target.value)}
                       required
                       disabled={busy}
                     >
-                      <option value="" disabled>
-                        Choose the term or a definition
-                      </option>
                       <option value="term">The whole term</option>
                       {currentRevisions.map((revision) => (
                         <option key={revision.id} value={revision.id}>
@@ -442,115 +486,115 @@ export function MetadataEditor({
                       when its wording changes.
                     </FieldDescription>
                   </Field>
-                  <Field>
-                    <FieldLabel htmlFor={`${id}-field`}>
-                      Add a description
-                    </FieldLabel>
+                ) : null}
+                <Field>
+                  <FieldLabel htmlFor={`${id}-field`}>
+                    Add a description
+                  </FieldLabel>
+                  <MetadataSelect
+                    id={`${id}-field`}
+                    aria-describedby={`${id}-field-help`}
+                    value={fieldKey}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setFieldKey(event.target.value as MetadataFieldKey)
+                      setValue("")
+                      setError(null)
+                    }}
+                  >
+                    {fieldOptions.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </MetadataSelect>
+                  <FieldDescription id={`${id}-field-help`}>
+                    {field.description}
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`${id}-value`}>
+                    {catalogValue
+                      ? "Metadata field"
+                      : fieldKey === "relatedConcept"
+                        ? "Concept link"
+                        : fieldKey === "alternateLabel"
+                          ? "Alternative name"
+                          : "Usage guidance"}
+                  </FieldLabel>
+                  {catalogValue ? (
                     <MetadataSelect
-                      id={`${id}-field`}
-                      aria-describedby={`${id}-field-help`}
-                      value={fieldKey}
+                      id={`${id}-value`}
+                      value={value}
+                      onChange={(event) => setValue(event.target.value)}
                       disabled={busy}
-                      onChange={(event) => {
-                        setFieldKey(event.target.value as MetadataFieldKey)
-                        setValue("")
-                        setError(null)
-                      }}
+                      required
                     >
-                      {fieldOptions.map((item) => (
-                        <option key={item.key} value={item.key}>
-                          {item.label}
-                        </option>
+                      <option value="" disabled>
+                        Choose a metadata field
+                      </option>
+                      {Array.from(
+                        new Set(
+                          record.catalogFields.map((item) => item.profileKey)
+                        )
+                      ).map((profileKey) => (
+                        <optgroup
+                          key={profileKey}
+                          label={
+                            record.catalogFields.find(
+                              (item) => item.profileKey === profileKey
+                            )!.profileLabel
+                          }
+                        >
+                          {record.catalogFields
+                            .filter((item) => item.profileKey === profileKey)
+                            .map((item) => (
+                              <option key={item.iri} value={item.iri}>
+                                {item.label}
+                                {item.status === "proposed"
+                                  ? " (proposed)"
+                                  : ""}
+                              </option>
+                            ))}
+                        </optgroup>
                       ))}
                     </MetadataSelect>
-                    <FieldDescription id={`${id}-field-help`}>
-                      {field.description}
-                    </FieldDescription>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor={`${id}-value`}>
-                      {catalogValue
-                        ? "Metadata field"
-                        : fieldKey === "relatedConcept"
-                          ? "Concept link"
-                          : fieldKey === "alternateLabel"
-                            ? "Alternative name"
-                            : "Usage guidance"}
-                    </FieldLabel>
-                    {catalogValue ? (
-                      <MetadataSelect
-                        id={`${id}-value`}
-                        value={value}
-                        onChange={(event) => setValue(event.target.value)}
-                        disabled={busy}
-                        required
-                      >
-                        <option value="" disabled>
-                          Choose a metadata field
-                        </option>
-                        {Array.from(
-                          new Set(
-                            record.catalogFields.map((item) => item.profileKey)
-                          )
-                        ).map((profileKey) => (
-                          <optgroup
-                            key={profileKey}
-                            label={
-                              record.catalogFields.find(
-                                (item) => item.profileKey === profileKey
-                              )!.profileLabel
-                            }
-                          >
-                            {record.catalogFields
-                              .filter((item) => item.profileKey === profileKey)
-                              .map((item) => (
-                                <option key={item.iri} value={item.iri}>
-                                  {item.label}
-                                  {item.status === "proposed"
-                                    ? " (proposed)"
-                                    : ""}
-                                </option>
-                              ))}
-                          </optgroup>
-                        ))}
-                      </MetadataSelect>
-                    ) : fieldKey === "usageNote" ? (
-                      <Textarea
-                        id={`${id}-value`}
-                        value={value}
-                        onChange={(event) => setValue(event.target.value)}
-                        disabled={busy}
-                        required
-                        maxLength={4000}
-                        rows={4}
-                        placeholder="Explain when and how this term should be used."
-                      />
-                    ) : (
-                      <Input
-                        id={`${id}-value`}
-                        value={value}
-                        onChange={(event) => setValue(event.target.value)}
-                        disabled={busy}
-                        required
-                        type={field.valueType === "iri" ? "url" : "text"}
-                        maxLength={field.valueType === "iri" ? 2048 : 240}
-                        placeholder={
-                          field.valueType === "iri"
-                            ? "https://…"
-                            : "Another name for this term"
-                        }
-                      />
-                    )}
-                    {catalogField ? (
-                      <FieldDescription>
-                        <span className="block">
-                          {catalogField.description}
+                  ) : fieldKey === "usageNote" ? (
+                    <Textarea
+                      id={`${id}-value`}
+                      value={value}
+                      onChange={(event) => setValue(event.target.value)}
+                      disabled={busy}
+                      required
+                      maxLength={4000}
+                      rows={4}
+                      placeholder="Explain when and how this term should be used."
+                    />
+                  ) : (
+                    <Input
+                      id={`${id}-value`}
+                      value={value}
+                      onChange={(event) => setValue(event.target.value)}
+                      disabled={busy}
+                      required
+                      type={field.valueType === "iri" ? "url" : "text"}
+                      maxLength={field.valueType === "iri" ? 2048 : 240}
+                      placeholder={
+                        field.valueType === "iri"
+                          ? "https://…"
+                          : "Another name for this term"
+                      }
+                    />
+                  )}
+                  {catalogField ? (
+                    <FieldDescription>
+                      <span className="block">{catalogField.description}</span>
+                      {catalogField.valueGuidance ? (
+                        <span className="mt-1 block">
+                          {catalogField.valueGuidance}
                         </span>
-                        {catalogField.valueGuidance ? (
-                          <span className="mt-1 block">
-                            {catalogField.valueGuidance}
-                          </span>
-                        ) : null}
+                      ) : null}
+                      {advanced ? (
                         <span className="mt-2 block">
                           Field source:{" "}
                           <a
@@ -567,10 +611,17 @@ export function MetadataEditor({
                           . Add evidence for your contribution under Source
                           (optional).
                         </span>
-                      </FieldDescription>
-                    ) : null}
-                  </Field>
-                  <details>
+                      ) : null}
+                    </FieldDescription>
+                  ) : null}
+                </Field>
+                {advanced ? (
+                  <details
+                    open={sourceOpen}
+                    onToggle={(event) =>
+                      setSourceOpen(event.currentTarget.open)
+                    }
+                  >
                     <summary className="cursor-pointer text-sm font-medium">
                       Source (optional)
                     </summary>
@@ -603,116 +654,113 @@ export function MetadataEditor({
                           placeholder="https://…"
                         />
                       </Field>
-                      {advanced ? (
-                        <Field>
-                          <FieldLabel htmlFor={`${id}-source-version`}>
-                            Source version
-                          </FieldLabel>
-                          <Input
-                            id={`${id}-source-version`}
-                            value={sourceVersion}
-                            onChange={(event) =>
-                              setSourceVersion(event.target.value)
-                            }
-                            disabled={busy}
-                            maxLength={200}
-                          />
-                        </Field>
-                      ) : null}
+                      <Field>
+                        <FieldLabel htmlFor={`${id}-source-version`}>
+                          Source version
+                        </FieldLabel>
+                        <Input
+                          id={`${id}-source-version`}
+                          value={sourceVersion}
+                          onChange={(event) =>
+                            setSourceVersion(event.target.value)
+                          }
+                          disabled={busy}
+                          maxLength={200}
+                        />
+                      </Field>
                     </FieldGroup>
                   </details>
-                  {advanced && field.valueType === "text" ? (
-                    <Field>
-                      <FieldLabel htmlFor={`${id}-language`}>
-                        Text language
-                      </FieldLabel>
-                      <Input
-                        id={`${id}-language`}
-                        value={language}
-                        onChange={(event) => setLanguage(event.target.value)}
-                        disabled={busy}
-                        maxLength={35}
-                        placeholder="en"
-                      />
-                      <FieldDescription>
-                        Use a language tag such as en or de.
-                      </FieldDescription>
-                    </Field>
-                  ) : null}
-                  {advanced ? (
-                    <p className="break-all text-xs text-muted-foreground">
-                      Property: <code>{field.predicateIri}</code>
-                    </p>
-                  ) : null}
-                  <div>
-                    <Button
-                      type="submit"
-                      disabled={busy || !scope || !value.trim()}
-                    >
-                      {add.isPending
-                        ? "Saving…"
-                        : record.permissions.isAdmin
-                          ? "Publish metadata"
-                          : "Submit for review"}
-                    </Button>
-                  </div>
-                </FieldGroup>
-              </form>
-            ) : record.permissions.blockedReason === "retired" ? (
-              <p className="text-sm text-muted-foreground">
-                This vocabulary is retired. Its metadata remains available to
-                read.
-              </p>
-            ) : record.permissions.blockedReason === "profile_required" ? (
-              <p className="text-sm text-muted-foreground">
-                <Link href="/profile" className="text-primary underline">
-                  Complete your profile
-                </Link>{" "}
-                to contribute attributed metadata.
-              </p>
-            ) : record.permissions.blockedReason === "ai_account" ? (
-              <p className="text-sm text-muted-foreground">
-                Sign in with a contributor account to add metadata.
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                <Link
-                  href={`/login?returnTo=${encodeURIComponent(`/terms/${record.term.id}/metadata`)}`}
-                  className="text-primary underline"
-                >
-                  Sign in
-                </Link>{" "}
-                to contribute metadata.
-              </p>
-            )}
+                ) : advancedValues.length ? (
+                  <p className="text-sm text-muted-foreground">
+                    Also included from Advanced: {advancedValues.join(", ")}.
+                  </p>
+                ) : null}
+                {advanced && field.valueType === "text" ? (
+                  <Field>
+                    <FieldLabel htmlFor={`${id}-language`}>
+                      Text language
+                    </FieldLabel>
+                    <Input
+                      id={`${id}-language`}
+                      value={language}
+                      onChange={(event) => setLanguage(event.target.value)}
+                      disabled={busy}
+                      maxLength={35}
+                      placeholder="en"
+                    />
+                    <FieldDescription>
+                      Use a language tag such as en or de.
+                    </FieldDescription>
+                  </Field>
+                ) : null}
+                {advanced ? (
+                  <p className="break-all text-xs text-muted-foreground">
+                    Property: <code>{field.predicateIri}</code>
+                  </p>
+                ) : null}
+                <div>
+                  <Button type="submit" disabled={busy || !value.trim()}>
+                    {add.isPending
+                      ? "Saving…"
+                      : record.permissions.isAdmin
+                        ? "Publish metadata"
+                        : "Submit for review"}
+                  </Button>
+                </div>
+              </FieldGroup>
+            </form>
+          ) : record.permissions.blockedReason === "retired" ? (
+            <p className="text-sm text-muted-foreground">
+              This vocabulary is retired. Its metadata remains available to
+              read.
+            </p>
+          ) : record.permissions.blockedReason === "profile_required" ? (
+            <p className="text-sm text-muted-foreground">
+              <Link href="/profile" className="text-primary underline">
+                Complete your profile
+              </Link>{" "}
+              to contribute attributed metadata.
+            </p>
+          ) : record.permissions.blockedReason === "ai_account" ? (
+            <p className="text-sm text-muted-foreground">
+              Sign in with a contributor account to add metadata.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              <Link
+                href={`/login?returnTo=${encodeURIComponent(`/terms/${record.term.id}/metadata`)}`}
+                className="text-primary underline"
+              >
+                Sign in
+              </Link>{" "}
+              to contribute metadata.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+      {advanced && record.history.length ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Metadata history</h2>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <details>
+              <summary className="cursor-pointer text-sm">
+                Show {record.history.length} withdrawn{" "}
+                {record.history.length === 1 ? "contribution" : "contributions"}
+              </summary>
+              <div className="mt-4">
+                <AssertionList
+                  assertions={record.history}
+                  {...assertionProps}
+                />
+              </div>
+            </details>
           </CardContent>
         </Card>
-        {advanced && record.history.length ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <h2>Metadata history</h2>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <details>
-                <summary className="cursor-pointer text-sm">
-                  Show {record.history.length} withdrawn{" "}
-                  {record.history.length === 1
-                    ? "contribution"
-                    : "contributions"}
-                </summary>
-                <div className="mt-4">
-                  <AssertionList
-                    assertions={record.history}
-                    {...assertionProps}
-                  />
-                </div>
-              </details>
-            </CardContent>
-          </Card>
-        ) : null}
-      </TabsContent>
-    </Tabs>
+      ) : null}
+    </div>
   )
 }

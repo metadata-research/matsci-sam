@@ -21,6 +21,7 @@
     "test:definition-ui-safety": "tsx scripts/test-definition-ui-safety.ts",
     "test:discussion-action-gate": "tsx scripts/test-discussion-action-gate.ts",
     "test:reference-workflows-ui": "tsx scripts/test-reference-workflows-ui.ts",
+    "test:simple-view-ui": "tsx scripts/test-simple-view-ui.ts",
     "test:featured-provenance": "tsx scripts/test-featured-provenance.ts",
     "test:contribution-provenance": "tsx scripts/test-contribution-provenance.ts",
     "test:reported-sources": "tsx --conditions=react-server scripts/test-provider-reported-sources.ts",
