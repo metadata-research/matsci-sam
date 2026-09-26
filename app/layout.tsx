@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { TRPCProvider } from "@/trpc/client"
 import { Toaster } from "@/components/ui/sonner"
 import { getCurrentUser } from "@/lib/current-user"
+import { ArrivalHighlight } from "@/components/arrival-highlight"
 import { ViewPreferenceProvider } from "@/components/interface-view"
 import { INTERFACE_VIEW_COOKIE, parseInterfaceView } from "@/lib/interface-view"
 import localFont from "next/font/local"
@@ -84,6 +85,7 @@ export default async function RootLayout({
               <ViewPreferenceProvider initialView={initialView}>
                 {children}
               </ViewPreferenceProvider>
+              <ArrivalHighlight />
             </div>
             <FeedbackWidget identity={feedbackIdentity} />
             <Toaster />

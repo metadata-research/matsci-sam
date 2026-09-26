@@ -82,9 +82,9 @@ export async function TermDefaultDefinition({
       Discussion
     </Link>
   )
-  const openDefinitionLink = (className: string) => (
+  const definitionPageLink = (className: string) => (
     <Link href={href} className={className}>
-      Open definition
+      Definition page
     </Link>
   )
   const proposeChangeLink = (className: string) =>
@@ -245,7 +245,7 @@ export async function TermDefaultDefinition({
           {citedReferencesLink(`${href}#cited-references`)}
           {sourceFilesLink}
           {discussionLink}
-          {openDefinitionLink(evidenceLinkClass)}
+          {definitionPageLink(evidenceLinkClass)}
           {proposeChangeLink(evidenceLinkClass)}
         </SimpleOnly>
 
@@ -254,7 +254,7 @@ export async function TermDefaultDefinition({
             aria-label={`Definition ${definition.definitionNumber} details and actions`}
             className="flex flex-wrap gap-x-5 gap-y-2 text-sm"
           >
-            {openDefinitionLink(linkClass)}
+            {definitionPageLink(linkClass)}
             {proposeChangeLink(linkClass)}
             <Link href={`${href}#examples-heading`} className={linkClass}>
               {definition.example?.trim()

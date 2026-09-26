@@ -164,3 +164,44 @@
 .react-flow__controls button svg {
   fill: currentColor;
 }
+
+/* The section a link led to, marked for a moment by ArrivalHighlight. The
+   colors are custom properties because the CSS minifier drops a keyframe
+   that holds color-mix() directly. */
+[data-arrived] {
+  --arrival-tint: color-mix(in oklab, var(--primary) 8%, transparent);
+  --arrival-ring: color-mix(in oklab, var(--ring) 70%, transparent);
+  outline: 2px solid transparent;
+  outline-offset: 10px;
+  scroll-margin-top: 1.5rem;
+  animation: arrival 2.4s ease-out;
+}
+/* A spread shadow fills its whole width, so the ring is an outline beyond
+   the tinted margin. */
+@keyframes arrival {
+  0%,
+  40% {
+    outline-color: var(--arrival-ring);
+    box-shadow:
+      0 0 0 10px var(--arrival-tint),
+      inset 0 0 0 100vmax var(--arrival-tint);
+  }
+  100% {
+    outline-color: transparent;
+    box-shadow:
+      0 0 0 10px transparent,
+      inset 0 0 0 100vmax transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-arrived] {
+    animation-timing-function: steps(1, end);
+  }
+}
+@media (forced-colors: active) {
+  [data-arrived] {
+    animation: none;
+    outline: 3px solid Highlight;
+    outline-offset: 6px;
+  }
+}

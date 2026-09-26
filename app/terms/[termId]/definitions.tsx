@@ -177,7 +177,7 @@ function AlternativeDefinition({
                 href={href}
                 className="text-sm text-primary hover:underline"
               >
-                Open definition, sources and discussion
+                Definition page, with sources and discussion
               </Link>
             </div>
           </div>

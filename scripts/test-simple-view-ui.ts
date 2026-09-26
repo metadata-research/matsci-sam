@@ -98,6 +98,19 @@ async function main() {
   const hiddenText = (text: string) =>
     expect(page.getByText(text, { exact: true })).toBeHidden()
   const history = page.getByRole("heading", { name: "Revision history" })
+  const historySection = page.locator(
+    'section[aria-labelledby="revision-history-heading"]'
+  )
+  // The section a link leads to is marked for a moment, then unmarked.
+  const expectArrival = async (section: typeof historySection) => {
+    await expect(section).toHaveAttribute("data-arrived", "")
+    expect(
+      await section.evaluate((node) => node.getBoundingClientRect().top)
+    ).toBeGreaterThanOrEqual(0)
+    await expect(section).not.toHaveAttribute("data-arrived", {
+      timeout: 5000
+    })
+  }
 
   try {
     fixture = await createTermFixture({
@@ -113,7 +126,7 @@ async function main() {
     await hiddenText("No citations attached")
     for (const name of ["Revision history", "Definition 1 · revision 1"])
       await expect(page.getByRole("link", { name, exact: true })).toHaveCount(0)
-    for (const name of ["Discussion", "Open definition", "Propose a change"])
+    for (const name of ["Discussion", "Definition page", "Propose a change"])
       await expect(page.getByRole("link", { name, exact: true })).toBeVisible()
 
     await tab("Advanced").click()
@@ -133,6 +146,10 @@ async function main() {
     await tab("Simple").click()
     await page.reload({ waitUntil: "networkidle" })
     await expect(tab("Simple")).toHaveAttribute("aria-selected", "true")
+
+    // A link to a section of another page marks where it lands.
+    await page.getByRole("link", { name: "Discussion", exact: true }).click()
+    await expectArrival(page.locator("#discussion"))
 
     // The definition page offers the same views.
     await page.goto(`${base}${fixture.path}`, { waitUntil: "networkidle" })
@@ -161,6 +178,7 @@ async function main() {
     })
     await expect(tab("Advanced")).toHaveAttribute("aria-selected", "true")
     await expect(history).toBeInViewport()
+    await expectArrival(historySection)
     await tab("Simple").click()
     await expect(history).toHaveCount(0)
     await page.evaluate(() => {
@@ -169,6 +187,7 @@ async function main() {
     })
     await expect(tab("Advanced")).toHaveAttribute("aria-selected", "true")
     await expect(history).toBeInViewport()
+    await expectArrival(historySection)
     await page.goto(`${base}${fixture.termPath}`, { waitUntil: "networkidle" })
     await expect(tab("Simple")).toHaveAttribute("aria-selected", "true")
 
@@ -466,7 +485,7 @@ async function main() {
     )
     assert.deepEqual(errors, [])
     console.log(
-      "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links, whole-term metadata and its checks, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
+      "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links and their arrival mark, whole-term metadata and its checks, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
     )
   } finally {
     try {
