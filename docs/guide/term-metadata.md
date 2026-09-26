@@ -12,13 +12,11 @@ They do not create records for individual experiments or datasets.
 
 ## Add metadata in Simple view
 
-1. Sign in and open **Metadata** on the term. Under **What does this describe?**,
-   choose **The whole term** or a definition.
+1. Sign in and open **Metadata** on the term. In Simple view the addition
+   describes the whole term unless you chose a definition in Advanced.
 2. Select a type under **Add a description** using the table below.
 3. Enter the usage guidance or choose a **Metadata field** from the catalog.
-4. Open **Source (optional)** to enter a **Source name or citation** and
-   **Source link** that support your contribution.
-5. Select **Submit for review**. The addition appears under **Your proposals**
+4. Select **Submit for review**. The addition appears under **Your proposals**
    with the status **Awaiting review**.
 
 | Description | Use |
@@ -27,15 +25,16 @@ They do not create records for individual experiments or datasets.
 | Used as a value for | Identify a field for which this term can supply a value |
 | Describes a metadata field | Link an entry explaining a field to its specification |
 
-![The metadata form with a scope choice, usage note and optional source](/images/docs/help-term-metadata.png)
+![The metadata form in Simple view with a description type and usage guidance](/images/docs/help-term-metadata-v2.png)
 
 The administrator form shown here uses **Publish metadata**. Other contributors
 use **Submit for review**.
 
-A description of a definition applies to its exact revision. It stays with
-that wording when a new revision is published. Choose the whole term for a
-description that applies across its definitions. The selected scope appears
-with the saved contribution.
+In Advanced, **What does this describe?** chooses the whole term or one
+definition. A description of a definition applies to its exact revision. It
+stays with that wording when a new revision is published. Choose the whole term
+for a description that applies across its definitions. The selected scope
+appears with the saved contribution.
 
 The [field catalog](/metadata/fields) includes the preliminary 2025 MatCore
 snapshot and separately labeled experimental proposals. Read the field
@@ -52,10 +51,12 @@ name. A related external concept uses a link to a concept in another source.
 It records relevant context without asserting equivalence or ontology
 membership.
 
-Advanced also shows revision numbers, optional source version and text
-language, **View semantic statement**, and **Metadata history**. Source name
-and link are available in either view. Switching views preserves your draft
-and selected scope. It does not publish or change saved descriptions.
+Advanced also offers **Source (optional)** for a **Source name or citation**,
+**Source link** and version that support your contribution, along with text
+language, revision numbers, **View semantic statement**, and **Metadata
+history**. Switching views preserves your draft, selected scope and source.
+Simple lists any of those values before you submit. Switching does not publish
+or change saved descriptions.
 
 Choose **Related external concept** to submit an ontology link for review.
 An ontology preview does not save the link.

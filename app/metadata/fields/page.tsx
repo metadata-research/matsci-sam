@@ -97,10 +97,10 @@ export default function MetadataFieldsPage() {
           Connect a term to its use
         </h2>
         <p className="max-w-3xl text-sm leading-relaxed">
-          Open a dictionary entry and choose Metadata. Simple view provides
-          usage notes and links to fields. Advanced view adds alternative names,
-          related external concepts, and detailed source information. Both views
-          describe the same entry.
+          Open a dictionary entry and choose Metadata. Simple view adds usage
+          notes and links to fields for the whole term. Advanced view adds a
+          choice of definition, sources, alternative names, and related external
+          concepts. Both views describe the same entry.
         </p>
         <div className="flex flex-wrap gap-3">
           <Button asChild>

@@ -8,7 +8,11 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { TRPCProvider } from "@/trpc/client"
 import { Toaster } from "@/components/ui/sonner"
 import { getCurrentUser } from "@/lib/current-user"
+import { ArrivalHighlight } from "@/components/arrival-highlight"
+import { ViewPreferenceProvider } from "@/components/interface-view"
+import { INTERFACE_VIEW_COOKIE, parseInterfaceView } from "@/lib/interface-view"
 import localFont from "next/font/local"
+import { cookies } from "next/headers"
 
 // One designed family across roles: Plex Sans for body, headings and UI,
 // Plex Serif for term headwords only, Plex Mono for model names, prompt keys,
@@ -53,7 +57,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const user = await getCurrentUser()
+  const [user, cookieStore] = await Promise.all([getCurrentUser(), cookies()])
+  const initialView = parseInterfaceView(
+    cookieStore.get(INTERFACE_VIEW_COOKIE)?.value
+  )
   const feedbackIdentity = user
     ? user.name?.trim() || user.email?.trim() || "Signed-in contributor"
     : "Anonymous"
@@ -74,7 +81,12 @@ export default async function RootLayout({
             <HeaderSwitch full={<Header />} strip={<HeaderStrip />} />
             {/* overflow-x-clip, not -hidden: clip does not create a scroll
               container, so position:sticky keeps working inside pages */}
-            <div className="flex-1 overflow-x-clip">{children}</div>
+            <div className="flex-1 overflow-x-clip">
+              <ViewPreferenceProvider initialView={initialView}>
+                {children}
+              </ViewPreferenceProvider>
+              <ArrivalHighlight />
+            </div>
             <FeedbackWidget identity={feedbackIdentity} />
             <Toaster />
           </ThemeProvider>

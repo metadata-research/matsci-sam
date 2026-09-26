@@ -12,10 +12,12 @@ assistant profile with its own server credential and readiness check.
 ## Contribution workspace
 
 New terms follow **Confirm term → Write definition → Review and publish**.
-**Confirm term and find references** commits the client contribution context
-and starts one ChEBI lookup. Typing does not. Existing-term actions inherit
-their fixed term and source revision. Deliberately opening the action starts
-that lookup. Confirmation neither creates a term nor asserts an ontology
+**Confirm term**, labelled **Confirm term and find references** in Advanced,
+commits the client contribution context. Advanced starts one ChEBI lookup at
+that point. Simple shows no references, so its lookup waits until Advanced is
+shown, and a Simple study never starts one. Typing does not. Existing-term
+actions inherit their fixed term and source revision. Deliberately opening the
+action in Advanced starts that lookup. Confirmation neither creates a term nor asserts an ontology
 mapping. Wolfram requires its own **Retrieve Wolfram resources** action.
 The Discussion feed opens a workspace only when a contributor selects
 **Start an alternative**. Reading the feed does not initiate lookups.
@@ -28,9 +30,12 @@ New-term Add uses `AddDefinitionWorkspace`: Simple and Advanced share one
 mounted form, with identical column sizing. Advanced reveals persistent ChEBI
 and ontology context panels to the right, stacking at narrow container widths.
 `DefinitionToolbox` merges the selected tool and toolbar beneath the form.
-Simple opens individual tools from optional form actions. Inherited contribution
-forms keep the earlier responsive workspace, narrow tool views and status
-strip. Pending-provider completion never navigates, inserts text, selects
+Simple offers **Attach an example file** and a cut-down **Help me write** below
+the editor. Citations, source files and the other tools are Advanced. The view
+choice is stored per browser in the `matsci-sam-view` cookie, which the root
+layout reads, and only pages with a view control apply it. Inherited
+contribution forms keep the earlier responsive workspace, narrow tool views and
+status strip. Pending-provider completion never navigates, inserts text, selects
 evidence or silently adds citation rows.
 
 ChEBI in Advanced Add reveals the first candidate once per visible lookup.

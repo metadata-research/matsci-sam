@@ -47,6 +47,8 @@ type Props = {
   disabled?: boolean
   onBusyChange?: (busy: boolean) => void
   inline?: boolean
+  /** Simple attaches examples only. Sources are citations, added in Advanced. */
+  exampleOnly?: boolean
 }
 
 export function ContributionFiles(props: Props) {
@@ -79,11 +81,15 @@ export function ContributionFileFields({
   term,
   vocabularySlug,
   disabled,
-  onBusyChange
+  onBusyChange,
+  exampleOnly = false
 }: Props) {
   const id = useId()
   const [file, setFile] = useState<File | null>(null)
   const [role, setRole] = useState<"example" | "source">("example")
+  // A file set up as a source in Advanced keeps that choice. Simple does not
+  // attach sources, so it says where to attach this one.
+  const sourceInSimple = exampleOnly && role === "source"
   const [title, setTitle] = useState("")
   const [caption, setCaption] = useState("")
   const [citation, setCitation] = useState("")
@@ -133,7 +139,7 @@ export function ContributionFileFields({
     changeBusy.current?.(false)
   }
   const upload = async () => {
-    if (!file || disabled || busy) return
+    if (!file || disabled || busy || sourceInSimple) return
     if (file.size > CONTRIBUTION_FILE_MAX_BYTES || !file.size) {
       setError("Choose a file between 1 byte and 5 MB.")
       return
@@ -149,8 +155,8 @@ export function ContributionFileFields({
       role,
       title,
       caption,
-      citation,
-      page
+      citation: role === "source" ? citation : undefined,
+      page: role === "source" ? page : undefined
     })
     if (!metadata.success) {
       setError(metadata.error.issues[0].message)
@@ -230,8 +236,11 @@ export function ContributionFileFields({
       event.preventDefault()
   }
   const blocked = disabled || busy
+  // Simple recovers examples only. A pending source is recovered in Advanced.
   const recoverable = pending.filter(
-    (item) => !files.some((file) => file.id === item.id)
+    (item) =>
+      !files.some((file) => file.id === item.id) &&
+      (!exampleOnly || item.role === "example")
   )
   return (
     <div className="space-y-4">
@@ -346,7 +355,7 @@ export function ContributionFileFields({
               }}
             />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1" hidden={exampleOnly}>
             <label htmlFor={`${id}-role`} className="text-sm font-medium">
               Use as
             </label>
@@ -387,7 +396,7 @@ export function ContributionFileFields({
               placeholder="Describe what this file shows or supports."
             />
           </div>
-          {role === "source" ? (
+          {role === "source" && !exampleOnly ? (
             <div className="space-y-3">
               <div className="space-y-1">
                 <label
@@ -419,10 +428,22 @@ export function ContributionFileFields({
               </div>
             </div>
           ) : null}
+          {sourceInSimple ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              This file was set up as a source in Advanced. Attach it there,
+              where its citation is kept.
+            </p>
+          ) : null}
           <Button
             type="button"
             variant="outline"
-            disabled={!file || !title.trim() || !caption.trim() || blocked}
+            disabled={
+              !file ||
+              !title.trim() ||
+              !caption.trim() ||
+              blocked ||
+              sourceInSimple
+            }
             onClick={() => void upload()}
           >
             {busy

@@ -11,8 +11,8 @@ revision identify different resources.
 
 ## Citation
 
-1. Open the term or definition you want to cite. Select **Advanced** on a term
-   page to see its identifier.
+1. Open the term or definition you want to cite. Select **Advanced** to see
+   its identifier.
 2. Open the required revision when quoting exact wording.
 3. Copy the persistent identifier displayed for that resource. Retain it if
    the browser redirects to a different website address.

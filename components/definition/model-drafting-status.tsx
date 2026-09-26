@@ -5,16 +5,20 @@ import { LoaderCircleIcon } from "lucide-react"
 
 /** Mount for one pending request. Keep the ticking state out of the editor. */
 export function ModelDraftingStatus({
-  label = "Drafting a definition…"
+  label = "Drafting a definition…",
+  startedAt
 }: {
   label?: string
+  /** Request start in epoch milliseconds, so a remount keeps the count. */
+  startedAt?: number
 }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   useEffect(() => {
-    const startedAt = performance.now()
+    const origin = startedAt ?? Date.now()
     const updateElapsed = () =>
-      setElapsedSeconds(Math.floor((performance.now() - startedAt) / 1000))
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - origin) / 1000)))
+    updateElapsed()
     // Calculate elapsed time rather than counting ticks: background tabs can
     // throttle callbacks without stopping the provider request.
     const timer = window.setInterval(updateElapsed, 1000)
@@ -23,7 +27,7 @@ export function ModelDraftingStatus({
       window.clearInterval(timer)
       document.removeEventListener("visibilitychange", updateElapsed)
     }
-  }, [])
+  }, [startedAt])
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">

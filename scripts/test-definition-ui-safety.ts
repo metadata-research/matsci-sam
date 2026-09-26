@@ -16,11 +16,7 @@ const section = (text: string, start: string, end: string) => {
 // it must not let a contributor attribute a new selection or example to text
 // other than the exact revision on screen.
 const detailPage = source("components/definition/detail-page.tsx")
-const examplesCall = section(
-  detailPage,
-  "<DefinitionExamples",
-  "/>\n                </Suspense>"
-)
+const examplesCall = section(detailPage, "<DefinitionExamples", "</Suspense>")
 assert.match(examplesCall, /sourceRevisionId={definition\.revisionId}/)
 assert.match(examplesCall, /readOnly={!definition\.isCurrentRevision}/)
 assert.doesNotMatch(examplesCall, /currentRevisionId/)

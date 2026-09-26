@@ -29,11 +29,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   STUDY_INSTRUCTIONS_MAX,
+  STUDY_PRESENTATIONS,
+  STUDY_PRESENTATION_LABELS,
   STUDY_TITLE_MAX,
   isoToLocalDateTime,
   localDateTimeToIso,
   normalizeStudyInstructions,
-  studyWindowError
+  studyWindowError,
+  type StudyPresentation
 } from "@/lib/study-editor"
 import type { StudyState } from "@/lib/communities"
 import styles from "../admin.module.css"
@@ -46,6 +49,7 @@ type StudyEditorModel = {
   opensAt: string | null
   closesAt: string | null
   retiredAt: string | null
+  presentation: StudyPresentation
   parentRetired: boolean
   createdLabel: string
   communitySlug: string
@@ -152,6 +156,7 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
   const [instructions, setInstructions] = useState(study.effectiveInstructions)
   const [opensAt, setOpensAt] = useState(initialOpensAt)
   const [closesAt, setClosesAt] = useState(initialClosesAt)
+  const [presentation, setPresentation] = useState(study.presentation)
   const [error, setError] = useState<string | null>(null)
 
   const titleChanged = title.trim() !== study.title
@@ -163,13 +168,18 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
     resolveInstructions(study.effectiveInstructions)
   const opensChanged = opensAt !== initialOpensAt
   const closesChanged = closesAt !== initialClosesAt
+  const presentationChanged = presentation !== study.presentation
   const retired = study.retiredAt !== null
   const unavailable = retired || study.parentRetired
   const canEditInstructions = study.instructionsEditable && !unavailable
   const canEditSchedule = study.activity === 0 && !unavailable
   const needsCopySync = study.hasCopyDrift && canEditInstructions
   const hasDraftChanges =
-    titleChanged || instructionsChanged || opensChanged || closesChanged
+    titleChanged ||
+    instructionsChanged ||
+    opensChanged ||
+    closesChanged ||
+    presentationChanged
   const hasSaveableChanges = hasDraftChanges || needsCopySync
   const previewText = resolveInstructions(instructions) ?? ""
 
@@ -203,12 +213,14 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
           welcome: study.welcome,
           opensAt: study.opensAt,
           closesAt: study.closesAt,
-          retiredAt: study.retiredAt
+          retiredAt: study.retiredAt,
+          presentation: study.presentation
         },
         ...(titleChanged ? { title: nextTitle } : {}),
         ...(instructionsChanged || needsCopySync ? { instructions } : {}),
         ...(opensChanged ? { opensAt: nextOpensAt } : {}),
-        ...(closesChanged ? { closesAt: nextClosesAt } : {})
+        ...(closesChanged ? { closesAt: nextClosesAt } : {}),
+        ...(presentationChanged ? { presentation } : {})
       })
     } catch (caught) {
       setError(errorMessage(caught))
@@ -301,6 +313,39 @@ export function StudyEditor({ study }: { study: StudyEditorModel }) {
                 </div>
               </div>
             </fieldset>
+            <div className={styles.studyField}>
+              <label
+                className={styles.studyFieldLabel}
+                htmlFor="edit-presentation"
+              >
+                Participant interface
+              </label>
+              <select
+                id="edit-presentation"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={presentation}
+                onChange={(event) =>
+                  setPresentation(event.target.value as StudyPresentation)
+                }
+                disabled={update.isPending || !canEditSchedule}
+                aria-describedby="study-edit-presentation-hint"
+              >
+                {STUDY_PRESENTATIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {STUDY_PRESENTATION_LABELS[option]}
+                  </option>
+                ))}
+              </select>
+              <p
+                id="study-edit-presentation-hint"
+                className={styles.studyFieldHint}
+              >
+                Every participant sees this interface. There is no view control
+                inside a study.
+                {study.activity > 0 &&
+                  " The interface is locked after study activity."}
+              </p>
+            </div>
           </div>
         </section>
 

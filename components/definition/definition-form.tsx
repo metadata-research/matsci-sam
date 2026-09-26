@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import {
   ReferenceCitations,
   ReferenceStatus,
@@ -35,10 +35,16 @@ import { OntologyContextPanel } from "@/components/ontology-context-panel"
 import {
   AddDefinitionWorkspace,
   DefinitionToolbox,
+  toolLabel,
+  toolPanelId,
   type DefinitionView,
   type DefinitionTool
 } from "./add-definition-workspace"
 import { ContributionWorkspace } from "./contribution-workspace"
+import {
+  usePresentedView,
+  useViewPreference
+} from "@/components/interface-view"
 import type { ReferenceProvider } from "@/lib/reference-types"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
@@ -47,7 +53,8 @@ import {
   PlusCircleIcon,
   SendIcon,
   SparklesIcon,
-  Undo2Icon
+  Undo2Icon,
+  XIcon
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -232,7 +239,15 @@ const DefinitionFormOwner = ({
 }: DefinitionFormProps) => {
   const router = useRouter()
   const isAdd = lockedTerm === undefined
-  const [view, setView] = useState<DefinitionView>("simple")
+  // Only Add offers Simple and Advanced. Other actions keep their full editor.
+  const viewPreference = useViewPreference()
+  const view: DefinitionView = isAdd ? viewPreference.view : "simple"
+  const setView = viewPreference.setView
+  const simpleAdd = isAdd && view === "simple"
+  // An inherited action follows the page or study that opened it.
+  const presented = usePresentedView()
+  const simpleLocked = !isAdd && presented === "simple"
+  const simple = simpleAdd || simpleLocked
   const [activeTool, setActiveTool] = useState<DefinitionTool | null>(null)
   const [exampleOpen, setExampleOpen] = useState(false)
   const [files, setFiles] = useState<DraftContributionFile[]>([])
@@ -285,6 +300,10 @@ const DefinitionFormOwner = ({
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
   const exampleRef = useRef<HTMLTextAreaElement | null>(null)
   const assistantRef = useRef<HTMLDivElement | null>(null)
+  const helpButtonRef = useRef<HTMLButtonElement | null>(null)
+  const attachButtonRef = useRef<HTMLButtonElement | null>(null)
+  const toolboxId = useId()
+  const helperId = useId()
   const reworkRef = useRef<HTMLDivElement | null>(null)
   const headingRef = useRef<HTMLHeadingElement | null>(null)
   const mounted = useRef(true)
@@ -362,6 +381,8 @@ const DefinitionFormOwner = ({
     term: confirmed?.term ?? "",
     contextKey,
     enabled: confirmed !== null,
+    // Simple shows no references, so the lookup waits for Advanced.
+    autoStart: !simple,
     selection: references,
     onSelectionChange: setReferences,
     onSelectionEdit: clearSourceUndo
@@ -506,6 +527,9 @@ const DefinitionFormOwner = ({
   const sourcesTooLong =
     modelReferenceItems.reduce((size, item) => size + item.text.length, 0) >
     24000
+  const hasCitations = references.some(
+    (selection) => selection.citedReferenceIds.length > 0
+  )
   const clearOptionalInputs = () => {
     clearSourceUndo()
     setIncludeDefinition(false)
@@ -754,12 +778,17 @@ const DefinitionFormOwner = ({
     setAppliedDraft({ ...preview, baseline: beforeApply })
     setPreview(null)
     setAssistantOpen(false)
+    if (simpleAdd) setActiveTool(null)
     setContextOpen(false)
     setReferences((current) =>
       current.map((selection) => ({ ...selection, citedReferenceIds: [] }))
     )
     setNotice(
-      "Model draft applied. Earlier draft citations were cleared. You can attach relevant citations during review. Model attribution stays with this contribution."
+      !simpleAdd
+        ? "Model draft applied. Earlier draft citations were cleared. You can attach relevant citations during review. Model attribution stays with this contribution."
+        : hasCitations
+          ? "Model draft applied. Earlier citations were cleared. Undo restores them, and Advanced can add citations. Model attribution stays with this contribution."
+          : "Model draft applied. Model attribution stays with this contribution."
     )
     focusEditor(0, preview.definition.length)
   }
@@ -815,10 +844,8 @@ const DefinitionFormOwner = ({
     })
   })
   const openTool = (nextProvider: ReferenceProvider) => {
-    if (isAdd) {
-      if (nextProvider === "chebi") setView("advanced")
-      else setActiveTool("wolfram")
-    }
+    // In Add, ChEBI is the references column, which Advanced already shows.
+    if (isAdd && nextProvider === "wolfram") setActiveTool("wolfram")
     setProvider(nextProvider)
     setContextOpen(true)
   }
@@ -947,14 +974,19 @@ const DefinitionFormOwner = ({
           Model suggestion
         </CardTitle>
         <CardDescription>
-          You can keep editing. Choosing Use this draft replaces the text
-          currently in your editor and clears earlier citations. Undo restores
-          both.
+          {!simpleAdd
+            ? "You can keep editing. Choosing Use this draft replaces the text currently in your editor and clears earlier citations. Undo restores both."
+            : hasCitations
+              ? "Use this draft replaces your writing and clears earlier citations. Undo restores both."
+              : "Use this draft replaces your writing. Undo restores it."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex min-w-0 flex-col gap-3">
         {suggestAiDraft.isPending ? (
-          <ModelDraftingStatus key={suggestAiDraft.submittedAt} />
+          <ModelDraftingStatus
+            key={suggestAiDraft.submittedAt}
+            startedAt={suggestAiDraft.submittedAt}
+          />
         ) : (
           <p role="status" className="text-sm text-muted-foreground">
             {preview
@@ -977,10 +1009,13 @@ const DefinitionFormOwner = ({
           {preview && (
             <>
               <p className="text-xs text-muted-foreground">
-                Drafted by {preview.assistantLabel}.{" "}
-                {modelPromptReferenceSummary(preview.referenceCount)}
+                Drafted by {preview.assistantLabel}.
+                {!simpleAdd &&
+                  ` ${modelPromptReferenceSummary(preview.referenceCount)}`}
               </p>
-              <ModelReferenceEvidence inputs={preview.referenceInputs} />
+              {!simpleAdd && (
+                <ModelReferenceEvidence inputs={preview.referenceInputs} />
+              )}
             </>
           )}
           {suggestAiDraft.error && (
@@ -1025,6 +1060,97 @@ const DefinitionFormOwner = ({
       </CardFooter>
     </Card>
   ) : null
+
+  // Simple names what a request sends, from the same inputs the request uses.
+  const requestParts = [
+    "the term",
+    includeDefinition && definitionValue.trim() && "your definition draft",
+    includeExample &&
+      acceptsInitialExample &&
+      exampleValue.trim() &&
+      "your example",
+    modelReferenceItems.length > 0 &&
+      `${modelReferenceItems.length} ${modelReferenceItems.length === 1 ? "source" : "sources"} chosen in Advanced`
+  ].filter((part): part is string => typeof part === "string" && part !== "")
+  const requestSummary =
+    requestParts.length > 1
+      ? `${requestParts.slice(0, -1).join(", ")} and ${requestParts.at(-1)}`
+      : requestParts[0]
+  const helperOpen =
+    simpleAdd &&
+    (assistantOpen || (activeTool === "assistant" && !appliedDraft))
+  const simpleAssistant = (
+    <section
+      id={helperId}
+      aria-label="Help me write"
+      className="flex min-w-0 flex-col gap-3 rounded-lg border p-4"
+    >
+      {!assistantOpen && (
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+              {assistant.catalog.isPending
+                ? "Loading assistants…"
+                : `Sends ${requestSummary} to ${assistant.label}.`}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setActiveTool(null)
+                requestAnimationFrame(() => helpButtonRef.current?.focus())
+              }}
+            >
+              <XIcon aria-hidden />
+              Close
+            </Button>
+          </div>
+          {assistant.selected && !assistant.available && (
+            <p role="alert" className="text-sm text-destructive">
+              {assistant.selected.reason}
+            </p>
+          )}
+          {assistant.catalog.isError && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center gap-2 text-sm"
+            >
+              Assistant availability could not be loaded.
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy || assistant.catalog.isFetching}
+                onClick={() => void assistant.catalog.refetch()}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+          {sourcesTooLong && (
+            <p role="alert" className="text-sm text-destructive">
+              The selected sources exceed the model input limit. Remove a source
+              in Advanced before requesting a suggestion.
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="self-start"
+            disabled={
+              busy || !canUseModel || !assistant.available || sourcesTooLong
+            }
+            onClick={requestModelDraft}
+          >
+            <SparklesIcon aria-hidden />
+            Suggest a definition
+          </Button>
+        </>
+      )}
+      {modelPreview}
+    </section>
+  )
 
   const publishLabel = derivedFromRevisionId
     ? "Publish alternative"
@@ -1207,10 +1333,12 @@ const DefinitionFormOwner = ({
                   </Button>
                 </p>
               )}
-              <p className="text-sm text-muted-foreground">
-                Confirmation opens the editor and searches ChEBI. No source is
-                cited or sent to a model automatically.
-              </p>
+              {!simpleAdd && (
+                <p className="text-sm text-muted-foreground">
+                  Confirmation opens the editor and searches ChEBI. No source is
+                  cited or sent to a model automatically.
+                </p>
+              )}
               {confirmed && definitionValue.trim() && (
                 <p className="text-sm text-muted-foreground">
                   Your earlier writing will be kept. Changing the term clears
@@ -1230,7 +1358,9 @@ const DefinitionFormOwner = ({
                   }
                   onClick={() => void confirmTerm()}
                 >
-                  Confirm term and find references
+                  {simpleAdd
+                    ? "Confirm term"
+                    : "Confirm term and find references"}
                 </Button>
                 {confirmed && (
                   <Button
@@ -1251,7 +1381,7 @@ const DefinitionFormOwner = ({
             </section>
           ) : (
             <>
-              {!isAdd && (
+              {!isAdd && !simpleLocked && (
                 <ReferenceStatus
                   workspace={workspace}
                   onOpen={openTool}
@@ -1259,8 +1389,10 @@ const DefinitionFormOwner = ({
                 />
               )}
               <ContributionWorkspace
-                context={isAdd || assistantOpen ? undefined : context}
-                contextOpen={isAdd ? false : contextOpen}
+                context={
+                  isAdd || assistantOpen || simpleLocked ? undefined : context
+                }
+                contextOpen={isAdd || simpleLocked ? false : contextOpen}
                 onContextOpenChange={setContextOpen}
                 contextTitle={
                   provider === "chebi" ? "ChEBI references" : "Wolfram lookup"
@@ -1415,34 +1547,45 @@ const DefinitionFormOwner = ({
                             />
                           )}
                           {!isAdd && assistantControls}
-                          {isAdd && view === "simple" && (
+                          {simpleAdd && (
                             <div className="flex flex-wrap gap-2">
                               <Button
+                                ref={attachButtonRef}
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setActiveTool("citations")}
+                                disabled={assistantOpen}
+                                aria-expanded={activeTool === "files"}
+                                aria-controls={toolPanelId(toolboxId, "files")}
+                                onClick={() =>
+                                  setActiveTool(
+                                    activeTool === "files" ? null : "files"
+                                  )
+                                }
                               >
-                                Add a citation
+                                {toolLabel("files", "simple")}
                               </Button>
                               <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setActiveTool("files")}
-                              >
-                                Attach a file
-                              </Button>
-                              <Button
+                                ref={helpButtonRef}
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setActiveTool("assistant")}
+                                disabled={assistantOpen || !!appliedDraft}
+                                aria-expanded={helperOpen}
+                                aria-controls={helperId}
+                                onClick={() =>
+                                  setActiveTool(
+                                    activeTool === "assistant"
+                                      ? null
+                                      : "assistant"
+                                  )
+                                }
                               >
                                 Help me write
                               </Button>
                             </div>
                           )}
+                          {helperOpen && simpleAssistant}
                           {isAdd && files.length > 0 && (
                             <p
                               role="status"
@@ -1464,9 +1607,10 @@ const DefinitionFormOwner = ({
                                       <p className="text-xs text-muted-foreground">
                                         Model draft applied from{" "}
                                         {appliedDraft.assistantLabel}.{" "}
-                                        {modelPromptReferenceSummary(
-                                          appliedDraft.referenceCount
-                                        )}{" "}
+                                        {!simpleAdd &&
+                                          `${modelPromptReferenceSummary(
+                                            appliedDraft.referenceCount
+                                          )} `}
                                         Model attribution is retained as you
                                         edit.
                                       </p>
@@ -1551,7 +1695,7 @@ const DefinitionFormOwner = ({
                       <Button
                         type="button"
                         variant="link"
-                        className="px-0"
+                        className={cn("px-0", isAdd && "self-start")}
                         disabled={busy}
                         onClick={() => {
                           setStep("write")
@@ -1562,53 +1706,63 @@ const DefinitionFormOwner = ({
                         Edit definition
                       </Button>
                     </div>
-                    {acceptsInitialExample && (
-                      <div className="flex flex-col gap-2">
-                        <p className="font-medium">Example of use (optional)</p>
-                        <p className="whitespace-pre-wrap break-words text-sm">
-                          {exampleValue.trim() || "No example added."}
-                        </p>
-                        {exampleValue.trim() && (
-                          <p className="text-xs text-muted-foreground">
-                            Published as your separate example contribution.
-                            Model assistance does not rewrite it.
+                    {acceptsInitialExample &&
+                      (!simple || exampleValue.trim()) && (
+                        <div className="flex flex-col gap-2">
+                          <p className="font-medium">
+                            Example of use (optional)
+                          </p>
+                          <p className="whitespace-pre-wrap break-words text-sm">
+                            {exampleValue.trim() || "No example added."}
+                          </p>
+                          {exampleValue.trim() && (
+                            <p className="text-xs text-muted-foreground">
+                              Published as your separate example contribution.
+                              Model assistance does not rewrite it.
+                            </p>
+                          )}
+                          <Button
+                            type="button"
+                            variant="link"
+                            className={cn("px-0", isAdd && "self-start")}
+                            disabled={busy}
+                            onClick={() => {
+                              setStep("write")
+                              setContextOpen(false)
+                              focusExample()
+                            }}
+                          >
+                            {exampleValue.trim()
+                              ? "Edit example"
+                              : "Add an example"}
+                          </Button>
+                        </div>
+                      )}
+                    {(!simple || appliedDraft) && (
+                      <div className="flex flex-col gap-1 text-sm">
+                        <p className="font-medium">Model contribution</p>
+                        {appliedDraft && simpleAdd ? (
+                          <p className="text-muted-foreground">
+                            Drafted with {appliedDraft.assistantLabel}. Model
+                            attribution stays with this contribution.
+                          </p>
+                        ) : appliedDraft ? (
+                          <p className="text-muted-foreground">
+                            Drafted with {appliedDraft.assistantLabel}.{" "}
+                            {modelPromptReferenceSummary(
+                              appliedDraft.referenceCount
+                            )}{" "}
+                            These model inputs are recorded separately from your
+                            citations.
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground">
+                            No model draft is applied to this contribution.
                           </p>
                         )}
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="px-0"
-                          disabled={busy}
-                          onClick={() => {
-                            setStep("write")
-                            setContextOpen(false)
-                            focusExample()
-                          }}
-                        >
-                          {exampleValue.trim()
-                            ? "Edit example"
-                            : "Add an example"}
-                        </Button>
                       </div>
                     )}
-                    <div className="flex flex-col gap-1 text-sm">
-                      <p className="font-medium">Model contribution</p>
-                      {appliedDraft ? (
-                        <p className="text-muted-foreground">
-                          Drafted with {appliedDraft.assistantLabel}.{" "}
-                          {modelPromptReferenceSummary(
-                            appliedDraft.referenceCount
-                          )}{" "}
-                          These model inputs are recorded separately from your
-                          citations.
-                        </p>
-                      ) : (
-                        <p className="text-muted-foreground">
-                          No model draft is applied to this contribution.
-                        </p>
-                      )}
-                    </div>
-                    {appliedDraft && (
+                    {appliedDraft && !simple && (
                       <>
                         <ModelPromptInputs
                           assistantLabel={appliedDraft.assistantLabel}
@@ -1621,7 +1775,12 @@ const DefinitionFormOwner = ({
                         />
                       </>
                     )}
-                    <ReferenceCitations workspace={workspace} disabled={busy} />
+                    <ReferenceCitations
+                      workspace={workspace}
+                      disabled={busy}
+                      compact={simple}
+                      onEmpty={focusHeading}
+                    />
                     {isAdd && (
                       <ContributionFilesReview
                         files={files}
@@ -1752,17 +1911,29 @@ const DefinitionFormOwner = ({
                 // term edit. A newly confirmed term gets a fresh tool workspace.
                 <div key={contextKey} hidden={step !== "write"}>
                   <DefinitionToolbox
+                    id={toolboxId}
                     view={view}
                     active={assistantOpen ? "assistant" : activeTool}
                     disabled={assistantOpen}
-                    onSelect={setActiveTool}
+                    onSelect={(tool) => {
+                      setActiveTool(tool)
+                      // Closing the Simple file panel returns to its button.
+                      if (simpleAdd && tool === null)
+                        requestAnimationFrame(() =>
+                          attachButtonRef.current?.focus()
+                        )
+                    }}
                     panels={{
                       wolfram: (
                         <ReferenceTools
                           workspace={workspace}
                           provider="wolfram"
                           embedded
-                          visible={step === "write" && activeTool === "wolfram"}
+                          visible={
+                            !simpleAdd &&
+                            step === "write" &&
+                            activeTool === "wolfram"
+                          }
                           disabled={busy}
                           canAdd={!assistantOpen}
                           onAdd={addReference}
@@ -1771,7 +1942,7 @@ const DefinitionFormOwner = ({
                           onModelInputAdded={openAssistantContext}
                         />
                       ),
-                      assistant: (
+                      assistant: simpleAdd ? null : (
                         <div className="flex min-w-0 flex-col gap-4">
                           {assistantControls}
                           {modelPreview}
@@ -1786,6 +1957,7 @@ const DefinitionFormOwner = ({
                       files: confirmed.vocabularySlug ? (
                         <ContributionFiles
                           inline
+                          exampleOnly={simpleAdd}
                           term={confirmed.term}
                           vocabularySlug={confirmed.vocabularySlug}
                           files={files}

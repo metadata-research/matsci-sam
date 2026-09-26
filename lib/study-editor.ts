@@ -1,4 +1,12 @@
 export const STUDY_TITLE_MAX = 120
+
+/** What participants see. Every participant of a study sees the same one. */
+export const STUDY_PRESENTATIONS = ["legacy", "simple"] as const
+export type StudyPresentation = (typeof STUDY_PRESENTATIONS)[number]
+export const STUDY_PRESENTATION_LABELS: Record<StudyPresentation, string> = {
+  simple: "Simple view",
+  legacy: "Full detail, as in the first studies"
+}
 export const STUDY_INSTRUCTIONS_MAX = 2_000
 
 export type StudyEditorStep = {

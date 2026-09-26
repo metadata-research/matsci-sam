@@ -3,35 +3,25 @@
 import "dotenv/config"
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
-import { chromium, expect, type Locator } from "@playwright/test"
-import { sealData } from "iron-session"
-import { eq } from "drizzle-orm"
-import { db, termsTable, usersTable } from "../drizzle"
-import { createDefinitionWithInitialRevision } from "../lib/definition-revisions"
-import { deleteDefinitionRows } from "../lib/definition-purge"
+import { expect, type Locator } from "@playwright/test"
+import { db } from "../drizzle"
 import {
-  DEFAULT_VOCABULARY_SLUG,
-  definitionPath
-} from "../lib/public-identifiers"
+  chebiLookup,
+  createTermFixture,
+  launchBrowser,
+  localPreviewBase,
+  removeTermFixture,
+  signInAs,
+  stubTrpc,
+  type TermFixture
+} from "./ui-test-harness"
 
 async function main() {
-  const base = process.env.SAM_UI_TEST_URL ?? "http://localhost:3000"
-  const local = new Set(["localhost", "127.0.0.1", "[::1]"])
-  assert.ok(
-    local.has(new URL(base).hostname),
-    "UI tests require a local preview"
-  )
-  assert.ok(
-    local.has(new URL(process.env.DATABASE_URL!).hostname),
-    "UI tests require a local database"
-  )
+  const base = localPreviewBase()
   const stamp = randomUUID()
   const sourceText = "A source definition supplied by the test fixture."
   const original = "A contributor's own draft."
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--disable-dev-shm-usage", "--js-flags=--max-old-space-size=384"]
-  })
+  const browser = await launchBrowser()
   const context = await browser.newContext({
     viewport: { width: 1280, height: 1000 }
   })
@@ -39,63 +29,17 @@ async function main() {
   const unexpected: string[] = []
   const errors: string[] = []
   let lookups = 0
-  let fixture:
-    | { userId: number; termId: number; definitionId: number; path: string }
-    | undefined
+  let fixture: TermFixture | undefined
   page.on("pageerror", (error) => errors.push(error.message))
-  await context.route("**/api/trpc/**", async (route) => {
-    if (route.request().method() === "GET") return route.continue()
-    const paths = new URL(route.request().url()).pathname
-      .split("/api/trpc/")[1]
-      .split(",")
-    const inputs = route.request().postDataJSON() as Record<
-      string,
-      { term?: string }
-    >
-    const responses = paths.map((path, index) => {
-      if (path === "termReferences.recordAction")
-        return { result: { data: null } }
-      if (path !== "termReferences.retrieveChebi") {
-        unexpected.push(path)
-        return {
-          error: { message: "Mutation blocked by UI test", code: -32600 }
-        }
+  await stubTrpc(context, {
+    unexpected,
+    mutations: {
+      "termReferences.recordAction": () => null,
+      "termReferences.retrieveChebi": (input) => {
+        lookups += 1
+        return chebiLookup(String(input.term), sourceText)
       }
-      lookups += 1
-      const lookupId = randomUUID()
-      return {
-        result: {
-          data: {
-            lookupId,
-            term: inputs[index].term!.trim().toLowerCase(),
-            retrievedAt: new Date().toISOString(),
-            references: [
-              {
-                id: randomUUID(),
-                lookupId,
-                term: "Reference test material",
-                definition: sourceText,
-                source: "ChEBI CORE",
-                sourceKey: "chebi",
-                sourceIri: "http://purl.obolibrary.org/obo/CHEBI_15377",
-                version: "test",
-                license: "CC-BY-4.0",
-                kind: "definition",
-                usageStatus: "open",
-                contentHash: "a".repeat(64),
-                copiedAt: null,
-                addedToDraftAt: null
-              }
-            ]
-          }
-        }
-      }
-    })
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(responses)
-    })
+    }
   })
 
   type EditorKind = "add" | "revision"
@@ -135,6 +79,11 @@ async function main() {
     await references
       .getByRole("button", { name: "Add to definition", exact: true })
       .click()
+    // Insertion selects the added text in a later frame. Wait for that focus
+    // so a following fill replaces the whole value.
+    await expect(
+      scope.getByRole("textbox", { name: "Definition", exact: true })
+    ).toBeFocused()
   }
 
   async function checkUndo(
@@ -207,50 +156,13 @@ async function main() {
       page.getByRole("heading", { name: "Discussion", exact: true })
     ).toBeVisible()
     assert.equal(lookups, 0, "anonymous reading must not start lookups")
-    fixture = await db.transaction(async (tx) => {
-      const [user] = await tx
-        .insert(usersTable)
-        .values({ name: `Reference UI test ${stamp}`, role: "user" })
-        .returning()
-      const [term] = await tx
-        .insert(termsTable)
-        .values({
-          term: `reference ui ${stamp}`,
-          slug: `reference_ui_${stamp}`,
-          vocabularySlug: DEFAULT_VOCABULARY_SLUG
-        })
-        .returning()
-      const { definition } = await createDefinitionWithInitialRevision(tx, {
-        termId: term.id,
-        authorId: user.id,
-        definition: original,
-        example: "",
-        changeNote: "UI test fixture",
-        source: "initial"
-      })
-      return {
-        userId: user.id,
-        termId: term.id,
-        definitionId: definition.id,
-        path: definitionPath(
-          term.slug,
-          definition.definitionNumber,
-          term.vocabularySlug
-        )
-      }
+    fixture = await createTermFixture({
+      userName: `Reference UI test ${stamp}`,
+      term: `reference ui ${stamp}`,
+      slug: `reference_ui_${stamp}`,
+      definition: original
     })
-    await context.addCookies([
-      {
-        name: "matsci-sam-session",
-        value: await sealData(
-          { id: fixture.userId },
-          { password: process.env.SESSION_PASSWORD! }
-        ),
-        url: base,
-        httpOnly: true,
-        sameSite: "Lax"
-      }
-    ])
+    await signInAs(context, base, fixture.userId)
     await page.goto(`${base}/discussion`, { waitUntil: "networkidle" })
     assert.equal(lookups, 0, "signed-in reading must not start lookups")
     await page
@@ -259,12 +171,8 @@ async function main() {
       .click()
     await expect.poll(() => lookups).toBe(1)
     await page.goto(`${base}/add?term=undo%20test%20${stamp}`)
-    await page
-      .getByRole("button", {
-        name: "Confirm term and find references",
-        exact: true
-      })
-      .click()
+    // The label differs by view, and the view is a remembered choice.
+    await page.getByRole("button", { name: /^Confirm term/ }).click()
     await checkUndo(
       page.locator("main"),
       "Undo source insertion",
@@ -297,20 +205,13 @@ async function main() {
       "Reference UI tests passed: deliberate discussion lookup, immediate insertion Undo, preservation of later writing and citation choices in both editors."
     )
   } finally {
-    await browser.close()
     try {
-      if (fixture) {
-        const owned = fixture
-        await db.transaction(async (tx) => {
-          const user = await tx.query.usersTable.findFirst({
-            where: eq(usersTable.id, owned.userId)
-          })
-          assert.equal(user?.name, `Reference UI test ${stamp}`)
-          await deleteDefinitionRows(tx, owned.definitionId)
-          await tx.delete(termsTable).where(eq(termsTable.id, owned.termId))
-          await tx.delete(usersTable).where(eq(usersTable.id, owned.userId))
-        })
-      }
+      await browser.close()
+    } catch (error) {
+      console.error(error)
+    }
+    try {
+      if (fixture) await removeTermFixture(fixture)
     } finally {
       await db.$client.end()
     }

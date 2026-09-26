@@ -26,6 +26,11 @@ import {
 import { formatDate } from "@/lib/date"
 import type { TermMetadataRecord } from "@/lib/term-metadata"
 import { MetadataEditor } from "./metadata-editor"
+import {
+  AdvancedOnly,
+  ViewColumns,
+  ViewTabs
+} from "@/components/interface-view"
 
 export async function TermMetadataPage({
   record
@@ -90,48 +95,61 @@ export async function TermMetadataPage({
 
   return (
     <main className="px-4 py-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-3">
-          <Link
-            href={termPath(term.slug, term.vocabularySlug)}
-            className="w-fit text-sm text-primary hover:underline"
-          >
-            Back to {term.term}
-          </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Dictionary concept</Badge>
-            <span className="text-sm text-muted-foreground">
-              Metadata record
-            </span>
-          </div>
-          <h1 className="font-serif text-4xl font-bold">{term.term}</h1>
-          <p className="max-w-3xl text-muted-foreground">
-            Describe how this term is used or link it to a metadata field.
-          </p>
-          <nav
-            aria-label="Metadata resources"
-            className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-primary"
-          >
-            <Link href="/metadata/fields" className="hover:underline">
-              Browse metadata fields
-            </Link>
-            <Link href="/metadata/examples" className="hover:underline">
-              See examples
-            </Link>
+      <ViewTabs
+        key={term.id}
+        label="Metadata view"
+        className="gap-6"
+        simpleClassName="max-w-4xl"
+        advancedClassName="max-w-6xl"
+        heading={
+          <header className="flex flex-col gap-3">
             <Link
-              href={termActivityPath(term.slug, term.vocabularySlug)}
-              className="hover:underline"
+              href={termPath(term.slug, term.vocabularySlug)}
+              className="w-fit text-sm text-primary hover:underline"
             >
-              Changes &amp; activity
+              Back to {term.term}
             </Link>
-          </nav>
-        </header>
-
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
+            <AdvancedOnly className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">Dictionary concept</Badge>
+              <span className="text-sm text-muted-foreground">
+                Metadata record
+              </span>
+            </AdvancedOnly>
+            <h1 className="font-serif text-4xl font-bold">{term.term}</h1>
+            <p className="max-w-3xl text-muted-foreground">
+              Describe how this term is used or link it to a metadata field.
+            </p>
+            <nav
+              aria-label="Metadata resources"
+              className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-primary"
+            >
+              <Link href="/metadata/fields" className="hover:underline">
+                Browse metadata fields
+              </Link>
+              <Link href="/metadata/examples" className="hover:underline">
+                See examples
+              </Link>
+              <AdvancedOnly as="span" className="contents">
+                <Link
+                  href={termActivityPath(term.slug, term.vocabularySlug)}
+                  className="hover:underline"
+                >
+                  Changes &amp; activity
+                </Link>
+              </AdvancedOnly>
+            </nav>
+          </header>
+        }
+      >
+        <ViewColumns
+          className="grid items-start gap-6"
+          advancedClassName="lg:grid-cols-[minmax(0,1fr)_19rem]"
+        >
           <div className="min-w-0">
             <MetadataEditor initialRecord={record} />
           </div>
-          <aside
+          <AdvancedOnly
+            as="aside"
             className="flex min-w-0 flex-col gap-5"
             aria-label="Existing dictionary information"
           >
@@ -282,9 +300,9 @@ export async function TermMetadataPage({
                 </Link>
               </CardContent>
             </Card>
-          </aside>
-        </div>
-      </div>
+          </AdvancedOnly>
+        </ViewColumns>
+      </ViewTabs>
     </main>
   )
 }

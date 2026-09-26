@@ -55,9 +55,10 @@ value for** identifies a field where the concept can supply a value.
 of that field. Neither action creates a dataset, sample or calculation record.
 
 A contribution can apply to a whole term or an exact definition revision.
-Simple view includes usage notes, field associations, source name and source
-link. Advanced adds alternative labels, related external concepts, source
-version and language. Changing views preserves the draft.
+Simple view adds usage notes and field associations for the whole term.
+Advanced adds the choice of a definition revision, alternative labels, related
+external concepts, and a source name, link, version and language. Changing
+views preserves the draft.
 
 Contributors submit proposals for site administrator review. A field
 specification explains the field, while evidence supplied with a contribution

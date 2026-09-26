@@ -1,7 +1,7 @@
 "use client"
 
 import { ContributionFileDownloads } from "./contribution-file-downloads"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { PlusIcon, SparklesIcon, StarIcon, UserIcon } from "lucide-react"
 import { trpc } from "@/trpc/client"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { PublicProfileName } from "@/components/public-profile-name"
+import { usePresentedView } from "@/components/interface-view"
 import { loginToast } from "@/components/login-toast"
 import { formatDate } from "@/lib/date"
 import { EXAMPLE_MAX_LENGTH } from "@/lib/input-limits"
@@ -34,7 +35,19 @@ export function DefinitionExamples({
     definitionId
   })
   const utils = trpc.useUtils()
+  const advanced = usePresentedView() === "advanced"
   const [text, setText] = useState("")
+  // Simple offers the form on request. Advanced keeps it open.
+  const [composing, setComposing] = useState(false)
+  const exampleInput = useRef<HTMLTextAreaElement>(null)
+  const addButton = useRef<HTMLButtonElement>(null)
+  // Simple collapses the form after an addition. Focus follows the commit.
+  const focusAddButton = useRef(false)
+  useEffect(() => {
+    if (composing || !focusAddButton.current) return
+    focusAddButton.current = false
+    addButton.current?.focus()
+  }, [composing])
   const [feedback, setFeedback] = useState<Feedback | null>(null)
 
   const reportError = (error: {
@@ -57,6 +70,8 @@ export function DefinitionExamples({
     onMutate: () => setFeedback(null),
     onSuccess: async () => {
       setText("")
+      focusAddButton.current = !advanced
+      setComposing(false)
       await Promise.all([
         utils.examples.list.invalidate({ definitionId }),
         utils.definitions.get.invalidate({ definitionId }),
@@ -85,6 +100,9 @@ export function DefinitionExamples({
 
   const trimmed = text.trim()
 
+  // A historical revision offers no form, so Simple has nothing to show.
+  if (!advanced && readOnly && items.length === 0) return null
+
   return (
     <section aria-labelledby="examples-heading" className="space-y-4">
       <header className="space-y-1">
@@ -98,11 +116,13 @@ export function DefinitionExamples({
             </Badge>
           ) : null}
         </div>
-        <p className="text-sm text-muted-foreground">
-          {readOnly
-            ? "These examples support the definition as a whole and may have been added after this historical revision."
-            : "Examples support the definition while retaining their own contributor credit. One may be featured in summaries."}
-        </p>
+        {readOnly || advanced ? (
+          <p className="text-sm text-muted-foreground">
+            {readOnly
+              ? "These examples support the definition as a whole and may have been added after this historical revision."
+              : "Examples support the definition while retaining their own contributor credit. One may be featured in summaries."}
+          </p>
+        ) : null}
       </header>
 
       {readOnly && currentRevisionHref ? (
@@ -119,7 +139,7 @@ export function DefinitionExamples({
       ) : null}
 
       {items.length === 0 ? (
-        readOnly ? (
+        readOnly && advanced ? (
           <p className="text-sm text-muted-foreground">
             No examples have been contributed.
           </p>
@@ -151,7 +171,7 @@ export function DefinitionExamples({
                         Featured
                       </Badge>
                     ) : null}
-                    {example.legacyBackfill ? (
+                    {example.legacyBackfill && advanced ? (
                       <Badge variant="outline">Legacy example</Badge>
                     ) : null}
                   </div>
@@ -185,9 +205,11 @@ export function DefinitionExamples({
                   showCaption={false}
                 />
                 {example.legacyBackfill ? (
-                  <p className="text-xs text-muted-foreground">
-                    Origin and contribution date not recorded
-                  </p>
+                  advanced ? (
+                    <p className="text-xs text-muted-foreground">
+                      Origin and contribution date not recorded
+                    </p>
+                  ) : null
                 ) : (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
@@ -206,10 +228,12 @@ export function DefinitionExamples({
                         className={modelAuthored ? "text-ai" : undefined}
                       />
                     </span>
-                    {example.model ? (
+                    {example.model && advanced ? (
                       <span className="font-mono text-ai">{example.model}</span>
                     ) : null}
-                    <span>{formatDate(example.createdAt)}</span>
+                    {advanced ? (
+                      <span>{formatDate(example.createdAt)}</span>
+                    ) : null}
                   </div>
                 )}
               </li>
@@ -236,56 +260,74 @@ export function DefinitionExamples({
             ) : null}
           </div>
 
-          <form
-            className="space-y-3 rounded-xl border bg-card p-4 sm:p-5"
-            aria-busy={create.isPending}
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (!trimmed || create.isPending) return
-              create.mutate({
-                definitionId,
-                sourceRevisionId,
-                text: trimmed
-              })
-            }}
-          >
-            <div className="space-y-1">
-              <label
-                htmlFor={`new-example-${definitionId}`}
-                className="font-medium"
-              >
-                Add example
-              </label>
-              <p
-                id={`new-example-help-${definitionId}`}
-                className="text-sm text-muted-foreground"
-              >
-                Show how this definition is used in a materials science context.
-              </p>
-            </div>
-            <Textarea
-              id={`new-example-${definitionId}`}
-              value={text}
-              maxLength={EXAMPLE_MAX_LENGTH}
-              disabled={create.isPending}
-              aria-describedby={`new-example-help-${definitionId}`}
-              className="min-h-24"
-              placeholder="Add an example of use"
-              onChange={(event) => {
-                setText(event.target.value)
-                if (feedback) setFeedback(null)
+          {advanced || composing || text ? (
+            <form
+              className="space-y-3 rounded-xl border bg-card p-4 sm:p-5"
+              aria-busy={create.isPending}
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (!trimmed || create.isPending) return
+                create.mutate({
+                  definitionId,
+                  sourceRevisionId,
+                  text: trimmed
+                })
               }}
-            />
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={!trimmed || create.isPending || feature.isPending}
-              >
-                <PlusIcon aria-hidden />
-                {create.isPending ? "Adding…" : "Add example"}
-              </Button>
-            </div>
-          </form>
+            >
+              <div className="space-y-1">
+                <label
+                  htmlFor={`new-example-${definitionId}`}
+                  className="font-medium"
+                >
+                  Add example
+                </label>
+                <p
+                  id={`new-example-help-${definitionId}`}
+                  className="text-sm text-muted-foreground"
+                >
+                  Show how this definition is used in a materials science
+                  context.
+                </p>
+              </div>
+              <Textarea
+                ref={exampleInput}
+                id={`new-example-${definitionId}`}
+                value={text}
+                maxLength={EXAMPLE_MAX_LENGTH}
+                disabled={create.isPending}
+                aria-describedby={`new-example-help-${definitionId}`}
+                className="min-h-24"
+                placeholder="Add an example of use"
+                onChange={(event) => {
+                  setText(event.target.value)
+                  if (feedback) setFeedback(null)
+                }}
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={!trimmed || create.isPending || feature.isPending}
+                >
+                  <PlusIcon aria-hidden />
+                  {create.isPending ? "Adding…" : "Add example"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <Button
+              ref={addButton}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setComposing(true)
+                requestAnimationFrame(() => exampleInput.current?.focus())
+              }}
+            >
+              <PlusIcon aria-hidden />
+              Add an example
+            </Button>
+          )}
         </>
       ) : null}
     </section>

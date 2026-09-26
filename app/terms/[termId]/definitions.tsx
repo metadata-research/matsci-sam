@@ -3,6 +3,7 @@
 import { useId, useState } from "react"
 import Link from "next/link"
 import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "lucide-react"
+import { usePresentedView } from "@/components/interface-view"
 import { PublicProfileName } from "@/components/public-profile-name"
 import { TermVotes } from "@/components/term/votes"
 import { Button } from "@/components/ui/button"
@@ -69,6 +70,7 @@ function AlternativeDefinition({
   href: string
 }) {
   const id = useId()
+  const advanced = usePresentedView() === "advanced"
   const [expanded, setExpanded] = useState(false)
   const [liveScore, setLiveScore] = useState<{
     revisionId: number
@@ -89,10 +91,12 @@ function AlternativeDefinition({
           <Link href={href} className="text-primary hover:underline">
             Definition {definition.definitionNumber}
           </Link>
-          <span className="font-normal text-muted-foreground">
-            {" "}
-            · revision {definition.version}
-          </span>
+          {advanced && (
+            <span className="font-normal text-muted-foreground">
+              {" "}
+              · revision {definition.version}
+            </span>
+          )}
         </h3>
         <span className="text-xs text-muted-foreground">Score {score}</span>
       </header>
@@ -116,11 +120,14 @@ function AlternativeDefinition({
             }}
           />
         </span>
-        {definition.model && (
+        {/* A model author is named above. Simple omits model identifiers. */}
+        {definition.model && (advanced || !definition.isAi) && (
           <span className="text-ai">
-            {definition.isAi
-              ? definition.model
-              : `AI-assisted · ${definition.model}`}
+            {!advanced
+              ? "AI-assisted"
+              : definition.isAi
+                ? definition.model
+                : `AI-assisted · ${definition.model}`}
           </span>
         )}
         {definition.replacesDefinitionId && (
@@ -170,7 +177,7 @@ function AlternativeDefinition({
                 href={href}
                 className="text-sm text-primary hover:underline"
               >
-                Open definition, sources and discussion
+                Definition page, with sources and discussion
               </Link>
             </div>
           </div>

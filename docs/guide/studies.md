@@ -43,6 +43,11 @@ A dash marks a skipped step. Select an available number to revisit that step.
 Later unfinished steps remain locked. Completed and skipped steps open for
 reading.
 
+Each study fixes what its participants see. A study on the Simple interface
+shows the definition, an optional example and the assistant request without
+source tools, and there is no view control inside the study. The first
+studies keep the full forms they used.
+
 ## The Position step
 
 Choose the definition closest to what you consider correct, including your own. The earliest model-authored definition appears first when available. Other candidates follow by score, with older definitions first in a tie.

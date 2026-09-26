@@ -546,13 +546,21 @@ export function ReferenceTools({
   )
 }
 
-/** Attached citations are declarations, separate from locally consulted sources. */
+/**
+ * Attached citations are declarations, separate from locally consulted sources.
+ * Compact review lists attached citations only. Adding one is an Advanced task.
+ */
 export function ReferenceCitations({
   workspace,
-  disabled
+  disabled,
+  compact = false,
+  onEmpty
 }: {
   workspace: TermReferenceWorkspace
   disabled: boolean
+  compact?: boolean
+  /** Compact review unmounts without citations, so the caller moves focus. */
+  onEmpty?: () => void
 }) {
   const id = useId()
   const heading = useRef<HTMLLegendElement>(null)
@@ -616,16 +624,19 @@ export function ReferenceCitations({
       </a>
     </div>
   )
+  if (compact && !attached.length) return null
   return (
     <FieldSet className="min-w-0">
       <FieldLegend ref={heading} tabIndex={-1}>
-        Citations already attached
+        {compact ? "Citations" : "Citations already attached"}
       </FieldLegend>
-      <p className="text-sm text-muted-foreground">
-        Keep the citations for sources you used in this definition. Sources sent
-        to an assistant are recorded separately.
-      </p>
-      {!attached.length && (
+      {!compact && (
+        <p className="text-sm text-muted-foreground">
+          Keep the citations for sources you used in this definition. Sources
+          sent to an assistant are recorded separately.
+        </p>
+      )}
+      {!compact && !attached.length && (
         <p className="text-sm text-muted-foreground">No citations attached.</p>
       )}
       {attached.map((item) => (
@@ -642,38 +653,44 @@ export function ReferenceCitations({
             disabled={busy}
             aria-label={`Remove citation: ${item.reference.term}`}
             onClick={() => {
+              const last = attached.length === 1
               workspace.changeSelection(
                 item.provider,
                 item.reference.id,
                 "citedReferenceIds",
                 false
               )
-              requestAnimationFrame(() =>
-                heading.current?.focus({ preventScroll: true })
-              )
+              requestAnimationFrame(() => {
+                if (compact && last) onEmpty?.()
+                else heading.current?.focus({ preventScroll: true })
+              })
             }}
           >
             Remove citation
           </Button>
         </div>
       ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="self-start"
-        disabled={busy}
-        aria-expanded={pickerIds !== null}
-        aria-controls={`${id}-citation-picker`}
-        onClick={() =>
-          setPickerIds((prior) =>
-            prior === null ? candidates.map((item) => item.reference.id) : null
-          )
-        }
-      >
-        {pickerIds === null ? "Add a citation" : "Close citation list"}
-      </Button>
-      {pickerIds !== null && (
+      {!compact && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          disabled={busy}
+          aria-expanded={pickerIds !== null}
+          aria-controls={`${id}-citation-picker`}
+          onClick={() =>
+            setPickerIds((prior) =>
+              prior === null
+                ? candidates.map((item) => item.reference.id)
+                : null
+            )
+          }
+        >
+          {pickerIds === null ? "Add a citation" : "Close citation list"}
+        </Button>
+      )}
+      {!compact && pickerIds !== null && (
         <div
           id={`${id}-citation-picker`}
           className="flex min-w-0 flex-col gap-3 rounded-md border p-3"

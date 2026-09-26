@@ -8,17 +8,21 @@ step.
 
 ## Term page views
 
-Term pages open in **Simple** view. Read the **Default definition**, its
-attribution, cited sources, and examples. Expand **Other definitions** to
-compare candidates. **Metadata** opens descriptions of the term and its use.
+Term pages open in **Simple** view on a first visit, and the site then
+remembers your choice. Read the **Default definition**, its authors, and its
+featured example. Expand **Other definitions** to compare candidates.
+**Metadata** opens descriptions of the term and its use.
 
-Below the attribution, open attached citations or source files, **Discussion**,
-or **Revision history**. Citation counts refer to the displayed revision.
+Links under the definition open **Discussion**, the full definition, and
+**Propose a change**. When the definition has citations or source files, their
+counts link to them. Citation counts refer to the displayed revision.
 
-![A term in Simple view with its Default definition, Other definitions, and Metadata link](/images/docs/help-term-simple.png)
+![A term in Simple view with its Default definition, Other definitions, and Metadata link](/images/docs/help-term-simple-v2.png)
 
 Choose **Advanced** under **View** to open ontology context beside the reader,
-plus the term identifier, **Changes & activity**, **Provenance**, and downloads.
+plus the term identifier, revision numbers and status, model details,
+**Revision history**, **Changes & activity**, **Provenance**, and downloads.
+Definition pages offer the same two views.
 Site administrators also get facet editing controls. Ontology context moves
 below the main column on small screens.
 
@@ -64,8 +68,8 @@ discussion to judge scientific quality.
 The primary author can update a definition with **Create a new version**.
 Edit the wording, enter a change note, select **Review new version**, then
 **Publish new version**. Earlier versions remain available under the same
-definition identifier. **Restore this revision** copies earlier wording into
-a new revision and preserves the intervening history.
+definition identifier. In Advanced, **Restore this revision** copies earlier
+wording into a new revision and preserves the intervening history.
 
 **Suggest an alternative** requests a separate model draft from your critique.
 Review and publish it with its source link and attribution. The original
@@ -80,8 +84,9 @@ identify the revision shown at contribution time.
 
 ## Examples of use
 
-Select **Add example** on a definition to contribute an example. It records
-your authorship, publication time, and the displayed revision. An example in a
+On a definition page, select **Add an example** in Simple view to open the
+**Add example** form, which Advanced shows directly. A contributed example
+records your authorship, publication time, and the displayed revision. An example in a
 new-term or replacement form has the same separate attribution.
 
 The first example is featured automatically. The definition author, a moderator,

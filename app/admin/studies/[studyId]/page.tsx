@@ -8,7 +8,10 @@ import {
   adminStudyCandidates,
   adminStudyById
 } from "@/lib/admin-study-queries"
-import { instructionEditability } from "@/lib/study-editor"
+import {
+  instructionEditability,
+  type StudyPresentation
+} from "@/lib/study-editor"
 import { studyAcceptsParticipants, studyState } from "@/lib/communities"
 import { DEFAULT_INSTRUCTIONS, isDefaultInstructions } from "@/lib/surveys"
 import { studyBySlug as referenceStudyBySlug } from "@/lib/published-studies"
@@ -112,7 +115,8 @@ export default async function AdminStudyPage({
           study.welcome,
           study.opensAt,
           study.closesAt,
-          study.retiredAt
+          study.retiredAt,
+          study.presentation
         ].join(":")}
         study={{
           id: study.id,
@@ -122,6 +126,7 @@ export default async function AdminStudyPage({
           opensAt: study.opensAt,
           closesAt: study.closesAt,
           retiredAt: study.retiredAt,
+          presentation: study.presentation as StudyPresentation,
           parentRetired,
           createdLabel: `${UTC_DATE_TIME.format(new Date(study.createdAt))}${
             study.createdByName ? ` by ${study.createdByName}` : ""

@@ -400,6 +400,7 @@ export const surveysRouter = createTRPCRouter({
           slug: study.slug,
           title: study.title,
           state: studyState(study),
+          presentation: study.presentation,
           communitySlug: study.communitySlug,
           collectionSlug: study.collectionSlug
         },

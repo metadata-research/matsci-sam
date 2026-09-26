@@ -181,6 +181,7 @@ export function useTermReferenceWorkspace({
   term,
   contextKey,
   enabled,
+  autoStart = true,
   selection,
   onSelectionChange,
   onSelectionEdit
@@ -188,6 +189,8 @@ export function useTermReferenceWorkspace({
   term: string
   contextKey: string
   enabled: boolean
+  /** Start the ChEBI lookup on its own. Simple waits for a view that shows it. */
+  autoStart?: boolean
   selection: DraftReferenceSelection[]
   onSelectionChange: Dispatch<SetStateAction<DraftReferenceSelection[]>>
   onSelectionEdit?: () => void
@@ -322,11 +325,11 @@ export function useTermReferenceWorkspace({
       onSelectionChange([])
     }
     // Strict Mode effect replay and view changes must not duplicate retrieval.
-    if (enabled && !owner.current.autoStarted) {
+    if (enabled && autoStart && !owner.current.autoStarted) {
       owner.current.autoStarted = true
       void retrieve("chebi")
     }
-  }, [key, enabled, retrieve, onSelectionChange])
+  }, [key, enabled, autoStart, retrieve, onSelectionChange])
 
   const getCurrent = (provider: ReferenceProvider, referenceId: string) => {
     const current = owner.current
@@ -560,8 +563,7 @@ export function useTermReferenceWorkspace({
         )
         if (!mounted.current || owner.current !== found.current) return
         update(found.current, provider, {
-          notice:
-            "Copied. To attach a citation, select Cite without inserting."
+          notice: "Copied. To attach a citation, select Cite without inserting."
         })
         void record(found.current, provider, referenceId, "copied")
       } catch {

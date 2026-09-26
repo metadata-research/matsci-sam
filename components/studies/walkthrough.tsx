@@ -10,6 +10,7 @@ import { DefinitionReference } from "@/components/definition/display"
 import { DefinitionForm } from "@/components/definition/definition-form"
 import { RevisionSuggestionForm } from "@/components/definition/revision-suggestion-form"
 import { TermComments } from "@/components/term/comments"
+import { ViewScope } from "@/components/interface-view"
 import { TermCommentBox } from "@/components/term/comment-box"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -1094,144 +1095,147 @@ export const Walkthrough = ({
   const navigationLocked =
     complete.isPending || skip.isPending || interaction.busy
 
+  // A study fixes what its participants see. The forms read this scope.
   return (
-    <main className="px-4 py-8">
-      <section className="max-w-3xl w-full mx-auto space-y-6">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              <Link href={studyPath(study.slug)}>{study.title}</Link>
+    <ViewScope view={study.presentation === "simple" ? "simple" : "advanced"}>
+      <main className="px-4 py-8">
+        <section className="max-w-3xl w-full mx-auto space-y-6">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <Link href={studyPath(study.slug)}>{study.title}</Link>
+              </div>
+              <StudyHelp
+                kind={step?.kind}
+                singlePass={singlePass}
+                instructions={expectedInstructions}
+                sections={helpSections}
+              />
             </div>
-            <StudyHelp
-              kind={step?.kind}
-              singlePass={singlePass}
-              instructions={expectedInstructions}
-              sections={helpSections}
-            />
+            {total === 0 ? (
+              <h1 className="text-3xl font-bold">Study activity</h1>
+            ) : step ? (
+              <>
+                <h1 className="text-3xl font-bold">
+                  Step {step.position} of {total}
+                </h1>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <Eyebrow>{KIND_LABEL[step.kind]}</Eyebrow>
+                  {step.term && (
+                    <span className="text-2xl font-bold font-serif">
+                      {step.term}
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <h1 className="text-3xl font-bold">You have finished</h1>
+            )}
           </div>
+
           {total === 0 ? (
-            <h1 className="text-3xl font-bold">Study activity</h1>
-          ) : step ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                The study steps have not been prepared yet.
+              </p>
+              <Button asChild variant="outline">
+                <Link href={studyPath(study.slug)}>Open the study</Link>
+              </Button>
+            </div>
+          ) : (
             <>
-              <h1 className="text-3xl font-bold">
-                Step {step.position} of {total}
-              </h1>
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <Eyebrow>{KIND_LABEL[step.kind]}</Eyebrow>
-                {step.term && (
-                  <span className="text-2xl font-bold font-serif">
-                    {step.term}
-                  </span>
+              <div className="space-y-2">
+                <StudyStepNavigation
+                  steps={steps}
+                  position={visiblePosition}
+                  reachable={reachable}
+                  navigationLocked={navigationLocked}
+                  onSelect={show}
+                />
+                {steps.some(
+                  (candidate) => candidate.completionOutcome === "skipped"
+                ) && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-bold text-primary" aria-hidden>
+                      −
+                    </span>{" "}
+                    {singlePass
+                      ? "A dash marks a skipped term."
+                      : "A skipped term marks both its Position and Review steps."}
+                  </p>
                 )}
               </div>
-            </>
-          ) : (
-            <h1 className="text-3xl font-bold">You have finished</h1>
-          )}
-        </div>
 
-        {total === 0 ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              The study steps have not been prepared yet.
-            </p>
-            <Button asChild variant="outline">
-              <Link href={studyPath(study.slug)}>Open the study</Link>
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-2">
-              <StudyStepNavigation
-                steps={steps}
-                position={visiblePosition}
-                reachable={reachable}
-                navigationLocked={navigationLocked}
-                onSelect={show}
-              />
-              {steps.some(
-                (candidate) => candidate.completionOutcome === "skipped"
-              ) && (
-                <p className="text-xs text-muted-foreground">
-                  <span className="font-bold text-primary" aria-hidden>
-                    −
-                  </span>{" "}
-                  {singlePass
-                    ? "A dash marks a skipped term."
-                    : "A skipped term marks both its Position and Review steps."}
-                </p>
+              {step === undefined ? (
+                <Finished
+                  study={study}
+                  steps={steps}
+                  earlierSteps={walkthrough.earlierSteps}
+                  onSelect={show}
+                />
+              ) : step.kind === "instructions" ? (
+                <Instructions
+                  key={step.id}
+                  step={step}
+                  pending={navigationLocked}
+                  onContinue={() => press(step)}
+                />
+              ) : step.kind === "define" ? (
+                <Position
+                  key={step.id}
+                  step={step}
+                  singlePass={singlePass}
+                  expectedInstructions={expectedInstructions}
+                  pending={navigationLocked}
+                  onAccepted={(nextPosition) => {
+                    prefetchNext(step)
+                    advance(nextPosition)
+                  }}
+                  onSkip={() => {
+                    interaction.start()
+                    skip.mutate({ stepId: step.id, expectedInstructions })
+                  }}
+                  onPublished={(published) => {
+                    utils.definitions.list.invalidate({ termId: step.termId! })
+                    prefetchNext(step)
+                    // The completion came back with the definition, and with
+                    // it where the viewer resumes.
+                    if (published.walkthrough)
+                      advance(published.walkthrough.nextPosition)
+                    else utils.surveys.get.invalidate({ studySlug })
+                  }}
+                  onFailed={reread}
+                  onContinue={() => press(step)}
+                  onMutationStart={interaction.start}
+                  onMutationEnd={interaction.end}
+                />
+              ) : step.kind === "review" ? (
+                <Review
+                  key={step.id}
+                  step={step}
+                  expectedInstructions={expectedInstructions}
+                  pending={navigationLocked}
+                  onDone={() => press(step)}
+                  onMutationStart={interaction.start}
+                  onMutationEnd={interaction.end}
+                />
+              ) : (
+                <Question
+                  key={step.id}
+                  step={step}
+                  expectedInstructions={expectedInstructions}
+                  pending={navigationLocked}
+                  onAnswered={advance}
+                  onFailed={reread}
+                  onContinue={() => show(step.position + 1)}
+                  onMutationStart={interaction.start}
+                  onMutationEnd={interaction.end}
+                />
               )}
-            </div>
-
-            {step === undefined ? (
-              <Finished
-                study={study}
-                steps={steps}
-                earlierSteps={walkthrough.earlierSteps}
-                onSelect={show}
-              />
-            ) : step.kind === "instructions" ? (
-              <Instructions
-                key={step.id}
-                step={step}
-                pending={navigationLocked}
-                onContinue={() => press(step)}
-              />
-            ) : step.kind === "define" ? (
-              <Position
-                key={step.id}
-                step={step}
-                singlePass={singlePass}
-                expectedInstructions={expectedInstructions}
-                pending={navigationLocked}
-                onAccepted={(nextPosition) => {
-                  prefetchNext(step)
-                  advance(nextPosition)
-                }}
-                onSkip={() => {
-                  interaction.start()
-                  skip.mutate({ stepId: step.id, expectedInstructions })
-                }}
-                onPublished={(published) => {
-                  utils.definitions.list.invalidate({ termId: step.termId! })
-                  prefetchNext(step)
-                  // The completion came back with the definition, and with
-                  // it where the viewer resumes.
-                  if (published.walkthrough)
-                    advance(published.walkthrough.nextPosition)
-                  else utils.surveys.get.invalidate({ studySlug })
-                }}
-                onFailed={reread}
-                onContinue={() => press(step)}
-                onMutationStart={interaction.start}
-                onMutationEnd={interaction.end}
-              />
-            ) : step.kind === "review" ? (
-              <Review
-                key={step.id}
-                step={step}
-                expectedInstructions={expectedInstructions}
-                pending={navigationLocked}
-                onDone={() => press(step)}
-                onMutationStart={interaction.start}
-                onMutationEnd={interaction.end}
-              />
-            ) : (
-              <Question
-                key={step.id}
-                step={step}
-                expectedInstructions={expectedInstructions}
-                pending={navigationLocked}
-                onAnswered={advance}
-                onFailed={reread}
-                onContinue={() => show(step.position + 1)}
-                onMutationStart={interaction.start}
-                onMutationEnd={interaction.end}
-              />
-            )}
-          </>
-        )}
-      </section>
-    </main>
+            </>
+          )}
+        </section>
+      </main>
+    </ViewScope>
   )
 }

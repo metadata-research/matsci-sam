@@ -442,6 +442,13 @@
       "when": 1790262307727,
       "tag": "0062_term_metadata_assertions",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1790402570418,
+      "tag": "0063_study_presentation",
+      "breakpoints": true
     }
   ]
 }
