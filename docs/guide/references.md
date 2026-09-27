@@ -26,7 +26,7 @@ to preview its own parents, and **Back to the match** to return. A mapped
 concept that leads back to the selected match is named as the selected match.
 On small screens these panels appear below the form.
 
-![Advanced Add with ontology matches and hierarchy beside the form and tools below it](/images/docs/help-add-advanced.png)
+![Advanced Add with reference definitions, ontology matches and hierarchy beside the form and tools below it](/images/docs/help-add-advanced-v2.png)
 
 Use the [Metadata page](/docs/term-metadata#advanced-view) to propose a link
 to a related concept. Reference tools preview source concepts without saving

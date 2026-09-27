@@ -2,8 +2,8 @@
 
 MatSci-SAM is a metadata dictionary for materials science. Read and contribute
 definitions, then describe how terms are used through examples, sources and
-metadata. You can complete a contribution in **Simple** view. **Advanced** adds
-reference tools and further details. The site remembers the view you choose.
+metadata. You can complete a contribution in **Simple** view. **Advanced**
+adds reference tools and further detail, described at the end of this page.
 
 ## Find a term
 
@@ -46,9 +46,7 @@ distinguish it. **Add an example** lets you illustrate that meaning.
 
 Use **Help me write** for an optional assistant draft. **Attach an example
 file** adds an image or PDF that illustrates the term. Both are optional.
-Citations and source files are added in **Advanced**. The [adding
-guide](/docs/adding-terms) explains the form, and the [references
-guide](/docs/references) explains the tools in Advanced.
+The [adding guide](/docs/adding-terms) explains the form.
 
 ## Review and publish
 
@@ -65,9 +63,24 @@ whole term unless you chose a definition in Advanced. You can propose a usage no
 the term supplies a value. For example, density functional theory can be a
 value for a calculation-type field.
 
-[Term metadata](/docs/term-metadata) explains the choices and review. Advanced
-adds a choice of one definition version, supporting sources, alternative labels
-and optional links to related ontology concepts.
+[Term metadata](/docs/term-metadata) explains the choices and review.
+
+## Advanced view
+
+Choose **Advanced** under **View** on a term page, in **Contribute** or in
+**Metadata**. The site remembers your choice. In Contribute, Advanced adds
+reference definitions from ontologies such as ChEBI and EMMO, each with its
+source, release and licence, **Matches across ontologies** with the parents
+and mapped concepts of a selected concept, citations, source files, **Wolfram
+lookup** and a choice of assistant. In Metadata, it adds a choice of
+definition version, supporting sources, alternative labels and related
+external concepts, and **Cite this match** fills the source from the ontology
+context. Term and definition pages show definition numbers, revision history,
+identifiers and downloads.
+
+![A term in Advanced view with its identifier, revision details and the ontology context beside the definition](/images/docs/help-term-advanced.png)
+
+The [references guide](/docs/references) explains the reference tools.
 
 <a id="create-a-new-version"></a>
 <a id="ask-for-a-revision"></a>

@@ -61,15 +61,17 @@ or change saved descriptions.
 Choose **Related external concept** to submit an ontology link for review.
 An ontology preview does not save the link.
 
-Advanced also shows the term's **Ontology context** beside the form. After
+Advanced also shows **Ontology context** for the term beside the form. After
 you select a match, **Cite this match** fills **Source (optional)** with the
 ontology, the concept and its release, for whatever you are adding. **Add as
-related concept** fills a **Related external concept** with the concept's
-link and cites the ontology release. While a mapped concept is open in place
-of the match, the first control reads **Cite this concept** and both fill the
-form with that concept. Neither saves anything, so review the form and submit
-it as usual. Each kind of description keeps its own draft, and filling one
-does not clear another.
+related concept** fills a **Related external concept** with the link to the
+concept and cites the ontology release. While a mapped concept is open in
+place of the match, the first control reads **Cite this concept** and both
+fill the form with that concept. Neither saves anything, so review the form
+and submit it as usual. Each kind of description keeps its own draft, and
+filling one does not clear another.
+
+![The metadata form in Advanced view, with the ontology context beside it and the source filled by Cite this match](/images/docs/help-term-metadata-advanced.png)
 
 ## Review and withdrawal
 
