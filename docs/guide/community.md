@@ -13,18 +13,21 @@ remembers your choice. Read the **Default definition**, its authors, and its
 featured example. Expand **Other definitions** to compare candidates.
 **Metadata** opens descriptions of the term and its use.
 
-Links under the definition open **Discussion**, the full definition, and
+Links under the definition open **Discussion**, the **Definition page** and
 **Propose a change**. When the definition has citations or source files, their
-counts link to them. Citation counts refer to the displayed revision.
+counts link to them. Citation counts refer to the displayed revision. A link
+to a section of a page briefly marks the section it opens.
 
 ![A term in Simple view with its Default definition, Other definitions, and Metadata link](/images/docs/help-term-simple-v2.png)
 
 Choose **Advanced** under **View** to open ontology context beside the reader,
 plus the term identifier, revision numbers and status, model details,
 **Revision history**, **Changes & activity**, **Provenance**, and downloads.
-Definition pages offer the same two views.
-Site administrators also get facet editing controls. Ontology context moves
-below the main column on small screens.
+Definition pages offer the same two views. The ontology context names a
+vocabulary source as one and lists **Mapped concepts** for the selected
+concept, as the [references guide](/docs/references#reference-definitions)
+describes. Site administrators also get facet editing controls. Ontology
+context moves below the main column on small screens.
 
 View changes preserve expanded definitions and selected ontology matches.
 A preview saves no relationship. Use [term metadata](/docs/term-metadata) to
