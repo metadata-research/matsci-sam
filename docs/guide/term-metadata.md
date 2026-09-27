@@ -19,11 +19,11 @@ They do not create records for individual experiments or datasets.
 4. Select **Submit for review**. The addition appears under **Your proposals**
    with the status **Awaiting review**.
 
-| Description | Use |
-| --- | --- |
-| Usage note | Explain when to use the term and any limits on its meaning |
-| Used as a value for | Identify a field for which this term can supply a value |
-| Describes a metadata field | Link an entry explaining a field to its specification |
+| Description                | Use                                                        |
+| -------------------------- | ---------------------------------------------------------- |
+| Usage note                 | Explain when to use the term and any limits on its meaning |
+| Used as a value for        | Identify a field for which this term can supply a value    |
+| Describes a metadata field | Link an entry explaining a field to its specification      |
 
 ![The metadata form in Simple view with a description type and usage guidance](/images/docs/help-term-metadata-v2.png)
 
@@ -60,6 +60,14 @@ or change saved descriptions.
 
 Choose **Related external concept** to submit an ontology link for review.
 An ontology preview does not save the link.
+
+Advanced also shows the term's **Ontology context** beside the form. After
+you select a match, **Cite this match** fills **Source (optional)** with the
+ontology, the concept and its release, for whatever you are adding. **Add as
+related concept** fills a **Related external concept** with the concept's
+link and cites the ontology release. Neither saves anything, so review the
+form and submit it as usual. Each kind of description keeps its own draft, and
+filling one does not clear another.
 
 ## Review and withdrawal
 
