@@ -1,6 +1,13 @@
 "use client"
 
-import { useId, useState, type ComponentProps, type FormEvent } from "react"
+import {
+  useCallback,
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FormEvent
+} from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -29,8 +36,25 @@ import { revisionPath } from "@/lib/public-identifiers"
 import { lit } from "@/lib/rdf-literal"
 import type { TermMetadataRecord } from "@/lib/term-metadata"
 import { trpc } from "@/trpc/client"
+import {
+  useMetadataDraftFiller,
+  type MetadataDraftFill
+} from "./metadata-draft"
 
 type Assertion = TermMetadataRecord["assertions"][number]
+
+type Draft = {
+  value: string
+  sourceIri: string
+  sourceLabel: string
+  sourceVersion: string
+}
+const emptyDraft: Draft = {
+  value: "",
+  sourceIri: "",
+  sourceLabel: "",
+  sourceVersion: ""
+}
 
 function MetadataSelect(props: ComponentProps<"select">) {
   return (
@@ -266,14 +290,30 @@ export function MetadataEditor({
   const [fieldKey, setFieldKey] = useState<MetadataFieldKey>("usageNote")
   // Simple describes the whole term. Advanced can choose a definition revision.
   const [scope, setScope] = useState("term")
-  const [value, setValue] = useState("")
-  const [sourceIri, setSourceIri] = useState("")
-  const [sourceLabel, setSourceLabel] = useState("")
-  const [sourceVersion, setSourceVersion] = useState("")
+  // Each kind of entry keeps its own draft, so changing kind never clears one.
+  const [drafts, setDrafts] = useState<
+    Partial<Record<MetadataFieldKey, Draft>>
+  >({})
+  const { value, sourceIri, sourceLabel, sourceVersion } =
+    drafts[fieldKey] ?? emptyDraft
+  const updateDraft = (change: Partial<Draft>) =>
+    setDrafts((previous) => ({
+      ...previous,
+      [fieldKey]: { ...(previous[fieldKey] ?? emptyDraft), ...change }
+    }))
+  const setValue = (next: string) => updateDraft({ value: next })
+  const setSourceIri = (next: string) => updateDraft({ sourceIri: next })
+  const setSourceLabel = (next: string) => updateDraft({ sourceLabel: next })
+  const setSourceVersion = (next: string) =>
+    updateDraft({ sourceVersion: next })
   const [language, setLanguage] = useState("en")
   // Unmounted in Simple, so a hidden invalid link cannot block submission.
   const [sourceOpen, setSourceOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // What the sidebar last filled, announced beside the form.
+  const [filled, setFilled] = useState<string | null>(null)
+  const valueInput = useRef<HTMLInputElement>(null)
+  const sourceLabelInput = useRef<HTMLInputElement>(null)
   const advanced = view === "advanced"
   const field = record.fields.find((item) => item.key === fieldKey)!
   const fieldOptions = record.fields.filter(
@@ -302,11 +342,14 @@ export function MetadataEditor({
     router.refresh()
   }
   const add = trpc.termMetadata.add.useMutation({
-    onSuccess: async () => {
-      setValue("")
-      setSourceIri("")
-      setSourceLabel("")
-      setSourceVersion("")
+    onSuccess: async (_row, submitted) => {
+      // Only the submitted kind of entry is cleared. Other drafts stay.
+      setDrafts((previous) => {
+        const next = { ...previous }
+        delete next[submitted.fieldKey]
+        return next
+      })
+      setFilled(null)
       setError(null)
       toast.success(
         record.permissions.isAdmin
@@ -333,6 +376,35 @@ export function MetadataEditor({
     onError: (failure) => setError(failure.message)
   })
   const busy = add.isPending || review.isPending || retract.isPending
+
+  const applyFill = useCallback(
+    (fill: MetadataDraftFill) => {
+      const key = fill.fieldKey ?? fieldKey
+      setDrafts((previous) => ({
+        ...previous,
+        [key]: {
+          ...(previous[key] ?? emptyDraft),
+          ...(fill.value === undefined ? {} : { value: fill.value }),
+          sourceLabel: fill.source.label,
+          sourceIri: fill.source.iri,
+          sourceVersion: fill.source.version
+        }
+      }))
+      setFieldKey(key)
+      setSourceOpen(true)
+      setError(null)
+      setFilled(fill.status)
+      // Focus, once the field has rendered, also scrolls it into view.
+      requestAnimationFrame(() =>
+        (fill.focus === "value"
+          ? valueInput
+          : sourceLabelInput
+        ).current?.focus()
+      )
+    },
+    [fieldKey]
+  )
+  useMetadataDraftFiller(applyFill)
   const assertionProps = {
     record,
     advanced,
@@ -459,6 +531,12 @@ export function MetadataEditor({
           {record.permissions.canPropose ? (
             <form onSubmit={submit}>
               <FieldGroup>
+                <p
+                  role="status"
+                  className="text-sm text-muted-foreground empty:hidden"
+                >
+                  {filled}
+                </p>
                 {advanced ? (
                   <Field>
                     <FieldLabel htmlFor={`${id}-scope`}>
@@ -498,7 +576,7 @@ export function MetadataEditor({
                     disabled={busy}
                     onChange={(event) => {
                       setFieldKey(event.target.value as MetadataFieldKey)
-                      setValue("")
+                      setFilled(null)
                       setError(null)
                     }}
                   >
@@ -572,6 +650,7 @@ export function MetadataEditor({
                     />
                   ) : (
                     <Input
+                      ref={valueInput}
                       id={`${id}-value`}
                       value={value}
                       onChange={(event) => setValue(event.target.value)}
@@ -631,6 +710,7 @@ export function MetadataEditor({
                           Source name or citation
                         </FieldLabel>
                         <Input
+                          ref={sourceLabelInput}
                           id={`${id}-source-label`}
                           value={sourceLabel}
                           onChange={(event) =>

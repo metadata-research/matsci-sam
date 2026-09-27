@@ -1,6 +1,6 @@
 "use client"
 
-import { useId, useState } from "react"
+import { useId, useState, type ReactNode } from "react"
 import { ExternalLinkIcon, LoaderCircleIcon } from "lucide-react"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
@@ -34,11 +34,20 @@ function localName(iri: string) {
   }
 }
 
+/** The selected match once its hierarchy has loaded. */
+export type OntologySelection = {
+  source: Hierarchy["source"]
+  entity: Hierarchy["entity"]
+  similar: boolean
+}
+
 type OntologyContextPanelProps = {
   term: string
   variant?: "compact" | "contribution"
   matchesTitle?: string
   enabled?: boolean
+  /** Controls for the selected match, in the compact variant. */
+  actions?: (selection: OntologySelection) => ReactNode
 }
 
 /** Preview owner: term changes reset selection. Presentation changes preserve it. */
@@ -59,7 +68,8 @@ function OntologyContextOwner({
   term,
   variant = "compact",
   matchesTitle = "Matching terms",
-  enabled = true
+  enabled = true,
+  actions
 }: OntologyContextPanelProps) {
   const id = useId()
   const [mode, setMode] = useState<"exact" | "similar">("exact")
@@ -208,39 +218,45 @@ function OntologyContextOwner({
           </CardContent>
         </Card>
 
-        <Card role="region" aria-labelledby={`${id}-hierarchy-title`}>
-          <CardHeader className="px-4">
-            <CardTitle>
-              <h2 id={`${id}-hierarchy-title`}>Ontology context</h2>
-            </CardTitle>
-            {selected && candidate ? (
-              <CardDescription>
-                {selected.source.title} · Selected match
-              </CardDescription>
-            ) : null}
-          </CardHeader>
-          <CardContent className="flex min-w-0 flex-col gap-3 px-4">
-            {!candidate ? (
-              <p className="text-sm text-muted-foreground">
-                Select a matching term to see its hierarchy.
-              </p>
-            ) : hierarchy.isPending ? (
-              <Loading>Loading parents…</Loading>
-            ) : hierarchy.error ? (
-              <LookupError
-                message={hierarchy.error.message}
-                busy={hierarchy.isFetching}
-                onRetry={() => void hierarchy.refetch()}
-              />
-            ) : hierarchy.data ? (
-              <HierarchyPreview
-                key={`${selected?.source.key}:${candidate.iri}`}
-                hierarchy={hierarchy.data}
-                similar={candidate.match !== "exact"}
-              />
-            ) : null}
-          </CardContent>
-        </Card>
+        {/* Shown once there are matches to choose from, so nothing asks
+            for a selection that cannot be made. */}
+        {sources.length > 0 ? (
+          <Card role="region" aria-labelledby={`${id}-hierarchy-title`}>
+            <CardHeader className="px-4">
+              <CardTitle>
+                <h2 id={`${id}-hierarchy-title`}>Ontology context</h2>
+              </CardTitle>
+              {selected && candidate ? (
+                <CardDescription>
+                  {selected.source.title} · Selected match
+                </CardDescription>
+              ) : null}
+            </CardHeader>
+            <CardContent className="flex min-w-0 flex-col gap-3 px-4">
+              {!candidate ? (
+                // Only a similar name waits for a choice: an exact match is
+                // chosen automatically.
+                <p className="text-sm text-muted-foreground">
+                  Select a similar name above to see its hierarchy.
+                </p>
+              ) : hierarchy.isPending ? (
+                <Loading>Loading parents…</Loading>
+              ) : hierarchy.error ? (
+                <LookupError
+                  message={hierarchy.error.message}
+                  busy={hierarchy.isFetching}
+                  onRetry={() => void hierarchy.refetch()}
+                />
+              ) : hierarchy.data ? (
+                <HierarchyPreview
+                  key={`${selected?.source.key}:${candidate.iri}`}
+                  hierarchy={hierarchy.data}
+                  similar={candidate.match !== "exact"}
+                />
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     )
   }
@@ -360,11 +376,18 @@ function OntologyContextOwner({
               onRetry={() => void hierarchy.refetch()}
             />
           ) : hierarchy.data ? (
-            <HierarchyPreview
-              key={`${selected.source.key}:${candidate.iri}`}
-              hierarchy={hierarchy.data}
-              similar={candidate.match !== "exact"}
-            />
+            <>
+              <HierarchyPreview
+                key={`${selected.source.key}:${candidate.iri}`}
+                hierarchy={hierarchy.data}
+                similar={candidate.match !== "exact"}
+              />
+              {actions?.({
+                source: hierarchy.data.source,
+                entity: hierarchy.data.entity,
+                similar: candidate.match !== "exact"
+              })}
+            </>
           ) : null}
         </>
       ) : null}
