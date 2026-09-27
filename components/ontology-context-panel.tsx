@@ -1,6 +1,6 @@
 "use client"
 
-import { useId, useState, type ReactNode } from "react"
+import { useId, useRef, useState, type ReactNode } from "react"
 import { ExternalLinkIcon, LoaderCircleIcon } from "lucide-react"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
@@ -15,7 +15,13 @@ import {
 import { FieldLegend, FieldSet } from "@/components/ui/field"
 
 type Hierarchy = RouterOutput["ontologyContext"]["hierarchy"]
+type Mapping = NonNullable<Hierarchy["mappings"]>[number]
 const SUBCLASS = "http://www.w3.org/2000/01/rdf-schema#subClassOf"
+const MAPPING_LABELS: Record<Mapping["predicate"], string> = {
+  "http://www.w3.org/2004/02/skos/core#exactMatch": "Exact match",
+  "http://www.w3.org/2004/02/skos/core#closeMatch": "Close match",
+  "http://www.w3.org/2002/07/owl#equivalentClass": "Equivalent class"
+}
 const COMPACT_PARENT_COUNT = 3
 const queryOptions = {
   retry: false,
@@ -34,12 +40,24 @@ function localName(iri: string) {
   }
 }
 
+/** A vocabulary is named as one. An older ONT states no kind. */
+function sourceName(source: { title: string; kind?: string }) {
+  return source.kind === "vocabulary"
+    ? `${source.title} (vocabulary)`
+    : source.title
+}
+
 /** The selected match once its hierarchy has loaded. */
 export type OntologySelection = {
   source: Hierarchy["source"]
   entity: Hierarchy["entity"]
   similar: boolean
+  /** The entity is a mapped concept opened from the match, not the match. */
+  explored: boolean
 }
+
+/** A mapped concept opened from the match. Its source is the match's source. */
+type Explored = { iri: string; label: string }
 
 type OntologyContextPanelProps = {
   term: string
@@ -75,6 +93,10 @@ function OntologyContextOwner({
   const [mode, setMode] = useState<"exact" | "similar">("exact")
   const [sourceKey, setSourceKey] = useState("")
   const [choices, setChoices] = useState<Record<string, string>>({})
+  // A mapped concept opened from the match overrides the match for the
+  // hierarchy query and the preview until the contributor returns.
+  const [explored, setExplored] = useState<Explored | null>(null)
+  const backRef = useRef<HTMLButtonElement>(null)
   const matches = trpc.ontologyContext.candidates.useQuery(
     { term, mode },
     { ...queryOptions, enabled: enabled && Boolean(term) }
@@ -86,9 +108,10 @@ function OntologyContextOwner({
     selected?.candidates.find(
       ({ iri }) => iri === choices[selected.source.key]
     ) ?? (mode === "exact" ? selected?.candidates[0] : undefined)
+  const target = candidate ? (explored ?? candidate) : undefined
   const hierarchy = trpc.ontologyContext.hierarchy.useQuery(
-    { source: selected?.source.key ?? "", iri: candidate?.iri ?? "" },
-    { ...queryOptions, enabled: enabled && Boolean(candidate && selected) }
+    { source: selected?.source.key ?? "", iri: target?.iri ?? "" },
+    { ...queryOptions, enabled: enabled && Boolean(target && selected) }
   )
 
   const changeMode = () => {
@@ -96,7 +119,65 @@ function OntologyContextOwner({
     setMode(mode === "exact" ? "similar" : "exact")
     setSourceKey("")
     setChoices({})
+    setExplored(null)
   }
+  const chooseSource = (key: string) => {
+    setSourceKey(key)
+    setExplored(null)
+  }
+  const chooseCandidate = (key: string, iri: string) => {
+    setChoices((previous) => ({ ...previous, [key]: iri }))
+    setExplored(null)
+  }
+  // Opening a mapped concept replaces the preview, so the button that opened
+  // it unmounts. Focus moves to the way back once it has rendered.
+  const explore = (mapping: Explored) => {
+    setExplored(mapping)
+    requestAnimationFrame(() => backRef.current?.focus())
+  }
+  // Returning unmounts the way back. Focus moves to the mapping that was
+  // opened, or to the panel when the match's preview is not shown yet.
+  const returnToMatch = (panel: HTMLElement | null) => {
+    const iri = explored?.iri
+    setExplored(null)
+    requestAnimationFrame(() => {
+      if (!panel) return
+      const button = [
+        ...panel.querySelectorAll<HTMLButtonElement>("[data-mapping-iri]")
+      ].find((element) => element.dataset.mappingIri === iri)
+      ;(button ?? panel).focus()
+    })
+  }
+  const previewKey = `${selected?.source.key}:${target?.iri}`
+  const similar = candidate ? candidate.match !== "exact" : false
+
+  // The way back stays available while the mapped concept loads or fails.
+  const backToMatch =
+    explored && candidate ? (
+      <div className="space-y-1">
+        <p
+          id={`${id}-explored`}
+          className="break-words text-xs text-muted-foreground"
+        >
+          Mapped concept, opened from{" "}
+          <span className="font-medium text-foreground">{candidate.label}</span>
+          .
+        </p>
+        <button
+          ref={backRef}
+          type="button"
+          className="text-xs font-medium text-primary underline underline-offset-2"
+          aria-describedby={`${id}-explored`}
+          onClick={(event) =>
+            returnToMatch(
+              event.currentTarget.closest<HTMLElement>("[data-hierarchy-panel]")
+            )
+          }
+        >
+          Back to the match
+        </button>
+      </div>
+    ) : null
 
   if (variant === "contribution") {
     const count = sources.reduce(
@@ -150,7 +231,7 @@ function OntologyContextOwner({
                 {sources.map(({ source, candidates, truncated }) => (
                   <FieldSet key={source.key} className="min-w-0 gap-2">
                     <FieldLegend variant="label" className="mb-1 break-words">
-                      {source.title}
+                      {sourceName(source)}
                     </FieldLegend>
                     {candidates.map((match) => {
                       const checked =
@@ -168,10 +249,7 @@ function OntologyContextOwner({
                             checked={checked}
                             onChange={() => {
                               setSourceKey(source.key)
-                              setChoices((previous) => ({
-                                ...previous,
-                                [source.key]: match.iri
-                              }))
+                              chooseCandidate(source.key, match.iri)
                             }}
                             className="mt-1 shrink-0 accent-primary"
                           />
@@ -221,18 +299,25 @@ function OntologyContextOwner({
         {/* Shown once there are matches to choose from, so nothing asks
             for a selection that cannot be made. */}
         {sources.length > 0 ? (
-          <Card role="region" aria-labelledby={`${id}-hierarchy-title`}>
+          <Card
+            role="region"
+            aria-labelledby={`${id}-hierarchy-title`}
+            tabIndex={-1}
+            data-hierarchy-panel
+          >
             <CardHeader className="px-4">
               <CardTitle>
                 <h2 id={`${id}-hierarchy-title`}>Ontology context</h2>
               </CardTitle>
               {selected && candidate ? (
                 <CardDescription>
-                  {selected.source.title} · Selected match
+                  {sourceName(selected.source)} ·{" "}
+                  {explored ? "Mapped concept" : "Selected match"}
                 </CardDescription>
               ) : null}
             </CardHeader>
             <CardContent className="flex min-w-0 flex-col gap-3 px-4">
+              {backToMatch}
               {!candidate ? (
                 // Only a similar name waits for a choice: an exact match is
                 // chosen automatically.
@@ -249,9 +334,11 @@ function OntologyContextOwner({
                 />
               ) : hierarchy.data ? (
                 <HierarchyPreview
-                  key={`${selected?.source.key}:${candidate.iri}`}
+                  key={previewKey}
                   hierarchy={hierarchy.data}
-                  similar={candidate.match !== "exact"}
+                  similar={!explored && similar}
+                  matchIri={candidate.iri}
+                  onExplore={explore}
                 />
               ) : null}
             </CardContent>
@@ -265,7 +352,9 @@ function OntologyContextOwner({
     <section
       aria-labelledby={`${id}-title`}
       className="flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-3 text-card-foreground"
+      tabIndex={-1}
       data-ontology-context
+      data-hierarchy-panel
     >
       <div className="space-y-1">
         <h2 id={`${id}-title`} className="text-base font-semibold">
@@ -315,12 +404,12 @@ function OntologyContextOwner({
               id={`${id}-source`}
               className={selectClass}
               value={selected.source.key}
-              title={selected.source.title}
-              onChange={(event) => setSourceKey(event.target.value)}
+              title={sourceName(selected.source)}
+              onChange={(event) => chooseSource(event.target.value)}
             >
               {sources.map(({ source, candidates, truncated }) => (
                 <option key={source.key} value={source.key}>
-                  {source.title} · {candidates.length}
+                  {sourceName(source)} · {candidates.length}
                   {truncated ? "+" : ""}{" "}
                   {candidates.length === 1 && !truncated ? "match" : "matches"}
                 </option>
@@ -340,10 +429,7 @@ function OntologyContextOwner({
                 className={selectClass}
                 value={candidate?.iri ?? ""}
                 onChange={(event) =>
-                  setChoices((previous) => ({
-                    ...previous,
-                    [selected.source.key]: event.target.value
-                  }))
+                  chooseCandidate(selected.source.key, event.target.value)
                 }
               >
                 {mode === "similar" && (
@@ -367,6 +453,7 @@ function OntologyContextOwner({
                 : "names. Refine the term to narrow the list."}
             </p>
           )}
+          {backToMatch}
           {!candidate ? null : hierarchy.isPending ? (
             <Loading>Loading parents…</Loading>
           ) : hierarchy.error ? (
@@ -378,14 +465,17 @@ function OntologyContextOwner({
           ) : hierarchy.data ? (
             <>
               <HierarchyPreview
-                key={`${selected.source.key}:${candidate.iri}`}
+                key={previewKey}
                 hierarchy={hierarchy.data}
-                similar={candidate.match !== "exact"}
+                similar={!explored && similar}
+                matchIri={candidate.iri}
+                onExplore={explore}
               />
               {actions?.({
                 source: hierarchy.data.source,
                 entity: hierarchy.data.entity,
-                similar: candidate.match !== "exact"
+                similar,
+                explored: explored !== null
               })}
             </>
           ) : null}
@@ -410,10 +500,16 @@ function OntologyContextOwner({
 
 function HierarchyPreview({
   hierarchy,
-  similar
+  similar,
+  matchIri,
+  onExplore
 }: {
   hierarchy: Hierarchy
   similar: boolean
+  /** The selected match. A mapping that leads back to it is not a step. */
+  matchIri: string
+  /** Opens a labelled mapped concept in place of the match. */
+  onExplore?: (mapping: Explored) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const id = useId()
@@ -443,6 +539,15 @@ function HierarchyPreview({
     parents.length > 0 &&
     parents.every(({ superclass, broader }) => broader && !superclass)
   const visible = expanded ? parents : parents.slice(0, COMPACT_PARENT_COUNT)
+  // A mapping stated in both directions is one mapped concept.
+  const mappings = [
+    ...new Map(
+      (hierarchy.mappings ?? []).map((mapping) => [
+        `${mapping.predicate} ${mapping.iri}`,
+        mapping
+      ])
+    ).values()
+  ]
 
   return (
     <>
@@ -536,6 +641,62 @@ function HierarchyPreview({
           </p>
         )}
       </div>
+      {mappings.length > 0 && (
+        <div
+          className="min-w-0 space-y-2 border-t pt-3"
+          aria-label="Mapped concepts"
+        >
+          <h3 className="text-xs font-medium text-muted-foreground">
+            Mapped concepts
+          </h3>
+          <ul
+            className="max-h-44 space-y-1 overflow-y-auto text-sm"
+            tabIndex={0}
+            aria-label="Mapped concepts"
+          >
+            {mappings.map(({ iri, label, predicate }) => (
+              <li
+                key={`${predicate} ${iri}`}
+                className="[overflow-wrap:anywhere]"
+                title={iri}
+              >
+                <span className="text-xs text-muted-foreground">
+                  {MAPPING_LABELS[predicate]}:{" "}
+                </span>
+                {iri === matchIri ? (
+                  <>
+                    {label ?? localName(iri)}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      (selected match)
+                    </span>
+                  </>
+                ) : label && onExplore ? (
+                  <button
+                    type="button"
+                    className="text-left font-medium text-primary underline underline-offset-2"
+                    data-mapping-iri={iri}
+                    onClick={() => onExplore({ iri, label })}
+                  >
+                    {label}
+                  </button>
+                ) : (
+                  <>
+                    {label ?? localName(iri)}
+                    {!label && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        (label unavailable)
+                      </span>
+                    )}
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Stated by this source. Opening one previews its own context.
+          </p>
+        </div>
+      )}
       <div className="space-y-1.5 border-t pt-2 text-xs text-muted-foreground">
         <p className="break-words" title={entity.iri}>
           {localName(entity.iri)}

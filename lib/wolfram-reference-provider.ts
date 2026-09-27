@@ -62,7 +62,7 @@ export async function retrieveWolframResources(
 ) {
   if (!apiKey?.trim())
     throw new Error(
-      "Wolfram lookup is not configured. You can still use ChEBI or write your definition."
+      "Wolfram lookup is not configured. You can still use the reference definitions or write your definition."
     )
   const selectedOptions = wolframLookupOptionsSchema.parse(options)
   const query = buildWolframQuery(term, context)
@@ -146,7 +146,7 @@ export async function retrieveWolframResources(
   } catch (error) {
     if (error instanceof Error && error.message === "WOLFRAM_AUTH")
       throw new Error(
-        "Wolfram rejected the configured API key. ChEBI and manual writing are still available."
+        "Wolfram rejected the configured API key. The reference definitions and manual writing are still available."
       )
     throw new Error(
       "Wolfram is unavailable or took too long to respond. Try again, or continue writing."

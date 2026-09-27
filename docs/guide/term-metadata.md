@@ -65,9 +65,11 @@ Advanced also shows the term's **Ontology context** beside the form. After
 you select a match, **Cite this match** fills **Source (optional)** with the
 ontology, the concept and its release, for whatever you are adding. **Add as
 related concept** fills a **Related external concept** with the concept's
-link and cites the ontology release. Neither saves anything, so review the
-form and submit it as usual. Each kind of description keeps its own draft, and
-filling one does not clear another.
+link and cites the ontology release. While a mapped concept is open in place
+of the match, the first control reads **Cite this concept** and both fill the
+form with that concept. Neither saves anything, so review the form and submit
+it as usual. Each kind of description keeps its own draft, and filling one
+does not clear another.
 
 ## Review and withdrawal
 

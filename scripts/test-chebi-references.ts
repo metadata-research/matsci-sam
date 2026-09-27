@@ -1,5 +1,9 @@
 import assert from "node:assert/strict"
-import { referenceText } from "../lib/reference-text"
+import {
+  referenceIdentifier,
+  referenceLicenseUrl,
+  referenceText
+} from "../lib/reference-text"
 import {
   beginReferenceLookup,
   retrieveChebiDefinitions
@@ -13,6 +17,16 @@ const entry = {
   sourceKey: "chebi",
   version: "254",
   license: "CC-BY-4.0"
+}
+// Another cleared source, with the licence the store states for it.
+const mdoEntry = {
+  term: "water",
+  definition: "A molecule of two hydrogen atoms and one oxygen atom.",
+  source: "Materials Design Ontology",
+  sourceIri: "https://w3id.org/mdo/core/Water",
+  sourceKey: "mdo",
+  version: "1.1",
+  license: "MIT"
 }
 const reply = (results: unknown[], query = "water") =>
   new Response(JSON.stringify({ query, results }))
@@ -35,6 +49,27 @@ async function main() {
     referenceText({ ...formula, sourceKey: "wolfram" }),
     formula.definition
   )
+  // Formula formatting stays keyed on ChEBI. Other sources show as stored.
+  assert.equal(
+    referenceText({ ...formula, sourceKey: "emmo" }),
+    formula.definition
+  )
+  assert.equal(referenceIdentifier(entry), "CHEBI:15377")
+  assert.equal(referenceIdentifier(mdoEntry), "Water")
+  assert.equal(
+    referenceIdentifier({
+      sourceKey: "nist-imrr",
+      sourceIri: "https://data.nist.gov/od/dm/nmrr/vocab/?tema=725"
+    }),
+    "?tema=725"
+  )
+  assert.equal(
+    referenceLicenseUrl("CC-BY-4.0"),
+    "https://creativecommons.org/licenses/by/4.0/"
+  )
+  assert.equal(referenceLicenseUrl("MIT"), "https://opensource.org/license/mit")
+  assert.equal(referenceLicenseUrl("NIST-PD"), undefined)
+  assert.equal(referenceLicenseUrl(null), undefined)
   let sent: URL | undefined
   const results = await retrieveChebiDefinitions(
     " water ",
@@ -43,15 +78,24 @@ async function main() {
       sent = new URL(String(url))
       assert.equal(init?.redirect, "error")
       assert.ok(init?.signal)
-      return reply([entry, entry])
+      return reply([entry, entry, mdoEntry])
     }) as typeof fetch
   )
   assert.equal(sent!.pathname, "/grounding")
   assert.equal(sent!.searchParams.get("q"), "water")
-  assert.equal(sent!.searchParams.get("sources"), "chebi")
-  assert.equal(sent!.searchParams.get("limit"), "5")
-  assert.equal(results.length, 1)
+  assert.equal(
+    sent!.searchParams.get("sources"),
+    null,
+    "every cleared source answers"
+  )
+  assert.equal(sent!.searchParams.get("limit"), "8")
+  assert.equal(results.length, 2)
   assert.match(results[0].contentHash, /^[a-f0-9]{64}$/)
+  assert.deepEqual(
+    { ...results[1], contentHash: undefined },
+    { ...mdoEntry, contentHash: undefined },
+    "an entry keeps the source, release and licence the store states"
+  )
   const again = await retrieveChebiDefinitions(
     "water",
     "http://local",
@@ -66,12 +110,31 @@ async function main() {
     ),
     []
   )
+  for (const accepted of [
+    { ...entry, sourceKey: "pmdco" },
+    { ...entry, sourceKey: "nist-imrr", license: "NIST-PD" },
+    { ...entry, sourceIri: "https://w3id.org/emmo#EMMO_9900d51c" },
+    { ...entry, license: "unknown" }
+  ])
+    assert.equal(
+      (
+        await retrieveChebiDefinitions(
+          "water",
+          "http://local",
+          fetcher(() => reply([accepted]))
+        )
+      ).length,
+      1
+    )
   for (const invalid of [
     { ...entry, sourceIri: "javascript:alert(1)" },
-    { ...entry, sourceIri: "http://purl.obolibrary.org/obo/BFO_0000001" },
+    { ...entry, sourceIri: "http://user:secret@example.org/CHEBI_1" },
+    { ...entry, sourceIri: "http://example.org/a b" },
     { ...entry, definition: "" },
-    { ...entry, sourceKey: "pmdco" },
-    { ...entry, license: "unknown" }
+    { ...entry, sourceKey: "Not A Key" },
+    { ...entry, license: "" },
+    { ...entry, license: "x".repeat(201) },
+    { ...entry, license: undefined }
   ])
     assert.deepEqual(
       await retrieveChebiDefinitions(
@@ -85,12 +148,12 @@ async function main() {
     () => new Response("private upstream details", { status: 500 }),
     () => new Response("not JSON"),
     () => reply([entry], "another query"),
-    () => reply(Array(6).fill(entry)),
+    () => reply(Array(9).fill(entry)),
     () => new Response("x".repeat(128 * 1024 + 1))
   ])
     await assert.rejects(
       retrieveChebiDefinitions("water", "http://local", fetcher(response)),
-      /ChEBI is unavailable/
+      /reference lookup is unavailable/
     )
   await assert.rejects(retrieveChebiDefinitions("water", ""), /not configured/)
   await assert.rejects(
@@ -101,7 +164,7 @@ async function main() {
     retrieveChebiDefinitions("water", "http://local", (async () => {
       throw new DOMException("private timeout detail", "TimeoutError")
     }) as typeof fetch),
-    /ChEBI is unavailable/
+    /reference lookup is unavailable/
   )
   const finish = beginReferenceLookup(90000001, 1000)
   assert.throws(() => beginReferenceLookup(90000001, 1001), /Please wait/)
@@ -110,7 +173,7 @@ async function main() {
   assert.throws(() => beginReferenceLookup(90000001, 1010), /Please wait/)
   beginReferenceLookup(90000001, 62000)()
   console.log(
-    "ChEBI provider: bounds, metadata, safe links, deduplication, empty/error/timeout and request limits passed."
+    "Reference provider: every source, bounds, metadata, safe links, deduplication, empty/error/timeout and request limits passed."
   )
 }
 main().catch((error) => {

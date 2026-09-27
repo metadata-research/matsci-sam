@@ -23,7 +23,7 @@ links to contributor instructions and the metadata reference.
 
 ## Contributions and studies
 
-- [Term reference resources](term-references.md): ChEBI and Wolfram retrieval,
+- [Term reference resources](term-references.md): reference ontology and Wolfram retrieval,
   source snapshots, contributor-declared citations and revision provenance.
 - [Inference providers](inference-providers.md): provider settings, OAuth,
   readiness, structured-output testing, switching, and generation provenance.

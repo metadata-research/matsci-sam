@@ -51,8 +51,8 @@ context** lists the included items. **Inspect input text** shows their full
 text. **Remove** and **Clear optional context** omit inputs without erasing your
 writing or citations. The term remains required.
 
-Select **Add to assistant context** on an opened ChEBI or Wolfram source to
-include it in the next request. Sources are not included by default. Removing
+Select **Add to assistant context** on an opened reference definition or
+Wolfram source to include it in the next request. Sources are not included by default. Removing
 an input leaves any attached citation unchanged. See
 [References](/docs/references#citations-and-assistant-inputs).
 

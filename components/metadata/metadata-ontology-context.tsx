@@ -30,7 +30,9 @@ export function MetadataOntologyContext({
   // The sidebar shows in Advanced only, so it queries in Advanced only.
   const advanced = usePresentedView() === "advanced"
   const fill = useFillMetadataDraft()
-  const actions = ({ source, entity }: OntologySelection) => {
+  // A mapped concept opened from the match is cited as itself: the label
+  // names it and the link is its own. The control says which it cites.
+  const actions = ({ source, entity, explored }: OntologySelection) => {
     const version = source.version ?? ""
     return (
       <div className="flex flex-col gap-2 border-t pt-2">
@@ -51,7 +53,7 @@ export function MetadataOntologyContext({
               })
             }
           >
-            Cite this match
+            {explored ? "Cite this concept" : "Cite this match"}
           </Button>
           <Button
             type="button"

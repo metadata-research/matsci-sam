@@ -295,8 +295,8 @@ the revision current at migration. Unknown facts remain omitted.
 
 ## Reference and assistant evidence
 
-ChEBI and Wolfram CAG lookups create contributor-owned receipts and source
-snapshots. ChEBI snapshots retain their ontology release and licence. Wolfram
+Reference ontology and Wolfram CAG lookups create contributor-owned receipts and source
+snapshots. Reference snapshots retain their source, release and licence. Wolfram
 receipts retain the effective query, optional context, units and interpretation
 options, retrieval time, exact response and hash, and provider response UUID
 when supplied. Wolfram prototype evidence has no asserted open licence.

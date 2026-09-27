@@ -189,7 +189,7 @@ export function useTermReferenceWorkspace({
   term: string
   contextKey: string
   enabled: boolean
-  /** Start the ChEBI lookup on its own. Simple waits for a view that shows it. */
+  /** Start the reference lookup on its own. Simple waits for a view that shows it. */
   autoStart?: boolean
   selection: DraftReferenceSelection[]
   onSelectionChange: Dispatch<SetStateAction<DraftReferenceSelection[]>>
@@ -298,7 +298,9 @@ export function useTermReferenceWorkspace({
         })
         if (failure.data?.code === "UNAUTHORIZED")
           loginToast(
-            `retrieve ${provider === "chebi" ? "ChEBI" : "Wolfram"} resources`
+            provider === "chebi"
+              ? "retrieve reference definitions"
+              : "retrieve Wolfram resources"
           )
       }
     },

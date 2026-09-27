@@ -1,7 +1,11 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { referenceText } from "@/lib/reference-text"
+import {
+  referenceIdentifier,
+  referenceLicenseUrl,
+  referenceText
+} from "@/lib/reference-text"
 import { WOLFRAM_LOOKUP_LIMIT } from "@/lib/wolfram-query"
 import {
   type Dispatch,
@@ -47,28 +51,34 @@ export {
   type TermReferenceWorkspace
 } from "./term-reference-workspace"
 
-const providerName = (provider: ReferenceProvider) =>
-  provider === "chebi" ? "ChEBI" : "Wolfram"
-
+// The "chebi" provider retrieves definitions from every reference ontology the
+// store clears. Its name in the interface is the reference lookup.
 function providerStatus(
   provider: ReferenceProvider,
   state: ReferenceProviderState
 ) {
-  const name = providerName(provider)
-  if (state.actionError)
-    return `${name}: copy/add activity could not be recorded`
-  if (state.status === "pending")
-    return `Finding ${name} ${provider === "chebi" ? "definitions" : "resources"}…`
-  if (state.status === "error") return `${name} lookup needs attention`
-  if (state.result) {
-    const count = state.result.references.length
-    return count
-      ? `${name}: ${count} ${provider === "chebi" ? (count === 1 ? "possible match" : "possible matches") : "result ready"}`
-      : `${name}: no ${provider === "chebi" ? "definition" : "resources"} found`
+  if (provider === "chebi") {
+    if (state.actionError)
+      return "Reference definitions: copy/add activity could not be recorded"
+    if (state.status === "pending") return "Finding reference definitions…"
+    if (state.status === "error") return "Reference lookup needs attention"
+    if (state.result) {
+      const count = state.result.references.length
+      return count
+        ? `Reference definitions: ${count} ${count === 1 ? "possible match" : "possible matches"}`
+        : "Reference definitions: no definition found"
+    }
+    return "Reference lookup starts after you confirm the term"
   }
-  return provider === "chebi"
-    ? "ChEBI lookup starts after you confirm the term"
-    : "Optional Wolfram lookup"
+  if (state.actionError)
+    return "Wolfram: copy/add activity could not be recorded"
+  if (state.status === "pending") return "Finding Wolfram resources…"
+  if (state.status === "error") return "Wolfram lookup needs attention"
+  if (state.result)
+    return state.result.references.length
+      ? `Wolfram: ${state.result.references.length} result ready`
+      : "Wolfram: no resources found"
+  return "Optional Wolfram lookup"
 }
 
 /** Keep this near the active step even while another contextual view is open. */
@@ -151,7 +161,6 @@ export function ReferenceTools({
   const wolframOptionsRef = useRef<HTMLDivElement>(null)
   const state = workspace.providers[provider]
   const result = provider === "wolfram" && state.editing ? null : state.result
-  const name = providerName(provider)
   const providerBusy =
     !workspace.enabled || state.status === "pending" || state.clipboardBusy
   const busy = disabled || providerBusy
@@ -183,7 +192,11 @@ export function ReferenceTools({
   }, [visible, revealFirst, provider, result, workspace])
   return (
     <Card
-      aria-label={`${name} reference resources`}
+      aria-label={
+        provider === "chebi"
+          ? "Reference definitions"
+          : "Wolfram reference resources"
+      }
       className={cn("min-w-0 gap-4 shadow-none", embedded && "border-0 p-0")}
     >
       <CardHeader hidden={embedded}>
@@ -203,12 +216,12 @@ export function ReferenceTools({
           <BookOpenIcon className="size-4" aria-hidden />
           {title ??
             (provider === "chebi"
-              ? "ChEBI references"
+              ? "Reference definitions"
               : "Wolfram factual context")}
         </CardTitle>
         <CardDescription>
           {provider === "chebi"
-            ? "Check the source meaning before using a definition."
+            ? "Definitions from the reference ontologies. Check the source meaning before using one."
             : "Retrieve facts and interpretations from Wolfram|Alpha. Results are stored for this prototype."}
         </CardDescription>
       </CardHeader>
@@ -229,7 +242,10 @@ export function ReferenceTools({
             className="flex items-center gap-2 text-sm text-muted-foreground"
           >
             <LoaderCircleIcon className="size-4 animate-spin" aria-hidden />
-            Retrieving {name}… You can return to writing.
+            {provider === "chebi"
+              ? "Retrieving reference definitions…"
+              : "Retrieving Wolfram…"}{" "}
+            You can return to writing.
           </p>
         )}
         {state.error && (
@@ -251,15 +267,19 @@ export function ReferenceTools({
             onClick={() => void workspace.retrieve(provider)}
           >
             {state.status === "error"
-              ? `Retry ${name} lookup`
+              ? provider === "chebi"
+                ? "Retry reference lookup"
+                : "Retry Wolfram lookup"
               : provider === "chebi"
-                ? "Retrieve ChEBI definition"
+                ? "Retrieve definition"
                 : "Retrieve Wolfram resources"}
           </Button>
         )}
         {result && result.references.length === 0 && (
           <p role="status" className="text-sm text-muted-foreground">
-            No {name} {provider === "chebi" ? "definition" : "resources"} found
+            {provider === "chebi"
+              ? "No reference definition found"
+              : "No Wolfram resources found"}{" "}
             for &quot;{workspace.term}&quot;. You can continue writing your own
             definition.
           </p>
@@ -395,12 +415,12 @@ export function ReferenceTools({
                         <p className="break-words text-xs text-muted-foreground">
                           {reference.source}
                           {provider === "chebi"
-                            ? ` · ${reference.sourceIri.split("/").pop()?.replace("CHEBI_", "CHEBI:")} · release ${reference.version}`
+                            ? ` · ${referenceIdentifier(reference)} · release ${reference.version}`
                             : ` · retrieved ${new Date(result.retrievedAt).toLocaleDateString()}`}{" "}
-                          ·{" "}
-                          {reference.license === "CC-BY-4.0" ? (
+                          · {provider === "chebi" ? "licence " : ""}
+                          {referenceLicenseUrl(reference.license) ? (
                             <a
-                              href="https://creativecommons.org/licenses/by/4.0/"
+                              href={referenceLicenseUrl(reference.license)}
                               target="_blank"
                               rel="noreferrer"
                               className="underline"
@@ -408,8 +428,7 @@ export function ReferenceTools({
                               {reference.license}
                             </a>
                           ) : (
-                            reference.license ||
-                            "Prototype use"
+                            reference.license || "Prototype use"
                           )}
                         </p>
                         {provider === "chebi" && (
@@ -604,7 +623,7 @@ export function ReferenceCitations({
         {reference.source}: {reference.term}
         {provider === "wolfram"
           ? ` · lookup ${lookupNumber}`
-          : ` · release ${reference.version}`}
+          : ` · release ${reference.version} · ${reference.license ?? "no stated licence"}`}
       </p>
       {provider === "wolfram" && result.request && (
         <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
@@ -701,7 +720,7 @@ export function ReferenceCitations({
           </p>
           {!listed.length && (
             <p className="text-sm text-muted-foreground">
-              No additional opened references. Open a ChEBI definition or a
+              No additional opened references. Open a reference definition or a
               Wolfram result to make it available here.
             </p>
           )}

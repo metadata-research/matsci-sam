@@ -1,7 +1,12 @@
 # Term reference resources
 
 SAM stores contributor lookup receipts. ONT stores pinned open ontology snapshots.
-The ChEBI adapter reads ONT `/grounding` with `sources=chebi`. The independent
+The reference adapter reads ONT `/grounding` without a source filter, so every
+cleared source with definitions answers, with at most eight entries ranked by
+tier, source key and label. Each entry keeps the source title, release and
+licence the store states, and the licence must be present. The provider id
+stays `chebi` in the database and router for this prototype, and the formula
+formatting in `lib/reference-text.ts` applies to ChEBI entries only. The independent
 Wolfram adapter calls CAG Results at
 `https://services.wolfram.com/api/cag/v1/WolframAlphaResult`, using the server-only
 `WOLFRAM_API_KEY`. Requests send the confirmed term, optional entered context,
@@ -13,7 +18,7 @@ assistant profile with its own server credential and readiness check.
 
 New terms follow **Confirm term → Write definition → Review and publish**.
 **Confirm term**, labelled **Confirm term and find references** in Advanced,
-commits the client contribution context. Advanced starts one ChEBI lookup at
+commits the client contribution context. Advanced starts one reference lookup at
 that point. Simple shows no references, so its lookup waits until Advanced is
 shown, and a Simple study never starts one. Typing does not. Existing-term
 actions inherit their fixed term and source revision. Deliberately opening the
@@ -27,8 +32,8 @@ Switching tools does not refetch or lose receipts. Generation guards reject
 stale callbacks after the term, vocabulary or source revision changes. The
 responsive shell uses available container width, including embedded forms.
 New-term Add uses `AddDefinitionWorkspace`: Simple and Advanced share one
-mounted form, with identical column sizing. Advanced reveals persistent ChEBI
-and ontology context panels to the right, stacking at narrow container widths.
+mounted form, with identical column sizing. Advanced reveals persistent reference
+definition and ontology context panels to the right, stacking at narrow container widths.
 `DefinitionToolbox` merges the selected tool and toolbar beneath the form.
 Simple offers **Attach an example file** and a cut-down **Help me write** below
 the editor. Citations, source files and the other tools are Advanced. The view
@@ -38,7 +43,7 @@ contribution forms keep the earlier responsive workspace, narrow tool views and
 status strip. Pending-provider completion never navigates, inserts text, selects
 evidence or silently adds citation rows.
 
-ChEBI in Advanced Add reveals the first candidate once per visible lookup.
+The reference lookup in Advanced Add reveals the first candidate once per visible lookup.
 This makes it locally consulted without selecting it as a citation or model
 input. Hiding it or switching views preserves that choice. Inherited forms
 initially show the closest candidate's name and **Show definition**.
@@ -96,7 +101,7 @@ preferences use the separate migration described below.
 
 Clarification exchanges (9d) remain a later increment.
 The current model response contract returns a definition, not a conversation
-turn. Retrieving a ChEBI candidate does not establish a SAM placement.
+turn. Retrieving a reference candidate does not establish a SAM placement.
 
 ## Ontology context preview
 
@@ -132,7 +137,25 @@ the matched term. Additional parents expand inside a bounded list. These are
 asserted relationships: `rdfs:subClassOf`, `skos:broader`, and inverse
 `skos:narrower`. Missing parent labels use the identifier. Absent named parents
 are not presented as evidence that a concept is a root. Anonymous superclass
-expressions are indicated without expanding a graph. Release and license stay
+expressions are indicated without expanding a graph.
+
+A hierarchy can also carry up to twenty mappings that the source states in its
+own graph between named entities: `skos:exactMatch`, `skos:closeMatch` and
+`owl:equivalentClass`, in either direction, with the mapped entry's label when
+the source defines it. The preview lists them as **Mapped concepts** after the
+parents. A labelled one opens in place of the match, so its own parents show,
+with **Back to the match** to return. A mapping whose target is the selected
+match is listed as text, so the match is never opened from itself. Opening
+moves keyboard focus to **Back to the match**, and returning moves it to the
+mapping that was opened, because each control unmounts the other. Changing
+the term, the mode or the selection clears the opened concept. The compact
+variant's actions receive the opened concept with `explored` set, and the
+Metadata page then offers **Cite this concept** in place of **Cite this
+match**. The citation itself carries no mark: it names and links the concept
+it cites.
+A source whose graph holds a `skos:ConceptScheme` and no `owl:Ontology` is
+named as a vocabulary. An older ONT states no kind or mappings, and the preview
+then shows neither. Release and license stay
 with the selected source, with an optional link to the full ONT entity page.
 
 SAM reads ONT's `/candidates` and `/hierarchy` endpoints through the server-only
@@ -170,7 +193,7 @@ the prior assumption choice.
 
 **Refine lookup** opens an explicit edit state. Retrieval creates a new receipt.
 Canceling or a failed retrieval preserves the prior result. The workspace keeps
-up to five Wolfram receipts alongside the ChEBI receipt for a confirmed context.
+up to five Wolfram receipts alongside the reference receipt for a confirmed context.
 Switching saved results and retrieving another result preserve existing review
 citations and model-input selections by receipt identity. New results start
 unselected. The consulted-source shortlist gate also applies to refinements.
@@ -197,7 +220,7 @@ selects a citation. Neither creates an excerpt reference. Formatting is
 deterministic presentation, with no AI summary or change to stored evidence.
 Every complete response remains one reference and one model input. Section
 copying or insertion does not reduce the source text sent when that reference
-is selected for a model request. ChEBI retains its full-definition actions.
+is selected for a model request. Reference definitions retain their full-definition actions.
 
 ## Stored provider evidence
 
@@ -209,18 +232,18 @@ its saved request settings. Results are factual context, including
 interpretations, assumptions and units. They are not labelled as
 open dictionary definitions. `usageStatus=prototype` and a null licence record
 the prototype arrangement without inventing an open licence. Retention has no
-automatic expiry. ChEBI keeps its release and CC-BY-4.0 metadata. Owners can
+automatic expiry. Reference entries keep the release and licence the store states. Owners can
 reopen a receipt through `termReferences.getLookup`, filtered by provider.
 Raw response bodies and uncited history are not public.
 
-ChEBI receipts similarly retain the requested term and retrieval time with
+Reference receipts similarly retain the requested term and retrieval time with
 each publisher-text snapshot, source IRI, release, licence and content hash.
 The first successful Copy and Add reports can record `copiedAt` and
 `addedToDraftAt` separately. These private timestamps describe client-reported
 interactions, not continued use, citation or a complete interaction history.
 Revealing and hiding source text adds no persisted event.
 
-ChEBI display, Copy and Add convert supported formula formatting to plain
+For ChEBI entries, display, Copy and Add convert supported formula formatting to plain
 text, for example `TiO<small><sub>2</sub></small>` becomes `TiO₂`. This does
 not change the stored publisher text, its hash, or the source snapshot sent
 to a model. Source content remains escaped text. It is never executed as HTML.
@@ -341,18 +364,20 @@ Retrieval requires a contributor profile. Limits are five calls/minute and one
 in-flight call per contributor **per provider**, with at most 100 limiter
 records per app process. Multi-instance deployments need a shared limiter for
 global limits. Both adapters bound responses to 128 KiB and refuse redirects.
-ChEBI additionally limits five entries/15 seconds, validates source IRIs and
-licence. Wolfram limits text to 60,000 characters/25 seconds, with up to five
-saved lookup receipts per contribution context. Review can retain those five
-receipts plus ChEBI. A model request uses at most six selected entries and
+The reference adapter additionally limits eight entries/15 seconds, validates
+source IRIs and requires a stated licence. Wolfram limits text to 60,000
+characters/25 seconds, with up to five saved lookup receipts per contribution
+context. Review can retain those five receipts plus the reference receipt. A
+model request uses at most six selected entries and
 24,000 source-text characters. A formatted long response still counts in full.
 All external text renders as escaped text, without remote images or executable
 markup. Provider-specific failures do not prevent manual writing or the other
 lookup.
 
 Verify source limits with `node --import tsx scripts/test-source-context-limits.ts`.
-Also run `pnpm test:model-prompt-inputs`, `pnpm test:references`,
-`pnpm test:references-db` (migrated local
+Also run `pnpm test:model-prompt-inputs`, `pnpm test:references` (the
+provider, the Wolfram adapter and the stored citation's source, release and
+licence line), `pnpm test:references-db` (migrated local
 database, with fixture rollback), and existing contribution, revision and graph
 tests. Browser checks cover confirmation, visible previews, explicit
 application/Undo, retrieval and refinement, original-response preservation,

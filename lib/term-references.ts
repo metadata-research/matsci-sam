@@ -26,7 +26,7 @@ export const referenceSelectionSchema = z
   })
   .strict()
 export type ReferenceSelection = z.infer<typeof referenceSelectionSchema>
-// Keep a ChEBI receipt and each retained Wolfram refinement independently citable.
+// Keep a reference receipt and each retained Wolfram refinement independently citable.
 // The legacy single-provider shape remains accepted.
 export const referenceSelectionsSchema = z
   .union([

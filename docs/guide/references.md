@@ -4,17 +4,27 @@ Use reference tools to compare meanings, insert text, or cite a source while
 writing a definition. The available sources and assistants depend on the site
 configuration. A missing result leaves you free to write and publish.
 
-## ChEBI matches
+## Reference definitions
 
 1. Confirm a new term, then select **Advanced** under **View**.
-2. Read the opened ChEBI match, including its identity, definition, release,
-   and licence. Check that the meaning fits your term.
+2. Read the opened reference definition, including its source, identifier,
+   release, and licence. Check that the meaning fits your term.
 3. Open **Other matches** to compare candidates. Select **Show definition**
    for a candidate you want to inspect.
 
-ChEBI matches and **Matches across ontologies** appear beside the form on a
-wide screen. Simple starts no lookup. The matches load when Advanced opens. The hierarchy shows the asserted parents of the selected ontology
-concept. On small screens these panels appear below the form.
+The definitions come from the reference ontologies and vocabularies that
+MatSci-ONT clears for reuse, such as ChEBI and EMMO. Each shows the source,
+release, and licence that the store states for it, and a citation keeps them.
+
+Reference definitions and **Matches across ontologies** appear beside the form
+on a wide screen. Simple starts no lookup. The matches load when Advanced
+opens. The hierarchy shows the asserted parents of the selected ontology
+concept. A source that is a vocabulary rather than an ontology is named as
+one. A concept can also list **Mapped concepts** that its source states as
+exact matches, close matches, or equivalent classes. Select a mapped concept
+to preview its own parents, and **Back to the match** to return. A mapped
+concept that leads back to the selected match is named as the selected match.
+On small screens these panels appear below the form.
 
 ![Advanced Add with ontology matches and hierarchy beside the form and tools below it](/images/docs/help-add-advanced.png)
 
