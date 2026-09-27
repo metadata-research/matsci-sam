@@ -23,9 +23,37 @@ import {
   type TermFixture
 } from "./ui-test-harness"
 
+// A vocabulary whose synonym entry is a bare concept, mapped from the concept
+// that carries the hierarchy.
+const NIST = {
+  key: "nist-imrr",
+  title: "Materials Data Vocabulary (NIST Materials Resource Registry)",
+  version: "1.1.0-rev20210726",
+  license: "NIST-PD",
+  kind: "vocabulary"
+}
+const SYNONYM = "https://data.nist.gov/od/dm/nmrr/vocab/?tema=725"
+const OTHER_SYNONYM = "https://data.nist.gov/od/dm/nmrr/vocab/?tema=727"
+const CONCEPT = "https://data.nist.gov/od/dm/nmrr/vocab/?tema=300"
+const PARENT = "https://data.nist.gov/od/dm/nmrr/vocab/?tema=299"
+const EXACT_MATCH = "http://www.w3.org/2004/02/skos/core#exactMatch"
+const BROADER = "http://www.w3.org/2004/02/skos/core#broader"
+// A second source, an ontology, whose match has a superclass.
+const EMMO = {
+  key: "emmo",
+  title: "EMMO, the Elementary Multiperspective Material Ontology",
+  version: "1.0.3",
+  license: "CC-BY-4.0",
+  kind: "ontology"
+}
+const EMMO_ANNEALING =
+  "https://w3id.org/emmo#EMMO_9900d51c_bdd3_40e8_aa82_ad1aa7092f71"
+const HEAT_TREATMENT = "https://w3id.org/emmo#EMMO_HeatTreatment"
+
 async function main() {
   const base = localPreviewBase()
   const stamp = randomUUID()
+  const fixtureTerm = `simple view ${stamp}`
   const assistantLabel = "Test assistant"
   const modelDraft = "A model draft returned by the Simple view test."
   const browser = await launchBrowser()
@@ -61,7 +89,86 @@ async function main() {
           validated: false,
           validatedAt: null
         }
-      })
+      }),
+      // The fixture term matches two vocabulary entries, synonyms whose exact
+      // match carries the parents, and one ontology class.
+      "ontologyContext.candidates": (input) => ({
+        query: input.term,
+        mode: input.mode,
+        sources:
+          input.term === fixtureTerm
+            ? [
+                {
+                  source: NIST,
+                  candidates: [
+                    { iri: SYNONYM, label: fixtureTerm, match: "exact" },
+                    { iri: OTHER_SYNONYM, label: fixtureTerm, match: "exact" }
+                  ],
+                  truncated: false
+                },
+                {
+                  source: EMMO,
+                  candidates: [
+                    { iri: EMMO_ANNEALING, label: fixtureTerm, match: "exact" }
+                  ],
+                  truncated: false
+                }
+              ]
+            : []
+      }),
+      "ontologyContext.hierarchy": (input) => {
+        const base = { truncated: false, hasAnonymousSuperclasses: false }
+        if (input.iri === CONCEPT)
+          return {
+            ...base,
+            source: NIST,
+            entity: { iri: CONCEPT, label: "annealing and homogenization" },
+            parents: [
+              {
+                iri: PARENT,
+                label: "Synthesis and processing",
+                predicate: BROADER,
+                direction: "outgoing"
+              }
+            ],
+            // The concept maps to both synonyms, as the vocabulary states.
+            mappings: [SYNONYM, OTHER_SYNONYM].map((iri) => ({
+              iri,
+              label: fixtureTerm,
+              predicate: EXACT_MATCH,
+              direction: "outgoing"
+            }))
+          }
+        if (input.iri === EMMO_ANNEALING)
+          return {
+            ...base,
+            source: EMMO,
+            entity: { iri: EMMO_ANNEALING, label: fixtureTerm },
+            parents: [
+              {
+                iri: HEAT_TREATMENT,
+                label: "HeatTreatment",
+                predicate: "http://www.w3.org/2000/01/rdf-schema#subClassOf",
+                direction: "outgoing"
+              }
+            ],
+            mappings: []
+          }
+        return {
+          ...base,
+          source: NIST,
+          entity: { iri: String(input.iri), label: fixtureTerm },
+          parents: [],
+          mappings: [
+            {
+              iri: CONCEPT,
+              label: "annealing and homogenization",
+              predicate: EXACT_MATCH,
+              direction: "incoming"
+            }
+          ]
+        }
+      }
     },
     mutations: {
       "termReferences.recordAction": () => null,
@@ -115,7 +222,7 @@ async function main() {
   try {
     fixture = await createTermFixture({
       userName: `Simple view test ${stamp}`,
-      term: `simple view ${stamp}`,
+      term: fixtureTerm,
       slug: `simple_view_${stamp}`,
       definition: "A fixture definition for the Simple view test."
     })
@@ -226,8 +333,121 @@ async function main() {
     const scope = page.getByLabel("What does this describe?")
     await expect(scope).toHaveValue("term")
     await expect(page.getByText("Source (optional)")).toBeVisible()
+
+    // The compact sidebar names a vocabulary as one, and opens a mapped
+    // concept in place of the match until Back to the match.
+    const panel = page.locator("[data-ontology-context]")
+    const sourceSelect = page.getByLabel("Ontology or vocabulary")
+    const candidateSelect = page.getByLabel("Matched term")
+    await expect(sourceSelect).toHaveValue(NIST.key)
+    await expect(sourceSelect.locator("option")).toHaveText([
+      `${NIST.title} (vocabulary) · 2 matches`,
+      `${EMMO.title} · 1 match`
+    ])
+    await expect(candidateSelect).toHaveValue(SYNONYM)
+    const noParents = panel.getByText(
+      "No named parents stated in this source.",
+      { exact: true }
+    )
+    const opened = panel.getByText("Mapped concept, opened from")
+    const back = panel.getByRole("button", {
+      name: "Back to the match",
+      exact: true
+    })
+    const concept = panel.getByRole("button", {
+      name: "annealing and homogenization",
+      exact: true
+    })
+    const mapped = panel.locator('ul[aria-label="Mapped concepts"]')
+    const cite = page.getByRole("button", {
+      name: "Cite this match",
+      exact: true
+    })
+    const citeConcept = page.getByRole("button", {
+      name: "Cite this concept",
+      exact: true
+    })
+    await expect(noParents).toBeVisible()
+    await expect(back).toHaveCount(0)
+    await expect(cite).toBeVisible()
+    // The bounded list is reachable from the keyboard. Opening a mapped
+    // concept from the keyboard moves focus to the way back.
+    await expect(mapped).toHaveAttribute("tabindex", "0")
+    await concept.focus()
+    await page.keyboard.press("Enter")
+    await expect(opened).toContainText(fixtureTerm)
+    await expect(back).toBeFocused()
+    await expect(
+      panel.getByText("Broader terms", { exact: true })
+    ).toBeVisible()
+    await expect(
+      panel.getByText("Synthesis and processing", { exact: true })
+    ).toBeVisible()
+    await expect(noParents).toHaveCount(0)
+    // The opened concept lists the match as text, and its other synonym as
+    // a step. Neither is described as opened from itself.
+    await expect(
+      mapped.locator("li").filter({ hasText: "(selected match)" })
+    ).toHaveCount(1)
+    await expect(
+      mapped.getByRole("button", { name: fixtureTerm, exact: true })
+    ).toHaveCount(1)
+    // The citation actions follow the opened concept and say so.
+    await expect(cite).toHaveCount(0)
+    await citeConcept.click()
+    await expect(page.getByLabel("Source name or citation")).toHaveValue(
+      `${NIST.title}: annealing and homogenization`
+    )
+    await expect(page.getByLabel("Source link")).toHaveValue(CONCEPT)
+    await expect(page.getByLabel("Source version")).toHaveValue(NIST.version)
+    await expect(
+      page.getByRole("status").filter({ hasText: "filled" })
+    ).toHaveText(
+      `Source filled from ${NIST.title}: annealing and homogenization.`
+    )
+    // Returning from the keyboard moves focus to the mapping that opened.
+    await back.focus()
+    await page.keyboard.press("Enter")
+    await expect(opened).toHaveCount(0)
+    await expect(concept).toBeFocused()
+    await expect(cite).toBeVisible()
+    await expect(noParents).toBeVisible()
+    await expect(
+      panel.getByText("Synthesis and processing", { exact: true })
+    ).toHaveCount(0)
+    // Choosing another match closes an opened concept.
+    await concept.click()
+    await expect(opened).toBeVisible()
+    await candidateSelect.selectOption(OTHER_SYNONYM)
+    await expect(opened).toHaveCount(0)
+    await expect(noParents).toBeVisible()
+    // So does choosing another source, and coming back does not reopen it.
+    await concept.click()
+    await expect(opened).toBeVisible()
+    await sourceSelect.selectOption(EMMO.key)
+    await expect(opened).toHaveCount(0)
+    await expect(
+      panel.getByText("Immediate superclasses", { exact: true })
+    ).toBeVisible()
+    await expect(
+      panel.getByText("HeatTreatment", { exact: true })
+    ).toBeVisible()
+    await expect(mapped).toHaveCount(0)
+    await sourceSelect.selectOption(NIST.key)
+    await expect(opened).toHaveCount(0)
+    await expect(candidateSelect).toHaveValue(OTHER_SYNONYM)
+    await expect(noParents).toBeVisible()
     await scope.selectOption({ label: "Definition 1 · Revision 1" })
-    await page.getByText("Source (optional)").click()
+    // The citation opened the source section. Open it only when closed.
+    const sourceSection = page.locator("details", {
+      has: page.getByText("Source (optional)")
+    })
+    if (
+      !(await sourceSection.evaluate(
+        (node) => (node as HTMLDetailsElement).open
+      ))
+    )
+      await page.getByText("Source (optional)").click()
     await page.getByLabel("Source link").fill("not a link")
     await tab("Simple").click()
     await expect(
@@ -329,7 +549,7 @@ async function main() {
     // started when Advanced opened.
     await expect.poll(() => lookups).toBe(1)
     await page.getByRole("button", { name: "Back to writing" }).click()
-    const references = page.locator('[aria-label="ChEBI reference resources"]')
+    const references = page.locator('[aria-label="Reference definitions"]')
     await expect(references).toBeVisible()
     await references
       .getByRole("button", { name: "Add to definition", exact: true })
@@ -485,7 +705,7 @@ async function main() {
     )
     assert.deepEqual(errors, [])
     console.log(
-      "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links and their arrival mark, whole-term metadata and its checks, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
+      "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links and their arrival mark, whole-term metadata and its checks, a vocabulary named as one and a mapped concept opened beside it, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
     )
   } finally {
     try {

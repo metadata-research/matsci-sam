@@ -59,12 +59,23 @@ export type TrpcStubs = {
   /** Mutation handlers by procedure path. Others are refused and recorded. */
   mutations: Record<string, (input: ProcedureInput) => unknown>
   /** Query results to substitute inside otherwise real GET batches. */
-  queries?: Record<string, () => unknown>
+  queries?: Record<string, (input: ProcedureInput) => unknown>
   unexpected: string[]
 }
 
 const procedurePaths = (url: string) =>
   new URL(url).pathname.split("/api/trpc/")[1].split(",")
+
+/** The batched query inputs, by their position in the batch. */
+const queryInputs = (url: string): Record<string, ProcedureInput> => {
+  const raw = new URL(url).searchParams.get("input")
+  if (!raw) return {}
+  try {
+    return JSON.parse(raw) as Record<string, ProcedureInput>
+  } catch {
+    return {}
+  }
+}
 
 /** Answers tRPC calls locally so no test can publish or call a provider. */
 export async function stubTrpc(context: BrowserContext, stubs: TrpcStubs) {
@@ -74,11 +85,14 @@ export async function stubTrpc(context: BrowserContext, stubs: TrpcStubs) {
     if (request.method() === "GET") {
       const substitutes = stubs.queries ?? {}
       if (!paths.some((path) => path in substitutes)) return route.continue()
+      const inputs = queryInputs(request.url())
       const response = await route.fetch()
       const results = (await response.json()) as unknown[]
       const body = results.map((result, index) => {
         const substitute = substitutes[paths[index]]
-        return substitute ? { result: { data: substitute() } } : result
+        return substitute
+          ? { result: { data: substitute(inputs[String(index)] ?? {}) } }
+          : result
       })
       return route.fulfill({
         status: 200,
@@ -118,32 +132,50 @@ export async function stubTrpc(context: BrowserContext, stubs: TrpcStubs) {
   })
 }
 
-/** One ChEBI lookup result carrying one reference. */
-export function chebiLookup(term: string, sourceText: string) {
+/** A reference entry as the store states it, before SAM adds its receipt. */
+export type ReferenceEntry = {
+  term: string
+  definition: string
+  source: string
+  sourceKey: string
+  sourceIri: string
+  version: string
+  license: string | null
+}
+
+/** One reference lookup result carrying the given entries, in order. */
+export function referenceLookup(term: string, entries: ReferenceEntry[]) {
   const lookupId = randomUUID()
   return {
     lookupId,
     term: term.trim().toLowerCase(),
     retrievedAt: new Date().toISOString(),
-    references: [
-      {
-        id: randomUUID(),
-        lookupId,
-        term: "Reference test material",
-        definition: sourceText,
-        source: "ChEBI CORE",
-        sourceKey: "chebi",
-        sourceIri: "http://purl.obolibrary.org/obo/CHEBI_15377",
-        version: "test",
-        license: "CC-BY-4.0",
-        kind: "definition",
-        usageStatus: "open",
-        contentHash: "a".repeat(64),
-        copiedAt: null,
-        addedToDraftAt: null
-      }
-    ]
+    references: entries.map((entry) => ({
+      id: randomUUID(),
+      lookupId,
+      ...entry,
+      kind: "definition",
+      usageStatus: "open",
+      contentHash: "a".repeat(64),
+      copiedAt: null,
+      addedToDraftAt: null
+    }))
   }
+}
+
+/** One reference lookup result carrying one ChEBI reference. */
+export function chebiLookup(term: string, sourceText: string) {
+  return referenceLookup(term, [
+    {
+      term: "Reference test material",
+      definition: sourceText,
+      source: "ChEBI CORE",
+      sourceKey: "chebi",
+      sourceIri: "http://purl.obolibrary.org/obo/CHEBI_15377",
+      version: "test",
+      license: "CC-BY-4.0"
+    }
+  ])
 }
 
 export type TermFixture = {

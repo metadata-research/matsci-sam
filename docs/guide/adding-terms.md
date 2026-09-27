@@ -8,7 +8,7 @@ community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
 
 1. Enter the term and select **Confirm term**, labelled **Confirm term and find
    references** in Advanced. The form checks for existing terms and retrieves
-   possible ChEBI matches, which Advanced displays.
+   possible reference definitions, which Advanced displays.
 2. Write a definition that describes the meaning in your context. Include the
    broader class and distinguishing characteristics when useful. **Add an example**
    opens an optional example of use.
@@ -33,9 +33,9 @@ changing the term.
 
 Choose **Simple** or **Advanced** under **View**. The site remembers your choice
 on other pages. Simple shows the writing form with **Attach an example file**
-and **Help me write**. Advanced adds ChEBI matches, matches across available
-ontologies, and the selected hierarchy beside the form. These panels move
-below the form on small screens.
+and **Help me write**. Advanced adds reference definitions, matches across
+available ontologies, and the selected hierarchy beside the form. These panels
+move below the form on small screens.
 
 The Advanced toolbar opens **Wolfram lookup**, **AI assistance**, **Add citation**,
 and **Attach file** beneath the form. Citations and source files are added in
@@ -51,12 +51,13 @@ preview before using it.
 [AI-assisted suggestions](/docs/ai-refinement) explains assistant choice,
 request inputs, Undo, and attribution.
 
-## Referencing a ChEBI definition
+## Referencing a source definition
 
-Open **Advanced** to inspect ChEBI matches. **Add to definition** inserts source
-text and attaches a citation. **Copy** only copies text. The
-[references guide](/docs/references#chebi-matches) explains these actions and
-how to review citations before publication.
+Open **Advanced** to inspect definitions from the reference ontologies, such as
+ChEBI or EMMO. Each names its source, release, and licence. **Add to
+definition** inserts source text and attaches a citation. **Copy** only copies
+text. The [references guide](/docs/references#reference-definitions) explains
+these actions and how to review citations before publication.
 
 ## Wolfram resources and model inputs
 

@@ -101,7 +101,7 @@ source semantics and named-graph contracts.
 
 ## Boundaries of the first implementation
 
-Metadata editing is separate from definition publication. ChEBI and ontology
+Metadata editing is separate from definition publication. Reference and ontology
 previews, Wolfram lookups and assistant requests do not implicitly save semantic
 relationships. Contributors publish related concepts through the metadata
 workflow. Preview selections remain unsaved.

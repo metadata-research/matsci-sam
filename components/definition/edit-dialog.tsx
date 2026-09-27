@@ -215,7 +215,7 @@ function RevisionEditor({
               contextOpen={contextOpen && !simple}
               onContextOpenChange={setContextOpen}
               contextTitle={
-                provider === "chebi" ? "ChEBI reference" : "Wolfram lookup"
+                provider === "chebi" ? "Reference lookup" : "Wolfram lookup"
               }
               returnLabel={review ? "Back to review" : "Back to definition"}
               context={

@@ -1,22 +1,23 @@
 import { createHash } from "node:crypto"
 import { z } from "zod"
+import { ontologyIri, ontologySourceKey } from "./ontology-iri"
 import { readReferenceBody } from "./reference-http"
 
 export const normalizeReferenceTerm = (term: string) =>
   term.trim().toLowerCase()
-export const REFERENCE_RESULT_LIMIT = 5
+export const REFERENCE_RESULT_LIMIT = 8
 const MAX_RESPONSE_BYTES = 128 * 1024
 
+// One definition from any cleared source the store holds. The store states the
+// source title, release and licence with each entry, and the entry keeps them.
 const entrySchema = z.object({
   term: z.string().trim().min(1).max(500),
   definition: z.string().trim().min(1).max(16000),
   source: z.string().trim().min(1).max(500),
-  sourceIri: z
-    .string()
-    .regex(/^http:\/\/purl\.obolibrary\.org\/obo\/CHEBI_[0-9]+$/),
-  sourceKey: z.literal("chebi"),
+  sourceIri: ontologyIri,
+  sourceKey: ontologySourceKey,
   version: z.string().trim().min(1).max(100),
-  license: z.literal("CC-BY-4.0")
+  license: z.string().trim().min(1).max(200)
 })
 export type ChebiReference = z.infer<typeof entrySchema> & {
   contentHash: string
@@ -30,7 +31,7 @@ export async function retrieveChebiDefinitions(
 ): Promise<ChebiReference[]> {
   if (!config)
     throw new Error(
-      "ChEBI lookup is not configured. You can continue writing your definition."
+      "Reference lookup is not configured. You can continue writing your definition."
     )
   const base = new URL(config)
   if (
@@ -40,10 +41,9 @@ export async function retrieveChebiDefinitions(
     base.search ||
     base.hash
   )
-    throw new Error("ChEBI lookup is not configured correctly.")
+    throw new Error("Reference lookup is not configured correctly.")
   const url = new URL("grounding", base.href.replace(/\/?$/, "/"))
   url.searchParams.set("q", term.trim())
-  url.searchParams.set("sources", "chebi")
   url.searchParams.set("limit", String(REFERENCE_RESULT_LIMIT))
   try {
     const response = await fetcher(url, {
@@ -64,7 +64,8 @@ export async function retrieveChebiDefinitions(
       throw new Error("Wrong query")
     const seen = new Set<string>()
     return body.results.flatMap((result) => {
-      // Imported non-ChEBI classes and entries without definitions are not candidates.
+      // Entries without a definition, a stated licence or a safe IRI are not
+      // candidates.
       const parsed = entrySchema.safeParse(result)
       if (!parsed.success || seen.has(parsed.data.sourceIri)) return []
       seen.add(parsed.data.sourceIri)
@@ -80,7 +81,7 @@ export async function retrieveChebiDefinitions(
   } catch {
     // Do not expose configured endpoints, credentials, or upstream bodies.
     throw new Error(
-      "ChEBI is unavailable or took too long to respond. Try again, or continue writing."
+      "The reference lookup is unavailable or took too long to respond. Try again, or continue writing."
     )
   }
 }

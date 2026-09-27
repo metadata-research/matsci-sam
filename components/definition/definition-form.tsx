@@ -844,7 +844,8 @@ const DefinitionFormOwner = ({
     })
   })
   const openTool = (nextProvider: ReferenceProvider) => {
-    // In Add, ChEBI is the references column, which Advanced already shows.
+    // In Add, the reference definitions are the references column, which
+    // Advanced already shows.
     if (isAdd && nextProvider === "wolfram") setActiveTool("wolfram")
     setProvider(nextProvider)
     setContextOpen(true)
@@ -1335,8 +1336,9 @@ const DefinitionFormOwner = ({
               )}
               {!simpleAdd && (
                 <p className="text-sm text-muted-foreground">
-                  Confirmation opens the editor and searches ChEBI. No source is
-                  cited or sent to a model automatically.
+                  Confirmation opens the editor and searches the reference
+                  ontologies. No source is cited or sent to a model
+                  automatically.
                 </p>
               )}
               {confirmed && definitionValue.trim() && (
@@ -1395,7 +1397,7 @@ const DefinitionFormOwner = ({
                 contextOpen={isAdd || simpleLocked ? false : contextOpen}
                 onContextOpenChange={setContextOpen}
                 contextTitle={
-                  provider === "chebi" ? "ChEBI references" : "Wolfram lookup"
+                  provider === "chebi" ? "Reference lookup" : "Wolfram lookup"
                 }
               >
                 {step === "write" ? (
@@ -1880,7 +1882,7 @@ const DefinitionFormOwner = ({
                   <ReferenceTools
                     workspace={workspace}
                     provider="chebi"
-                    title="ChEBI matching terms"
+                    title="Reference definitions"
                     revealFirst
                     visible={view === "advanced"}
                     disabled={busy}

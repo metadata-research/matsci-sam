@@ -1,4 +1,8 @@
-import { referenceText } from "@/lib/reference-text"
+import {
+  referenceIdentifier,
+  referenceLicenseUrl,
+  referenceText
+} from "@/lib/reference-text"
 import { formatDate } from "@/lib/date"
 import type { WolframLookupRequest } from "@/lib/wolfram-query"
 
@@ -53,17 +57,26 @@ export function ReferenceSnapshot({
         <blockquote className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed [overflow-wrap:anywhere]">
           {referenceText(reference)}
         </blockquote>
-        <p>
-          {reference.license === "CC-BY-4.0" ? (
-            <a
-              href="https://creativecommons.org/licenses/by/4.0/"
-              className="underline"
-            >
-              {reference.license}
-            </a>
+        <p className="break-words [overflow-wrap:anywhere]">
+          {reference.usageStatus === "prototype" ? (
+            // A prototype source states no licence, and the summary line
+            // above already names it.
+            "Prototype use"
           ) : (
-            (reference.license ??
-            "Prototype use")
+            <>
+              {reference.source} · {referenceIdentifier(reference)} · release{" "}
+              {reference.version} · licence{" "}
+              {referenceLicenseUrl(reference.license) ? (
+                <a
+                  href={referenceLicenseUrl(reference.license)}
+                  className="underline"
+                >
+                  {reference.license}
+                </a>
+              ) : (
+                (reference.license ?? "not stated")
+              )}
+            </>
           )}
         </p>
         <a

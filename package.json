@@ -71,7 +71,7 @@
     "test:inference": "tsx scripts/test-inference.ts && tsx scripts/test-inference-health.ts",
     "test:inference-db": "tsx --conditions=react-server scripts/test-inference-db.ts",
     "inference:check": "tsx scripts/check-inference.ts",
-    "test:references": "tsx scripts/test-chebi-references.ts && tsx scripts/test-wolfram-references.ts && tsx scripts/test-wolfram-options.ts",
+    "test:references": "tsx scripts/test-chebi-references.ts && tsx scripts/test-wolfram-references.ts && tsx scripts/test-wolfram-options.ts && tsx scripts/test-reference-snapshot.ts",
     "test:ontology-context": "tsx --conditions=react-server scripts/test-ontology-context.ts",
     "test:wolfram-options": "tsx scripts/test-wolfram-options.ts",
     "test:references-db": "tsx --conditions=react-server scripts/test-term-references-db.ts",

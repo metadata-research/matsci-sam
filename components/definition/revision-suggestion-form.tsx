@@ -390,7 +390,7 @@ function RevisionSuggestionWorkspace({
           contextOpen={contextOpen && !simple}
           onContextOpenChange={setContextOpen}
           contextTitle={
-            provider === "wolfram" ? "Wolfram lookup" : "ChEBI references"
+            provider === "wolfram" ? "Wolfram lookup" : "Reference lookup"
           }
           returnLabel={reviewing ? "Back to review" : "Back to definition"}
           context={

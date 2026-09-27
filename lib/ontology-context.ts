@@ -1,39 +1,40 @@
 import "server-only"
 import { z } from "zod"
 import { TERM_MAX_LENGTH } from "./input-limits"
+import { ontologyIri, ontologySourceKey } from "./ontology-iri"
 import { readReferenceBody } from "./reference-http"
 
 const CANDIDATES_PER_SOURCE = 5
 const MAX_SOURCES = 32
 const MAX_PARENTS = 50
+const MAX_MAPPINGS = 20
 const MAX_RESPONSE_BYTES = 128 * 1024
 const REQUEST_TIMEOUT_MS = 15_000
 const candidateMode = z.enum(["exact", "similar"])
 
-const sourceKey = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
-const iri = z
-  .string()
-  .min(1)
-  .max(2048)
-  .refine((value) => {
-    if (/[\s<>"{}|\\^`]/u.test(value)) return false
-    try {
-      const url = new URL(value)
-      return (
-        ["http:", "https:"].includes(url.protocol) &&
-        !url.username &&
-        !url.password
-      )
-    } catch {
-      return false
-    }
-  }, "Invalid ontology IRI")
+const sourceKey = ontologySourceKey
+const iri = ontologyIri
 const label = z.string().trim().min(1).max(2000)
+// An older ONT states no kind. A source is then neither shown nor hidden as a
+// vocabulary.
 const source = z.object({
   key: sourceKey,
   title: z.string().trim().min(1).max(500),
   version: z.string().trim().min(1).max(200).optional(),
-  license: z.string().trim().min(1).max(500)
+  license: z.string().trim().min(1).max(500),
+  kind: z.enum(["ontology", "vocabulary", "other"]).optional()
+})
+// Mappings stated in the source's own graph between named entities. They are
+// shown as the source states them and never become a SAM mapping.
+const mapping = z.object({
+  iri,
+  label: label.optional(),
+  predicate: z.enum([
+    "http://www.w3.org/2004/02/skos/core#exactMatch",
+    "http://www.w3.org/2004/02/skos/core#closeMatch",
+    "http://www.w3.org/2002/07/owl#equivalentClass"
+  ]),
+  direction: z.enum(["outgoing", "incoming"])
 })
 
 export const ontologyCandidatesInput = z
@@ -91,6 +92,7 @@ const hierarchyResponse = z.object({
       ])
     )
     .max(MAX_PARENTS),
+  mappings: z.array(mapping).max(MAX_MAPPINGS).optional(),
   truncated: z.boolean(),
   hasAnonymousSuperclasses: z.boolean()
 })

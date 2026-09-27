@@ -82,10 +82,11 @@ export default function AboutPage() {
           >
             <h2 id="references-heading">Definitions from reference sources</h2>
             <p>
-              Contributors can consult definitions from ChEBI while writing.
-              They can incorporate source text into a definition or cite a
-              source used in their own wording. Published citations identify the
-              source and preserve the reference text.
+              Contributors can consult definitions from the reference ontologies
+              while writing, each with its source, release and licence. They can
+              incorporate source text into a definition or cite a source used in
+              their own wording. Published citations identify the source and
+              preserve the reference text.
             </p>
           </section>
 
