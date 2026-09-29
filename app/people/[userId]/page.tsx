@@ -3,11 +3,7 @@ import Link from "next/link"
 import { cache } from "react"
 import { and, asc, eq, sql } from "drizzle-orm"
 import { notFound } from "next/navigation"
-import {
-  Building2Icon,
-  ExternalLinkIcon,
-  UserRoundCheckIcon
-} from "lucide-react"
+import { Building2Icon } from "lucide-react"
 import { db, definitionsTable, termsTable, usersTable } from "@yamz/db"
 import {
   Card,
@@ -18,6 +14,7 @@ import {
 } from "@/components/ui/card"
 import { SITE_NAME } from "@/lib/site"
 import { termPath } from "@/lib/public-identifiers"
+import { OrcidIcon, OrcidIdLink } from "@/components/orcid-id"
 
 // Visibility and profile fields change through the owner edit form. Never
 // retain a published or unpublished profile response in the full-route cache.
@@ -128,18 +125,10 @@ export default async function PublicProfilePage({
               )}
               {profile.orcidId && (
                 <PublicProfileField
-                  icon={<UserRoundCheckIcon />}
-                  label="Verified ORCID"
+                  icon={<OrcidIcon />}
+                  label="ORCID iD"
                   value={
-                    <a
-                      href={`https://orcid.org/${profile.orcidId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-primary hover:underline"
-                    >
-                      {profile.orcidId}
-                      <ExternalLinkIcon className="size-3.5" aria-hidden />
-                    </a>
+                    <OrcidIdLink orcidId={profile.orcidId} withIcon={false} />
                   }
                 />
               )}

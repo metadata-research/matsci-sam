@@ -45,7 +45,7 @@ const ID4_PROTOCOL: ProtocolStep[] = [
       "Participants reviewed tutorial slides with a supplementary video recording, then created an account with their Google credentials.",
     support: "supported",
     supportNote:
-      "Google, ORCID and email sign-in all work. Orientation material is not held here."
+      "Google and email sign-in work. Orientation material is not held here."
   },
   {
     title: "Term entry and definition",
