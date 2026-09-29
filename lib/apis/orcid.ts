@@ -113,6 +113,8 @@ export const createOrcidAuthorization = async () => {
 // the failed check and any OAuth error code from ORCID. openid-client wraps
 // the failed check in a general error, so the account includes that one cause
 // and nothing deeper, which is where the claims of the identity token are.
+// ORCID can end a description with the value it refused, such as "Invalid
+// authorization code: <code>", so anything after a colon is withheld.
 export const describeOrcidFailure = (error: unknown) => {
   const describe = (value: unknown) => {
     if (!(value instanceof Error)) return []
@@ -125,7 +127,11 @@ export const describeOrcidFailure = (error: unknown) => {
     if (typeof fields.code === "string") parts.push(`code=${fields.code}`)
     if (typeof fields.error === "string") parts.push(`error=${fields.error}`)
     if (typeof fields.error_description === "string")
-      parts.push(`description=${fields.error_description.slice(0, 200)}`)
+      parts.push(
+        `description=${fields.error_description
+          .replace(/:[\s\S]*$/, ": <withheld>")
+          .slice(0, 200)}`
+      )
     return parts
   }
 

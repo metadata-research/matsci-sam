@@ -96,7 +96,15 @@ globalThis.fetch = (async (
     )
     tokenRequests.push(body)
     // ORCID refuses a token request whose redirect URI differs from the one
-    // registered for the client.
+    // registered for the client, and names a refused code in its description.
+    if (body.get("code") === "used-code")
+      return json(
+        {
+          error: "invalid_grant",
+          error_description: "Invalid authorization code: used-code"
+        },
+        400
+      )
     if (body.get("redirect_uri") !== CALLBACK)
       return json(
         { error: "invalid_grant", error_description: "Redirect URI mismatch." },
@@ -199,6 +207,22 @@ const main = async () => {
     describeOrcidFailure(mismatch),
     /error=invalid_grant description=Redirect URI mismatch\./
   )
+
+  // A refused code is not repeated in the journal line.
+  const refusedCode = await completeOrcidAuthorization(
+    `?code=used-code&state=${encodeURIComponent(pending.state)}`,
+    pending
+  ).then(
+    () => null,
+    (error: unknown) => error
+  )
+  assert.ok(refusedCode)
+  const refusedCodeLine = describeOrcidFailure(refusedCode)
+  assert.match(
+    refusedCodeLine,
+    /error=invalid_grant description=Invalid authorization code: <withheld>/
+  )
+  assert.doesNotMatch(refusedCodeLine, /used-code/)
 
   // A response for another session fails the state check before any token
   // request.
