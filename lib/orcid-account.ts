@@ -4,6 +4,11 @@ import { db, oauthAccountsTable, usersTable } from "@yamz/db"
 import { and, eq } from "drizzle-orm"
 import { encryptAuthToken } from "@/lib/secret-crypto"
 
+// A refusal the person can act on. The routes show its message. Any other
+// error, such as a database error, gets a general message instead, because its
+// text can include the query and its parameters.
+export class OrcidAccountError extends Error {}
+
 type OrcidAccountTokens = {
   orcidId: string
   name: string
@@ -31,7 +36,7 @@ export const connectOrcidAccount = async ({
       .from(usersTable)
       .where(eq(usersTable.id, userId))
       .limit(1)
-    if (!user || user.isAi) throw new Error("Account not found")
+    if (!user || user.isAi) throw new OrcidAccountError("Account not found")
 
     const [subjectOwner] = await tx
       .select({ userId: oauthAccountsTable.userId })
@@ -44,7 +49,9 @@ export const connectOrcidAccount = async ({
       )
       .limit(1)
     if (subjectOwner && subjectOwner.userId !== userId)
-      throw new Error("That ORCID iD is already connected to another account")
+      throw new OrcidAccountError(
+        "That ORCID iD is already connected to another account"
+      )
 
     const [existingConnection] = await tx
       .select()
@@ -57,7 +64,7 @@ export const connectOrcidAccount = async ({
       )
       .limit(1)
     if (existingConnection && existingConnection.subject !== tokens.orcidId)
-      throw new Error(
+      throw new OrcidAccountError(
         "Disconnect the current ORCID iD before connecting another"
       )
 
@@ -90,7 +97,7 @@ export const connectOrcidAccount = async ({
       })
       .where(eq(usersTable.id, userId))
 
-    return userId
+    return { userId, needsProfile: !user.firstName || !user.lastName }
   })
 
 export const findOrcidAccountUserId = async (orcidId: string) => {
@@ -112,9 +119,9 @@ export const disconnectOrcidAccount = async (userId: number) =>
       .from(usersTable)
       .where(and(eq(usersTable.id, userId), eq(usersTable.isAi, false)))
       .limit(1)
-    if (!user) throw new Error("Account not found")
+    if (!user) throw new OrcidAccountError("Account not found")
     if (!user.googleId && !user.emailVerifiedAt)
-      throw new Error(
+      throw new OrcidAccountError(
         "Add another sign-in method before disconnecting your ORCID iD"
       )
 

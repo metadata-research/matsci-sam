@@ -19,6 +19,7 @@ import {
   isEmailAuthEnabled
 } from "@/lib/email-auth"
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
+import { ORCID_SIGN_IN_CANCELLED_NOTICE } from "@/lib/orcid"
 import { isGoogleAuthConfigured } from "@/lib/apis/google"
 import { SITE_NAME } from "@/lib/site"
 import { getCurrentUser } from "@/lib/current-user"
@@ -31,9 +32,9 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams
 }: {
-  searchParams: Promise<{ returnTo?: string }>
+  searchParams: Promise<{ returnTo?: string; orcid?: string }>
 }) {
-  const { returnTo: requestedReturnTo } = await searchParams
+  const { returnTo: requestedReturnTo, orcid } = await searchParams
   const returnTo = normalizeAuthReturnTo(requestedReturnTo)
   // Someone already signed in has nothing to do here, and on a host with
   // email account creation this page would offer them a second account.
@@ -56,6 +57,14 @@ export default async function LoginPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {orcid === "cancelled" ? (
+            <p
+              role="status"
+              className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm leading-5"
+            >
+              {ORCID_SIGN_IN_CANCELLED_NOTICE}
+            </p>
+          ) : null}
           {googleEnabled ? (
             <Button asChild className="w-full">
               <a href={authPathWithReturnTo("/api/auth/google", returnTo)}>

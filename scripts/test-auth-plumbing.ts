@@ -22,7 +22,14 @@ import {
   EXAMPLE_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "../lib/input-limits"
-import { isValidOrcidId, normalizeOrcidId } from "../lib/orcid"
+import {
+  isValidOrcidId,
+  normalizeOrcidId,
+  ORCID_PROFILE_NOTICES,
+  ORCID_SIGN_IN_CANCELLED_NOTICE,
+  orcidProfileNotice
+} from "../lib/orcid"
+import { publicRedirect } from "../lib/public-redirect"
 import { isGoogleAuthConfigured } from "../lib/apis/google"
 import { DefineTermSchema } from "../lib/schemas/terms"
 
@@ -62,6 +69,45 @@ assert.equal(
 assert.equal(isValidOrcidId("0000-0002-1825-0097"), true)
 assert.equal(isValidOrcidId("0000-0002-1825-0098"), false)
 assert.equal(isValidOrcidId("not-an-orcid"), false)
+
+for (const outcome of ["connected", "cancelled", "disconnected"] as const)
+  assert.equal(orcidProfileNotice(outcome), ORCID_PROFILE_NOTICES[outcome])
+for (const value of [undefined, "", "toString", "__proto__", ["connected"]])
+  assert.equal(orcidProfileNotice(value), null, String(value))
+
+// Behind the proxy the request URL names 127.0.0.1, so the ORCID routes never
+// build a URL from it, and redirects within the site use relative Locations.
+for (const [path, status] of [
+  ["/profile?orcid=connected", 307],
+  ["/profile?orcid=disconnected", 303]
+] as const) {
+  const response = publicRedirect(path, status)
+  assert.equal(response.status, status)
+  assert.equal(response.headers.get("location"), path)
+}
+assert.throws(() => publicRedirect("//example.org/profile"))
+for (const routePath of [
+  "app/api/auth/orcid/route.ts",
+  "app/api/auth/orcid/callback/route.ts",
+  "app/api/auth/orcid/disconnect/route.ts"
+]) {
+  const source = readFileSync(resolve(routePath), "utf8")
+  assert.doesNotMatch(
+    source,
+    /\b(?:request|req)\.url\b/,
+    `${routePath}: an ORCID route must not use the internal request URL`
+  )
+}
+const orcidCallbackRoute = readFileSync(
+  resolve("app/api/auth/orcid/callback/route.ts"),
+  "utf8"
+)
+assert.match(
+  orcidCallbackRoute,
+  /completeOrcidAuthorization\(request\.nextUrl\.search, pending\)/
+)
+assert.match(orcidCallbackRoute, /"\/login\?orcid=cancelled"/)
+assert.match(orcidCallbackRoute, /providerError === "access_denied"/)
 
 const googleSettingNames = [
   "GOOGLE_CLIENT_ID",
@@ -261,6 +307,9 @@ const unavailableOrcidButton = loginPage.slice(
 assert.match(unavailableOrcidButton, /\bdisabled\b/)
 assert.doesNotMatch(unavailableOrcidButton, /\bhref=/)
 assert.match(loginPage, /id="orcid-unavailable"/)
+assert.match(loginPage, /orcid === "cancelled"/)
+assert.match(loginPage, /ORCID_SIGN_IN_CANCELLED_NOTICE/)
+assert.match(ORCID_SIGN_IN_CANCELLED_NOTICE, /^ORCID sign-in was cancelled\./)
 assert.match(registrationPage, /Create an account with email/)
 assert.match(registrationPage, /Create account with email/)
 assert.match(registrationPage, /isGoogleAuthConfigured\(\)/)

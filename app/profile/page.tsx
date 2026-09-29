@@ -12,6 +12,9 @@ import {
   UserRoundCheckIcon
 } from "lucide-react"
 import { auth } from "@/lib/auth"
+import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
+import { orcidProfileNotice } from "@/lib/orcid"
+import { OrcidIcon, OrcidIdLink } from "@/components/orcid-id"
 import { SITE_NAME } from "@/lib/site"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,9 +40,15 @@ const STUDY_STATE_LABEL = {
   retired: "Retired"
 } as const
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams
+}: {
+  searchParams: Promise<{ orcid?: string }>
+}) {
+  const { orcid } = await searchParams
   const { user } = await auth()
   if (!user) redirect("/login")
+  const orcidNotice = orcidProfileNotice(orcid)
 
   const myStudies = await studiesOfViewer(user.id)
 
@@ -95,6 +104,15 @@ export default async function ProfilePage() {
           </div>
         </section>
 
+        {orcidNotice ? (
+          <p
+            role="status"
+            className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm leading-5"
+          >
+            {orcidNotice}
+          </p>
+        ) : null}
+
         <Card>
           <CardContent className="flex items-start gap-3">
             {user.isProfilePublic ? (
@@ -138,21 +156,15 @@ export default async function ProfilePage() {
             />
             <div className="sm:col-span-2">
               <ProfileField
-                icon={<UserRoundCheckIcon />}
-                label="ORCID"
+                icon={user.orcidId ? <OrcidIcon /> : <UserRoundCheckIcon />}
+                label="ORCID iD"
                 value={
                   user.orcidId ? (
-                    <a
-                      href={`https://orcid.org/${user.orcidId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-primary hover:underline"
-                    >
-                      {user.orcidId}
-                      <ExternalLinkIcon className="size-3.5" />
-                    </a>
+                    <OrcidIdLink orcidId={user.orcidId} withIcon={false} />
+                  ) : isOrcidAuthEnabled() ? (
+                    "Not connected. Connect an ORCID iD from Edit profile."
                   ) : (
-                    "Not linked. Connect an ORCID iD from Edit profile when that option is available."
+                    "Not connected. ORCID connection is not available yet."
                   )
                 }
               />

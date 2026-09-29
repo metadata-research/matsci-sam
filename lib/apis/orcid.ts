@@ -17,6 +17,11 @@ type OrcidTokenResponse = oidc.TokenEndpointResponse & {
   orcid?: unknown
 }
 
+const ORCID_REGISTRIES = {
+  sandbox: "https://sandbox.orcid.org",
+  production: "https://orcid.org"
+} as const
+
 let configurationPromise: Promise<oidc.Configuration> | undefined
 
 const requiredOrcidSetting = (name: string) => {
@@ -25,15 +30,28 @@ const requiredOrcidSetting = (name: string) => {
   return value
 }
 
+const orcidEnvironment = () =>
+  process.env.ORCID_ENVIRONMENT?.trim() || "sandbox"
+
 export const isOrcidAuthEnabled = () =>
   process.env.ORCID_AUTH_ENABLED === "true"
 
 export const getOrcidIssuer = () => {
-  const environment = process.env.ORCID_ENVIRONMENT?.trim() || "sandbox"
-  if (environment === "sandbox") return new URL("https://sandbox.orcid.org")
-  if (environment === "production") return new URL("https://orcid.org")
+  const environment = orcidEnvironment()
+  if (environment === "sandbox" || environment === "production")
+    return new URL(ORCID_REGISTRIES[environment])
   throw new Error("ORCID_ENVIRONMENT must be sandbox or production")
 }
+
+// An iD links to the registry that authenticated it, so a sandbox iD opens
+// its sandbox record. An unrecognized setting cannot authenticate, and its
+// links go to the public registry.
+export const getOrcidRecordUrl = (orcidId: string) =>
+  `${
+    orcidEnvironment() === "sandbox"
+      ? ORCID_REGISTRIES.sandbox
+      : ORCID_REGISTRIES.production
+  }/${orcidId}`
 
 export const getOrcidCallbackUrl = () =>
   requiredOrcidSetting("ORCID_CALLBACK_URL")
@@ -91,12 +109,51 @@ export const createOrcidAuthorization = async () => {
   }
 }
 
+// A one-line account of a failed exchange for the service journal. It names
+// the failed check and any OAuth error code from ORCID. openid-client wraps
+// the failed check in a general error, so the account includes that one cause
+// and nothing deeper, which is where the claims of the identity token are.
+// ORCID can end a description with the value it refused, such as "Invalid
+// authorization code: <code>", so anything after a colon is withheld.
+export const describeOrcidFailure = (error: unknown) => {
+  const describe = (value: unknown) => {
+    if (!(value instanceof Error)) return []
+    const fields = value as Error & {
+      code?: unknown
+      error?: unknown
+      error_description?: unknown
+    }
+    const parts = [`${value.name}: ${value.message}`]
+    if (typeof fields.code === "string") parts.push(`code=${fields.code}`)
+    if (typeof fields.error === "string") parts.push(`error=${fields.error}`)
+    if (typeof fields.error_description === "string")
+      parts.push(
+        `description=${fields.error_description
+          .replace(/:[\s\S]*$/, ": <withheld>")
+          .slice(0, 200)}`
+      )
+    return parts
+  }
+
+  const parts = describe(error)
+  if (!parts.length) return "unknown error"
+  const cause = describe((error as Error).cause)
+  if (cause.length) parts.push(`cause: ${cause.join(" ")}`)
+  return parts.join(" ")
+}
+
+// ORCID compares the redirect URI in the token request with the registered
+// one. Behind the proxy the request URL names 127.0.0.1, where the service
+// listens, so the configured callback URL receives the callback parameters.
 export const completeOrcidAuthorization = async (
-  request: Request,
+  callbackSearch: string,
   expected: OrcidAuthorizationState
 ) => {
   const configuration = await getOrcidConfiguration()
-  const tokens = (await oidc.authorizationCodeGrant(configuration, request, {
+  const currentUrl = new URL(getOrcidCallbackUrl())
+  currentUrl.search = callbackSearch
+
+  const tokens = (await oidc.authorizationCodeGrant(configuration, currentUrl, {
     expectedState: expected.state,
     expectedNonce: expected.nonce,
     pkceCodeVerifier: expected.codeVerifier,

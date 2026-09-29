@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ArrowLeftIcon } from "lucide-react"
@@ -14,6 +13,7 @@ import {
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
 import { SITE_NAME } from "@/lib/site"
 import { EditProfileForm } from "../form"
+import { OrcidIcon, OrcidIdLink } from "@/components/orcid-id"
 import { getCurrentUser } from "@/lib/current-user"
 import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
 
@@ -60,30 +60,16 @@ export default async function EditProfilePage({
             <CardHeader>
               <CardTitle className="text-xl">ORCID iD</CardTitle>
               <CardDescription>
-                Connect a verified researcher identifier to this account.
-                Profile visibility controls whether it appears publicly.
+                ORCID is a free, persistent identifier for researchers. You can
+                sign in with a connected iD, and your public profile shows it
+                with a link to your ORCID record.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {user.orcidId ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="flex items-center gap-2 text-sm">
-                    <Image
-                      src="/orcid-id.svg"
-                      alt=""
-                      width={20}
-                      height={20}
-                      aria-hidden
-                    />
-                    Connected as{" "}
-                    <a
-                      href={`https://orcid.org/${user.orcidId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
-                      {user.orcidId}
-                    </a>
+                  <p className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm">
+                    Connected as <OrcidIdLink orcidId={user.orcidId} />
                   </p>
                   <form action="/api/auth/orcid/disconnect" method="post">
                     <Button type="submit" variant="outline" size="sm">
@@ -94,13 +80,7 @@ export default async function EditProfilePage({
               ) : (
                 <Button asChild variant="outline">
                   <a href="/api/auth/orcid?intent=connect">
-                    <Image
-                      src="/orcid-id.svg"
-                      alt=""
-                      width={18}
-                      height={18}
-                      aria-hidden
-                    />
+                    <OrcidIcon size={18} />
                     Connect your ORCID iD
                   </a>
                 </Button>

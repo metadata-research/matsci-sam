@@ -20,3 +20,19 @@ export const isValidOrcidId = (value: string) => {
   const expected = checkValue === 10 ? "X" : String(checkValue)
   return characters.at(-1) === expected
 }
+
+// Outcomes the ORCID routes report to the profile page through the orcid
+// query parameter.
+export const ORCID_PROFILE_NOTICES = {
+  connected: "Your ORCID iD is connected to this account.",
+  cancelled: "ORCID connection was cancelled. Nothing changed.",
+  disconnected: "Your ORCID iD is no longer connected to this account."
+} as const
+
+export const ORCID_SIGN_IN_CANCELLED_NOTICE =
+  "ORCID sign-in was cancelled. Choose how to continue."
+
+export const orcidProfileNotice = (value: unknown) =>
+  typeof value === "string" && Object.hasOwn(ORCID_PROFILE_NOTICES, value)
+    ? ORCID_PROFILE_NOTICES[value as keyof typeof ORCID_PROFILE_NOTICES]
+    : null
