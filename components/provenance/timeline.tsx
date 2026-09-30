@@ -48,6 +48,9 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
   <ol className="relative border-l ml-3 space-y-6">
     {events.map((event) => {
       const { icon: Icon, color } = KIND[event.kind]
+      const showActor =
+        event.actorKind !== "unknown" &&
+        !(event.actorKind === "software" && event.actor === event.model)
 
       return (
         <li key={event.id} className="ml-6">
@@ -56,8 +59,7 @@ export const ProvenanceTimeline = ({ events }: { events: ProvEvent[] }) => (
           </span>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium">{event.summary}</span>
-            {/* when a model badge is shown the actor would duplicate it */}
-            {event.actorKind !== "unknown" && !event.model && (
+            {showActor && (
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 {event.actorKind === "software" ? (
                   <BotIcon className="size-3.5" />
