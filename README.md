@@ -3,7 +3,8 @@
 MatSci-SAM is a community metadata dictionary for materials science. Contributors
 write and compare definitions, add examples and references, and discuss proposed
 revisions. The application records the history and attribution of these
-contributions and publishes vocabulary and provenance metadata.
+contributions and publishes vocabulary and provenance metadata. Studies organize
+community review of selected term lists.
 
 The application uses Next.js, React, PostgreSQL, Drizzle ORM, and tRPC. Optional
 services provide AI assistance, ontology lookup, and an RDF graph store.
@@ -41,9 +42,10 @@ and the [graph layer](docs/technical/graph-layer.md) describe the optional servi
 
 ## Verification
 
-Run the checks relevant to your change. The full pull request suite is in
-[`.github/workflows/pr-verify.yml`](.github/workflows/pr-verify.yml), and
-[`package.json`](package.json) lists the available commands.
+Run the checks relevant to your change. The automated pull request checks are in
+[`.github/workflows/pr-verify.yml`](.github/workflows/pr-verify.yml).
+[`package.json`](package.json) and the subsystem documentation include additional
+tests that CI does not run. Record those results in your pull request.
 
 Start with these checks for application changes.
 

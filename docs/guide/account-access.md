@@ -37,6 +37,10 @@ When ORCID access is enabled, sign in to your existing account, open
 the connection at ORCID. After connecting, you can use **Continue with ORCID**
 on the login page. Each iD can be connected to one MatSci-SAM account.
 
+Stay signed in to the same account until the connection finishes. If you sign
+out or change accounts during authorization, return to the intended profile
+and start the connection again.
+
 Sign-in with an unconnected iD opens email account creation when available.
 Create your account first, then connect ORCID from your profile. Use your
 existing account if you have contributed before. Accounts remain separate

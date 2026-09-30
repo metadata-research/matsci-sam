@@ -28,11 +28,19 @@ Follow the [local setup](README.md#local-development) and
 For a schema change, edit `drizzle/schema.ts`, run
 `pnpm db:generate`, and commit the generated SQL and migration metadata. Read the
 migration and explain its effect on existing rows in the pull request.
+Applied migrations are immutable. Add a new migration for a later correction.
+
+For changes to authentication or stored contributions, check permissions in the
+server write path and preserve revision identity, attribution, and provenance.
+Include regression coverage for the affected failure or retry behavior.
 
 In the pull request, describe the problem, the resulting behavior, and the checks
 you ran. Include screenshots for visible interface changes. The
 [verification workflow](.github/workflows/pr-verify.yml) runs automatically. Use
-an isolated database for checks that create fixtures.
+an isolated database for checks that create fixtures. Consult the subsystem guide
+and `package.json` for relevant tests outside CI. Include a new regression check
+in CI when it can run there, or document its setup and why it remains separate.
+State which relevant checks you could not run.
 
 A merge does not deploy the application. Releases are a separate maintainer
 operation.
@@ -41,8 +49,10 @@ operation.
 
 Write for someone using, contributing to, or maintaining the project. Explain
 what the software does and how to work with it. Use direct instructions for
-procedures. Document constraints that affect a task and keep design discussions
-in the internal record. Identify proposals and historical operations explicitly.
+procedures. Document constraints that affect a task. Keep design decisions
+needed to review a public contribution in its issue or pull request. Identify
+proposals and historical operations explicitly. Private operating and research
+records remain outside this repository.
 
 Keep user instructions in `docs/guide/`, the quick start in `docs/quickstart/`,
 metadata concepts in `docs/reference/`, and implementation details in

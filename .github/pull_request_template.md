@@ -4,7 +4,8 @@ Describe the problem and the resulting behavior.
 
 ## Verification
 
-List the commands and manual checks you ran.
+List the commands and manual checks you ran, including relevant tests outside
+CI. State which relevant checks you could not run.
 
 ## Checklist
 
@@ -13,3 +14,5 @@ List the commands and manual checks you ran.
       explain why screenshots do not apply.
 - [ ] Database changes include the generated migration and describe their
       effect on existing rows.
+- [ ] Documentation reflects changes to behavior, configuration, or operating
+      steps.

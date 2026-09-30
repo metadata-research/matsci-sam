@@ -398,6 +398,11 @@ with `matsci:study`. A proposed definition records the Position step, with a
 source derivation only when it came from a suggested revision. Community rosters
 and invitations remain outside the RDF.
 
+`matsci:worklist` identifies the linked collection. It does not identify a
+versioned snapshot of the terms assigned to the study. See the
+[study term-list limitation](studies.md#step-generation) before interpreting
+current collection membership as the terms reviewed by participants.
+
 [Metadata access](../guide/metadata-access.md#named-graphs) lists graph
 documents. The repository `shapes/` directory contains their SHACL constraints.
 

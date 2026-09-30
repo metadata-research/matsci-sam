@@ -45,12 +45,16 @@ Collection members should use qualified references such as
 | Collection `membership` | `additive` adds listed terms and retains others   | Retracts omitted live membership assertions    |
 | Community `metadata`    | `preserve` uses title and description at creation | Updates the community and vocabulary with the same slug |
 
-Exact membership requires a nonempty qualified list without duplicates. It
-refuses legacy labels and `createdBefore`. A membership change is refused when
-an active linked study has generated steps or any linked study has participant
-activity. A run with matching stored and requested values is permitted. Apply
-locks the linked studies and collection membership and rechecks the plan before
-writing.
+Exact membership requires a nonempty qualified list without duplicates and
+refuses legacy labels and `createdBefore`. In exact mode, the curation script
+refuses a membership change when a non-retired linked study has generated steps
+or any linked study has participant activity. A run with matching stored and
+requested values is permitted. Apply locks the linked studies and collection
+membership and rechecks the plan before writing.
+
+This guard applies to the script. Interactive collection editing has the
+[worklist limitation](studies.md#step-generation) described in the study
+documentation.
 
 Exact metadata requires an explicit description. An empty string clears the
 description on both community and vocabulary. Apply locks both rows in the

@@ -5,6 +5,18 @@ window. Its walkthrough records vocabulary contributions with study step context
 and an interface selected for the study.
 [The participant guide](../guide/studies.md) explains the controls.
 
+## Survey lifecycle
+
+The intended workflow begins with a term list and an invitation for community
+review. Maintainers then consolidate the resulting changes and record that
+consolidation as a maintenance action with provenance. Participant contributions,
+the reviewed revisions and the resulting maintenance decisions retain separate
+attribution.
+
+The application implements review and contribution recording. A dedicated
+closing consolidation workflow and its maintenance record remain planned.
+Completion of participant steps does not perform that consolidation.
+
 ## Modules
 
 | Module                                | Responsibility                                           |
@@ -73,6 +85,13 @@ default question pair.
 collections. It replaces steps only before completion records exist.
 `mayRegenerateSteps` expresses that rule. `surveys.addQuestionStep` appends a
 question without renumbering earlier steps.
+
+Stored steps retain their term IDs after collection membership changes.
+Interactive collection edits can change the linked collection without
+regenerating those steps. The collection shown from the overview can therefore
+differ from the terms assigned in the walkthrough. Compare both when preparing
+a survey. Versioning or amendment rules for the term list remain part of the
+planned lifecycle work.
 
 ## The position rule
 

@@ -99,6 +99,17 @@ in through another enabled method and connect ORCID from their profile. The
 ORCID callback does not create an account by matching an email address or an iD
 typed into a profile.
 
+A connection request records the initiating account. The callback requires that
+same account to remain signed in before it exchanges the authorization code.
+A lost sign-in or changed account requires a new connection request. Pending
+state is consumed on the callback, including a refused attempt. Ordinary ORCID
+sign-in resolves the account from the authenticated iD instead.
+
+Run `pnpm test:auth` and `pnpm test:orcid` when changing authentication. The
+ORCID command checks account changes, ordinary sign-in and connection without
+contacting the provider. `pnpm test:orcid-account-db` checks stored connections
+on an isolated migrated database. All three commands are included in CI.
+
 Server code retrieves the authenticated user with `getCurrentUser()` from
 `lib/current-user.ts`. Client code uses `trpc.me`. Sessions use `iron-session`.
 The tRPC procedure helpers are defined in `trpc/init.ts` and `trpc/procedures.ts`.
