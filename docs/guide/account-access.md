@@ -46,15 +46,15 @@ Create your account first, then connect ORCID from your profile. Use your
 existing account if you have contributed before. Accounts remain separate
 after an ORCID connection.
 
-You can disconnect the iD after verifying another sign-in method. Your
-contributions retain their account attribution. ORCID display follows your
-profile visibility choice.
+Verify that you can sign in with Google or email before removing the connection.
+Select **Disconnect** in **Edit profile**. Your contributions retain their
+account attribution. ORCID display follows your profile visibility choice.
 
 ## Profile visibility
 
-Profiles are private by default. Use [Edit profile](/profile/edit) to publish
-your profile, including your name, affiliation, linked ORCID iD, and
-contributed terms. Email addresses and sign-in details remain private.
+Profiles are private by default. Open [Edit profile](/profile/edit) and enable
+**Public profile** to publish your name, affiliation, linked ORCID iD, and
+contributed terms together. Email addresses and sign-in details remain private.
 
 The setting controls access to your profile and links from your name. Your
 name remains on contributions and provenance for attribution even with a

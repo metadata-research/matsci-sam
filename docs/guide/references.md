@@ -2,7 +2,7 @@
 
 Use reference tools to compare meanings, insert text, or cite a source while
 writing a definition. The available sources and assistants depend on the site
-configuration. A missing result leaves you free to write and publish.
+configuration. You can publish a definition without reference results.
 
 ## Reference definitions
 
@@ -12,9 +12,9 @@ configuration. A missing result leaves you free to write and publish.
 3. Open **Other matches** to compare candidates. Select **Show definition**
    for a candidate you want to inspect.
 
-The definitions come from the reference ontologies and vocabularies that
-MatSci-ONT clears for reuse, such as ChEBI and EMMO. Each shows the source,
-release, and licence that the store states for it, and a citation keeps them.
+The definitions come from reference ontologies and vocabularies enabled in
+MatSci-ONT, such as ChEBI and EMMO. Each result shows the source, release, and
+licence recorded in the catalog. These details remain in an attached citation.
 
 Reference definitions and **Matches across ontologies** appear beside the form
 on a wide screen. Simple starts no lookup. The matches load when Advanced
@@ -43,7 +43,9 @@ Open a candidate definition there before using its actions.
 | Cite without inserting | Attaches a citation without changing the definition |
 | Add to assistant context | Includes the source in a later model request |
 
-Use Undo after an insertion to restore the previous writing and citation choices.
+To undo added source text, select **Undo source insertion** when adding a term
+or **Undo insertion** when suggesting an alternative. Your previous writing
+and citation choices are restored.
 Use **Cite without inserting** when you paraphrase a source or paste copied
 text. Source text and your final definition remain separately recorded.
 

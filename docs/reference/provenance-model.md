@@ -31,7 +31,8 @@ remain empty.
 ## Reference and assistant evidence
 
 A citation records a contributor's declared source for a definition revision.
-An assistant input records material supplied with an accepted request.
+An assistant input records the material supplied when a model draft was
+requested.
 A source link returned in an assistant answer belongs to that answer.
 Contributors select citations and assistant inputs separately.
 
@@ -49,8 +50,9 @@ See [References](/docs/references) and
 
 Authors, editors, commenters and assertion authors remain attributed even when
 their profiles are private. Models have distinct attribution.
-The provenance view for a term labels votes "A community member" and omits voter identity.
-The dataset graph identifies a voter only for a public profile or AI account.
+The provenance view for a term labels votes "A community member" and omits
+voter identity. The dataset graph identifies a voter only for a public profile
+or AI account.
 
 Private lookup history, raw provider envelopes, credentials and private
 configuration records are excluded from public provenance. Published prompts
@@ -66,6 +68,11 @@ administrators accept or decline metadata proposals.
 Vote changes and withdrawals record events. Backfilled votes identify their
 historical limitations. Study activities identify their study and step,
 while membership rosters and invitations remain private.
+
+A study links to a collection whose membership can change. Its stored steps
+identify the assigned terms. The collection link alone cannot establish which
+terms a participant reviewed. A recorded Position target identifies the exact
+definition revision accepted or proposed.
 
 ## The two views
 

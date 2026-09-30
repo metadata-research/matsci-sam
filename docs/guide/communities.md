@@ -1,7 +1,8 @@
 # Communities and scope
 
 A community is a group such as a lab or review panel, with a vocabulary,
-roster, collection worklist, and studies.
+members, and studies. Its worklist contains collections of terms selected for
+review.
 
 ## Working in a community
 
@@ -18,8 +19,8 @@ for your account across sessions.
 
 **Everything** includes all hosted vocabularies on Home and Browse and uses
 the default MatSci-SAM vocabulary for new terms. **Show everything** on Browse
-or Collections expands that view for one request without changing your saved
-selection.
+or Collections removes the community restriction on that page without changing
+your saved selection.
 
 A collection can reference terms from other vocabularies. Those terms retain
 their original vocabulary and identifiers. Search finds them under that
@@ -32,8 +33,9 @@ to existing terms remain in their original vocabulary. Your selection returns to
 
 ## Studies
 
-A study is an activity over selected terms, with instructions and an optional
-time window. Begin from its public page or **Your studies** on your profile.
+Community members review selected terms in a study, following instructions
+within an optional participation window. Begin from its public page or
+**Your studies** on your profile.
 An invitation can add membership before opening the activity.
 [Studies](/docs/studies) explains Position choices and saved progress.
 

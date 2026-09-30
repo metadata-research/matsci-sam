@@ -1,8 +1,7 @@
 # Metadata on a term
 
 Open **Metadata** from a term page to read or suggest descriptions of how the
-term is used. Definitions, topics, and facets keep their existing attribution
-and scope. Additional metadata can have its own source.
+term is used. You can attach a source to each description.
 
 A dictionary term identifies a concept. A metadata field specifies information
 to record about a dataset, material, or activity. A term can supply a value for
@@ -38,18 +37,16 @@ appears with the saved contribution.
 
 The [field catalog](/metadata/fields) includes the preliminary 2025 MatCore
 snapshot and separately labeled experimental proposals. Read the field
-specification before selecting it. Its listed source identifies the field
-specification. Supply separate evidence for your claim about the term when
-appropriate. [Metadata examples](/metadata/examples) illustrate both types of
-field association.
+specification and its source before selecting it. Supply separate evidence
+for your claim about the term when appropriate. [Metadata
+examples](/metadata/examples) illustrate both types of field association.
 
 ## Advanced view
 
 Select **Advanced** under **View** for **Alternative label** and **Related
 external concept**. An alternative label can be an abbreviation or another
-name. A related external concept uses a link to a concept in another source.
-The link identifies a related concept. Equivalence and ontology membership
-are separate relationships.
+name. Identify a related concept by its complete URL. This link does not
+declare the concepts equivalent or place the term in an ontology.
 
 Advanced includes **Source (optional)** for a **Source name or citation**,
 **Source link** and version that support your contribution, along with text

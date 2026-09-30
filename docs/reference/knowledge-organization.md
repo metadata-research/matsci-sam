@@ -48,9 +48,10 @@ An equivalence link asserts that the concepts have the same meaning.
 A collection is a named, unordered set of terms. It can include terms from
 several vocabularies. Membership leaves each term in its original vocabulary.
 
-Site administrators manage administrator collections. Contributor collections
-accept membership changes from contributors who are signed in when that
-creation mode is enabled. Retired collections retain their membership history.
+Site administrators manage administrator collections. Anyone signed in can
+change membership in an active contributor collection. Site settings control
+whether contributors can create new collections. Retired collections retain
+their membership history and require restoration before editing.
 
 ## Statement ledger
 

@@ -29,8 +29,9 @@ invitation after expiry. **Delete record** removes an unused revoked or expired
 invitation. Accepted invitations remain recorded.
 
 **Open join link** creates a reusable group invitation. Replace or disable it
-to invalidate earlier copies. Stewards can remove members. Only site
-administrators can appoint or remove stewards.
+to invalidate earlier copies. Stewards can remove ordinary members. Only site
+administrators can appoint or remove another steward. A steward can leave the
+community through their own membership controls.
 
 ### Worklists and collections
 
@@ -42,9 +43,9 @@ their original identifiers. A new study adds its collection to the worklist.
 ### Studies
 
 Select **Start a study**, choose or create a collection, and enter instructions
-and an optional participation window. **Generate study steps** prepares the
-activity. Steps can be regenerated until participation begins. The study
-protocol determines whether it includes a Review round.
+and an optional participation window. **Generate study steps** creates the
+walkthrough for participants. Steps can be regenerated until participation
+begins. The study protocol determines whether it includes a Review round.
 
 Use **Invite a participant** for a personal study invitation. Enter an email
 address, then select **Create link for this person** or **Create and send
@@ -61,9 +62,9 @@ Use **People** to change site roles, **Feedback** to manage site reports, and
 and revision records. Role changes take effect immediately.
 
 **Studies** contains setup, invitations, activity, and retirement controls.
-**Participant interface** chooses the Simple view, the default for a new
-study, or the full detail of the first studies. Instruction, schedule and
-interface edits become restricted after participation starts.
+Use **Participant interface** to choose the Simple view or full detail. New
+studies use Simple by default. Instructions, schedule, and interface settings
+are locked after study activity is recorded.
 Retirement preserves the study address and contributions. Restore a retired
 community and collection before restoring their study.
 
@@ -86,8 +87,9 @@ preserving its history. See [Term metadata](/docs/term-metadata#review-and-withd
 
 Open **AI & services**, then **Service health**. **In use** identifies the
 endpoint handling requests. **Alternate** is monitored separately. Select
-**Refresh inference health** to check their status. **Inference testing** sends
-a test prompt without creating a vocabulary or study contribution.
+**Refresh inference health** to check model availability without generating a
+response or switching providers. **Inference testing** sends a test prompt
+without creating a vocabulary or study contribution.
 
 A passed test confirms the response format. Check factual accuracy separately.
 Server configuration requires an operator. The repository

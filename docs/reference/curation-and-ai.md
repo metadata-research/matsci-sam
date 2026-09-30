@@ -14,8 +14,9 @@ selected community vocabulary or the default vocabulary under **Everything**.
 
 Site administrators assign facets and manage tag definitions and merges.
 Collection changes follow the policy of the collection. Administrator
-collections accept administrator changes. Contributor collections accept
-changes from contributors who are signed in when that creation mode is enabled.
+collections accept administrator changes. Active contributor collections accept
+changes from anyone signed in. Site settings control whether contributors can
+create new collections.
 
 [Term metadata](/docs/term-metadata) has a separate review process.
 Contributors propose additions. Only site administrators can **Accept** or
@@ -38,7 +39,7 @@ review.
 
 ## Contribution actions and model drafts
 
-**Create a new version** changes the wording of an existing definition and
+**Create a new version** changes the wording of your own definition and
 preserves its revision history. **Suggest an alternative** uses a selected
 revision and contributor guidance to draft a separate definition.
 **Propose a replacement** identifies a definition that the proposed candidate
@@ -49,7 +50,7 @@ are separate contributions associated with a definition revision.
 [Adding terms](/docs/adding-terms), [discussion](/docs/discussion) and
 [files and examples](/docs/files-and-examples) explain these actions.
 
-An assistant request saves the submitted inputs and original answer. The
+An assistant request saves the submitted inputs and generated answer. The
 contributor reviews and edits the text before publication. An accepted
 suggestion attributes the published definition to the contributor and the
 recorded model or service. Discarded drafts remain outside the vocabulary.

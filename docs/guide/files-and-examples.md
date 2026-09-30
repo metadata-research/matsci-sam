@@ -1,8 +1,9 @@
 # Files and examples
 
-Attach a file as an example of a term or a source for its definition. PDF, PNG,
-and JPEG files are accepted, up to 5 MB each and three files per contribution.
-Files remain private until selected for publication during review.
+You can attach files while adding a new term. A file can illustrate the term
+or provide a source for its definition. PDF, PNG, and JPEG files are accepted,
+up to 5 MB each and three files per contribution. Uploads stay private until
+you publish them with the definition.
 
 ## Attach a file
 
@@ -22,7 +23,7 @@ The definition assistant receives text inputs only.
 
 ## Choose files for publication
 
-In Add, select **Review definition** when your writing is ready. Under **Files
+Select **Review definition** when your writing is ready. Under **Files
 to publish**, select the **Publish example** or **Publish and cite** checkbox
 for each file you want readers to download.
 An unchecked file stays private and is omitted from that contribution.

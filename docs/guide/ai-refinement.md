@@ -25,7 +25,8 @@ applied draft retains model attribution when you change its wording.
 
 A failed request leaves your writing intact. In Advanced, **Context for this
 request** shows the submitted inputs, including the text before any edits made
-while waiting. Accept or dismiss an unused preview before switching tools.
+while waiting. Select **Use this draft** or **Keep my writing** before switching
+tools.
 Reference results and selections remain available afterward.
 
 **Undo model draft** restores the writing, citation choices, and attribution
@@ -55,8 +56,8 @@ text. **Remove** and **Clear optional context** omit inputs without erasing your
 writing or citations. The term remains required.
 
 Select **Add to assistant context** on an opened reference definition or
-Wolfram source to include it in the next request. Source inputs require this
-selection. Any attached citation remains if you remove the input. See
+Wolfram source to include it in the next request. Any attached citation remains
+if you remove the input. See
 [References](/docs/references#citations-and-assistant-inputs).
 
 A model draft clears the citation choices attached to your previous writing
@@ -78,8 +79,9 @@ alternative**. In Discussion, select **Start an alternative** under the
 selected.
 
 1. Explain the error, ambiguity, or missing distinction in **What should
-   change?** Check the required source definition and your feedback in
-   **Assistant context**, along with any optional sources.
+   change?** The request includes the source definition and your feedback.
+   In Advanced, inspect these inputs and any optional sources in **Assistant
+   context**.
 2. Select **Draft alternative with a language model**. Inspect the preview and
    its attribution. **Keep my feedback** dismisses it while retaining your
    critique.

@@ -37,9 +37,9 @@ ICoN-PCL.
 
 ## Vocabulary and Dublin Core
 
-MatSci-SAM recommends its vocabulary as one source of concepts for the MatCore
-Material field. This recommendation is MatSci-SAM guidance. The preliminary
-MatCore source leaves the choice of vocabulary for field values open.
+The MatSci-SAM vocabulary can supply concepts for the MatCore Material field.
+The preliminary MatCore source leaves the choice of vocabulary for field
+values open.
 
 Some general MatCore fields correspond to Dublin Core properties, including
 creator, title and description. The exported metadata records those mappings.

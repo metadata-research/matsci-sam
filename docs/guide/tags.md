@@ -54,17 +54,18 @@ Select **New collection** when your account has permission. On its page, use
 **Edit details**, **Add a term**, or the remove control beside a member.
 Collections can reference terms from any hosted vocabulary.
 
-Collections created by administrators accept membership changes from
-administrators. Collections created by contributors accept changes from any
-contributor who is signed in when that creation mode is enabled.
+Only administrators can change the membership of a collection created by an
+administrator. Collections created by other contributors accept changes from
+anyone who is signed in. Permission to create new collections is separate
+from permission to edit an existing collection.
 
 Administrators can retire and restore collections. Retirement removes the
 collection from the index and withdraws current memberships. Its address and
 history remain available. A restored collection starts empty.
 
-**Collections** follows the selected community worklist. **Show everything**
-expands the view for one request. The Tags page lists collections across the
-site.
+**Collections** lists the worklist of the selected community. **Show everything**
+shows all collections without changing your saved selection. The Tags page
+lists collections across the site.
 
 ## Tag pages and identifiers
 
@@ -76,7 +77,6 @@ replacements show their status. See [Identifiers and citation](/docs/identifiers
 
 Topics and facets describe classification. Use [term metadata](/docs/term-metadata)
 for usage guidance, links to metadata fields, or related external concepts.
-These contributions retain their respective scopes and attribution.
 [Metadata access](/docs/metadata-access) lists downloads, and the
 [knowledge organization model](/docs/reference/knowledge-organization) explains
 the relationships.

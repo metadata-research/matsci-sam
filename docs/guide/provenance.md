@@ -4,7 +4,7 @@ Open a term, select **Advanced** under **View**, then **Provenance** to inspect
 its contribution graph and timeline. Select a graph node for details. Use a
 revision link to open the exact definition wording recorded at that point.
 
-A new version retains earlier revisions of the same definition. An alternative
+A new revision preserves earlier wording of the same definition. An alternative
 is a separate definition linked to its source revision. A replacement
 identifies the candidate it should supersede. The record includes editors,
 publication times, and change notes when available.
@@ -18,8 +18,9 @@ labels votes "A community member". See the
 visibility in data exports.
 
 A definition based on an applied model draft credits both the contributor and
-model. Model profiles identify recorded model configurations and directly
-authored definitions. Editing an applied draft preserves model attribution.
+model, including when the contributor edits the draft before publication.
+Model profiles list recorded configurations and definitions attributed directly
+to the model.
 
 ## References and AI assistance
 
@@ -47,14 +48,15 @@ the saved source text and available source information.
 
 ## Votes, comments, and examples
 
-Votes and comments identify the displayed revision. A new version starts a
+Votes and comments identify the displayed revision. A new revision starts a
 new vote tally. Vote changes and withdrawals remain in the history. Study
 contributions also identify their study context.
 
 An example identifies its contributor and the revision shown when added.
-The history of featured examples records who selected each one and when. A different
-featured example leaves definition text and votes unchanged. Current example
-lists may include contributions added after an earlier definition revision.
+The history of featured examples records who selected each one and when. A
+different featured example leaves definition text and votes unchanged. Current
+example lists may include contributions added after an earlier definition
+revision.
 
 A published example file has its own attribution. A published source file
 supports the exact revision to which it was attached. See

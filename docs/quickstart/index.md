@@ -8,9 +8,9 @@ adds reference tools and further detail.
 ## Find a term
 
 Search for the term before adding it. Open a result to read its **Default
-definition** and expand **Other definitions** to compare alternatives. Each
-definition shows its contributors and examples. The **Metadata** link opens
-information about how the term is used.
+definition**. Under **Other definitions**, select **Show definition** to compare
+an alternative. Each definition shows its contributors and examples. The
+**Metadata** link opens information about how the term is used.
 
 <a id="compare-the-definitions"></a>
 
@@ -45,7 +45,7 @@ distinguish it. **Add an example** lets you illustrate that meaning.
 ![The Simple contribution form with a definition, an optional example, Attach an example file and Help me write](/images/docs/help-add-simple-v2.png)
 
 Use **Help me write** for an optional assistant draft. **Attach an example
-file** adds an image or PDF that illustrates the term. Both are optional.
+file** adds an image or PDF that illustrates the term.
 The [adding guide](/docs/adding-terms) explains the form.
 
 ## Review and publish
@@ -68,16 +68,12 @@ field.
 
 ## Advanced view
 
-Choose **Advanced** under **View** on a term page, in **Contribute** or in
-**Metadata**. The site saves your choice. In Contribute, Advanced adds
-reference definitions from ontologies such as ChEBI and EMMO, each with its
-source, release and licence, **Matches across ontologies** with the parents
-and mapped concepts of a selected concept, citations, source files, **Wolfram
-lookup** and a choice of assistant. In Metadata, it adds a choice of
-definition version, supporting sources, alternative labels and related
-external concepts, and **Cite this match** fills the source from the ontology
-context. Term and definition pages show definition numbers, revision history,
-identifiers and downloads.
+Choose **Advanced** under **View** for additional tools. The site saves your
+choice. In **Contribute**, Advanced adds reference definitions and ontology
+matches, citations, source files, **Wolfram lookup** and assistant controls.
+In **Metadata**, you can select a definition version, supply supporting
+sources, and propose alternative labels or related concepts. Term and
+definition pages show revision history, identifiers and downloads.
 
 ![A term in Advanced view with its identifier, revision details and the ontology context beside the definition](/images/docs/help-term-advanced.png)
 

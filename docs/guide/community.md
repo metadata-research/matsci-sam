@@ -10,7 +10,8 @@ step.
 
 Term pages open in **Simple** view on a first visit, and the site then
 saves your choice. Read the **Default definition**, its authors, and its
-featured example. Expand **Other definitions** to compare candidates.
+featured example. Under **Other definitions**, select **Show definition** to
+compare a candidate.
 **Metadata** opens descriptions of the term and its use.
 
 Links under the definition open **Discussion**, the **Definition page** and
@@ -23,9 +24,9 @@ to a section of a page briefly highlights the section it opens.
 Choose **Advanced** under **View** to open ontology context beside the reader,
 plus the term identifier, revision numbers and status, model details,
 **Revision history**, **Changes & activity**, **Provenance**, and downloads.
-Definition pages have the same two views. The ontology context identifies a
-vocabulary source as one and lists **Mapped concepts** for the selected
-concept, as the [references guide](/docs/references#reference-definitions)
+Definition pages have the same two views. Source labels distinguish
+ontologies from vocabularies. **Mapped concepts** lists relationships stated
+by the source, as the [references guide](/docs/references#reference-definitions)
 describes. Site administrators also get facet editing controls. Ontology
 context moves below the main column on small screens.
 
@@ -78,9 +79,9 @@ wording into a new revision and preserves the intervening history.
 Review and publish it with its source link and attribution. The original
 remains available. See [AI assistance](/docs/ai-refinement).
 
-**Propose a replacement** opens a candidate you write to supersede another
-candidate. It also retains the original for comparison. Review the latest
-wording and submit again if the source changes before publication.
+Use **Propose a replacement** to write a separate candidate intended to
+supersede the displayed definition. Both remain available for comparison and
+voting.
 
 Topics remain attached to the definition across revisions. Votes and comments
 identify the revision shown at contribution time.

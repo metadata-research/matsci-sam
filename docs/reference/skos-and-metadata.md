@@ -2,8 +2,7 @@
 
 Published metadata describes the vocabulary in a form that other software can
 use. It identifies terms, their definitions, classification and sources.
-The same records can be downloaded independently of the pages used to read
-and contribute them.
+You can download these records for use in other applications.
 
 MatSci-SAM uses SKOS, the Simple Knowledge Organization System, for vocabulary
 concepts and their relationships. Dublin Core describes attribution and

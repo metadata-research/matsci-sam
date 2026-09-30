@@ -14,20 +14,21 @@ studies and metadata fields also have identifiers.
 
 ## Grammar
 
-A term address contains its vocabulary and term name. A definition address adds
-its permanent definition number, and a revision address adds its version
-number. A community vocabulary adds its name before the term. A collection
-can refer to a term from another vocabulary without changing that address.
+A term address uses a stable name under `/vocabulary`. A community vocabulary
+adds its name before the term, while the default vocabulary uses the term name
+directly. A definition address adds its permanent definition number, and a
+revision address adds its version number. A collection can refer to a term from
+another vocabulary without changing that address.
 
 The [identifier implementation contract](https://github.com/metadata-research/matsci-sam/blob/dev/docs/technical/w3id-canonical-term-proposal.md)
 contains the full path grammar and redirect rules.
 
 ## Slugs
 
-Readable names in addresses are assigned when resources are created. They
-remain identifier data after display labels change. Normalized names are
-unique within their vocabulary or scheme. A suffix distinguishes collisions.
-Resource identifiers remain fixed after a change to the displayed text.
+Readable names in addresses are assigned when resources are created and stay
+fixed after display labels change. Normalized term names are unique within
+their vocabulary, and tag names within their scheme. A suffix distinguishes
+collisions between normalized labels.
 
 ## Numbers
 

@@ -13,9 +13,9 @@ community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
 2. Write a definition that describes the meaning in your context. Include the
    broader class and distinguishing characteristics when useful. **Add an example**
    opens an optional example of use.
-3. Select **Review definition**. Check the wording, example and attribution.
-   Review also lists any citations and **Files to publish** you added. **Back
-   to writing** returns to the editor for changes.
+3. Select **Review definition**. Check the wording, example, attribution and
+   any citations. Select files under **Files to publish**. **Back to writing**
+   returns to the editor for changes.
 4. Select **Publish new term**. The term and its first definition become public.
    An example you supply has its own attribution.
 
@@ -35,8 +35,8 @@ contribution or return to your earlier writing before changing the term.
 Choose **Simple** or **Advanced** under **View**. The site saves your choice
 on other pages. Simple shows the writing form with **Attach an example file**
 and **Help me write**. Advanced adds reference definitions, matches across
-available ontologies, and the selected hierarchy beside the form. These panels
-move below the form on small screens.
+available ontologies, and the hierarchy of the selected concept beside the
+form. These panels move below the form on small screens.
 
 The Advanced toolbar opens **Wolfram lookup**, **AI assistance**, **Add citation**,
 and **Attach file** beneath the form. Citations and source files are added in
@@ -88,6 +88,6 @@ Study contributions also record progress through the
 ## Attach a file
 
 Select **Attach an example file** in Simple to upload an example, or **Attach
-file** in Advanced to upload an example or a source. Files stay private until
-you select them for publication during review. See
+file** in Advanced to upload an example or a source. Select files during review
+to publish them with the definition. Unselected files stay private. See
 [Files and examples](/docs/files-and-examples) for the steps and file limits.

@@ -1,13 +1,14 @@
 # Studies
 
-Open the study link and follow the instructions for its terms and questions.
+Use a study to review a selected list of terms with your community. Open the
+study link and follow the instructions for the terms and closing questions.
 
 ## Help in the study
 
-Select **Study help** for the current step or **This study's instructions**
-to reread the task. **Back to study** returns to your unfinished form. Help
-preserves the draft and leaves the step unfinished. Links open in another tab.
-Use **Feedback** for site problems.
+Select **Study help** for the current step. Choose **Instructions for this
+study** under **Help topic** to reread the task. **Back to study** returns to
+your unfinished form. Help preserves the draft and leaves the step unfinished.
+Links open in another tab. Use **Feedback** for site problems.
 
 ## The study page
 
@@ -16,9 +17,9 @@ Existing members can also find the activity under **Your studies** on their
 profile. **Continue study** resumes at the first unfinished step.
 
 ID4 round two permits **Join and begin study** while open. Contact the person
-who shared the link if membership or an invitation is required. **About this
-study** returns to the overview and closing date. **The terms** opens the
-collection.
+who shared the link if membership or an invitation is required. Select the
+study title above the step to return to the overview and closing date. Open
+the collection link under **The terms** to browse the collection.
 
 ## Terms used in the study
 
@@ -32,13 +33,13 @@ collection.
 | Support score | Upvotes minus downvotes on the current revision, including outside votes |
 
 A Position records your choice. Support score and canonical order can change
-as others contribute. Scores count votes, including votes from outside the study.
+as others contribute.
 **Suggest an alternative** creates a separate definition. **Create a new
 version** on vocabulary pages updates your own definition and keeps its history.
 
 ## The study activity
 
-ID4 round two has instructions, one Position step for each of eight terms,
+ID4 round two has instructions, one Position step for each term,
 and closing questions. Other studies may include a Review round.
 Numbered buttons show your place in the study. A check indicates a completed step.
 A dash indicates a skipped step. Select an available number to revisit that step.
@@ -46,9 +47,8 @@ Later unfinished steps remain locked. Completed and skipped steps open for
 reading.
 
 Each study uses a fixed interface. Simple includes the definition, an optional
-example and the assistant request. Source tools and view selection are
-available on ordinary vocabulary pages. The first studies keep the full forms
-they used.
+example and the assistant request. Other studies use the full Advanced forms.
+You can choose between Simple and Advanced on ordinary vocabulary pages.
 
 ## The Position step
 
@@ -82,7 +82,7 @@ comments before completing the Position.
 
 Select **Propose a new definition** to write an independent candidate, with an
 optional example. **Publish new definition** records your Position and
-completes the step without a vote or replacement target.
+completes the step without a vote. Existing definitions remain available.
 
 ### Comment on a definition
 
