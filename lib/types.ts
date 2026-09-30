@@ -7,6 +7,7 @@ export interface YAMZSession {
     nonce: string
     codeVerifier: string
     intent: "connect" | "login"
+    initiatingUserId?: number
     startedAt: number
     returnTo?: string
   }
