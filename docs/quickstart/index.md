@@ -59,9 +59,10 @@ contribution is ready. It will be available on the term page.
 ## Read or add metadata
 
 Open **Metadata** on a term page. In Simple view your addition describes the
-whole term unless you chose a definition in Advanced. You can propose a usage note or identify a metadata field for which
-the term supplies a value. For example, density functional theory can be a
-value for a calculation-type field.
+whole term unless you chose a definition in Advanced. You can propose a usage
+note or identify a metadata field for which the term supplies a value. For
+example, density functional theory can be a value for the MatCore **Method**
+field.
 
 [Term metadata](/docs/term-metadata) explains the choices and review.
 

@@ -117,6 +117,12 @@ a model draft for each term. It executes sequentially. Each completed unit is
 recorded in a state file named for the study slug. The file retains persona
 IDs, Position decisions and stamps, completed units, and finish time.
 
+The checkpoint also stores the inference configuration fingerprint.
+`--resume` requires the same provider, model, endpoints and generation options;
+credential rotation is excluded from that fingerprint. A missing or changed
+fingerprint requires a new rehearsal suffix. The contributor assistant picker
+does not select a pilot provider.
+
 `--resume` skips completed units and reuses recorded decisions. Each act
 checks for an existing record before writing, which prevents duplicate
 contributions or accidental vote withdrawal. `--steps` accepts a subset of
@@ -153,7 +159,7 @@ checkpoint because the decision itself has no application row.
 | `PILOT_BASE_URL`                       | HTTP target for verification, default local development server |
 | `PILOT_SEED`                           | Deterministic draw seed, default `20260913`                    |
 | `PILOT_STATE_DIR`                      | Checkpoint directory, default `.cache/pilot`                   |
-| `OLLAMA_HOST`                          | Inference endpoint                                             |
+| `INFERENCE_*`, `OLLAMA_HOST`           | Deployment inference provider, model and connection settings; see [Inference providers](inference-providers.md) |
 | `DATABASE_URL`                         | Database used by the scripts                                   |
 | `SYSTEM_PROMPT_KEY` or `SYSTEM_PROMPT` | Prompt-registry configuration                                  |
 

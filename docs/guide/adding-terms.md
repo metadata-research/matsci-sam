@@ -7,8 +7,9 @@ community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
 ## Confirm, write, review
 
 1. Enter the term and select **Confirm term**, labelled **Confirm term and find
-   references** in Advanced. The form checks for existing terms and retrieves
-   possible reference definitions, which Advanced displays.
+   references** in Advanced. The form checks for existing terms. Reference
+   lookup starts when you use Advanced; Simple lets you continue writing
+   without a lookup.
 2. Write a definition that describes the meaning in your context. Include the
    broader class and distinguishing characteristics when useful. **Add an example**
    opens an optional example of use.
@@ -24,10 +25,10 @@ The form links to the existing term when the label is already defined in the
 destination vocabulary. Open that entry to compare or contribute definitions.
 The same label in another vocabulary can identify a separate concept.
 
-**Edit term** returns to confirmation. Confirming a changed term clears the
-reference choices for the previous term. An applied model draft requires a
-choice to keep the contribution or return to your earlier writing before
-changing the term.
+**Edit term** returns to confirmation. Confirming a changed term or destination
+vocabulary preserves your writing but clears the previous reference and file
+choices. An applied model draft requires a choice to keep the contribution or
+return to your earlier writing before changing the term.
 
 ## Simple and Advanced views
 

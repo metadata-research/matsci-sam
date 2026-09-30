@@ -1,7 +1,7 @@
 # Technical documentation
 
-These notes describe implementation contracts for developers. Begin with the
-[development setup](../../developing.md). The [documentation index](../README.md)
+These notes describe the code, data model, and maintenance procedures for
+MatSci-SAM. Begin with the [development setup](../../developing.md). The [documentation index](../README.md)
 links to contributor instructions and the metadata reference.
 
 ## Data and publication
@@ -36,5 +36,6 @@ links to contributor instructions and the metadata reference.
 - [Pilot tooling](pilot-tooling.md): curation manifests, simulated participants,
   checkpoints, and verification.
 
-Read the relevant contracts before changing a write path. Schema checks,
-application rules, and release invariants often enforce the same relationship.
+Before changing a write path, check its schema constraints, application rules,
+release invariants, and tests. The notes describe repository behavior; consult
+the operations repository for the configuration and release running on a host.

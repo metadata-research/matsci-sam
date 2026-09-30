@@ -1,8 +1,8 @@
 # The LLM layer
 
 `lib/llm/` contains generation, prompts, stamps, and model identities.
-`lib/admin/integration-readiness.ts` creates a separate health-check client
-so readiness checks can run without a working prompt registry.
+`lib/admin/integration-readiness.ts` calls `lib/llm/health.ts` for provider
+readiness without importing the prompt registry.
 
 ## Modules
 
@@ -10,24 +10,37 @@ so readiness checks can run without a working prompt registry.
 | ----------------------- | ---------------------------------------------------------------- |
 | `model.ts`              | Import-free historical/default Ollama model tag                            |
 | `prompts.ts`            | Named prompts resolved from `lib/prompts.json` at import         |
-| `stamp.ts`              | `{ promptKey, promptHash, promptText, model }` generation stamps |
-| `client.ts`             | Shared structured generation entry point        |
+| `stamp.ts`              | Prompt key, hash, text, model and optional inference metadata |
+| `client.ts`, `generate.ts` | Request entry point, provider transport and output validation |
+| `config.ts`, `oauth.ts`, `health.ts` | Deployment configuration, token cache and readiness |
+| `assistant-profiles.ts`, `agent-one.ts` | Approved assistant profiles and Agent One plain-text transport |
 | `revision-context.ts`   | Pure reconstruction of legacy chat context                       |
 | `definitions.ts`        | Retained administrator term-generation path                      |
 | `model-identity.ts`     | Pure derivation of model slug and display metadata               |
 
 `NewTermSystemPrompt` and `RevisionSuggestionSystemPrompt` define public
 contribution drafting. `LLMSystemPrompt` supports retained administrator
-term generation. Historical refinement rows retain their recorded stamps.
+term generation. `NEW_TERM_PROMPT_KEY` and `REVISION_SUGGESTION_PROMPT_KEY`
+select the public prompts, defaulting to `new-term-suggestion` and
+`revision-suggestion`. `SYSTEM_PROMPT` overrides `SYSTEM_PROMPT_KEY` for the
+administrator path. One of those legacy settings is still required when
+`prompts.ts` loads. Historical refinement rows retain their recorded stamps.
 The retired refinement workflow has no executable router or model call.
 
-`runLLM(messages, systemPrompt, schema)` snapshots the selected provider, sends
-a Zod-derived JSON schema, and returns `{ output, inference }` after validation.
-See [inference providers](inference-providers.md) for configuration, token
-renewal, diagnostics, and switching. Public drafts use `DefinitionTextOutput`.
-The default `DefinitionOutput` includes an example for older callers and pilot
-tooling. Invalid output returns `undefined`. Transport failures propagate to
-the caller, which controls retries.
+`runLLM(messages, systemPrompt, schema, config)` uses the supplied configuration
+or snapshots the deployment configuration when omitted. It returns
+`{ output, inference }` after validation. Ollama and the OAuth-compatible
+provider receive a Zod-derived JSON schema. Agent One receives plain-text
+instructions; its answer is wrapped in the internal `definition` field before
+local validation.
+
+Public definition requests resolve their assistant through
+`lib/definition-assistants.ts` and pass that configuration to `runLLM`.
+They use `DefinitionTextOutput`. The default `DefinitionOutput` also includes
+an example for retained administrator callers. Pilot calls supply their own
+schemas. Invalid output returns `undefined`; transport failures propagate to
+the caller. See [inference providers](inference-providers.md) for assistant
+selection, authentication, diagnostics, and switching.
 
 `trpc/routers/ai-assist.ts` exposes `suggestNewTerm`, `suggestRevision`, and
 discard. Suggestions persist before the preview is returned.

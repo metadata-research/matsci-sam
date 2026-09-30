@@ -2,10 +2,11 @@
 
 SAM stores contributor lookup receipts. ONT stores pinned open ontology snapshots.
 The reference adapter reads ONT `/grounding` without a source filter, so every
-cleared source with definitions answers, with at most eight entries ranked by
-tier, source key and label. Each entry keeps the source title, release and
-licence the store states, and the licence must be present. The provider id
-stays `chebi` in the database and router for this prototype, and the formula
+cleared source with definitions can contribute to the response, capped at
+eight entries. ONT controls ranking; SAM preserves the returned order. Each
+entry keeps the source title, release and licence the store states, and the
+licence must be present. The provider id
+stays `chebi` in the database and router for compatibility, and the formula
 formatting in `lib/reference-text.ts` applies to ChEBI entries only. The independent
 Wolfram adapter calls CAG Results at
 `https://services.wolfram.com/api/cag/v1/WolframAlphaResult`, using the server-only
@@ -96,12 +97,12 @@ and a separate review before publication.
 The optional `expectedVocabularySlug` guard rejects new-term publication and
 model requests if the active destination changed after confirmation. It does
 not replace contributor access checks. Existing source-revision and study
-validation remain authoritative for inherited actions. The source-action changes require no migration. Assistant configuration and
-preferences use the separate migration described below.
+validation remain authoritative for inherited actions. Assistant configuration
+and preferences use the migration described below.
 
-Clarification exchanges (9d) remain a later increment.
-The current model response contract returns a definition, not a conversation
-turn. Retrieving a reference candidate does not establish a SAM placement.
+The current model response contract returns a definition. Multi-turn
+clarification is not implemented. Retrieving a reference candidate does not
+establish a SAM placement.
 
 ## Ontology context preview
 
@@ -169,13 +170,18 @@ The panel groups multiple assertions about the same parent into one row.
 ONT excludes mirrors and sources not cleared for publication, and searches
 labeled classes and concepts even when they have no definition.
 
-This preview has no persistence: queries and source selections create no
-lookup receipts, citations, mappings, model context, interaction events or
-database records. The test draft remains local to the lab. The contribution
-variant has the same read-only semantics. A saved related-concept link uses
-the separate dictionary metadata workflow, with its own scope, attribution
-and optional source version. It does not assert equivalence or class membership.
-Opening the panel or matching a label creates no such contribution.
+Queries and source selections create no lookup receipts, revision citations,
+model inputs or database records. The test draft remains local to the lab,
+and the contribution preview leaves the definition unchanged.
+
+The Metadata page adds explicit draft actions through
+`components/metadata/metadata-ontology-context.tsx`. **Cite this match** (or
+**Cite this concept** for an opened mapping) fills the assertion's source name,
+concept IRI and release. **Add as related concept** fills the `relatedConcept`
+value and its source title and release. Both require a separate metadata
+submission to save anything. The resulting assertion has its own scope,
+attribution and review status; it does not assert equivalence or class
+membership or create a definition-revision citation.
 
 Run `pnpm test:ontology-context` for bounded transport and identity checks using
 mock responses. ONT's `pnpm test:preview` checks source isolation, per-source
@@ -351,7 +357,7 @@ lookup response format.
 Available Agent One response UUIDs are public inference metadata under
 `matsci:inferenceResponseId`, while CAG source snapshots retain their own
 `matsci:responseUuid`. Sanitized tool identity evidence may also be retained.
-raw tool arguments and payloads are excluded. Keys, private validation digests
+Raw tool arguments and payloads are excluded. Keys, private validation digests
 and internal database IDs in RDF metadata remain excluded.
 
 Agent One availability depends on the dedicated server credential and a
@@ -374,7 +380,7 @@ All external text renders as escaped text, without remote images or executable
 markup. Provider-specific failures do not prevent manual writing or the other
 lookup.
 
-Verify source limits with `node --import tsx scripts/test-source-context-limits.ts`.
+Verify source limits with `pnpm test:source-context`.
 Also run `pnpm test:model-prompt-inputs`, `pnpm test:references` (the
 provider, the Wolfram adapter and the stored citation's source, release and
 licence line), `pnpm test:references-db` (migrated local
@@ -388,7 +394,8 @@ checks cover explicit inclusion/exclusion, clearing without deleting writing
 or citations, immutable submitted text, independently authored examples and
 the required inputs of revision requests.
 
-For constrained local verification, use `pnpm build --webpack`: the Next config
-limits workers to two and enables webpack memory optimizations. Wrap each
-build/check in a process-tree memory limit. Do not run a build alongside a dev
-server or browser. A production preview avoids development compiler overhead.
+For a workstation with limited memory, `pnpm build --webpack` uses the two-worker
+limit and webpack memory optimizations in `next.config.ts`. Stop an unused
+development server before building, and use the production build for browser
+checks when development compilation exceeds available memory. Any process
+memory limit depends on the workstation's operations configuration.

@@ -32,9 +32,15 @@ Check the selected Google account if access is refused.
 
 ## ORCID
 
-Connect an ORCID iD through the profile editor when ORCID access is enabled.
-A connected iD can also be used to sign in. Each iD belongs to one MatSci-SAM
-account. Sign-in with ORCID cannot create or merge accounts.
+When ORCID access is enabled, sign in to your existing account, open
+[Edit profile](/profile/edit), and select **Connect your ORCID iD**. Authorize
+the connection at ORCID. After connecting, you can use **Continue with ORCID**
+on the login page. Each iD can be connected to one MatSci-SAM account.
+
+If you try to sign in with an unconnected iD, the site offers email account
+creation when available. Create your account first, then connect ORCID from
+your profile. If you already have an account, sign in to that account instead.
+Connecting ORCID does not merge accounts.
 
 You can disconnect the iD after verifying another sign-in method. Your
 contributions retain their account attribution. ORCID display follows your

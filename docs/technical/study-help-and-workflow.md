@@ -39,7 +39,10 @@ Study overview and activity sign-in links retain their return path through
 authentication and required profile setup. `normalizeAuthReturnTo` permits
 those routes and invitation routes, while rejecting external URLs, unrelated
 paths, query strings, and fragments. Email tokens bind the return path to
-the token digest.
+the token digest. ORCID authorization keeps the normalized return path in
+session-bound OAuth state and revalidates it on callback. An ORCID iD must
+already be connected to a SAM account to sign in; an unrecognized iD follows
+the account-creation guidance without joining a study.
 
 Authentication does not grant membership. ID4 round two allows a separate
 `surveys.join` action while open and prepared. Other studies require existing
@@ -57,3 +60,9 @@ The Position view prioritizes the earliest model-authored definition and
 shows scores and discussion. It provides neither blinded presentation nor
 randomized candidate order. Study instructions must account for those cues.
 Stored questions, exclusions, and responses remain independent of guide text.
+
+The study's stored `presentation` selects Simple or the full-detail legacy
+interface for every participant. The walkthrough overrides the browser's view
+preference, and presentation changes are refused after activity is recorded.
+A Simple study does not initiate reference or ontology lookups. See
+[the study page contract](studies.md#the-pages) for the setting and its locks.

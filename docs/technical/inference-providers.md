@@ -16,8 +16,10 @@ documentation.
 
 ## Configure a provider
 
-Existing installations need no new settings: `OLLAMA_HOST` still selects the
-Ollama endpoint, and the default model remains `gemma4:26b`.
+The deployment provider defaults to Ollama with model `gemma4:26b`.
+`OLLAMA_HOST` selects its endpoint. Generation falls back to
+`http://127.0.0.1:11434` when that variable is absent, but the readiness check
+reports **Not configured** until `OLLAMA_HOST` is set explicitly.
 
 | Setting | Meaning |
 | --- | --- |
@@ -42,9 +44,11 @@ The compatible adapter requires `/models`, `/chat/completions`, bearer
 access tokens, and `response_format` with a JSON schema. It does not send the
 client secret as an API key. The token manager obtains and caches a token,
 uses its returned lifetime, and refreshes shortly before expiry. Concurrent
-requests share the refresh within a process. A model-endpoint 401 permits one
-new-token retry. A repeated failure is reported. No SSH agent or browser login
-is required by the application after its credentials are provisioned.
+requests share the refresh within a process. A generation-endpoint 401 permits
+one new-token retry. A repeated failure is reported. A readiness check that
+receives a 401 or 403 invalidates the cached token and reports an
+authentication failure; it does not retry that check. No SSH agent or browser
+login is required by the application after its credentials are provisioned.
 
 Keep credentials in protected server settings, never `NEXT_PUBLIC_*`
 variables. Both credential-bearing endpoints require HTTPS, reject URL-embedded
@@ -251,13 +255,14 @@ database write.
 `scripts/test-agent-one-db.ts` exercises actual database/router authorization,
 readiness, preference routing, exact input/provenance, study restrictions, key
 rotation and overlapping validation-test ordering with controlled responses.
-It requires explicit `ALLOW_ASSISTANT_POLICY_TEST=true`. Run it only against an
-intended local test database after migrations, with exclusive control of the
+It requires explicit `ALLOW_ASSISTANT_POLICY_TEST=true`. Run it against an
+isolated local test database after migrations, with exclusive control of the
 assistant policy: the script temporarily replaces the singleton settings row,
 then restores its original contents (or absence) and deletes its own fixtures.
-Do not run concurrent administrator settings changes or live application
-requests against that temporary policy. This is not a transaction-only read
-check or a live Agent One readiness test. Use the established process-tree
-memory cap and check the restoration readback before resuming the preview.
+Do not run concurrent administrator settings changes or application requests
+against that temporary policy. The test commits temporary policy changes and
+then cleans them up; it is not a rollback-only test. Check the restoration
+readback before reusing the database. It does not establish live Agent One
+readiness.
 
 Protocol reference: [Wolfram Agent One API](https://www.wolfram.com/apis/documentation/cag/wolfram-agent-one-api/).

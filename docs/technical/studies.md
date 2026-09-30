@@ -1,8 +1,9 @@
 # Studies and the walkthrough
 
 A study connects a community to a collection, instructions, and a participation
-window. Its walkthrough records ordinary vocabulary contributions with study
-step context. [The participant guide](../guide/studies.md) explains the controls.
+window. Its walkthrough records vocabulary contributions with study
+step context and a study-specific interface.
+[The participant guide](../guide/studies.md) explains the controls.
 
 ## Modules
 
@@ -26,8 +27,8 @@ the window and retirement state.
 ## Tables
 
 `studies` stores the community, collection, permanent slug, title, plain-text
-welcome, optional window, and retirement time. `surveySteps` stores a one-based
-position and a kind of `instructions`, `define`, `review`, or `question`.
+welcome, optional window, participant presentation, and retirement time.
+`surveySteps` stores a one-based position and a kind of `instructions`, `define`, `review`, or `question`.
 Checks require the corresponding term, prompt, and response-kind fields.
 
 `surveyStepCompletions` records one outcome per step and person.
@@ -54,9 +55,13 @@ Ordinary targeted replacements use `definitions.replacesDefinitionId`.
 Migration 0041 added steps, completions, responses, and study contribution
 context. Migration 0042 added response generation stamps, 0043 backfilled
 standing vote events, 0051 added Position targets, and 0053 added stable
-study-creation context. Applied migration files remain immutable.
+study-creation context. Migration 0063 adds the study presentation setting,
+defaulting existing studies to `legacy`. Applied migration files remain
+immutable.
 
-## The plan
+<a id="the-plan"></a>
+
+## Step generation
 
 `planSteps` generates instructions, Position steps in term-label order,
 Review steps in the same order, then optional closing questions. It uses
@@ -174,6 +179,15 @@ The public study page presents the overview and a signed-in resume record.
 The activity requires permitted membership and participation state. ID4
 nonmembers can join explicitly from either route.
 
+Each study stores `presentation=legacy` or `simple`. The walkthrough wraps its
+forms in `ViewScope`: `legacy` uses Advanced and `simple` uses Simple, regardless
+of the participant's `matsci-sam-view` browser preference. A Simple study does
+not start reference or ontology lookups. `updateStudyDetails` locks changes to
+presentation and schedule once participant activity exists. Instructions also
+lock after activity and require a valid initial instruction step when editing
+an already generated walkthrough. These rules keep returning participants on
+the study interface and instructions under which their records were created.
+
 Position prioritizes the earliest model-authored definition and shows scores
 as context, without vote arrows or lifecycle-status chips. Review provides
 vote controls even for one candidate and keeps card positions fixed during
@@ -205,7 +219,10 @@ separate scratch database and removes it afterward.
 and navigation locks. `pnpm test:definition-source-lock` exercises concurrent
 source checks in database transactions. The `db-invariants` CI job checks
 invariants before and after graph-fixture seeding. The workflow file is the
-authoritative command list.
+authoritative command list. `pnpm test:study-presentation-db` separately checks
+presentation changes, stale editor state, the activity lock and the database
+constraint. Run it on an isolated migrated local database: it commits its
+fixtures and removes them afterward. It is not currently included in CI.
 
 ## Study candidate exclusions
 

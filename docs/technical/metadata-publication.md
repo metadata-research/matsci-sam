@@ -55,7 +55,11 @@ profiles and a synthetic example.
 
 The four content graphs are pairwise disjoint. `/dataset` describes their
 union and the endpoint. Graph downloads work independently of the optional
-SPARQL store. They may reflect the last projection held by the application.
+SPARQL store. They may reflect the last successful projection held by the
+application process. Projection replaces graphs in separate requests, so a
+failed store write can temporarily leave Fuseki with a mixture of old and new
+graphs. See [the graph write path](graph-layer.md#the-write-path) for retries
+and cache behavior.
 
 Where enabled, `/sparql` accepts read-only SPARQL 1.1 GET and POST queries.
 Queries without a named graph clause use the union of all five graphs.
@@ -341,10 +345,9 @@ database IDs in metadata are excluded from the RDF. Provider reasoning and
 raw tool payloads are not retained as the final answer.
 
 The ontology context panel on term pages and in the lab is a read-only preview.
-It creates no saved relationship or provenance activity. A saved related-concept
-contribution uses the separate metadata assertion
-workflow, with optional source IRI and version. It does not assert equivalence
-or class membership. Browsing and label matching create no such assertion.
+On the Metadata page its citation and related-concept controls fill a local
+draft. A separate submission creates the metadata assertion, with its selected
+scope, source and version. It does not assert equivalence or class membership. Browsing and label matching create no such assertion.
 The ranking of the default definition is likewise derived, not a publication,
 editorial approval or independent contribution event.
 

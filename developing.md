@@ -1,174 +1,173 @@
 # MatSci-SAM developer guide
 
-This guide covers local setup, application changes, database migrations,
-authentication, and release boundaries.
+This guide covers local configuration, application structure, migrations,
+authentication, and AI prompts. Start with the [README](README.md#local-development)
+for installation and the [contribution guide](contributing.md) for pull requests.
 
-Deeper notes on specific subsystems are in `docs/technical/`. The served
-documentation is `docs/guide/`, the user guide, and `docs/reference/`, the
-knowledge organization layer. Keep those three apart.
+## Application structure
 
-## Technology Stack
+MatSci-SAM uses Next.js 16 with the App Router, React 19, TypeScript, tRPC,
+PostgreSQL, and Drizzle ORM. Shared UI components live in `components/`; the
+`components/ui/` directory contains the shadcn/ui components. Styling uses
+Tailwind CSS 4 and CSS variables for the light and dark themes.
 
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript
-- **Backend**: tRPC for type-safe APIs
-- **Database**: PostgreSQL with Drizzle ORM
-- **Styling**: Tailwind CSS 4 + shadcn/ui components
-- **Auth**: Google OAuth and optional verified-email links with iron-session;
-  dormant ORCID plumbing is feature-gated
-- **AI**: Selectable Ollama or OAuth-authenticated OpenAI-compatible inference;
-  see [inference providers](docs/technical/inference-providers.md)
+The [technical documentation](docs/technical/README.md) covers individual
+subsystems. The application serves `docs/quickstart/`, `docs/guide/`, and
+`docs/reference/` through `/docs`. It does not serve `docs/technical/`.
 
----
+## Local configuration
 
-## Database Migrations
+Copy `.env.example` to `.env` and set values for your development environment.
+At minimum, configure a local `DATABASE_URL`, a random `SESSION_PASSWORD` of at
+least 32 characters, and `SYSTEM_PROMPT_KEY`. The template selects
+`materials-reference` as the general system prompt. Prompt selection is validated
+when the inference modules load, even if no model request is made.
 
-### Understanding the Schema
+Use a PostgreSQL database whose migration role can install `pg_trgm`. The search
+migration creates this extension; the current schema does not require pgvector.
+Apply the tracked migrations with `pnpm db:migrate`.
 
-The database schema is defined in `drizzle/schema.ts`. Its main records
+Inference, ontology lookup, email delivery, and graph projection each have
+separate configuration. Leave optional services disabled until you need them.
+Use the subsystem guides for their settings; `.env.example` is the starting
+template, not a complete list of every optional setting.
+
+### Local authentication
+
+For development over HTTP, configure the local sign-in route in `.env`:
+
+```dotenv
+DEV_AUTH_ENABLED=true
+SESSION_COOKIE_SECURE=false
+DEV_AUTH_USERS='[{"username":"contributor","name":"Local Contributor","email":"contributor@example.test"}]'
+DEV_AUTH_PASSWORD="replace-with-a-random-local-password"
+```
+
+Start the app and open `/dev-login`. This creates or reuses a local account with
+the configured email address; a new account has the `user` role. Use a separate
+local database and fictional identities.
+
+Both `DEV_AUTH_ENABLED=true` and `SESSION_COOKIE_SECURE=false` are required for
+an insecure development session cookie. Outside this local setup, keep secure
+cookies enabled and disable development authentication. The development routes
+return 404 when `DEV_AUTH_ENABLED` is not `true`.
+
+To test an external sign-in provider, configure its credentials and callback for
+your development URL and use HTTPS with secure cookies.
+
+## Database changes
+
+The schema is defined in [`drizzle/schema.ts`](drizzle/schema.ts). Its records
 include:
 
-- `users` for human and named model identities, profile consent, roles, and
-  reputation weight
-- `oauthAccounts` and `emailAuthTokens` for external and verified-email
-  authentication
-- `terms` for vocabulary concepts
-- `definitions` for the stable definition identity and current revision head
-- `definitionRevisions` for immutable content versions and provenance
-- `votes` and `comments`, each scoped to a definition revision
-- `conceptSchemes`, `concepts`, `collections` and `statements`, the knowledge
-  organization ledger behind tags, facets, collections and mappings, and
-  `tagSuggestions` for proposals; see `docs/technical/`
-- `aiModels`, the traits of a model that contributes as a user
-- coauthors, refinement records, and discussion suggestions
+- Users, OAuth account connections, and one-time email tokens.
+- Terms, stable definition identities, and immutable definition revisions.
+- Revision-scoped votes, comments, examples, and contribution provenance.
+- Concept schemes, concepts, collections, statements, and tag suggestions.
+- Communities, studies, participants, and study activities.
+- Model identities, inference results, references, and contribution files.
 
-### Quick Database Commands
+Edit the schema, run `pnpm db:generate`, and commit the generated migration with
+its metadata. Inspect the SQL for its effect on existing data. Apply migrations
+to an isolated development or test database before proposing the change.
 
 ```bash
-pnpm db:studio     # Open Drizzle Studio against your local database
-pnpm db:check      # Validate the tracked migration history
+pnpm db:generate   # Generate a migration after editing the schema
+pnpm db:migrate    # Apply tracked migrations to DATABASE_URL
+pnpm db:check      # Check consistency of the migration files
+pnpm db:studio     # Inspect the configured database
 ```
 
-Use `pnpm db:generate` and commit the generated migration for every tracked
-schema change. The `db:push` and `db:drop` package scripts are local
-experimentation tools, not the contribution or deployment workflow. Never run
-them against Superego or Ego.
+`pnpm db:check` does not validate a running database. The CI workflow applies the
+migrations to an isolated database and runs `pnpm db:invariants` against it.
+Update the invariants when a schema change affects the rules they check.
 
----
+The `db:push` and `db:drop` scripts are for disposable local experiments. They
+are not part of the contribution or release workflow and must not be run against
+a deployed database.
 
-## Working with tRPC APIs
+## Authentication and authorization
 
-### Available Procedures
+The application supports Google OAuth, verified-email links, and ORCID OpenID
+Connect. Availability depends on configuration. ORCID is implemented and remains
+disabled in the example environment until credentials, its callback, and an
+`AUTH_TOKEN_ENCRYPTION_KEY` are configured.
 
-- `baseProcedure` - Public endpoints
-- `authenticatedProcedure` - Requires logged-in user (has `userId` in context)
-- `contributorProcedure` - Requires a logged-in user with a completed profile
-- `adminProcedure` - Requires a logged-in administrator
+An existing user connects an ORCID iD from their profile. Subsequent ORCID
+sign-ins use that connection. An unconnected iD is directed to email registration
+when email account creation is enabled. Users with an existing account can sign
+in through another enabled method and connect ORCID from their profile. The
+ORCID callback does not create an account by matching an email address or an iD
+typed into a profile.
 
----
+Server code reads the signed-in user with `getCurrentUser()` from
+`lib/current-user.ts`; client code uses `trpc.me`. Sessions use `iron-session`.
+The tRPC procedure helpers are defined in `trpc/init.ts` and `trpc/procedures.ts`:
 
-## UI Components
+| Procedure | Requirement |
+| --- | --- |
+| `baseProcedure` | No sign-in requirement |
+| `authenticatedProcedure` | Signed-in session |
+| `contributorProcedure` | Signed-in user with a non-empty profile name |
+| `adminProcedure` | Signed-in user with the `admin` role |
 
-shadcn/ui components live in `components/ui`; add one with
-`npx shadcn@latest add <name>`. Styling is Tailwind 4, with dark mode driven
-by CSS variables.
----
+Choose the procedure for the operation, then check any resource-specific
+permissions inside it. A client-side role check controls presentation and does
+not authorize a server operation. Route handlers and server actions need their
+own corresponding server-side checks.
 
-## Authentication
+## AI assistance and prompts
 
-Server code gets the signed-in user with `getCurrentUser()` from
-`lib/current-user`. Client code uses `trpc.me`.
+The primary inference provider is selected in `lib/llm/config.ts`. It supports
+Ollama and an OAuth-authenticated OpenAI-compatible service. The optional Agent
+One assistant has a separate configuration and request path. See
+[inference providers](docs/technical/inference-providers.md) and the
+[LLM layer](docs/technical/llm-layer.md) for the provider and contribution flows.
 
-Protect every admin operation with `adminProcedure`. A client-side role check
-controls presentation only and is never an authorization boundary.
+Named prompts live in `lib/prompts.json`. `lib/llm/prompts.ts` selects them when
+its module loads:
 
----
+| Setting | Used for | Default |
+| --- | --- | --- |
+| `SYSTEM_PROMPT_KEY` | General definition generation and diagnostics | Required unless `SYSTEM_PROMPT` is set |
+| `SYSTEM_PROMPT` | Raw text override for the general prompt | Unset; takes precedence over `SYSTEM_PROMPT_KEY` |
+| `NEW_TERM_PROMPT_KEY` | Pre-publication definition suggestion for a new term | `new-term-suggestion` |
+| `REVISION_SUGGESTION_PROMPT_KEY` | Critique-driven definition revision suggestion | `revision-suggestion` |
 
-## AI System Prompts
+Changing the general prompt does not override the dedicated new-term or revision
+prompts. A missing general setting or an unknown named prompt causes module
+initialization to fail. Restart the development server after changing prompt
+configuration.
 
-The AI definition feature sends a **system prompt** to Ollama with every request.
-All prompts live in one file:
+To change a prompt, edit or add a named entry with a `description` and `prompt`.
+Use a new key when you need to retain the previous wording for comparison.
+The following script sends every named prompt to the configured primary provider
+and prints a definition, example, and timing without writing to the database.
+The `--env-file` option loads the local provider and prompt settings:
 
+```bash
+pnpm exec tsx --env-file=.env scripts/test-prompt.ts "austenite"
+pnpm exec tsx --env-file=.env scripts/test-prompt.ts "creep" "The turbine blade failed by creep."
 ```
-lib/prompts.json
-```
 
-### File format
+The script uses a shared definition/example response schema. It is a comparison
+tool; it does not reproduce the separate new-term, revision, or Agent One
+workflows. Test a changed prompt through its application workflow as well.
 
-Each entry is a named prompt with a human-readable description:
+Generated contributions retain the prompt text, key where applicable, hash,
+model, and inference metadata. The general conversation path stores its
+responses in `chats`; the new-term and revision workflows use their own proposal
+records. Preserve these stamps and their links to published contributions when
+changing the inference pipeline.
 
-```json
-{
-  "materials-reference": {
-    "description": "Steers the model toward materials-science-literature style and requires an original example.",
-    "prompt": "You are a materials science reference. When given a term, ..."
-  }
-}
-```
+## Verification and releases
 
-### Which prompt does the app use?
+The [pull-request workflow](.github/workflows/pr-verify.yml) defines CI checks.
+Run the relevant package scripts while developing, and use an isolated database
+for fixture-writing tests. A local production build uses `pnpm build` followed
+by `pnpm start`.
 
-Selection happens at startup in `lib/apis/ollama.ts`, controlled by two
-environment variables in `.env`:
-
-- `SYSTEM_PROMPT_KEY` — the name of an entry in `lib/prompts.json`
-  (e.g. `SYSTEM_PROMPT_KEY=materials-reference`). This is the normal way.
-- `SYSTEM_PROMPT` — raw prompt text. Optional; if set, it **takes precedence**
-  over `SYSTEM_PROMPT_KEY`. Mainly for quick experiments and older deployments.
-
-If neither is set, or the key doesn't exist in the file, the app throws at
-startup with a list of available prompt names.
-
-### Changing or adding a prompt
-
-1. Edit `lib/prompts.json` — either revise an existing entry's `prompt` text or
-   add a new entry with a unique key, a `description`, and a `prompt`.
-   Prefer adding a new entry over rewriting an old one, so the previous wording
-   stays available for comparison.
-2. Test it against the live model **without touching the database**:
-
-   ```bash
-   pnpm exec tsx scripts/test-prompt.ts "austenite"
-   pnpm exec tsx scripts/test-prompt.ts "creep" "The turbine blade failed by creep."
-   ```
-
-   The script runs _every_ prompt in the file against the same term and prints
-   each definition/example side by side, with timing.
-
-3. Point the app at your prompt: set `SYSTEM_PROMPT_KEY=<your-key>` in `.env`.
-4. **Restart the dev server** (`pnpm dev`). The prompt is resolved once at
-   startup, so edits to the JSON or `.env` are not picked up by a running server.
-
-### Deployed environments
-
-The same selection rules apply to a deployed environment. Commit changes to
-`lib/prompts.json`, update `SYSTEM_PROMPT_KEY` in the protected environment,
-and rebuild through the environment runbook. Do not edit a deployed release
-in place.
-
-### Generation provenance
-
-Every AI response row in the `chats` table is stamped with the exact
-conditions that produced it: `promptKey`, `promptHash`, `promptText`, and
-`model`. This makes prompt experiments reportable after the fact — you can
-attribute any generated definition to the prompt version and model that wrote
-it (e.g. `SELECT "promptKey", "promptHash", count(*) FROM chats GROUP BY 1, 2`).
-Don't remove or bypass these fields when touching the AI pipeline.
-
----
-
-## Deployment
-
-### Environment Variables
-
-Use `.env.example` as the authoritative inventory and starting template. The
-Do not commit `.env`, credentials, tokens, or deployed protected
-configuration. Authentication settings are read at process startup, so
-changing them requires a reviewed rebuild or restart appropriate to the
-environment.
-
-### Production build
-
-`pnpm build` then `pnpm start` runs a production build locally. Releases to a
-server are a separate maintainer operation and are not run from this
-repository.
----
+Deployment tooling and host settings live in the separate operations repository.
+Merging to `dev` does not deploy a release. Changes to prompts, authentication,
+or other environment settings must be applied through the environment's release
+procedure; do not edit an installed release in place.

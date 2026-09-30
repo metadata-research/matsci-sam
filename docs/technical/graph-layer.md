@@ -26,10 +26,16 @@ Dirty state is process-local. External SQL or scripts require an explicit
 `pnpm graphs:project`, a later dirty mark, or a restart to refresh the store.
 The pilot close step projects directly.
 
-Projection validates documents before writing each content graph, then the
-meta graph, through the Graph Store Protocol. A failure leaves dirty state
-for retry. `/graphs/{name}` and `/dataset` use the last successful documents
-held by that application process. They build from PostgreSQL on request
+Projection builds and parses all five Turtle documents before the first
+store write. It then replaces each content graph and finally the meta graph
+through separate Graph Store Protocol requests. Parsing checks RDF syntax;
+SHACL validation runs separately in the tests below. Store writes are not
+atomic across graphs: a failed request can leave a partial update in Fuseki.
+A failure marks the projection dirty for a full retry, and the process keeps
+its previous successful document cache.
+
+`/graphs/{name}` and `/dataset` use the last successful documents held by that
+application process. They build from PostgreSQL on request
 before a successful projection or when no store is configured.
 
 ## Environment

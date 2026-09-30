@@ -22,10 +22,18 @@ and implementation contracts in technical notes. Link to the detailed
 explanation from other pages. Keep rollout receipts and design discussions
 out of reader documentation.
 
-Apply the canonical writing guide at `Working/style.md` in OneDrive while drafting.
-State the action first,
-use exact control labels, and keep examples and limitations that affect a
-reader decision. Preserve published paths and heading anchors.
+Write from the perspective of the people contributing to and maintaining the
+project. Describe what the current application does and what a reader needs
+to do. Use a neutral voice or “we” for a shared project decision. Name an
+individual only when their account or responsibility matters to the task.
+Avoid progress reports, commentary about the quality of past work, and
+references to private drafting notes.
+
+State the action first, use exact control labels, and keep examples and
+limitations that affect a reader's decision. Distinguish implemented behavior
+from proposed work, and check implementation claims against the relevant
+code, schema, and configuration. Deployment-specific claims belong in the
+operations repository. Preserve published paths and heading anchors.
 
 The seven help sections in `guide/studies.md` also appear inside the study
 activity. Their IDs are selected by `lib/study-help.ts`. Run

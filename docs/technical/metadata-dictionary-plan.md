@@ -8,7 +8,9 @@ are projections of those records.
 This document describes the implemented contract and deferred extensions.
 The filename remains unchanged for existing links.
 
-## Intended outcome
+<a id="intended-outcome"></a>
+
+## Metadata page
 
 The Metadata page presents information about a term and its definitions without
 requiring a contributor to author RDF. It uses `/terms/{id}/metadata` as an
@@ -37,7 +39,9 @@ A field specification describes the field. A contributor's source supports
 their assertion about a term. Selecting a catalog field does not attribute
 the assertion to the authors of that specification.
 
-## Implementation sequence
+<a id="implementation-sequence"></a>
+
+## Implementation
 
 ### Field registry and interface
 
@@ -50,7 +54,9 @@ View changes preserve one draft. A value set in Advanced still applies in
 Simple, which lists it before submission.
 
 Field associations accept catalog IRIs. Related concepts accept an explicit
-external HTTP or HTTPS IRI. Text values support optional language tags.
+HTTP or HTTPS concept IRI; validation does not require a particular ontology
+or exclude the local identifier namespace. Text values support optional
+language tags.
 `lib/term-metadata-validation.ts` validates types, source identifiers and source
 version requirements. Related-concept metadata makes no equivalence, subclass
 or class-membership assertion.
@@ -99,12 +105,19 @@ range class or impose a requirement from the MatCore paper.
 [Metadata publication](metadata-publication.md) contains the property tables,
 source semantics and named-graph contracts.
 
-## Boundaries of the first implementation
+<a id="boundaries-of-the-first-implementation"></a>
+
+## Scope and deferred work
 
 Metadata editing is separate from definition publication. Reference and ontology
 previews, Wolfram lookups and assistant requests do not implicitly save semantic
 relationships. Contributors publish related concepts through the metadata
-workflow. Preview selections remain unsaved.
+workflow. On the Metadata page, **Cite this match** fills the source fields
+from an ontology selection, and **Add as related concept** fills a
+`relatedConcept` value with its source title and release. An opened mapped
+concept uses **Cite this concept** and its own identifier. These actions fill
+the local draft; the contributor must review and submit it before an assertion
+is stored.
 
 The feature does not create datasets, samples, experiments or calculations.
 MatCore requirements apply to a dataset profile. Dictionary authorship, dates

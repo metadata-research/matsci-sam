@@ -73,6 +73,8 @@ attachments.
   privacy, context binding, publication rollback, independent example provenance,
   immutable history, recoverable pending quotas and administrative purge.
 
-Migration `0061_contribution_files` is required before enabling the new Add UI.
-Existing reverse-proxy configurations allow 10 MiB requests, larger than the
-maximum allowed by the single-file endpoint. No proxy change is required for this increment.
+Migration `0061_contribution_files.sql` creates the file table and its
+immutability trigger. The deployment's reverse proxy must allow the endpoint's
+5 MiB file limit plus 64 KiB of multipart overhead. Check that host's operations
+configuration when diagnosing rejected uploads; the application limit alone
+does not establish the proxy limit.

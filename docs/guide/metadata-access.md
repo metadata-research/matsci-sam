@@ -37,8 +37,12 @@ include [vocabulary](/graphs/vocabulary), [classification](/graphs/kos),
 
 Use the read-only [SPARQL service](/sparql) to query the dataset where that
 service is enabled. Downloads remain available independently of the query
-service and can be opened in your own RDF tools. Exported graph content reflects the most recent generated projection.
-A recent interface change may appear after the next projection.
+service and can be opened in your own RDF tools.
+
+Named graph downloads and query results can lag behind recent contributions
+until the application regenerates the graph data. The individual record
+downloads and the vocabulary, tags, and combined downloads above load current
+application data.
 
 ## Resource identifiers
 

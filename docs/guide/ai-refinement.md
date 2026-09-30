@@ -39,9 +39,11 @@ example.
 ## Assistant choice and context
 
 Advanced shows the assistant and context controls. Simple names the assistant
-and the inputs a request sends, including any chosen in Advanced. **Definition assistant** lists the
-configured assistants, including Wolfram Agent One when enabled. Unavailable choices show their status. SAM saves
-your preference for later requests. A study may specify its own assistant.
+and the inputs a request sends, including any chosen in Advanced. **Definition
+assistant** lists the configured assistants, including Wolfram Agent One when
+enabled.
+Unavailable choices show their status. MatSci-SAM saves your preference for
+later requests outside studies. Study requests use the deployment assistant.
 The assistant selected for a submitted request stays attached to its response
 and published attribution.
 
