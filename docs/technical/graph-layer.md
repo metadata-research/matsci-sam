@@ -1,7 +1,7 @@
 # The graph layer
 
-PostgreSQL is the system of record. Jena Fuseki can store a projection as
-five named graphs and answer SPARQL over their union.
+PostgreSQL is the system of record. Jena Fuseki can store a projection as five
+named graphs and answer SPARQL over their union.
 [Metadata access](../guide/metadata-access.md) describes the public documents.
 Host installation and access rules belong in operations documentation.
 
@@ -19,18 +19,24 @@ Host installation and access rules belong in operations documentation.
 
 `tRPC` middleware marks graphs dirty after successful mutations.
 `upsertAIDefinitionRecord` marks them after its transaction. A debounced task
-projects them independently of the application write. `instrumentation.ts`
-marks them at startup and sweeps every five minutes to retry failures.
+projects them independently of the application write. `instrumentation.ts` marks
+them at startup and sweeps every five minutes to retry failures.
 
-Dirty state is process-local. External SQL or scripts require an explicit
+Dirty state is local to the process. External SQL or scripts require an explicit
 `pnpm graphs:project`, a later dirty mark, or a restart to refresh the store.
 The pilot close step projects directly.
 
-Projection validates documents before writing each content graph, then the
-meta graph, through the Graph Store Protocol. A failure leaves dirty state
-for retry. `/graphs/{name}` and `/dataset` use the last successful documents
-held by that application process. They build from PostgreSQL on request
-before a successful projection or when no store is configured.
+Projection builds and parses all five Turtle documents before the first store
+write. It then replaces each content graph and finally the meta graph through
+separate Graph Store Protocol requests. Parsing checks RDF syntax. SHACL
+validation runs separately in the tests below. Each store write replaces one
+graph. A failed request can leave a partial update in Fuseki. A failure marks
+the projection dirty for a full retry, and the process keeps its previous
+successful document cache.
+
+`/graphs/{name}` and `/dataset` use the last successful documents held by that
+application process. They build from PostgreSQL on request before a successful
+projection or when no store is configured.
 
 ## Environment
 
@@ -54,15 +60,15 @@ Prerendered pages retain the identifier base used during the build.
 | `pnpm test:graph`          | Pure fixtures, with optional `--export <dir>` for positive and negative documents      |
 | `pnpm test:graph-db`       | Migrated database and live store. Compares projected counts and executes paper queries |
 
-Graph exports may contain contributor names and are ignored by Git.
-Scripts import `dotenv/config` before modules that read the identifier base.
+Graph exports may contain contributor names and are ignored by Git. Scripts
+import `dotenv/config` before modules that resolve the identifier base.
 `lib/site.ts` resolves that configuration at module load.
 
 ## Running a store locally
 
 Use the Jena and Java versions and SHA-512 checksums recorded in
 `.github/workflows/pr-verify.yml`. Add their executable directories to PATH.
-`scripts/fuseki-test-dataset.ttl` configures an in-memory TDB2 dataset with a
+`scripts/fuseki-test-dataset.ttl` configures a TDB2 dataset in memory with a
 union default graph, query and Graph Store endpoints, a timeout, and disabled
 federated queries.
 
@@ -82,8 +88,8 @@ flag, dataset URL, and credentials in the local environment, then run
 ## Validating with Jena
 
 The shapes in `shapes/` mirror database constraints and release invariants.
-Validate the merged graphs because vocabulary records reference tags in the
-KOS graph. Use the identifier namespace named by the shapes.
+Validate the merged graphs because vocabulary records reference tags in the KOS
+graph. Use the identifier namespace named by the shapes.
 
 ```sh
 IDENTIFIER_BASE_URL=https://w3id.org/matsci-sam pnpm graphs:export graphs-export
@@ -102,15 +108,15 @@ checked `sh:resultMessage` in CI.
 ## What CI checks
 
 The `verify` job runs the pure graph test. The `graph` job parses fixture RDF
-and validates shapes against conforming and intentionally invalid documents.
-It checks the planted violation messages.
+and validates shapes against conforming and intentionally invalid documents. It
+checks the expected violation messages.
 
 The `db-invariants` job seeds an empty migrated database through shared
-application write paths, rechecks invariants, and validates the exports.
-It starts an authenticated disposable Fuseki store and runs
-`pnpm test:graph-db --seeded`. Seeded mode requires positive entity counts
-and a result from each paper query. Version, checksum, and namespace checks
-are defined in the workflow.
+application write paths, rechecks invariants, and validates the exports. It
+starts an authenticated disposable Fuseki store and runs
+`pnpm test:graph-db --seeded`. Seeded mode requires positive entity counts and a
+result from each paper query. Version, checksum, and namespace checks are
+defined in the workflow.
 
 ## The paper queries
 

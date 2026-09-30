@@ -55,6 +55,19 @@ export const GET = async (request: NextRequest) => {
       { status: 400 }
     )
 
+  const connectingUserId = pending.intent === "connect" ? session.id : undefined
+  if (pending.intent === "connect") {
+    if (!connectingUserId)
+      return new Response("Your session expired before ORCID was connected.", {
+        status: 401
+      })
+    if (pending.initiatingUserId !== connectingUserId)
+      return new Response(
+        "Your account changed or this connection request is no longer valid. Start connecting ORCID again from your profile.",
+        { status: 409 }
+      )
+  }
+
   let tokens
   try {
     tokens = await completeOrcidAuthorization(request.nextUrl.search, pending)
@@ -65,14 +78,9 @@ export const GET = async (request: NextRequest) => {
     })
   }
 
-  if (pending.intent === "connect") {
-    if (!session.id)
-      return new Response("Your session expired before ORCID was connected.", {
-        status: 401
-      })
-
+  if (connectingUserId !== undefined) {
     try {
-      await connectOrcidAccount({ userId: session.id, tokens })
+      await connectOrcidAccount({ userId: connectingUserId, tokens })
     } catch (error) {
       const message =
         error instanceof OrcidAccountError
@@ -82,7 +90,7 @@ export const GET = async (request: NextRequest) => {
     }
 
     revalidatePath("/profile")
-    revalidatePath(`/people/${session.id}`)
+    revalidatePath(`/people/${connectingUserId}`)
     return publicRedirect("/profile?orcid=connected")
   }
 

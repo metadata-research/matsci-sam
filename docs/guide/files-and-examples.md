@@ -1,8 +1,9 @@
 # Files and examples
 
-Attach a file as an example of a term or a source for its definition. PDF, PNG,
-and JPEG files are accepted, up to 5 MB each and three files per contribution.
-Files remain private until selected for publication during review.
+You can attach files while adding a new term. A file can illustrate the term
+or provide a source for its definition. PDF, PNG, and JPEG files are accepted,
+up to 5 MB each and three files per contribution. Uploads stay private until
+you publish them with the definition.
 
 ## Attach a file
 
@@ -18,11 +19,11 @@ Files remain private until selected for publication during review.
 
 Check the title and explanation before attaching. Open an attached file to
 inspect it. Remove an unused file with the remove control beside its title.
-Attachments are not sent to the definition assistant.
+The definition assistant receives text inputs only.
 
 ## Choose files for publication
 
-In Add, select **Review definition** when your writing is ready. Under **Files
+Select **Review definition** when your writing is ready. Under **Files
 to publish**, select the **Publish example** or **Publish and cite** checkbox
 for each file you want readers to download.
 An unchecked file stays private and is omitted from that contribution.
@@ -51,6 +52,6 @@ files. Remove unused files before uploading more when that limit is reached.
 
 Use **Add an example** on a definition page to describe a use without
 uploading a file. The example records your authorship and the displayed definition
-revision. An optional example in a new-term form is also attributed separately.
+revision. An optional example submitted with a new term is also attributed separately.
 See [Examples of use](/docs/community#examples-of-use) for featured examples
 and their relationship to later revisions.

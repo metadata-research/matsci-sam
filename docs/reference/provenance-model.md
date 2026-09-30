@@ -14,42 +14,45 @@ definition it is intended to supersede. The earlier contribution remains.
 
 Publication records the contributor. An accepted assistant suggestion also
 identifies its original answer and recorded model or service. Later edits
-retain their own text and attribution without implying another model request.
+retain their own text and attribution. A further accepted model draft has a
+separate record.
 
 Examples are independent contributions linked to the definition and exact
-revision displayed when they were added. Selecting a featured example changes
-compact display without changing definition text or votes. Files selected for
-publication retain their example or source role and exact revision association.
+revision displayed when they were added. The featured example appears in
+compact displays. Definition text and votes remain unchanged after a different
+example is selected. Files selected for publication retain their example or
+source role and exact revision association.
 
 Imported records identify gaps in their history. Earlier examples may lack an
 independent author, exact source revision or publication time. Some imported
-comments and votes have an inferred revision association. Missing facts are
-not reconstructed as observed events.
+comments and votes have an inferred revision association. Unknown values
+remain empty.
 
 ## Reference and assistant evidence
 
 A citation records a contributor's declared source for a definition revision.
-An assistant input records material supplied with an accepted request.
-A source link returned in an assistant answer belongs to that answer and does
-not automatically become either a contributor citation or an assistant input.
+An assistant input records the material supplied when a model draft was
+requested.
+A source link returned in an assistant answer belongs to that answer.
+Contributors select citations and assistant inputs separately.
 
 Published evidence retains the available source identity, retrieved text and
 version details. The original assistant answer remains separate from the
-wording published by the contributor. A citation or input record does not
-establish that every claim in the definition was verified.
+wording published by the contributor.
 
-Ontology previews show external labels and hierarchy without saving a
-relationship. **Related external concept** metadata is an explicit contribution
-with its own scope, attribution and optional source. It does not assert
-equivalence or class membership. See [References](/docs/references) and
+Ontology previews show external labels and hierarchy. **Related external
+concept** metadata records a relationship with its own scope, attribution and
+optional source. Equivalence and class membership are separate relationships.
+See [References](/docs/references) and
 [Term metadata](/docs/term-metadata).
 
 ## People and models
 
 Authors, editors, commenters and assertion authors remain attributed even when
 their profiles are private. Models have distinct attribution.
-The per-term view labels votes "A community member" and omits voter identity.
-The dataset graph identifies a voter only for a public profile or AI account.
+The provenance view for a term labels votes "A community member" and omits
+voter identity. The dataset graph identifies a voter only for a public profile
+or AI account.
 
 Private lookup history, raw provider envelopes, credentials and private
 configuration records are excluded from public provenance. Published prompts
@@ -62,9 +65,12 @@ history. Withdrawal removes its current fact while preserving that history.
 Unreviewed and declined proposals are excluded from public RDF. Only site
 administrators accept or decline metadata proposals.
 
-Vote changes and withdrawals record events. Backfilled votes identify their
-historical limitations. Study activities identify their study and step,
-while membership rosters and invitations remain private.
+Vote changes and withdrawals record events. Study activities identify their
+study and step, while membership rosters and invitations remain private.
+
+A recorded Position identifies the term and exact definition revision a
+participant accepted or proposed. A linked collection can change. Use the
+study record to establish which terms were reviewed.
 
 ## The two views
 

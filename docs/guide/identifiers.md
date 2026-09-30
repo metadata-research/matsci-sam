@@ -24,23 +24,23 @@ while its page may also display examples added later.
 
 ## Identifier paths
 
-Default-vocabulary terms have addresses under `/vocabulary`. Community terms
-include the community name in the path. Two communities can define the same
-label as separate concepts. A collection reference retains the identifier of
-the owning vocabulary.
+Terms in the default vocabulary have addresses under `/vocabulary`. Community
+terms include a community slug assigned at creation. Renaming the community
+preserves that slug. Two communities can define the same label as separate
+concepts. A term referenced by a collection retains its original identifier.
 
 ## Term slugs
 
 The readable part of a term address is assigned when the term is created.
 It remains fixed when a display label changes. A numbered suffix distinguishes
-otherwise identical addresses and does not indicate rank.
+otherwise identical addresses. Rank is recorded separately.
 
 ## Definition and revision numbers
 
 Definition numbers are permanent within a term. Each definition has its own
 revision sequence, so Definition 1 and Definition 2 can both have revision 1.
 An edit or restoration adds a revision and preserves earlier versions.
-Voting does not change either number.
+Definition and revision numbers remain fixed after a vote.
 
 ## Tags, facets and collections
 
@@ -50,9 +50,9 @@ See [Tags](/docs/tags).
 
 ## Live rank lookup
 
-A rank link opens the definition currently at that position. Its destination
-can change with votes and new revisions. Use a definition or revision
-identifier to cite one candidate consistently.
+A rank link opens the definition at that position when requested. Its
+destination can change with votes and new revisions. Use a definition or
+revision identifier to cite one candidate consistently.
 
 ## Machine-readable forms
 

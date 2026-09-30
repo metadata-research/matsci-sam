@@ -14,8 +14,9 @@ selected community vocabulary or the default vocabulary under **Everything**.
 
 Site administrators assign facets and manage tag definitions and merges.
 Collection changes follow the policy of the collection. Administrator
-collections accept administrator changes. Contributor collections accept
-changes from signed-in contributors when that creation mode is enabled.
+collections accept administrator changes. Active contributor collections accept
+changes from anyone signed in. Site settings control whether contributors can
+create new collections.
 
 [Term metadata](/docs/term-metadata) has a separate review process.
 Contributors propose additions. Only site administrators can **Accept** or
@@ -29,30 +30,32 @@ A tag retains its identifier when its definition, scope note or alternative
 labels change. A merge retires the original tag and identifies its replacement.
 The earlier classification history remains available.
 
-An equivalent-term link displays the definitions of the linked term.
+A link to an equivalent term displays the definitions of that term.
 Administrators can withdraw the link if those definitions no longer fit the
 tag. The Tag drift report helps administrators find changes that may need
 review.
 
-## Contribution actions and language-model drafting
+<a id="contribution-actions-and-language-model-drafting"></a>
 
-**Create a new version** changes the wording of an existing definition and
+## Contribution actions and model drafts
+
+**Create a new version** changes the wording of your own definition and
 preserves its revision history. **Suggest an alternative** uses a selected
 revision and contributor guidance to draft a separate definition.
 **Propose a replacement** identifies a definition that the proposed candidate
 should supersede. The original remains available.
 
 A new term creates a concept in the selected vocabulary. Comments and examples
-are separate contributions. They do not create definition revisions.
+are separate contributions associated with a definition revision.
 [Adding terms](/docs/adding-terms), [discussion](/docs/discussion) and
 [files and examples](/docs/files-and-examples) explain these actions.
 
-An assistant request saves the submitted inputs and original answer. The
+An assistant request saves the submitted inputs and generated answer. The
 contributor reviews and edits the text before publication. An accepted
 suggestion attributes the published definition to the contributor and the
 recorded model or service. Discarded drafts remain outside the vocabulary.
 References supplied to an assistant and citations on a definition are separate
-choices. See [AI-assisted suggestions](/docs/ai-refinement) and
+choices. See [AI assistance](/docs/ai-refinement) and
 [References](/docs/references).
 
 ## Studies and support
@@ -63,10 +66,10 @@ Accept records or retains an upvote. A published proposal completes the
 Position step without adding a vote. Available discussion and review steps
 depend on the study.
 
-Study contributions identify their step. Vocabulary support can include votes
-from outside the study, so the overview does not present those totals as study
-consensus. Simulated participants have separately labeled accounts and model
-attribution. Rosters and invitations remain private application data.
+Study contributions identify their step. Vocabulary support includes votes
+from within and outside the study. Simulated participants have separately
+labeled accounts and model attribution. Rosters and invitations remain private
+application data.
 
 [The provenance model](/docs/reference/provenance-model) explains attribution
 and history. [Studies](/docs/studies) describes participation.

@@ -9,29 +9,30 @@ step.
 ## Term page views
 
 Term pages open in **Simple** view on a first visit, and the site then
-remembers your choice. Read the **Default definition**, its authors, and its
-featured example. Expand **Other definitions** to compare candidates.
+saves your choice. Read the **Default definition**, its authors, and its
+featured example. Under **Other definitions**, select **Show definition** to
+compare a candidate.
 **Metadata** opens descriptions of the term and its use.
 
 Links under the definition open **Discussion**, the **Definition page** and
 **Propose a change**. When the definition has citations or source files, their
 counts link to them. Citation counts refer to the displayed revision. A link
-to a section of a page briefly marks the section it opens.
+to a section of a page briefly highlights the section it opens.
 
 ![A term in Simple view with its Default definition, Other definitions, and Metadata link](/images/docs/help-term-simple-v2.png)
 
 Choose **Advanced** under **View** to open ontology context beside the reader,
 plus the term identifier, revision numbers and status, model details,
 **Revision history**, **Changes & activity**, **Provenance**, and downloads.
-Definition pages offer the same two views. The ontology context names a
-vocabulary source as one and lists **Mapped concepts** for the selected
-concept, as the [references guide](/docs/references#reference-definitions)
+Definition pages have the same two views. Source labels distinguish
+ontologies from vocabularies. **Mapped concepts** lists relationships stated
+by the source, as the [references guide](/docs/references#reference-definitions)
 describes. Site administrators also get facet editing controls. Ontology
 context moves below the main column on small screens.
 
 View changes preserve expanded definitions and selected ontology matches.
-A preview saves no relationship. Use [term metadata](/docs/term-metadata) to
-propose a usage note, field association, or related external concept.
+Use [term metadata](/docs/term-metadata) to submit a usage note, field
+association, or link to a related external concept for review.
 
 ## Voting and score
 
@@ -46,12 +47,12 @@ are available for reading.
 
 ## Definition order
 
-The highest-ranked candidate appears as **Default definition**. Ranking uses
+The candidate ranked first appears as **Default definition**. Ranking uses
 net score, then newer candidate creation time, then higher definition number.
 A new revision leaves the original candidate creation time unchanged.
 Permanent definition numbers remain fixed when ranking changes.
 
-A rank link follows the candidate currently at that position. Use a
+A rank link opens the candidate at that position when requested. Use a
 [definition or revision link](/docs/identifiers#citation) to cite one candidate.
 Search, Discussion, and studies have their own presentation order.
 
@@ -76,11 +77,11 @@ wording into a new revision and preserves the intervening history.
 
 **Suggest an alternative** requests a separate model draft from your critique.
 Review and publish it with its source link and attribution. The original
-remains available. See [AI-assisted suggestions](/docs/ai-refinement).
+remains available. See [AI assistance](/docs/ai-refinement).
 
-**Propose a replacement** opens a candidate you write to supersede another
-candidate. It also retains the original for comparison. Review the latest
-wording and submit again if the source changes before publication.
+Use **Propose a replacement** to write a separate candidate intended to
+supersede the displayed definition. Both remain available for comparison and
+voting.
 
 Topics remain attached to the definition across revisions. Votes and comments
 identify the revision shown at contribution time.
@@ -89,8 +90,9 @@ identify the revision shown at contribution time.
 
 On a definition page, select **Add an example** in Simple view to open the
 **Add example** form, which Advanced shows directly. A contributed example
-records your authorship, publication time, and the displayed revision. An example in a
-new-term or replacement form has the same separate attribution.
+records your authorship, publication time, and the displayed revision. An
+example submitted with a new term or replacement has the same separate
+attribution.
 
 The first example is featured automatically. The definition author, a moderator,
 or a site administrator can select **Make featured** on another example.
@@ -109,9 +111,9 @@ The interface labels those limitations and leaves unknown values empty.
 ## Comments
 
 Select **Post comment** to discuss the displayed revision. The comment remains
-in the definition thread after later edits. Comments do not request a model
-draft. [Discussion](/docs/discussion) also provides comment and alternative
-controls for recent terms.
+in the definition thread after later edits. Use **Suggest an alternative** to
+request a model draft. [Discussion](/docs/discussion) also has comment and
+alternative controls for recent terms.
 
 ## Contributor profiles
 
@@ -125,5 +127,5 @@ Use **Feedback** to report a site problem. See
 
 ## Administrative cleanup
 
-Permanent test-data deletion is restricted to site administrators. See
+Permanent deletion of test definitions is restricted to site administrators. See
 [Administration](/docs/administration#site-wide-controls-on-public-pages).

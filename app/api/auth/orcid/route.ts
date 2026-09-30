@@ -27,6 +27,7 @@ export const GET = async (request: NextRequest) => {
   session.orcidOAuth = {
     ...authorization.state,
     intent,
+    ...(intent === "connect" ? { initiatingUserId: session.id } : {}),
     startedAt: Date.now(),
     ...(returnTo ? { returnTo } : {})
   }

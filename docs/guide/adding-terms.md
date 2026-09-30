@@ -7,14 +7,15 @@ community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
 ## Confirm, write, review
 
 1. Enter the term and select **Confirm term**, labelled **Confirm term and find
-   references** in Advanced. The form checks for existing terms and retrieves
-   possible reference definitions, which Advanced displays.
+   references** in Advanced. The form checks for existing terms. Reference
+   lookup starts when you use Advanced. Simple lets you continue writing
+   without a lookup.
 2. Write a definition that describes the meaning in your context. Include the
    broader class and distinguishing characteristics when useful. **Add an example**
    opens an optional example of use.
-3. Select **Review definition**. Check the wording, example and attribution.
-   Review also lists any citations and **Files to publish** you added. **Back
-   to writing** returns to the editor for changes.
+3. Select **Review definition**. Check the wording, example, attribution and
+   any citations. Select files under **Files to publish**. **Back to writing**
+   returns to the editor for changes.
 4. Select **Publish new term**. The term and its first definition become public.
    An example you supply has its own attribution.
 
@@ -24,23 +25,24 @@ The form links to the existing term when the label is already defined in the
 destination vocabulary. Open that entry to compare or contribute definitions.
 The same label in another vocabulary can identify a separate concept.
 
-**Edit term** returns to confirmation. Confirming a changed term clears the
-reference choices for the previous term. An applied model draft requires a
-choice to keep the contribution or return to your earlier writing before
-changing the term.
+**Edit term** returns to confirmation. Your writing remains after you confirm
+a changed term or destination vocabulary. The previous reference and file
+choices are cleared. If you applied a model draft, choose whether to keep the
+contribution or return to your earlier writing before changing the term.
 
 ## Simple and Advanced views
 
-Choose **Simple** or **Advanced** under **View**. The site remembers your choice
+Choose **Simple** or **Advanced** under **View**. The site saves your choice
 on other pages. Simple shows the writing form with **Attach an example file**
 and **Help me write**. Advanced adds reference definitions, matches across
-available ontologies, and the selected hierarchy beside the form. These panels
-move below the form on small screens.
+available ontologies, and the hierarchy of the selected concept beside the
+form. These panels move below the form on small screens.
 
 The Advanced toolbar opens **Wolfram lookup**, **AI assistance**, **Add citation**,
 and **Attach file** beneath the form. Citations and source files are added in
 Advanced. View changes preserve your draft, selected sources, and tool
-settings. Ontology previews save no relationship.
+settings. Use [term metadata](/docs/term-metadata) to save an ontology relationship
+for review.
 
 ## Writing with assistance
 
@@ -48,7 +50,7 @@ Select **Help me write** in Simple or **AI assistance** in Advanced to request
 an optional model draft. Simple names the assistant and the inputs it sends.
 Advanced also lets you choose the assistant and its context. Inspect the
 preview before using it.
-[AI-assisted suggestions](/docs/ai-refinement) explains assistant choice,
+[AI assistance](/docs/ai-refinement) explains assistant choice,
 request inputs, Undo, and attribution.
 
 ## Referencing a source definition
@@ -79,13 +81,13 @@ request only when you select it as context. See
 | Comment | Discussion of the displayed revision |
 | Add example | A separately attributed example of use |
 
-[Reading and reviewing terms](/docs/community) explains existing-term actions.
+[Reading and reviewing terms](/docs/community) explains contributions to existing terms.
 Study contributions also record progress through the
 [study activity](/docs/studies).
 
 ## Attach a file
 
 Select **Attach an example file** in Simple to upload an example, or **Attach
-file** in Advanced to upload an example or a source. Files stay private until
-you select them for publication during review. See
+file** in Advanced to upload an example or a source. Select files during review
+to publish them with the definition. Unselected files stay private. See
 [Files and examples](/docs/files-and-examples) for the steps and file limits.

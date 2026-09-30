@@ -1,7 +1,7 @@
 # Technical reference
 
 These pages explain vocabulary concepts, metadata and contribution history.
-For instructions, use the [Quick Start](/docs) or [user guide](/docs/guide).
+For instructions, use the [quick start](/docs) or [user guide](/docs/guide).
 
 | Topic | Explains |
 | --- | --- |

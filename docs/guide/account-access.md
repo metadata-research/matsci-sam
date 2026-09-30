@@ -32,19 +32,29 @@ Check the selected Google account if access is refused.
 
 ## ORCID
 
-Connect an ORCID iD through the profile editor when ORCID access is enabled.
-A connected iD can also be used to sign in. Each iD belongs to one MatSci-SAM
-account. Sign-in with ORCID cannot create or merge accounts.
+When ORCID access is enabled, sign in to your existing account, open
+[Edit profile](/profile/edit), and select **Connect your ORCID iD**. Authorize
+the connection at ORCID. After connecting, you can use **Continue with ORCID**
+on the login page. Each iD can be connected to one MatSci-SAM account.
 
-You can disconnect the iD after verifying another sign-in method. Your
-contributions retain their account attribution. ORCID display follows your
-profile visibility choice.
+Stay signed in to the same account until the connection finishes. If you sign
+out or change accounts during authorization, return to the intended profile
+and start the connection again.
+
+Sign-in with an unconnected iD opens email account creation when available.
+Create your account first, then connect ORCID from your profile. Use your
+existing account if you have contributed before. Accounts remain separate
+after an ORCID connection.
+
+Verify that you can sign in with Google or email before removing the connection.
+Select **Disconnect** in **Edit profile**. Your contributions retain their
+account attribution. ORCID display follows your profile visibility choice.
 
 ## Profile visibility
 
-Profiles are private by default. Use [Edit profile](/profile/edit) to publish
-your profile, including your name, affiliation, linked ORCID iD, and
-contributed terms. Email addresses and sign-in details remain private.
+Profiles are private by default. Open [Edit profile](/profile/edit) and enable
+**Public profile** to publish your name, affiliation, linked ORCID iD, and
+contributed terms together. Email addresses and sign-in details remain private.
 
 The setting controls access to your profile and links from your name. Your
 name remains on contributions and provenance for attribution even with a
@@ -66,5 +76,6 @@ unavailable.
 
 Use **Feedback** on any page to report a site problem, including while signed
 out. It records your comment, page path, and submission time. Query parameters
-and fragments are omitted. Signed-in submissions identify your account.
-Others are recorded as Anonymous. Administrators can resolve and reopen reports.
+and fragments are omitted. Submissions identify your account when you are
+signed in. Others are recorded as Anonymous. Administrators can resolve and
+reopen reports.

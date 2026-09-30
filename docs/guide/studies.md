@@ -1,22 +1,20 @@
 # Studies
 
-Open the study link and follow the instructions for its terms and questions.
+Use a study to review a selected list of terms with your community. Open the
+study link and read the instructions from the organizer before you begin.
 
 ## Help in the study
 
-Select **Study help** for the current step or **This study's instructions**
-to reread the task. **Back to study** returns to your unfinished form. Help
-preserves the draft and does not complete the step. Links open in another tab. Use **Feedback** for site problems.
+Select **Study help** for the current step. Choose **Instructions for this
+study** under **Help topic** to reread the task. **Back to study** returns to
+your unfinished form with your draft intact. Use **Feedback** for site problems.
 
 ## The study page
 
 Sign in with your usual account. Select **Begin study** or **Continue study**.
-Existing members can also find the activity under **Your studies** on their
-profile. **Continue study** resumes at the first unfinished step.
-
-ID4 round two permits **Join and begin study** while open. Contact the person who shared the link if membership or an invitation is
-required. **About this study** returns to the overview and closing
-date. **The terms** opens the collection.
+You can also find studies you have joined under **Your studies** on your
+profile. Contact the organizer if you need an invitation or help joining.
+Select the study title during the activity to return to the overview.
 
 ## Terms used in the study
 
@@ -26,128 +24,96 @@ date. **The terms** opens the collection.
 | Definition or candidate | One contributed interpretation |
 | Revision | One exact version of a definition |
 | Position | The definition you accept or publish for a term in the study |
-| Canonical definition | The highest-ranked definition in the vocabulary |
-| Support score | Upvotes minus downvotes on the current revision, including outside votes |
+| Canonical definition | The definition ranked first in the vocabulary |
+| Support score | Upvotes minus downvotes on the current revision |
 
-A Position records your choice. Support score and canonical order can change
-as others contribute. A score is not a count of study Positions.
-**Suggest an alternative** creates a separate definition. **Create a new
-version** on vocabulary pages updates your own definition and keeps its history.
+A Position records your choice. Scores and the canonical definition can change
+as others contribute to the vocabulary.
 
 ## The study activity
 
-ID4 round two has instructions, one Position step for each of eight terms,
-and closing questions. Other studies may include a Review round.
-Numbered buttons show your place in the study. A check marks a completed step.
-A dash marks a skipped step. Select an available number to revisit that step.
-Later unfinished steps remain locked. Completed and skipped steps open for
-reading.
-
-Each study fixes what its participants see. A study on the Simple interface
-shows the definition, an optional example and the assistant request without
-source tools, and there is no view control inside the study. The first
-studies keep the full forms they used.
+Follow the steps in order. A study may ask you to choose definitions, review
+contributions, and answer closing questions. The organizer provides the
+instructions for each task. You can revisit completed steps to read your
+responses.
 
 ## The Position step
 
-Choose the definition closest to what you consider correct, including your own. The earliest model-authored definition appears first when available. Other candidates follow by score, with older definitions first in a tie.
+Choose the definition closest to what you consider correct, including your
+own. Accept an existing definition, suggest an alternative, or write a new one.
 
 ### Accept a definition
 
-Select **Accept this definition** to record its exact revision as your Position
-and complete the step. Accept adds an upvote, changes a downvote to an upvote,
-or retains an existing upvote. An outside vote does not complete the step.
+Select **Accept this definition** to record your Position and complete the
+step. Your choice also counts as an upvote for that definition.
 
 <a id="suggest-a-revision"></a>
 
 ### Suggest an alternative
 
 Select **Suggest an alternative**, explain what should change, and select
-**Draft alternative with a language model**. Inspect the preview, select
-**Use this draft**, and edit it. Select **Review alternative**, then
-**Publish alternative**. Publication creates a separate definition credited to
-you and the model, records your Position, and completes the step without a vote.
-The original remains available. See [AI-assisted suggestions](/docs/ai-refinement).
-
-**Discard draft** publishes nothing. Before a draft exists, you can accept the
-source or return to the candidates. Use **Propose a new definition** if model
-drafting is unavailable. ID4 round two advances after publication, so post
-comments before completing the Position.
+**Draft alternative with a language model**. Review and edit the draft before
+publishing it as your Position to complete the step. The alternative is a
+separate definition credited to you and the model. The original remains available.
+See [AI assistance](/docs/ai-refinement) for help with drafts.
 
 ### Propose a new definition
 
 Select **Propose a new definition** to write an independent candidate, with an
 optional example. **Publish new definition** records your Position and
-completes the step without a vote or replacement target.
+completes the step. Existing definitions remain available.
 
 ### Comment on a definition
 
-In ID4 round two, select **Post comment** beneath a definition before accepting
-or publishing your Position. A comment does not complete the step or request
-a model draft. Studies with Review provide comment boxes in that round.
-Threads can include comments from outside the study.
+Use a comment box to explain your view, then select **Post comment**. Post
+comments before you complete the step. Some studies include comments in a
+separate Review round.
 
 ### Skip a term
 
-Select **Skip this term** and confirm before recording a Position or posting
-study comments. Skip is final in the walkthrough and records no definition,
-vote, or comment. It also skips the paired Review step when present. Propose
-a first definition or skip when no candidate is available.
+Select **Skip this term** if you cannot assess the term. Make this choice
+before recording a Position or posting study comments. A confirmed skip is
+final in the study.
 
 ## Reviewing the definitions
 
-This round appears only in studies with Review. Vote or comment as instructed,
-including when only one definition is present. You may vote on your own work.
-Continue when there are no definitions.
-
-Select the same vote arrow again to withdraw it or the other arrow to change
-it. **Pressing up again withdraws an upvote already recorded by Accept.**
-A published proposal has no automatic vote. Scores can include outside votes.
-Cards stay in place during voting. Review preserves your recorded Position.
+Some studies include a separate Review round. Vote or comment as instructed.
+Select a vote arrow to vote, select it again to withdraw the vote, or select
+the other arrow to change it. An accepted definition already has your upvote.
 
 Votes and comments save when submitted. Select **Done with this term** to
-complete Review. A vote on every candidate is not required.
+complete the Review step. Your recorded Position remains unchanged.
 
 ## The closing questions
 
-Answer each question and select **Submit**. Scale questions use values from
-1 to 5 with the displayed endpoint meanings. Text questions accept a written
-response. Submitted answers can be reread but not edited in the walkthrough.
-A study may use its own questions or omit them.
+Answer any closing questions and select **Submit**. Read the labels on scale
+questions before choosing a value. Submitted answers can be reread but not
+edited in the study.
 
 ## Saving and returning
 
-Positions, skips, published definitions, votes, comments, and submitted answers
-are saved. Return through the study link or **Your studies**, then select
-**Continue study**.
+Submitted work is saved. Return through the study link or **Your studies**,
+then select **Continue study** to resume at the first unfinished step.
 
 Unsubmitted text is a draft. **Study help** preserves it, but navigation or
-reload can lose it. Review still requires **Done with this term** after saved
-votes or comments.
+reload can lose it.
 
 **Review completed study** opens your recorded contributions and answers.
-Later vocabulary edits preserve your exact recorded choice. Earlier ID4
-responses remain recorded, including previous Review activity under
-**Your earlier responses**.
+Your Position preserves the wording you selected, even if the definition is
+edited later.
 
 ## Study and vocabulary workflows
 
-Use the activity to complete study steps. Contributions on ordinary vocabulary
-pages do not count retrospectively as study participation. A published alternative or new definition records a Position without a vote.
-Accept records or retains an upvote.
-
-Definition numbers identify candidates regardless of display order. Cite a
-[revision link](/docs/identifiers#citation) for exact wording. See
-[Reading and reviewing terms](/docs/community) for ordinary vocabulary actions.
+Complete study tasks through the study link. Contributions made on ordinary
+vocabulary pages do not complete study steps. See
+[Reading and reviewing terms](/docs/community) to contribute outside a study.
 
 ## When a study closes
 
-The activity stops accepting actions at its closing time. Saved contributions
-remain in the vocabulary. Work can continue on vocabulary pages outside the
-study.
+Submit your work before the closing time shown on the study page. Published
+contributions remain in the vocabulary after the study closes.
 
 ## Study administration
 
-Stewards and site administrators prepare studies. Excluding a candidate affects
-one study and preserves earlier records. See
+Stewards and site administrators prepare studies and invite participants. See
 [Administration](/docs/administration#studies).

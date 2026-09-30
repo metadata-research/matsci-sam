@@ -1,4 +1,6 @@
-# AI-assisted suggestions
+# AI assistance
+
+<a id="ai-assisted-suggestions"></a>
 
 Request a model draft while adding a term or suggesting an alternative to an
 existing definition. Inspect and edit the response before publication. An
@@ -22,9 +24,10 @@ applied draft retains model attribution when you change its wording.
    citations, and any example or files. Select **Publish new term** when ready.
 
 A failed request leaves your writing intact. In Advanced, **Context for this
-request** shows what was submitted, even if you edited the form while waiting. Accept or dismiss
-an unused preview before switching tools. Reference results and selections
-remain available afterward.
+request** shows the submitted inputs, including the text before any edits made
+while waiting. Select **Use this draft** or **Keep my writing** before switching
+tools.
+Reference results and selections remain available afterward.
 
 **Undo model draft** restores the writing, citation choices, and attribution
 from immediately before you applied the draft. To request another draft after
@@ -33,15 +36,16 @@ editing an applied one, select **Rework from my earlier writing**, then
 **Keep this contribution** cancels that change.
 
 An example you write is a separate contribution credited to you. Model requests
-produce definition text. Applying or undoing a definition draft preserves the
-example.
+produce definition text. The example remains when you apply or undo a
+definition draft.
 
 ## Assistant choice and context
 
 Advanced shows the assistant and context controls. Simple names the assistant
-and the inputs a request sends, including any chosen in Advanced. **Definition assistant** lists the
-configured assistants, including Wolfram Agent One when enabled. Unavailable choices show their status. SAM saves
-your preference for later requests. A study may specify its own assistant.
+and the inputs a request sends, including any chosen in Advanced. **Definition
+assistant** lists the configured assistants, including Wolfram Agent One when
+enabled. Unavailable choices show their status. MatSci-SAM saves your preference
+for later requests outside studies. Study requests use the deployment assistant.
 The assistant selected for a submitted request stays attached to its response
 and published attribution.
 
@@ -52,14 +56,14 @@ text. **Remove** and **Clear optional context** omit inputs without erasing your
 writing or citations. The term remains required.
 
 Select **Add to assistant context** on an opened reference definition or
-Wolfram source to include it in the next request. Sources are not included by default. Removing
-an input leaves any attached citation unchanged. See
+Wolfram source to include it in the next request. Any attached citation remains
+if you remove the input. See
 [References](/docs/references#citations-and-assistant-inputs).
 
-Applying a model draft clears the citation choices attached to your previous
-writing. Review and attach the sources used in the final text. Undo restores
-the earlier choices. Source links returned by an assistant remain part of its
-answer and do not automatically become your citations.
+A model draft clears the citation choices attached to your previous writing
+when you apply it. Review and attach the sources used in the final text. Undo
+restores the earlier choices. Source links returned by an assistant remain
+part of its answer. Select the sources you want to cite.
 
 The recorded inputs show what was sent to the assistant. Check the facts and
 source material before publication. Wolfram lookup remains available as a
@@ -75,8 +79,9 @@ alternative**. In Discussion, select **Start an alternative** under the
 selected.
 
 1. Explain the error, ambiguity, or missing distinction in **What should
-   change?** Check the required source definition and your feedback in
-   **Assistant context**, along with any optional sources.
+   change?** The request includes the source definition and your feedback.
+   In Advanced, inspect these inputs and any optional sources in **Assistant
+   context**.
 2. Select **Draft alternative with a language model**. Inspect the preview and
    its attribution. **Keep my feedback** dismisses it while retaining your
    critique.
@@ -94,7 +99,9 @@ A study alternative also records your Position and completes the step without
 casting a vote. Follow the [study instructions](/docs/studies#the-position-step)
 for comments and later review.
 
-## Keep the actions distinct
+<a id="keep-the-actions-distinct"></a>
+
+## Other contribution actions
 
 **Create a new version** updates your own definition while preserving its
 identifier and earlier revisions. **Suggest an alternative** creates a separate
