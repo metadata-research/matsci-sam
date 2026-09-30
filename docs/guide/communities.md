@@ -43,8 +43,7 @@ An invitation can add membership before opening the activity.
 
 Open a personal invitation or reusable group link, sign in, and select
 **Accept and join**. Account creation and required profile setup return you
-to the invitation. ID4 round two also has **Join and begin study** on the
-public study page while participation is open.
+to the invitation.
 
 A personal invitation works with an existing account even if it was sent to
 another email address. It can be used once and expires after fourteen days.

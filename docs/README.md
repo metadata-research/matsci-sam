@@ -22,6 +22,9 @@ and implementation contracts in technical notes. Link to the detailed
 explanation from other pages. Keep rollout receipts and design discussions
 out of reader documentation.
 
+Describe recurring tasks. Put instructions for a particular study on its
+study page, and keep one-time data repairs and past rounds out of general guides.
+
 Write from the perspective of the people contributing to and maintaining the
 project. Describe what the application does and what a reader needs to do. Use a
 neutral voice or "we" for a shared project decision. Name an individual when
