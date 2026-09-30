@@ -1,4 +1,8 @@
 import assert from "node:assert/strict"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { ProvenanceTimeline } from "../components/provenance/timeline"
+import type { ProvEvent } from "../lib/provenance"
 import {
   buildContributionEvidence,
   contributionEvidenceAnchor
@@ -399,6 +403,45 @@ assert.equal(importedEnd[0].at, editedAt)
 assert.equal(importedEnd[0].actorKind, "unknown")
 assert.equal(importedEnd[0].profileUserId, undefined)
 assert.equal(importedEnd[0].href, selection.href)
+
+const timelineEvent: ProvEvent = {
+  id: "published-definition",
+  at: publishedAt,
+  kind: "definition-created",
+  actor: "Human publisher",
+  actorKind: "person",
+  profileUserId: 701,
+  summary: "Definition 4 · revision 1 published with AI assistance",
+  model: "test-model"
+}
+const renderEvent = (overrides: Partial<ProvEvent> = {}) =>
+  renderToStaticMarkup(
+    createElement(ProvenanceTimeline, {
+      events: [{ ...timelineEvent, ...overrides }]
+    })
+  )
+const humanPublicationMarkup = renderEvent()
+assert.match(humanPublicationMarkup, /Human publisher/)
+assert.match(humanPublicationMarkup, /href="\/people\/701"/)
+assert.match(humanPublicationMarkup, /test-model/)
+assert.equal(
+  renderEvent({
+    actor: "test-model",
+    actorKind: "software",
+    profileUserId: undefined
+  }).match(/test-model/g)?.length,
+  1,
+  "a software actor whose name matches the model needs only one label"
+)
+assert.match(
+  renderEvent({
+    actor: "Named software contributor",
+    actorKind: "software",
+    profileUserId: undefined
+  }),
+  /Named software contributor/,
+  "a distinct software identity remains visible beside the model"
+)
 
 console.log(
   "Contribution evidence revision binding, source privacy, model lineage and example event checks passed."
