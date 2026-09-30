@@ -65,14 +65,12 @@ history. Withdrawal removes its current fact while preserving that history.
 Unreviewed and declined proposals are excluded from public RDF. Only site
 administrators accept or decline metadata proposals.
 
-Vote changes and withdrawals record events. Backfilled votes identify their
-historical limitations. Study activities identify their study and step,
-while membership rosters and invitations remain private.
+Vote changes and withdrawals record events. Study activities identify their
+study and step, while membership rosters and invitations remain private.
 
-A study links to a collection whose membership can change. Its stored steps
-identify the assigned terms. The collection link alone cannot establish which
-terms a participant reviewed. A recorded Position target identifies the exact
-definition revision accepted or proposed.
+A recorded Position identifies the term and exact definition revision a
+participant accepted or proposed. A linked collection can change. Use the
+study record to establish which terms were reviewed.
 
 ## The two views
 

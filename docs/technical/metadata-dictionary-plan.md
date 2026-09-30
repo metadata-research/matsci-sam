@@ -59,11 +59,11 @@ subclass relationships or class membership.
 
 ### Assertions and permissions
 
-Migration `0062_term_metadata_assertions.sql` creates attributed assertions with
-immutable term or revision scope, field, value and source details. The database
-verifies that a selected revision belongs to the term. Independent authors and
-source attestations remain separate records. The same author cannot repeat an
-active assertion with the same value, scope and source.
+Metadata assertions have immutable term or revision scope, field, value and
+source details. The database verifies that a selected revision belongs to the
+term. Independent authors and source attestations remain separate records. The
+same author cannot repeat an active assertion with the same value, scope and
+source.
 
 Contributors with a completed profile can propose metadata. Site administrators
 can accept or decline proposals. Administrator additions are accepted on

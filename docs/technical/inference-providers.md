@@ -166,9 +166,8 @@ Public suggestions persist generation metadata before preview. Publication
 copies that metadata to the definition and initial revision, retaining the
 original generator through provider switches. Human edits clear generation
 metadata on the new revision. Historical revisions retain theirs. JSON and RDF
-provenance include provider information where recorded. Existing rows have null
-metadata. The migration does not infer a historical provider or rewrite model
-identities.
+provenance include provider information where recorded. Missing provider metadata
+remains null, and model identities retain their recorded values.
 
 There is no automatic fallback between providers. Contributors can continue
 writing manually after a failed request. Provider failures and invalid model
@@ -241,9 +240,6 @@ are retained when supplied. Thought text, tool arguments and full tool output
 are not retained in inference metadata. These identities supplement the exact
 contributor input and definition output already retained with the suggestion.
 
-Migration `0060_definition_assistants.sql` added the singleton assistant policy
-and each contributor's nullable preferred profile. Existing users and
-deployments retain the `default` profile without enabling Agent One.
 `scripts/test-agent-one.ts` checks the adapter with controlled responses. It
 makes no provider request or database write.
 

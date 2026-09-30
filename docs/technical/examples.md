@@ -67,18 +67,11 @@ definition text into a new revision and leaves examples unchanged.
 
 ## Legacy records
 
-Migration 0044 imported nonblank scalar examples as example 1 and created
-featured intervals. Independent author, exact source revision, contribution
-time, and selection provenance were unavailable. Source and time fields on these
-imported rows contain compatibility values. The original source revision and
-contribution time are unknown.
-
-Migration 0045 cleared unsupported actor and selector values, tightened
-attribution checks, and indexed selection history. Its repair updates disabled
-and restored the immutability triggers in the same transaction.
-
-Presentation and graph code use `legacyBackfill` to label unknown provenance and
-omit unsupported attribution and dates.
+Imported scalar examples use example number 1 and a featured interval. Their
+independent author, exact source revision, contribution time, and selection
+provenance are unknown. Source and time fields contain compatibility values.
+Presentation and graph code use `legacyBackfill` to omit unsupported attribution
+and dates. Preserve this distinction when changing display or export code.
 
 ## Tests
 

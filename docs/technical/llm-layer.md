@@ -86,9 +86,8 @@ Definition queries join model metadata so `PublicProfileName` can link a model
 author to the model page.
 
 `model-identity.ts` derives metadata from the tag and reports an unknown
-publisher when no family matches. Migration 0031 contains the historical
-backfill equivalent. Preserve applied migration files. Introduce a new migration
-if a changed identity rule requires stored data updates.
+publisher when no family matches. Use a new migration when an identity rule
+change requires stored data updates. Applied migration files remain immutable.
 
 ## Adding a structured call
 

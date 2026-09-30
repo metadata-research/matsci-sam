@@ -1,7 +1,7 @@
 # Pilot tooling
 
 The curation script prepares communities, collections, and studies. The pilot
-driver runs simulated participants through the original Position/Review
+driver runs simulated participants through the Position/Review
 protocol, and the verifier checks records and pages. [Studies](studies.md)
 describes the shared write contracts.
 
@@ -32,9 +32,9 @@ manifest before writing. Each section commits separately, so a later failure can
 leave earlier sections applied. Repeated runs resolve existing records by slug.
 
 Community entries specify metadata and members, with optional membership start
-times. `first-act-2025` uses the earliest recorded definition, comment, or vote
-by that person in 2025. Optional term slugs support controlled migration into
-the community vocabulary. Those moves retain histories and former route aliases.
+times. Optional term slugs move terms into the community vocabulary while
+retaining histories and former route aliases. Selectors for imported records are
+defined in `scripts/curate-pilot-manifest.ts`.
 
 Collection members should use qualified references such as
 `{ "vocabulary": "example_lab", "slug": "metal" }`. Legacy labels and
@@ -97,9 +97,9 @@ PILOT_OPERATOR_EMAIL=operator@example.org pnpm pilot:run -- --resume --suffix re
 ### Protocol execution
 
 The driver loads stored steps with `stepsOfStudy` and expects Position and
-Review for each term. It does not apply the shortened participant sequence for
-`id4_round_two`. Validate the intended protocol before using this driver for any
-study with an amended sequence.
+Review for each term. It does not filter steps through `activeStudySteps`.
+Check the [study protocol](studies.md#the-position-rule) before using the driver
+for a study with a different active sequence.
 
 Setup creates persona accounts and memberships. Each Position unit requests a
 decision to accept or amend the model draft. Acceptance records an upvote.
@@ -177,5 +177,5 @@ participation began.
 
 HTTP checks cover the study, activity, collection, models, dataset, and selected
 term provenance pages and Turtle documents. A failed check exits with status 1.
-The verifier checks the original pilot protocol. An amended study protocol
+The verifier checks the Position/Review protocol. A different study protocol
 requires separate validation.

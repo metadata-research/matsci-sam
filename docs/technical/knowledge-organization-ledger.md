@@ -128,11 +128,6 @@ classification evaluation. It excludes AI identities.
 
 ## Migrations
 
-Migration 0029 created and backfilled the ledger. Migration 0030 added scope
-notes, bridges, link indexes, and suggestion records. Migration 0031 added model
-identities and attributed historical automatic definitions to them. Legacy
-tagging tables remain for compatibility.
-
 Generated migrations may include reviewed backfill SQL. `db:check` compares
 snapshots, while the migration journal stores SQL file hashes. Applied files are
 immutable. Add a new migration for later changes.

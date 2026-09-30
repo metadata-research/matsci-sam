@@ -65,13 +65,6 @@ A suggested revision identifies its source with `derivedFromRevisionId`. An
 independent Position proposal has no derivation or replacement target. Ordinary
 targeted replacements use `definitions.replacesDefinitionId`.
 
-Migration 0041 added steps, completions, responses, and study contribution
-context. Migration 0042 added response generation stamps, 0043 backfilled
-standing vote events, 0051 added Position targets, and 0053 added stable context
-for study creation. Migration 0063 added the study presentation setting,
-defaulting existing studies to `legacy`. Applied migration files remain
-immutable.
-
 <a id="the-plan"></a>
 
 ## Step generation
@@ -105,8 +98,8 @@ records neither a response nor an invitation redemption. Other studies require
 existing membership or an invitation.
 
 `activeStudySteps` omits ID4 Review steps and assigns contiguous display
-positions while preserving stored step IDs. Instructions, eight Position steps,
-and the stored closing questions remain active. Accept, suggested revisions,
+positions while preserving stored step IDs. Instructions, Position steps,
+and closing questions remain active. Accept, suggested revisions,
 independent proposals, and Skip retain their Position behavior.
 `studyActMatchesStep` also permits comments on a definition of that Position
 term. Comments do not count as a Position act or complete the step.
@@ -117,10 +110,9 @@ write both stored outcomes for the database invariant, but only the active step
 contributes to displayed progress.
 
 The protocol supplies instructions to overview, invitations, activity, help, and
-mutation checks. A request with superseded instructions must reload. The
-amendment uses application code without regenerating steps or rewriting stored
-instructions and responses. Apply the amendment through an application release.
-Step generation and copy synchronization would change stored study records.
+mutation checks. A request with superseded instructions must reload. This
+override is implemented in `lib/study-protocol.ts`. Stored instructions, steps
+and responses remain unchanged.
 
 Earlier choices, proposals, skips, and answers remain recorded. Previous Review
 activity appears in `earlierSteps`, including activity in an unfinished Review
@@ -138,12 +130,14 @@ transaction. Accept therefore avoids vote toggling.
 with a step as a legacy fallback. `hasPosition` also checks for a standing
 upvote in service queries and gate checks. Ordinary participant completion
 requires explicit acceptance or a study proposal. `completeStep` can recover an
-act associated with a step from the former client that submitted two requests.
+act already associated with a step for compatibility with separate act and
+completion requests.
 
 `requireStepForAct` checks open participation and an act of the permitted kind
-for the term. Review accepts votes and comments. Position accepts definitions
-and upvotes, with the ID4 comment exception. `requireOnePosition` checks
-completion and prior Position acts inside the write transaction. Comments are
+for the term through `studyActMatchesStep`. Review accepts votes and comments.
+Position accepts definitions and upvotes. The protocol can also permit comments
+as described above. `requireOnePosition` checks completion and prior Position
+acts inside the write transaction. Comments are
 excluded from this count. The general vote path checks the resulting vote kind
 so a second upvote request cannot withdraw a Position vote.
 
@@ -157,7 +151,7 @@ The database invariants verify act kind and term, one Position act per person,
 paired answers and completions, stamps for actor kind, contiguous stored
 positions, and target/completion consistency. A skipped Position or Review
 requires its paired skip and no contribution associated with the study on either
-step. Position comments are valid only for ID4 and the matching term.
+step. Position comments must satisfy the protocol rule.
 
 ## The writes
 
@@ -199,7 +193,7 @@ ranking from outcomes. Public canonical selection is documented in
 
 The public study page presents the overview and a resume record for participants
 who have signed in. The activity requires permitted membership and participation
-state. ID4 nonmembers can join explicitly from either route.
+state. Both routes use the protocol enrollment rule.
 
 Each study stores `presentation=legacy` or `simple`. The walkthrough wraps its
 forms in `ViewScope`. The `legacy` setting uses Advanced and `simple` uses

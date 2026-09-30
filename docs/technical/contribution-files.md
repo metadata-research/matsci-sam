@@ -75,7 +75,5 @@ attachments.
   rollback, independent example provenance, immutable history, recoverable pending
   quotas and administrative purge.
 
-Migration `0061_contribution_files.sql` creates the file table and its
-immutability trigger. The reverse proxy must allow 5 MiB for the file plus 64
-KiB of multipart overhead. Check the host configuration when diagnosing rejected
-uploads.
+The reverse proxy must allow 5 MiB for the file plus 64 KiB of multipart
+overhead. Check the host configuration when diagnosing rejected uploads.

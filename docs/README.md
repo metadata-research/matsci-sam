@@ -11,9 +11,8 @@ The application renders Markdown through `lib/docs.ts`. `app/docs/shell.tsx`
 provides grouped navigation. Guide articles retain `/docs/{slug}` URLs,
 and reference articles use `/docs/reference/{slug}`.
 
-The website labels this area **Help & Guides**. **Participate** links directly
-to Quick Start before Contribute. User instructions and technical reference
-have distinct navigation groups. Implementation notes remain in the repository.
+The website labels this area **Help & Guides**. Implementation notes remain in
+the repository.
 
 ## Editing
 

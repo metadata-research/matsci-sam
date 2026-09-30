@@ -75,12 +75,11 @@ See [Term metadata](/docs/term-metadata).
 
 ## Imported records
 
-Some pilot records lack editors, change notes, or example authorship and dates.
+Some imported records lack editors, change notes, or example authorship and dates.
 Earlier comments and votes can have inferred revision associations. A recorded
 standing vote may be the earliest available event even if voting began before
 that record.
 
 The interface labels these limitations and leaves unknown values empty.
-Definition rank is calculated from votes and contribution order.
 [Metadata access](/docs/metadata-access) lists downloads, and the
 [provenance model](/docs/reference/provenance-model) explains their meaning.

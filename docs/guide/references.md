@@ -22,8 +22,7 @@ opens. The hierarchy shows the asserted parents of the selected ontology
 concept. Source labels distinguish vocabularies from ontologies. A concept can
 also list **Mapped concepts** that its source states as
 exact matches, close matches, or equivalent classes. Select a mapped concept
-to preview its own parents, and **Back to the match** to return. A mapped
-concept that leads back to the selected match is named as the selected match.
+to preview its own parents, and **Back to the match** to return.
 On small screens these panels appear below the form.
 
 ![Advanced Add with reference definitions, ontology matches and hierarchy beside the form and tools below it](/images/docs/help-add-advanced-v2.png)

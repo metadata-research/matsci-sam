@@ -97,8 +97,8 @@ publication.
 The optional `expectedVocabularySlug` guard rejects publication of new terms and
 model requests if the active destination changed after confirmation. Contributor
 access checks also apply. Validation of the source revision and study governs
-inherited actions. Assistant configuration and preferences use the migration
-described below.
+inherited actions. [Definition assistant profiles](#definition-assistant-profiles)
+describes assistant selection.
 
 The model response contract returns a definition in one response. Retrieval of
 reference candidates records no semantic placement in SAM.
@@ -255,13 +255,11 @@ plain text, for example `TiO<small><sub>2</sub></small>` becomes `TiO₂`. This
 does not change the stored publisher text, its hash, or the source snapshot sent
 to a model. Source content renders as escaped text.
 
-Migration 0057 introduced receipts, entries and revision citations. Migration
-0058 added Wolfram response metadata, entry kind/usage status, nullable licence,
-and model input snapshots. Migration 0059 added nullable `inputExample` and
-`userPrompt` snapshots to AI suggestions. The latter is the complete user
-message sent for each request for a new term or revision. Historical rows remain
-null without reconstruction. Publication binds receipts to the term atomically
-with the revision. Ownership and term mismatch fail the transaction.
+AI suggestions store nullable `inputExample` and `userPrompt` snapshots. The
+latter is the complete user message sent for each request for a new term or
+revision. Missing historical inputs remain null without reconstruction.
+Publication binds receipts to the term atomically with the revision. Ownership
+and term mismatch fail the transaction.
 
 ## Model inputs and contributor declarations
 
@@ -328,44 +326,21 @@ publication. The **Use this draft** action has no separate recorded timestamp.
 
 ## Definition assistant profiles
 
-`default` uses the deployment Ollama/FLAME configuration and displays its
+`default` uses the deployment inference configuration and displays its
 configured model identity. `agent-one` uses the dedicated Wolfram Agent One
 adapter. Browsers submit the approved profile identifiers. Endpoints and
 credentials remain in server configuration. The factual CAG lookup is
 independent of either choice and continues to use its separate key.
 
-Agent One requires `WOLFRAM_AGENT_ONE_API_KEY` in protected server
-configuration. Admin AI & services exposes a validation action for definition
-output, enablement and the default profile. Validation exercises the definition
-adapter. It is bound to the configured credential and adapter settings by a
-private digest. Changing those settings requires a new successful test. A failed
-retest removes readiness. Only a configured, validated, enabled Agent One
-profile is selectable. No automatic fallback is performed when a chosen
-assistant becomes unavailable.
+Contributor preferences apply to requests for new terms and revisions. The
+server fixes study requests to the deployment profile. Agent One is selectable
+only when configured, validated and enabled. A request retains the selected
+profile, service and available model identity throughout publication.
 
-Migration `0060_definition_assistants.sql` added the administrator policy and
-validation state plus each contributor's preferred assistant. Preferences apply
-to requests for new terms and revisions. Study requests remain fixed to the
-deployment profile, enforced on the server. Configuration is captured before
-asynchronous policy queries. The request keeps its producing profile, service
-and available returned model identity in stored inference metadata. A response
-is attributed to Wolfram Agent One. The underlying LLM identity remains
-unspecified. Agent One returns ordinary definition text, including its returned
-source links. SAM wraps that text in its internal definition field and validates
-its bounds. The adapter excludes provider reasoning. The exact stored final
-answer remains available independently of presentation formatting and subsequent
-contributor edits. This protocol is separate from the CAG lookup response
-format.
-
-Available Agent One response UUIDs are public inference metadata under
-`matsci:inferenceResponseId`, while CAG source snapshots retain their own
-`matsci:responseUuid`. Sanitized tool identity evidence may also be retained.
-Raw tool arguments and payloads are excluded. Keys, private validation digests
-and internal database IDs in RDF metadata remain excluded.
-
-Agent One availability depends on the dedicated server credential and a
-successful administrator validation for the current adapter configuration. Host
-validation and activation records belong in private operations documentation.
+[Inference providers](inference-providers.md#contributor-assistant-choice-and-wolfram-agent-one)
+defines configuration, validation, selection and response handling.
+[Metadata publication](metadata-publication.md#reference-and-assistant-evidence)
+defines public provider evidence and its separation from contributor citations.
 
 ## Limits and verification
 

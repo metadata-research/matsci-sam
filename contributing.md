@@ -51,8 +51,9 @@ Write for someone using, contributing to, or maintaining the project. Explain
 what the software does and how to work with it. Use direct instructions for
 procedures. Document constraints that affect a task. Keep design decisions
 needed to review a public contribution in its issue or pull request. Identify
-proposals and historical operations explicitly. Private operating and research
-records remain outside this repository.
+proposals explicitly. Keep one-time repairs, rollout reports, and past study
+rounds out of general guides. Private operating and research records remain
+outside this repository.
 
 Keep user instructions in `docs/guide/`, the quick start in `docs/quickstart/`,
 metadata concepts in `docs/reference/`, and implementation details in

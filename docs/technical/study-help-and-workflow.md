@@ -20,7 +20,7 @@ study-and-vocabulary-workflows
 
 Each excerpt ends at the next level two heading. `studyHelpTopic` selects a
 starting topic from the step kind. Instructions use the text for the study.
-`studyHelpSectionsFor` omits Review help for ID4 round two.
+`studyHelpSectionsFor` includes only the topics used by the active protocol.
 
 Preserve these IDs when editing the guide. `pnpm test:surveys` runs
 `scripts/test-study-help.ts` against the rendered Markdown and checks topics,
@@ -44,17 +44,17 @@ bound to the session and revalidates it on callback. An ORCID iD must already be
 connected to a SAM account to sign in. An unrecognized iD follows the guidance
 for account creation. Study enrollment remains a separate action.
 
-Authentication does not grant membership. ID4 round two allows a separate
-`surveys.join` action while open and prepared. Other studies require existing
-membership or an invitation. The overview and run page apply the same rule.
+Authentication does not grant membership. The overview and run page use the
+same enrollment rule. See the [study protocol](studies.md#id4-round-two-amendment)
+for the supported enrollment paths.
 
 ## Protocol and instructions
 
 The shared generator supports an arbitrary collection, study instructions, and
 optional closing questions. It creates instructions, Position steps, Review
-steps, then questions. ID4 round two filters the active sequence to omit Review
-while preserving stored steps and earlier activity. See
-[Studies and the walkthrough](studies.md#id4-round-two-amendment).
+steps, then questions. The active protocol can filter that sequence without
+changing stored records. [Studies and the walkthrough](studies.md#the-position-rule)
+defines the protocol and compatibility behavior.
 
 The Position view prioritizes the earliest definition attributed to a model and
 shows scores and discussion. It provides neither blinded presentation nor
