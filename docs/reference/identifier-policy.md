@@ -27,14 +27,14 @@ contains the full path grammar and redirect rules.
 Readable names in addresses are assigned when resources are created. They
 remain identifier data after display labels change. Normalized names are
 unique within their vocabulary or scheme. A suffix distinguishes collisions.
-Changing the text shown on a page does not allocate a new resource identity.
+Resource identifiers remain fixed after a change to the displayed text.
 
 ## Numbers
 
 A definition receives a permanent number within its term. A revision receives
 a number within its definition. The interface shows both, for example
-`Definition 2 · revision 1`. Votes, edits and restorations do not reuse or
-renumber those coordinates.
+`Definition 2 · revision 1`. These numbers remain fixed after votes, edits and
+restorations.
 
 ## Stability
 
@@ -44,7 +44,7 @@ A retired tag without a replacement retains a status page.
 
 Exceptional administrator cleanup can permanently delete test definitions,
 revisions and dependent records. Those resources then cease to resolve.
-Their numbers are not reused. Legacy numeric term and definition links redirect
+Their numbers remain reserved. Legacy numeric term and definition links redirect
 to readable addresses, and recorded term aliases preserve older paths.
 
 ## Statements and acts

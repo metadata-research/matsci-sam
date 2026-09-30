@@ -1,33 +1,33 @@
 # Contribution files
 
 The Add flow accepts PDF, PNG and JPEG uploads as **Examples** or **Sources**.
-Uploaded files are downloaded without parsing, embedded previews, OCR or assistant input.
-The application checks file signatures against the declared media type and serves
-all files as downloads. Signature checks establish a supported container type.
-They do not assert that a document is trustworthy or fully well-formed.
+The application checks signatures against the declared media type and serves
+files as downloads. It does not parse file contents, display embedded previews,
+perform OCR or supply files as assistant input. Signature checks establish a
+supported container type. Content validation and malware scanning are outside
+this check.
 
 ## Lifecycle and storage
 
 `contributionFiles` stores immutable bytes, SHA-256 hash, display filename,
 media type, size, uploader, confirmed term and vocabulary, purpose, title,
-caption and optional citation/page information. Each file is at most 5 MiB.
-The upload endpoint reads a bounded multipart body before parsing it, with
-64 KiB allowed for metadata and multipart overhead. A file's actual byte count
-is checked separately. No file content is placed in request headers.
+caption and optional citation/page information. Each file is at most 5 MiB. The
+upload endpoint buffers a bounded multipart body before parsing it, with 64 KiB
+allowed for metadata and multipart overhead. It checks the file byte count
+separately. File content remains in the request body.
 
-Files are stored in PostgreSQL `bytea` so they follow the existing database
-backup, restore and workstation snapshot boundary. This is deliberately bounded
-small-file storage. It is not a bulk document repository. No release-directory
-filesystem or external storage credentials are required.
+Files are stored in PostgreSQL `bytea` and are included in database backups,
+restores and workstation snapshots.
 
-An account can retain six pending files (at most 30 MiB). Quota checks serialize
-on that account's user row. Pending files are readable/deletable only by their
-uploader, expire after 24 hours, and never appear in vocabulary or provenance
-queries. The owner's pending list permits recovery after refresh, a term change,
-or publication with files left unselected. Files from another confirmed context
-can be removed but cannot be attached to the current draft. Expired rows are
-removed when the owner lists or uploads files. The maintenance command
-`pnpm files:cleanup` removes expired pending rows across accounts.
+An account can retain six pending files, totaling at most 30 MiB. Quota checks
+serialize on the corresponding user row. Pending files are readable/deletable
+only by their uploader and expire after 24 hours. Vocabulary and provenance
+queries exclude pending files. The owner's pending list permits recovery after
+refresh, a term change, or publication with files left unselected. Files from
+another confirmed context can be removed but cannot be attached to the current
+draft. Expired rows are removed when the owner lists or uploads files. The
+maintenance command `pnpm files:cleanup` removes expired pending rows across
+accounts.
 
 Upload and removal require the session and configured same origin. Upload also
 requires a completed contributor profile and the active destination vocabulary.
@@ -36,45 +36,46 @@ All downloads use Content-Disposition attachment, nosniff, and a sandbox policy.
 
 ## Publication
 
-Uploading does not publish, cite, or select an assistant input. The review
-checkbox starts unchecked for every new or recovered file. Only explicit
-`attachments: [{ fileId, publish: true }]` selections enter `definitions.create`.
-At most three distinct files may accompany a contribution. The initial UI scope
-is Add, excluding inherited alternative, replacement and study actions.
+A new upload remains private and pending. The review checkbox starts unchecked
+for each new or recovered file. Only explicit
+`attachments: [{ fileId, publish: true }]` selections enter
+`definitions.create`. At most three distinct files may accompany a contribution.
+File attachment controls are available in Add. Inherited alternative,
+replacement and study actions exclude them.
 
-Publication locks every selected row and verifies uploader, expiry, confirmed
-term, vocabulary and the definition author for the target revision. It binds all files
-inside the ordinary publication transaction. A failure rolls back every binding.
-A pending file can then be retried. The database trigger also validates exact
-revision/author/term correspondence and prevents overwriting published bytes,
-metadata or linkage. New uploads always start pending.
+Publication locks each selected row and verifies uploader, expiry, confirmed
+term, vocabulary and the definition author for the target revision. It binds all
+files inside the ordinary publication transaction. A failure rolls back all
+bindings. A pending file can then be retried. The database trigger also
+validates exact revision/author/term correspondence and prevents overwriting
+published bytes, metadata or linkage. New uploads start pending.
 
 A **Source** file is an explicit contributor citation for the exact published
-revision. Later revisions retain no implied citation to it. The earlier record
-and download remain available on that revision. An **Example** also creates an
-ordinary independently attributed `definitionExamples` contribution containing
-its title and caption. The file retains its exact publication revision and
-example ID. The example collection continues unchanged through definition edits.
+revision. The citation and download remain attached to that revision. Later
+revisions have separate citations. An **Example** also creates an independently
+attributed `definitionExamples` contribution containing its title and caption.
+The file retains its exact publication revision and example ID. The example
+collection continues unchanged through definition edits.
 
 Public definition pages show source downloads for that revision. Example cards
-show their associated file. Provenance includes the file's public metadata/hash,
-attribution, and a reference edge from the exact revision (source) or example.
-It creates no assistant `prov:used` edge and infers no model grounding.
-Exceptional administrative definition purge explicitly removes file rows before
-examples and revisions. Ordinary edits never overwrite or delete historical
+show their associated file. Provenance includes public file metadata, hash and
+attribution. Source files have a reference edge from the exact revision. Example
+files have an edge from the example. File publication creates no assistant
+`prov:used` edge. Exceptional administrative definition purge explicitly removes
+file rows before examples and revisions. Ordinary edits preserve historical
 attachments.
 
 ## Verification
 
-- `pnpm test:contribution-files`: supported signatures/types, actual body caps,
-  multipart multilingual metadata, duplicate file parts, download headers and
-  explicit publication schema.
-- `pnpm test:contribution-files-db`: localhost-only rollback fixtures for ownership,
-  privacy, context binding, publication rollback, independent example provenance,
-  immutable history, recoverable pending quotas and administrative purge.
+- `pnpm test:contribution-files` checks supported signatures/types, actual body
+  caps, multipart multilingual metadata, duplicate file parts, download headers
+  and explicit publication schema.
+- `pnpm test:contribution-files-db` uses fixtures restricted to localhost and
+  rolls them back after checking ownership, privacy, context binding, publication
+  rollback, independent example provenance, immutable history, recoverable pending
+  quotas and administrative purge.
 
 Migration `0061_contribution_files.sql` creates the file table and its
-immutability trigger. The deployment's reverse proxy must allow the endpoint's
-5 MiB file limit plus 64 KiB of multipart overhead. Check that host's operations
-configuration when diagnosing rejected uploads; the application limit alone
-does not establish the proxy limit.
+immutability trigger. The reverse proxy must allow 5 MiB for the file plus 64
+KiB of multipart overhead. Check the host configuration when diagnosing rejected
+uploads.

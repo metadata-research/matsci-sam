@@ -19,8 +19,8 @@ release, and licence that the store states for it, and a citation keeps them.
 Reference definitions and **Matches across ontologies** appear beside the form
 on a wide screen. Simple starts no lookup. The matches load when Advanced
 opens. The hierarchy shows the asserted parents of the selected ontology
-concept. A source that is a vocabulary rather than an ontology is named as
-one. A concept can also list **Mapped concepts** that its source states as
+concept. Source labels distinguish vocabularies from ontologies. A concept can
+also list **Mapped concepts** that its source states as
 exact matches, close matches, or equivalent classes. Select a mapped concept
 to preview its own parents, and **Back to the match** to return. A mapped
 concept that leads back to the selected match is named as the selected match.
@@ -29,8 +29,7 @@ On small screens these panels appear below the form.
 ![Advanced Add with reference definitions, ontology matches and hierarchy beside the form and tools below it](/images/docs/help-add-advanced-v2.png)
 
 Use the [Metadata page](/docs/term-metadata#advanced-view) to propose a link
-to a related concept. Reference tools preview source concepts without saving
-ontology relationships.
+to a related concept and submit it for review.
 
 Contribution dialogs for existing terms use a compact reference workspace.
 Open a candidate definition there before using its actions.
@@ -44,7 +43,7 @@ Open a candidate definition there before using its actions.
 | Cite without inserting | Attaches a citation without changing the definition |
 | Add to assistant context | Includes the source in a later model request |
 
-Insertion offers Undo to restore the previous writing and citation choices.
+Use Undo after an insertion to restore the previous writing and citation choices.
 Use **Cite without inserting** when you paraphrase a source or paste copied
 text. Source text and your final definition remain separately recorded.
 
@@ -87,15 +86,15 @@ from the published citation list without changing your text. In Advanced,
 action. Use **Review newly opened sources** to refresh an already open
 shortlist. Simple review lists the attached citations only.
 
-A viewed or copied source is not automatically cited. **Add to definition**
-does attach a citation. Citations belong to the published revision, so choose
-the sources used when creating a new version.
+Attach a citation with **Add to definition** or **Cite without inserting**.
+Citations belong to the published revision. Choose the sources used when
+creating a new version.
 
 **Add to assistant context** includes the selected reference in the next model
 request. For Wolfram, it includes the complete saved response even if you
 inserted only one section. Assistant inputs and citations are independent.
-Adding text or a citation does not select an assistant input.
+Select assistant inputs separately from citations and inserted text.
 
-Applying a model draft replaces your writing and clears its citation choices.
-Undo restores both. Review citations again before publishing the new wording.
+A model draft replaces your writing and clears its citation choices when you
+apply it. Undo restores both. Review citations again before publishing the new wording.
 Files can also support a definition. See [Files and examples](/docs/files-and-examples).

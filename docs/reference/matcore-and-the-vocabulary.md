@@ -21,8 +21,7 @@ the preliminary February 10, 2025 version, `arXiv:2502.07106v1`.
 The Minimal profile contains 18 elements, of which 13 are required and five
 optional in that source. The DFT profile adds nine elements, of which three
 are required and six optional. These requirements apply to the corresponding
-dataset descriptions. They do not require a contributor to fill those fields
-when defining a vocabulary term.
+dataset descriptions.
 
 ## MatSci-SAM representation
 
@@ -33,14 +32,14 @@ field specification.
 
 The catalog also lists a separate [experimental proposal](/metadata/experimental)
 for processing method and deposition temperature. Those fields are local
-proposals for discussing experimental metadata. They are not requirements
-adopted by MatCore or ICoN-PCL.
+proposals for discussing experimental metadata, independent of MatCore and
+ICoN-PCL.
 
 ## Vocabulary and Dublin Core
 
 MatSci-SAM recommends its vocabulary as one source of concepts for the MatCore
-Material field. This is project guidance. The preliminary MatCore source does
-not require that vocabulary for field values.
+Material field. This recommendation is MatSci-SAM guidance. The preliminary
+MatCore source leaves the choice of vocabulary for field values open.
 
 Some general MatCore fields correspond to Dublin Core properties, including
 creator, title and description. The exported metadata records those mappings.
@@ -52,13 +51,13 @@ provide the mapping table and profile representation.
 The **Metadata** page on a term supports two field associations. **Used as a
 value for** identifies a field where the concept can supply a value.
 **Describes a metadata field** links an explanatory entry to the specification
-of that field. Neither action creates a dataset, sample or calculation record.
+of that field. Both associations describe a dictionary entry.
 
 A contribution can apply to a whole term or an exact definition revision.
 Simple view adds usage notes and field associations for the whole term.
 Advanced adds the choice of a definition revision, alternative labels, related
-external concepts, and a source name, link, version and language. Changing
-views preserves the draft.
+external concepts, and a source name, link, version and language. The draft
+remains when you change views.
 
 Contributors submit proposals for site administrator review. A field
 specification explains the field, while evidence supplied with a contribution

@@ -10,14 +10,15 @@ services provide AI assistance, ontology lookup, and an RDF graph store.
 
 ## Start here
 
-- [Quick start](docs/quickstart/index.md): contribute a term and follow its history.
-- [User guide](docs/guide/index.md): accounts, contributions, communities, and studies.
-- [Metadata reference](docs/reference/index.md): vocabulary structure, identifiers,
-  and provenance.
-- [Contributing](contributing.md): work on the code or documentation.
-- [Developer guide](developing.md): local setup and application architecture.
-- [Technical documentation](docs/technical/README.md): subsystem behavior and
-  maintenance instructions.
+- Follow the [quick start](docs/quickstart/index.md) to contribute a term.
+- Consult the [user guide](docs/guide/index.md) for accounts, contributions,
+  communities, and studies.
+- Use the [metadata reference](docs/reference/index.md) to interpret vocabulary
+  structure, identifiers, and provenance.
+- Follow [Contributing](contributing.md) for code or documentation changes.
+- Set up a development environment with the [developer guide](developing.md).
+- Consult the [technical documentation](docs/technical/README.md) for subsystem
+  behavior and maintenance procedures.
 
 ## Local development
 
@@ -34,17 +35,17 @@ Use the Node.js version in [`.nvmrc`](.nvmrc) and the pnpm version in
 
 PostgreSQL must support the `pg_trgm` extension used by the search migration.
 See [local authentication](developing.md#local-authentication) to sign in during
-development. An inference endpoint is needed only for model requests; it is not
-required for manual contributions. [Inference providers](docs/technical/inference-providers.md)
+development. Manual contributions require no inference endpoint. Configure one
+to use AI assistance. [Inference providers](docs/technical/inference-providers.md)
 and the [graph layer](docs/technical/graph-layer.md) describe the optional services.
 
 ## Verification
 
-Run the checks relevant to your change. The full pull-request suite is in
+Run the checks relevant to your change. The full pull request suite is in
 [`.github/workflows/pr-verify.yml`](.github/workflows/pr-verify.yml), and
 [`package.json`](package.json) lists the available commands.
 
-For application changes, start with:
+Start with these checks for application changes.
 
 ```bash
 pnpm lint
@@ -52,12 +53,12 @@ pnpm check-types
 pnpm build
 ```
 
-Database tests need an isolated, migrated test database. Several write fixtures
-or seed data; do not point them at a shared or deployed database. Follow the
-workflow's setup for the database and graph tests.
+Run database tests on an isolated database with migrations applied. Several tests
+create fixtures or seed data. Follow the setup in the workflow for the database
+and graph tests.
 
-Documentation changes should preserve working links, current interface labels,
-and the study-help headings used by the application. Run `pnpm test:surveys` and
+Documentation changes should preserve working links, interface labels,
+and the study help headings used by the application. Run `pnpm test:surveys` and
 `pnpm test:contributions` when changing the corresponding guides.
 
 ## Contributions and releases
@@ -65,18 +66,20 @@ and the study-help headings used by the application. Run `pnpm test:surveys` and
 Open code and documentation pull requests against `dev`. Vocabulary contributions
 made through the site do not require a GitHub pull request.
 
-Merging a pull request updates source control. A maintainer releases the reviewed
+A merged pull request updates source control. A maintainer releases the reviewed
 commit to the development site for hands-on verification before releasing it to
 the public site. Deployment procedures and host configuration are maintained in
 the separate operations repository.
 
 ## Project structure
 
-- `app/`: Next.js routes, pages, and server actions
-- `components/`: shared interface components
-- `trpc/`: application procedures and authorization
-- `drizzle/`: database schema, migrations, and invariants
-- `lib/`: authentication, contributions, metadata, mail, and service integrations
-- `scripts/`: tests, data tools, and diagnostics
-- `docs/`: user guides, metadata reference, and technical documentation
-- `content/studies/`: tracked participant-facing study copy
+| Directory | Contents |
+| --- | --- |
+| `app/` | Next.js routes, pages, and server actions |
+| `components/` | Shared interface components |
+| `trpc/` | Application procedures and authorization |
+| `drizzle/` | Database schema, migrations, and invariants |
+| `lib/` | Authentication, contributions, metadata, mail, and service integrations |
+| `scripts/` | Tests, data tools, and diagnostics |
+| `docs/` | User guides, metadata reference, and technical documentation |
+| `content/studies/` | Tracked study copy for participants |

@@ -15,8 +15,8 @@ and definitions.
 A definition is one contributed interpretation of a term. Other contributors
 can publish alternative definitions. A new version preserves the definition
 identity and records revised wording. The **Default definition** is selected
-by the public ranking rule. It does not replace the other definitions or imply
-editorial approval.
+by the public ranking rule. The other definitions remain available for
+comparison.
 
 ## Concept schemes
 
@@ -40,9 +40,8 @@ when the scheme permits it. The topic retains its identifier and displays the
 linked definitions. A topic cannot classify a definition of the same term to
 which it is linked as equivalent.
 
-This explicit equivalence differs from **Related external concept** metadata.
-A related-concept contribution records relevant context without asserting that
-the two concepts mean the same thing.
+An equivalence link asserts that the concepts have the same meaning.
+**Related external concept** metadata records a relevant association.
 
 ## Collections
 
@@ -50,14 +49,14 @@ A collection is a named, unordered set of terms. It can include terms from
 several vocabularies. Membership leaves each term in its original vocabulary.
 
 Site administrators manage administrator collections. Contributor collections
-accept membership changes from signed-in contributors when that creation mode
-is enabled. Retired collections retain their membership history.
+accept membership changes from contributors who are signed in when that
+creation mode is enabled. Retired collections retain their membership history.
 
 ## Statement ledger
 
 Classification and relation records identify who contributed them and when.
 A withdrawal preserves the earlier record and adds who withdrew it and when.
-Imported records can lack attribution that was not recorded originally.
+Imported records retain the attribution available from their source.
 
 The separate [Term metadata](/docs/term-metadata) workflow supports information
 about a whole term or one exact definition revision. Revision metadata stays

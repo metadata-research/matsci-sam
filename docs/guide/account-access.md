@@ -37,10 +37,10 @@ When ORCID access is enabled, sign in to your existing account, open
 the connection at ORCID. After connecting, you can use **Continue with ORCID**
 on the login page. Each iD can be connected to one MatSci-SAM account.
 
-If you try to sign in with an unconnected iD, the site offers email account
-creation when available. Create your account first, then connect ORCID from
-your profile. If you already have an account, sign in to that account instead.
-Connecting ORCID does not merge accounts.
+Sign-in with an unconnected iD opens email account creation when available.
+Create your account first, then connect ORCID from your profile. Use your
+existing account if you have contributed before. Accounts remain separate
+after an ORCID connection.
 
 You can disconnect the iD after verifying another sign-in method. Your
 contributions retain their account attribution. ORCID display follows your
@@ -72,5 +72,6 @@ unavailable.
 
 Use **Feedback** on any page to report a site problem, including while signed
 out. It records your comment, page path, and submission time. Query parameters
-and fragments are omitted. Signed-in submissions identify your account.
-Others are recorded as Anonymous. Administrators can resolve and reopen reports.
+and fragments are omitted. Submissions identify your account when you are
+signed in. Others are recorded as Anonymous. Administrators can resolve and
+reopen reports.

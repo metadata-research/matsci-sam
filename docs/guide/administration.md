@@ -21,8 +21,8 @@ roles. An administrator can manage a community without joining it.
 
 Use **Add a person** to find an existing account. **Invite someone** creates a
 personal community invitation. Enter an email address, then copy the new link
-or select **Create and email it**. Copy a link when created because it cannot
-be displayed again.
+or select **Create and email it**. The new link is displayed once. Copy it
+before closing the result.
 
 **Reissue** replaces a pending invitation. **Revoke** disables it. Create a new
 invitation after expiry. **Delete record** removes an unused revoked or expired
@@ -76,8 +76,7 @@ it available to the activity again.
 
 Open **Metadata** on a term and inspect **Contributor proposals**. Check the
 scope, description, and evidence before selecting **Accept** or **Decline**.
-Only site administrators can review proposals. Steward and moderator roles
-do not grant this permission.
+Metadata review is restricted to site administrators.
 
 An administrator addition uses **Publish metadata** and is public immediately.
 **Withdraw** removes an accepted description from current metadata while
@@ -90,17 +89,19 @@ endpoint handling requests. **Alternate** is monitored separately. Select
 **Refresh inference health** to check their status. **Inference testing** sends
 a test prompt without creating a vocabulary or study contribution.
 
-A passed test confirms the response format, not factual accuracy. Server
-configuration requires an operator. The repository
+A passed test confirms the response format. Check factual accuracy separately.
+Server configuration requires an operator. The repository
 [inference reference](https://github.com/metadata-research/matsci-sam/blob/dev/docs/technical/inference-providers.md)
 describes those settings.
 
-## Site-wide controls on public pages
+<a id="site-wide-controls-on-public-pages"></a>
+
+## Administration on public pages
 
 Administrators can retire or restore communities and collections, edit facets
 in Advanced term view, and edit or merge tags.
 
-Definition pages also provide permanent deletion for test-data cleanup. It
-removes dependent records and cannot be undone. Removed definition and revision
-addresses stop resolving. Retire or exclude content where those reversible
-controls apply. Ordinary edits preserve published history.
+Administrators can permanently delete test definitions from definition pages.
+Deletion removes dependent records and cannot be undone. Removed definition
+and revision addresses stop resolving. Retire or exclude content where those
+reversible controls apply. Ordinary edits preserve published history.

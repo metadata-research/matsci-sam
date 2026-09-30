@@ -3,7 +3,7 @@
 MatSci-SAM is a metadata dictionary for materials science. Read and contribute
 definitions, then describe how terms are used through examples, sources and
 metadata. You can complete a contribution in **Simple** view. **Advanced**
-adds reference tools and further detail, described at the end of this page.
+adds reference tools and further detail.
 
 ## Find a term
 
@@ -69,7 +69,7 @@ field.
 ## Advanced view
 
 Choose **Advanced** under **View** on a term page, in **Contribute** or in
-**Metadata**. The site remembers your choice. In Contribute, Advanced adds
+**Metadata**. The site saves your choice. In Contribute, Advanced adds
 reference definitions from ontologies such as ChEBI and EMMO, each with its
 source, release and licence, **Matches across ontologies** with the parents
 and mapped concepts of a selected concept, citations, source files, **Wolfram

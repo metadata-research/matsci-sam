@@ -18,7 +18,7 @@ Files remain private until selected for publication during review.
 
 Check the title and explanation before attaching. Open an attached file to
 inspect it. Remove an unused file with the remove control beside its title.
-Attachments are not sent to the definition assistant.
+The definition assistant receives text inputs only.
 
 ## Choose files for publication
 
@@ -51,6 +51,6 @@ files. Remove unused files before uploading more when that limit is reached.
 
 Use **Add an example** on a definition page to describe a use without
 uploading a file. The example records your authorship and the displayed definition
-revision. An optional example in a new-term form is also attributed separately.
+revision. An optional example submitted with a new term is also attributed separately.
 See [Examples of use](/docs/community#examples-of-use) for featured examples
 and their relationship to later revisions.

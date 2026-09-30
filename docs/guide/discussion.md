@@ -2,8 +2,9 @@
 
 Open **Discussion** for recent terms in the vocabulary selected under
 **Working in**. **Everything** includes all hosted vocabularies. Each card
-uses a model-authored definition when available, otherwise the highest-scoring
-definition. Select the term name or comment count to open the term page.
+uses a definition authored by a model when available. Otherwise, it shows the
+definition with the highest score. Select the term name or comment count to
+open the term page.
 
 Anyone can read Discussion. Sign in and complete your profile name to contribute.
 
@@ -19,14 +20,14 @@ Anyone can read Discussion. Sign in and complete your profile name to contribute
    you and the model and linked to its source. The original remains available.
 
 **Discard draft** publishes nothing. Request another draft if the source
-revision changes before publication. See [AI-assisted suggestions](/docs/ai-refinement)
+revision changes before publication. See [AI assistance](/docs/ai-refinement)
 for context, Undo, and attribution.
 
 ## Post an ordinary comment
 
-Write in the comment box and select **Post comment**. The comment identifies
-the displayed revision. It does not request a model draft or change the
-definition.
+Write in the comment box and select **Post comment**. The comment is saved in
+the discussion thread with a link to the displayed revision. Use **Suggest an
+alternative** to request a model draft.
 
 Open the full definition page to **Propose a replacement** or **Add an
 example**.

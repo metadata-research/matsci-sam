@@ -18,7 +18,7 @@ these descriptions across terms. Separate provenance downloads describe
 revisions and contribution activities.
 
 Turtle and JSON-LD are two formats for RDF, the underlying graph of statements.
-The readable term, definition and revision downloads express equivalent
+Downloads for a term, definition or revision express equivalent
 statements in either format. [Metadata access](/docs/metadata-access) explains
 how to find and download the documents.
 
@@ -32,7 +32,7 @@ facets are classification concepts. Collections group existing terms.
 Metadata on dictionary entries can add a usage note, an alternative label,
 a field association or a related external concept. A field association can
 say that a term supplies a possible value for a metadata field, or that an
-entry explains that field. It does not create a dataset record.
+entry explains that field. These associations describe dictionary entries.
 
 Each metadata contribution applies to a whole term or one exact definition
 revision. Accepted statements are public. Unreviewed and declined proposals
@@ -42,17 +42,16 @@ history while ceasing to be a current fact.
 ## Conventions
 
 A term can have several definitions. The **Default definition** reflects the
-ranking of those definitions. Each definition has its own current revision,
-so a change in ranking does not change the identity of any definition.
+ranking of those definitions. Each definition has its own current revision
+and retains its identity after a change in ranking.
 
 A topic applies to a definition and is also reported on its containing term.
 A facet applies directly to the term. Collection membership records inclusion
-in a set without asserting a semantic relationship between the members.
+in a set. Semantic relationships are recorded separately.
 
-An explicit equivalence link has a stronger meaning than a related-concept
-link. Ontology previews show source labels and hierarchy without saving either
-kind of relationship. **Related external concept** metadata records a separate,
-attributed association and does not assert equivalence or class membership.
+An equivalence link asserts that two concepts have the same meaning.
+**Related external concept** metadata records a relevant association with its
+own attribution. Ontology previews display source labels and hierarchy.
 
 Text examples and their featured display choice are separate contributions.
 The metadata includes all active text examples, even when the page shows one

@@ -56,11 +56,11 @@ Collections can reference terms from any hosted vocabulary.
 
 Collections created by administrators accept membership changes from
 administrators. Collections created by contributors accept changes from any
-signed-in contributor when that creation mode is enabled.
+contributor who is signed in when that creation mode is enabled.
 
 Administrators can retire and restore collections. Retirement removes the
-collection from the index and withdraws current memberships, preserving its
-address and history. A restored collection starts empty.
+collection from the index and withdraws current memberships. Its address and
+history remain available. A restored collection starts empty.
 
 **Collections** follows the selected community worklist. **Show everything**
 expands the view for one request. The Tags page lists collections across the

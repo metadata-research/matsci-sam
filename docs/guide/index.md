@@ -11,7 +11,7 @@ guide below for a specific task.
   comments, examples and revisions.
 - [References and citations](/docs/references) explains ontology matches,
   Wolfram lookup, citations and reference inputs for an assistant.
-- [AI-assisted suggestions](/docs/ai-refinement) explains how to request,
+- [AI assistance](/docs/ai-refinement) explains how to request,
   review and apply a draft.
 - [Files and examples](/docs/files-and-examples) explains attachments and
   publication choices.

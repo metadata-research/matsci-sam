@@ -26,8 +26,8 @@ their original vocabulary and identifiers. Search finds them under that
 vocabulary. Two communities can define the same label independently, with
 separate definitions, votes, and rankings.
 
-Check the destination before [adding a term](/docs/adding-terms). Existing-term
-contributions retain the owning vocabulary. Your selection returns to
+Check the destination before [adding a term](/docs/adding-terms). Contributions
+to existing terms remain in their original vocabulary. Your selection returns to
 **Everything** if you leave, are removed, or the community is retired.
 
 ## Studies
@@ -62,7 +62,7 @@ are omitted from public metadata exports.
 ## Stewardship and administration
 
 Stewards manage members, worklists, invitations, and studies in assigned
-communities. Site administrators can also create, rename, retire, and restore
+communities. Site administrators can create, rename, retire, and restore
 communities and appoint stewards. Renaming preserves the address. Retirement
 retains membership history and the worklist for restoration.
 

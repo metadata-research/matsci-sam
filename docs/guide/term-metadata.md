@@ -7,14 +7,14 @@ and scope. Additional metadata can have its own source.
 A dictionary term identifies a concept. A metadata field specifies information
 to record about a dataset, material, or activity. A term can supply a value for
 that field or explain its meaning. For example, a method term can be a value
-for a processing-method field. These contributions describe dictionary entries.
-They do not create records for individual experiments or datasets.
+for a processing method field. These contributions describe dictionary entries.
+An experiment or dataset record can use the resulting term identifier as a value.
 
 ## Add metadata in Simple view
 
 1. Sign in and open **Metadata** on the term. In Simple view the addition
    describes the whole term unless you chose a definition in Advanced.
-2. Select a type under **Add a description** using the table below.
+2. Select a type under **Add a description**.
 3. Enter the usage guidance or choose a **Metadata field** from the catalog.
 4. Select **Submit for review**. The addition appears under **Your proposals**
    with the status **Awaiting review**.
@@ -30,7 +30,7 @@ They do not create records for individual experiments or datasets.
 The administrator form shown here uses **Publish metadata**. Other contributors
 use **Submit for review**.
 
-In Advanced, **What does this describe?** chooses the whole term or one
+Use **What does this describe?** in Advanced to choose the whole term or one
 definition. A description of a definition applies to its exact revision. It
 stays with that wording when a new revision is published. Choose the whole term
 for a description that applies across its definitions. The selected scope
@@ -48,28 +48,21 @@ field association.
 Select **Advanced** under **View** for **Alternative label** and **Related
 external concept**. An alternative label can be an abbreviation or another
 name. A related external concept uses a link to a concept in another source.
-It records relevant context without asserting equivalence or ontology
-membership.
+The link identifies a related concept. Equivalence and ontology membership
+are separate relationships.
 
-Advanced also offers **Source (optional)** for a **Source name or citation**,
+Advanced includes **Source (optional)** for a **Source name or citation**,
 **Source link** and version that support your contribution, along with text
 language, revision numbers, **View semantic statement**, and **Metadata
-history**. Switching views preserves your draft, selected scope and source.
-Simple lists any of those values before you submit. Switching does not publish
-or change saved descriptions.
+history**. Your draft, selected scope and source remain when you switch views.
+Simple lists any of those values before you submit.
 
-Choose **Related external concept** to submit an ontology link for review.
-An ontology preview does not save the link.
-
-Advanced also shows **Ontology context** for the term beside the form. After
-you select a match, **Cite this match** fills **Source (optional)** with the
-ontology, the concept and its release, for whatever you are adding. **Add as
-related concept** fills a **Related external concept** with the link to the
-concept and cites the ontology release. While a mapped concept is open in
-place of the match, the first control reads **Cite this concept** and both
-fill the form with that concept. Neither saves anything, so review the form
-and submit it as usual. Each kind of description keeps its own draft, and
-filling one does not clear another.
+Select a match in **Ontology context**, then use **Cite this match** to fill
+**Source (optional)** with the ontology, concept and release. **Add as related
+concept** fills a **Related external concept** with the concept link and cites
+the ontology release. For an open mapped concept, the first control is
+**Cite this concept**. Both controls use that concept. Review and submit the
+form to save the contribution. Each kind of description retains its own draft.
 
 ![The metadata form in Advanced view, with the ontology context beside it and the source filled by Cite this match](/images/docs/help-term-metadata-advanced.png)
 
@@ -78,13 +71,13 @@ filling one does not clear another.
 Site administrators select **Accept** or **Decline** on a proposal. Accepted
 contributions appear under **Published metadata** and in public metadata
 exports. A declined proposal is labeled **Not accepted**. Proposals are visible
-to their author and site administrators until accepted. Community steward and
-moderator roles do not grant metadata review permission.
+to their author and site administrators until accepted. Metadata review is
+restricted to site administrators.
 
 Administrator additions use **Publish metadata** and become public immediately.
 Contributors can select **Withdraw** on their own additions, and site
-administrators can withdraw any addition. Withdrawing published metadata
-removes it from the current descriptions while retaining its attribution and
+administrators can withdraw any addition. A withdrawal removes published
+metadata from the current descriptions and retains its attribution and
 history. To correct an addition, withdraw it and submit a new one.
 
 Use Advanced to inspect withdrawn descriptions under **Metadata history**.

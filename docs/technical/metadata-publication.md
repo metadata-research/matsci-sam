@@ -1,15 +1,15 @@
 # Metadata publication contracts
 
-These contracts describe the RDF documents, property mappings, provenance and
-compatibility behavior of MatSci-SAM. The public [metadata reference](../reference/skos-and-metadata.md)
-explains their meaning. PostgreSQL is authoritative. RDF documents and the
-optional graph store are projections of application records.
+MatSci-SAM publishes RDF documents with vocabulary content and provenance. The
+public [metadata reference](../reference/skos-and-metadata.md) explains their
+meaning. PostgreSQL is authoritative. RDF documents and the optional graph store
+are projections of application records.
 
 ## Documents and negotiation
 
-MatSci-SAM publishes vocabulary and provenance as RDF. Use a document for
-one resource, a named graph for one part of the dataset, or `/dataset.ttl`
-for the combined vocabulary and metadata.
+MatSci-SAM publishes vocabulary and provenance as RDF. Use a document for one
+resource, a named graph for one part of the dataset, or `/dataset.ttl` for the
+combined vocabulary and metadata.
 
 | Resource                                         | URL                                                | Format                                        |
 | ------------------------------------------------ | -------------------------------------------------- | --------------------------------------------- |
@@ -25,23 +25,22 @@ for the combined vocabulary and metadata.
 | Named graph                                      | `/graphs/{name}`                                   | Turtle                                        |
 | Optional query service                           | `/sparql`                                          | SPARQL 1.1 where enabled                      |
 
-Omit `{community}/` for a default-vocabulary term. Readable vocabulary,
-term, definition, and revision paths accept `/skos.ttl` or `/skos.jsonld`.
-A request for `text/turtle` or `application/ld+json` at the resource address
+Omit `{community}/` for a term in the default vocabulary. Readable vocabulary,
+term, definition, and revision paths accept `/skos.ttl` or `/skos.jsonld`. A
+request for `text/turtle` or `application/ld+json` at the resource address
 receives a 303 redirect to that document. Browser requests return HTML.
 
 Readable Turtle and JSON-LD documents describe the same RDF graph. Readable
 JSON-LD uses an expanded node array. Legacy numeric JSON-LD endpoints retain
-their earlier representation. Per-term documents include the owning vocabulary
+their earlier representation. Documents for a term include the owning vocabulary
 and referenced tags and schemes. Term HTML also embeds schema.org `DefinedTerm`
 data. Resource IRIs use the configured identifier base, independently of the
 website serving the document.
 
-`/dataset.ttl` includes current vocabulary content and classification.
-Use per-term provenance downloads or the provenance graph for histories.
-[MatCore metadata](https://w3id.org/matsci-sam/metadata/matcore) presents the preliminary Minimal and DFT
-profiles and a synthetic example.
-
+`/dataset.ttl` includes current vocabulary content and classification. Use
+provenance downloads for each term or the provenance graph for histories.
+[MatCore metadata](https://w3id.org/matsci-sam/metadata/matcore) presents the
+preliminary Minimal and DFT profiles and a synthetic example.
 
 ## Named graphs
 
@@ -53,17 +52,17 @@ profiles and a synthetic example.
 | `matcore`    | MatCore elements and the Dublin Core crosswalk                |
 | `meta`       | Dataset description, triple counts, and generation time       |
 
-The four content graphs are pairwise disjoint. `/dataset` describes their
-union and the endpoint. Graph downloads work independently of the optional
-SPARQL store. They may reflect the last successful projection held by the
-application process. Projection replaces graphs in separate requests, so a
-failed store write can temporarily leave Fuseki with a mixture of old and new
-graphs. See [the graph write path](graph-layer.md#the-write-path) for retries
-and cache behavior.
+The four content graphs are pairwise disjoint. `/dataset` describes their union
+and the endpoint. Graph downloads work independently of the optional SPARQL
+store. They may reflect the last successful projection held by the application
+process. Projection replaces graphs in separate requests, so a failed store
+write can temporarily leave Fuseki with a mixture of old and new graphs. See
+[the graph write path](graph-layer.md#the-write-path) for retries and cache
+behavior.
 
 Where enabled, `/sparql` accepts read-only SPARQL 1.1 GET and POST queries.
-Queries without a named graph clause use the union of all five graphs.
-Use the Turtle documents in your own RDF tools if that service is unavailable.
+Queries without a named graph clause use the union of all five graphs. Use the
+Turtle documents in your own RDF tools if that service is unavailable.
 PostgreSQL remains the system of record.
 
 ## Application metadata vocabulary
@@ -81,7 +80,7 @@ redirects to `/docs/metadata-access`.
 | `Definition`                | A stable contributed candidate                          |
 | `DefinitionRevision`        | One immutable definition version                        |
 | `definitionNumber`          | Permanent number within the term                        |
-| `canonicalDefinition`       | Highest-ranked candidate under the public ordering rule |
+| `canonicalDefinition`       | Candidate ranked first under the public ordering rule |
 | `currentRevision`           | Active revision of a definition                         |
 | `version`                   | Positive revision number                                |
 | `status`                    | Activity label derived from the revision score          |
@@ -119,55 +118,57 @@ definitions use `dcterms:subject` for classification.
 ## Conventions
 
 A term belongs to the default `/vocabulary` scheme or a community scheme at
-`/vocabulary/{community}`. Same-label terms in different schemes retain
+`/vocabulary/{community}`. Terms with the same label in different schemes retain
 separate IRIs and definitions.
 
 `skos:definition` links a term to each current definition revision.
-`matsci:canonicalDefinition` identifies the highest-ranked stable candidate,
-and `matsci:currentRevision` identifies its current wording. The
+`matsci:canonicalDefinition` identifies the stable candidate ranked first, and
+`matsci:currentRevision` identifies its current wording. The
 [ordering rule](../guide/community.md#definition-order) uses score, candidate
 creation time, and permanent number.
 
-A facet appears on a term. A topic appears on a definition and is derived
-on the containing term. The tag identifies its scheme with `skos:inScheme`.
+A facet appears on a term. A topic appears on a definition and is derived on the
+containing term. The tag identifies its scheme with `skos:inScheme`.
 
 Hierarchy uses `skos:broader` and derived `skos:narrower`. Association uses
-symmetric `skos:related`. Active tags without a broader tag in the same
-scheme are top concepts. Full classification documents use
-`skos:hasTopConcept` and `skos:topConceptOf`. Vocabulary-page JSON-LD also
-lists top terms. Per-term documents describe tag schemes without enumerating
-all their top concepts.
+symmetric `skos:related`. Active tags without a broader tag in the same scheme
+are top concepts. Full classification documents use `skos:hasTopConcept` and
+`skos:topConceptOf`. JSON-LD on the vocabulary page also lists top terms.
+Documents for a term describe tag schemes without enumerating all their top
+concepts.
 
 Retired tags retain their IRI, scheme, and label with `owl:deprecated true`.
 Merged tags also name a replacement with `dcterms:isReplacedBy`.
 
 External mapping assertions use `skos:exactMatch`, `skos:closeMatch`,
 `skos:broadMatch`, `skos:narrowMatch`, or `skos:relatedMatch` with an absolute
-IRI outside the identifier base. Internal relations use typed references.
-A topic-to-term equivalence uses `skos:exactMatch` in both directions and is
-one-to-one. Collection membership uses `skos:member` and does not imply a
+IRI outside the identifier base. Internal relations use typed references. An
+equivalence between a topic and term uses `skos:exactMatch` in both directions
+and is one-to-one. Collection membership uses `skos:member` and does not imply a
 semantic mapping.
 
 Vocabulary labels, titles, descriptions, definition text, examples, and tag
-scope notes use English-tagged literals. Dictionary metadata text uses its
-contributed language tag when supplied, or an untagged literal otherwise.
-Names, publisher, and status are untagged.
-Definition and revision numbers are `xsd:positiveInteger`. Dates use
-`xsd:dateTime`, except term creation dates, which use `xsd:date`. The legacy
-numeric JSON-LD term document retains an untyped creation-date string.
+scope notes use literals tagged as English. Dictionary metadata text uses its
+contributed language tag when supplied, or an untagged literal otherwise. Names,
+publisher, and status are untagged. Definition and revision numbers are
+`xsd:positiveInteger`. Dates use `xsd:dateTime`, except term creation dates,
+which use `xsd:date`. The legacy numeric JSON-LD term document retains an
+untyped string for the creation date.
 
 Each active example appears as a separate `skos:example` on the current
-revision. The featured selection does not limit the export.
-[Identifier policy](../reference/identifier-policy.md) specifies resource paths.
+revision. The export includes the active examples regardless of the featured
+selection. [Identifier policy](../reference/identifier-policy.md) specifies
+resource paths.
 
 ## MatCore profiles
 
-[Greenberg et al. (2025)](https://arxiv.org/abs/2502.07106v1) present MatCore as a two-tier metadata model for computational
-materials datasets. The Minimal MatCore Metadata profile provides fields common
-to every dataset. The second tier adds fields for density functional theory
-(DFT), classical molecular dynamics, GW/BSE, machine learning, and derivative
-methods (see Figure 1). MatSci-SAM represents the Minimal and DFT profiles from
-the preliminary `arXiv:2502.07106v1` snapshot dated February 10, 2025.
+[Greenberg et al. (2025)](https://arxiv.org/abs/2502.07106v1) present MatCore as
+a metadata model with two tiers for computational materials datasets. The
+Minimal MatCore Metadata profile provides fields common to all datasets using
+the standard. The second tier adds fields for density functional theory (DFT),
+classical molecular dynamics, GW/BSE, machine learning, and derivative methods
+(see Figure 1). MatSci-SAM represents the Minimal and DFT profiles from the
+preliminary `arXiv:2502.07106v1` snapshot dated February 10, 2025.
 
 The Minimal profile contains 18 elements. The 13 required elements are
 `creator`, `title`, `date`, `description`, `material`, `calculation-type`,
@@ -184,10 +185,10 @@ six optional elements are `calculation-physics`, `k-points`, `k-smearing`,
 
 ## MatSci-SAM representation
 
-[MatCore metadata](https://w3id.org/matsci-sam/metadata/matcore) presents the 27 element definitions and
-one synthetic DFT example. The catalog preserves the source spelling of each
-key and its requirement marker. The descriptions are concise paraphrases of
-the source tables.
+[MatCore metadata](https://w3id.org/matsci-sam/metadata/matcore) presents the 27
+element definitions and one synthetic DFT example. The catalog preserves the
+source spelling of each key and its requirement marker. The descriptions are
+concise paraphrases of the source tables.
 
 MatSci-SAM assigns each element a normalized identifier under
 `/metadata/matcore#` and publishes it as an `rdf:Property` with an English label
@@ -202,9 +203,10 @@ The MatCore element set is available as a named graph at
 ## Vocabulary and Dublin Core
 
 MatCore elements identify fields in computational dataset metadata. Vocabulary
-terms identify materials science concepts. MatSci-SAM suggests its vocabulary as a source of concepts for the `material`
-element using `matsci:recommendedValueScheme`. This is project guidance, not
-a controlled-value requirement from the paper.
+terms identify materials science concepts. MatSci-SAM identifies its vocabulary
+as a recommended source of concepts for the `material` element through
+`matsci:recommendedValueScheme`. The recommendation belongs to MatSci-SAM and is
+separate from the requirements in the paper.
 
 ```turtle
 <https://w3id.org/matsci-sam/metadata/matcore#material> a rdf:Property ;
@@ -212,8 +214,8 @@ a controlled-value requirement from the paper.
   matsci:recommendedValueScheme <https://w3id.org/matsci-sam/vocabulary> .
 ```
 
-This recommendation names the default MatSci-SAM concept scheme at `/vocabulary`.
-Community vocabularies have separate scheme IRIs at
+This recommendation names the default MatSci-SAM concept scheme at
+`/vocabulary`. Community vocabularies have separate scheme IRIs at
 `/vocabulary/{community}`.
 
 The MatSci-SAM RDF layer also maps seven general MatCore elements to Dublin
@@ -243,158 +245,161 @@ identifiers preserve independent attestations of the same fact.
 | `usageNote` | Text, optional language | `skos:scopeNote` |
 | `usedAsValueFor` | Field IRI | `matsci:usedAsValueFor` |
 | `describesMetadataField` | Field IRI | `matsci:describesMetadataField` |
-| `relatedConcept` | External concept IRI | `matsci:relatedConcept` |
+| `relatedConcept` | Concept IRI | `matsci:relatedConcept` |
 
-Only accepted, active assertions contribute facts to current vocabulary
-exports. Revision assertions appear on their exact revision. Historical
-revision metadata remains available with that revision and its provenance,
-without transferring to the current wording. Proposed and rejected assertions
-are excluded from public RDF, including public provenance.
+Only accepted, active assertions contribute facts to current vocabulary exports.
+Revision assertions appear on their exact revision. Historical revision metadata
+remains available with that revision and its provenance, without transferring to
+the current wording. Proposed and rejected assertions are excluded from public
+RDF, including public provenance.
 
 Accepted assertions remain in provenance after retraction. Each is a
 `matsci:MetadataAssertion` and `rdf:Statement`, with ordinary RDF 1.1
 `rdf:subject`, `rdf:predicate` and `rdf:object` reification. This representation
 supports equivalent Turtle and JSON-LD output, including text language tags.
 Source details, contributor, review and retraction attribution belong to the
-assertion. The reified fact is not itself an active vocabulary fact after
-retraction. Accepted metadata on a historical revision retains its original
-scope.
+assertion. Retraction removes the fact from active vocabulary exports while
+preserving the reified assertion. Accepted metadata on a historical revision
+retains its original scope.
 
 `lib/dictionary-metadata-export.ts` publishes the custom predicates and local
 experimental field definitions in the vocabulary graph. The MatCore graph
-retains the separate preliminary source specification. Metadata assertions do
-not create dataset instances, equivalence links or class membership.
+retains the separate preliminary source specification. Metadata assertions
+record dictionary descriptions and contextual links. Dataset instances,
+equivalence assertions and class membership require separate representations.
 
 ## Revision and contribution provenance
 
 A definition revision is a `prov:Entity` and a `prov:specializationOf` its
-stable definition. `prov:wasRevisionOf` identifies the predecessor.
-A restoration or derived candidate also names its source revision separately
-from the chronological predecessor.
+stable definition. `prov:wasRevisionOf` identifies the predecessor. A
+restoration or derived candidate also names its source revision separately from
+the chronological predecessor.
 
-An accepted alternative suggestion creates a new definition whose first
-revision states
-`prov:wasDerivedFrom` the source revision. A replacement proposal identifies
-the stable definition it should supersede. Both retain the original.
+An accepted alternative suggestion creates a new definition whose first revision
+states `prov:wasDerivedFrom` the source revision. A replacement proposal
+identifies the stable definition it should supersede. Both retain the original.
 
 Publication is a `prov:Activity` associated with the person who published the
-revision. The revision is attributed to that person and, for an accepted
-model draft, the model. Suggestions store the requested term, contributor
-context, model output, prompt, and tag. Revision suggestions also store the
-source revision and critique. The published candidate links to that exact
-suggestion record. Discarded drafts remain outside the vocabulary.
+revision. The revision is attributed to that person and, for an accepted model
+draft, the model. Suggestions store the requested term, contributor context,
+model output, prompt, and tag. Revision suggestions also store the source
+revision and critique. The published candidate links to that exact suggestion
+record. Discarded drafts remain outside the vocabulary.
 
-An example identifies the stable definition and the exact revision displayed
-at contribution time. Its text and attribution are immutable. A featured
-selection records the selector and its active interval. The active example
-set can change independently of definition revisions. The timeline includes
-observed example contributions and the start and end of recorded featured
-intervals. It does not invent an activity date for undated legacy records.
+An example identifies the stable definition and the exact revision displayed at
+contribution time. Its text and attribution are immutable. A featured selection
+records the selector and its active interval. The active example set can change
+independently of definition revisions. The timeline includes observed example
+contributions and the start and end of recorded featured intervals. Undated
+legacy records remain undated.
 
-Imported records state their limitations. Partial revisions can lack an
-editor or change note. Legacy examples lack independent author, exact source
-revision, publication time, and selection provenance. Imported comments use
-an inferred revision association from the recorded time. Imported votes use
-the revision current at migration. Unknown facts remain omitted.
+Imported records state their limitations. Partial revisions can lack an editor
+or change note. Legacy examples lack independent author, exact source revision,
+publication time, and selection provenance. Imported comments use an inferred
+revision association from the recorded time. Imported votes use the revision
+current at migration. Unknown facts remain omitted.
 
 ## Reference and assistant evidence
 
-Reference ontology and Wolfram CAG lookups create contributor-owned receipts and source
-snapshots. Reference snapshots retain their source, release and licence. Wolfram
-receipts retain the effective query, optional context, units and interpretation
-options, retrieval time, exact response and hash, and provider response UUID
-when supplied. Wolfram prototype evidence has no asserted open licence.
-Raw response envelopes and uncited lookup history remain private.
+Reference ontology and Wolfram CAG lookups create receipts owned by contributors
+and source snapshots. Reference snapshots retain their source, release and
+licence. Wolfram receipts retain the effective query, optional context, units
+and interpretation options, retrieval time, exact response and hash, and
+provider response UUID when supplied. Wolfram prototype evidence has no asserted
+open licence. Raw response envelopes and uncited lookup history remain private.
 
 Public evidence has distinct roles.
 
 | Evidence                                        | Meaning in the record                                                                                         |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Contributor-declared citation                   | The revision has `dcterms:references` to a stored source snapshot.                                            |
+| Citation declared by a contributor                   | The revision has `dcterms:references` to a stored source snapshot.                                            |
 | Reference supplied to an accepted model request | The generation activity has `prov:used` pointing to the exact input snapshot.                                 |
 | Source link reported in an assistant answer     | Part of the retained model output. It is not automatically a contributor citation or model input. |
 
-Provider-reported source entities are linked from the original model answer
-with `dcterms:references`. That edge does not connect the source to the published
-revision as a contributor citation or to the generation activity as `prov:used`.
+Source entities reported by the provider are linked from the original model
+answer with `dcterms:references`. That edge does not connect the source to the
+published revision as a contributor citation or to the generation activity as
+`prov:used`.
 
 Reference inputs and citations retain the publisher text, content hash,
 retrieval time, source IRI, release, licence and available provider response
 identifier. Model inputs also retain their supplied context. A reference can
-have either role or both. Neither role proves that every fact was used or verified.
-Copy and Add timestamps are private reports of successful interface actions,
-not assertions of derivation or cognitive use. Merely revealing a reference
-does not add a persisted interaction event.
+have either role or both. These records identify supplied context and declared
+citations. They do not establish which facts influenced an answer or whether
+those facts were verified. Copy and Add timestamps are private reports of
+successful interface actions, not assertions of derivation or cognitive use.
+Reference reveal actions remain local to the interface.
 
-For accepted Gemma/deployment-model and Agent One suggestions, the activity
+For accepted suggestions from the deployment model or Agent One, the activity
 uses the stored system prompt, exact user message and included draft, example
 and reference inputs. The original final answer remains a separate entity from
 the published revision, which is derived from it and preserves the final
 contributor wording. Publication identifies the contributor and recorded
-decision time. The record does not claim a separate timestamp for applying a
-preview in the editor. Later revisions retain their own text and attribution
-without implying a new model request. Missing historical prompt fields are
-not reconstructed.
+decision time. The timestamp records publication. Preview application in the
+editor has no separate recorded time. Later revisions retain their own text and
+attribution. They have no associated model request unless one was recorded.
+Missing historical prompt fields are not reconstructed.
 
-Model metadata includes the requested assistant profile, provider, model tag
-and available returned model identity. The external response UUID from Agent
-One is exported as `matsci:inferenceResponseId`. Wolfram CAG snapshots use
+Model metadata includes the requested assistant profile, provider, model tag and
+available returned model identity. The external response UUID from Agent One is
+exported as `matsci:inferenceResponseId`. Wolfram CAG snapshots use
 `matsci:responseUuid` when available. These identify provider responses, not
-private database rows. Credentials, credential-validation digests and internal
-database IDs in metadata are excluded from the RDF. Provider reasoning and
-raw tool payloads are not retained as the final answer.
+private database rows. Credentials, digests for credential validation and
+internal database IDs in metadata are excluded from the RDF. Provider reasoning
+and raw tool payloads are not retained as the final answer.
 
 The ontology context panel on term pages and in the lab is a read-only preview.
-On the Metadata page its citation and related-concept controls fill a local
+On the Metadata page its citation and related concept controls fill a local
 draft. A separate submission creates the metadata assertion, with its selected
-scope, source and version. It does not assert equivalence or class membership. Browsing and label matching create no such assertion.
-The ranking of the default definition is likewise derived, not a publication,
-editorial approval or independent contribution event.
+scope, source and version. It does not assert equivalence or class membership.
+Browsing and label matching create no such assertion. Default definition ranking
+is computed from recorded contributions and has no independent provenance
+activity.
 
 ## People and models
 
 People are `prov:Person` agents. Models are `prov:SoftwareAgent` agents.
-Authors, editors, commenters, and assertion authors remain attributed even
-when their profiles are private.
+Authors, editors, commenters, and assertion authors remain attributed even when
+their profiles are private.
 
-The per-term view labels votes "A community member" and omits voter identity.
-The dataset graph names a vote agent only for a public profile or AI account.
-The voting act remains in the graph when its agent is omitted.
+The view for each term labels votes "A community member" and omits voter
+identity. The dataset graph names a vote agent only for a public profile or AI
+account. The voting act remains in the graph when its agent is omitted.
 
-A person uses a fragment node such as `{document-IRI}#user_{id}`.
-The account number is consistent across documents, but the document-specific
-IRI is not a public profile address. Model agents in the dataset graph use
-resolvable `/models/{slug}` IRIs. Per-term records identify models by their
-recorded runtime names.
+A person uses a fragment node such as `{document-IRI}#user_{id}`. The account
+number is consistent across documents, and the IRI identifies an agent within
+that document. Public profile addresses are separate. Model agents in the
+dataset graph use resolvable `/models/{slug}` IRIs. Records for each term
+identify models by their recorded runtime names.
 
 ## Assertions, vote events and studies
 
 Each ledger assertion is a `matsci:Assertion` and `prov:Entity` at
-`{subject-IRI}#statement-{key}`. It reifies a triple using `rdf:reifies`
-and an RDF 1.2 triple term, and records attribution and generation time.
-A retraction adds invalidation time and `matsci:retractedBy`. Only active
-assertions contribute their triples to current SKOS exports. Derived triples
-have no independent assertion rows.
+`{subject-IRI}#statement-{key}`. It reifies a triple using `rdf:reifies` and an
+RDF 1.2 triple term, and records attribution and generation time. A retraction
+adds invalidation time and `matsci:retractedBy`. Only active assertions
+contribute their triples to current SKOS exports. Derived triples have no
+independent assertion rows.
 
 A vote event is a `matsci:VoteEvent` and `prov:Activity` at
-`{revision-IRI}#vote-event-{id}`. It records the revision, time, `matsci:voteKind`
-of `up`, `down`, or `withdrawn`, and `matsci:actorKind`. Direction changes and
-withdrawals append events.
+`{revision-IRI}#vote-event-{id}`. It records the revision, time,
+`matsci:voteKind` of `up`, `down`, or `withdrawn`, and `matsci:actorKind`.
+Direction changes and withdrawals append events.
 
-The vote-event backfill created one event per standing vote that lacked an
+The backfill of vote events created one event per standing vote that lacked an
 event. `matsci:backfilled` identifies it. Older votes with an inferred revision
-association also use `matsci:legacyAssociationInferred`. Their recorded time
-may be the definition creation time. The backfill does not reconstruct a
-complete earlier sequence.
+association also use `matsci:legacyAssociationInferred`. Their recorded time may
+be the definition creation time. The backfill does not reconstruct a complete
+earlier sequence.
 
 A study is a `matsci:Study` and `prov:Activity` with title, window, and
 collection under `matsci:worklist`. Study votes and comments name that study
 with `matsci:study`. A proposed definition records the Position step, with a
-source derivation only when it came from a suggested revision. Community
-rosters and invitations remain outside the RDF.
+source derivation only when it came from a suggested revision. Community rosters
+and invitations remain outside the RDF.
 
-[Metadata access](../guide/metadata-access.md#named-graphs) lists graph documents.
-The repository `shapes/` directory contains their SHACL constraints.
+[Metadata access](../guide/metadata-access.md#named-graphs) lists graph
+documents. The repository `shapes/` directory contains their SHACL constraints.
 
 ## The two views
 

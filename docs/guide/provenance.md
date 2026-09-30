@@ -32,18 +32,18 @@ reference material sent to an assistant.
 | Source supplied to the model | Material included in the accepted model request |
 | Source reported by the assistant | A link returned in the assistant answer |
 
-Assistant-reported links do not automatically become contributor citations.
-The recorded request establishes what was submitted, not which facts were used
-or whether they are correct. Accepted model work retains the original answer
-separately from the edited wording that the contributor published.
+Select sources for citation separately from links returned by an assistant.
+The recorded request lists the submitted inputs. Check those sources and the
+facts in the response before publication. Accepted model work retains the
+original answer separately from the wording published by the contributor.
 
 Wolfram lookup and Wolfram Agent One have separate roles. The lookup provides
 reference material. Agent One drafts definitions when available. See
-[References](/docs/references) and [AI-assisted suggestions](/docs/ai-refinement).
+[References](/docs/references) and [AI assistance](/docs/ai-refinement).
 
-Unused lookups and discarded suggestions remain private. Viewing a reference
-or ontology match creates no citation or public relationship. A published
-citation retains the saved source text and available source information.
+Unused lookups and discarded suggestions remain private. Citations and public
+relationships require a separate contribution. A published citation retains
+the saved source text and available source information.
 
 ## Votes, comments, and examples
 
@@ -52,7 +52,7 @@ new vote tally. Vote changes and withdrawals remain in the history. Study
 contributions also identify their study context.
 
 An example identifies its contributor and the revision shown when added.
-Featured-example history records who selected it and when. A different
+The history of featured examples records who selected each one and when. A different
 featured example leaves definition text and votes unchanged. Current example
 lists may include contributions added after an earlier definition revision.
 
@@ -67,9 +67,9 @@ addition has a scope, author, and date, with optional source information.
 Accepted additions become public. Withdrawal removes a current description
 while preserving its history under **Metadata history** in Advanced view.
 
-A description attached to one revision stays with that wording. An ontology
-preview records no relationship. A related-concept contribution is a separate
-addition with its own evidence and review. See [Term metadata](/docs/term-metadata).
+A description attached to one revision stays with that wording. A link to a
+related concept is a separate contribution with its own evidence and review.
+See [Term metadata](/docs/term-metadata).
 
 ## Imported records
 
@@ -78,7 +78,7 @@ Earlier comments and votes can have inferred revision associations. A recorded
 standing vote may be the earliest available event even if voting began before
 that record.
 
-The interface labels these limitations and leaves unknown values empty. A
-change in definition rank is a calculated result, not a publication or approval.
+The interface labels these limitations and leaves unknown values empty.
+Definition rank is calculated from votes and contribution order.
 [Metadata access](/docs/metadata-access) lists downloads, and the
 [provenance model](/docs/reference/provenance-model) explains their meaning.

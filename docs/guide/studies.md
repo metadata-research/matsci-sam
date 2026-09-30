@@ -6,7 +6,8 @@ Open the study link and follow the instructions for its terms and questions.
 
 Select **Study help** for the current step or **This study's instructions**
 to reread the task. **Back to study** returns to your unfinished form. Help
-preserves the draft and does not complete the step. Links open in another tab. Use **Feedback** for site problems.
+preserves the draft and leaves the step unfinished. Links open in another tab.
+Use **Feedback** for site problems.
 
 ## The study page
 
@@ -14,9 +15,10 @@ Sign in with your usual account. Select **Begin study** or **Continue study**.
 Existing members can also find the activity under **Your studies** on their
 profile. **Continue study** resumes at the first unfinished step.
 
-ID4 round two permits **Join and begin study** while open. Contact the person who shared the link if membership or an invitation is
-required. **About this study** returns to the overview and closing
-date. **The terms** opens the collection.
+ID4 round two permits **Join and begin study** while open. Contact the person
+who shared the link if membership or an invitation is required. **About this
+study** returns to the overview and closing date. **The terms** opens the
+collection.
 
 ## Terms used in the study
 
@@ -26,11 +28,11 @@ date. **The terms** opens the collection.
 | Definition or candidate | One contributed interpretation |
 | Revision | One exact version of a definition |
 | Position | The definition you accept or publish for a term in the study |
-| Canonical definition | The highest-ranked definition in the vocabulary |
+| Canonical definition | The definition ranked first in the vocabulary |
 | Support score | Upvotes minus downvotes on the current revision, including outside votes |
 
 A Position records your choice. Support score and canonical order can change
-as others contribute. A score is not a count of study Positions.
+as others contribute. Scores count votes, including votes from outside the study.
 **Suggest an alternative** creates a separate definition. **Create a new
 version** on vocabulary pages updates your own definition and keeps its history.
 
@@ -38,19 +40,21 @@ version** on vocabulary pages updates your own definition and keeps its history.
 
 ID4 round two has instructions, one Position step for each of eight terms,
 and closing questions. Other studies may include a Review round.
-Numbered buttons show your place in the study. A check marks a completed step.
-A dash marks a skipped step. Select an available number to revisit that step.
+Numbered buttons show your place in the study. A check indicates a completed step.
+A dash indicates a skipped step. Select an available number to revisit that step.
 Later unfinished steps remain locked. Completed and skipped steps open for
 reading.
 
-Each study fixes what its participants see. A study on the Simple interface
-shows the definition, an optional example and the assistant request without
-source tools, and there is no view control inside the study. The first
-studies keep the full forms they used.
+Each study uses a fixed interface. Simple includes the definition, an optional
+example and the assistant request. Source tools and view selection are
+available on ordinary vocabulary pages. The first studies keep the full forms
+they used.
 
 ## The Position step
 
-Choose the definition closest to what you consider correct, including your own. The earliest model-authored definition appears first when available. Other candidates follow by score, with older definitions first in a tie.
+Choose the definition closest to what you consider correct, including your
+own. The earliest definition authored by a model appears first when available.
+Other candidates follow by score, with older definitions first in a tie.
 
 ### Accept a definition
 
@@ -67,11 +71,11 @@ Select **Suggest an alternative**, explain what should change, and select
 **Use this draft**, and edit it. Select **Review alternative**, then
 **Publish alternative**. Publication creates a separate definition credited to
 you and the model, records your Position, and completes the step without a vote.
-The original remains available. See [AI-assisted suggestions](/docs/ai-refinement).
+The original remains available. See [AI assistance](/docs/ai-refinement).
 
 **Discard draft** publishes nothing. Before a draft exists, you can accept the
 source or return to the candidates. Use **Propose a new definition** if model
-drafting is unavailable. ID4 round two advances after publication, so post
+drafting is unavailable. ID4 round two advances after publication. Post
 comments before completing the Position.
 
 ### Propose a new definition
@@ -106,7 +110,7 @@ A published proposal has no automatic vote. Scores can include outside votes.
 Cards stay in place during voting. Review preserves your recorded Position.
 
 Votes and comments save when submitted. Select **Done with this term** to
-complete Review. A vote on every candidate is not required.
+complete Review, including when you have left some candidates without a vote.
 
 ## The closing questions
 
@@ -133,8 +137,8 @@ responses remain recorded, including previous Review activity under
 ## Study and vocabulary workflows
 
 Use the activity to complete study steps. Contributions on ordinary vocabulary
-pages do not count retrospectively as study participation. A published alternative or new definition records a Position without a vote.
-Accept records or retains an upvote.
+pages remain outside the study record. A published alternative or new
+definition records a Position without a vote. Accept records or retains an upvote.
 
 Definition numbers identify candidates regardless of display order. Cite a
 [revision link](/docs/identifiers#citation) for exact wording. See
