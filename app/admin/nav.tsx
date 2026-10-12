@@ -9,6 +9,7 @@ import {
   FlaskConicalIcon,
   HomeIcon,
   MessageSquareTextIcon,
+  EyeOffIcon,
   ShieldCheckIcon,
   SparklesIcon,
   TagsIcon,
@@ -29,6 +30,12 @@ const SECTIONS = [
     label: "Review",
     icon: ClipboardCheckIcon,
     matches: ["/admin/review"]
+  },
+  {
+    href: "/admin/moderation",
+    label: "Visibility",
+    icon: EyeOffIcon,
+    matches: ["/admin/moderation"]
   },
   {
     href: "/admin/feedback",

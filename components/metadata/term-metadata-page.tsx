@@ -15,6 +15,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { TermVisibilityNotice } from "@/components/term/visibility-notice"
 import {
   conceptPath,
   definitionPath,
@@ -118,6 +119,10 @@ export async function TermMetadataPage({
               </span>
             </AdvancedOnly>
             <h1 className="font-serif text-4xl font-bold">{term.term}</h1>
+            <TermVisibilityNotice
+              hiddenAt={term.hiddenAt}
+              reason={term.hiddenReason}
+            />
             <p className="max-w-3xl text-muted-foreground">
               Describe how this term is used or link it to a metadata field.
             </p>

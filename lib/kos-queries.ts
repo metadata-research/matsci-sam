@@ -12,9 +12,10 @@ import {
   termsTable,
   vocabulariesTable
 } from "@yamz/db"
-import { and, asc, eq, exists, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, exists, isNull, or, sql } from "drizzle-orm"
 import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import { TOPICS_SCHEME_SLUG, type ConceptRow } from "./kos"
+import { listedTermId, termIsListed } from "./term-visibility"
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type Executor = typeof db | DatabaseTransaction
@@ -34,7 +35,14 @@ type Executor = typeof db | DatabaseTransaction
 const activeSubjectOfConcept = and(
   eq(statementsTable.objectConceptId, conceptsTable.id),
   eq(statementsTable.predicate, "dcterms:subject"),
-  isNull(statementsTable.retractedAt)
+  isNull(statementsTable.retractedAt),
+  or(
+    listedTermId(statementsTable.subjectTermId),
+    sql`${statementsTable.subjectDefinitionId} in (
+      select ${definitionsTable.id} from ${definitionsTable}
+      where ${listedTermId(definitionsTable.termId)}
+    )`
+  )
 )
 
 // Terms reached either way: directly for a facet, through the definition for
@@ -173,7 +181,8 @@ export const collectionsWithCounts = async ({
       and(
         eq(statementsTable.subjectCollectionId, collectionsTable.id),
         eq(statementsTable.predicate, "skos:member"),
-        isNull(statementsTable.retractedAt)
+        isNull(statementsTable.retractedAt),
+        listedTermId(statementsTable.objectTermId)
       )
     )
     .where(
@@ -225,6 +234,7 @@ export const collectionMembers = async (
     .leftJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
     .where(
       and(
+        termIsListed(),
         eq(statementsTable.predicate, "skos:member"),
         eq(statementsTable.subjectCollectionId, collectionId),
         isNull(statementsTable.retractedAt)
@@ -279,6 +289,7 @@ export const communityCollectionVocabularyCounts = async (
     )
     .where(
       and(
+        termIsListed(),
         eq(communityCollectionsTable.communityId, communityId),
         isNull(communityCollectionsTable.removedAt)
       )

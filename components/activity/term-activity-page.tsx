@@ -1,4 +1,5 @@
 import { TermActivityExplorer } from "@/components/activity/term-activity-explorer"
+import { TermVisibilityNotice } from "@/components/term/visibility-notice"
 import { Card, CardContent } from "@/components/ui/card"
 import { termPath, vocabularyPath } from "@/lib/public-identifiers"
 import type { TermActivityData } from "@/lib/term-activity-types"
@@ -27,7 +28,15 @@ const summaryItems = (activity: TermActivityData) => [
   }
 ]
 
-export function TermActivityPage({ activity }: { activity: TermActivityData }) {
+export function TermActivityPage({
+  activity,
+  hiddenAt = null,
+  hiddenReason = null
+}: {
+  activity: TermActivityData
+  hiddenAt?: string | null
+  hiddenReason?: string | null
+}) {
   const span =
     activity.summary.firstAt && activity.summary.lastAt
       ? `${dateFormatter.format(new Date(activity.summary.firstAt))}–${dateFormatter.format(new Date(activity.summary.lastAt))}`
@@ -59,6 +68,7 @@ export function TermActivityPage({ activity }: { activity: TermActivityData }) {
             <h1 className="font-serif text-4xl font-bold tracking-tight">
               {activity.term.label}
             </h1>
+            <TermVisibilityNotice hiddenAt={hiddenAt} reason={hiddenReason} />
             <p className="max-w-3xl text-muted-foreground">
               Compare exact published wording and inspect when definitions,
               revisions, example publications and feature changes, comments, and

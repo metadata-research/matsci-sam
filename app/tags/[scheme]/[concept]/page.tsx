@@ -8,7 +8,8 @@ import {
   statementsTable,
   termsTable
 } from "@yamz/db"
-import { and, asc, eq, isNull } from "drizzle-orm"
+import { and, asc, eq, isNull, or } from "drizzle-orm"
+import { listedTermId, termIsListed } from "@/lib/term-visibility"
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
 import type { Metadata } from "next"
@@ -137,6 +138,12 @@ export default async function ConceptPage({
         .where(
           and(
             eq(statementsTable.subjectConceptId, concept.id),
+            // External mappings remain visible. A local bridge is discovery
+            // of its target term and follows that term's listing state.
+            or(
+              isNull(statementsTable.objectTermId),
+              listedTermId(statementsTable.objectTermId)
+            ),
             isNull(statementsTable.retractedAt)
           )
         )
@@ -152,6 +159,7 @@ export default async function ConceptPage({
         .innerJoin(termsTable, eq(termsTable.id, statementsTable.subjectTermId))
         .where(
           and(
+            termIsListed(),
             eq(statementsTable.predicate, "dcterms:subject"),
             eq(statementsTable.objectConceptId, concept.id),
             isNull(statementsTable.retractedAt)
@@ -168,6 +176,7 @@ export default async function ConceptPage({
         .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
         .where(
           and(
+            termIsListed(),
             eq(statementsTable.predicate, "dcterms:subject"),
             eq(statementsTable.objectConceptId, concept.id),
             isNull(statementsTable.retractedAt)

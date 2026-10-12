@@ -22,6 +22,7 @@ export async function activityRouteMetadata(
   const { term } = await resolveActivityTerm(vocabularySlug, termSlug)
   return {
     title: `Changes & activity: ${term.term} | ${SITE_NAME}`,
+    robots: term.hiddenAt ? { index: false, follow: false } : undefined,
     alternates: {
       canonical: termActivityPath(term.slug, term.vocabularySlug)
     }
@@ -43,5 +44,11 @@ export async function PublicTermActivityRoute({
 
   const activity = await loadTermActivity(route.term.id)
   if (!activity) notFound()
-  return <TermActivityPage activity={activity} />
+  return (
+    <TermActivityPage
+      activity={activity}
+      hiddenAt={route.term.hiddenAt}
+      hiddenReason={route.term.hiddenReason}
+    />
+  )
 }

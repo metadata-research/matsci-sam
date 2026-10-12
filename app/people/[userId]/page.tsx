@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { cache } from "react"
 import { and, asc, eq, sql } from "drizzle-orm"
+import { termIsListed } from "@/lib/term-visibility"
 import { notFound } from "next/navigation"
 import { Building2Icon } from "lucide-react"
 import { db, definitionsTable, termsTable, usersTable } from "@yamz/db"
@@ -93,7 +94,7 @@ export default async function PublicProfilePage({
     })
     .from(definitionsTable)
     .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-    .where(eq(definitionsTable.authorId, profile.id))
+    .where(and(termIsListed(), eq(definitionsTable.authorId, profile.id)))
     .groupBy(termsTable.id)
     .orderBy(asc(termsTable.term))
 

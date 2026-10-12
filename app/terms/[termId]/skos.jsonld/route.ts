@@ -5,7 +5,7 @@ export async function GET(
   { params }: { params: Promise<{ termId: string }> }
 ) {
   const { termId } = await params
-  const kos = await loadKos()
+  const kos = await loadKos({ includeHidden: true })
   const skos = await buildTermSkos(Number(termId), kos)
   if (!skos) return new Response("Not found", { status: 404 })
 

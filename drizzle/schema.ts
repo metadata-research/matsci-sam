@@ -390,7 +390,13 @@ export const termsTable = pgTable(
     // The next permanent definition number to allocate for this term. Keeping
     // the counter on the term lets one atomic UPDATE serialize concurrent
     // contributions without deriving identity from mutable ranking or row ids.
-    nextDefinitionNumber: integer().notNull().default(1)
+    nextDefinitionNumber: integer().notNull().default(1),
+    // Discovery curation retains the term and every published contribution.
+    // Direct identifiers and historical provenance remain readable.
+    hiddenAt: timestamp({ mode: "string", withTimezone: true }),
+    hiddenById: integer().references(() => usersTable.id),
+    hiddenReason: text(),
+    visibilityVersion: integer().notNull().default(0)
   },
   (table) => [
     uniqueIndex("terms_vocabulary_term_unique").on(
@@ -412,6 +418,78 @@ export const termsTable = pgTable(
     check(
       "terms_next_definition_number_positive",
       sql`${table.nextDefinitionNumber} > 0`
+    ),
+    check(
+      "terms_hidden_state_complete",
+      sql`(${table.hiddenAt} IS NULL AND ${table.hiddenById} IS NULL AND ${table.hiddenReason} IS NULL) OR (${table.hiddenAt} IS NOT NULL AND ${table.hiddenById} IS NOT NULL AND ${table.hiddenReason} IS NOT NULL AND length(btrim(${table.hiddenReason})) BETWEEN 1 AND 1000)`
+    ),
+    check(
+      "terms_visibility_version_nonnegative",
+      sql`${table.visibilityVersion} >= 0`
+    )
+  ]
+)
+
+export const termVisibilityEventsTable = pgTable(
+  "termVisibilityEvents",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    termId: integer()
+      .references(() => termsTable.id)
+      .notNull(),
+    actorId: integer()
+      .references(() => usersTable.id)
+      .notNull(),
+    action: text().$type<"hide" | "restore">().notNull(),
+    reason: text().notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .defaultNow()
+      .notNull()
+  },
+  (table) => [
+    index("term_visibility_events_term_time_idx").on(
+      table.termId,
+      table.createdAt
+    ),
+    check(
+      "term_visibility_events_action_valid",
+      sql`${table.action} IN ('hide', 'restore')`
+    ),
+    check(
+      "term_visibility_events_reason_valid",
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 1000`
+    )
+  ]
+)
+
+// Hash-only receipts support atomic duplicate and quota checks. No submitted
+// text or authentication data is copied into this table.
+export const contributionSubmissionsTable = pgTable(
+  "contributionSubmissions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .references(() => usersTable.id, { onDelete: "cascade" })
+      .notNull(),
+    kind: text().$type<"definition" | "comment" | "example">().notNull(),
+    fingerprint: varchar({ length: 64 }).notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .defaultNow()
+      .notNull()
+  },
+  (table) => [
+    index("contribution_submissions_account_kind_time_idx").on(
+      table.userId,
+      table.kind,
+      table.createdAt
+    ),
+    check(
+      "contribution_submissions_kind_valid",
+      sql`${table.kind} IN ('definition', 'comment', 'example')`
+    ),
+    check(
+      "contribution_submissions_fingerprint_valid",
+      sql`${table.fingerprint} ~ '^[a-f0-9]{64}$'`
     )
   ]
 )

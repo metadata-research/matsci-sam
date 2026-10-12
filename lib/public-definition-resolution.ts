@@ -38,7 +38,8 @@ export const findDefinitionByPublicNumber = cache(
         definitionNumber: definitionsTable.definitionNumber,
         term: termsTable.term,
         termSlug: termsTable.slug,
-        termVocabularySlug: termsTable.vocabularySlug
+        termVocabularySlug: termsTable.vocabularySlug,
+        hiddenAt: termsTable.hiddenAt
       })
       .from(definitionsTable)
       .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
@@ -69,6 +70,7 @@ export const findDefinitionRevisionByPublicNumber = cache(
         term: termsTable.term,
         termSlug: termsTable.slug,
         termVocabularySlug: termsTable.vocabularySlug,
+        hiddenAt: termsTable.hiddenAt,
         version: definitionRevisionsTable.version
       })
       .from(definitionsTable)

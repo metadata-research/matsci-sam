@@ -44,6 +44,7 @@ import {
 } from "@/lib/public-identifiers"
 import { RevisionDiff } from "@/components/definition/revision-diff"
 import { AdvancedOnly, ViewTabs } from "@/components/interface-view"
+import { TermVisibilityNotice } from "@/components/term/visibility-notice"
 
 export async function DefinitionDetailPage({
   definitionId,
@@ -94,6 +95,12 @@ export async function DefinitionDetailPage({
   return (
     <HydrateClient>
       <main className="px-4 py-8 sm:py-10">
+        <div className="mx-auto max-w-4xl">
+          <TermVisibilityNotice
+            hiddenAt={definition.termHiddenAt}
+            reason={definition.termHiddenReason}
+          />
+        </div>
         <ViewTabs
           key={definition.id}
           label="Definition view"

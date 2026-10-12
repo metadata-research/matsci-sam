@@ -1,4 +1,8 @@
 import { exampleContributionFiles } from "@/lib/contribution-files"
+import {
+  contributionFingerprint,
+  reserveContributionSubmission
+} from "@/lib/contribution-guard"
 import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
 import { z } from "zod"
@@ -167,6 +171,11 @@ export const examplesRouter = createTRPCRouter({
     .mutation(async ({ ctx: { userId }, input }) => {
       try {
         const { example } = await db.transaction(async (tx) => {
+          await reserveContributionSubmission(tx, {
+            userId,
+            kind: "example",
+            fingerprint: contributionFingerprint(input)
+          })
           const actorKind = await exampleActorKindForUser(tx, userId)
           return createDefinitionExample(tx, {
             ...input,

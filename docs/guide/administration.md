@@ -5,11 +5,11 @@ can manage all communities and open **Administration** from the account menu.
 
 ## Roles and scope
 
-| Role | Controls |
-| --- | --- |
-| Community member | Participate in open studies, view the roster, select a community, and leave |
-| Community steward | Manage members, invitations, worklists, and studies in assigned communities |
-| Moderator | Feature examples on definitions |
+| Role               | Controls                                                                        |
+| ------------------ | ------------------------------------------------------------------------------- |
+| Community member   | Participate in open studies, view the roster, select a community, and leave     |
+| Community steward  | Manage members, invitations, worklists, and studies in assigned communities     |
+| Moderator          | Feature examples on definitions                                                 |
 | Site administrator | Site roles, metadata review, curation, service status, and all steward controls |
 
 Steward is a community membership role. Moderator and administrator are site
@@ -102,6 +102,16 @@ describes those settings.
 
 Administrators can retire or restore communities and collections, edit facets
 in Advanced term view, and edit or merge tags.
+
+To curate test or unsuitable terms, open **Visibility** in Administration. Find
+the term and choose **Hide**. Give a public reason and confirm **Hide from
+listings**. The term leaves public discovery and current vocabulary exports.
+Existing links retain the published content with a notice. Choose **Restore**
+and give a reason to return it to listings. Each decision retains its actor,
+time and reason in the visibility history.
+
+Hiding requires an explicit review. A term name or contributor name alone does
+not identify test content. Hiding retains history and does not restrict access.
 
 Administrators can permanently delete test definitions from definition pages.
 Deletion removes dependent records and cannot be undone. Removed definition

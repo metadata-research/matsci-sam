@@ -87,6 +87,7 @@ export type GraphTerm = {
   id: number
   slug: string
   vocabularySlug: string
+  hiddenAt?: string | null
 }
 export type GraphDefinition = {
   id: number
@@ -236,6 +237,12 @@ export class ProvenanceDatasetView {
     const t = this.termById.get(id)
     if (!t) throw new RangeError(`unknown term ${id}`)
     return t
+  }
+
+  hiddenTerms() {
+    return [...this.termById.values()]
+      .filter((term) => !!term.hiddenAt)
+      .sort((a, b) => a.id - b.id)
   }
 
   private definition(id: number) {
@@ -609,6 +616,15 @@ export const agentBlockTurtle = (agent: AgentRef) =>
 // document supplies them.
 export const provenanceDatasetBlocksTurtle = (view: ProvenanceDatasetView) =>
   [
+    // Historical provenance keeps hidden contributions and explicitly marks
+    // their discovery state, even though current vocabulary exports omit them.
+    ...view
+      .hiddenTerms()
+      .map((term) =>
+        turtleBlock(termUri(term.slug, term.vocabularySlug), [
+          "matsci:hiddenFromListings true"
+        ])
+      ),
     ...view.assertions.map((row) => assertionBlockTurtle(view, row)),
     ...view.metadataAssertions.map((row) =>
       metadataAssertionEvidenceTurtle(view.metadataAssertionEvidence(row))
@@ -647,7 +663,8 @@ export const loadProvenanceDatasetData =
         .select({
           id: termsTable.id,
           slug: termsTable.slug,
-          vocabularySlug: termsTable.vocabularySlug
+          vocabularySlug: termsTable.vocabularySlug,
+          hiddenAt: termsTable.hiddenAt
         })
         .from(termsTable),
       db

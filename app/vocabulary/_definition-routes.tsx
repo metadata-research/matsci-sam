@@ -95,7 +95,8 @@ export async function definitionRouteMetadata(
       definition.definitionNumber +
       " | " +
       SITE_NAME,
-    alternates: { canonical }
+    alternates: { canonical },
+    robots: definition.hiddenAt ? { index: false, follow: false } : undefined
   }
 }
 
@@ -150,7 +151,8 @@ export async function revisionRouteMetadata(
       definition.version +
       " | " +
       SITE_NAME,
-    alternates: { canonical }
+    alternates: { canonical },
+    robots: definition.hiddenAt ? { index: false, follow: false } : undefined
   }
 }
 

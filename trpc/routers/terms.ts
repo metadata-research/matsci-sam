@@ -5,6 +5,7 @@ import { buildTermProvenance } from "@/lib/provenance"
 import { activeCommunityFor } from "@/lib/community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 import { asc, eq } from "drizzle-orm"
+import { termIsListed } from "@/lib/term-visibility"
 
 export const termsRouter = createTRPCRouter({
   // Public read-only PROV-O view. Voter identities are withheld (the admin
@@ -33,6 +34,7 @@ export const termsRouter = createTRPCRouter({
           vocabulariesTable,
           eq(vocabulariesTable.slug, termsTable.vocabularySlug)
         )
+        .where(termIsListed())
         .orderBy(asc(termsTable.term), asc(vocabulariesTable.title)),
       db.query.vocabulariesTable.findFirst({
         columns: { slug: true, title: true, isDefault: true },

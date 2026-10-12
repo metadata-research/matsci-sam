@@ -55,6 +55,7 @@ import {
   SEARCH_RESULT_MAX_LIMIT
 } from "@/lib/input-limits"
 import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
+import { termIsListed } from "@/lib/term-visibility"
 import {
   parseSearchHeadline,
   type SearchMatchSource
@@ -149,6 +150,7 @@ export const appRouter = createTRPCRouter({
           // rely on this.
           .where(
             and(
+              termIsListed(),
               hasQuery ? searchMatch(query) : undefined,
               facetTermScope(facets)
             )
@@ -202,7 +204,9 @@ export const appRouter = createTRPCRouter({
             vocabulariesTable,
             eq(vocabulariesTable.slug, termsTable.vocabularySlug)
           )
-          .where(query.trim() ? searchMatch(query) : undefined)
+          .where(
+            and(termIsListed(), query.trim() ? searchMatch(query) : undefined)
+          )
           .groupBy(termsTable.id, vocabulariesTable.slug)
           .orderBy(
             ...(query.trim()
@@ -245,6 +249,7 @@ export const appRouter = createTRPCRouter({
             termsTable,
             and(
               eq(termsTable.id, statementsTable.subjectTermId),
+              termIsListed(),
               query.trim() ? searchMatch(query) : undefined
             )
           )
@@ -330,6 +335,7 @@ export const appRouter = createTRPCRouter({
           // Empty query keeps the newest-first browse the homepage prefetches.
           .where(
             and(
+              termIsListed(),
               hasQuery ? definitionSearchMatch(query) : undefined,
               facetTermScope(facets),
               author === "all"

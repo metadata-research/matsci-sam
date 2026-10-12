@@ -4,6 +4,7 @@ export const metadata: Metadata = { title: `Browse Terms | ${SITE_NAME}` }
 import { db, definitionsTable, termsTable, vocabulariesTable } from "@yamz/db"
 import { and, asc, eq, sql } from "drizzle-orm"
 import { searchMatch, vocabularyTermScope } from "@/lib/search"
+import { termIsListed } from "@/lib/term-visibility"
 import { getActiveCommunity } from "@/lib/community-queries"
 import Link from "next/link"
 import { BrowseList } from "./browse-list"
@@ -41,6 +42,7 @@ export default async function TermsPage({
     // letter-group layout keeps its own ordering, so only the filter changes
     .where(
       and(
+        termIsListed(),
         q?.trim() ? searchMatch(q) : undefined,
         active ? vocabularyTermScope(active.vocabularySlug) : undefined
       )

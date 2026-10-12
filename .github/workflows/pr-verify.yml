@@ -148,6 +148,15 @@ jobs:
         run: |
           pnpm test:search-db
 
+      - name: Test term visibility and submission controls
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+          SYSTEM_PROMPT_KEY: materials-reference
+        run: |
+          pnpm test:term-visibility-db
+          pnpm test:contribution-guard-db
+          pnpm db:invariants
+
       # Proves a lost discard response can be retried without changing the
       # original decision time or exposing another contributor's preview.
       - name: Test AI contribution discard retry

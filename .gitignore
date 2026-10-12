@@ -47,6 +47,7 @@ yarn-error.log*
 CLAUDE.local.md
 
 # Misc
+.env.controls-*
 .DS_Store
 *.pem
 

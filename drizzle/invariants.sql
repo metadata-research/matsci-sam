@@ -2,6 +2,57 @@
 
 DO $validation$
 BEGIN
+  IF to_regclass('public."termVisibilityEvents"') IS NOT NULL THEN
+    -- Visibility is a reversible decision backed by one durable event per
+    -- state change. The version is the number of decisions, not a wall clock.
+    IF EXISTS (
+      SELECT 1
+      FROM "terms" t
+      LEFT JOIN (
+        SELECT "termId", count(*) AS decisions
+        FROM "termVisibilityEvents"
+        GROUP BY "termId"
+      ) history ON history."termId" = t.id
+      WHERE t."visibilityVersion" <> COALESCE(history.decisions, 0)
+    ) THEN
+      RAISE EXCEPTION 'term visibility version differs from its decision history';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM "terms" t
+      LEFT JOIN LATERAL (
+        SELECT action, reason, "actorId", "createdAt"
+        FROM "termVisibilityEvents"
+        WHERE "termId" = t.id
+        ORDER BY id DESC
+        LIMIT 1
+      ) latest ON true
+      WHERE (t."hiddenAt" IS NOT NULL) IS DISTINCT FROM
+              COALESCE(latest.action = 'hide', false)
+         OR (t."hiddenAt" IS NOT NULL AND (
+              t."hiddenAt" IS DISTINCT FROM latest."createdAt"
+              OR t."hiddenById" IS DISTINCT FROM latest."actorId"
+              OR t."hiddenReason" IS DISTINCT FROM latest.reason
+            ))
+    ) THEN
+      RAISE EXCEPTION 'term visibility state differs from its latest decision';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM (
+        SELECT action,
+          lag(action) OVER (PARTITION BY "termId" ORDER BY id) AS previous_action
+        FROM "termVisibilityEvents"
+      ) history
+      WHERE action = previous_action
+         OR (previous_action IS NULL AND action <> 'hide')
+    ) THEN
+      RAISE EXCEPTION 'term visibility history does not alternate hide and restore';
+    END IF;
+  END IF;
+
   IF to_regclass('public.vocabularies') IS NOT NULL THEN
     -- The legacy root namespace has exactly one owner. Its stable slug keeps
     -- every identifier published before community vocabularies unchanged.

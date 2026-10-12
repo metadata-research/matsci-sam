@@ -93,7 +93,13 @@ export const buildAllGraphs = async (
 
 // The documents the store holds, when a projection has reached it from
 // this process. Null until then, and on a deployment without a store.
-export const lastProjectedGraphs = () => state().last?.graphs ?? null
+export const lastProjectedGraphs = () => {
+  const s = state()
+  // A moderation change must not serve an old public vocabulary snapshot
+  // while the external projection is waiting or failing. The routes rebuild
+  // from PostgreSQL until the projection becomes current again.
+  return s.dirty || s.running ? null : s.last?.graphs ?? null
+}
 
 const datasetUrl = () => {
   const url = process.env.FUSEKI_DATASET_URL?.replace(/\/+$/, "")

@@ -32,8 +32,10 @@ import {
 } from "@/lib/llm/diagnostic"
 import { inferenceTestInput } from "@/lib/llm/test-options"
 import { getInferenceEndpointsHealth } from "@/lib/llm/health"
+import { moderationRouter } from "./moderation"
 
 export const adminRouter = createTRPCRouter({
+  moderation: moderationRouter,
   studies: adminStudiesRouter,
   inference: adminProcedure.query(() => getInferenceHealth()),
   inferenceEndpoints: adminProcedure.query(() => getInferenceEndpointsHealth()),
