@@ -147,7 +147,7 @@ export type ProvEvent = {
   href?: string
 }
 
-const excerpt = (text: string, max = 240) =>
+const excerpt = (text: string, max = 400) =>
   text.length > max ? `${text.slice(0, max)}…` : text
 
 // terms.createdAt is stored without a timezone (it is UTC). Normalize to ISO
@@ -1063,7 +1063,7 @@ export const buildTermProvenance = async (
         promptRef: matchedChat
           ? (matchedChat.promptKey ?? matchedChat.promptHash)
           : revision.prompt
-            ? `revision ${revision.id}`
+            ? `prompt record ${revision.id}`
             : null
       })
     }
