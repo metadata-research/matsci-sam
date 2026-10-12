@@ -95,7 +95,7 @@ export async function vocabularyDocumentResponse(
       if (!provenance) return new Response("Not found", { status: 404 })
       turtle = provenanceTurtle(provenance)
     } else {
-      const kos = await loadKos()
+      const kos = await loadKos({ includeHidden: true })
       const skos = await buildTermSkos(term.id, kos)
       if (!skos) return new Response("Not found", { status: 404 })
       turtle = termTurtle(skos, kos)

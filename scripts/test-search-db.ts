@@ -44,6 +44,7 @@ const main = async () => {
     termMatchSourceGrouped
   } = await import("../lib/search")
   const { parseSearchHeadline } = await import("../lib/search-evidence")
+  const { listedTermId, termIsListed } = await import("../lib/term-visibility")
 
   const stamp = Date.now().toString(36)
   const bodyQuery = `chromafluxneedle${stamp}`
@@ -287,6 +288,62 @@ const main = async () => {
         facetPayload[0]?.facets.map((facet) => facet.key),
         ["pspp:processing"],
         "term results expose active PSPP facet metadata"
+      )
+
+      await tx
+        .update(termsTable)
+        .set({
+          hiddenAt: new Date().toISOString(),
+          hiddenById: authorA.id,
+          hiddenReason: "Reviewed search test fixture"
+        })
+        .where(eq(termsTable.id, termB.id))
+
+      const listedMatches = () =>
+        tx
+          .select({ id: termsTable.id })
+          .from(termsTable)
+          .where(
+            and(
+              inArray(termsTable.id, fixtureTermIds),
+              searchMatch(bodyQuery),
+              termIsListed()
+            )
+          )
+
+      assert.deepEqual(
+        (await listedMatches()).map((row) => row.id),
+        [termA.id],
+        "discovery excludes a hidden term even when its definition matches"
+      )
+      const listedDefinitions = await tx
+        .select({ id: definitionsTable.id })
+        .from(definitionsTable)
+        .where(
+          and(
+            inArray(definitionsTable.id, [directA.id, directB.id]),
+            listedTermId(definitionsTable.termId)
+          )
+        )
+      assert.deepEqual(
+        listedDefinitions.map((row) => row.id),
+        [directA.id],
+        "listing a definition by term ID follows the same visibility predicate"
+      )
+      assert.ok(
+        await tx.query.termsTable.findFirst({
+          where: eq(termsTable.id, termB.id)
+        }),
+        "direct identity lookup retains the hidden term"
+      )
+      await tx
+        .update(termsTable)
+        .set({ hiddenAt: null, hiddenById: null, hiddenReason: null })
+        .where(eq(termsTable.id, termB.id))
+      assert.deepEqual(
+        (await listedMatches()).map((row) => row.id).sort((a, b) => a - b),
+        [...fixtureTermIds].sort((a, b) => a - b),
+        "restoring discovery returns the same term identities"
       )
 
       throw new Rollback()

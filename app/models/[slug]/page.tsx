@@ -11,6 +11,7 @@ import {
   usersTable
 } from "@yamz/db"
 import { and, countDistinct, desc, eq, sql } from "drizzle-orm"
+import { termIsListed } from "@/lib/term-visibility"
 import { SITE_NAME } from "@/lib/site"
 import { definitionPath, modelUri } from "@/lib/public-identifiers"
 
@@ -82,7 +83,7 @@ export default async function ModelPage({
       })
       .from(definitionsTable)
       .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-      .where(eq(definitionsTable.authorId, model.userId))
+      .where(and(termIsListed(), eq(definitionsTable.authorId, model.userId)))
       .orderBy(desc(definitionsTable.createdAt))
       .limit(50),
     // Which prompt versions this model worked under. The hash is what makes
@@ -94,8 +95,14 @@ export default async function ModelPage({
         revisions: countDistinct(definitionRevisionsTable.id)
       })
       .from(definitionRevisionsTable)
+      .innerJoin(
+        definitionsTable,
+        eq(definitionsTable.id, definitionRevisionsTable.definitionId)
+      )
+      .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
       .where(
         and(
+          termIsListed(),
           eq(definitionRevisionsTable.model, model.tag),
           sql`${definitionRevisionsTable.prompt} IS NOT NULL`
         )

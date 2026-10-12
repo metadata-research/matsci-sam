@@ -14,6 +14,7 @@ import { diffToStringSimple } from "@/lib/definition-revisions"
 import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
 import { activeCommunityFor } from "@/lib/community-queries"
 import { vocabularyTermScope } from "@/lib/search"
+import { termIsListed } from "@/lib/term-visibility"
 
 /*
  * Feed for the /discussion page: the most-recent terms, each paired with the
@@ -48,9 +49,12 @@ export const discussionRouter = createTRPCRouter({
           eq(vocabulariesTable.slug, termsTable.vocabularySlug)
         )
         .where(
-          activeCommunity
-            ? vocabularyTermScope(activeCommunity.vocabularySlug)
-            : undefined
+          and(
+            termIsListed(),
+            activeCommunity
+              ? vocabularyTermScope(activeCommunity.vocabularySlug)
+              : undefined
+          )
         )
         .orderBy(desc(termsTable.createdAt))
         .limit(limit)

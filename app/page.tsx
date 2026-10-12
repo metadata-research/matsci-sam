@@ -17,6 +17,7 @@ import { getSession } from "@/lib/session"
 import { getActiveCommunity } from "@/lib/community-queries"
 import { communityDisplayName } from "@/lib/community-names"
 import { communityReferenceScope, vocabularyTermScope } from "@/lib/search"
+import { termIsListed } from "@/lib/term-visibility"
 import { formatDate } from "@/lib/date"
 import { HydrateClient } from "@/trpc/server"
 import { Button } from "@/components/ui/button"
@@ -444,7 +445,12 @@ async function getLatestTerms(vocabularySlug?: string) {
       eq(vocabulariesTable.slug, termsTable.vocabularySlug)
     )
     .leftJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
-    .where(vocabularySlug ? vocabularyTermScope(vocabularySlug) : undefined)
+    .where(
+      and(
+        termIsListed(),
+        vocabularySlug ? vocabularyTermScope(vocabularySlug) : undefined
+      )
+    )
     .groupBy(termsTable.id, vocabulariesTable.slug)
     .orderBy(desc(termsTable.createdAt))
     .limit(4)
@@ -463,6 +469,7 @@ async function getCommunityReferenceCount(
     .from(termsTable)
     .where(
       and(
+        termIsListed(),
         communityReferenceScope(communityId),
         sql`${termsTable.vocabularySlug} <> ${vocabularySlug}`
       )
@@ -500,7 +507,12 @@ async function getRecentDiscussion(vocabularySlug?: string) {
       eq(vocabulariesTable.slug, termsTable.vocabularySlug)
     )
     .leftJoin(usersTable, eq(usersTable.id, commentsTable.userId))
-    .where(vocabularySlug ? vocabularyTermScope(vocabularySlug) : undefined)
+    .where(
+      and(
+        termIsListed(),
+        vocabularySlug ? vocabularyTermScope(vocabularySlug) : undefined
+      )
+    )
     .orderBy(desc(commentsTable.createdAt))
     .limit(20)
 
@@ -566,6 +578,7 @@ async function getPersonalWork(userId: number, vocabularySlug?: string) {
     )
     .where(
       and(
+        termIsListed(),
         vocabularySlug ? vocabularyTermScope(vocabularySlug) : undefined,
         or(
           eq(definitionsTable.authorId, userId),

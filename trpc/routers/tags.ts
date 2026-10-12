@@ -18,6 +18,7 @@ import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
 import { TAG_MAX_LENGTH } from "@/lib/input-limits"
+import { termIsListed } from "@/lib/term-visibility"
 import { uniqueSlug } from "@/lib/slug"
 import { GetUser } from "@/lib/crud"
 import {
@@ -212,7 +213,12 @@ export const tagsRouter = createTRPCRouter({
             vocabulariesTable,
             eq(vocabulariesTable.slug, termsTable.vocabularySlug)
           )
-          .where(sql`lower(btrim(${termsTable.term})) = ${normalized}`)
+          .where(
+            and(
+              termIsListed(),
+              sql`lower(btrim(${termsTable.term})) = ${normalized}`
+            )
+          )
           .orderBy(asc(vocabulariesTable.title), asc(termsTable.id))
       }
 

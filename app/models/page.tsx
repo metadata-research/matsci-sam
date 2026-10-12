@@ -1,15 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { SparklesIcon } from "lucide-react"
-import {
-  aiModelsTable,
-  db,
-  definitionsTable,
-  usersTable
-} from "@yamz/db"
-import { countDistinct, eq } from "drizzle-orm"
+import { aiModelsTable, db, definitionsTable, usersTable } from "@yamz/db"
+import { and, countDistinct, eq } from "drizzle-orm"
 import { SITE_NAME } from "@/lib/site"
 import { modelPath } from "@/lib/public-identifiers"
+import { listedTermId } from "@/lib/term-visibility"
 
 /*
  * The models that have contributed, each under the identity its contributions
@@ -38,7 +34,10 @@ export default async function ModelsPage() {
     .innerJoin(usersTable, eq(usersTable.id, aiModelsTable.userId))
     .leftJoin(
       definitionsTable,
-      eq(definitionsTable.authorId, aiModelsTable.userId)
+      and(
+        eq(definitionsTable.authorId, aiModelsTable.userId),
+        listedTermId(definitionsTable.termId)
+      )
     )
     .groupBy(aiModelsTable.userId, usersTable.name)
     .orderBy(usersTable.name)
@@ -53,9 +52,9 @@ export default async function ModelsPage() {
           </span>
           <h1 className="text-4xl font-bold">Models</h1>
           <p className="text-muted-foreground">
-            A model that contributes is an author with a resolvable identity.
-            A revision it produced records the exact tag it ran under, so its
-            work can be traced to the version responsible.
+            A model that contributes is an author with a resolvable identity. A
+            revision it produced records the exact tag it ran under, so its work
+            can be traced to the version responsible.
           </p>
         </div>
 
@@ -69,9 +68,7 @@ export default async function ModelsPage() {
               const detail = [
                 model.vendor,
                 model.family,
-                model.parameterSize
-                  ? `${model.parameterSize} parameters`
-                  : null
+                model.parameterSize ? `${model.parameterSize} parameters` : null
               ]
                 .filter(Boolean)
                 .join(" · ")

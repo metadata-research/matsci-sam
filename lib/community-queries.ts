@@ -17,6 +17,7 @@ import { hashOneTimeToken } from "@/lib/auth-tokens"
 import { getCurrentUser } from "@/lib/current-user"
 import { invitationOutcome, type InvitationOutcome } from "@/lib/communities"
 import { studyInstructions } from "@/lib/study-protocol"
+import { listedTermId } from "@/lib/term-visibility"
 
 export type InvitationView = {
   // A link addressed to one person, or the open join link of a community.
@@ -435,6 +436,7 @@ export const communityWorklist = async (communityId: number) =>
         where s."subjectCollectionId" = ${collectionsTable.id}
           and s.predicate = 'skos:member'
           and s."retractedAt" is null
+          and ${listedTermId(sql`s."objectTermId"`)}
       )`
     })
     .from(communityCollectionsTable)

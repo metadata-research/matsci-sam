@@ -36,8 +36,11 @@ import {
   getTableColumns,
   inArray,
   isNull,
-  ne
+  ne,
+  or,
+  sql
 } from "drizzle-orm"
+import { listedTermId, termIsListed } from "./term-visibility"
 import { SITE_NAME, SITE_URL } from "./site"
 import { definitionStatus } from "./status"
 import {
@@ -93,6 +96,7 @@ export type TermSkos = {
   vocabularySlug: string
   prefLabel: string
   created: string
+  hiddenFromListings?: boolean
   canonicalDefinition?: string
   definitions: {
     id: number
@@ -130,7 +134,9 @@ export type TermSkos = {
 // The whole knowledge-organization layer in a handful of queries: schemes,
 // live and retired concepts (only `proposed` is excluded), collections, every
 // active statement, and the terms those statements name.
-export const loadKos = async (): Promise<KosData> => {
+export const loadKos = async ({
+  includeHidden = false
+}: { includeHidden?: boolean } = {}): Promise<KosData> => {
   const [schemes, concepts, collections, statements] = await Promise.all([
     db.select().from(conceptSchemesTable),
     db.select().from(conceptsTable).where(ne(conceptsTable.status, "proposed")),
@@ -149,7 +155,30 @@ export const loadKos = async (): Promise<KosData> => {
         objectIri: statementsTable.objectIri
       })
       .from(statementsTable)
-      .where(isNull(statementsTable.retractedAt))
+      .where(
+        and(
+          isNull(statementsTable.retractedAt),
+          includeHidden
+            ? undefined
+            : and(
+                or(
+                  isNull(statementsTable.subjectTermId),
+                  listedTermId(statementsTable.subjectTermId)
+                ),
+                or(
+                  isNull(statementsTable.objectTermId),
+                  listedTermId(statementsTable.objectTermId)
+                ),
+                or(
+                  isNull(statementsTable.subjectDefinitionId),
+                  sql`${statementsTable.subjectDefinitionId} in (
+                    select ${definitionsTable.id} from ${definitionsTable}
+                    where ${listedTermId(definitionsTable.termId)}
+                  )`
+                )
+              )
+        )
+      )
   ])
 
   const termIds = [
@@ -168,7 +197,12 @@ export const loadKos = async (): Promise<KosData> => {
           vocabularySlug: termsTable.vocabularySlug
         })
         .from(termsTable)
-        .where(inArray(termsTable.id, termIds))
+        .where(
+          and(
+            inArray(termsTable.id, termIds),
+            includeHidden ? undefined : termIsListed()
+          )
+        )
     : []
 
   return {
@@ -189,6 +223,7 @@ type TermRow = {
   slug: string
   vocabularySlug: string
   createdAt: string
+  hiddenAt?: string | null
 }
 type DefinitionRow = {
   id: number
@@ -339,6 +374,7 @@ export const assembleTermSkos = (
         : undefined,
       prefLabel: term.term,
       created: term.createdAt.slice(0, 10),
+      hiddenFromListings: !!term.hiddenAt,
       definitions,
       facets,
       topics,
@@ -382,7 +418,8 @@ export const assembleTermSkos = (
 // revisions and coauthors in three queries, whatever the term count.
 export const buildTermsSkos = async (
   kos: KosData,
-  termIds?: number[]
+  termIds?: number[],
+  { includeHidden = false }: { includeHidden?: boolean } = {}
 ): Promise<TermSkos[]> => {
   if (termIds && termIds.length === 0) return []
 
@@ -392,10 +429,16 @@ export const buildTermsSkos = async (
       term: termsTable.term,
       slug: termsTable.slug,
       vocabularySlug: termsTable.vocabularySlug,
-      createdAt: termsTable.createdAt
+      createdAt: termsTable.createdAt,
+      hiddenAt: termsTable.hiddenAt
     })
     .from(termsTable)
-    .where(termIds ? inArray(termsTable.id, termIds) : undefined)
+    .where(
+      and(
+        termIds ? inArray(termsTable.id, termIds) : undefined,
+        includeHidden ? undefined : termIsListed()
+      )
+    )
     .orderBy(asc(termsTable.term))
   if (terms.length === 0) return []
 
@@ -418,7 +461,12 @@ export const buildTermsSkos = async (
     .from(definitionsTable)
     .innerJoin(definitionRevisionsTable, currentDefinitionRevision)
     .innerJoin(usersTable, publicDefinitionAuthor)
-    .where(termIds ? inArray(definitionsTable.termId, termIds) : undefined)
+    .where(
+      inArray(
+        definitionsTable.termId,
+        terms.map((term) => term.id)
+      )
+    )
     .orderBy(asc(definitionsTable.definitionNumber))
 
   const definitionIds = definitions.map((d) => d.id)
@@ -478,10 +526,15 @@ export const buildTermsSkos = async (
 
 export const buildTermSkos = async (
   termId: number,
-  kos?: KosData
+  kos?: KosData,
+  { includeHidden = true }: { includeHidden?: boolean } = {}
 ): Promise<TermSkos | null> => {
   if (!Number.isInteger(termId)) return null
-  const [record] = await buildTermsSkos(kos ?? (await loadKos()), [termId])
+  const [record] = await buildTermsSkos(
+    kos ?? (await loadKos({ includeHidden })),
+    [termId],
+    { includeHidden }
+  )
   return record ?? null
 }
 
@@ -519,6 +572,7 @@ const conceptTurtle = (skos: TermSkos) => {
     "a skos:Concept",
     `skos:inScheme <${vocabularyUri(skos.vocabularySlug)}>`,
     `skos:prefLabel ${en(skos.prefLabel)}`,
+    ...(skos.hiddenFromListings ? ["matsci:hiddenFromListings true"] : []),
     ...(skos.canonicalDefinition
       ? [`matsci:canonicalDefinition <${skos.canonicalDefinition}>`]
       : []),
@@ -695,6 +749,7 @@ export const termJsonLd = (skos: TermSkos, kos: KosData) => {
     "@type": "skos:Concept",
     "skos:inScheme": idRef(vocabularyUri(skos.vocabularySlug)),
     "skos:prefLabel": { "@value": skos.prefLabel, "@language": "en" },
+    ...(skos.hiddenFromListings ? { "matsci:hiddenFromListings": true } : {}),
     ...metadataJsonLdProperties(
       (skos.metadata ?? []).filter((fact) => fact.subject === skos.uri)
     ),

@@ -20,6 +20,7 @@ import { statementsTable } from "@yamz/db"
 import { currentFeaturedExampleText } from "./definition-example-queries"
 import { ID4_ROUND_TWO, ID4_INSTRUCTIONS } from "./study-protocol"
 import { activeStudyStepSql } from "./study-protocol-queries"
+import { listedTermId, termIsListed } from "./term-visibility"
 
 /*
  * Reads for studies. A study is public as a page, so none of these gate on the
@@ -53,6 +54,7 @@ const studyColumns = {
     where s."subjectCollectionId" = ${collectionsTable.id}
       and s.predicate = 'skos:member'
       and s."retractedAt" is null
+      and ${listedTermId(sql`s."objectTermId"`)}
   )`,
   // How many steps its walkthrough has, so the study page can say whether
   // positions are being taken without reading the walkthrough.
@@ -200,6 +202,9 @@ export const mostSupportedDefinitions = async (
     .innerJoin(termsTable, eq(termsTable.id, statementsTable.objectTermId))
     .where(
       and(
+        // Historical support summaries and assigned walkthrough steps retain
+        // their study context; current worklist discovery follows visibility.
+        asOf ? undefined : termIsListed(),
         eq(statementsTable.predicate, "skos:member"),
         eq(statementsTable.subjectCollectionId, collectionId),
         isNull(statementsTable.retractedAt)

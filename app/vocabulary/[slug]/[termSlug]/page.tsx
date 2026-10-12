@@ -35,6 +35,7 @@ export async function generateMetadata({
 
   return {
     title: term.term + ": " + term.vocabularyTitle + " | " + SITE_NAME,
+    robots: term.hiddenAt ? { index: false, follow: false } : undefined,
     alternates: {
       canonical: termUri(term.slug, term.vocabularySlug)
     }

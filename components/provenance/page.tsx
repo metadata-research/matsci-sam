@@ -6,10 +6,19 @@ import { ArrowLeftIcon } from "lucide-react"
 import { ProvenanceGraph } from "@/components/provenance/graph"
 import { ProvenanceTimeline } from "@/components/provenance/timeline"
 import { ContributionEvidencePanel } from "./contribution-evidence"
+import { TermVisibilityNotice } from "@/components/term/visibility-notice"
 
 // Public, read-only PROV-O view of a term's history. Voter identities are
 // anonymized server-side (see terms.provenance).
-export async function TermProvenancePage({ termId }: { termId: number }) {
+export async function TermProvenancePage({
+  termId,
+  hiddenAt = null,
+  hiddenReason = null
+}: {
+  termId: number
+  hiddenAt?: string | null
+  hiddenReason?: string | null
+}) {
   const provenance = await trpc.terms.provenance(termId).catch(() => null)
   if (!provenance) notFound()
 
@@ -26,6 +35,7 @@ export async function TermProvenancePage({ termId }: { termId: number }) {
         <h1 className="text-3xl font-bold">
           Provenance: {provenance.term.term}
         </h1>
+        <TermVisibilityNotice hiddenAt={hiddenAt} reason={hiddenReason} />
         <p className="text-sm text-muted-foreground">
           The published history of this term as a W3C PROV-O graph, including
           definitions and revisions, AI-assisted activity, examples and featured

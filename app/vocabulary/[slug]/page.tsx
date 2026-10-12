@@ -40,6 +40,9 @@ export async function generateMetadata({
   if (termRoute)
     return {
       title: termRoute.term.term + " | " + SITE_NAME,
+      robots: termRoute.term.hiddenAt
+        ? { index: false, follow: false }
+        : undefined,
       alternates: {
         canonical: termUri(termRoute.term.slug, termRoute.term.vocabularySlug)
       }

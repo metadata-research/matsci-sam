@@ -1,5 +1,10 @@
 import { contributionFilePublicationsSchema } from "@/lib/contribution-file-types"
 import {
+  definitionSubmissionFingerprint,
+  lockContributionSubmissions,
+  reserveContributionSubmission
+} from "@/lib/contribution-guard"
+import {
   publishContributionFiles,
   revisionContributionFiles
 } from "@/lib/contribution-files"
@@ -253,6 +258,7 @@ export const definitionsRouter = createTRPCRouter({
       let written
       try {
         written = await db.transaction(async (tx) => {
+          await lockContributionSubmissions(tx, authorId)
           const lockedWalkthroughStep =
             walkthroughStep && input.surveyStepId !== undefined
               ? await lockParticipation(
@@ -527,6 +533,23 @@ export const definitionsRouter = createTRPCRouter({
                 message: "That replacement target is not part of this term"
               })
           }
+
+          await reserveContributionSubmission(tx, {
+            userId: authorId,
+            kind: "definition",
+            fingerprint: await definitionSubmissionFingerprint(tx, {
+              vocabularySlug: dbTerm.vocabularySlug,
+              term,
+              definition: input.definition,
+              initialExample: input.initialExample,
+              derivedFromRevisionId,
+              replacesDefinitionId: input.replacesDefinitionId,
+              surveyStepId: input.surveyStepId,
+              references: input.references,
+              attachments: input.attachments,
+              modelReferences: aiSuggestion?.referenceInputs ?? []
+            })
+          })
 
           const { definition: insertedDefinition, revision: insertedRevision } =
             await createDefinitionWithInitialRevision(tx, {
@@ -837,7 +860,9 @@ export const definitionsRouter = createTRPCRouter({
           },
           term: termsTable.term,
           termSlug: termsTable.slug,
-          termVocabularySlug: termsTable.vocabularySlug
+          termVocabularySlug: termsTable.vocabularySlug,
+          termHiddenAt: termsTable.hiddenAt,
+          termHiddenReason: termsTable.hiddenReason
         })
         .from(definitionsTable)
         .where(eq(definitionsTable.id, definitionId))

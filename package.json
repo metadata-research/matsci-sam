@@ -37,6 +37,8 @@
     "test:positions-db": "tsx --conditions=react-server scripts/test-survey-positions-db.ts",
     "test:interface": "tsx scripts/test-interface-state.ts",
     "test:search-db": "tsx --conditions=react-server scripts/test-search-db.ts",
+    "test:term-visibility-db": "tsx --conditions=react-server scripts/test-term-visibility-db.ts",
+    "test:contribution-guard-db": "tsx --conditions=react-server scripts/test-contribution-guard-db.ts",
     "test:ollama-context": "tsx scripts/test-ollama-revision-context.ts",
     "test:communities": "tsx scripts/test-communities.ts",
     "test:curate-pilot": "tsx scripts/test-curate-pilot.ts",

@@ -108,7 +108,9 @@ export function DashboardSummary({
         <ul className={styles.statusList}>
           <li className={cn(styles.statusRow, styles.statusRowCompact)}>
             <CircleOffIcon aria-hidden className={styles.statusIcon} />
-            <span>Moderation queue not yet enabled</span>
+            <Link href="/admin/moderation" className={styles.textLink}>
+              Review term visibility
+            </Link>
           </li>
           <li className={cn(styles.statusRow, styles.statusRowCompact)}>
             <Clock3Icon aria-hidden className={styles.statusIcon} />

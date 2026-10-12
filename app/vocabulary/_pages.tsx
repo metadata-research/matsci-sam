@@ -29,6 +29,7 @@ import { HydrateClient, trpc } from "@/trpc/server"
 import { ActivityIcon, NetworkIcon } from "lucide-react"
 import Link from "next/link"
 import { Suspense } from "react"
+import { TermVisibilityNotice } from "@/components/term/visibility-notice"
 import {
   findVocabulary,
   otherVocabularies,
@@ -315,6 +316,10 @@ export async function VocabularyTermPage({
                 <h1 className="break-words font-serif text-4xl font-bold">
                   {term.term}
                 </h1>
+                <TermVisibilityNotice
+                  hiddenAt={term.hiddenAt}
+                  reason={term.hiddenReason}
+                />
               </>
             }
           >

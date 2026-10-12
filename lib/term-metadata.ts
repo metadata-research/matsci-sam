@@ -76,6 +76,8 @@ export async function getTermMetadata(
       vocabularySlug: termsTable.vocabularySlug,
       vocabularyTitle: vocabulariesTable.title,
       vocabularyRetiredAt: vocabulariesTable.retiredAt,
+      hiddenAt: termsTable.hiddenAt,
+      hiddenReason: termsTable.hiddenReason,
       createdAt: termsTable.createdAt
     })
     .from(termsTable)

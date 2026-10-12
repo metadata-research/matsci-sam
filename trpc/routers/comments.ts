@@ -1,4 +1,8 @@
 import { requireStudyCandidate } from "@/lib/study-candidates"
+import {
+  contributionFingerprint,
+  reserveContributionSubmission
+} from "@/lib/contribution-guard"
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
@@ -73,6 +77,16 @@ export const commentsRouter = createTRPCRouter({
               })
 
         const insertedComment = await db.transaction(async (tx) => {
+          await reserveContributionSubmission(tx, {
+            userId,
+            kind: "comment",
+            fingerprint: contributionFingerprint({
+              definitionId: id,
+              revisionId,
+              surveyStepId: surveyStepId ?? null,
+              comment
+            })
+          })
           if (walkthrough && surveyStepId !== undefined) {
             const locked = await lockParticipation(
               tx,

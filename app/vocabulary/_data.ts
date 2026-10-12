@@ -12,6 +12,7 @@ import {
 } from "@yamz/db"
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm"
 import { cache } from "react"
+import { termIsListed } from "@/lib/term-visibility"
 
 export type VocabularyPageRecord = {
   slug: string
@@ -83,7 +84,9 @@ export const findVocabularyTerm = cache(
         slug: termsTable.slug,
         vocabularySlug: termsTable.vocabularySlug,
         vocabularyTitle: vocabulariesTable.title,
-        vocabularyRetiredAt: vocabulariesTable.retiredAt
+        vocabularyRetiredAt: vocabulariesTable.retiredAt,
+        hiddenAt: termsTable.hiddenAt,
+        hiddenReason: termsTable.hiddenReason
       })
       .from(termsTable)
       .innerJoin(
@@ -111,7 +114,9 @@ export const findTermRouteAlias = cache(
         slug: termsTable.slug,
         vocabularySlug: termsTable.vocabularySlug,
         vocabularyTitle: vocabulariesTable.title,
-        vocabularyRetiredAt: vocabulariesTable.retiredAt
+        vocabularyRetiredAt: vocabulariesTable.retiredAt,
+        hiddenAt: termsTable.hiddenAt,
+        hiddenReason: termsTable.hiddenReason
       })
       .from(termRouteAliasesTable)
       .innerJoin(termsTable, eq(termsTable.id, termRouteAliasesTable.termId))
@@ -152,7 +157,7 @@ export const vocabularyTerms = cache(async (vocabularySlug: string) =>
     })
     .from(termsTable)
     .leftJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
-    .where(eq(termsTable.vocabularySlug, vocabularySlug))
+    .where(and(termIsListed(), eq(termsTable.vocabularySlug, vocabularySlug)))
     .groupBy(termsTable.id)
     .orderBy(asc(sql`lower(btrim(${termsTable.term}))`))
 )
@@ -199,6 +204,7 @@ export const vocabularyReferences = cache(async (vocabularySlug: string) =>
     .leftJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
     .where(
       and(
+        termIsListed(),
         eq(communitiesTable.vocabularySlug, vocabularySlug),
         ne(termsTable.vocabularySlug, vocabularySlug)
       )
@@ -219,7 +225,10 @@ export const otherVocabularies = cache(async () =>
       count: sql<number>`cast(count(${termsTable.id}) as int)`.mapWith(Number)
     })
     .from(vocabulariesTable)
-    .leftJoin(termsTable, eq(termsTable.vocabularySlug, vocabulariesTable.slug))
+    .leftJoin(
+      termsTable,
+      and(eq(termsTable.vocabularySlug, vocabulariesTable.slug), termIsListed())
+    )
     .where(eq(vocabulariesTable.isDefault, false))
     .groupBy(vocabulariesTable.slug)
     .orderBy(

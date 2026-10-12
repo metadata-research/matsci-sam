@@ -69,31 +69,35 @@ export const countTriples = (turtle: string) => {
 const TERM_BATCH = 1
 
 export const loadProvenanceGraph = async () => {
-  const termIds = (
-    await db
-      .select({ id: termsTable.id })
-      .from(termsTable)
-      .orderBy(asc(termsTable.id))
-  ).map((row) => row.id)
+  const terms = await db
+    .select({ id: termsTable.id, hiddenAt: termsTable.hiddenAt })
+    .from(termsTable)
+    .orderBy(asc(termsTable.id))
 
   const bodies: string[] = []
-  for (let i = 0; i < termIds.length; i += TERM_BATCH) {
+  for (let i = 0; i < terms.length; i += TERM_BATCH) {
     const batch = await Promise.all(
-      termIds.slice(i, i + TERM_BATCH).map((id) =>
+      terms.slice(i, i + TERM_BATCH).map((term) =>
         // Votes are left out of the body and stated once each as vote
         // events, which name a voter only where the profile is public. A
         // model with a profile is named by its own IRI, as those events
         // name it.
-        buildTermProvenance(id, {
+        buildTermProvenance(term.id, {
           anonymizeVoters: true,
           includeVotes: false,
           modelIdentities: true
         })
       )
     )
-    for (const prov of batch)
+    for (const [offset, prov] of batch.entries())
       if (prov)
-        bodies.push(provenanceBodyTurtle(prov, { vocabularyTriples: false }))
+        bodies.push(
+          provenanceBodyTurtle(prov, {
+            // Hidden records have no current vocabulary-graph counterpart,
+            // so their full definition/revision description lives here.
+            vocabularyTriples: !!terms[i + offset].hiddenAt
+          })
+        )
   }
 
   const view = new ProvenanceDatasetView(await loadProvenanceDatasetData())
