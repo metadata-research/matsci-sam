@@ -48,6 +48,10 @@ succeeds; a projection outage can leave that external store stale.
 | Comment        | 10 per minute     |
 | Example        | 10 per minute     |
 
+The example quota covers the standalone `examples.create` action. Examples
+included with a new definition belong to that definition submission and its
+fingerprint. They do not reserve a separate example receipt.
+
 Limits apply to ordinary contributors and administrators, including publication
 inside a study. Internal model-generation and pilot services keep their existing
 permissions and provenance rules. Definition edits and restoration already have
@@ -92,5 +96,6 @@ hide/restore identity preservation, public discovery and export behavior,
 concurrent duplicates and quota exhaustion, receipt rollback, window expiry,
 AI publication and evidence distinctions. The pull-request workflow runs them.
 
-First-contributor approval remains a separate proposed increment. It requires
-pending-publication states, a review queue and explicit study-completion rules.
+The [moderation guide](../guide/moderation.md) describes the deployed controls
+for administrators and contributors. Keep future lifecycle designs in the
+private planning documentation.

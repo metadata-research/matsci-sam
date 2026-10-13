@@ -21,11 +21,10 @@ import { cn } from "@/lib/utils"
  * with distinct headings, and the rendered markdown is the body. The markdown
  * is our own repository content, so raw rendering is safe.
  *
- * Quick start is the landing page and stays open, listing the steps of the one
- * page it contains. The other two groups are collapsed, because a first-time
- * reader meeting sixteen page titles at once reads that as a manual rather
- * than an introduction. A collapsed group still opens automatically while the
- * reader is inside it, so the sidebar never hides where they are.
+ * Quick start is a direct link. The guide and reference groups start collapsed,
+ * including the current section. Native details controls keep navigation compact
+ * and keyboard-accessible without client state. The current section and page
+ * remain highlighted when browsing.
  */
 
 const linkClass = (active: boolean) =>
@@ -69,8 +68,15 @@ const CollapsibleGroup = ({
   activeSection?: DocSection
   activeSlug?: string
 }) => (
-  <details open={activeSection === section} className="group">
-    <summary className="flex cursor-pointer list-none items-start gap-1.5 rounded-md px-2 py-1.5 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+  <details className="group">
+    <summary
+      className={cn(
+        "flex cursor-pointer list-none items-start gap-1.5 rounded-md border-l-2 px-2 py-1.5 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden",
+        activeSection === section
+          ? "border-primary bg-accent"
+          : "border-transparent"
+      )}
+    >
       <ChevronRightIcon
         aria-hidden
         className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
@@ -153,21 +159,6 @@ export const DocsShell = ({
                   blurb={sectionBlurb.quickstart}
                 />
               </Link>
-              {/* The steps are anchors within the one quick-start page, so
-                  they are only meaningful while that page is open. */}
-              {onQuickstart && entries.quickstart.length > 0 && (
-                <div className="mt-1 ml-4 flex flex-col gap-0.5 border-l border-border pl-2">
-                  {entries.quickstart.map((step) => (
-                    <a
-                      key={step.id}
-                      href={`#${step.id}`}
-                      className={linkClass(false)}
-                    >
-                      {step.text}
-                    </a>
-                  ))}
-                </div>
-              )}
             </div>
 
             <CollapsibleGroup

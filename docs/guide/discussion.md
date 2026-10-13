@@ -29,6 +29,10 @@ Write in the comment box and select **Post comment**. The comment is saved in
 the discussion thread with a link to the displayed revision. Use **Suggest an
 alternative** to request a model draft.
 
+Accounts can publish ten comments per minute. See
+[Publication limits](/docs/moderation#publication-limits) for waiting and
+duplicate-submission messages.
+
 Open the full definition page to **Propose a replacement** or **Add an
 example**.
 See [Reading and reviewing terms](/docs/community) for those actions.

@@ -19,6 +19,10 @@ community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
 4. Select **Publish new term**. The term and its first definition become public.
    An example you supply has its own attribution.
 
+Accounts can publish five new definitions in ten minutes. If a limit or duplicate
+message appears, follow [Publication limits](/docs/moderation#publication-limits)
+before submitting again.
+
 ![A new term and definition in Simple view, with the review action below the form](/images/docs/help-add-simple-v2.png)
 
 The form links to the existing term when the label is already defined in the
