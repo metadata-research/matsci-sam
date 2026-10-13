@@ -50,5 +50,9 @@ search.
 
 [Tags](/docs/tags) provides another route through facets, topics, and collections.
 
+Terms hidden by an administrator are excluded from search and Browse. Existing
+links still show their content and the public reason. See
+[What a hidden term retains](/docs/moderation#what-a-hidden-term-retains).
+
 Open a result to [read and compare definitions](/docs/community). The term
 page also links to [Metadata](/docs/term-metadata) for descriptions of its use.

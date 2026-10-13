@@ -103,15 +103,10 @@ describes those settings.
 Administrators can retire or restore communities and collections, edit facets
 in Advanced term view, and edit or merge tags.
 
-To curate test or unsuitable terms, open **Visibility** in Administration. Find
-the term and choose **Hide**. Give a public reason and confirm **Hide from
-listings**. The term leaves public discovery and current vocabulary exports.
-Existing links retain the published content with a notice. Choose **Restore**
-and give a reason to return it to listings. Each decision retains its actor,
-time and reason in the visibility history.
-
-Hiding requires an explicit review. A term name or contributor name alone does
-not identify test content. Hiding retains history and does not restrict access.
+Use **Visibility** in Administration to hide reviewed terms from listings or
+restore them. Existing links retain published content and history. Follow
+[Moderation and publication limits](/docs/moderation) for the required reasons,
+public notices and visibility history.
 
 Administrators can permanently delete test definitions from definition pages.
 Deletion removes dependent records and cannot be undone. Removed definition

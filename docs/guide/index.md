@@ -40,6 +40,9 @@ guide below for a specific task.
 [Administration and stewardship](/docs/administration) describes the controls
 available to community stewards, moderators and site administrators.
 
+[Moderation and publication limits](/docs/moderation) explains Hide and Restore,
+retained content, submission limits and duplicate-submission messages.
+
 <a id="knowledge-organization"></a>
 
 ## Technical reference
