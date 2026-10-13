@@ -56,6 +56,6 @@ revision. An optional example submitted with a new term is also attributed separ
 See [Examples of use](/docs/community#examples-of-use) for featured examples
 and their relationship to later revisions.
 
-Accounts can publish ten new examples per minute. See
+Accounts can add ten examples to existing definitions per minute. See
 [Publication limits](/docs/moderation#publication-limits) if a limit or
 duplicate-submission message appears.
