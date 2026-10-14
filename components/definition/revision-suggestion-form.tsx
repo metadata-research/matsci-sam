@@ -348,7 +348,7 @@ function RevisionSuggestionWorkspace({
         <div className="flex flex-col gap-1">
           <p className="flex items-center gap-1.5 font-medium text-ai">
             <SparklesIcon className="size-4" aria-hidden />
-            Suggest an alternative
+            Draft an alternative with AI
           </p>
           <p className="break-words text-sm">
             <span className="text-muted-foreground">Confirmed term: </span>

@@ -1,7 +1,7 @@
 # Reading and reviewing terms
 
 Open a term to read its definitions, compare interpretations, and contribute.
-Each definition has a permanent number, revision history, and score for its
+Each definition has a permanent number, revision history, and net vote count for its
 current wording. Sign in to vote or comment. Use the
 [study activity](/docs/studies) when your contribution should complete a study
 step.
@@ -9,17 +9,18 @@ step.
 ## Term page views
 
 Term pages open in **Simple** view on a first visit, and the site then
-saves your choice. Read the **Default definition**, its authors, and its
-featured example. Under **Other definitions**, select **Show definition** to
+saves your choice. Read the first definition, its authors, and its examples.
+A note at the bottom explains why it is the default. Under **Other definitions**, select **Show definition** to
 compare a candidate.
-**Metadata** opens descriptions of the term and its use.
+**Usage & metadata** opens descriptions of the term and its use.
 
-Links under the definition open **Discussion**, the **Definition page** and
-**Propose a change**. When the definition has citations or source files, their
+Select **View definition details** to open the full record. **Discussion** and
+**Propose a change** open their sections on that page. When the definition has
+citations or source files, their
 counts link to them. Citation counts refer to the displayed revision. A link
 to a section of a page briefly highlights the section it opens.
 
-![A term in Simple view with its Default definition, Other definitions, and Metadata link](/images/docs/help-term-simple-v2.png)
+![A term in Simple view with the definition first, an example, net votes and the Usage & metadata link](/images/docs/help-term-simple-v3.png)
 
 Choose **Advanced** under **View** to open ontology context beside the reader,
 plus the term identifier, revision numbers and status, model details,
@@ -34,21 +35,21 @@ View changes preserve expanded definitions and selected ontology matches.
 Use [term metadata](/docs/term-metadata) to submit a usage note, field
 association, or link to a related external concept for review.
 
-## Voting and score
+## Voting and net votes
 
 Select the up arrow to support a revision or the down arrow to oppose it.
 Select the same arrow again to withdraw your vote, or the other arrow to
 change direction. Each account has one vote per revision. Authors may vote
 on their own definitions.
 
-The score is upvotes minus downvotes. A new revision starts at zero, and
+**Net votes** means upvotes minus downvotes. A new revision starts at zero, and
 previous votes stay with the wording they evaluated. Historical revisions
 are available for reading.
 
 ## Definition order
 
 The candidate ranked first appears as **Default definition**. Ranking uses
-net score, then newer candidate creation time, then higher definition number.
+net votes, then newer candidate creation time, then higher definition number.
 A new revision leaves the original candidate creation time unchanged.
 Permanent definition numbers remain fixed when ranking changes.
 
@@ -56,13 +57,13 @@ A rank link opens the candidate at that position when requested. Use a
 [definition or revision link](/docs/identifiers#citation) to cite one candidate.
 Search, Discussion, and studies have their own presentation order.
 
-## Definition status
+## Voting status
 
-| Status | Current revision score |
-| --- | ---: |
-| proposed | 1 or lower |
-| community-reviewed | 2 to 4 |
-| stable | 5 or higher |
+| Voting status      | Current revision net votes |
+| ------------------ | -------------------------: |
+| proposed           |                 1 or lower |
+| community-reviewed |                     2 to 4 |
+| stable             |                5 or higher |
 
 These labels summarize voting activity. Assess the wording, sources, and
 discussion to judge scientific quality.
@@ -75,11 +76,11 @@ Edit the wording, enter a change note, select **Review new version**, then
 definition identifier. In Advanced, **Restore this revision** copies earlier
 wording into a new revision and preserves the intervening history.
 
-**Suggest an alternative** requests a separate model draft from your critique.
+**Draft an alternative with AI** requests a separate model draft from your critique.
 Review and publish it with its source link and attribution. The original
 remains available. See [AI assistance](/docs/ai-refinement).
 
-Use **Propose a replacement** to write a separate candidate intended to
+Use **Write a replacement proposal** to write a separate candidate intended to
 supersede the displayed definition. Both remain available for comparison and
 voting.
 
@@ -94,9 +95,11 @@ records your authorship, publication time, and the displayed revision. An
 example submitted with a new term or replacement has the same separate
 attribution.
 
-The first example is featured automatically. The definition author, a moderator,
-or a site administrator can select **Make featured** on another example.
-Compact cards show the featured example. Definition pages list all active
+The first example becomes the **Preview example** automatically. The definition
+author, a moderator, or a site administrator can select **Use in previews** on
+another example.
+Term pages show all active examples with each full definition. Compact search
+and discussion cards use the preview example. Definition pages list all active
 examples, including examples added after a historical revision. Example changes
 leave definition wording and votes unchanged.
 
@@ -111,7 +114,7 @@ The interface labels those limitations and leaves unknown values empty.
 ## Comments
 
 Select **Post comment** to discuss the displayed revision. The comment remains
-in the definition thread after later edits. Use **Suggest an alternative** to
+in the definition thread after later edits. Use **Draft an alternative with AI** to
 request a model draft. [Discussion](/docs/discussion) also has comment and
 alternative controls for recent terms.
 

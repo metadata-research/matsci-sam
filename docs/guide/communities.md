@@ -9,13 +9,13 @@ review.
 Select a community or **Everything** under **Working in**. The choice is saved
 for your account across sessions.
 
-| Page | Effect of a community selection |
-| --- | --- |
-| Home, Browse, Discussion | Terms and activity in that vocabulary |
-| Collections | Collections on the community worklist |
-| Contribute | New terms enter that vocabulary |
-| Search | Searches all hosted vocabularies |
-| Tags | Lists classification concepts across the site |
+| Page                     | Effect of a community selection               |
+| ------------------------ | --------------------------------------------- |
+| Home, Browse, Discussion | Terms and activity in that vocabulary         |
+| Collections              | Collections on the community worklist         |
+| Add a new term           | New terms enter that vocabulary               |
+| Search                   | Searches all hosted vocabularies              |
+| Tags                     | Lists classification concepts across the site |
 
 **Everything** includes all hosted vocabularies on Home and Browse and uses
 the default MatSci-SAM vocabulary for new terms. **Show everything** on Browse

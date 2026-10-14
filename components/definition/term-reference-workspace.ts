@@ -154,7 +154,7 @@ export function modelInputAvailability(
     return {
       allowed: false,
       reason:
-        "Six sources are already in assistant context. Remove one before adding another."
+        "Six sources are already in AI context. Remove one before adding another."
     }
   const entries = Object.values(providers).flatMap((state) =>
     referenceLookups(state).flatMap((lookup) => lookup.references)
@@ -171,7 +171,7 @@ export function modelInputAvailability(
     return {
       allowed: false,
       reason:
-        "These sources would exceed the assistant context limit. Remove another source or use a shorter result."
+        "These sources would exceed the AI context limit. Remove another source or use a shorter result."
     }
   return { allowed: true, reason: null }
 }
@@ -547,7 +547,7 @@ export function useTermReferenceWorkspace({
       }
       changeSelection(provider, referenceId, "modelReferenceIds", true)
       update(found.current, provider, {
-        notice: "Added to assistant context for your next request."
+        notice: "Added to AI context for your next request."
       })
       return true
     },

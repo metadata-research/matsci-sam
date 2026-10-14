@@ -18,6 +18,7 @@ import { formatDate } from "@/lib/date"
 import { definitionPath } from "@/lib/public-identifiers"
 import { trpc } from "@/trpc/server"
 import { ReferenceSnapshot } from "./reference-snapshot"
+import { DefinitionExampleList } from "./example-list"
 
 /** The selected identity remains fixed while its current revision receives votes. */
 export async function TermDefaultDefinition({
@@ -37,7 +38,7 @@ export async function TermDefaultDefinition({
     return (
       <section aria-labelledby={headingId} className="min-w-0 space-y-2">
         <h2 id={headingId} className="font-sans text-xl font-semibold">
-          Default definition
+          Definition
         </h2>
         <p role="status" className="text-sm text-muted-foreground">
           This definition is no longer available. Refresh the page to see the
@@ -46,6 +47,7 @@ export async function TermDefaultDefinition({
       </section>
     )
 
+  const { items: examples } = await trpc.examples.list({ definitionId })
   const href = definitionPath(
     definition.termSlug,
     definition.definitionNumber,
@@ -84,7 +86,7 @@ export async function TermDefaultDefinition({
   )
   const definitionPageLink = (className: string) => (
     <Link href={href} className={className}>
-      Definition page
+      View definition details
     </Link>
   )
   const proposeChangeLink = (className: string) =>
@@ -97,24 +99,13 @@ export async function TermDefaultDefinition({
   return (
     <section aria-labelledby={headingId} className="min-w-0">
       <Card className="min-w-0 gap-5 p-4 sm:p-5">
+        <h2 id={headingId} className="sr-only">
+          Definition
+        </h2>
         <div className="flex min-w-0 items-start justify-between gap-4">
-          <div className="min-w-0 flex-1 space-y-5">
-            <header className="flex flex-col gap-2">
-              <h2 id={headingId} className="font-sans text-xl font-semibold">
-                Default definition
-              </h2>
-              <AdvancedOnly className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-                <Link href={href} className={linkClass}>
-                  Definition {definition.definitionNumber} · revision{" "}
-                  {definition.version}
-                </Link>
-                <StatusChip score={definition.score} />
-              </AdvancedOnly>
-            </header>
-            <p className="whitespace-pre-wrap text-base leading-7 [overflow-wrap:anywhere] sm:text-lg sm:leading-8">
-              {definition.definition}
-            </p>
-          </div>
+          <p className="min-w-0 flex-1 whitespace-pre-wrap text-base leading-7 [overflow-wrap:anywhere] sm:text-lg sm:leading-8">
+            {definition.definition}
+          </p>
           <TermVotes
             definitionId={definition.id}
             revisionId={definition.revisionId}
@@ -147,6 +138,13 @@ export async function TermDefaultDefinition({
           </div>
           {/* Simple keeps model attribution through the author and coauthor names. */}
           <AdvancedOnly className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <Link href={href} className={linkClass}>
+                Definition {definition.definitionNumber} · revision{" "}
+                {definition.version}
+              </Link>
+              <StatusChip score={definition.score} />
+            </div>
             {definition.model && (
               <p className="flex flex-wrap items-center gap-1.5 text-xs text-ai">
                 <SparklesIcon aria-hidden className="size-3.5 shrink-0" />
@@ -185,21 +183,14 @@ export async function TermDefaultDefinition({
           </Link>
         </AdvancedOnly>
 
-        {definition.example?.trim() && (
-          <section
-            aria-labelledby={`${headingId}-example`}
-            className="min-w-0 space-y-2 border-t pt-4"
-          >
-            <h3
-              id={`${headingId}-example`}
-              className="font-sans text-sm font-semibold"
-            >
-              Featured example
-            </h3>
-            <p className="whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">
-              {definition.example}
-            </p>
-          </section>
+        {(examples.length > 0 || definition.example?.trim()) && (
+          <div className="min-w-0 border-t pt-4">
+            <DefinitionExampleList
+              items={examples}
+              fallback={definition.example}
+              headingId={`${headingId}-examples`}
+            />
+          </div>
         )}
 
         {referenceCount > 0 && (
@@ -256,13 +247,12 @@ export async function TermDefaultDefinition({
           >
             {definitionPageLink(linkClass)}
             {proposeChangeLink(linkClass)}
-            <Link href={`${href}#examples-heading`} className={linkClass}>
-              {definition.example?.trim()
-                ? "View all examples"
-                : "Examples of use"}
-            </Link>
           </nav>
         </AdvancedOnly>
+        <p className="text-xs text-muted-foreground">
+          Default definition. Shown first by net votes. Ties favor newer
+          definitions.
+        </p>
       </Card>
     </section>
   )

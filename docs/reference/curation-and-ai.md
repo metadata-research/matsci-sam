@@ -40,9 +40,9 @@ review.
 ## Contribution actions and model drafts
 
 **Create a new version** changes the wording of your own definition and
-preserves its revision history. **Suggest an alternative** uses a selected
+preserves its revision history. **Draft an alternative with AI** uses a selected
 revision and contributor guidance to draft a separate definition.
-**Propose a replacement** identifies a definition that the proposed candidate
+**Write a replacement proposal** identifies a definition that the proposed candidate
 should supersede. The original remains available.
 
 A new term creates a concept in the selected vocabulary. Comments and examples

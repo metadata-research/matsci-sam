@@ -48,7 +48,7 @@ provide the mapping table and profile representation.
 
 ## Dictionary metadata
 
-The **Metadata** page on a term supports two field associations. **Used as a
+The **Usage & metadata** page on a term supports two field associations. **Used as a
 value for** identifies a field where the concept can supply a value.
 **Describes a metadata field** links an explanatory entry to the specification
 of that field. Both associations describe a dictionary entry.

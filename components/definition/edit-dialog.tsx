@@ -187,7 +187,8 @@ function RevisionEditor({
           </Button>
         </DialogTrigger>
         <p id={`${id}-version-help`} className="text-xs text-muted-foreground">
-          Earlier versions remain in history.
+          Updates this definition under the same number. Earlier versions stay
+          in history.
         </p>
       </div>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-6xl">

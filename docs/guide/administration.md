@@ -75,7 +75,7 @@ it available to the activity again.
 
 ## Review term metadata
 
-Open **Metadata** on a term and inspect **Contributor proposals**. Check the
+Open **Usage & metadata** on a term and inspect **Contributor proposals**. Check the
 scope, description, and evidence before selecting **Accept** or **Decline**.
 Metadata review is restricted to site administrators.
 

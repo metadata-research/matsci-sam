@@ -3,7 +3,7 @@
 ## Vocabulary contributions
 
 You do not need a GitHub account to add or review materials science terminology.
-Sign in to the site and use **Contribute**. The [quick start](docs/quickstart/index.md)
+Sign in to the site and use **Add a new term**. The [quick start](docs/quickstart/index.md)
 and [user guide](docs/guide/index.md) explain accounts, contributions, review, and
 revisions. On a running site, these are available from **Help & Guides**.
 

@@ -150,27 +150,28 @@ assert.match(definitionForm, /Publish new term/)
 assert.match(definitionForm, /Example of use \(optional\)/)
 assert.match(definitionForm, /name="definition"/)
 assert.match(definitionForm, /separate[\s\S]*credited to you/)
-assert.match(definitionActions, /Suggest an alternative/)
-assert.match(definitionActions, /Propose a replacement/)
+assert.match(definitionActions, /Draft an alternative with AI/)
+assert.match(definitionActions, /Write a replacement proposal/)
 assert.match(revisionForm, /What should change/)
 assert.match(commentBox, /Comment/)
 assert.match(examples, /Add example/)
 assert.doesNotMatch(revisionForm, /initialExample/)
 
-// Default participant guidance and the contributor guide name the same
-// actions. The former "amend" and automatic-comparison workflows stay gone.
+// Everyday guidance names the current actions; retained study guidance
+// keeps the labels used by its existing interface.
 const surveyRules = source("lib/surveys.ts")
 const contributorGuide = source("docs/guide/adding-terms.md")
 for (const label of [
   "New term",
-  "Suggest an alternative",
-  "Propose a replacement",
+  "Draft an alternative with AI",
+  "Write a replacement proposal",
   "Comment",
   "Add example"
 ]) {
-  assert.match(surveyRules, new RegExp(label))
   assert.match(contributorGuide, new RegExp(label))
 }
+for (const label of ["Suggest an alternative", "Propose a replacement"])
+  assert.match(surveyRules, new RegExp(label))
 assert.doesNotMatch(surveyRules, /\bamend(?:ed|ing|ment)?\b/i)
 assert.doesNotMatch(
   contributorGuide,

@@ -304,6 +304,7 @@ const DefinitionFormOwner = ({
   const attachButtonRef = useRef<HTMLButtonElement | null>(null)
   const toolboxId = useId()
   const helperId = useId()
+  const referencesId = useId()
   const reworkRef = useRef<HTMLDivElement | null>(null)
   const headingRef = useRef<HTMLHeadingElement | null>(null)
   const mounted = useRef(true)
@@ -1083,7 +1084,7 @@ const DefinitionFormOwner = ({
   const simpleAssistant = (
     <section
       id={helperId}
-      aria-label="Help me write"
+      aria-label="Help me write with AI"
       className="flex min-w-0 flex-col gap-3 rounded-lg border p-4"
     >
       {!assistantOpen && (
@@ -1412,6 +1413,14 @@ const DefinitionFormOwner = ({
                     >
                       Write your definition
                     </h2>
+                    {isAdd && !simpleAdd && (
+                      <a
+                        href={`#${referencesId}`}
+                        className="w-fit text-sm text-primary underline underline-offset-4 @min-[40rem]/add:hidden"
+                      >
+                        View reference definitions <span aria-hidden>↓</span>
+                      </a>
+                    )}
                     <div className="@container">
                       <div
                         className={cn(
@@ -1583,7 +1592,7 @@ const DefinitionFormOwner = ({
                                   )
                                 }
                               >
-                                Help me write
+                                Help me write with AI
                               </Button>
                             </div>
                           )}
@@ -1876,6 +1885,7 @@ const DefinitionFormOwner = ({
           <AddDefinitionWorkspace
             view={view}
             onViewChange={setView}
+            referencesId={referencesId}
             references={
               confirmed ? (
                 <div className="flex min-w-0 flex-col gap-4">

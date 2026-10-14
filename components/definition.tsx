@@ -19,8 +19,7 @@ import { DefinitionContent, Eyebrow } from "@/components/definition/display"
 
 export { DefinitionContent, Eyebrow }
 
-// Community lifecycle chip, derived from votes (lib/status.ts). Quiet by
-// design: one word, gaining color only as a definition earns standing.
+// Voting status, derived from net votes (lib/status.ts).
 const STATUS_STYLE: Record<DefinitionStatus, string> = {
   proposed: "text-muted-foreground border-border",
   "community-reviewed": "bg-secondary text-secondary-foreground border-border",
@@ -31,8 +30,12 @@ export const StatusChip = ({ score }: { score: number }) => {
   const status = definitionStatus(score)
 
   return (
-    <Badge variant="outline" className={STATUS_STYLE[status]}>
-      {status}
+    <Badge
+      variant="outline"
+      className={`${STATUS_STYLE[status]} max-w-full whitespace-normal`}
+      title="Based on net votes: upvotes minus downvotes."
+    >
+      Voting status: {status}
     </Badge>
   )
 }

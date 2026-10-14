@@ -49,8 +49,8 @@ const VOCABULARY: Entry[] = [
 ]
 
 const TAKE_PART: Entry[] = [
+  { href: "/add", label: "Add a new term" },
   { href: "/docs", label: "Quick Start" },
-  { href: "/add", label: "Contribute" },
   { href: "/discussion", label: "Discussion" },
   { href: communitiesIndexPath, label: "Communities" },
   { href: studiesIndexPath, label: "Studies" }

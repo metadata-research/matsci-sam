@@ -31,8 +31,10 @@ their account or responsibility affects the procedure.
 Avoid progress reports, commentary about the quality of past work, and
 references to private drafting notes.
 
-Use straight quotes and apostrophes. Write complete sentences without em dashes
-or semicolons in prose, and reserve colons for formal labels or definitions.
+Apply these writing rules to documentation and interface text, including labels,
+helper text, notifications, and error messages. Use straight quotes and
+apostrophes. Write complete sentences without em dashes or semicolons in prose,
+and reserve colons for formal labels or definitions.
 Use established terms and rephrase invented compounds. Describe what the
 software does with literal verbs and put the main action first.
 

@@ -23,11 +23,12 @@ concept. Source labels distinguish vocabularies from ontologies. A concept can
 also list **Mapped concepts** that its source states as
 exact matches, close matches, or equivalent classes. Select a mapped concept
 to preview its own parents, and **Back to the match** to return.
-On small screens these panels appear below the form.
+On small screens these panels appear below the form. Select **View reference
+definitions ↓** in Advanced to jump to them.
 
-![Advanced Add with reference definitions, ontology matches and hierarchy beside the form and tools below it](/images/docs/help-add-advanced-v2.png)
+![Advanced Add with reference definitions, ontology matches and hierarchy beside the form and tools above it](/images/docs/help-add-advanced-v3.png)
 
-Use the [Metadata page](/docs/term-metadata#advanced-view) to propose a link
+Use [Usage & metadata](/docs/term-metadata#advanced-view) to propose a link
 to a related concept and submit it for review.
 
 Contribution dialogs for existing terms use a compact reference workspace.
@@ -35,12 +36,12 @@ Open a candidate definition there before using its actions.
 
 ## Use a source in your definition
 
-| Action | Effect |
-| --- | --- |
-| Add to definition | Inserts text and attaches a citation |
-| Copy | Copies text without attaching a citation |
+| Action                 | Effect                                              |
+| ---------------------- | --------------------------------------------------- |
+| Insert text and cite   | Inserts text and attaches a citation                |
+| Copy                   | Copies text without attaching a citation            |
 | Cite without inserting | Attaches a citation without changing the definition |
-| Add to assistant context | Includes the source in a later model request |
+| Use as AI context      | Includes the source in a later model request        |
 
 To undo added source text, select **Undo source insertion** when adding a term
 or **Undo insertion** when suggesting an alternative. Your previous writing
@@ -66,7 +67,7 @@ diagrams, and further detail. That page can change independently of the saved
 response. **Original response** contains the complete returned text, with
 **Copy original response** available.
 
-A section has **Copy section** and **Add to definition** actions. An insertion
+A section has **Copy section** and **Insert text and cite** actions. An insertion
 includes its interpretation and conditions and attaches a citation to the
 complete saved response. Copying alone attaches no citation.
 
@@ -87,11 +88,11 @@ from the published citation list without changing your text. In Advanced,
 action. Use **Review newly opened sources** to refresh an already open
 shortlist. Simple review lists the attached citations only.
 
-Attach a citation with **Add to definition** or **Cite without inserting**.
+Attach a citation with **Insert text and cite** or **Cite without inserting**.
 Citations belong to the published revision. Choose the sources used when
 creating a new version.
 
-**Add to assistant context** includes the selected reference in the next model
+**Use as AI context** includes the selected reference in the next model
 request. For Wolfram, it includes the complete saved response even if you
 inserted only one section. Assistant inputs and citations are independent.
 Select assistant inputs separately from citations and inserted text.

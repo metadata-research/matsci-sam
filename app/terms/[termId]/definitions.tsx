@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "lucide-react"
 import { usePresentedView } from "@/components/interface-view"
 import { PublicProfileName } from "@/components/public-profile-name"
+import { DefinitionExampleList } from "@/components/definition/example-list"
 import { TermVotes } from "@/components/term/votes"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -72,6 +73,10 @@ function AlternativeDefinition({
   const id = useId()
   const advanced = usePresentedView() === "advanced"
   const [expanded, setExpanded] = useState(false)
+  const examples = trpc.examples.list.useQuery(
+    { definitionId: definition.id },
+    { enabled: expanded }
+  )
   const [liveScore, setLiveScore] = useState<{
     revisionId: number
     score: number
@@ -98,7 +103,7 @@ function AlternativeDefinition({
             </span>
           )}
         </h3>
-        <span className="text-xs text-muted-foreground">Score {score}</span>
+        <span className="text-xs text-muted-foreground">Net votes {score}</span>
       </header>
       {!expanded && (
         <p className="line-clamp-2 break-words text-sm leading-relaxed">
@@ -165,19 +170,34 @@ function AlternativeDefinition({
               <p className="whitespace-pre-wrap break-words leading-relaxed">
                 {definition.definition}
               </p>
-              {definition.example?.trim() && (
-                <div className="space-y-1 text-sm">
-                  <h4 className="font-medium">Featured example</h4>
-                  <p className="whitespace-pre-wrap break-words text-muted-foreground">
-                    {definition.example}
-                  </p>
-                </div>
+              {examples.isPending ? (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Loading examples…
+                </p>
+              ) : examples.isError ? (
+                <p className="text-sm text-muted-foreground">
+                  Examples could not be loaded.{" "}
+                  <Link
+                    href={`${href}#examples-heading`}
+                    className="text-primary underline"
+                  >
+                    View examples on the definition page
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <DefinitionExampleList
+                  items={examples.data.items}
+                  fallback={definition.example}
+                  headingId={`${id}-examples`}
+                  headingLevel={4}
+                />
               )}
               <Link
                 href={href}
                 className="text-sm text-primary hover:underline"
               >
-                Definition page, with sources and discussion
+                View definition details, sources and discussion
               </Link>
             </div>
           </div>

@@ -34,7 +34,7 @@ export const DiscussionCommentBox = ({
     <div className="grid gap-4 lg:grid-cols-2">
       <section className="space-y-2" aria-labelledby={"revise-" + definitionId}>
         <h2 id={"revise-" + definitionId} className="text-lg font-semibold">
-          Suggest an alternative
+          Draft an alternative with AI
         </h2>
         <p className="text-sm text-muted-foreground">
           Explain what should change, then review a suggested definition.

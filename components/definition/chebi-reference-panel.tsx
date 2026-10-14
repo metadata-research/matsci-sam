@@ -357,8 +357,8 @@ export function ReferenceTools({
                             {state.history.findIndex(
                               (lookup) => lookup.lookupId === result.lookupId
                             ) + 1}{" "}
-                            · Citations and assistant context use the complete
-                            saved response.
+                            · Citations and AI context use the complete saved
+                            response.
                           </p>
                         )}
                         {provider === "wolfram" ? (
@@ -443,7 +443,7 @@ export function ReferenceTools({
                               }
                             >
                               <PlusIcon data-icon="inline-start" aria-hidden />
-                              Add to definition
+                              Insert text and cite
                             </Button>
                             <Button
                               type="button"
@@ -489,8 +489,8 @@ export function ReferenceTools({
                               }}
                             >
                               {inContext
-                                ? "In assistant context"
-                                : "Add to assistant context"}
+                                ? "Added to AI context"
+                                : "Use as AI context"}
                             </Button>
                           )}
                           <Button
@@ -558,8 +558,8 @@ export function ReferenceTools({
       <CardFooter
         className={cn("text-xs text-muted-foreground", embedded && "px-0")}
       >
-        Add to definition attaches a removable citation. Viewing and copying do
-        not attach citations or add assistant context.
+        Choosing Insert text and cite adds source text and attaches a removable
+        citation. Viewing and copying do not attach citations or add AI context.
       </CardFooter>
     </Card>
   )
@@ -647,7 +647,7 @@ export function ReferenceCitations({
   return (
     <FieldSet className="min-w-0">
       <FieldLegend ref={heading} tabIndex={-1}>
-        {compact ? "Citations" : "Citations already attached"}
+        {compact ? "Citations" : "Citations for this definition"}
       </FieldLegend>
       {!compact && (
         <p className="text-sm text-muted-foreground">

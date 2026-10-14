@@ -331,7 +331,7 @@ export async function VocabularyTermPage({
                 href={`/terms/${term.id}/metadata`}
                 className="text-primary hover:underline"
               >
-                Metadata
+                Usage &amp; metadata
               </Link>
               <AdvancedOnly className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <Link

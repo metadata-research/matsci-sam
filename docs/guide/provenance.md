@@ -27,11 +27,11 @@ to the model.
 A published record distinguishes the sources attached as citations from
 reference material sent to an assistant.
 
-| Evidence | Meaning |
-| --- | --- |
-| Cited reference | A source the contributor attached to the published revision |
-| Source supplied to the model | Material included in the accepted model request |
-| Source reported by the assistant | A link returned in the assistant answer |
+| Evidence                         | Meaning                                                     |
+| -------------------------------- | ----------------------------------------------------------- |
+| Cited reference                  | A source the contributor attached to the published revision |
+| Source supplied to the model     | Material included in the accepted model request             |
+| Source reported by the assistant | A link returned in the assistant answer                     |
 
 Select sources for citation separately from links returned by an assistant.
 The recorded request lists the submitted inputs. Check those sources and the
@@ -64,7 +64,7 @@ supports the exact revision to which it was attached. See
 
 ## Metadata history
 
-Open **Metadata** from the term to inspect descriptions of its use. Each
+Open **Usage & metadata** from the term to inspect descriptions of its use. Each
 addition has a scope, author, and date, with optional source information.
 Accepted additions become public. Withdrawal removes a current description
 while preserving its history under **Metadata history** in Advanced view.

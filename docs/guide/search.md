@@ -32,7 +32,7 @@ misspellings.
 
 The query and filters are stored in the URL for sharing or bookmarking.
 Vote controls and comment counts work as on the term page. A search with no
-matching term links to Contribute in the selected vocabulary.
+matching term links to Add a new term in the selected vocabulary.
 
 ## Browse
 

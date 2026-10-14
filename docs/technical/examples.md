@@ -55,7 +55,14 @@ authenticated account.
 
 `currentFeaturedExampleText` returns the featured active example, then the first
 active numbered example if needed, then the legacy scalar fallback. Compact
-cards, search, Discussion, and studies use this projection.
+search and Discussion cards, source snapshots, and studies use this projection.
+
+Term pages load `examples.list` for the first definition and each expanded
+alternative. Their reader lists show all active examples with separate
+attribution and attachments. The compatibility scalar is used only when the
+active list is empty. Definition pages label the featured selection **Preview
+example**. **Use in previews** changes that selection for surfaces that show one
+example.
 
 `activeExampleTextsForDefinitions` loads the full active set in bulk. SKOS
 publishes each as `skos:example` on the current revision. The export includes

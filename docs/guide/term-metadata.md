@@ -1,19 +1,20 @@
 # Metadata on a term
 
-Open **Metadata** from a term page to read or suggest descriptions of how the
+Open **Usage & metadata** from a term page to read or suggest descriptions of how the
 term is used. You can attach a source to each description.
 
 A dictionary term identifies a concept. A metadata field specifies information
 to record about a dataset, material, or activity. A term can supply a value for
-that field or explain its meaning. For example, a method term can be a value
-for a processing method field. These contributions describe dictionary entries.
+that field or explain its meaning. For example, density functional theory is a
+value for Method. Deposition temperature names a field for recording a
+temperature. These contributions describe dictionary entries.
 An experiment or dataset record can use the resulting term identifier as a value.
 
 ## Add metadata in Simple view
 
-1. Sign in and open **Metadata** on the term. In Simple view the addition
+1. Sign in and open **Usage & metadata** on the term. In Simple view the addition
    describes the whole term unless you chose a definition in Advanced.
-2. Select a type under **Add a description**.
+2. Select a type under **What would you like to add?**.
 3. Enter the usage guidance or choose a **Metadata field** from the catalog.
 4. Select **Submit for review**. The addition appears under **Your proposals**
    with the status **Awaiting review**.
@@ -24,10 +25,10 @@ An experiment or dataset record can use the resulting term identifier as a value
 | Used as a value for        | Identify a field for which this term can supply a value    |
 | Describes a metadata field | Link an entry explaining a field to its specification      |
 
-![The metadata form in Simple view with a description type and usage guidance](/images/docs/help-term-metadata-v2.png)
+![The metadata form in Simple view with What would you like to add?, usage guidance and Submit for review](/images/docs/help-term-metadata-v3.png)
 
-The administrator form shown here uses **Publish metadata**. Other contributors
-use **Submit for review**.
+The contributor form shown here uses **Submit for review**. Administrators
+use **Publish metadata**.
 
 Use **What does this describe?** in Advanced to choose the whole term or one
 definition. A description of a definition applies to its exact revision. It
@@ -52,7 +53,8 @@ Advanced includes **Source (optional)** for a **Source name or citation**,
 **Source link** and version that support your contribution, along with text
 language, revision numbers, **View semantic statement**, and **Metadata
 history**. Your draft, selected scope and source remain when you switch views.
-Simple lists any of those values before you submit.
+Simple names the selected definition and revision, source details, and any
+non-default text language before you submit. Open Advanced to change them.
 
 Select a match in **Ontology context**, then use **Cite this match** to fill
 **Source (optional)** with the ontology, concept and release. **Add as related
@@ -61,7 +63,7 @@ the ontology release. For an open mapped concept, the first control is
 **Cite this concept**. Both controls use that concept. Review and submit the
 form to save the contribution. Each kind of description retains its own draft.
 
-![The metadata form in Advanced view, with the ontology context beside it and the source filled by Cite this match](/images/docs/help-term-metadata-advanced.png)
+![The metadata form in Advanced view, with the ontology context beside it and the source filled by Cite this match](/images/docs/help-term-metadata-advanced-v3.png)
 
 ## Review and withdrawal
 

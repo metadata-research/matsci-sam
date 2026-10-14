@@ -8,10 +8,10 @@ applied draft retains model attribution when you change its wording.
 
 ## Suggest a definition for a new term
 
-1. Open **Contribute**, check the destination vocabulary, enter the term, and
+1. Open **Add a new term**, check the destination vocabulary, enter the term, and
    select **Confirm term**, labelled **Confirm term and find references** in
    Advanced.
-2. Write a definition or leave the editor empty. Select **Help me write** in
+2. Write a definition or leave the editor empty. Select **Help me write with AI** in
    Simple view or **AI assistance** in Advanced.
 3. Select **Suggest a definition**. Simple names the assistant and the inputs
    the request sends. In Advanced, check **Assistant context** and choose an
@@ -55,7 +55,7 @@ context** lists the included items. **Inspect input text** shows their full
 text. **Remove** and **Clear optional context** omit inputs without erasing your
 writing or citations. The term remains required.
 
-Select **Add to assistant context** on an opened reference definition or
+Select **Use as AI context** on an opened reference definition or
 Wolfram source to include it in the next request. Any attached citation remains
 if you remove the input. See
 [References](/docs/references#citations-and-assistant-inputs).
@@ -73,9 +73,9 @@ separate reference tool whichever definition assistant you choose.
 
 ## Suggest an alternative to a definition
 
-Open a current definition or study Position step and select **Suggest an
-alternative**. In Discussion, select **Start an alternative** under the
-**Suggest an alternative** heading. The term and source revision are already
+Open a current definition and select **Draft an alternative with AI**.
+A study Position step uses **Suggest an alternative**. In Discussion, select **Start an alternative** under the
+**Draft an alternative with AI** heading. The term and source revision are already
 selected.
 
 1. Explain the error, ambiguity, or missing distinction in **What should
@@ -104,6 +104,6 @@ for comments and later review.
 ## Other contribution actions
 
 **Create a new version** updates your own definition while preserving its
-identifier and earlier revisions. **Suggest an alternative** creates a separate
+identifier and earlier revisions. **Draft an alternative with AI** creates a separate
 candidate. Comments, replacements you write, and examples have their own
 [contribution actions](/docs/community#editing-and-proposing-definitions).
