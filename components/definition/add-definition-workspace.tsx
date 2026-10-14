@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useId } from "react"
+import { Fragment, type ReactNode, useId } from "react"
 import {
   PaperclipIcon,
   QuoteIcon,
@@ -23,14 +23,22 @@ export function AddDefinitionWorkspace({
   onViewChange,
   children,
   tools,
-  references
+  references,
+  referencesId
 }: {
   view: DefinitionView
   onViewChange: (view: DefinitionView) => void
   children: ReactNode
   tools?: ReactNode
   references?: ReactNode
+  referencesId: string
 }) {
+  // Stable keys keep the editor and unfinished tools mounted when their order
+  // changes. Simple keeps its file panel after the editor; Advanced puts its
+  // authoring tools before writing and review, including in keyboard order.
+  const editor = <Fragment key="editor">{children}</Fragment>
+  const toolbox = <Fragment key="tools">{tools}</Fragment>
+
   return (
     <Tabs
       value={view}
@@ -45,12 +53,13 @@ export function AddDefinitionWorkspace({
         <ViewScope view={view}>
           <div className="grid min-w-0 items-start gap-5 @min-[40rem]/add:grid-cols-[minmax(0,1.5fr)_minmax(14rem,1fr)] @min-[57.5rem]/add:grid-cols-[37.5rem_minmax(0,1fr)]">
             <div className="flex min-w-0 flex-col gap-4" data-add-main>
-              {children}
-              {tools}
+              {view === "advanced" ? [toolbox, editor] : [editor, toolbox]}
             </div>
             <aside
+              id={referencesId}
+              tabIndex={-1}
               hidden={view !== "advanced"}
-              className="min-w-0"
+              className="min-w-0 scroll-mt-4"
               aria-label="Matching terms and ontology context"
               data-add-references
             >
@@ -68,7 +77,7 @@ export function AddDefinitionWorkspace({
 const commands = [
   { value: "wolfram", label: "Wolfram lookup", icon: SearchIcon },
   { value: "assistant", label: "AI assistance", icon: SparklesIcon },
-  { value: "citations", label: "Add citation", icon: QuoteIcon },
+  { value: "citations", label: "Citations", icon: QuoteIcon },
   {
     value: "files",
     label: "Attach file",

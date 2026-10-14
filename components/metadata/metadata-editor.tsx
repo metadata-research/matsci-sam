@@ -288,7 +288,7 @@ export function MetadataEditor({
   )
   const view = usePresentedView()
   const [fieldKey, setFieldKey] = useState<MetadataFieldKey>("usageNote")
-  // Simple describes the whole term. Advanced can choose a definition revision.
+  // The whole term is the default; a revision chosen in Advanced stays selected.
   const [scope, setScope] = useState("term")
   // Each kind of entry keeps its own draft, so changing kind never clears one.
   const [drafts, setDrafts] = useState<
@@ -458,17 +458,22 @@ export function MetadataEditor({
   }
 
   // Values chosen in Advanced still apply in Simple, so Simple names them.
+  const retainedSource = [
+    sourceLabel.trim(),
+    sourceIri.trim(),
+    sourceVersion.trim() ? `version ${sourceVersion.trim()}` : ""
+  ]
+    .filter(Boolean)
+    .join(" · ")
   const advancedValues = [
     ...(effectiveScope !== "term"
-      ? [scopeOf(record, Number(effectiveScope), false).label]
+      ? [`Applies to ${scopeOf(record, Number(effectiveScope), true).label}`]
       : []),
-    ...(sourceLabel.trim() || sourceIri.trim() || sourceVersion.trim()
-      ? ["a source"]
-      : []),
+    ...(retainedSource ? [`Source: ${retainedSource}`] : []),
     ...(field.valueType === "text" &&
     language.trim() &&
     language.trim() !== "en"
-      ? [`language ${language.trim()}`]
+      ? [`Text language: ${language.trim()}`]
       : [])
   ]
 
@@ -567,7 +572,7 @@ export function MetadataEditor({
                 ) : null}
                 <Field>
                   <FieldLabel htmlFor={`${id}-field`}>
-                    Add a description
+                    What would you like to add?
                   </FieldLabel>
                   <MetadataSelect
                     id={`${id}-field`}
@@ -751,8 +756,8 @@ export function MetadataEditor({
                     </FieldGroup>
                   </details>
                 ) : advancedValues.length ? (
-                  <p className="text-sm text-muted-foreground">
-                    Also included from Advanced: {advancedValues.join(", ")}.
+                  <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                    {advancedValues.join(". ")}. Open Advanced to change these.
                   </p>
                 ) : null}
                 {advanced && field.valueType === "text" ? (

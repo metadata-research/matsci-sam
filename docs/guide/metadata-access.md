@@ -23,7 +23,7 @@ specifications. Histories are available separately through provenance.
 
 ## Metadata on dictionary entries
 
-Select **Metadata** on a term to read or contribute descriptions of its use.
+Select **Usage & metadata** on a term to read or contribute descriptions of its use.
 [Term metadata](/docs/term-metadata) explains scope, field associations,
 optional evidence, and review. The [field catalog](/metadata/fields) and
 [examples](/metadata/examples) explain the available fields.

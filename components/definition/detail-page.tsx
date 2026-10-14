@@ -536,7 +536,7 @@ export async function DefinitionDetailPage({
                           <Badge variant="outline">Partial legacy record</Badge>
                         )}
                         <span className="text-xs text-muted-foreground">
-                          score {revision.score}
+                          net votes {revision.score}
                         </span>
                       </div>
                       <p className="text-sm">

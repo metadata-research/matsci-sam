@@ -9,6 +9,10 @@
 }
 
 .navbar {
+  /* The blurred bar creates a stacking context; keep its phone menu above
+     the page's form controls, while portaled dialogs remain above it. */
+  position: relative;
+  z-index: 40;
   display: flex;
   align-items: center;
   max-width: 80rem;

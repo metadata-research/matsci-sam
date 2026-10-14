@@ -33,7 +33,7 @@ export const dictionaryMetadataFields: readonly DictionaryMetadataField[] = [
     label: "Used as a value for",
     valueType: "iri",
     description:
-      "Identify a metadata field where this term can supply a value.",
+      "Identify a field where this term can supply a value. For example, density functional theory is a value for Method.",
     advanced: false,
     predicate: "matsci:usedAsValueFor"
   },
@@ -42,7 +42,7 @@ export const dictionaryMetadataFields: readonly DictionaryMetadataField[] = [
     label: "Describes a metadata field",
     valueType: "iri",
     description:
-      "Link an entry explaining a field to that field's specification.",
+      "Link a term that names a field to its specification. For example, deposition temperature names a field for recording a temperature.",
     advanced: false,
     predicate: "matsci:describesMetadataField"
   },

@@ -292,7 +292,7 @@ const supportSummary = section(
   "export const TermVoteSummary",
   "export const TermVotes"
 )
-assert.match(supportSummary, /Support/)
+assert.match(supportSummary, /Net votes/)
 assert.match(supportSummary, /Your upvote/)
 assert.match(supportSummary, /Your downvote/)
 assert.doesNotMatch(supportSummary, /<Button/)

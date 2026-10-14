@@ -233,7 +233,11 @@ async function main() {
     await hiddenText("No citations attached")
     for (const name of ["Revision history", "Definition 1 · revision 1"])
       await expect(page.getByRole("link", { name, exact: true })).toHaveCount(0)
-    for (const name of ["Discussion", "Definition page", "Propose a change"])
+    for (const name of [
+      "Discussion",
+      "View definition details",
+      "Propose a change"
+    ])
       await expect(page.getByRole("link", { name, exact: true })).toBeVisible()
 
     await tab("Advanced").click()
@@ -451,9 +455,12 @@ async function main() {
     await page.getByLabel("Source link").fill("not a link")
     await tab("Simple").click()
     await expect(
-      page.getByText("Also included from Advanced: Definition 1, a source.", {
-        exact: true
-      })
+      page.getByText(
+        `Applies to Definition 1 · Revision 1. Source: ${NIST.title}: annealing and homogenization · not a link · version ${NIST.version}. Open Advanced to change these.`,
+        {
+          exact: true
+        }
+      )
     ).toBeVisible()
     // A value only Advanced shows is checked here and named here.
     await submit.click()
@@ -472,6 +479,51 @@ async function main() {
       `${base}/add?term=${encodeURIComponent(`simple add ${stamp}`)}`,
       { waitUntil: "networkidle" }
     )
+
+    // The compact navigation must receive pointer input above the form,
+    // including where the term field would otherwise paint over its links.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByLabel("Open navigation menu", { exact: true }).click()
+    const mobileNavigation = page.getByRole("navigation", { name: "Mobile" })
+    await expect(mobileNavigation).toBeVisible()
+    const unobscured = await mobileNavigation
+      .getByRole("link")
+      .evaluateAll((links) =>
+        links.every((link) => {
+          const box = link.getBoundingClientRect()
+          const top = document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2
+          )
+          return top === link || link.contains(top)
+        })
+      )
+    assert.ok(unobscured, "mobile navigation links paint above the form")
+    await page
+      .getByRole("button", { name: fixture.userName, exact: true })
+      .click()
+    const profile = page.getByRole("menuitem", { name: "Profile", exact: true })
+    await expect(profile).toBeVisible()
+    assert.ok(
+      await profile.evaluate((node) => {
+        const box = node.getBoundingClientRect()
+        const top = document.elementFromPoint(
+          box.x + box.width / 2,
+          box.y + box.height / 2
+        )
+        return top === node || node.contains(top)
+      }),
+      "the account dropdown paints above the compact navigation"
+    )
+    await page.keyboard.press("Escape")
+    await expect(profile).toBeHidden()
+    await expect(mobileNavigation).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(
+      page.getByLabel("Open navigation menu", { exact: true })
+    ).toBeFocused()
+    await expect(mobileNavigation).toBeHidden()
+    await page.setViewportSize({ width: 1280, height: 1000 })
     await page
       .getByRole("button", { name: "Confirm term", exact: true })
       .click()
@@ -502,9 +554,9 @@ async function main() {
     await expect(exampleFile).toBeFocused()
     await expect(exampleFile).toHaveAttribute("aria-expanded", "false")
     await page
-      .getByRole("button", { name: "Help me write", exact: true })
+      .getByRole("button", { name: "Help me write with AI", exact: true })
       .click()
-    const helper = page.getByRole("region", { name: "Help me write" })
+    const helper = page.getByRole("region", { name: "Help me write with AI" })
     await expect(
       helper.getByText(`Sends the term to ${assistantLabel}.`, { exact: true })
     ).toBeVisible()
@@ -515,13 +567,23 @@ async function main() {
     await expect(page.getByText("Inspect input text")).toHaveCount(0)
     await helper.getByRole("button", { name: "Close" }).click()
     await expect(
-      page.getByRole("button", { name: "Help me write", exact: true })
+      page.getByRole("button", { name: "Help me write with AI", exact: true })
     ).toBeFocused()
     const editor = page.getByRole("textbox", {
       name: "Definition",
       exact: true
     })
     await editor.fill("A definition typed by the Simple view test.")
+    await page
+      .getByRole("button", { name: "Add an example", exact: true })
+      .click()
+    const exampleDraft =
+      "An example retained while changing views and reviewing."
+    const exampleEditor = page.getByRole("textbox", {
+      name: "Example of use (optional)",
+      exact: true
+    })
+    await exampleEditor.fill(exampleDraft)
     await page.getByRole("button", { name: "Review definition" }).click()
     const review = page.locator('section[aria-label="Review and publish"]')
     await expect(review).toBeVisible()
@@ -549,10 +611,94 @@ async function main() {
     // started when Advanced opened.
     await expect.poll(() => lookups).toBe(1)
     await page.getByRole("button", { name: "Back to writing" }).click()
+    await expect(exampleEditor).toHaveValue(exampleDraft)
+
+    // Advanced tools precede the writing/review actions visually and by
+    // keyboard at both desktop and narrow widths. The same editor stays live.
+    const tools = page.getByRole("group", { name: "Tools", exact: true })
+    const reviewAction = page.getByRole("button", {
+      name: "Review definition",
+      exact: true
+    })
+    const referenceJump = page.getByRole("link", {
+      name: "View reference definitions",
+      exact: true
+    })
+    for (const viewport of [
+      { width: 1280, height: 1000 },
+      { width: 390, height: 844 }
+    ]) {
+      await page.setViewportSize(viewport)
+      if (viewport.width < 640) {
+        const mountedEditor = await editor.elementHandle()
+        assert.ok(mountedEditor)
+        await expect(referenceJump).toBeVisible()
+        const referencePanel = page.locator("[data-add-references]")
+        assert.equal(
+          await referenceJump.getAttribute("href"),
+          `#${await referencePanel.getAttribute("id")}`
+        )
+        await referenceJump.click()
+        await expect(referencePanel).toBeFocused()
+        const panelTop = await referencePanel.evaluate(
+          (node) => node.getBoundingClientRect().top
+        )
+        assert.ok(panelTop >= 0 && panelTop < viewport.height)
+        assert.ok(await mountedEditor.evaluate((node) => node.isConnected))
+        await expect(editor).toHaveValue(
+          "A definition typed by the Simple view test."
+        )
+        await expect(exampleEditor).toHaveValue(exampleDraft)
+        await tab("Simple").click()
+        await expect(referenceJump).toBeHidden()
+        await tab("Advanced").click()
+        await expect(referenceJump).toBeVisible()
+        assert.ok(
+          await editor.evaluate(
+            (node, original) => node === original,
+            mountedEditor
+          )
+        )
+      } else {
+        await expect(referenceJump).toBeHidden()
+      }
+      const toolsBox = await tools.boundingBox()
+      const reviewBox = await reviewAction.boundingBox()
+      assert.ok(toolsBox && reviewBox)
+      assert.ok(toolsBox.y + toolsBox.height <= reviewBox.y)
+      await tools
+        .getByRole("button", { name: "Wolfram lookup", exact: true })
+        .focus()
+      const visited: string[] = []
+      for (let index = 0; index < 40; index += 1) {
+        visited.push(await page.locator(":focus").innerText())
+        if (
+          await reviewAction.evaluate((node) => node === document.activeElement)
+        )
+          break
+        await page.keyboard.press("Tab")
+      }
+      assert.equal(visited.at(-1), "Review definition")
+      for (const label of [
+        "Wolfram lookup",
+        "AI assistance",
+        "Citations",
+        "Attach file"
+      ])
+        assert.ok(
+          visited.includes(label),
+          `${label} is reachable before Review`
+        )
+      await expect(editor).toHaveValue(
+        "A definition typed by the Simple view test."
+      )
+      await expect(exampleEditor).toHaveValue(exampleDraft)
+    }
+    await page.setViewportSize({ width: 1280, height: 1000 })
     const references = page.locator('[aria-label="Reference definitions"]')
     await expect(references).toBeVisible()
     await references
-      .getByRole("button", { name: "Add to definition", exact: true })
+      .getByRole("button", { name: "Insert text and cite", exact: true })
       .click()
     await tab("Simple").click()
     await page.getByRole("button", { name: "Review definition" }).click()
@@ -581,7 +727,7 @@ async function main() {
       .click()
     await editor.fill("My own starting sentence.")
     const help = page.getByRole("button", {
-      name: "Help me write",
+      name: "Help me write with AI",
       exact: true
     })
     await help.click()
@@ -630,9 +776,53 @@ async function main() {
     // and starts no lookup. Advanced shows them and starts one.
     await page.goto(`${base}${fixture.path}`, { waitUntil: "networkidle" })
     await expect(tab("Simple")).toHaveAttribute("aria-selected", "true")
+    const versionAction = page.getByRole("button", {
+      name: "Create a new version",
+      exact: true
+    })
+    await expect(versionAction).toHaveAccessibleDescription(
+      "Updates this definition under the same number. Earlier versions stay in history."
+    )
+    await versionAction.click()
+    const versionDialog = page.getByRole("dialog")
+    const versionEditor = versionDialog.getByRole("textbox", {
+      name: "Definition",
+      exact: true
+    })
+    await expect(versionEditor).toHaveValue(
+      "A fixture definition for the Simple view test."
+    )
+    await versionEditor.fill("A clarified version of the existing definition.")
+    await versionDialog
+      .getByRole("textbox", { name: "Change note" })
+      .fill("Clarify the existing meaning.")
+    await versionDialog
+      .getByRole("button", { name: "Review new version" })
+      .click()
+    await expect(
+      versionDialog.getByText(
+        "A clarified version of the existing definition.",
+        { exact: true }
+      )
+    ).toBeVisible()
+    await expect(
+      versionDialog.getByText(
+        /under the same number and URL\. Earlier versions stay in history/
+      )
+    ).toBeVisible()
+    await versionDialog.getByRole("button", { name: "Back to editing" }).click()
+    await expect(versionEditor).toHaveValue(
+      "A clarified version of the existing definition."
+    )
+    await page.keyboard.press("Escape")
+    await expect(versionDialog).toBeHidden()
+    await expect(versionAction).toBeFocused()
     const beforeReplacement = lookups
     await page
-      .getByRole("button", { name: "Propose a replacement", exact: true })
+      .getByRole("button", {
+        name: "Write a replacement proposal",
+        exact: true
+      })
       .click()
     const viewReferences = page.getByRole("button", {
       name: "View references",

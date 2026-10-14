@@ -50,8 +50,8 @@ export default async function DiscussionPage() {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold">Discussion</h1>
           <p className="text-muted-foreground">
-            Suggest an alternative by explaining what should change, or post a
-            comment without changing the definition.
+            Draft an alternative with AI by explaining what should change, or
+            post a comment without changing the definition.
           </p>
           {activeCommunity && (
             <p className="text-sm text-muted-foreground">

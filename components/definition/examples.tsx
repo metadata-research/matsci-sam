@@ -92,7 +92,7 @@ export function DefinitionExamples({
       ])
       setFeedback({
         kind: "success",
-        message: "Featured example updated."
+        message: "Preview example updated."
       })
     },
     onError: reportError
@@ -120,14 +120,15 @@ export function DefinitionExamples({
           <p className="text-sm text-muted-foreground">
             {readOnly
               ? "These examples support the definition as a whole and may have been added after this historical revision."
-              : "Examples support the definition while retaining their own contributor credit. One may be featured in summaries."}
+              : "Examples support the definition while retaining their own contributor credit. The preview example appears in compact cards."}
           </p>
         ) : null}
       </header>
 
       {readOnly && currentRevisionHref ? (
         <p className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground">
-          To add an example or change which example is featured, open the{" "}
+          To add an example or change which example appears in previews, open
+          the{" "}
           <Link
             href={currentRevisionHref}
             className="font-medium text-primary underline"
@@ -168,7 +169,7 @@ export function DefinitionExamples({
                     {example.isFeatured ? (
                       <Badge className="border-primary/30 bg-primary/15 text-primary">
                         <StarIcon aria-hidden className="size-3 fill-current" />
-                        Featured
+                        Preview example
                       </Badge>
                     ) : null}
                     {example.legacyBackfill && advanced ? (
@@ -182,7 +183,7 @@ export function DefinitionExamples({
                       size="sm"
                       variant="outline"
                       disabled={feature.isPending || create.isPending}
-                      aria-label={`Make example ${example.exampleNumber} featured`}
+                      aria-label={`Use in previews: example ${example.exampleNumber}`}
                       onClick={() =>
                         feature.mutate({
                           definitionId,
@@ -191,7 +192,7 @@ export function DefinitionExamples({
                       }
                     >
                       <StarIcon aria-hidden />
-                      {featuring ? "Featuring…" : "Make featured"}
+                      {featuring ? "Updating preview…" : "Use in previews"}
                     </Button>
                   ) : null}
                 </div>

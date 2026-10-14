@@ -214,7 +214,7 @@ async function main() {
       if (await reveal.count()) await reveal.click()
     }
     await references
-      .getByRole("button", { name: "Add to definition", exact: true })
+      .getByRole("button", { name: "Insert text and cite", exact: true })
       .click()
     // Insertion selects the added text in a later frame. Wait for that focus
     // so a following fill replaces the whole value.
@@ -241,13 +241,29 @@ async function main() {
     await expect(undo).toBeVisible()
     if (kind === "add") {
       const beforeToggle = lookups
+      const mountedEditor = await editor.elementHandle()
+      assert.ok(mountedEditor)
       await scope.getByRole("tab", { name: "Simple", exact: true }).click()
+      assert.ok(await mountedEditor.evaluate((node) => node.isConnected))
+      assert.ok(
+        await editor.evaluate(
+          (node, original) => node === original,
+          mountedEditor
+        )
+      )
       await expect(editor).toHaveValue(`${original}\n\n${sourceText}`)
       await expect(undo).toBeVisible()
       await expect(
         scope.locator('[aria-label="Reference definitions"]')
       ).toBeHidden()
       await scope.getByRole("tab", { name: "Advanced", exact: true }).click()
+      assert.ok(await mountedEditor.evaluate((node) => node.isConnected))
+      assert.ok(
+        await editor.evaluate(
+          (node, original) => node === original,
+          mountedEditor
+        )
+      )
       await expect(editor).toHaveValue(`${original}\n\n${sourceText}`)
       assert.equal(
         lookups,

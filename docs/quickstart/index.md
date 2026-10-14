@@ -7,14 +7,15 @@ adds reference tools and further detail.
 
 ## Find a term
 
-Search for the term before adding it. Open a result to read its **Default
-definition**. Under **Other definitions**, select **Show definition** to compare
-an alternative. Each definition shows its contributors and examples. The
-**Metadata** link opens information about how the term is used.
+Search for the term before adding it. Open a result to read the first definition.
+A note below it explains the ranking. Under **Other definitions**, select
+**Show definition** to compare an alternative. Each full definition shows its
+contributors and all its examples. The
+**Usage & metadata** link opens information about how the term is used.
 
 <a id="compare-the-definitions"></a>
 
-![A term in Simple view with its default definition, other definitions and Metadata link](/images/docs/help-term-simple-v2.png)
+![A term in Simple view with the definition first, an example, net votes and the Usage & metadata link](/images/docs/help-term-simple-v3.png)
 
 <a id="comment-on-a-definition"></a>
 
@@ -34,7 +35,7 @@ activity.
 
 ## Add a term
 
-Open **Participate**, then **Contribute**. Check the destination vocabulary,
+Open **Participate**, then **Add a new term**. Check the destination vocabulary,
 enter the term and select **Confirm term**. Use the existing term page if the
 term is already defined in that vocabulary.
 
@@ -42,9 +43,9 @@ Write a definition in **Simple** view. Describe what the term means in the
 context where you use it. Name its broader class and the characteristics that
 distinguish it. **Add an example** lets you illustrate that meaning.
 
-![The Simple contribution form with a definition, an optional example, Attach an example file and Help me write](/images/docs/help-add-simple-v2.png)
+![The Simple contribution form with a definition, Add an example, Attach an example file and Help me write with AI](/images/docs/help-add-simple-v3.png)
 
-Use **Help me write** for an optional assistant draft. **Attach an example
+Use **Help me write with AI** for an optional assistant draft. **Attach an example
 file** adds an image or PDF that illustrates the term.
 The [adding guide](/docs/adding-terms) explains the form.
 
@@ -58,7 +59,7 @@ contribution is ready. It will be available on the term page.
 
 ## Read or add metadata
 
-Open **Metadata** on a term page. In Simple view your addition describes the
+Open **Usage & metadata** on a term page. In Simple view your addition describes the
 whole term unless you chose a definition in Advanced. You can propose a usage
 note or identify a metadata field for which the term supplies a value. For
 example, density functional theory can be a value for the MatCore **Method**
@@ -69,13 +70,13 @@ field.
 ## Advanced view
 
 Choose **Advanced** under **View** for additional tools. The site saves your
-choice. In **Contribute**, Advanced adds reference definitions and ontology
+choice. In **Add a new term**, Advanced adds reference definitions and ontology
 matches, citations, source files, **Wolfram lookup** and assistant controls.
-In **Metadata**, you can select a definition version, supply supporting
+In **Usage & metadata**, you can select a definition version, supply supporting
 sources, and propose alternative labels or related concepts. Term and
 definition pages show revision history, identifiers and downloads.
 
-![A term in Advanced view with its identifier, revision details and the ontology context beside the definition](/images/docs/help-term-advanced.png)
+![A term in Advanced view with its identifier, revision details, voting status and ontology context beside the definition](/images/docs/help-term-advanced-v3.png)
 
 The [references guide](/docs/references) explains the reference tools.
 

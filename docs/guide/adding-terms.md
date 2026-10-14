@@ -1,6 +1,6 @@
 # Adding a term
 
-Sign in, complete your profile name, and open **Contribute** under
+Sign in, complete your profile name, and open **Add a new term** under
 **Participate**. Check the destination vocabulary. **Working in** selects a
 community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
 
@@ -23,7 +23,7 @@ Accounts can publish five new definitions in ten minutes. If a limit or duplicat
 message appears, follow [Publication limits](/docs/moderation#publication-limits)
 before submitting again.
 
-![A new term and definition in Simple view, with the review action below the form](/images/docs/help-add-simple-v2.png)
+![A new term and definition in Simple view, with optional AI help and the review action below the form](/images/docs/help-add-simple-v3.png)
 
 The form links to the existing term when the label is already defined in the
 destination vocabulary. Open that entry to compare or contribute definitions.
@@ -38,19 +38,19 @@ contribution or return to your earlier writing before changing the term.
 
 Choose **Simple** or **Advanced** under **View**. The site saves your choice
 on other pages. Simple shows the writing form with **Attach an example file**
-and **Help me write**. Advanced adds reference definitions, matches across
+and **Help me write with AI**. Advanced adds reference definitions, matches across
 available ontologies, and the hierarchy of the selected concept beside the
 form. These panels move below the form on small screens.
 
-The Advanced toolbar opens **Wolfram lookup**, **AI assistance**, **Add citation**,
-and **Attach file** beneath the form. Citations and source files are added in
+The Advanced toolbar appears above the writing form and opens **Wolfram lookup**,
+**AI assistance**, **Citations**, and **Attach file**. Citations and source files are added in
 Advanced. View changes preserve your draft, selected sources, and tool
 settings. Use [term metadata](/docs/term-metadata) to save an ontology relationship
 for review.
 
 ## Writing with assistance
 
-Select **Help me write** in Simple or **AI assistance** in Advanced to request
+Select **Help me write with AI** in Simple or **AI assistance** in Advanced to request
 an optional model draft. Simple names the assistant and the inputs it sends.
 Advanced also lets you choose the assistant and its context. Inspect the
 preview before using it.
@@ -76,14 +76,14 @@ request only when you select it as context. See
 
 ## The contribution actions
 
-| Action | Result |
-| --- | --- |
-| New term | A term and its first definition |
-| Create a new version | The next revision of your own definition |
-| Suggest an alternative | A separate definition drafted with a model from your critique |
-| Propose a replacement | A definition you write to supersede another candidate |
-| Comment | Discussion of the displayed revision |
-| Add example | A separately attributed example of use |
+| Action                       | Result                                                        |
+| ---------------------------- | ------------------------------------------------------------- |
+| New term                     | A term and its first definition                               |
+| Create a new version         | The next revision of your own definition                      |
+| Draft an alternative with AI | A separate definition drafted with a model from your critique |
+| Write a replacement proposal | A definition you write to supersede another candidate         |
+| Comment                      | Discussion of the displayed revision                          |
+| Add example                  | A separately attributed example of use                        |
 
 [Reading and reviewing terms](/docs/community) explains contributions to existing terms.
 Study contributions also record progress through the

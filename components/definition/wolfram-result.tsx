@@ -163,12 +163,12 @@ function ReadingSection({
               type="button"
               size="sm"
               variant="ghost"
-              aria-label={`Add ${heading} to definition`}
+              aria-label={`Insert text and cite: ${heading}`}
               disabled={addDisabled}
               onClick={() => onAddSection(text)}
             >
               <PlusIcon data-icon="inline-start" aria-hidden />
-              Add to definition
+              Insert text and cite
             </Button>
           ) : null}
         </div>
@@ -297,7 +297,7 @@ export function WolframResult({
       ) : null}
       <p className="text-xs text-muted-foreground">
         The Wolfram link opens a live query. This saved response remains the
-        source for citations and assistant context.
+        source for citations and AI context.
       </p>
       <details className="min-w-0">
         <summary className="cursor-pointer text-sm font-medium">

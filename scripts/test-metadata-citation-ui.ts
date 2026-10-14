@@ -101,7 +101,7 @@ async function main() {
     name: "Add as related concept",
     exact: true
   })
-  const kind = page.getByLabel("Add a description")
+  const kind = page.getByLabel("What would you like to add?")
   const note = page.getByLabel("Usage guidance")
   const sourceName = page.getByLabel("Source name or citation")
   const sourceLink = page.getByLabel("Source link")
@@ -166,9 +166,23 @@ async function main() {
     await expect(note).toHaveValue(NOTE)
     await expect(sourceName).toHaveValue(`${CHEBI.title}: ${term}`)
 
+    // Simple names and submits the exact revision/source chosen in Advanced.
+    const scope = page.getByLabel("What does this describe?")
+    await scope.selectOption({ label: "Definition 1 · Revision 1" })
+    const revisionId = Number(await scope.inputValue())
+    await tab("Simple").click()
+    await expect(note).toHaveValue(NOTE)
+    await expect(
+      page.getByText(
+        `Applies to Definition 1 · Revision 1. Source: ${CHEBI.title}: ${term} · ${CONCEPT} · version ${CHEBI.version}. Open Advanced to change these.`,
+        { exact: true }
+      )
+    ).toBeVisible()
+
     // Each submission carries its own draft, and only that draft clears.
     await submit.click()
     await expect.poll(() => submitted.length).toBe(1)
+    assert.equal(submitted[0].definitionRevisionId, revisionId)
     assert.deepEqual(sent(submitted[0]), {
       fieldKey: "usageNote",
       value: NOTE,
@@ -177,6 +191,7 @@ async function main() {
       sourceVersion: CHEBI.version
     })
     await expect(note).toHaveValue("")
+    await tab("Advanced").click()
     await kind.selectOption("relatedConcept")
     await expect(conceptLink).toHaveValue(CONCEPT)
     await submit.click()

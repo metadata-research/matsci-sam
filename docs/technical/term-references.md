@@ -35,9 +35,10 @@ The responsive shell uses available container width, including embedded forms.
 Add uses `AddDefinitionWorkspace` for new terms. Simple and Advanced share one
 mounted form with identical column sizing. Advanced reveals persistent reference
 definition and ontology context panels to the right, stacking at narrow
-container widths. `DefinitionToolbox` merges the selected tool and toolbar
-beneath the form. Simple includes **Attach an example file** and a reduced
-**Help me write** control below the editor. Citations, source files and the
+container widths. `DefinitionToolbox` puts the toolbar and selected tool above the writing
+form in Advanced. Simple keeps its example-file panel below the form. Both
+keep the same mounted editor and tool inputs when their order changes. Simple includes **Attach an example file** and a reduced
+**Help me write with AI** control below the editor. Citations, source files and the
 other tools are Advanced. The view choice is stored per browser in the
 `matsci-sam-view` cookie, which the root layout loads, and only pages with a
 view control apply it. Inherited contribution forms keep the earlier responsive
@@ -57,10 +58,10 @@ displayed. The list is local to the interface and records no persistent
 interaction event.
 
 **Copy** changes the clipboard and records the existing successful interaction.
-**Add to definition** appends text, returns to the editor and provides Undo. For
+**Insert text and cite** appends text, returns to the editor and provides Undo. For
 both providers a successful insertion attaches a removable citation. Failed
 insertion attaches nothing. **Cite without inserting** attaches a citation
-explicitly. **Add to assistant context** independently selects the full stored
+explicitly. **Use as AI context** independently selects the full stored
 entry for a later model request. Source use is recorded through explicit
 selection. Undo for a source insertion expires after another text edit or an
 explicit change to source selections.
@@ -220,9 +221,9 @@ remains escaped text. Graphics URLs, Wolfram code, website footers and machine
 interpretation instructions are omitted from the reading view.
 **Original response** and **Copy original response** retain them exactly.
 
-**Copy section** and **Add to definition** within a section use readable text
-with the source interpretation, recorded assumptions and local conditions. Add
-uses the insertion, citation and Undo workflow. Copy leaves citation selection
+**Copy section** and **Insert text and cite** within a section use readable text
+with the source interpretation, recorded assumptions and local conditions.
+Insertion attaches a citation and provides Undo. Copy leaves citation selection
 unchanged. These actions preserve the complete response as one reference and one
 model input. Deterministic formatting changes presentation only. Section copying
 or insertion does not reduce the source text sent when that reference is
@@ -274,7 +275,7 @@ require the term, exact source definition and critique. **Clear feedback**
 explicitly erases critique. Remove and **Clear optional context** preserve
 writing, saved receipts and citations.
 
-References enter this list only through **Add to assistant context** on a
+References enter this list only through **Use as AI context** on a
 revealed/displayed entry. The action enforces limits of six sources and 24,000
 characters and reports a reason when blocked. The server loads stored snapshots
 by ID and verifies ownership and the term. It rejects replacement text supplied

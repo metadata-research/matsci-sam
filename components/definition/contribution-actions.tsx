@@ -84,7 +84,7 @@ export function DefinitionContributionActions({
           onClick={() => setAction("revise")}
         >
           <SparklesIcon aria-hidden />
-          Suggest an alternative
+          Draft an alternative with AI
         </Button>
         <p id="alternative-outcome" className="text-sm text-muted-foreground">
           Creates a separate definition based on this one. Both remain available
@@ -99,7 +99,7 @@ export function DefinitionContributionActions({
           onClick={() => setAction("replace")}
         >
           <ReplaceIcon aria-hidden />
-          Propose a replacement
+          Write a replacement proposal
         </Button>
         <p id="replacement-outcome" className="text-sm text-muted-foreground">
           Write a separate definition that you propose should supersede this

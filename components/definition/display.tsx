@@ -30,7 +30,7 @@ export const DefinitionContent = ({
     </div>
     {definition.example?.trim() ? (
       <div>
-        <Eyebrow>Featured example · supporting context</Eyebrow>
+        <Eyebrow>Example</Eyebrow>
         <p className="text-muted-foreground">{definition.example}</p>
       </div>
     ) : null}

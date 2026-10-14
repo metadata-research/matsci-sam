@@ -12,7 +12,7 @@ Anyone can read Discussion. Sign in and complete your profile name to contribute
 
 ## Suggest an alternative
 
-1. Under **Suggest an alternative**, select **Start an alternative** and
+1. Under **Draft an alternative with AI**, select **Start an alternative** and
    explain what should change.
 2. Select **Draft alternative with a language model** and inspect the preview.
 3. Select **Use this draft**, edit the wording, then **Review alternative**.
@@ -26,14 +26,13 @@ for context, Undo, and attribution.
 ## Post an ordinary comment
 
 Write in the comment box and select **Post comment**. The comment is saved in
-the discussion thread with a link to the displayed revision. Use **Suggest an
-alternative** to request a model draft.
+the discussion thread with a link to the displayed revision. Use **Draft an alternative with AI** to request a model draft.
 
 Accounts can publish ten comments per minute. See
 [Publication limits](/docs/moderation#publication-limits) for waiting and
 duplicate-submission messages.
 
-Open the full definition page to **Propose a replacement** or **Add an
+Open the full definition page to **Write a replacement proposal** or **Add an
 example**.
 See [Reading and reviewing terms](/docs/community) for those actions.
 
