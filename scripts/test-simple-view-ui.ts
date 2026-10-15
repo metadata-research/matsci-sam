@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm"
 import { studiesTable } from "../drizzle"
 import {
   chebiLookup,
+  closeBrowserAfterRoutes,
   createStudyFixture,
   createTermFixture,
   launchBrowser,
@@ -915,29 +916,27 @@ async function main() {
     await expect(page.getByLabel("Definition assistant")).toBeVisible()
     await expect(viewReferences).toBeVisible()
     await expect.poll(() => lookups).toBe(beforeStudy + 1)
-
-    assert.deepEqual(
-      unexpected,
-      [],
-      "no publication or other mutation should be attempted"
-    )
-    assert.deepEqual(errors, [])
-    console.log(
-      "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links and their arrival mark, whole-term metadata and its checks, a vocabulary named as one and a mapped concept opened beside it, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
-    )
   } finally {
     try {
-      await browser.close()
-    } catch (error) {
-      console.error(error)
-    }
-    try {
-      if (study) await removeStudyFixture(study)
-      if (fixture) await removeTermFixture(fixture)
+      await closeBrowserAfterRoutes(browser)
     } finally {
-      await db.$client.end()
+      try {
+        if (study) await removeStudyFixture(study)
+        if (fixture) await removeTermFixture(fixture)
+      } finally {
+        await db.$client.end()
+      }
     }
   }
+  assert.deepEqual(
+    unexpected,
+    [],
+    "no publication or other mutation should be attempted"
+  )
+  assert.deepEqual(errors, [])
+  console.log(
+    "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links and their arrival mark, whole-term metadata and its checks, a vocabulary named as one and a mapped concept opened beside it, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
+  )
 }
 
 main().catch((error) => {

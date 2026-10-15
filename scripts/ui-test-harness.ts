@@ -3,7 +3,7 @@
 // other write, and removes the fixtures it created.
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
-import { chromium, type BrowserContext } from "@playwright/test"
+import { chromium, type Browser, type BrowserContext } from "@playwright/test"
 import { sealData } from "iron-session"
 import { eq, inArray } from "drizzle-orm"
 import {
@@ -54,6 +54,21 @@ export const launchBrowser = () =>
     headless: true,
     args: ["--disable-dev-shm-usage", "--js-flags=--max-old-space-size=384"]
   })
+
+/** Stops page activity, then drains intercepted requests before disposal. */
+export async function closeBrowserAfterRoutes(browser: Browser) {
+  try {
+    for (const context of browser.contexts()) {
+      // Keep write guards installed until pages can no longer start requests.
+      await Promise.all(context.pages().map((page) => page.close()))
+      // route.fetch uses the context's API client, which browser.close disposes.
+      // Waiting here lets those requests finish without hiding handler errors.
+      await context.unrouteAll({ behavior: "wait" })
+    }
+  } finally {
+    await browser.close()
+  }
+}
 
 type ProcedureInput = Record<string, unknown>
 export type TrpcStubs = {
