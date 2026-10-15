@@ -264,8 +264,8 @@ function RevisionEditor({
                     <p className="text-sm text-muted-foreground">
                       Publishing creates the next version of this definition
                       under the same number and URL. Earlier versions stay in
-                      history. Community voting starts afresh for the new
-                      version.
+                      history. The new version starts at zero net votes. Earlier
+                      votes stay with the wording they evaluated.
                     </p>
                     {mutation.error && (
                       <Alert variant="destructive">

@@ -48,6 +48,9 @@ or **Undo insertion** when suggesting an alternative. Your previous writing
 and citation choices are restored.
 Use **Cite without inserting** when you paraphrase a source or paste copied
 text. Source text and your final definition remain separately recorded.
+Copying alone creates no citation on the published revision. Check the source's
+licence and attribution requirements before reusing its text. Displaying a
+licence or attaching a citation does not verify that your use meets its terms.
 
 ## Wolfram lookup
 

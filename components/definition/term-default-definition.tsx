@@ -143,7 +143,11 @@ export async function TermDefaultDefinition({
                 Definition {definition.definitionNumber} · revision{" "}
                 {definition.version}
               </Link>
-              <StatusChip score={definition.score} />
+              <StatusChip
+                definitionId={definition.id}
+                revisionId={definition.revisionId}
+                score={definition.score}
+              />
             </div>
             {definition.model && (
               <p className="flex flex-wrap items-center gap-1.5 text-xs text-ai">
@@ -251,7 +255,8 @@ export async function TermDefaultDefinition({
         </AdvancedOnly>
         <p className="text-xs text-muted-foreground">
           Default definition. Shown first by net votes. Ties favor newer
-          definitions.
+          definitions. This ranking does not establish community agreement or
+          scientific quality.
         </p>
       </Card>
     </section>

@@ -50,6 +50,7 @@ export function localPreviewBase() {
 
 export const launchBrowser = () =>
   chromium.launch({
+    executablePath: process.env.SAM_UI_TEST_BROWSER_PATH || undefined,
     headless: true,
     args: ["--disable-dev-shm-usage", "--js-flags=--max-old-space-size=384"]
   })

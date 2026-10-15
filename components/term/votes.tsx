@@ -51,7 +51,7 @@ export const TermVoteSummary = ({
   return (
     <Card
       aria-label={`Net votes ${score}${personalVote ? `. ${personalVote}` : ""}`}
-      title="Upvotes minus downvotes"
+      title="Upvotes minus downvotes on this revision"
       className="h-min min-w-16 items-center gap-0.5 bg-muted/30 px-2 py-3 text-center"
     >
       <span className="text-lg font-bold leading-none">{score}</span>
@@ -149,7 +149,7 @@ export const TermVotes = ({
       </Button>
       <span
         className="flex flex-col items-center gap-0.5"
-        title="Upvotes minus downvotes"
+        title="Upvotes minus downvotes on this revision"
       >
         <span className="font-bold">{data?.score || 0}</span>
         <span className="whitespace-nowrap text-[0.65rem] leading-tight text-muted-foreground">

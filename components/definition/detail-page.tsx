@@ -354,7 +354,11 @@ export async function DefinitionDetailPage({
                       {definition.version}
                       {definition.isCurrentRevision ? " · current" : ""}
                     </Badge>
-                    <StatusChip score={definition.score} />
+                    <StatusChip
+                      definitionId={definition.id}
+                      revisionId={definition.revisionId}
+                      score={definition.score}
+                    />
                     <span>
                       Published {formatDate(definition.revisionCreatedAt)}
                     </span>

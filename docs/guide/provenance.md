@@ -46,6 +46,13 @@ Unused lookups and discarded suggestions remain private. Citations and public
 relationships require a separate contribution. A published citation retains
 the saved source text and available source information.
 
+The history covers contributions recorded in MatSci-SAM. Text pasted from an
+external AI tool does not automatically carry that tool's identity, request or
+output history. Copying reference text without attaching a citation does not
+establish its source in the published revision. Private lookup and copy records
+can show an interaction with a source, but do not prove that its text was used
+in the final definition.
+
 ## Votes, comments, and examples
 
 Votes and comments identify the displayed revision. A new revision starts a

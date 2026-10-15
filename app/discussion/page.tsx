@@ -129,7 +129,11 @@ export default async function DiscussionPage() {
                   ) : (
                     <Eyebrow>Definition</Eyebrow>
                   )}
-                  <StatusChip score={item.def.score} />
+                  <StatusChip
+                    definitionId={item.def.definitionId}
+                    revisionId={item.def.revisionId}
+                    score={item.def.score}
+                  />
                   {item.def.refinedFromId && item.def.model && (
                     <Badge className="bg-ai/15 text-ai border-ai/30 font-mono">
                       Refined with {item.def.model}

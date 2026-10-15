@@ -65,12 +65,14 @@ async function main() {
   const errors: string[] = []
   let lookups = 0
   let suggestions = 0
+  let fixtureVote: "up" | null = null
   let fixture: TermFixture | undefined
   let study: StudyFixture | undefined
   page.on("pageerror", (error) => errors.push(error.message))
   await stubTrpc(context, {
     unexpected,
     queries: {
+      "votes.get": () => ({ score: fixtureVote ? 1 : 0, vote: fixtureVote }),
       // The helper names the assistant, so the catalog is fixed here.
       "definitionAssistants.catalog": () => ({
         profiles: [
@@ -171,6 +173,12 @@ async function main() {
       }
     },
     mutations: {
+      "votes.vote": (input) => {
+        assert.equal(input.definitionId, fixture?.definitionId)
+        assert.equal(input.vote, "up")
+        fixtureVote = fixtureVote ? null : "up"
+        return null
+      },
       "termReferences.recordAction": () => null,
       "termReferences.retrieveChebi": (input) => {
         lookups += 1
@@ -312,6 +320,26 @@ async function main() {
     await expect(tab("Advanced")).toHaveAttribute("aria-selected", "true")
 
     await signInAs(context, base, fixture.userId)
+
+    // The exact count badge shares live data with the vote rail. Neither
+    // count may remain at the server-rendered value after a vote or withdrawal.
+    await page.reload({ waitUntil: "networkidle" })
+    const defaultCard = page.locator(
+      `section[aria-labelledby="default-definition-${fixture.definitionId}"]`
+    )
+    for (const score of [1, 0]) {
+      await defaultCard
+        .getByRole("button", { name: "Upvote definition", exact: true })
+        .click()
+      await expect(
+        defaultCard.getByText(`Net votes: ${score}`, { exact: true })
+      ).toBeVisible()
+      await expect(
+        defaultCard
+          .locator('[title="Upvotes minus downvotes on this revision"] > span')
+          .first()
+      ).toHaveText(String(score))
+    }
 
     // Simple metadata describes the whole term, without scope or source.
     await rememberView(context, base, "simple")
