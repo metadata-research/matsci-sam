@@ -74,7 +74,7 @@ type ProcedureInput = Record<string, unknown>
 export type TrpcStubs = {
   /** Mutation handlers by procedure path. Others are refused and recorded. */
   mutations: Record<string, (input: ProcedureInput) => unknown>
-  /** Query results to substitute inside otherwise real GET batches. */
+  /** Local query results; mixed GET batches preserve unstubbed results. */
   queries?: Record<string, (input: ProcedureInput) => unknown>
   unexpected: string[]
 }
@@ -102,13 +102,17 @@ export async function stubTrpc(context: BrowserContext, stubs: TrpcStubs) {
       const substitutes = stubs.queries ?? {}
       if (!paths.some((path) => path in substitutes)) return route.continue()
       const inputs = queryInputs(request.url())
-      const response = await route.fetch()
-      const results = (await response.json()) as unknown[]
-      const body = results.map((result, index) => {
-        const substitute = substitutes[paths[index]]
+      // Fully stubbed batches need no server or provider request.
+      let results: unknown[] = []
+      if (!paths.every((path) => path in substitutes)) {
+        const response = await route.fetch()
+        results = (await response.json()) as unknown[]
+      }
+      const body = paths.map((path, index) => {
+        const substitute = substitutes[path]
         return substitute
           ? { result: { data: substitute(inputs[String(index)] ?? {}) } }
-          : result
+          : results[index]
       })
       return route.fulfill({
         status: 200,
