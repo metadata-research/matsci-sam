@@ -1,7 +1,7 @@
 # Files and examples
 
 Use **Add file or text** while adding a term to attach a source or an example.
-Sources accept PDF, DOCX, TXT, or pasted text; images accept PNG and JPEG.
+Sources accept PDF, DOCX, TXT, or pasted text. Images accept PNG and JPEG.
 The limit is 5 MB each and three items per contribution. Sources and examples
 stay private until published with the definition.
 
@@ -22,24 +22,36 @@ file with the control beside its title.
 
 Select **Check term**. If the term is absent, add an explicit alias and check
 again. A match is required before the source can be sent to an assistant.
-For scanned PDFs, review the OCR text; **Correct extracted text** saves a new
-transcript while preserving the original.
+For scanned PDFs, review the OCR text and select **I have reviewed the OCR text
+for this source.** Use **Correct extracted text** to save a corrected transcript
+while preserving the original. Check the term again after a correction.
 
 Select **Use this source with the assistant** and choose relevant passages or
-full text. The preview shows the exact source text to send. Uploading,
-pasting, and checking a source do not contact an assistant; sending happens
-when you request a suggestion.
+full text. The preview shows the exact source text to send. MatSci-SAM sends
+the selected text when you request a suggestion. Uploading, pasting, and
+checking a source do not contact an assistant. See
+[source counts](/docs/ai-refinement#review-sources-sent-to-the-assistant) when
+reviewing the response.
 
 ## Choose files for publication
 
 Select **Review definition**, then check **Files and text to publish**.
 **Cite** identifies a source you cite yourself. **Used by assistant** identifies
-a source sent for the suggestion you accepted; it is included even when its
-**Cite** checkbox is off. Other unchecked items stay private.
+a source sent for the suggestion you accepted. It is included even when its
+**Cite** checkbox is off. To exclude that source, discard the applied suggestion
+and write or request a new suggestion without it. Other unchecked items stay
+private.
 
 Readers can read published source text and download the original file.
 Examples have separate attribution. Published files retain their original
 contents, including when their transcript has been corrected.
+
+Open **Read source text** or **Read pasted text** on a published definition to
+inspect the source.
+**Text supplied to** names the assistant and shows the submitted text.
+Expand **Processing record** for extraction, term checking, and text selection
+details. **Transcript history** contains earlier extracted text and corrections
+when a transcript has been corrected.
 
 ## Recover an unfinished upload
 

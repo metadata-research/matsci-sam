@@ -99,6 +99,9 @@ creating a new version.
 request. For Wolfram, it includes the complete saved response even if you
 inserted only one section. Assistant inputs and citations are independent.
 Select assistant inputs separately from citations and inserted text.
+The suggestion summary counts these inputs as lookup references. Uploaded or
+pasted sources have a separate count. See
+[source counts](/docs/ai-refinement#review-sources-sent-to-the-assistant).
 
 A model draft replaces your writing and clears its citation choices when you
 apply it. Undo restores both. Review citations again before publishing the new wording.

@@ -74,6 +74,20 @@ The recorded inputs show what was sent to the assistant. Check the facts and
 source material before publication. Wolfram lookup remains available as a
 separate reference tool whichever definition assistant you choose.
 
+## Review sources sent to the assistant
+
+The suggestion summary counts uploaded or pasted sources separately from
+lookup references. Each uploaded document or pasted text counts as one source,
+including when you send several passages from it. Lookup references are
+reference definitions or saved Wolfram responses included in the request.
+
+These counts describe the saved request. Later changes to source selections
+or citations leave them unchanged. Expand an item under **Sources used by
+assistant** to inspect the submitted document or pasted text. In Advanced,
+expand **Inspect lookup references sent to the assistant** to review those
+inputs. Check **Files and
+text to publish** during definition review and select citations separately.
+
 <a id="suggest-a-revision-to-a-definition"></a>
 
 ## Suggest an alternative to a definition

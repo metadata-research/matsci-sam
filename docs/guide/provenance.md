@@ -38,6 +38,12 @@ The recorded request lists the submitted inputs. Check those sources and the
 facts in the response before publication. Accepted model work retains the
 original answer separately from the wording published by the contributor.
 
+An uploaded or pasted source used for an accepted suggestion retains the
+submitted text and its connection to the original source. The record includes
+text extraction, OCR when used, contributor corrections, term checking, and
+text selection. Readers can inspect these details from the published source.
+See [Files and examples](/docs/files-and-examples#choose-files-for-publication).
+
 Wolfram lookup and Wolfram Agent One have separate roles. The lookup provides
 reference material. Agent One drafts definitions when available. See
 [References](/docs/references) and [AI assistance](/docs/ai-refinement).
@@ -47,7 +53,7 @@ relationships require a separate contribution. A published citation retains
 the saved source text and available source information.
 
 The history covers contributions recorded in MatSci-SAM. Text pasted from an
-external AI tool does not automatically carry that tool's identity, request or
+external AI tool does not automatically record its identity, request or
 output history. Copying reference text without attaching a citation does not
 establish its source in the published revision. Private lookup and copy records
 can show an interaction with a source, but do not prove that its text was used
