@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { and, eq, inArray, isNull, lt, not, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, lt, not, sql } from "drizzle-orm"
 import {
   cleanupExpiredPendingFiles,
   fileRetainedByDraft
@@ -11,7 +11,8 @@ import {
   definitionRevisionsTable,
   definitionsTable,
   termsTable,
-  usersTable
+  usersTable,
+  sourceExtractionsTable
 } from "@yamz/db"
 import { activeCommunityFor } from "./community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "./public-identifiers"
@@ -53,7 +54,11 @@ export const contributionFileSelection = {
   createdAt: contributionFilesTable.createdAt,
   publishedRevisionId: contributionFilesTable.publishedRevisionId,
   exampleId: contributionFilesTable.exampleId,
-  publishedAt: contributionFilesTable.publishedAt
+  publishedAt: contributionFilesTable.publishedAt,
+  origin: contributionFilesTable.origin,
+  contributorCited: contributionFilesTable.contributorCited,
+  publishedExtractionId: contributionFilesTable.publishedExtractionId,
+  assistantUsed: sql<boolean>`exists (select 1 from "aiContributionSuggestions" a where a.status = 'accepted' and a."sourceInputs" @> jsonb_build_array(jsonb_build_object('fileId', "contributionFiles"."id"::text)))`
 } as const
 
 export async function storeContributionFile(
@@ -67,6 +72,14 @@ export async function storeContributionFile(
 ): Promise<ContributionFileItem> {
   const metadata = contributionFileMetadataSchema.parse(input.metadata)
   const mediaType = validateContributionFile(input.bytes, input.declaredType)
+  if (metadata.origin === "paste" && mediaType !== "text/plain")
+    throw new ContributionFileError("Pasted sources must be plain text.")
+  if (metadata.role === "source" && mediaType.startsWith("image/")) {
+    // Existing image sources remain readable, but new images are examples.
+    throw new ContributionFileError(
+      "Use PDF, DOCX or TXT for a document source. Images can be attached as examples."
+    )
+  }
   return reader.transaction(async (tx) => {
     // Community retirement and member removal lock their scope before users.
     // Keep that order, then serialize the account's pending upload quota.
@@ -145,9 +158,12 @@ export async function storeContributionFile(
         title: metadata.title,
         caption: metadata.caption,
         citation: metadata.citation || null,
-        page: metadata.page || null
+        page: metadata.page || null,
+        origin: metadata.origin ?? "upload"
       })
       .returning(contributionFileSelection)
+    if (metadata.role === "source")
+      await tx.insert(sourceExtractionsTable).values({ fileId: file.id })
     return file
   })
 }
@@ -228,9 +244,14 @@ export async function publishContributionFiles(
     authorId: number
     termId: number
     revisionId: number
+    modelSources?: import("./source-document-types").SourceInputSnapshot[]
   }
 ) {
-  const selections = input.attachments ?? []
+  const citedIds = new Set((input.attachments ?? []).map((s) => s.fileId))
+  const selections = [...(input.attachments ?? [])]
+  for (const source of input.modelSources ?? [])
+    if (!selections.some((s) => s.fileId === source.fileId))
+      selections.push({ fileId: source.fileId, publish: true })
   if (!selections.length) return
   const ids = selections.map((selection) => selection.fileId)
   if (
@@ -295,6 +316,38 @@ export async function publishContributionFiles(
         "A file is unavailable or belongs to a different contribution. Attach it again before publishing."
     })
   for (const file of files) {
+    const usedSource = input.modelSources?.find(
+      (source) => source.fileId === file.id
+    )
+    const [extraction] =
+      file.role === "source"
+        ? await tx
+            .select({
+              id: sourceExtractionsTable.id,
+              status: sourceExtractionsTable.status
+            })
+            .from(sourceExtractionsTable)
+            .where(
+              and(
+                eq(sourceExtractionsTable.fileId, file.id),
+                usedSource
+                  ? eq(sourceExtractionsTable.id, usedSource.extractionId)
+                  : undefined
+              )
+            )
+            .orderBy(desc(sourceExtractionsTable.createdAt))
+            .limit(1)
+        : []
+    if (
+      (usedSource && !extraction) ||
+      (extraction && extraction.status !== "ready")
+    )
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: usedSource
+          ? "A source used by the assistant is unavailable. Discard the suggestion or restore its source before publishing."
+          : "Wait until the source has been read before publishing, or remove it from publication. If processing failed, replace it with readable text."
+      })
     let exampleId: number | null = null
     if (file.role === "example") {
       const { example } = await createDefinitionExample(tx, {
@@ -311,7 +364,9 @@ export async function publishContributionFiles(
       .set({
         publishedRevisionId: input.revisionId,
         exampleId,
-        publishedAt: sql`now()`
+        publishedAt: sql`now()`,
+        contributorCited: citedIds.has(file.id),
+        publishedExtractionId: extraction?.id ?? null
       })
       .where(eq(contributionFilesTable.id, file.id))
   }

@@ -4,6 +4,12 @@ import { assertSameInference, getInferenceConfig } from "../lib/llm/config"
 import { generateStructured } from "../lib/llm/generate"
 import { ClientCredentialsTokens } from "../lib/llm/oauth"
 import { InferenceError } from "../lib/llm/types"
+import {
+  newTermPromptInputs,
+  revisionUserPrompt
+} from "../lib/model-prompt-inputs"
+import { ollamaResponseSchema } from "../lib/llm/ollama-response-schema"
+import zodToJsonSchema from "zod-to-json-schema"
 
 const env = {
   INFERENCE_PROVIDER: "openai-compatible",
@@ -269,6 +275,213 @@ async function main() {
   assert.equal(ollamaCalls, 1)
   assert.equal(localResult?.output.definition, "Local result.")
   assert.equal(localResult?.inference.provider, "ollama")
+
+  // Exercise the actual strict schema shared by new-term and revision actions,
+  // rather than a looser administrator probe or a test-only output shape.
+  const { DefinitionTextOutput } = await import("../lib/llm/client")
+  const { NewTermSystemPrompt, RevisionSuggestionSystemPrompt } = await import(
+    "../lib/llm/prompts"
+  )
+  const originalDefinitionSchema = zodToJsonSchema(DefinitionTextOutput)
+  const expectedOllamaSchema = {
+    type: "object",
+    properties: { definition: { type: "string" } },
+    required: ["definition"],
+    additionalProperties: false,
+    $schema: "http://json-schema.org/draft-07/schema#"
+  }
+  for (const workflow of [
+    {
+      name: "new term",
+      system: NewTermSystemPrompt,
+      prompt: newTermPromptInputs({
+        term: "austenite",
+        context: "An iron phase."
+      }).userPrompt
+    },
+    {
+      name: "revision",
+      system: RevisionSuggestionSystemPrompt,
+      prompt: revisionUserPrompt({
+        term: "austenite",
+        definition: "An iron phase.",
+        feedback: "Specify its crystal structure."
+      })
+    }
+  ]) {
+    for (const [output, expected] of [
+      [
+        { definition: " A crystalline iron phase. " },
+        "A crystalline iron phase."
+      ],
+      [{ definition: "x".repeat(10000) }, "x".repeat(10000)],
+      [{ definition: "" }, undefined],
+      [{ definition: " \t\n " }, undefined],
+      [{ definition: "x".repeat(10001) }, undefined],
+      [{ definition: "Valid text", example: "Unrequested output" }, undefined],
+      [{ definition: 123 }, undefined],
+      [{ example: "Missing definition" }, undefined]
+    ] as const) {
+      let workflowCalls = 0
+      const generated = await generateStructured(
+        local,
+        [{ role: "user", content: workflow.prompt }],
+        workflow.system,
+        DefinitionTextOutput,
+        {
+          fetcher: async (_url, init) => {
+            workflowCalls++
+            const body = JSON.parse(init?.body as string)
+            assert.deepEqual(body.format, expectedOllamaSchema)
+            assert.deepEqual(body.messages, [
+              { role: "system", content: workflow.system },
+              { role: "user", content: workflow.prompt }
+            ])
+            return json({
+              model: "gemma4:26b",
+              message: { role: "assistant", content: JSON.stringify(output) },
+              done: true
+            })
+          }
+        }
+      )
+      assert.equal(workflowCalls, 1, "Invalid output is never retried loosely")
+      assert.equal(
+        generated?.output.definition,
+        expected,
+        `${workflow.name} retains the complete application output contract`
+      )
+      if (expected === undefined) assert.equal(generated, undefined)
+    }
+  }
+  assert.deepEqual(
+    zodToJsonSchema(DefinitionTextOutput),
+    originalDefinitionSchema,
+    "Transport compatibility does not mutate application validation"
+  )
+  await generateStructured(config, messages, "test", DefinitionTextOutput, {
+    tokens,
+    fetcher: async (_url, init) => {
+      const wireSchema = JSON.parse(init?.body as string).response_format
+        .json_schema.schema
+      assert.equal(wireSchema.properties.definition.minLength, 1)
+      assert.equal(wireSchema.properties.definition.maxLength, 10000)
+      assert.deepEqual(wireSchema, originalDefinitionSchema)
+      return completion()
+    }
+  })
+  const nestedSchema = z
+    .object({
+      minLength: z.string().min(2),
+      evidence: z
+        .array(
+          z
+            .object({
+              text: z
+                .string()
+                .max(500)
+                .regex(/^Source:/),
+              score: z.number().min(1).max(10)
+            })
+            .strict()
+        )
+        .min(1)
+    })
+    .strict()
+  const originalNested = zodToJsonSchema(nestedSchema)
+  const nestedWire = ollamaResponseSchema(nestedSchema)
+  assert.deepEqual(nestedWire, {
+    type: "object",
+    properties: {
+      minLength: { type: "string" },
+      evidence: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string", pattern: "^Source:" },
+            score: { type: "number", minimum: 1, maximum: 10 }
+          },
+          required: ["text", "score"],
+          additionalProperties: false
+        }
+      }
+    },
+    required: ["minLength", "evidence"],
+    additionalProperties: false,
+    $schema: "http://json-schema.org/draft-07/schema#"
+  })
+  assert.deepEqual(zodToJsonSchema(nestedSchema), originalNested)
+
+  const previousWarn = console.warn
+  try {
+    const logs: unknown[][] = []
+    console.warn = (...args) => logs.push(args)
+    for (const [status, code] of [
+      [400, "unsupported_format"],
+      [401, "authentication"],
+      [403, "authentication"],
+      [404, "model_missing"],
+      [422, "unsupported_format"],
+      [429, "unavailable"],
+      [503, "unavailable"]
+    ] as const) {
+      let failures = 0
+      logs.length = 0
+      await assert.rejects(
+        generateStructured(local, messages, "test", DefinitionTextOutput, {
+          fetcher: async () => {
+            failures++
+            return new Response("dummy-secret and private source text", {
+              status
+            })
+          }
+        }),
+        (error: unknown) => {
+          failureCode(code)(error)
+          assert(error instanceof InferenceError)
+          assert.equal(error.retryable, status === 429 || status >= 500)
+          assert.equal(error.diagnostic?.provider, "ollama")
+          assert.equal(error.diagnostic?.category, "http")
+          assert.equal(error.diagnostic?.httpStatus, status)
+          assert((error.diagnostic?.elapsedMs ?? -1) >= 0)
+          assert.equal(error.diagnostic?.timeoutMs, local.timeoutMs)
+          assert.deepEqual(logs, [["Ollama request failed", error.diagnostic]])
+          assert.deepEqual(Object.keys(error.diagnostic!).sort(), [
+            "category",
+            "elapsedMs",
+            "httpStatus",
+            "provider",
+            "timeoutMs"
+          ])
+          return true
+        }
+      )
+      assert.equal(failures, 1, "No format fallback or provider retry")
+      assert(!JSON.stringify(logs).includes("dummy-secret"))
+      assert(!JSON.stringify(logs).includes("private source text"))
+    }
+    logs.length = 0
+    await assert.rejects(
+      generateStructured(local, messages, "test", DefinitionTextOutput, {
+        fetcher: async () => {
+          throw new Error("dummy-secret and private source text")
+        }
+      }),
+      (error: unknown) => {
+        failureCode("unavailable")(error)
+        assert(error instanceof InferenceError)
+        assert.equal(error.diagnostic?.category, "transport")
+        assert.equal(error.diagnostic?.httpStatus, undefined)
+        return true
+      }
+    )
+    assert(!JSON.stringify(logs).includes("dummy-secret"))
+    assert(!JSON.stringify(logs).includes("private source text"))
+  } finally {
+    console.warn = previousWarn
+  }
   for (const key of Object.keys(process.env))
     if (!(key in original)) delete process.env[key]
   Object.assign(process.env, original)

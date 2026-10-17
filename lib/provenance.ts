@@ -9,6 +9,10 @@ import { inferenceProperties } from "./llm/types"
 import { termReferencesQuery } from "./term-references"
 import { modelPromptInputProvenance } from "./model-prompt-provenance"
 import {
+  sourceDocumentProvenance,
+  sourceExtractionProvenance
+} from "./source-document-provenance"
+import {
   buildContributionEvidence,
   contributionEvidenceAnchor
 } from "./contribution-evidence"
@@ -31,6 +35,7 @@ import {
   definitionRevisionsTable,
   definitionsTable,
   refinementsTable,
+  sourceExtractionsTable,
   termsTable,
   termMetadataAssertionsTable,
   usersTable,
@@ -418,7 +423,8 @@ export const buildTermProvenance = async (
         ...contributionFileSelection,
         definitionId: definitionRevisionsTable.definitionId,
         version: definitionRevisionsTable.version,
-        uploadedById: contributionFilesTable.uploadedById
+        uploadedById: contributionFilesTable.uploadedById,
+        publishedExtractionId: contributionFilesTable.publishedExtractionId
       })
       .from(contributionFilesTable)
       .innerJoin(
@@ -479,6 +485,82 @@ export const buildTermProvenance = async (
         asc(termMetadataAssertionsTable.id)
       )
   ])
+
+  // Publication binds one immutable extraction. A later OCR retry must never
+  // replace the transcript that supported an earlier contribution.
+  const publishedExtractionIds = [
+    ...new Set(
+      publishedFiles.flatMap((file) =>
+        file.publishedExtractionId ? [file.publishedExtractionId] : []
+      )
+    )
+  ]
+  const publishedExtractions = publishedExtractionIds.length
+    ? await db
+        .select({
+          id: sourceExtractionsTable.id,
+          fileId: sourceExtractionsTable.fileId,
+          textHash: sourceExtractionsTable.textHash,
+          parserVersion: sourceExtractionsTable.parserVersion,
+          method: sourceExtractionsTable.method,
+          hasOcr: sourceExtractionsTable.hasOcr,
+          parentExtractionId: sourceExtractionsTable.parentExtractionId,
+          correctedById: sourceExtractionsTable.correctedById,
+          completedAt: sourceExtractionsTable.completedAt
+        })
+        .from(sourceExtractionsTable)
+        .where(
+          and(
+            inArray(sourceExtractionsTable.id, publishedExtractionIds),
+            eq(sourceExtractionsTable.status, "ready")
+          )
+        )
+    : []
+  // Read only ancestors of the bound extraction, never later retries or other
+  // private branches. A correction preserves the original processor's evidence.
+  const extractionById = new Map(
+    publishedExtractions.map((row) => [row.id, row])
+  )
+  let frontier = publishedExtractions
+  while (frontier.length) {
+    const parentIds = [
+      ...new Set(
+        frontier.flatMap((row) =>
+          row.parentExtractionId && !extractionById.has(row.parentExtractionId)
+            ? [row.parentExtractionId]
+            : []
+        )
+      )
+    ]
+    if (!parentIds.length) break
+    const parents = await db
+      .select({
+        id: sourceExtractionsTable.id,
+        fileId: sourceExtractionsTable.fileId,
+        textHash: sourceExtractionsTable.textHash,
+        parserVersion: sourceExtractionsTable.parserVersion,
+        method: sourceExtractionsTable.method,
+        hasOcr: sourceExtractionsTable.hasOcr,
+        parentExtractionId: sourceExtractionsTable.parentExtractionId,
+        correctedById: sourceExtractionsTable.correctedById,
+        completedAt: sourceExtractionsTable.completedAt
+      })
+      .from(sourceExtractionsTable)
+      .where(
+        and(
+          inArray(sourceExtractionsTable.id, parentIds),
+          eq(sourceExtractionsTable.status, "ready")
+        )
+      )
+    frontier = parents.filter((parent) =>
+      frontier.some(
+        (child) =>
+          child.parentExtractionId === parent.id &&
+          child.fileId === parent.fileId
+      )
+    )
+    for (const parent of frontier) extractionById.set(parent.id, parent)
+  }
 
   // Vote events are the record of every voting act: one row per act from
   // migration 0040 forward, withdrawals included, and one row per earlier
@@ -1696,6 +1778,18 @@ export const buildTermProvenance = async (
     for (const edge of promptInputs.edges)
       addEdge(edge.source, edge.target, edge.rel)
 
+    const documentInputs = sourceDocumentProvenance({
+      suggestionId: suggestion.id,
+      status: suggestion.status,
+      outputDefinitionId: suggestion.outputDefinitionId,
+      outputRevisionNode: outputVersion,
+      requester,
+      sources: suggestion.sourceInputs ?? []
+    })
+    for (const node of documentInputs.nodes) addNode(node)
+    for (const edge of documentInputs.edges)
+      addEdge(edge.source, edge.target, edge.rel)
+
     if (suggestion.feedback !== null) {
       const feedbackId = `ai_contribution_feedback_${suggestion.id}`
       addNode({
@@ -2132,8 +2226,9 @@ export const buildTermProvenance = async (
     addEdge(id, author.nodeId, "wasAttributedTo")
   }
 
-  // Public attachment evidence records the contributor's explicit publication,
-  // not a provider lookup or an assistant input. Pending files are not queried.
+  // Publication can preserve contributor citations and accepted model inputs
+  // independently. Only the accepted suggestion loop above claims model use.
+  // Pending files and private extraction attempts are not queried.
   for (const file of publishedFiles) {
     const id = `file_${file.id}`
     const definition = definitionById.get(file.definitionId)
@@ -2153,12 +2248,20 @@ export const buildTermProvenance = async (
         page: file.page,
         published: file.publishedAt,
         download: contributionFilePath(file.id),
-        evidenceBasis: "contributor_uploaded"
+        ...(file.role === "source"
+          ? { reader: `/sources/${encodeURIComponent(file.id)}` }
+          : {}),
+        origin: file.origin,
+        contributorCited: file.contributorCited ? "yes" : "no",
+        evidenceBasis:
+          file.origin === "paste"
+            ? "contributor_pasted"
+            : "contributor_uploaded"
       }
     })
     if (definition.author)
       addEdge(id, personNode(definition.author), "wasAttributedTo")
-    if (file.role === "source") {
+    if (file.role === "source" && file.contributorCited) {
       addEdge(revisionNodeId(file.definitionId, file.version), id, "references")
     } else if (file.exampleId !== null) {
       const example = exampleById.get(file.exampleId)
@@ -2168,6 +2271,40 @@ export const buildTermProvenance = async (
           id,
           "references"
         )
+    }
+    const extraction = publishedExtractions.find(
+      (row) => row.id === file.publishedExtractionId && row.fileId === file.id
+    )
+    if (extraction?.textHash && extraction.completedAt) {
+      const evidence = sourceExtractionProvenance({
+        fileId: file.id,
+        extractionId: extraction.id,
+        title: file.title,
+        textHash: extraction.textHash,
+        parserVersion: extraction.parserVersion,
+        method: extraction.method,
+        hasOcr: extraction.hasOcr,
+        extractedAt: extraction.completedAt,
+        extractionSteps: [...extractionById.values()].flatMap((step) =>
+          step.fileId === file.id && step.textHash && step.completedAt
+            ? [
+                {
+                  id: step.id,
+                  parentExtractionId: step.parentExtractionId,
+                  correctedById: step.correctedById,
+                  textHash: step.textHash,
+                  parserVersion: step.parserVersion ?? "unknown",
+                  method: step.method ?? "unknown",
+                  hasOcr: step.hasOcr,
+                  completedAt: step.completedAt
+                }
+              ]
+            : []
+        )
+      })
+      for (const node of evidence.nodes) addNode(node)
+      for (const edge of evidence.edges)
+        addEdge(edge.source, edge.target, edge.rel)
     }
   }
 

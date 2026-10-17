@@ -1,6 +1,6 @@
 import "next/dist/server/node-environment"
 import assert from "node:assert/strict"
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { and, eq, inArray, sql } from "drizzle-orm"
 import {
   aiContributionSuggestionsTable,
@@ -15,6 +15,7 @@ import {
   definitionRevisionReferencesTable,
   definitionRevisionsTable,
   definitionsTable,
+  sourceExtractionsTable,
   statementsTable,
   termDraftFilesTable,
   termDraftsTable,
@@ -71,6 +72,10 @@ async function agePendingFile(
     .select()
     .from(termDraftFilesTable)
     .where(eq(termDraftFilesTable.fileId, id))
+  const extractions = await tx
+    .select()
+    .from(sourceExtractionsTable)
+    .where(eq(sourceExtractionsTable.fileId, id))
   await tx
     .delete(contributionFilesTable)
     .where(eq(contributionFilesTable.id, id))
@@ -78,6 +83,8 @@ async function agePendingFile(
     ...file,
     createdAt: new Date(Date.now() - 48 * 3600000).toISOString()
   })
+  if (extractions.length)
+    await tx.insert(sourceExtractionsTable).values(extractions)
   if (bindings.length) await tx.insert(termDraftFilesTable).values(bindings)
 }
 
@@ -354,6 +361,31 @@ async function main() {
         },
         tx
       )
+      // Supply a completed transcript without starting parser work. The outer
+      // rollback transaction prevents a background worker from seeing this job.
+      await tx
+        .delete(sourceExtractionsTable)
+        .where(eq(sourceExtractionsTable.fileId, file.id))
+      const sourceText = `${term}: evidence accompanying this definition.`
+      await tx.insert(sourceExtractionsTable).values({
+        fileId: file.id,
+        status: "ready",
+        text: sourceText,
+        textHash: createHash("sha256").update(sourceText).digest("hex"),
+        pages: [
+          {
+            page: 1,
+            start: 0,
+            end: sourceText.length,
+            method: "embedded",
+            label: "Page 1",
+            confidence: null
+          }
+        ],
+        method: "embedded",
+        parserVersion: "term-draft-fixture-v1",
+        completedAt: new Date().toISOString()
+      })
       const advanced: TermDraftPayload = {
         ...payload,
         references: [

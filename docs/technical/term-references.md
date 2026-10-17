@@ -36,10 +36,11 @@ Add uses `AddDefinitionWorkspace` for new terms. Simple and Advanced share one
 mounted form with identical column sizing. Advanced reveals persistent reference
 definition and ontology context panels to the right, stacking at narrow
 container widths. `DefinitionToolbox` puts the toolbar and selected tool above the writing
-form in Advanced. Simple keeps its example-file panel below the form. Both
-keep the same mounted editor and tool inputs when their order changes. Simple includes **Attach an example file** and a reduced
-**Help me write with AI** control below the editor. Citations, source files and the
-other tools are Advanced. The view choice is stored per browser in the
+form in Advanced. Simple keeps its file/text panel below the form. Both
+keep the same mounted editor and tool inputs when their order changes. Simple
+includes **Add file or text** and a reduced **Help me write with AI** control
+below the editor. Document sources, pasted text, and image examples are available
+in both views; reference lookups and citation tools are Advanced. The view choice is stored per browser in the
 `matsci-sam-view` cookie, which the root layout loads, and only pages with a
 view control apply it. Inherited contribution forms keep the earlier responsive
 workspace, narrow tool views and status strip. Provider responses update lookup

@@ -4,8 +4,10 @@ import { z } from "zod"
 import zodToJsonSchema from "zod-to-json-schema"
 import type { InferenceConfig } from "./config"
 import { ClientCredentialsTokens, inferenceTokens } from "./oauth"
+import { ollamaResponseSchema } from "./ollama-response-schema"
 import {
   InferenceError,
+  type InferenceFailureDiagnostic,
   type InferenceMessage,
   type InferenceResult
 } from "./types"
@@ -36,26 +38,44 @@ export const generateStructured = async <T extends z.ZodTypeAny>(
       : undefined
   }
   const tokens = dependencies.tokens ?? inferenceTokens
+  const started = performance.now()
   const signal = AbortSignal.timeout(config.timeoutMs)
   const conversation = [{ role: "system", content: systemPrompt }, ...messages]
   let content: unknown
   let responseModel: string | undefined
+  let httpStatus: number | undefined
   try {
     if (config.provider === "ollama") {
       const client = new Ollama({
         host: config.baseUrl,
-        fetch: (input, init) =>
-          fetcher(input, {
+        fetch: async (input, init) => {
+          const response = await fetcher(input, {
             ...init,
             signal,
             redirect: "error",
             cache: "no-store"
           })
+          if (!response.ok) {
+            httpStatus = response.status
+            await response.body?.cancel()
+            throw new InferenceError(
+              response.status === 401 || response.status === 403
+                ? "authentication"
+                : response.status === 404
+                  ? "model_missing"
+                  : response.status === 400 || response.status === 422
+                    ? "unsupported_format"
+                    : "unavailable",
+              response.status === 429 || response.status >= 500
+            )
+          }
+          return response
+        }
       })
       const response = await client.chat({
         model: config.model,
         messages: conversation,
-        format: zodToJsonSchema(schema),
+        format: ollamaResponseSchema(schema),
         keep_alive: "10m",
         think: false,
         stream: false
@@ -120,8 +140,28 @@ export const generateStructured = async <T extends z.ZodTypeAny>(
       }
     }
   } catch (error) {
-    if (error instanceof InferenceError) throw error
-    throw new InferenceError("unavailable", true)
+    const failure =
+      error instanceof InferenceError
+        ? error
+        : new InferenceError("unavailable", true)
+    if (config.provider === "ollama") {
+      const diagnostic: InferenceFailureDiagnostic = {
+        provider: "ollama",
+        category:
+          httpStatus !== undefined
+            ? "http"
+            : signal.aborted
+              ? "timeout"
+              : "transport",
+        elapsedMs: Math.round(performance.now() - started),
+        timeoutMs: config.timeoutMs,
+        ...(httpStatus !== undefined ? { httpStatus } : {})
+      }
+      // Provider bodies, prompts and raw errors may contain private source text.
+      console.warn("Ollama request failed", diagnostic)
+      throw new InferenceError(failure.code, failure.retryable, diagnostic)
+    }
+    throw failure
   }
   try {
     if (typeof content !== "string") return undefined

@@ -60,6 +60,11 @@ Wolfram source to include it in the next request. Any attached citation remains
 if you remove the input. See
 [References](/docs/references#citations-and-assistant-inputs).
 
+For a document or pasted source, use **Add file or text**, check the term, and
+choose the text to send. Sources used by an accepted suggestion are included
+with the published definition, separately from sources you cite yourself.
+See [using a source with an assistant](/docs/files-and-examples#use-a-source-with-an-assistant).
+
 A model draft clears the citation choices attached to your previous writing
 when you apply it. Review and attach the sources used in the final text. Undo
 restores the earlier choices. Source links returned by an assistant remain

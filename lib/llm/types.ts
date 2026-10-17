@@ -32,7 +32,7 @@ export type InferenceResult<T> = {
 // Safe operational details only. Never put provider bodies, prompts, URLs,
 // credentials or raw exception messages in this object.
 export type InferenceFailureDiagnostic = {
-  provider: "wolfram-agent-one"
+  provider: "wolfram-agent-one" | "ollama"
   category: "http" | "timeout" | "transport" | "invalid_response"
   elapsedMs: number
   timeoutMs: number

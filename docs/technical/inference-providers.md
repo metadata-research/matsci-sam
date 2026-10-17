@@ -19,18 +19,18 @@ The deployment provider defaults to Ollama with model `gemma4:26b`.
 `http://127.0.0.1:11434` when that variable is absent, but the readiness check
 reports **Not configured** until `OLLAMA_HOST` is set explicitly.
 
-| Setting | Meaning |
-| --- | --- |
-| `INFERENCE_PROVIDER` | `ollama` (default) or `openai-compatible` |
-| `INFERENCE_PROFILE` | Public label recorded with generations. Defaults to the provider name |
-| `INFERENCE_MODEL` | Exact requested model. Defaults to `gemma4:26b` for Ollama and is required for the compatible service |
-| `OLLAMA_HOST` | Existing Ollama endpoint |
-| `INFERENCE_BASE_URL` | HTTPS API base, including its version path. Compatible service only |
-| `INFERENCE_TOKEN_URL` | HTTPS OAuth token endpoint. Compatible service only |
-| `INFERENCE_CLIENT_ID` | Application registration identifier. Compatible service only |
-| `INFERENCE_CLIENT_SECRET` | Protected application credential. Compatible service only |
-| `INFERENCE_TIMEOUT_MS` | Total generation deadline, default 90000. Allowed 1000–300000 |
-| `INFERENCE_MAX_TOKENS` | Output limit for the compatible service, default 2048. Allowed 64–32768 |
+| Setting                   | Meaning                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `INFERENCE_PROVIDER`      | `ollama` (default) or `openai-compatible`                                                             |
+| `INFERENCE_PROFILE`       | Public label recorded with generations. Defaults to the provider name                                 |
+| `INFERENCE_MODEL`         | Exact requested model. Defaults to `gemma4:26b` for Ollama and is required for the compatible service |
+| `OLLAMA_HOST`             | Existing Ollama endpoint                                                                              |
+| `INFERENCE_BASE_URL`      | HTTPS API base, including its version path. Compatible service only                                   |
+| `INFERENCE_TOKEN_URL`     | HTTPS OAuth token endpoint. Compatible service only                                                   |
+| `INFERENCE_CLIENT_ID`     | Application registration identifier. Compatible service only                                          |
+| `INFERENCE_CLIENT_SECRET` | Protected application credential. Compatible service only                                             |
+| `INFERENCE_TIMEOUT_MS`    | Total generation deadline, default 90000. Allowed 1000–300000                                         |
+| `INFERENCE_MAX_TOKENS`    | Output limit for the compatible service, default 2048. Allowed 64–32768                               |
 
 Use a profile such as `research-cluster` to distinguish deployments. Profile
 names contain lowercase letters, digits, hyphens, or underscores and are at most
@@ -102,6 +102,70 @@ credentials or response bodies from the model.
 The live diagnostic tests schema support in addition to model availability. SAM
 validates responses locally with Zod. Unsupported schema modes, truncated
 answers, refusals and invalid JSON are rejected before publication.
+
+### Ollama schema compatibility
+
+The Gemma service can reject JSON-schema string `minLength` and `maxLength`
+constraints while constructing its output grammar. For Ollama transport only,
+SAM removes those two keywords from string schema nodes before sending `format`.
+It preserves the required object shape, strict object properties and other
+constraints. Schema traversal does not alter literal example/default values or
+mutate the original schema. The compatible-provider transport keeps its original
+schema.
+
+This is a wire-format accommodation, not a validation change. The original Zod
+schema still parses every returned result. Ordinary new-term and revision
+requests require a strict object with one `definition` string, trimmed and
+between 1 and 10,000 characters. Empty, oversized, extra-field, malformed or
+otherwise invalid results are rejected. There is no broad schema fallback,
+automatic provider switch or extra generation attempt. Controlled tests in
+`scripts/test-inference.ts` exercise the actual new-term/revision schema, both
+length boundaries and invalid results, as well as unchanged compatible-provider
+transport.
+
+Ollama HTTP failures are intercepted before an SDK can expose a raw response
+body. Diagnostic logs retain provider, category, HTTP status when available,
+elapsed time and configured timeout. They exclude prompts, document text,
+credentials, provider bodies and raw exceptions. A 400/422 is reported as a
+format failure; it is not evidence of a valid model answer.
+
+## Source document context
+
+Ordinary new-term requests can include contributor-selected document context
+for the selected assistant. A separate worker extracts PDF/DOCX/TXT or pasted
+text. The source must have a saved term or explicit-alias match before it is
+eligible; a match establishes occurrence, not factual support. The contributor
+chooses passages or full extracted text and confirms review when OCR was used.
+The server verifies the saved extraction/check and constructs the exact input
+from immutable transcript text. The original binary is not sent to the model.
+Document text plus retrieved reference context must fit 24,000 characters;
+over-budget input is rejected rather than truncated.
+
+Correcting extracted text creates a new immutable transcript with a parent,
+contributor and timestamp. It requires a new term check and preserves any OCR
+review requirement. The model receipt snapshots the selected version's ancestry,
+so the graph can distinguish the original extraction from human corrections.
+An old saved check still refers to its original version.
+
+The prompt marks source text as untrusted evidence and instructs the assistant
+to ignore embedded commands. The suggestion stores the exact selected text,
+original/extraction/input hashes, extraction and matcher versions, term/aliases
+and positions, selection time and any OCR-review confirmation. Public provenance
+appears only for accepted suggestions bound to a published contribution. It
+connects the original, extraction/corrections, check, review and selection to the exact input
+used by generation and the derived revision. The review receipt records a
+contributor assertion, not proof of reading. Failed or unaccepted attempts do
+not make their private sources public.
+
+An accepted suggestion's sources are retained with its published revision even
+if the contributor did not separately cite them. `contributorCited` records the
+explicit citation choice; assistant use is a separate relationship. A manually
+cited attachment alone never creates an AI-use edge. The pure provenance and
+isolated database suites verify that distinction and preservation of the exact
+historical extraction. See [contribution files](contribution-files.md) for the
+lifecycle and tests, and [source document worker](source-document-worker.md) for
+runtime prerequisites. These checks do not imply that the worker or feature has
+been deployed to production.
 
 ## Switching and provenance
 

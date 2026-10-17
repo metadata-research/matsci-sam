@@ -12,6 +12,15 @@ import { PaperclipIcon, Trash2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  SourceDocumentContext,
+  type SourceContextPreview
+} from "./source-document-context"
+import type {
+  SourceContextSelection,
+  SourceInputSnapshot
+} from "@/lib/source-document-types"
 import {
   Dialog,
   DialogContent,
@@ -48,8 +57,11 @@ type Props = {
   disabled?: boolean
   onBusyChange?: (busy: boolean) => void
   inline?: boolean
-  /** Simple attaches examples only. Sources are citations, added in Advanced. */
-  exampleOnly?: boolean
+  sources?: SourceContextSelection[]
+  onSourcesChange?: (sources: SourceContextSelection[]) => void
+  onSourcePreview?: (preview: SourceContextPreview) => void
+  assistantSourceInputs?: SourceInputSnapshot[]
+  contextLimit?: number
 }
 
 export function ContributionFiles(props: Props) {
@@ -60,14 +72,14 @@ export function ContributionFiles(props: Props) {
       <DialogTrigger asChild>
         <Button type="button" variant="outline" disabled={props.disabled}>
           <PaperclipIcon aria-hidden />
-          Attach file
+          Add file or text
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Attach a file</DialogTitle>
+          <DialogTitle>Add file or text</DialogTitle>
           <DialogDescription>
-            Add a PDF or image as an example or source.
+            Upload a document, paste source text, or attach an image example.
           </DialogDescription>
         </DialogHeader>
         <ContributionFileFields {...props} />
@@ -84,14 +96,17 @@ export function ContributionFileFields({
   explicitVocabulary = false,
   disabled,
   onBusyChange,
-  exampleOnly = false
+  sources = [],
+  onSourcesChange,
+  onSourcePreview,
+  assistantSourceInputs = [],
+  contextLimit
 }: Props) {
   const id = useId()
   const [file, setFile] = useState<File | null>(null)
-  const [role, setRole] = useState<"example" | "source">("example")
-  // A file set up as a source in Advanced keeps that choice. Simple does not
-  // attach sources, so it says where to attach this one.
-  const sourceInSimple = exampleOnly && role === "source"
+  const [role, setRole] = useState<"example" | "source">("source")
+  const [origin, setOrigin] = useState<"upload" | "paste">("upload")
+  const [pastedText, setPastedText] = useState("")
   const [title, setTitle] = useState("")
   const [caption, setCaption] = useState("")
   const [citation, setCitation] = useState("")
@@ -99,6 +114,10 @@ export function ContributionFileFields({
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<PendingContributionFile[]>([])
+  const attachedCount = new Set([
+    ...files.map((item) => item.id),
+    ...assistantSourceInputs.map((item) => item.fileId)
+  ]).size
   const fileInput = useRef<HTMLInputElement>(null)
   const mounted = useRef(true)
   const scope = `${term}\n${vocabularySlug}`
@@ -141,12 +160,17 @@ export function ContributionFileFields({
     changeBusy.current?.(false)
   }
   const upload = async () => {
-    if (!file || disabled || busy || sourceInSimple) return
-    if (file.size > CONTRIBUTION_FILE_MAX_BYTES || !file.size) {
+    if (disabled || busy) return
+    const selectedFile =
+      origin === "paste"
+        ? new File([pastedText], "pasted-source.txt", { type: "text/plain" })
+        : file
+    if (!selectedFile) return
+    if (selectedFile.size > CONTRIBUTION_FILE_MAX_BYTES || !selectedFile.size) {
       setError("Choose a file between 1 byte and 5 MB.")
       return
     }
-    if (files.length >= CONTRIBUTION_FILE_MAX_COUNT) {
+    if (attachedCount >= CONTRIBUTION_FILE_MAX_COUNT) {
       setError("You can attach up to three files.")
       return
     }
@@ -154,10 +178,13 @@ export function ContributionFileFields({
       term,
       vocabularySlug,
       explicitVocabulary,
-      filename: file.name,
-      role,
+      filename: selectedFile.name,
+      origin,
+      role: origin === "paste" ? "source" : role,
       title,
-      caption,
+      caption:
+        caption.trim() ||
+        (origin === "paste" ? `Source text for ${term}.` : ""),
       citation: role === "source" ? citation : undefined,
       page: role === "source" ? page : undefined
     })
@@ -168,7 +195,7 @@ export function ContributionFileFields({
     begin()
     try {
       const upload = new FormData()
-      upload.set("file", file)
+      upload.set("file", selectedFile)
       upload.set("metadata", JSON.stringify(metadata.data))
       const response = await fetch("/api/contribution-files", {
         method: "POST",
@@ -191,6 +218,7 @@ export function ContributionFileFields({
         { ...result, term: term.trim().toLowerCase(), vocabularySlug }
       ])
       setFile(null)
+      setPastedText("")
       setTitle("")
       setCaption("")
       setCitation("")
@@ -208,6 +236,8 @@ export function ContributionFileFields({
     }
   }
   const remove = async (item: ContributionFileItem) => {
+    if (assistantSourceInputs.some((source) => source.fileId === item.id))
+      return
     begin()
     try {
       const response = await fetch(contributionFilePath(item.id), {
@@ -218,6 +248,7 @@ export function ContributionFileFields({
         throw new Error("The file could not be removed. Please try again.")
       if (mounted.current && currentScope.current === scope) {
         onFilesChange(files.filter((entry) => entry.id !== item.id))
+        onSourcesChange?.(sources.filter((entry) => entry.fileId !== item.id))
         setPending((current) => current.filter((entry) => entry.id !== item.id))
       }
     } catch (cause) {
@@ -239,48 +270,78 @@ export function ContributionFileFields({
       event.preventDefault()
   }
   const blocked = disabled || busy
-  // Simple recovers examples only. A pending source is recovered in Advanced.
   const recoverable = pending.filter(
-    (item) =>
-      !files.some((file) => file.id === item.id) &&
-      (!exampleOnly || item.role === "example")
+    (item) => !files.some((file) => file.id === item.id)
   )
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        PDF, PNG, or JPEG · up to 5 MB each · three files per contribution.
-        Files stay private until you select them for publication during review.
+        PDF, DOCX, TXT, or pasted text for sources; PNG and JPEG for examples.
+        Up to 5 MB each, three items per contribution. Published sources are
+        readable by readers of the definition.
       </p>
       {files.length > 0 ? (
         <ul className="space-y-2" aria-label="Attached files">
           {files.map((item) => (
-            <li
-              key={item.id}
-              className="flex items-start justify-between gap-3 rounded-lg border p-3 text-sm"
-            >
-              <div className="min-w-0">
-                <a
-                  className="break-words font-medium underline"
-                  href={contributionFilePath(item.id)}
+            <li key={item.id} className="min-w-0 rounded-lg border p-3 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <a
+                    className="break-words font-medium underline"
+                    href={contributionFilePath(item.id)}
+                  >
+                    {item.title}
+                  </a>
+                  <p className="text-xs text-muted-foreground">
+                    {item.role === "example" ? "Example" : "Source"} ·{" "}
+                    {formatContributionFileSize(item.byteSize)} ·{" "}
+                    {item.publish
+                      ? "Selected for publication"
+                      : "Private draft"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={
+                    blocked ||
+                    assistantSourceInputs.some(
+                      (source) => source.fileId === item.id
+                    )
+                  }
+                  aria-label={`Remove file: ${item.title}`}
+                  onClick={() => void remove(item)}
                 >
-                  {item.title}
-                </a>
-                <p className="text-xs text-muted-foreground">
-                  {item.role === "example" ? "Example" : "Source"} ·{" "}
-                  {formatContributionFileSize(item.byteSize)} ·{" "}
-                  {item.publish ? "Selected for publication" : "Private draft"}
-                </p>
+                  <Trash2Icon aria-hidden />
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                disabled={blocked}
-                aria-label={`Remove file: ${item.title}`}
-                onClick={() => void remove(item)}
-              >
-                <Trash2Icon aria-hidden />
-              </Button>
+              {assistantSourceInputs.some(
+                (source) => source.fileId === item.id
+              ) ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Used by assistant. Discard the applied suggestion before
+                  removing this source.
+                </p>
+              ) : null}
+              {item.role === "source" && onSourcesChange && onSourcePreview ? (
+                <SourceDocumentContext
+                  file={item}
+                  term={term}
+                  selection={sources.find(
+                    (source) => source.fileId === item.id
+                  )}
+                  onSelectionChange={(selection) =>
+                    onSourcesChange([
+                      ...sources.filter((source) => source.fileId !== item.id),
+                      ...(selection ? [selection] : [])
+                    ])
+                  }
+                  onPreviewChange={onSourcePreview}
+                  disabled={blocked || assistantSourceInputs.length > 0}
+                  contextLimit={contextLimit}
+                />
+              ) : null}
             </li>
           ))}
         </ul>
@@ -314,7 +375,7 @@ export function ContributionFileFields({
                       size="sm"
                       variant="outline"
                       disabled={
-                        blocked || files.length >= CONTRIBUTION_FILE_MAX_COUNT
+                        blocked || attachedCount >= CONTRIBUTION_FILE_MAX_COUNT
                       }
                       onClick={() =>
                         onFilesChange([...files, { ...item, publish: false }])
@@ -338,27 +399,68 @@ export function ContributionFileFields({
           </ul>
         </details>
       ) : null}
-      {files.length < CONTRIBUTION_FILE_MAX_COUNT ? (
+      {attachedCount < CONTRIBUTION_FILE_MAX_COUNT ? (
         <fieldset disabled={blocked} className="space-y-3">
-          <div className="space-y-1">
-            <label htmlFor={`${id}-file`} className="text-sm font-medium">
-              Choose a file
-            </label>
-            <Input
-              ref={fileInput}
-              id={`${id}-file`}
-              type="file"
-              accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
-              onChange={(event) => {
-                const chosen = event.target.files?.[0] ?? null
-                setFile(chosen)
-                if (chosen && !title)
-                  setTitle(chosen.name.replace(/\.[^.]+$/, ""))
-                setError("")
-              }}
-            />
-          </div>
-          <div className="space-y-1" hidden={exampleOnly}>
+          <Tabs
+            value={origin}
+            onValueChange={(value) => {
+              setOrigin(value as "upload" | "paste")
+              if (value === "paste") setRole("source")
+            }}
+          >
+            <TabsList aria-label="Add source method">
+              <TabsTrigger value="upload" disabled={blocked}>
+                Upload file
+              </TabsTrigger>
+              <TabsTrigger value="paste" disabled={blocked}>
+                Paste text
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent
+              value="upload"
+              forceMount
+              hidden={origin !== "upload"}
+              className="space-y-1"
+            >
+              <label htmlFor={`${id}-file`} className="text-sm font-medium">
+                Choose a file
+              </label>
+              <Input
+                ref={fileInput}
+                id={`${id}-file`}
+                type="file"
+                accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg,.pdf,.docx,.txt,.png,.jpg,.jpeg"
+                onChange={(event) => {
+                  const chosen = event.target.files?.[0] ?? null
+                  setFile(chosen)
+                  if (chosen?.type.startsWith("image/")) setRole("example")
+                  else setRole("source")
+                  if (chosen && !title)
+                    setTitle(chosen.name.replace(/\.[^.]+$/, ""))
+                  setError("")
+                }}
+              />
+            </TabsContent>
+            <TabsContent
+              value="paste"
+              forceMount
+              hidden={origin !== "paste"}
+              className="space-y-1"
+            >
+              <label htmlFor={`${id}-paste`} className="text-sm font-medium">
+                Source text
+              </label>
+              <Textarea
+                id={`${id}-paste`}
+                value={pastedText}
+                rows={8}
+                maxLength={200000}
+                onChange={(event) => setPastedText(event.target.value)}
+                placeholder="Paste the text you want to use as a source."
+              />
+            </TabsContent>
+          </Tabs>
+          <div className="space-y-1" hidden={origin === "paste"}>
             <label htmlFor={`${id}-role`} className="text-sm font-medium">
               Use as
             </label>
@@ -371,7 +473,12 @@ export function ContributionFileFields({
               }
             >
               <option value="example">Example: illustrates the meaning</option>
-              <option value="source">Source: supports the definition</option>
+              <option
+                value="source"
+                disabled={!!file?.type.startsWith("image/")}
+              >
+                Source: supports the definition
+              </option>
             </select>
           </div>
           <div className="space-y-1">
@@ -389,6 +496,7 @@ export function ContributionFileFields({
           <div className="space-y-1">
             <label htmlFor={`${id}-caption`} className="text-sm font-medium">
               How does it relate to this term?
+              {origin === "paste" ? " (optional)" : ""}
             </label>
             <Textarea
               id={`${id}-caption`}
@@ -399,7 +507,7 @@ export function ContributionFileFields({
               placeholder="Describe what this file shows or supports."
             />
           </div>
-          {role === "source" && !exampleOnly ? (
+          {role === "source" ? (
             <div className="space-y-3">
               <div className="space-y-1">
                 <label
@@ -431,21 +539,14 @@ export function ContributionFileFields({
               </div>
             </div>
           ) : null}
-          {sourceInSimple ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              This file was set up as a source in Advanced. Attach it there,
-              where its citation is kept.
-            </p>
-          ) : null}
           <Button
             type="button"
             variant="outline"
             disabled={
-              !file ||
+              (origin === "paste" ? !pastedText.trim() : !file) ||
               !title.trim() ||
-              !caption.trim() ||
-              blocked ||
-              sourceInSimple
+              (origin === "upload" && !caption.trim()) ||
+              blocked
             }
             onClick={() => void upload()}
           >
@@ -458,8 +559,9 @@ export function ContributionFileFields({
         </fieldset>
       ) : null}
       <p className="text-xs text-muted-foreground">
-        Attachments are not sent to the assistant. Unpublished uploads that
-        are not saved in a draft expire after 24 hours.
+        Adding a source does not contact an assistant. Only checked, selected
+        text is sent when you request a suggestion. Unpublished sources outside
+        a saved draft expire after 24 hours.
       </p>
       {error ? (
         <p role="alert" className="text-sm text-destructive">
@@ -473,16 +575,36 @@ export function ContributionFileFields({
 export function ContributionFilesReview({
   files,
   onFilesChange,
-  disabled
-}: Pick<Props, "files" | "onFilesChange" | "disabled">) {
+  disabled,
+  assistantSourceInputs = []
+}: Pick<
+  Props,
+  "files" | "onFilesChange" | "disabled" | "assistantSourceInputs"
+>) {
   const id = useId()
-  if (!files.length) return null
+  if (!files.length && !assistantSourceInputs.length) return null
+  const additionalSources = assistantSourceInputs.filter(
+    (source) => !files.some((file) => file.id === source.fileId)
+  )
   return (
     <section aria-label="Review attached files" className="space-y-3">
-      <p className="font-medium">Files to publish</p>
+      <p className="font-medium">Files and text to publish</p>
+      {additionalSources.map((source) => (
+        <div
+          key={source.fileId}
+          className="space-y-2 rounded-lg border p-3 text-sm"
+        >
+          <p className="font-medium">{source.title}</p>
+          <p>Used by assistant · included with this definition</p>
+          <a className="underline" href={contributionFilePath(source.fileId)}>
+            Read source
+          </a>
+        </div>
+      ))}
       <p className="text-sm text-muted-foreground">
-        Select the files you want readers to download. Unselected files remain
-        private and are not included in this contribution.
+        Select the sources you cite and the examples you want readers to see.
+        Sources used by an applied assistant suggestion are included with that
+        suggestion, even when you do not separately cite them.
       </p>
       {files.map((file) => (
         <div key={file.id} className="space-y-2 rounded-lg border p-3 text-sm">
@@ -504,10 +626,18 @@ export function ContributionFilesReview({
               className="mt-1 size-4"
             />
             <label htmlFor={`${id}-${file.id}`} className="font-medium">
-              Publish {file.role === "source" ? "and cite " : "example "}&quot;
-              {file.title}&quot; as a downloadable file
+              {file.role === "source" ? "Cite " : "Publish example "}&quot;
+              {file.title}&quot;
             </label>
           </div>
+          {file.publish && file.role === "source" ? (
+            <p className="text-xs font-medium">Cited by contributor</p>
+          ) : null}
+          {assistantSourceInputs.some((source) => source.fileId === file.id) ? (
+            <p className="text-xs font-medium">
+              Used by assistant · included with this definition
+            </p>
+          ) : null}
           <p className="whitespace-pre-wrap text-muted-foreground">
             {file.caption}
           </p>

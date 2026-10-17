@@ -20,6 +20,25 @@ export function validateContributionFile(
     )
   const starts = (signature: number[]) =>
     signature.every((n, i) => bytes[i] === n)
+  const declared = declaredType.split(";", 1)[0].trim().toLowerCase()
+  const docx =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  if (declared === "text/plain") {
+    try {
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+      if (!text.trim() || /[\x00-\x08\x0b\x0e-\x1f]/.test(text))
+        throw new Error()
+      return "text/plain"
+    } catch {
+      throw new ContributionFileError(
+        "Choose a nonempty UTF-8 plain-text file.",
+        415
+      )
+    }
+  }
+  // Full ZIP structure, entry bounds and document XML are checked by the worker
+  // before any source text is made eligible for model input.
+  if (declared === docx && starts([0x50, 0x4b, 0x03, 0x04])) return docx
   const mediaType = starts([0x25, 0x50, 0x44, 0x46, 0x2d])
     ? "application/pdf"
     : starts([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
@@ -27,12 +46,9 @@ export function validateContributionFile(
       : starts([0xff, 0xd8, 0xff])
         ? "image/jpeg"
         : null
-  if (
-    !mediaType ||
-    declaredType.split(";", 1)[0].trim().toLowerCase() !== mediaType
-  )
+  if (!mediaType || declared !== mediaType)
     throw new ContributionFileError(
-      "Choose a PDF, PNG, or JPEG with a matching file type.",
+      "Choose a PDF, DOCX, TXT, PNG, or JPEG with a matching file type.",
       415
     )
   return mediaType

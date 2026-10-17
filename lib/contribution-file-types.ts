@@ -18,7 +18,8 @@ export const contributionFileMetadataSchema = z.object({
     .min(1, "Explain how this file relates to the term")
     .max(2000),
   citation: z.string().trim().max(1000).optional(),
-  page: z.string().trim().max(100).optional()
+  page: z.string().trim().max(100).optional(),
+  origin: z.enum(["upload", "paste"]).optional()
 })
 export type ContributionFileMetadata = z.infer<
   typeof contributionFileMetadataSchema
@@ -49,6 +50,10 @@ export type ContributionFileItem = {
   publishedRevisionId: number | null
   exampleId: number | null
   publishedAt: string | null
+  origin?: "upload" | "paste"
+  contributorCited?: boolean
+  publishedExtractionId?: string | null
+  assistantUsed?: boolean
 }
 export const contributionFilePath = (id: string) =>
   `/api/contribution-files/${encodeURIComponent(id)}`

@@ -1,13 +1,14 @@
 import "dotenv/config"
 import assert from "node:assert/strict"
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import {
   db,
   usersTable,
   termsTable,
   contributionFilesTable,
-  definitionExamplesTable
+  definitionExamplesTable,
+  sourceExtractionsTable
 } from "../drizzle"
 import {
   storeContributionFile,
@@ -57,8 +58,8 @@ async function main() {
           }
         ])
         .returning()
-      const makeFile = (role: "source" | "example" = "source") =>
-        storeContributionFile(
+      const makeFile = async (role: "source" | "example" = "source") => {
+        const file = await storeContributionFile(
           {
             userId: author.id,
             metadata: {
@@ -76,6 +77,36 @@ async function main() {
           },
           tx
         )
+        if (role === "source") {
+          // This transaction is invisible to the worker. Replace the queued
+          // fixture with a controlled ready transcript; no parser is invoked.
+          await tx
+            .delete(sourceExtractionsTable)
+            .where(eq(sourceExtractionsTable.fileId, file.id))
+          const text = `${term.term}: synthetic source text.`
+          await tx.insert(sourceExtractionsTable).values({
+            fileId: file.id,
+            status: "ready",
+            text,
+            textHash: createHash("sha256").update(text).digest("hex"),
+            pages: [
+              {
+                page: 1,
+                start: 0,
+                end: text.length,
+                method: "embedded",
+                label: "Page 1",
+                confidence: null
+              }
+            ],
+            hasOcr: false,
+            method: "embedded",
+            parserVersion: "contribution-files-fixture-v1",
+            completedAt: new Date().toISOString()
+          })
+        }
+        return file
+      }
       const source = await makeFile()
       const example = await makeFile("example")
       assert.equal(source.publishedRevisionId, null)

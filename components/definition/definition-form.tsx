@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import {
   ReferenceCitations,
   ReferenceStatus,
@@ -31,6 +31,11 @@ import {
   selectedFilePublications,
   type DraftContributionFile
 } from "./contribution-files"
+import type { SourceContextSelection } from "@/lib/source-document-types"
+import {
+  SourceInputEvidence,
+  type SourceContextPreview
+} from "./source-document-context"
 import { OntologyContextPanel } from "@/components/ontology-context-panel"
 import {
   AddDefinitionWorkspace,
@@ -400,12 +405,27 @@ const DefinitionFormOwner = ({
           !savedDraft.files.some((file) => file.id === selection.fileId)
       ) ?? []
   )
+  const [sourceSelections, setSourceSelections] = useState<
+    SourceContextSelection[]
+  >(savedDraft?.payload.sources ?? [])
+  const [sourcePreviews, setSourcePreviews] = useState<
+    Record<string, SourceContextPreview>
+  >({})
+  const updateSourcePreview = useCallback((preview: SourceContextPreview) => {
+    setSourcePreviews((current) =>
+      JSON.stringify(current[preview.fileId]) === JSON.stringify(preview)
+        ? current
+        : { ...current, [preview.fileId]: preview }
+    )
+  }, [])
   const [filesBusy, setFilesBusy] = useState(false)
   const assistant = useDefinitionAssistant({
     enabled: lockedTerm === undefined,
     initialProfile: saved?.assistantProfile
   })
-  const [submittedAssistant, setSubmittedAssistant] = useState<string>()
+  const [submittedAssistant, setSubmittedAssistant] = useState<
+    string | undefined
+  >(saved?.preview?.assistantLabel)
   const modelContextRef = useRef<HTMLDivElement>(null)
   const activity = useMutationActivity({
     onBusyChange,
@@ -457,7 +477,7 @@ const DefinitionFormOwner = ({
   )
   const [submittedInputs, setSubmittedInputs] = useState<
     ModelPromptInputItem[]
-  >([])
+  >(saved?.preview?.promptInputs ?? [])
   const [undo, setUndo] = useState<UndoPoint | null>(
     (saved?.undo as unknown as UndoPoint) ?? null
   )
@@ -626,6 +646,12 @@ const DefinitionFormOwner = ({
             )?.label ?? `${reference.source}: ${reference.term}`,
           text: reference.definition,
           included: true
+        })),
+        ...(suggestion.sourceInputs ?? []).map((source) => ({
+          id: `source:${source.fileId}`,
+          label: `Source: ${source.title}`,
+          text: source.text,
+          included: true
         }))
       ]
       setSubmittedInputs(promptInputs)
@@ -671,6 +697,7 @@ const DefinitionFormOwner = ({
           ...files.map((file) => ({ fileId: file.id, publish: file.publish })),
           ...unavailableFiles
         ],
+        sources: sourceSelections,
         aiSuggestionId: appliedDraft?.suggestionId ?? null,
         editorState: JSON.parse(
           JSON.stringify({
@@ -773,6 +800,21 @@ const DefinitionFormOwner = ({
           }))
     )
   )
+  const modelSourceItems: ModelPromptInputItem[] = sourceSelections.map(
+    (selection) => ({
+      id: `source:${selection.fileId}`,
+      label: `Source: ${sourcePreviews[selection.fileId]?.title ?? files.find((file) => file.id === selection.fileId)?.title ?? "attached source"}`,
+      text: sourcePreviews[selection.fileId]?.text ?? "",
+      included: true,
+      onClear: () =>
+        setSourceSelections((current) =>
+          current.filter((item) => item.fileId !== selection.fileId)
+        )
+    })
+  )
+  const sourcesNotReady = sourceSelections.some(
+    (selection) => !sourcePreviews[selection.fileId]?.ready
+  )
   const optionalPromptInputs: ModelPromptInputItem[] = [
     {
       id: "definition",
@@ -792,11 +834,14 @@ const DefinitionFormOwner = ({
           }
         ]
       : []),
-    ...modelReferenceItems
+    ...modelReferenceItems,
+    ...modelSourceItems
   ]
   const sourcesTooLong =
-    modelReferenceItems.reduce((size, item) => size + item.text.length, 0) >
-    24000
+    [...modelReferenceItems, ...modelSourceItems].reduce(
+      (size, item) => size + item.text.length,
+      0
+    ) > 24000
   const hasCitations = references.some(
     (selection) => selection.citedReferenceIds.length > 0
   )
@@ -804,6 +849,7 @@ const DefinitionFormOwner = ({
     clearSourceUndo()
     setIncludeDefinition(false)
     setIncludeExample(false)
+    setSourceSelections([])
     setReferences((current) =>
       current.map((selection) => ({ ...selection, modelReferenceIds: [] }))
     )
@@ -891,6 +937,8 @@ const DefinitionFormOwner = ({
       generation.current += 1
       setReferences([])
       setFiles([])
+      setSourceSelections([])
+      setSourcePreviews({})
       setUndo(null)
       setRestoringReferences(false)
       setNotice(
@@ -995,7 +1043,8 @@ const DefinitionFormOwner = ({
       !assistant.available ||
       busy ||
       preview ||
-      sourcesTooLong
+      sourcesTooLong ||
+      sourcesNotReady
     )
       return
     const promptInputs = optionalPromptInputs
@@ -1029,6 +1078,7 @@ const DefinitionFormOwner = ({
           ? form.getValues("initialExample") || undefined
           : undefined,
       referenceIds: selectedModelReferenceIds(references, confirmed.term),
+      sources: sourceSelections,
       expectedVocabularySlug: confirmed.vocabularySlug,
       vocabularySlug: explicitVocabularySlug
     })
@@ -1252,6 +1302,13 @@ const DefinitionFormOwner = ({
       >
         {!assistantOpen && !appliedDraft && (
           <>
+            {sourcesNotReady && (
+              <p role="status" className="text-sm text-muted-foreground">
+                Check the selected source text and review any OCR before
+                requesting a suggestion. You can remove a source from assistant
+                context in Add file or text.
+              </p>
+            )}
             {sourcesTooLong && (
               <p role="alert" className="text-sm text-destructive">
                 The selected sources exceed the model input limit. Remove a
@@ -1263,7 +1320,11 @@ const DefinitionFormOwner = ({
                 type="button"
                 variant="outline"
                 disabled={
-                  busy || !canUseModel || !assistant.available || sourcesTooLong
+                  busy ||
+                  !canUseModel ||
+                  !assistant.available ||
+                  sourcesTooLong ||
+                  sourcesNotReady
                 }
                 onClick={requestModelDraft}
               >
@@ -1330,6 +1391,7 @@ const DefinitionFormOwner = ({
               {!simpleAdd && (
                 <ModelReferenceEvidence inputs={preview.referenceInputs} />
               )}
+              <SourceInputEvidence inputs={preview.sourceInputs ?? []} />
             </>
           )}
           {suggestAiDraft.error && (
@@ -1384,7 +1446,9 @@ const DefinitionFormOwner = ({
       exampleValue.trim() &&
       "your example",
     modelReferenceItems.length > 0 &&
-      `${modelReferenceItems.length} ${modelReferenceItems.length === 1 ? "source" : "sources"} chosen in Advanced`
+      `${modelReferenceItems.length} ${modelReferenceItems.length === 1 ? "reference" : "references"} chosen in Advanced`,
+    modelSourceItems.length > 0 &&
+      `${modelSourceItems.length} selected ${modelSourceItems.length === 1 ? "document source" : "document sources"}`
   ].filter((part): part is string => typeof part === "string" && part !== "")
   const requestSummary =
     requestParts.length > 1
@@ -1442,10 +1506,16 @@ const DefinitionFormOwner = ({
               </Button>
             </div>
           )}
+          {sourcesNotReady && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Check the selected source text and review any OCR before
+              requesting a suggestion.
+            </p>
+          )}
           {sourcesTooLong && (
             <p role="alert" className="text-sm text-destructive">
-              The selected sources exceed the model input limit. Remove a source
-              in Advanced before requesting a suggestion.
+              The selected sources exceed the model input limit. Select fewer
+              passages or remove a source before requesting a suggestion.
             </p>
           )}
           <Button
@@ -1453,7 +1523,11 @@ const DefinitionFormOwner = ({
             variant="outline"
             className="self-start"
             disabled={
-              busy || !canUseModel || !assistant.available || sourcesTooLong
+              busy ||
+              !canUseModel ||
+              !assistant.available ||
+              sourcesTooLong ||
+              sourcesNotReady
             }
             onClick={requestModelDraft}
           >
@@ -1913,7 +1987,7 @@ const DefinitionFormOwner = ({
                               <Button
                                 ref={attachButtonRef}
                                 type="button"
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 disabled={assistantOpen}
                                 aria-expanded={activeTool === "files"}
@@ -2136,6 +2210,11 @@ const DefinitionFormOwner = ({
                         />
                       </>
                     )}
+                    {appliedDraft ? (
+                      <SourceInputEvidence
+                        inputs={appliedDraft.sourceInputs ?? []}
+                      />
+                    ) : null}
                     <ReferenceCitations
                       workspace={workspace}
                       disabled={busy}
@@ -2146,6 +2225,7 @@ const DefinitionFormOwner = ({
                       <ContributionFilesReview
                         files={files}
                         onFilesChange={setFiles}
+                        assistantSourceInputs={appliedDraft?.sourceInputs ?? []}
                         disabled={busy}
                       />
                     )}
@@ -2346,13 +2426,26 @@ const DefinitionFormOwner = ({
                       files: confirmed.vocabularySlug ? (
                         <ContributionFiles
                           inline
-                          exampleOnly={simpleAdd}
                           term={confirmed.term}
                           vocabularySlug={confirmed.vocabularySlug}
                           explicitVocabulary={Boolean(explicitVocabularySlug)}
                           files={files}
                           onFilesChange={setFiles}
-                          disabled={busy}
+                          sources={sourceSelections}
+                          onSourcesChange={setSourceSelections}
+                          onSourcePreview={updateSourcePreview}
+                          assistantSourceInputs={
+                            appliedDraft?.sourceInputs ?? []
+                          }
+                          contextLimit={Math.max(
+                            0,
+                            24000 -
+                              modelReferenceItems.reduce(
+                                (size, item) => size + item.text.length,
+                                0
+                              )
+                          )}
+                          disabled={busy || assistantOpen}
                           onBusyChange={setFilesBusy}
                         />
                       ) : null
