@@ -440,6 +440,9 @@ jobs:
           pnpm lint
 
       - name: Check Types
+        env:
+          # Match the release host's heap budget so CI catches memory regressions.
+          NODE_OPTIONS: --max-old-space-size=2560
         run: |
           pnpm check-types
 
@@ -564,11 +567,12 @@ jobs:
       - name: Build
         env:
           SYSTEM_PROMPT_KEY: materials-reference
+          NODE_OPTIONS: --max-old-space-size=2560
           # Font compilation must succeed without an external download.
           HTTP_PROXY: http://127.0.0.1:9
           HTTPS_PROXY: http://127.0.0.1:9
         run: |
-          pnpm build
+          pnpm build --webpack
 
       - name: Test production RDF routes behind HTTPS forwarding
         env:
