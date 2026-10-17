@@ -1,6 +1,9 @@
 [Unit]
 Description=MatSci-SAM document extraction and OCR
-After=network.target postgresql.service
+PartOf=matsci-sam.service
+BindsTo=matsci-sam.service
+After=matsci-sam.service postgresql.service
+ConditionPathExists=/opt/matsci-sam/current/scripts/source-document-worker.ts
 
 [Service]
 Type=simple
@@ -22,6 +25,7 @@ MemoryMax=512M
 MemorySwapMax=0
 TasksMax=32
 TimeoutStopSec=130
+KillMode=mixed
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
@@ -29,4 +33,4 @@ ProtectHome=true
 UMask=0077
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=matsci-sam.service

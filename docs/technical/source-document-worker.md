@@ -48,10 +48,28 @@ workstation's temporary QA runtime.
 
 Once requirements are met, install the unit through the host's normal operations
 process, reload systemd and start/enable `matsci-sam-source-worker.service`.
-Restart the worker when changing its release or runtime settings. Verify the
+Enable it under `matsci-sam.service`, as specified by `WantedBy`; if an earlier
+unit was enabled directly under `multi-user.target`, disable that installation
+before re-enabling the updated unit. Start the worker explicitly when installing
+it alongside an application that is already running. Verify the
 running unit's effective limits, status and journal, then process a synthetic
 source through the application and inspect its saved extraction. A running
 process alone does not demonstrate that PDF/OCR dependencies are usable.
+
+`PartOf=matsci-sam.service` propagates application stops and restarts to the
+worker. `BindsTo=matsci-sam.service`, combined with `After`, also stops the worker
+when the application becomes inactive. The ordering stops the worker before the
+application's stop completes, so the existing release procedure can drain all
+application database clients before its backup/migration phase. Starting the
+application starts its wanted worker; restarting after a release-pointer switch
+loads the worker from the same selected release. `ConditionPathExists` skips it
+when rolling back to a release that has no worker script. The application only
+wants the worker, so an extraction failure does not take down the website.
+
+Use the normal application release/restart procedure for code and environment
+changes. If only worker configuration changes, restart the worker explicitly.
+Check its status after normal, fast, documentation-only and rollback operations.
+The existing web health endpoint does not verify the extraction queue or runtime.
 
 ## Concurrency and resource limits
 
@@ -105,9 +123,11 @@ Corrections are created by the application as new ready versions and do not run
 through the processing queue. They retain their parent transcript and human
 attribution; a worker restart does not alter those completed versions.
 
-SIGTERM and SIGINT stop new claims and allow the current document to finish. The
-130-second stop timeout exceeds the document deadline. A process killed by a
-resource limit is restarted by systemd, and its interrupted attempt is recovered
+SIGTERM and SIGINT stop new claims and allow the current document to finish.
+`KillMode=mixed` sends the initial stop signal to the Node process, leaving its
+current parser child time to finish; systemd kills the entire cgroup if the stop
+deadline expires. The 130-second stop timeout exceeds the document deadline.
+A process killed by a resource limit is restarted by systemd, and its interrupted attempt is recovered
 as described above. Logs include extraction IDs, completion page counts/OCR
 flags or safe failure categories, without document text, credentials or raw
 parser errors.
@@ -152,3 +172,10 @@ were unchanged. This temporary runtime may disappear with
 requirement. Local parser tests can use the same runtime overrides. Database
 lifecycle tests use controlled completed-transcript fixtures and do not require
 OCR or provider calls. See [contribution file verification](contribution-files.md#verification).
+
+`node --import tsx scripts/test-source-worker-unit.ts` checks the application
+lifecycle dependencies, rollback condition, stop behavior and resource limits
+without starting a service. On Linux with systemd tools, it also verifies the
+unit and its application dependency against temporary stub units and checks that
+offline enablement creates the application's wants link rather than a separate
+boot-target link.
