@@ -19,6 +19,7 @@ import { contributionFileSelection } from "./contribution-files"
 import { CONTRIBUTION_FILE_PENDING_HOURS } from "./contribution-file-types"
 import { fileRetainedByDraft } from "./term-draft-file-retention"
 import { publishNewTerm } from "./new-term-publication"
+import { modelIdentity } from "./llm/model-identity"
 import {
   TERM_DRAFT_MAX_COUNT,
   termDraftPayloadSchema,
@@ -228,8 +229,11 @@ async function draftResult(reader: Reader, draft: Draft) {
             : "default",
         assistantLabel:
           suggestion.inference?.provider === "wolfram-agent-one"
-            ? "Agent One"
-            : suggestion.model,
+            ? "Wolfram Agent One"
+            : modelIdentity(suggestion.model).displayName.replace(
+                /^MatBot /,
+                ""
+              ),
         referenceCount: suggestion.referenceInputs?.length ?? 0,
         referenceInputs: suggestion.referenceInputs ?? [],
         requestInputs: {

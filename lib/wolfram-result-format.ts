@@ -133,7 +133,7 @@ function readingLines(text: string): string[] {
       continue
     }
     if (
-      /^image:\s*\S/i.test(trimmed) ||
+      /^image:/i.test(trimmed) ||
       /^!\[[^\]]*\]\([^\r\n]+\)\s*$/.test(trimmed)
     )
       continue

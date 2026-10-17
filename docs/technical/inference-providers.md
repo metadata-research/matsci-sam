@@ -189,6 +189,12 @@ Studies have no saved provider override.
 
 ## Contributor assistant choice and Wolfram Agent One
 
+Failed Agent One requests log only the failure category, HTTP status
+when available, elapsed time and configured timeout. The administrator's Agent
+One test also displays these diagnostic fields. They distinguish a provider
+HTTP failure, a timeout, a connection failure and an invalid response without
+logging credentials, prompts, provider response bodies or raw exception text.
+
 The `default` profile for the definition assistant uses the deployment
 `INFERENCE_*` and `OLLAMA_HOST` settings. The visible label identifies the
 configured model. The separate `agent-one` profile uses the fixed Wolfram
