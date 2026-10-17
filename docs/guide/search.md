@@ -2,6 +2,12 @@
 
 ## Search
 
+Use **Find a term** on Home for suggestions as you type. After two characters,
+matching terms appear with their vocabulary names. Choose a suggestion to open
+that exact term, or use **Search** to search terms and definitions. The arrow
+keys select a suggestion; Enter opens it, and Escape closes the suggestions.
+Enter without a selected suggestion runs the broader search.
+
 Open **Search** under **Vocabulary**, or enter a query in the navigation bar.
 Search covers term names, definition text, and examples across all hosted
 vocabularies. **Working in** does not limit it. Each result identifies the

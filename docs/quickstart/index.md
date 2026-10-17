@@ -1,91 +1,99 @@
 # Quick start
 
-MatSci-SAM is a metadata dictionary for materials science. Read and contribute
-definitions, then describe how terms are used through examples, sources and
-metadata. You can complete a contribution in **Simple** view. **Advanced**
-adds reference tools and further detail.
+Choose the task you want to do. To add one term, use an existing vocabulary.
+Creating a community, vocabulary, or collection is optional.
 
-## Find a term
+<a id="add-a-term"></a>
 
-Search for the term before adding it. Open a result to read the first definition.
-A note below it explains the ranking. Under **Other definitions**, select
-**Show definition** to compare an alternative. Each full definition shows its
-contributors and all its examples. The
-**Usage & metadata** link opens information about how the term is used.
+## Add term
+
+Define one term in a vocabulary.
+
+<a id="review-and-publish"></a>
+
+1. Open [Add term](/add). Sign in and complete your profile name if asked.
+   Check the destination vocabulary.
+2. Enter the term and select **Confirm term**. If it already exists in that
+   vocabulary, open the existing term instead.
+3. Write its definition in **Simple** view. Examples and AI assistance are
+   optional.
+4. Select **Review definition**, check your wording, then **Publish new term**.
+
+<a id="advanced-view"></a>
+<a id="replace-or-illustrate-a-definition"></a>
+
+The [full adding guide](/docs/adding-terms) covers examples, attachments, and
+Advanced tools when you need them.
+
+## Import terms
+
+Add a batch of terms and definitions.
+
+Open [Import terms](/setup?task=import), choose the destination vocabulary,
+and choose a collection or **Skip collection**. Upload or paste CSV or TSV
+with `term` and `definition` columns. New terms need a definition.
+
+Select **Preview terms** to check new terms, existing terms, and duplicate
+rows. Fix any errors, then select **Import terms**. Existing definitions stay
+unchanged. Imports allow up to 100 rows, with five new definitions per account
+in ten minutes. [Import details](/docs/communities#quick-start-and-guided-setup).
+
+## Create collection
+
+Select terms from any vocabulary.
+
+Open [Create collection](/setup?task=collection), enter a name and optional
+description, then select **Create collection**. Open the new collection to
+select existing terms. Their definitions and vocabulary identities stay the
+same.
+
+Collection creation is available to site administrators and community stewards,
+or when enabled for contributors. [Collection guide](/docs/tags#collections).
+
+## Create vocabulary
+
+Name a body of terms and definitions.
+
+Site administrators can open [Create vocabulary](/setup?task=vocabulary), enter
+a name and optional description, then select **Create vocabulary**. This
+creates a standalone vocabulary where terms can be added or imported.
+
+Each community already has its own vocabulary. Use this action when you need
+a separate named vocabulary without a new community.
+
+## Create community
+
+Bring people together to contribute.
+
+Site administrators can open [Create community](/setup?task=community), enter
+a name and optional description, then select **Create community**. This saves
+the community and its vocabulary immediately. Open its page to invite people.
+[Community guide](/docs/communities).
+
+## More help
+
+For several related tasks, choose [Guide me through setup](/setup). Reuse
+existing destinations and skip the optional collection step when appropriate.
+
+<a id="find-a-term"></a>
+
+To find existing terms, see [search and browse](/docs/search).
+
+<a id="sign-in"></a>
+
+For help signing in, see [account access](/docs/account-access).
 
 <a id="compare-the-definitions"></a>
-
-![A term in Simple view with the definition first, an example, net votes and the Usage & metadata link](/images/docs/help-term-simple-v3.png)
-
 <a id="comment-on-a-definition"></a>
-
-You can vote or comment after signing in. Votes apply to the displayed version
-of a definition. [Reading and reviewing terms](/docs/community) explains these
-actions and the Advanced view.
-
-## Sign in
-
-Select **Login** and choose an available sign-in method. Use your existing
-account to retain your contributions and community memberships. Complete your
-name in your profile before publishing.
-
-[Account access](/docs/account-access) explains sign-in options. For a study,
-start from its study link and follow [study help](/docs/studies) inside the
-activity.
-
-## Add a term
-
-Open **Participate**, then **Add a new term**. Check the destination vocabulary,
-enter the term and select **Confirm term**. Use the existing term page if the
-term is already defined in that vocabulary.
-
-Write a definition in **Simple** view. Describe what the term means in the
-context where you use it. Name its broader class and the characteristics that
-distinguish it. **Add an example** lets you illustrate that meaning.
-
-![The Simple contribution form with a definition, Add an example, Attach an example file and Help me write with AI](/images/docs/help-add-simple-v3.png)
-
-Use **Help me write with AI** for an optional assistant draft. **Attach an example
-file** adds an image or PDF that illustrates the term.
-The [adding guide](/docs/adding-terms) explains the form.
-
-## Review and publish
-
-Select **Review definition**. Check your wording and example. The review also
-lists any citations and files you added, and you choose which files to publish.
-
-Use **Back to writing** for changes. Select **Publish new term** when the
-contribution is ready. It will be available on the term page.
-
-## Read or add metadata
-
-Open **Usage & metadata** on a term page. In Simple view your addition describes the
-whole term unless you chose a definition in Advanced. You can propose a usage
-note or identify a metadata field for which the term supplies a value. For
-example, density functional theory can be a value for the MatCore **Method**
-field.
-
-[Term metadata](/docs/term-metadata) explains the choices and review.
-
-## Advanced view
-
-Choose **Advanced** under **View** for additional tools. The site saves your
-choice. In **Add a new term**, Advanced adds reference definitions and ontology
-matches, citations, source files, **Wolfram lookup** and assistant controls.
-In **Usage & metadata**, you can select a definition version, supply supporting
-sources, and propose alternative labels or related concepts. Term and
-definition pages show revision history, identifiers and downloads.
-
-![A term in Advanced view with its identifier, revision details, voting status and ontology context beside the definition](/images/docs/help-term-advanced-v3.png)
-
-The [references guide](/docs/references) explains the reference tools.
-
 <a id="create-a-new-version"></a>
 <a id="ask-for-a-revision"></a>
 <a id="suggest-an-alternative"></a>
-<a id="replace-or-illustrate-a-definition"></a>
 <a id="follow-the-record"></a>
 <a id="where-to-go-next"></a>
 
-Use the [user guide](/docs/guide) to revise a definition, propose an alternative,
-add an example or inspect contribution history.
+For existing terms, see [reading and reviewing](/docs/community) or the
+[user guide](/docs/guide).
+
+<a id="read-or-add-metadata"></a>
+
+To describe how a term is used, see [term metadata](/docs/term-metadata).

@@ -1,7 +1,7 @@
 # Adding a term
 
-Sign in, complete your profile name, and open **Add a new term** under
-**Participate**. Check the destination vocabulary. **Working in** selects a
+Sign in, complete your profile name, and choose **Add term** from Quick start
+or the **Vocabulary** menu. Check the destination vocabulary. **Working in** selects a
 community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
 
 ## Confirm, write, review
@@ -33,6 +33,19 @@ The same label in another vocabulary can identify a separate concept.
 a changed term or destination vocabulary. The previous reference and file
 choices are cleared. If you applied a model draft, choose whether to keep the
 contribution or return to your earlier writing before changing the term.
+
+## Save and resume a draft
+
+New terms save privately to your account as you write. Wait for **Draft saved
+to your account** before leaving. Open **My drafts** from your profile or the
+term editor to resume on another device, or delete work you no longer need.
+Saved drafts are separate from published contributions.
+
+Guided setup and the full term editor share the same single-term draft,
+including examples, references, attachments, and AI assistance credit. Review
+the complete contribution before publishing. If saving fails, keep the page
+open and select **Retry save**. A conflict message means another tab or device
+changed the draft. Copy any writing you need before reloading the saved version.
 
 ## Simple and Advanced views
 

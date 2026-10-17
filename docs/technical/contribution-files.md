@@ -21,13 +21,17 @@ restores and workstation snapshots.
 
 An account can retain six pending files, totaling at most 30 MiB. Quota checks
 serialize on the corresponding user row. Pending files are readable/deletable
-only by their uploader and expire after 24 hours. Vocabulary and provenance
+only by their uploader. Files linked to active term drafts are retained. Other
+pending files expire after 24 hours. Vocabulary and provenance
 queries exclude pending files. The owner's pending list permits recovery after
 refresh, a term change, or publication with files left unselected. Files from
 another confirmed context can be removed but cannot be attached to the current
 draft. Expired rows are removed when the owner lists or uploads files. The
 maintenance command `pnpm files:cleanup` removes expired pending rows across
-accounts.
+accounts. Draft binding, cleanup, and removal serialize on the owning account
+row. Removing one draft's link does not release a file used by another draft.
+Publishing or deleting a draft releases its private file links. Published
+attachments remain protected by their publication records.
 
 Upload and removal require the session and configured same origin. Upload also
 requires a completed contributor profile and the active destination vocabulary.

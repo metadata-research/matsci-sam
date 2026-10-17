@@ -8,10 +8,11 @@
  * and the import is dynamic so the edge runtime never loads it.
  */
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return
-  const { isGraphProjectionEnabled, markGraphsDirty, sweepGraphs } =
-    await import("./lib/graph/projector")
-  if (!isGraphProjectionEnabled()) return
-  markGraphsDirty()
-  setInterval(() => void sweepGraphs(), 5 * 60 * 1000).unref()
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { isGraphProjectionEnabled, markGraphsDirty, sweepGraphs } =
+      await import("./lib/graph/projector")
+    if (!isGraphProjectionEnabled()) return
+    markGraphsDirty()
+    setInterval(() => void sweepGraphs(), 5 * 60 * 1000).unref()
+  }
 }

@@ -10,6 +10,11 @@ import {
 } from "../app/search/search-state"
 import { isFeedbackPagePath } from "../lib/feedback-path"
 import {
+  headerLinkState,
+  headerMenuIsActive,
+  isWithinHeaderPath
+} from "../lib/header-navigation"
+import {
   FEEDBACK_PAGE_PATH_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "../lib/input-limits"
@@ -35,6 +40,118 @@ import {
   parseStudyInstructions,
   studyInstructionBlocks
 } from "../lib/study-instructions"
+
+const createDestinations = [
+  "/setup?task=community&communityId=1&vocabularySlug=old-context",
+  "/setup?task=vocabulary&communityId=1&vocabularySlug=old-context",
+  "/setup?task=collection&communityId=1&vocabularySlug=old-context",
+  "/setup?task=import&communityId=1&vocabularySlug=old-context",
+  "/add?vocabularySlug=old-context",
+  "/setup?communityId=1&vocabularySlug=old-context"
+]
+for (const [location, selected] of [
+  ["/setup?task=community&communityId=2", 0],
+  ["/setup?task=vocabulary&vocabularySlug=new-context", 1],
+  ["/setup?vocabularySlug=new-context&task=collection", 2],
+  ["/setup?task=import&communityId=2&vocabularySlug=new-context", 3],
+  ["/add?vocabularySlug=new-context&term=steel", 4],
+  ["/setup?communityId=2&vocabularySlug=new-context", 5]
+] as const) {
+  const url = new URL(location, "https://matsci.invalid")
+  const states = createDestinations.map((href) =>
+    headerLinkState(url.pathname, { href }, url.searchParams)
+  )
+  assert.deepEqual(
+    states.map((state) => state.active),
+    createDestinations.map((_, index) => index === selected),
+    `only the selected Create task is active for ${location}`
+  )
+  assert.equal(states[selected].current, true)
+}
+assert.deepEqual(
+  headerLinkState("/setup", { href: "/setup" }),
+  {
+    active: false,
+    current: false
+  },
+  "an unresolved query does not briefly mark guided setup as selected"
+)
+assert.deepEqual(
+  headerLinkState("/metadata/matcore", {
+    href: "/metadata/fields",
+    activePaths: ["/metadata"]
+  }),
+  { active: true, current: false },
+  "a related metadata page highlights its section without claiming the exact page"
+)
+assert.deepEqual(
+  headerLinkState("/docs/search", { href: "/docs?source=nav#guide" }),
+  { active: true, current: false },
+  "ordinary navigation ignores context query and fragment"
+)
+assert.deepEqual(
+  headerLinkState("/docs/search", { href: "/docs", exact: true }),
+  { active: false, current: false },
+  "exact navigation does not select a parent route"
+)
+assert.deepEqual(headerLinkState("/docs", { href: "/docs?source=nav#guide" }), {
+  active: true,
+  current: true
+})
+assert.equal(isWithinHeaderPath("/metadata/experimental", "/metadata"), true)
+assert.equal(isWithinHeaderPath("/metadata-other", "/metadata"), false)
+assert.equal(
+  isWithinHeaderPath("/vocabulary/alloys/steel", "/vocabulary"),
+  true
+)
+assert.equal(isWithinHeaderPath("/vocabularies", "/vocabularies"), true)
+assert.equal(isWithinHeaderPath("/terms/steel", "/"), false)
+
+const vocabularyMenu = {
+  activePaths: [
+    "/vocabulary",
+    "/vocabularies",
+    "/terms",
+    "/search",
+    "/collections",
+    "/tags",
+    "/metadata",
+    "/add"
+  ],
+  activeHrefs: [
+    "/setup",
+    "/setup?task=import",
+    "/setup?task=collection",
+    "/setup?task=vocabulary",
+    "/setup?task=community"
+  ]
+}
+const participateMenu = {
+  activePaths: ["/discussion", "/communities", "/studies", "/models"]
+}
+for (const [location, vocabularyActive] of [
+  ["/setup?communityId=1", true],
+  ["/setup?task=import&communityId=1", true],
+  ["/setup?task=collection&vocabularySlug=alloys", true],
+  ["/setup?task=vocabulary", true],
+  ["/setup?task=community&vocabularySlug=alloys", true],
+  ["/communities", false],
+  ["/metadata/matcore", true],
+  ["/vocabulary/alloys/steel", true],
+  ["/models/example", false]
+] as const) {
+  const url = new URL(location, "https://matsci.invalid")
+  assert.equal(
+    headerMenuIsActive(url.pathname, vocabularyMenu, url.searchParams),
+    vocabularyActive,
+    `Vocabulary category selection for ${location}`
+  )
+  assert.equal(
+    headerMenuIsActive(url.pathname, participateMenu, url.searchParams),
+    !vocabularyActive,
+    `Participate category selection for ${location}`
+  )
+}
 
 assert.deepEqual(
   parseStudyInstructions(

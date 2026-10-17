@@ -8,6 +8,7 @@ import { expect, type Locator } from "@playwright/test"
 import { db } from "../drizzle"
 import {
   chebiLookup,
+  closeBrowserAfterRoutes,
   createTermFixture,
   launchBrowser,
   localPreviewBase,
@@ -530,27 +531,26 @@ async function main() {
       "Back to editing",
       "revision"
     )
-    assert.deepEqual(
-      unexpected,
-      [],
-      "no publication or other mutation should be attempted"
-    )
-    assert.deepEqual(errors, [])
-    console.log(
-      "Reference UI tests passed: deliberate discussion lookup, immediate insertion Undo, preservation of later writing and citation choices in both editors, two sources with their licences and citations, a vocabulary named as one, and a mapped concept opened and closed."
-    )
   } finally {
     try {
-      await browser.close()
-    } catch (error) {
-      console.error(error)
-    }
-    try {
-      if (fixture) await removeTermFixture(fixture)
+      await closeBrowserAfterRoutes(browser)
     } finally {
-      await db.$client.end()
+      try {
+        if (fixture) await removeTermFixture(fixture)
+      } finally {
+        await db.$client.end()
+      }
     }
   }
+  assert.deepEqual(
+    unexpected,
+    [],
+    "no publication or other mutation should be attempted"
+  )
+  assert.deepEqual(errors, [])
+  console.log(
+    "Reference UI tests passed: deliberate discussion lookup, immediate insertion Undo, preservation of later writing and citation choices in both editors, two sources with their licences and citations, a vocabulary named as one, and a mapped concept opened and closed."
+  )
 }
 
 main().catch((error) => {

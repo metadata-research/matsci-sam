@@ -52,6 +52,18 @@ export async function TermProvenancePage({
           </a>
           .
         </p>
+        <p className="text-sm text-muted-foreground">
+          This history covers contributions recorded in MatSci-SAM. Text pasted
+          from external tools or copied without citation may have no recorded
+          source or model attribution. Read about the{" "}
+          <Link
+            href="/docs/provenance#references-and-ai-assistance"
+            className="text-primary underline"
+          >
+            scope of these records
+          </Link>
+          .
+        </p>
         <ProvenanceGraph
           nodes={provenance.graph.nodes}
           edges={provenance.graph.edges}

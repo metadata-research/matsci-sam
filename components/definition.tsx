@@ -11,34 +11,13 @@ import {
   UserIcon
 } from "lucide-react"
 import { Badge } from "./ui/badge"
-import { definitionStatus, type DefinitionStatus } from "@/lib/status"
+import { VoteCountBadge as StatusChip } from "./term/vote-count-badge"
 import { PublicProfileName } from "./public-profile-name"
 import { definitionPath, termPath } from "@/lib/public-identifiers"
 import type { MutationActivityCallbacks } from "@/components/use-mutation-activity"
 import { DefinitionContent, Eyebrow } from "@/components/definition/display"
 
-export { DefinitionContent, Eyebrow }
-
-// Voting status, derived from net votes (lib/status.ts).
-const STATUS_STYLE: Record<DefinitionStatus, string> = {
-  proposed: "text-muted-foreground border-border",
-  "community-reviewed": "bg-secondary text-secondary-foreground border-border",
-  stable: "bg-primary/15 text-primary border-primary/30"
-}
-
-export const StatusChip = ({ score }: { score: number }) => {
-  const status = definitionStatus(score)
-
-  return (
-    <Badge
-      variant="outline"
-      className={`${STATUS_STYLE[status]} max-w-full whitespace-normal`}
-      title="Based on net votes: upvotes minus downvotes."
-    >
-      Voting status: {status}
-    </Badge>
-  )
-}
+export { DefinitionContent, Eyebrow, StatusChip }
 
 export const Term = ({
   term
@@ -91,7 +70,7 @@ export const Definition = ({
   isDefault?: boolean
   isCanonical?: boolean
   // Position steps present lifecycle-neutral options for a participant's
-  // choice. Other definition surfaces keep the support-derived status chip.
+  // choice. Other definition surfaces keep the net vote count badge.
   showStatus?: boolean
   // Reports this definition's live score up so a parent list can re-sort when a
   // vote changes the ranking. Optional -- standalone uses (search, homepage)
@@ -203,7 +182,13 @@ export const Definition = ({
           Definition {definition.definitionNumber} · revision{" "}
           {definition.version}
         </span>
-        {showStatus && <StatusChip score={definition.score} />}
+        {showStatus && (
+          <StatusChip
+            definitionId={definition.id}
+            revisionId={definition.revisionId}
+            score={definition.score}
+          />
+        )}
         {typeof definition.comments === "number" && (
           <Link
             href={

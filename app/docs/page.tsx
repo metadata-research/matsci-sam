@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   title: `Quick Start · Help & Guides | ${SITE_NAME}`
 }
 
-// /docs is the quick start. Somebody arriving from the navigation bar wants
-// the shortest complete account of the workflow, not a table of contents.
+// /docs matches the Quick start actions, with short instructions that can be
+// linked directly from each task's help link.
 export default async function DocsPage() {
   const [doc, entries] = await Promise.all([
     renderDoc("quickstart", "index"),

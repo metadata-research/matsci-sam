@@ -182,6 +182,7 @@ export function useTermReferenceWorkspace({
   contextKey,
   enabled,
   autoStart = true,
+  restoreSaved = false,
   selection,
   onSelectionChange,
   onSelectionEdit
@@ -191,6 +192,8 @@ export function useTermReferenceWorkspace({
   enabled: boolean
   /** Start the reference lookup on its own. Simple waits for a view that shows it. */
   autoStart?: boolean
+  /** Load saved receipts only; never call a reference provider while resuming. */
+  restoreSaved?: boolean
   selection: DraftReferenceSelection[]
   onSelectionChange: Dispatch<SetStateAction<DraftReferenceSelection[]>>
   onSelectionEdit?: () => void
@@ -203,6 +206,8 @@ export function useTermReferenceWorkspace({
     requests: { chebi: 0, wolfram: 0 }
   })
   const mounted = useRef(false)
+  const utils = trpc.useUtils()
+  const restoredLookups = useRef(new Set<string>())
   const { mutateAsync: retrieveChebi } =
     trpc.termReferences.retrieveChebi.useMutation({ retry: false })
   const { mutateAsync: retrieveWolfram } =
@@ -332,6 +337,46 @@ export function useTermReferenceWorkspace({
       void retrieve("chebi")
     }
   }, [key, enabled, autoStart, retrieve, onSelectionChange])
+
+  useEffect(() => {
+    if (!enabled || !restoreSaved) return
+    const current = owner.current
+    if (current.key !== key) return
+    current.autoStarted = true
+    const receipts = selection.filter(
+      (item) =>
+        item.term === term.trim().toLowerCase() &&
+        !restoredLookups.current.has(`${key}:${item.lookupId}`)
+    )
+    for (const receipt of receipts) {
+      restoredLookups.current.add(`${key}:${receipt.lookupId}`)
+      update(current, receipt.provider, { status: "pending", error: null })
+      void utils.client.termReferences.getLookup
+        .query({
+          lookupId: receipt.lookupId,
+          provider: receipt.provider
+        })
+        .then((result) => {
+          if (!mounted.current || owner.current !== current) return
+          const history = current.providers[receipt.provider].history
+          update(current, receipt.provider, {
+            status: "ready",
+            result,
+            history: [
+              ...history.filter((item) => item.lookupId !== result.lookupId),
+              result
+            ]
+          })
+        })
+        .catch(() => {
+          update(current, receipt.provider, {
+            status: "error",
+            error:
+              "A saved reference could not be loaded. Your writing and source selections are preserved."
+          })
+        })
+    }
+  }, [enabled, restoreSaved, key, selection, term, update, utils.client])
 
   const getCurrent = (provider: ReferenceProvider, referenceId: string) => {
     const current = owner.current

@@ -456,6 +456,20 @@
       "when": 1791452768911,
       "tag": "0064_contribution_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1792232736346,
+      "tag": "0065_private_term_drafts",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1792233171430,
+      "tag": "0066_term_draft_tombstones",
+      "breakpoints": true
     }
   ]
 }

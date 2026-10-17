@@ -2880,6 +2880,52 @@ const contributionFileBytes = customType<{ data: Buffer; driverData: Buffer }>({
     return "bytea"
   }
 })
+// Private account drafts are deliberately separate from published concepts.
+// Published rows retain only a retry receipt; no draft reaches public graphs.
+export const termDraftsTable = pgTable(
+  "termDrafts",
+  {
+    id: uuid().primaryKey(),
+    ownerId: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    version: integer().notNull().default(1),
+    payload:
+      jsonb().$type<import("../lib/term-draft-types").TermDraftPayload>(),
+    lastMutationId: uuid(),
+    lastMutationHash: text(),
+    creationHash: text().notNull(),
+    // Receipt identity survives an administrator's later contribution purge.
+    publishedDefinitionId: integer(),
+    publishedVersion: integer(),
+    publication: jsonb().$type<{
+      term: Term
+      definition: Definition
+      walkthrough: null
+    }>(),
+    publishedAt: timestamp({ mode: "string", withTimezone: true }),
+    deletedAt: timestamp({ mode: "string", withTimezone: true }),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    index("term_drafts_owner_updated_idx").on(t.ownerId, t.updatedAt),
+    check("term_drafts_positive_version", sql`${t.version} > 0`),
+    check(
+      "term_drafts_lifecycle",
+      sql`(${t.payload} IS NOT NULL AND ${t.publishedDefinitionId} IS NULL AND ${t.publishedAt} IS NULL AND ${t.publishedVersion} IS NULL AND ${t.publication} IS NULL AND ${t.deletedAt} IS NULL) OR (${t.payload} IS NULL AND ${t.publishedDefinitionId} IS NOT NULL AND ${t.publishedAt} IS NOT NULL AND ${t.publishedVersion} IS NOT NULL AND ${t.publication} IS NOT NULL AND ${t.deletedAt} IS NULL) OR (${t.payload} IS NULL AND ${t.publishedDefinitionId} IS NULL AND ${t.publishedAt} IS NULL AND ${t.publishedVersion} IS NULL AND ${t.publication} IS NULL AND ${t.deletedAt} IS NOT NULL)`
+    ),
+    check(
+      "term_drafts_payload_size",
+      sql`${t.payload} IS NULL OR (jsonb_typeof(${t.payload}) = 'object' AND octet_length(${t.payload}::text) <= 1048576)`
+    )
+  ]
+)
+
 export const contributionFilesTable = pgTable(
   "contributionFiles",
   {
@@ -2934,6 +2980,22 @@ export const contributionFilesTable = pgTable(
       "contribution_files_publication",
       sql`(${t.publishedRevisionId} IS NULL AND ${t.publishedAt} IS NULL AND ${t.exampleId} IS NULL) OR (${t.publishedRevisionId} IS NOT NULL AND ${t.publishedAt} IS NOT NULL AND ${t.publishedAt} >= ${t.createdAt} AND ((${t.role} = 'source' AND ${t.exampleId} IS NULL) OR (${t.role} = 'example' AND ${t.exampleId} IS NOT NULL)))`
     )
+  ]
+)
+
+export const termDraftFilesTable = pgTable(
+  "termDraftFiles",
+  {
+    draftId: uuid()
+      .notNull()
+      .references(() => termDraftsTable.id, { onDelete: "cascade" }),
+    fileId: uuid()
+      .notNull()
+      .references(() => contributionFilesTable.id, { onDelete: "cascade" })
+  },
+  (t) => [
+    primaryKey({ columns: [t.draftId, t.fileId] }),
+    index("term_draft_files_file_idx").on(t.fileId)
   ]
 )
 

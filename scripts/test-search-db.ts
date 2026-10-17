@@ -1,7 +1,8 @@
 /*
  * Search contract checks. Fixtures span two vocabularies and are rolled back:
  * term search stays global, definition search requires direct evidence, and
- * PSPP facet selections narrow matching terms with OR semantics.
+ * PSPP facet selections narrow matching terms with OR semantics. Type-ahead
+ * preserves short prefixes, vocabulary identities, and discovery visibility.
  */
 
 import assert from "node:assert/strict"
@@ -45,6 +46,7 @@ const main = async () => {
   } = await import("../lib/search")
   const { parseSearchHeadline } = await import("../lib/search-evidence")
   const { listedTermId, termIsListed } = await import("../lib/term-visibility")
+  const { lookupTerms } = await import("../lib/term-lookup")
 
   const stamp = Date.now().toString(36)
   const bodyQuery = `chromafluxneedle${stamp}`
@@ -159,6 +161,97 @@ const main = async () => {
           )
         ),
         "term evidence headlines mark the matching lexeme"
+      )
+
+      const lookupByDefinition = await lookupTerms({ query: bodyQuery }, tx)
+      assert.deepEqual(
+        lookupByDefinition.map((row) => row.id).sort((a, b) => a - b),
+        [...fixtureTermIds].sort((a, b) => a - b),
+        "type-ahead retains matching definitions across vocabulary namespaces"
+      )
+
+      const sharedLabel = `Qxylometallographic characterization ${stamp}`
+      const [exact, prefixA, prefixB, hiddenPrefix, undefinedPrefix] = await tx
+        .insert(termsTable)
+        .values([
+          {
+            vocabularySlug: secondaryVocabularySlug,
+            term: "Qx",
+            slug: `lookup_exact_${stamp}`
+          },
+          {
+            vocabularySlug: DEFAULT_VOCABULARY_SLUG,
+            term: sharedLabel,
+            slug: `lookup_prefix_${stamp}`
+          },
+          {
+            vocabularySlug: secondaryVocabularySlug,
+            term: sharedLabel,
+            slug: `lookup_prefix_${stamp}`
+          },
+          {
+            vocabularySlug: secondaryVocabularySlug,
+            term: `Qx hidden fixture ${stamp}`,
+            slug: `lookup_hidden_${stamp}`,
+            hiddenAt: new Date().toISOString(),
+            hiddenById: authorA.id,
+            hiddenReason: "Hidden type-ahead fixture"
+          },
+          {
+            vocabularySlug: secondaryVocabularySlug,
+            term: `Qx undefined fixture ${stamp}`,
+            slug: `lookup_undefined_${stamp}`
+          }
+        ])
+        .returning({ id: termsTable.id })
+
+      for (const term of [exact, prefixA, prefixB, hiddenPrefix]) {
+        await createDefinitionWithInitialRevision(tx, {
+          termId: term.id,
+          authorId: authorA.id,
+          definition: "A definition for the type-ahead contract fixture.",
+          example: "",
+          changeNote: "search fixture",
+          source: "initial"
+        })
+      }
+
+      const prefixFixtures = [
+        exact.id,
+        prefixA.id,
+        prefixB.id,
+        hiddenPrefix.id,
+        undefinedPrefix.id
+      ]
+      const prefixMatches = await lookupTerms({ query: " QX ", limit: 100 }, tx)
+      assert.deepEqual(
+        prefixMatches
+          .filter((term) => prefixFixtures.includes(term.id))
+          .map((term) => term.id)
+          .sort((a, b) => a - b),
+        [exact.id, prefixA.id, prefixB.id].sort((a, b) => a - b),
+        "short prefixes are case-insensitive and exclude hidden or undefined terms"
+      )
+      assert.deepEqual(
+        prefixMatches
+          .filter((term) => term.term === sharedLabel)
+          .map((term) => term.vocabularySlug)
+          .sort(),
+        [DEFAULT_VOCABULARY_SLUG, secondaryVocabularySlug].sort(),
+        "identical labels remain separate suggestions with vocabulary identity"
+      )
+      assert.ok(
+        prefixMatches
+          .filter((term) => term.term === sharedLabel)
+          .every((term) => term.vocabularyTitle && term.count === 1),
+        "suggestions include vocabulary titles and definition counts"
+      )
+      assert.deepEqual(
+        (await lookupTerms({ query: "qx", limit: 1 }, tx)).map(
+          (term) => term.id
+        ),
+        [exact.id],
+        "exact matches rank before prefixes and the requested limit is applied"
       )
 
       const definitionMatches = await tx

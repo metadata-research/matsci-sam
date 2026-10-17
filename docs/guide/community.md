@@ -23,7 +23,7 @@ to a section of a page briefly highlights the section it opens.
 ![A term in Simple view with the definition first, an example, net votes and the Usage & metadata link](/images/docs/help-term-simple-v3.png)
 
 Choose **Advanced** under **View** to open ontology context beside the reader,
-plus the term identifier, revision numbers and status, model details,
+plus the term identifier, revision numbers and net votes, model details,
 **Revision history**, **Changes & activity**, **Provenance**, and downloads.
 Definition pages have the same two views. Source labels distinguish
 ontologies from vocabularies. **Mapped concepts** lists relationships stated
@@ -57,16 +57,13 @@ A rank link opens the candidate at that position when requested. Use a
 [definition or revision link](/docs/identifiers#citation) to cite one candidate.
 Search, Discussion, and studies have their own presentation order.
 
-## Voting status
+## Interpreting votes
 
-| Voting status      | Current revision net votes |
-| ------------------ | -------------------------: |
-| proposed           |                 1 or lower |
-| community-reviewed |                     2 to 4 |
-| stable             |                5 or higher |
-
-These labels summarize voting activity. Assess the wording, sources, and
-discussion to judge scientific quality.
+Vote badges show the displayed revision's net votes. The default definition is
+selected by each candidate's current revision votes and the tie rules above.
+Neither the count nor the ranking establishes community agreement or scientific
+quality. Assess the wording, sources, participation and discussion before
+reusing a definition.
 
 ## Editing and proposing definitions
 

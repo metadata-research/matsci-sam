@@ -29,34 +29,48 @@ import { LogoutButton } from "./logout"
 import { HeaderSearch } from "./header-search"
 import { HeaderNavLink, HeaderNavMenuTrigger } from "./header-navigation"
 import { MobileNavigationMenu } from "./mobile-navigation-menu"
+import { quickStartActions, setupHref } from "./quick-start"
 import { cn } from "@/lib/utils"
 import styles from "./header.module.css"
 
 /*
- * The primary navigation groups the vocabulary (what is published) and
- * taking part (what a person does), with help and project information
- * alongside them. The community a person is working in has its own control
+ * Vocabulary brings browsing and creation together. Participate holds the
+ * communities, discussion, studies and contributing model identities.
+ * The community a person is working in has its own control
  * beside the account, with room for its name, because that standing choice
  * scopes what the pages show and was easy to miss inside the account menu.
  */
 const VOCABULARY: Entry[] = [
-  { href: "/terms", label: "Browse" },
-  { href: "/search", label: "Search" },
+  { href: "/terms", label: "Browse terms" },
+  { href: "/search", label: "Search terms" },
+  {
+    href: "/vocabularies",
+    label: "Vocabularies",
+    activePaths: ["/vocabularies", "/vocabulary"]
+  },
   { href: collectionsIndexPath, label: "Collections" },
-  { href: modelsIndexPath, label: "Models" },
-  { href: "/metadata/fields", label: "Metadata fields" },
-  { href: tagsIndexPath, label: "Tags", secondary: true }
+  { href: tagsIndexPath, label: "Tags & facets" },
+  {
+    href: "/metadata/fields",
+    label: "Metadata fields",
+    activePaths: ["/metadata"]
+  }
 ]
 
-const TAKE_PART: Entry[] = [
-  { href: "/add", label: "Add a new term" },
-  { href: "/docs", label: "Quick Start" },
-  { href: "/discussion", label: "Discussion" },
-  { href: communitiesIndexPath, label: "Communities" },
-  { href: studiesIndexPath, label: "Studies" }
-]
-
-type Entry = { href: string; label: string; secondary?: boolean }
+type Entry = {
+  href: string
+  label: string
+  secondary?: boolean
+  activePaths?: string[]
+}
+type MenuGroup = { label?: string; entries: Entry[] }
+type Menu = {
+  label: string
+  groups: MenuGroup[]
+  activePaths: string[]
+  activeHrefs?: string[]
+  wide?: boolean
+}
 type Community = { id: number; slug: string; title: string }
 
 export const Header = async () => {
@@ -69,6 +83,56 @@ export const Header = async () => {
   const scope = active
     ? (memberships.find((m) => m.id === active.id) ?? null)
     : null
+  const createContext = {
+    communityId: active?.id,
+    vocabularySlug: active?.vocabularySlug
+  }
+  const actions = quickStartActions(createContext)
+  const createEntries: Entry[] = [
+    ...actions,
+    {
+      href: setupHref(createContext),
+      label: "Guide me through setup",
+      secondary: true
+    }
+  ]
+  const menus: Menu[] = [
+    {
+      label: "Vocabulary",
+      wide: true,
+      activePaths: [
+        "/terms",
+        "/search",
+        "/vocabularies",
+        "/vocabulary",
+        "/collections",
+        "/tags",
+        "/metadata",
+        "/add"
+      ],
+      activeHrefs: createEntries.map((entry) => entry.href),
+      groups: [
+        { label: "Explore", entries: VOCABULARY },
+        { label: "Create", entries: createEntries }
+      ]
+    },
+    {
+      label: "Participate",
+      activePaths: ["/communities", "/discussion", "/studies", "/models"],
+      groups: [
+        {
+          entries: [{ href: communitiesIndexPath, label: "Communities" }]
+        },
+        {
+          entries: [
+            { href: "/discussion", label: "Discussion" },
+            { href: studiesIndexPath, label: "Surveys" }
+          ]
+        },
+        { entries: [{ href: modelsIndexPath, label: "AI models" }] }
+      ]
+    }
+  ]
 
   return (
     <div className={styles.wrapper}>
@@ -94,8 +158,9 @@ export const Header = async () => {
         <HeaderSearch />
         <div className={styles.spacer} />
         <nav className={styles.navLinks} aria-label="Primary">
-          <NavMenu label="Vocabulary" entries={VOCABULARY} />
-          <NavMenu label="Participate" entries={TAKE_PART} />
+          {menus.map((menu) => (
+            <NavMenu key={menu.label} {...menu} />
+          ))}
           <HeaderNavLink href="/docs" className={styles.navButton}>
             Help &amp; Guides
           </HeaderNavLink>
@@ -111,27 +176,8 @@ export const Header = async () => {
         <MobileNavigationMenu className={styles.mobileMenu}>
           <div className={styles.mobileMenuPanel}>
             <nav aria-label="Mobile">
-              <span className={styles.mobileLabel}>Vocabulary</span>
-              {VOCABULARY.map((entry) => (
-                <HeaderNavLink
-                  key={entry.href}
-                  href={entry.href}
-                  className={
-                    entry.secondary ? styles.secondaryNavLink : undefined
-                  }
-                >
-                  {entry.label}
-                </HeaderNavLink>
-              ))}
-              <span className={styles.mobileLabel}>Participate</span>
-              {TAKE_PART.map((entry) => (
-                <HeaderNavLink
-                  key={entry.href}
-                  href={entry.href}
-                  exact={entry.href === "/docs"}
-                >
-                  {entry.label}
-                </HeaderNavLink>
+              {menus.map((menu) => (
+                <MobileNavGroup key={menu.label} {...menu} />
               ))}
               <HeaderNavLink href="/docs">Help &amp; Guides</HeaderNavLink>
               <HeaderNavLink href="/about">About</HeaderNavLink>
@@ -196,36 +242,79 @@ export const HeaderStrip = async () => {
 
 // Only the links and trigger read the route. The menu structure stays here
 // alongside the server-rendered header and account controls.
-const NavMenu = ({ label, entries }: { label: string; entries: Entry[] }) => (
+const NavMenu = ({ label, groups, activePaths, activeHrefs, wide }: Menu) => (
   <DropdownMenu>
     <HeaderNavMenuTrigger
       className={styles.navButton}
-      activePaths={entries
-        .filter((entry) => entry.href !== "/docs")
-        .map((entry) => entry.href)}
+      activePaths={activePaths}
+      activeHrefs={activeHrefs}
     >
       {label}
       <ChevronDownIcon className={styles.navChevron} aria-hidden />
     </HeaderNavMenuTrigger>
-    <DropdownMenuContent align="start">
-      <DropdownMenuGroup>
-        {entries.map((entry) => (
-          <Fragment key={entry.href}>
-            {entry.secondary && <DropdownMenuSeparator />}
-            <DropdownMenuItem asChild>
-              <HeaderNavLink
-                href={entry.href}
-                className={styles.menuLink}
-                exact={entry.href === "/docs"}
-              >
-                {entry.label}
-              </HeaderNavLink>
-            </DropdownMenuItem>
-          </Fragment>
-        ))}
-      </DropdownMenuGroup>
+    <DropdownMenuContent
+      align="start"
+      className={cn(styles.primaryMenu, wide && styles.wideMenu)}
+    >
+      {groups.map((group, index) => (
+        <Fragment key={group.label ?? index}>
+          {!wide && index > 0 && <DropdownMenuSeparator />}
+          <DropdownMenuGroup
+            className={styles.menuGroup}
+            aria-label={group.label}
+          >
+            {group.label && (
+              <DropdownMenuLabel className={styles.menuGroupLabel}>
+                {group.label}
+              </DropdownMenuLabel>
+            )}
+            {group.entries.map((entry) => (
+              <Fragment key={entry.href}>
+                {entry.secondary && <DropdownMenuSeparator />}
+                <DropdownMenuItem asChild>
+                  <HeaderNavLink
+                    href={entry.href}
+                    activePaths={entry.activePaths}
+                    className={styles.menuLink}
+                  >
+                    {entry.label}
+                  </HeaderNavLink>
+                </DropdownMenuItem>
+              </Fragment>
+            ))}
+          </DropdownMenuGroup>
+        </Fragment>
+      ))}
     </DropdownMenuContent>
   </DropdownMenu>
+)
+
+const MobileNavGroup = ({ label, groups }: Menu) => (
+  <details className={styles.mobileNavGroup}>
+    <summary>
+      {label}
+      <ChevronDownIcon aria-hidden />
+    </summary>
+    <div className={styles.mobileNavContents}>
+      {groups.map((group, index) => (
+        <div key={group.label ?? index} className={styles.mobileLinkGroup}>
+          {group.label && (
+            <span className={styles.mobileLabel}>{group.label}</span>
+          )}
+          {group.entries.map((entry) => (
+            <HeaderNavLink
+              key={entry.href}
+              href={entry.href}
+              activePaths={entry.activePaths}
+              className={entry.secondary ? styles.secondaryNavLink : undefined}
+            >
+              {entry.label}
+            </HeaderNavLink>
+          ))}
+        </div>
+      ))}
+    </div>
+  </details>
 )
 
 /*
@@ -266,7 +355,7 @@ const CommunityMenu = ({
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={`${communityPath(scope.slug)}#studies`}>
-                Studies of {scope.title}
+                Surveys of {scope.title}
               </Link>
             </DropdownMenuItem>
           </DropdownMenuGroup>

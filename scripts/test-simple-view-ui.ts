@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm"
 import { studiesTable } from "../drizzle"
 import {
   chebiLookup,
+  closeBrowserAfterRoutes,
   createStudyFixture,
   createTermFixture,
   launchBrowser,
@@ -65,12 +66,14 @@ async function main() {
   const errors: string[] = []
   let lookups = 0
   let suggestions = 0
+  let fixtureVote: "up" | null = null
   let fixture: TermFixture | undefined
   let study: StudyFixture | undefined
   page.on("pageerror", (error) => errors.push(error.message))
   await stubTrpc(context, {
     unexpected,
     queries: {
+      "votes.get": () => ({ score: fixtureVote ? 1 : 0, vote: fixtureVote }),
       // The helper names the assistant, so the catalog is fixed here.
       "definitionAssistants.catalog": () => ({
         profiles: [
@@ -171,6 +174,12 @@ async function main() {
       }
     },
     mutations: {
+      "votes.vote": (input) => {
+        assert.equal(input.definitionId, fixture?.definitionId)
+        assert.equal(input.vote, "up")
+        fixtureVote = fixtureVote ? null : "up"
+        return null
+      },
       "termReferences.recordAction": () => null,
       "termReferences.retrieveChebi": (input) => {
         lookups += 1
@@ -312,6 +321,26 @@ async function main() {
     await expect(tab("Advanced")).toHaveAttribute("aria-selected", "true")
 
     await signInAs(context, base, fixture.userId)
+
+    // The exact count badge shares live data with the vote rail. Neither
+    // count may remain at the server-rendered value after a vote or withdrawal.
+    await page.reload({ waitUntil: "networkidle" })
+    const defaultCard = page.locator(
+      `section[aria-labelledby="default-definition-${fixture.definitionId}"]`
+    )
+    for (const score of [1, 0]) {
+      await defaultCard
+        .getByRole("button", { name: "Upvote definition", exact: true })
+        .click()
+      await expect(
+        defaultCard.getByText(`Net votes: ${score}`, { exact: true })
+      ).toBeVisible()
+      await expect(
+        defaultCard
+          .locator('[title="Upvotes minus downvotes on this revision"] > span')
+          .first()
+      ).toHaveText(String(score))
+    }
 
     // Simple metadata describes the whole term, without scope or source.
     await rememberView(context, base, "simple")
@@ -887,29 +916,27 @@ async function main() {
     await expect(page.getByLabel("Definition assistant")).toBeVisible()
     await expect(viewReferences).toBeVisible()
     await expect.poll(() => lookups).toBe(beforeStudy + 1)
-
-    assert.deepEqual(
-      unexpected,
-      [],
-      "no publication or other mutation should be attempted"
-    )
-    assert.deepEqual(errors, [])
-    console.log(
-      "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links and their arrival mark, whole-term metadata and its checks, a vocabulary named as one and a mapped concept opened beside it, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
-    )
   } finally {
     try {
-      await browser.close()
-    } catch (error) {
-      console.error(error)
-    }
-    try {
-      if (study) await removeStudyFixture(study)
-      if (fixture) await removeTermFixture(fixture)
+      await closeBrowserAfterRoutes(browser)
     } finally {
-      await db.$client.end()
+      try {
+        if (study) await removeStudyFixture(study)
+        if (fixture) await removeTermFixture(fixture)
+      } finally {
+        await db.$client.end()
+      }
     }
   }
+  assert.deepEqual(
+    unexpected,
+    [],
+    "no publication or other mutation should be attempted"
+  )
+  assert.deepEqual(errors, [])
+  console.log(
+    "Simple view UI tests passed: remembered view, absent-state text, Advanced details, deep links and their arrival mark, whole-term metadata and its checks, a vocabulary named as one and a mapped concept opened beside it, example files, cut-down assistant, citation review, change forms by view and a study's fixed interface."
+  )
 }
 
 main().catch((error) => {

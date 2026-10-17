@@ -44,6 +44,11 @@ A term can have several definitions. The **Default definition** reflects the
 ranking of those definitions. Each definition has its own current revision
 and retains its identity after a change in ranking.
 
+Exports retain the vote-derived `matsci:status` codes: `proposed` for net votes
+of 1 or fewer, `community-reviewed` for 2–4, and `stable` for 5 or more.
+These codes describe vote thresholds, not independent review, community
+agreement or scientific validation. The interface displays the net vote count.
+
 A topic applies to a definition and is also reported on its containing term.
 A facet applies directly to the term. Collection membership records inclusion
 in a set. Semantic relationships are recorded separately.

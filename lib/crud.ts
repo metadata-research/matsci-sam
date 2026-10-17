@@ -26,10 +26,13 @@ export const GetUser = cache((userId: number) =>
  * identity. One user per tag, because two versions of one family are
  * different agents that produce different text.
  */
-export const GetModelUser = async (model: string) => {
+export const GetModelUser = async (
+  model: string,
+  reader: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0] = db
+) => {
   const identity = modelIdentity(model)
 
-  const [existing] = await db
+  const [existing] = await reader
     .select({ user: usersTable })
     .from(aiModelsTable)
     .innerJoin(usersTable, eq(usersTable.id, aiModelsTable.userId))
@@ -37,7 +40,7 @@ export const GetModelUser = async (model: string) => {
     .limit(1)
   if (existing) return existing.user
 
-  return await db.transaction(async (tx) => {
+  return await reader.transaction(async (tx) => {
     const [insertedUser] = await tx
       .insert(usersTable)
       .values({ isAi: true, name: identity.displayName })

@@ -8,6 +8,7 @@ export const CONTRIBUTION_FILE_PENDING_HOURS = 24
 export const contributionFileMetadataSchema = z.object({
   term: z.string().trim().min(1).max(TERM_MAX_LENGTH),
   vocabularySlug: z.string().trim().min(1).max(200),
+  explicitVocabulary: z.boolean().optional(),
   filename: z.string().trim().min(1).max(180),
   role: z.enum(["example", "source"]),
   title: z.string().trim().min(1, "Give the file a title").max(200),

@@ -3,7 +3,7 @@
 // other write, and removes the fixtures it created.
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
-import { chromium, type BrowserContext } from "@playwright/test"
+import { chromium, type Browser, type BrowserContext } from "@playwright/test"
 import { sealData } from "iron-session"
 import { eq, inArray } from "drizzle-orm"
 import {
@@ -50,15 +50,31 @@ export function localPreviewBase() {
 
 export const launchBrowser = () =>
   chromium.launch({
+    executablePath: process.env.SAM_UI_TEST_BROWSER_PATH || undefined,
     headless: true,
     args: ["--disable-dev-shm-usage", "--js-flags=--max-old-space-size=384"]
   })
+
+/** Stops page activity, then drains intercepted requests before disposal. */
+export async function closeBrowserAfterRoutes(browser: Browser) {
+  try {
+    for (const context of browser.contexts()) {
+      // Keep write guards installed until pages can no longer start requests.
+      await Promise.all(context.pages().map((page) => page.close()))
+      // route.fetch uses the context's API client, which browser.close disposes.
+      // Waiting here lets those requests finish without hiding handler errors.
+      await context.unrouteAll({ behavior: "wait" })
+    }
+  } finally {
+    await browser.close()
+  }
+}
 
 type ProcedureInput = Record<string, unknown>
 export type TrpcStubs = {
   /** Mutation handlers by procedure path. Others are refused and recorded. */
   mutations: Record<string, (input: ProcedureInput) => unknown>
-  /** Query results to substitute inside otherwise real GET batches. */
+  /** Local query results; mixed GET batches preserve unstubbed results. */
   queries?: Record<string, (input: ProcedureInput) => unknown>
   unexpected: string[]
 }
@@ -86,13 +102,17 @@ export async function stubTrpc(context: BrowserContext, stubs: TrpcStubs) {
       const substitutes = stubs.queries ?? {}
       if (!paths.some((path) => path in substitutes)) return route.continue()
       const inputs = queryInputs(request.url())
-      const response = await route.fetch()
-      const results = (await response.json()) as unknown[]
-      const body = results.map((result, index) => {
-        const substitute = substitutes[paths[index]]
+      // Fully stubbed batches need no server or provider request.
+      let results: unknown[] = []
+      if (!paths.every((path) => path in substitutes)) {
+        const response = await route.fetch()
+        results = (await response.json()) as unknown[]
+      }
+      const body = paths.map((path, index) => {
+        const substitute = substitutes[path]
         return substitute
           ? { result: { data: substitute(inputs[String(index)] ?? {}) } }
-          : result
+          : results[index]
       })
       return route.fulfill({
         status: 200,

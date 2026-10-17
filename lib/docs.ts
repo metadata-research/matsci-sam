@@ -8,8 +8,8 @@ import { marked } from "marked"
  * The /docs section renders the markdown under docs/ in three layers, each its
  * own directory and its own group in the sidebar:
  *
- *   docs/quickstart/ one page at /docs, the landing page: the ordinary path
- *                    from a new term to its recorded history
+ *   docs/quickstart/ one page at /docs, the landing page: short instructions
+ *                    for each task in Quick start
  *   docs/guide/      the user guide, at /docs/<slug>: how to use the site
  *   docs/reference/  technical reference, at /docs/reference/<slug>: what
  *                    the vocabulary, the tags and the metadata mean, for a
@@ -94,7 +94,7 @@ export const sectionTitle = (section: DocSection) => SECTIONS[section].title
 // One line under each sidebar heading, so a reader can tell the three groups
 // apart before opening any of them.
 export const sectionBlurb: Record<DocSection, string> = {
-  quickstart: "The whole workflow, start to finish",
+  quickstart: "Choose a task and get started",
   guide: "Contribute, compare, and discuss",
   reference: "Vocabulary structure, identifiers, and provenance"
 }
@@ -113,6 +113,15 @@ const withHeadingIds = (html: string) =>
     /<h([2-3])>(.*?)<\/h\1>/g,
     (_m, level: string, inner: string) =>
       `<h${level} id="${slugifyHeading(inner)}">${inner}</h${level}>`
+  )
+
+// Give each quick-start task a region so ArrivalHighlight marks its short
+// instructions along with the linked heading.
+const withQuickStartSections = (html: string) =>
+  html.replace(
+    /<h2 id="([^"]+)">[\s\S]*?(?=<h2 id="|$)/g,
+    (content, id: string) =>
+      `<section class="doc-section" aria-labelledby="${id}">${content}</section>\n`
   )
 
 export type DocHeading = { id: string; text: string }
@@ -178,8 +187,10 @@ export const renderDoc = async (section: DocSection, slug: string) => {
     "utf8"
   )
 
+  const html = withHeadingIds(marked.parse(content, { async: false }) as string)
+
   return {
     title: titleOf(content, slug),
-    html: withHeadingIds(marked.parse(content, { async: false }) as string)
+    html: section === "quickstart" ? withQuickStartSections(html) : html
   }
 }

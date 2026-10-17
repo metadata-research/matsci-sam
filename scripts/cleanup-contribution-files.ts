@@ -1,27 +1,21 @@
 import "dotenv/config"
-import { and, isNull, lt } from "drizzle-orm"
+import { isNull } from "drizzle-orm"
+import { cleanupExpiredPendingFiles } from "../lib/term-draft-file-retention"
 import { db, contributionFilesTable } from "../drizzle"
-import { CONTRIBUTION_FILE_PENDING_HOURS } from "../lib/contribution-file-types"
 
 async function main() {
-  const removed = await db
-    .delete(contributionFilesTable)
-    .where(
-      and(
-        isNull(contributionFilesTable.publishedRevisionId),
-        lt(
-          contributionFilesTable.createdAt,
-          new Date(
-            Date.now() - CONTRIBUTION_FILE_PENDING_HOURS * 3600000
-          ).toISOString()
-        )
-      )
-    )
-    .returning({ id: contributionFilesTable.id })
+  const owners = await db
+    .selectDistinct({ id: contributionFilesTable.uploadedById })
+    .from(contributionFilesTable)
+    .where(isNull(contributionFilesTable.publishedRevisionId))
+  let removed = 0
+  for (const owner of owners)
+    removed += (await cleanupExpiredPendingFiles(owner.id)).length
   console.log(
-    `Removed ${removed.length} expired pending contribution files. Published files were not changed.`
+    `Removed ${removed} expired pending contribution files. Published files and saved-draft attachments were not changed.`
   )
 }
+
 main()
   .then(() => process.exit(0))
   .catch((error) => {

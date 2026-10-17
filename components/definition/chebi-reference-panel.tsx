@@ -560,6 +560,8 @@ export function ReferenceTools({
       >
         Choosing Insert text and cite adds source text and attaches a removable
         citation. Viewing and copying do not attach citations or add AI context.
+        Attach a citation when you reuse source text, and check the source&apos;s
+        licence before publishing.
       </CardFooter>
     </Card>
   )

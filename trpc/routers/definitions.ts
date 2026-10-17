@@ -75,6 +75,8 @@ import { lockDefinitionRevisionSource } from "@/lib/definition-source"
 import { activeCommunityFor } from "@/lib/community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 import { loadDefinitionRevisionComparison } from "@/lib/definition-revision-comparison"
+import { requireSetupVocabularyForContribution } from "@/lib/setup-service"
+import { publishNewTerm } from "@/lib/new-term-publication"
 
 import {
   excludedFromStudy,
@@ -97,6 +99,8 @@ export const definitionsRouter = createTRPCRouter({
             .min(1, "Term is required")
             .max(TERM_MAX_LENGTH),
           expectedVocabularySlug: z.string().trim().min(1).max(200).optional(),
+          // An explicitly chosen new-term destination, independently authorized.
+          vocabularySlug: z.string().trim().min(1).max(200).optional(),
           definition: z
             .string()
             .trim()
@@ -122,6 +126,22 @@ export const definitionsRouter = createTRPCRouter({
           references: referenceSelectionsSchema.optional(),
           attachments: contributionFilePublicationsSchema.optional()
         })
+        .refine(
+          ({
+            vocabularySlug,
+            derivedFromRevisionId,
+            replacesDefinitionId,
+            surveyStepId
+          }) =>
+            vocabularySlug === undefined ||
+            (derivedFromRevisionId === undefined &&
+              replacesDefinitionId === undefined &&
+              surveyStepId === undefined),
+          {
+            message:
+              "An explicit vocabulary can only be selected when adding a new term"
+          }
+        )
         .refine(
           ({ derivedFromRevisionId, replacesDefinitionId }) =>
             derivedFromRevisionId === undefined ||
@@ -188,10 +208,18 @@ export const definitionsRouter = createTRPCRouter({
               where: eq(aiContributionSuggestionsTable.id, input.aiSuggestionId)
             })
           : Promise.resolve(null),
-        activeCommunityFor(db, authorId)
+        input.vocabularySlug
+          ? requireSetupVocabularyForContribution(
+              db,
+              input.vocabularySlug,
+              authorId
+            ).then(() => null)
+          : activeCommunityFor(db, authorId)
       ])
       const contributionVocabularySlug =
-        activeCommunity?.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG
+        input.vocabularySlug ??
+        activeCommunity?.vocabularySlug ??
+        DEFAULT_VOCABULARY_SLUG
       if (
         input.expectedVocabularySlug !== undefined &&
         input.expectedVocabularySlug !== contributionVocabularySlug
@@ -229,6 +257,26 @@ export const definitionsRouter = createTRPCRouter({
           message:
             "This study uses the deployment assistant. Request a new suggestion within the study."
         })
+      if (
+        input.derivedFromRevisionId === undefined &&
+        input.replacesDefinitionId === undefined &&
+        input.surveyStepId === undefined &&
+        suggestionPreview?.intent !== "revise_definition"
+      ) {
+        const result = await db.transaction((tx) =>
+          publishNewTerm(tx, input, authorId)
+        )
+        revalidatePath("/")
+        revalidatePath("/terms")
+        await revalidatePublicDefinition({
+          definitionId: result.definition.id,
+          definitionNumber: result.definition.definitionNumber,
+          termId: result.term.id,
+          version: 1
+        })
+        return result
+      }
+
       const modelUser = suggestionPreview
         ? await GetModelUser(suggestionPreview.model)
         : null
@@ -259,6 +307,13 @@ export const definitionsRouter = createTRPCRouter({
       try {
         written = await db.transaction(async (tx) => {
           await lockContributionSubmissions(tx, authorId)
+          if (input.vocabularySlug)
+            await requireSetupVocabularyForContribution(
+              tx,
+              input.vocabularySlug,
+              authorId,
+              true
+            )
           const lockedWalkthroughStep =
             walkthroughStep && input.surveyStepId !== undefined
               ? await lockParticipation(
@@ -357,6 +412,13 @@ export const definitionsRouter = createTRPCRouter({
             lockedWalkthroughStep !== null && !isRevision && !isReplacement
           const isNewTerm =
             !isRevision && !isReplacement && lockedWalkthroughStep === null
+
+          if (input.vocabularySlug && !isNewTerm)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "An explicit vocabulary can only be selected when adding a new term"
+            })
 
           if (input.attachments?.length && !isNewTerm)
             throw new TRPCError({

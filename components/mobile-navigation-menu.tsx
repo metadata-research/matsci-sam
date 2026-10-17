@@ -24,29 +24,42 @@ export function MobileNavigationMenu({
   const triggerRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (!open) return
+    // Native details opens before its queued toggle event updates React.
+    // Listen throughout and read the actual disclosure state so dismissal
+    // also works immediately after opening it.
+    const close = () => {
+      if (detailsRef.current) detailsRef.current.open = false
+      setOpen(false)
+    }
 
     const closeForLink = (event: MouseEvent) => {
+      if (!detailsRef.current?.open) return
       const target = event.target
-      if (target instanceof Element && target.closest("a[href]")) setOpen(false)
+      if (target instanceof Element && target.closest("a[href]")) close()
     }
 
     const closeForOutsidePointer = (event: PointerEvent) => {
+      if (!detailsRef.current?.open) return
       const target = event.target
       if (!(target instanceof Node)) return
       if (detailsRef.current?.contains(target)) return
       if (target instanceof Element && target.closest(PORTALED_MENU_SELECTOR))
         return
 
-      setOpen(false)
+      close()
     }
 
     const closeForEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return
+      if (
+        !detailsRef.current?.open ||
+        event.key !== "Escape" ||
+        event.defaultPrevented
+      )
+        return
 
       event.preventDefault()
       event.stopPropagation()
-      setOpen(false)
+      close()
       triggerRef.current?.focus()
     }
 
@@ -59,10 +72,13 @@ export function MobileNavigationMenu({
       document.removeEventListener("pointerdown", closeForOutsidePointer)
       document.removeEventListener("keydown", closeForEscape)
     }
-  }, [open])
+  }, [])
 
-  const syncOpenState = (event: SyntheticEvent<HTMLDetailsElement>) =>
-    setOpen(event.currentTarget.open)
+  const syncOpenState = (event: SyntheticEvent<HTMLDetailsElement>) => {
+    // Category disclosures have their own toggle events. Only the outer
+    // disclosure controls the navigation panel and its dismissal listeners.
+    if (event.target === event.currentTarget) setOpen(event.currentTarget.open)
+  }
 
   return (
     <details

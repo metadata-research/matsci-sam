@@ -45,8 +45,11 @@ source appears in Advanced. Select **Use in this draft** for a matching upload
 and choose it for publication during review. **Remove pending file** deletes
 an unused upload.
 
-Unpublished uploads expire after 24 hours. Your account can hold six pending
-files. Remove unused files before uploading more when that limit is reached.
+Files attached to a saved term draft remain available with that draft. Other
+unpublished uploads expire after 24 hours. Your account can hold six pending
+files, including files kept with drafts. Remove unused files before uploading
+more when that limit is reached. Removing a file from one draft does not remove
+it from another draft that uses it.
 
 ## Add a written example
 

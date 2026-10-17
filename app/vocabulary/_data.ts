@@ -216,11 +216,13 @@ export const vocabularyReferences = cache(async (vocabularySlug: string) =>
     )
 )
 
-export const otherVocabularies = cache(async () =>
+const vocabularyCatalog = cache(async (includeDefault: boolean) =>
   db
     .select({
       slug: vocabulariesTable.slug,
       title: vocabulariesTable.title,
+      description: vocabulariesTable.description,
+      isDefault: vocabulariesTable.isDefault,
       retiredAt: vocabulariesTable.retiredAt,
       count: sql<number>`cast(count(${termsTable.id}) as int)`.mapWith(Number)
     })
@@ -229,10 +231,14 @@ export const otherVocabularies = cache(async () =>
       termsTable,
       and(eq(termsTable.vocabularySlug, vocabulariesTable.slug), termIsListed())
     )
-    .where(eq(vocabulariesTable.isDefault, false))
+    .where(includeDefault ? undefined : eq(vocabulariesTable.isDefault, false))
     .groupBy(vocabulariesTable.slug)
     .orderBy(
       asc(sql`lower(btrim(${vocabulariesTable.title}))`),
       desc(vocabulariesTable.slug)
     )
 )
+
+export const otherVocabularies = () => vocabularyCatalog(false)
+
+export const allVocabularies = () => vocabularyCatalog(true)

@@ -37,6 +37,7 @@ import { formatDate } from "@/lib/date"
 import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { PublicProfileName } from "@/components/public-profile-name"
+import { QuickStartBar } from "@/components/quick-start"
 import {
   AddCollection,
   AddPerson,
@@ -164,6 +165,13 @@ export default async function CommunityPage({
           )}
         </div>
 
+        {!community.retiredAt && (
+          <QuickStartBar
+            communityId={community.id}
+            vocabularySlug={community.vocabularySlug}
+          />
+        )}
+
         {/* Affordances only. The router checks the same rules. */}
         {(isAdmin || runs || membership) && (
           <div className="flex flex-wrap items-start gap-2">
@@ -195,7 +203,7 @@ export default async function CommunityPage({
 
         <section id="studies" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-xl font-semibold">Studies</h2>
+            <h2 className="text-xl font-semibold">Surveys</h2>
             {runs && (
               <CreateStudy
                 communityId={community.id}
@@ -208,8 +216,8 @@ export default async function CommunityPage({
           {studies.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {runs
-                ? "No study is running. A study names a set of terms, says what to do with them, and gives your invitations something to point at."
-                : "No study is running."}
+                ? "No survey is running. Create one to invite people to review a set of terms."
+                : "No survey is running."}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -311,14 +319,14 @@ export default async function CommunityPage({
             </div>
             <p className="text-sm text-muted-foreground">
               Collections available to this community that are not part of one
-              of the studies above. They may include terms from this community
+              of the surveys above. They may include terms from this community
               or references to terms in other vocabularies.
             </p>
             {loose.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {studies.length > 0
-                  ? "No additional collections. The study terms are listed above."
-                  : "Nothing yet. Add a collection, or start a study, to give these people something to work through."}
+                  ? "No additional collections. The survey terms are listed above."
+                  : "Nothing yet. Add a collection, or start a survey, to give these people something to work through."}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -440,7 +448,7 @@ export default async function CommunityPage({
             <p className="text-sm text-muted-foreground">
               Each link admits one person who opens it and signs in. It works
               with any sign-in address. Use the invitation controls beside a
-              study to invite a participant to that study.
+              survey to invite a participant to that survey.
             </p>
             <InvitePerson communityId={community.id} />
 
@@ -465,7 +473,7 @@ export default async function CommunityPage({
                               : outcome}
                           {invitation.sentAt ? ", emailed" : ", link only"}
                           {invitation.studyId
-                            ? `, opens ${invitation.studyTitle ?? "a study"}`
+                            ? `, opens ${invitation.studyTitle ?? "a survey"}`
                             : ", community"}
                         </span>
                       </span>
