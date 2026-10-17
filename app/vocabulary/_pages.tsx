@@ -63,7 +63,7 @@ export async function VocabularySchemePage({
       ? "A community-built controlled vocabulary for materials science metadata."
       : "Terms defined within the " +
         vocabulary.title +
-        " community vocabulary.")
+        (vocabulary.community ? " community vocabulary." : " vocabulary."))
   const schemeIri = vocabularyUri(vocabulary.slug)
   const structuredData = {
     ...conceptSchemeJsonLd(
@@ -218,7 +218,7 @@ export async function VocabularySchemePage({
                 id="other-vocabularies-heading"
                 className="mb-3 text-2xl font-semibold"
               >
-                Community vocabularies
+                Other vocabularies
               </h2>
               <ul className="grid gap-3 sm:grid-cols-2">
                 {catalog.map((item) => (

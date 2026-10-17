@@ -2,9 +2,17 @@ import { DefineTermForm } from "./form"
 
 export function AddTermPageContent({
   initialTerm = "",
+  ownerId,
+  draftId,
+  setupReturnTo,
+  vocabularySlug,
   vocabularyTitle
 }: {
   initialTerm?: string
+  ownerId: number
+  draftId?: string
+  setupReturnTo?: string
+  vocabularySlug?: string
   vocabularyTitle: string
 }) {
   return (
@@ -13,11 +21,23 @@ export function AddTermPageContent({
         <section className="flex max-w-2xl flex-col gap-2">
           <h1 className="text-3xl font-bold tracking-tight">Add a new term</h1>
           <p className="leading-7 text-muted-foreground">
-            Confirm a term in {vocabularyTitle}, write its definition, then
-            review and publish.
+            {draftId ? (
+              "Continue your saved term, then review and publish."
+            ) : (
+              <>
+                Confirm a term in {vocabularyTitle}, write its definition, then
+                review and publish.
+              </>
+            )}
           </p>
         </section>
-        <DefineTermForm initialTerm={initialTerm} />
+        <DefineTermForm
+          initialTerm={initialTerm}
+          ownerId={ownerId}
+          draftId={draftId}
+          setupReturnTo={setupReturnTo}
+          vocabularySlug={vocabularySlug}
+        />
       </div>
     </main>
   )

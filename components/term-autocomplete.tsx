@@ -5,7 +5,7 @@ import { AutoComplete } from "@/components/autocomplete"
 
 const SEARCH_KEYS = ["vocabularyTitle"]
 
-/** One term picker for the homepage starter and the contribution form. */
+/** Term picker for the contribution form. */
 export function TermAutocomplete(
   props: Omit<ComponentProps<typeof AutoComplete>, "searchKeys" | "renderFn">
 ) {

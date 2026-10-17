@@ -11,8 +11,7 @@ import {
   vocabulariesTable
 } from "@yamz/db"
 import { and, desc, eq, exists, or, sql } from "drizzle-orm"
-import { DefinitionStarter } from "./definition-starter"
-import { SITE_FULL_NAME, SITE_NAME } from "@/lib/site"
+import { SITE_FULL_NAME } from "@/lib/site"
 import { getSession } from "@/lib/session"
 import { getActiveCommunity } from "@/lib/community-queries"
 import { communityDisplayName } from "@/lib/community-names"
@@ -21,8 +20,9 @@ import { termIsListed } from "@/lib/term-visibility"
 import { formatDate } from "@/lib/date"
 import { HydrateClient } from "@/trpc/server"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { PublicProfileName } from "@/components/public-profile-name"
+import { QuickStartBar } from "@/components/quick-start"
+import { HomeSearch } from "./home-search"
 import styles from "./home.module.css"
 import {
   communityPath,
@@ -67,22 +67,13 @@ export default async function Home() {
               {SITE_FULL_NAME}
             </h1>
             <p className={styles.heroLead}>
-              A community dictionary for materials science terminology. Draft
-              definitions with optional AI assistance and look up terms in
-              community vocabularies and reference ontologies.
+              A community dictionary for materials science terminology and
+              metadata. Draft definitions with optional AI assistance and look
+              up terms in community vocabularies and reference ontologies.
             </p>
           </section>
 
-          <nav className={styles.helpLinks} aria-label="Getting started">
-            <Link href="/docs" className={styles.textLink}>
-              Quick Start
-              <ArrowRightIcon aria-hidden />
-            </Link>
-            <Link href="/about" className={styles.textLink}>
-              About {SITE_NAME}
-              <ArrowRightIcon aria-hidden />
-            </Link>
-          </nav>
+          <HomeSearch showScope={Boolean(activeCommunity)} />
 
           {activeCommunity && (
             <p className={styles.communityName}>
@@ -92,56 +83,11 @@ export default async function Home() {
             </p>
           )}
 
-          <div className={styles.actionPanels}>
-            <section
-              className={styles.findPanel}
-              aria-labelledby="find-heading"
-            >
-              <h2 id="find-heading">Find a term</h2>
-              <form
-                action="/search"
-                method="get"
-                role="search"
-                aria-label="Find a term"
-              >
-                <label htmlFor="home-search" className="sr-only">
-                  Search terms and definitions
-                </label>
-                <div className={styles.searchRow}>
-                  <Input
-                    id="home-search"
-                    name="q"
-                    type="search"
-                    placeholder="Search terms and definitions"
-                  />
-                  <Button type="submit">
-                    <SearchIcon aria-hidden />
-                    Search
-                  </Button>
-                </div>
-              </form>
-              {activeCommunity && (
-                <p className={styles.contributionNote}>
-                  Search includes all vocabularies.
-                </p>
-              )}
-              <Link href="/terms" className={styles.textLink}>
-                Browse terms
-                <ArrowRightIcon aria-hidden />
-              </Link>
-            </section>
-            <section
-              id="contribute"
-              className={styles.contributionPanel}
-              aria-labelledby="contribution-heading"
-            >
-              <h2 id="contribution-heading">Add a new term</h2>
-              <DefinitionStarter
-                signedIn={Boolean(sesh.id)}
-                vocabularyTitle={activeCommunity?.title ?? SITE_NAME}
-              />
-            </section>
-          </div>
+          <QuickStartBar
+            communityId={activeCommunity?.id}
+            vocabularySlug={activeCommunity?.vocabularySlug}
+            className="mt-6"
+          />
 
           {emptyCommunity ? (
             <CommunityEmptyState

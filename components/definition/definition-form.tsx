@@ -94,6 +94,16 @@ import {
   type MutationActivityCallbacks,
   useMutationActivity
 } from "@/components/use-mutation-activity"
+import {
+  emptyTermDraftPayload,
+  type TermDraftPayload
+} from "@/lib/term-draft-types"
+import {
+  DraftSaveStatus,
+  useTermDraft,
+  type SavedTermDraft,
+  type TermDraftController
+} from "./term-draft-controller"
 
 function TermGuidance({
   normalizedTerm,
@@ -198,6 +208,8 @@ const copySelections = (selections: DraftReferenceSelection[]) =>
 
 type DefinitionFormProps = {
   initialTerm?: string
+  /** Explicit destination for a new term; inherited actions keep their source. */
+  vocabularySlug?: string
   initialDefinition?: string
   lockedTerm?: string
   surveyStepId?: number
@@ -206,13 +218,21 @@ type DefinitionFormProps = {
   replacesDefinitionId?: number
   onPublished?: (published: PublishedDefinition) => void
   onBusyChange?: (busy: boolean) => void
+  draftId?: string
+  ownerId?: number
+  reviewOnLoad?: boolean
+  setupReturnTo?: string
+  onDraftController?: (controller: TermDraftController | null) => void
 } & MutationActivityCallbacks
 
 /** A new inherited action gets its own editor, receipt and model state. */
 export function DefinitionForm(props: DefinitionFormProps) {
+  if (props.lockedTerm === undefined && props.ownerId)
+    return <SavedNewTermForm {...props} ownerId={props.ownerId} />
   return (
     <DefinitionFormOwner
       key={JSON.stringify([
+        props.vocabularySlug ?? null,
         props.lockedTerm ?? null,
         props.surveyStepId ?? null,
         props.derivedFromRevisionId ?? null,
@@ -223,9 +243,104 @@ export function DefinitionForm(props: DefinitionFormProps) {
   )
 }
 
+function SavedNewTermForm(props: DefinitionFormProps & { ownerId: number }) {
+  const router = useRouter()
+  const [restoration, setRestoration] = useState(0)
+  const draft = useTermDraft({
+    draftId: props.draftId,
+    ownerId: props.ownerId,
+    initialPayload: {
+      ...emptyTermDraftPayload(props.vocabularySlug ?? null),
+      term: props.initialTerm ?? "",
+      definition: props.initialDefinition ?? ""
+    },
+    onRestore: () => setRestoration((value) => value + 1),
+    onSaved: (saved) => {
+      // Native history preserves the mounted editor and all unsaved controls.
+      if (window.location.pathname !== "/add") return
+      const url = new URL(window.location.href)
+      url.searchParams.set("draftId", saved.id)
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`
+      )
+    }
+  })
+  const onDraftController = props.onDraftController
+  useEffect(() => {
+    onDraftController?.(draft)
+    return () => onDraftController?.(null)
+  }, [onDraftController, draft])
+  if (draft.loading || draft.loadError) return <DraftSaveStatus draft={draft} />
+  const published = draft.record?.publication
+  if (published)
+    return (
+      <div className="space-y-3">
+        <p>This draft has already been published.</p>
+        <Button asChild>
+          <Link
+            href={definitionPath(
+              published.term.slug,
+              published.definition.definitionNumber,
+              published.term.vocabularySlug
+            )}
+          >
+            View published term
+          </Link>
+        </Button>
+        <Link href="/profile/drafts" className="ml-3 underline">
+          My drafts
+        </Link>
+      </div>
+    )
+  return (
+    <div className="flex flex-col gap-3">
+      <DraftSaveStatus draft={draft} />
+      {props.setupReturnTo && (
+        <Button
+          type="button"
+          variant="outline"
+          className="self-start"
+          disabled={draft.publishing}
+          onClick={async () => {
+            try {
+              const saved = await draft.flush()
+              const target = new URL(
+                props.setupReturnTo!,
+                window.location.origin
+              )
+              if (saved) target.searchParams.set("draftId", saved.id)
+              router.push(`${target.pathname}${target.search}`)
+            } catch {
+              /* The save status explains why navigation paused. */
+            }
+          }}
+        >
+          Return to guided setup
+        </Button>
+      )}
+      <DefinitionFormOwner
+        key={restoration}
+        {...props}
+        initialTerm={draft.payload.term}
+        initialDefinition={draft.payload.definition}
+        vocabularySlug={draft.payload.vocabularySlug ?? props.vocabularySlug}
+        savedDraft={
+          draft.record?.payload
+            ? (draft.record as SavedTermDraft & { payload: TermDraftPayload })
+            : undefined
+        }
+        draftController={draft}
+      />
+    </div>
+  )
+}
+
 /** Shared contribution flow. Inherited actions retain their source/study semantics. */
 const DefinitionFormOwner = ({
   initialTerm = "",
+  vocabularySlug,
   initialDefinition = "",
   lockedTerm,
   surveyStepId,
@@ -235,10 +350,27 @@ const DefinitionFormOwner = ({
   onPublished,
   onBusyChange,
   onMutationStart,
-  onMutationEnd
-}: DefinitionFormProps) => {
+  onMutationEnd,
+  savedDraft,
+  draftController,
+  reviewOnLoad
+}: DefinitionFormProps & {
+  savedDraft?: SavedTermDraft & { payload: TermDraftPayload }
+  draftController?: TermDraftController
+}) => {
   const router = useRouter()
   const isAdd = lockedTerm === undefined
+  const [pinnedVocabulary, setPinnedVocabulary] = useState(vocabularySlug)
+  const explicitVocabularySlug = isAdd
+    ? (pinnedVocabulary ?? vocabularySlug)
+    : undefined
+  const saved = savedDraft?.payload.editorState
+  const savedConfirmationMatches =
+    !saved?.confirmed ||
+    (saved.confirmed.term.trim().toLowerCase() ===
+      initialTerm.trim().toLowerCase() &&
+      saved.confirmed.vocabularySlug === explicitVocabularySlug)
+  const [restoringReferences, setRestoringReferences] = useState(!!savedDraft)
   // Only Add offers Simple and Advanced. Other actions keep their full editor.
   const viewPreference = useViewPreference()
   const view: DefinitionView = isAdd ? viewPreference.view : "simple"
@@ -249,11 +381,29 @@ const DefinitionFormOwner = ({
   const simpleLocked = !isAdd && presented === "simple"
   const simple = simpleAdd || simpleLocked
   const [activeTool, setActiveTool] = useState<DefinitionTool | null>(null)
-  const [exampleOpen, setExampleOpen] = useState(false)
-  const [files, setFiles] = useState<DraftContributionFile[]>([])
+  const [exampleOpen, setExampleOpen] = useState(
+    saved?.exampleOpen ?? !!savedDraft?.payload.initialExample
+  )
+  const [files, setFiles] = useState<DraftContributionFile[]>(
+    () =>
+      savedDraft?.payload.files.flatMap((selection) => {
+        const file = savedDraft.files.find(
+          (item) => item.id === selection.fileId
+        )
+        return file ? [{ ...file, publish: selection.publish }] : []
+      }) ?? []
+  )
+  const [unavailableFiles, setUnavailableFiles] = useState(
+    () =>
+      savedDraft?.payload.files.filter(
+        (selection) =>
+          !savedDraft.files.some((file) => file.id === selection.fileId)
+      ) ?? []
+  )
   const [filesBusy, setFilesBusy] = useState(false)
   const assistant = useDefinitionAssistant({
-    enabled: lockedTerm === undefined
+    enabled: lockedTerm === undefined,
+    initialProfile: saved?.assistantProfile
   })
   const [submittedAssistant, setSubmittedAssistant] = useState<string>()
   const modelContextRef = useRef<HTMLDivElement>(null)
@@ -270,29 +420,51 @@ const DefinitionFormOwner = ({
       surveyStepId !== undefined)
   const form = useForm<DefineTerm>({
     resolver: zodResolver(DefineTermSchema),
-    defaultValues: { term, definition: initialDefinition, initialExample: "" }
+    defaultValues: {
+      term,
+      definition: initialDefinition,
+      initialExample: savedDraft?.payload.initialExample ?? ""
+    }
   })
   const [step, setStep] = useState<Step>(
-    lockedTerm === undefined ? "confirm" : "write"
+    !savedConfirmationMatches
+      ? "confirm"
+      : saved?.step === "review"
+        ? "write"
+        : (saved?.step ?? (lockedTerm === undefined ? "confirm" : "write"))
   )
   const [confirmed, setConfirmed] = useState<ConfirmedTerm | null>(
-    lockedTerm === undefined ? null : { term: lockedTerm }
+    saved?.confirmed ?? (lockedTerm === undefined ? null : { term: lockedTerm })
   )
   const [entryKey, setEntryKey] = useState(0)
-  const [references, setReferences] = useState<DraftReferenceSelection[]>([])
-  const [preview, setPreview] = useState<ModelDraft | null>(null)
-  const [appliedDraft, setAppliedDraft] = useState<ModelDraft | null>(null)
-  const [assistantOpen, setAssistantOpen] = useState(false)
-  const [includeDefinition, setIncludeDefinition] = useState(true)
-  const [includeExample, setIncludeExample] = useState(false)
+  const [references, setReferences] = useState<DraftReferenceSelection[]>(
+    saved?.references ?? []
+  )
+  const [preview, setPreview] = useState<ModelDraft | null>(
+    (saved?.preview as unknown as ModelDraft) ?? null
+  )
+  const [appliedDraft, setAppliedDraft] = useState<ModelDraft | null>(
+    (saved?.appliedDraft as unknown as ModelDraft) ?? null
+  )
+  const [assistantOpen, setAssistantOpen] = useState(
+    saved?.assistantOpen ?? !!saved?.preview
+  )
+  const [includeDefinition, setIncludeDefinition] = useState(
+    saved?.includeDefinition ?? true
+  )
+  const [includeExample, setIncludeExample] = useState(
+    saved?.includeExample ?? false
+  )
   const [submittedInputs, setSubmittedInputs] = useState<
     ModelPromptInputItem[]
   >([])
-  const [undo, setUndo] = useState<UndoPoint | null>(null)
+  const [undo, setUndo] = useState<UndoPoint | null>(
+    (saved?.undo as unknown as UndoPoint) ?? null
+  )
   const clearSourceUndo = () =>
     setUndo((current) => (current?.kind === "source" ? null : current))
   const [reworkIntent, setReworkIntent] = useState<"draft" | "term" | null>(
-    null
+    !savedConfirmationMatches && saved?.appliedDraft ? "term" : null
   )
   const [notice, setNotice] = useState("")
   const [contextOpen, setContextOpen] = useState(false)
@@ -328,7 +500,12 @@ const DefinitionFormOwner = ({
     isLoading: termsAreLoading,
     error: vocabularyError,
     refetch: refetchVocabulary
-  } = trpc.terms.list.useQuery(undefined, { enabled: lockedTerm === undefined })
+  } = trpc.terms.list.useQuery(
+    explicitVocabularySlug
+      ? { vocabularySlug: explicitVocabularySlug }
+      : undefined,
+    { enabled: lockedTerm === undefined }
+  )
   const terms = vocabularyContext?.terms
   const targetVocabulary = vocabularyContext?.targetVocabulary
   const termValue = useWatch({
@@ -345,7 +522,7 @@ const DefinitionFormOwner = ({
     useWatch({
       control: form.control,
       name: "initialExample",
-      defaultValue: ""
+      defaultValue: savedDraft?.payload.initialExample ?? ""
     }) ?? ""
   const normalizedTerm = termValue.trim().toLowerCase()
   const matchingTerms = useMemo(
@@ -383,7 +560,8 @@ const DefinitionFormOwner = ({
     contextKey,
     enabled: confirmed !== null,
     // Simple shows no references, so the lookup waits for Advanced.
-    autoStart: !simple,
+    autoStart: !simple && !restoringReferences,
+    restoreSaved: restoringReferences,
     selection: references,
     onSelectionChange: setReferences,
     onSelectionEdit: clearSourceUndo
@@ -467,6 +645,7 @@ const DefinitionFormOwner = ({
     onSettled: activity.end
   })
   const busy =
+    !!draftController?.publishing ||
     filesBusy ||
     activity.busy ||
     mutation.isPending ||
@@ -475,6 +654,96 @@ const DefinitionFormOwner = ({
   const appliedMatches = !appliedDraft || appliedDraft.contextKey === contextKey
   const canUseModel =
     lockedTerm === undefined && !appliedDraft && !destinationChanged
+
+  const draftPayload: TermDraftPayload | null = draftController
+    ? {
+        ...draftController.payload,
+        term: termValue,
+        definition: definitionValue,
+        initialExample: exampleValue,
+        vocabularySlug:
+          explicitVocabularySlug ?? targetVocabulary?.slug ?? null,
+        references: selectedRevisionReferences(
+          references,
+          confirmed?.term ?? termValue
+        ),
+        files: [
+          ...files.map((file) => ({ fileId: file.id, publish: file.publish })),
+          ...unavailableFiles
+        ],
+        aiSuggestionId: appliedDraft?.suggestionId ?? null,
+        editorState: JSON.parse(
+          JSON.stringify({
+            step,
+            confirmed,
+            references,
+            preview,
+            appliedDraft,
+            undo,
+            includeDefinition,
+            includeExample,
+            exampleOpen,
+            assistantOpen,
+            assistantProfile: assistant.profile
+          })
+        )
+      }
+    : null
+  const serializedDraft = JSON.stringify(draftPayload)
+  const savePayload = draftController?.setPayload
+  useEffect(() => {
+    if (savePayload && serializedDraft !== "null")
+      savePayload(JSON.parse(serializedDraft) as TermDraftPayload)
+  }, [serializedDraft, savePayload])
+
+  const reviewedRestoration = useRef(false)
+  useEffect(() => {
+    if (
+      (!reviewOnLoad && saved?.step !== "review") ||
+      reviewedRestoration.current ||
+      termsAreLoading ||
+      !targetVocabulary
+    )
+      return
+    let active = true
+    void form
+      .trigger(["term", "definition", "initialExample"])
+      .then((valid) => {
+        if (!active) return
+        reviewedRestoration.current = true
+        if (
+          !valid ||
+          existingTerm ||
+          preview ||
+          vocabularyError ||
+          !savedConfirmationMatches
+        ) {
+          setNotice(
+            "Review your saved writing and vocabulary before publishing."
+          )
+          return
+        }
+        setConfirmed({
+          term: form.getValues("term").trim(),
+          vocabularySlug: targetVocabulary.slug,
+          vocabularyTitle: targetVocabulary.title
+        })
+        setStep("review")
+      })
+    return () => {
+      active = false
+    }
+  }, [
+    reviewOnLoad,
+    saved?.step,
+    termsAreLoading,
+    targetVocabulary,
+    existingTerm,
+    preview,
+    vocabularyError,
+    form,
+    savedConfirmationMatches
+  ])
 
   const modelReferenceItems: ModelPromptInputItem[] = (
     ["chebi", "wolfram"] as const
@@ -623,6 +892,7 @@ const DefinitionFormOwner = ({
       setReferences([])
       setFiles([])
       setUndo(null)
+      setRestoringReferences(false)
       setNotice(
         confirmed
           ? "Term updated. Your writing is preserved. Source and file choices have been cleared."
@@ -630,6 +900,7 @@ const DefinitionFormOwner = ({
       )
     }
     form.setValue("term", next.term)
+    setPinnedVocabulary(next.vocabularySlug)
     setConfirmed(next)
     setStep("write")
     setContextOpen(false)
@@ -758,7 +1029,8 @@ const DefinitionFormOwner = ({
           ? form.getValues("initialExample") || undefined
           : undefined,
       referenceIds: selectedModelReferenceIds(references, confirmed.term),
-      expectedVocabularySlug: confirmed.vocabularySlug
+      expectedVocabularySlug: confirmed.vocabularySlug,
+      vocabularySlug: explicitVocabularySlug
     })
   }
   const usePreview = () => {
@@ -813,13 +1085,21 @@ const DefinitionFormOwner = ({
       destinationChanged
     )
       return
+    if (
+      confirmed.term.trim().toLowerCase() !==
+      form.getValues("term").trim().toLowerCase()
+    ) {
+      setStep("confirm")
+      setNotice("Confirm the changed term before reviewing this draft.")
+      return
+    }
     if (!(await form.trigger(["term", "definition", "initialExample"]))) return
     setStep("review")
     setContextOpen(false)
     setNotice("")
     focusHeading()
   }
-  const publish = form.handleSubmit((data) => {
+  const publish = form.handleSubmit(async (data) => {
     if (
       step !== "review" ||
       busy ||
@@ -829,7 +1109,38 @@ const DefinitionFormOwner = ({
       preview
     )
       return
+    if (
+      confirmed.term.trim().toLowerCase() !== data.term.trim().toLowerCase()
+    ) {
+      setStep("confirm")
+      setNotice("Confirm the changed term before publishing this draft.")
+      return
+    }
     activity.start()
+    if (draftController && draftPayload) {
+      draftController.setPayload({
+        ...draftPayload,
+        ...data,
+        term: confirmed.term
+      })
+      try {
+        const published = await draftController.publish()
+        if (onPublished) onPublished(published)
+        else
+          router.push(
+            definitionPath(
+              published.term.slug,
+              published.definition.definitionNumber,
+              published.term.vocabularySlug
+            )
+          )
+      } catch {
+        // Keep the editor and its writing mounted; the shared status offers retry.
+      } finally {
+        activity.end()
+      }
+      return
+    }
     mutation.mutate({
       ...data,
       term: confirmed.term,
@@ -839,6 +1150,7 @@ const DefinitionFormOwner = ({
       replacesDefinitionId,
       expectedVocabularySlug:
         lockedTerm === undefined ? confirmed.vocabularySlug : undefined,
+      vocabularySlug: explicitVocabularySlug,
       references: selectedRevisionReferences(references, confirmed.term),
       attachments: isAdd ? selectedFilePublications(files) : undefined,
       aiSuggestionId: appliedDraft?.suggestionId
@@ -1324,7 +1636,7 @@ const DefinitionFormOwner = ({
                 )}
               />
               {vocabularyError && (
-                <p role="alert" className="text-sm text-destructive">
+                <div role="alert" className="text-sm text-destructive">
                   The destination vocabulary could not be loaded.
                   <Button
                     type="button"
@@ -1333,7 +1645,45 @@ const DefinitionFormOwner = ({
                   >
                     Retry
                   </Button>
-                </p>
+                  {draftController && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={async () => {
+                        try {
+                          const record = await draftController.flush()
+                          if (record) router.push(`/setup?draftId=${record.id}`)
+                        } catch {
+                          /* Preserve writing until it can be saved. */
+                        }
+                      }}
+                    >
+                      Choose another vocabulary
+                    </Button>
+                  )}
+                </div>
+              )}
+              {vocabularyError && draftController && (
+                <FormField
+                  control={form.control}
+                  name="definition"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Saved definition</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          rows={7}
+                          maxLength={DEFINITION_MAX_LENGTH}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Your private writing remains editable while you choose a
+                        destination.
+                      </FormDescription>
+                    </FormItem>
+                  )}
+                />
               )}
               {!simpleAdd && (
                 <p className="text-sm text-muted-foreground">
@@ -1879,8 +2229,25 @@ const DefinitionFormOwner = ({
         }}
         onChange={() => {
           if (mutation.error) mutation.reset()
+          if (draftController?.publicationError)
+            draftController.clearPublicationError()
         }}
       >
+        {unavailableFiles.length > 0 && (
+          <div role="alert" className="rounded-md border p-3 text-sm">
+            A saved file is unavailable. Your writing is preserved. Attach it
+            again or remove its saved selection before publishing.
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="ml-2"
+              onClick={() => setUnavailableFiles([])}
+            >
+              Remove unavailable files
+            </Button>
+          </div>
+        )}
         {isAdd ? (
           <AddDefinitionWorkspace
             view={view}
@@ -1904,12 +2271,22 @@ const DefinitionFormOwner = ({
                     onProviderChange={openTool}
                     onModelInputAdded={openAssistantContext}
                   />
-                  <OntologyContextPanel
-                    term={confirmed.term}
-                    variant="contribution"
-                    enabled={view === "advanced"}
-                    matchesTitle="Matches across ontologies"
-                  />
+                  {restoringReferences ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setRestoringReferences(false)}
+                    >
+                      Find matches across ontologies
+                    </Button>
+                  ) : (
+                    <OntologyContextPanel
+                      term={confirmed.term}
+                      variant="contribution"
+                      enabled={view === "advanced"}
+                      matchesTitle="Matches across ontologies"
+                    />
+                  )}
                 </div>
               ) : (
                 <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
@@ -1972,6 +2349,7 @@ const DefinitionFormOwner = ({
                           exampleOnly={simpleAdd}
                           term={confirmed.term}
                           vocabularySlug={confirmed.vocabularySlug}
+                          explicitVocabulary={Boolean(explicitVocabularySlug)}
                           files={files}
                           onFilesChange={setFiles}
                           disabled={busy}

@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { walkthroughProgress } from "@/components/studies/progress"
 
 export const metadata: Metadata = {
-  title: `Studies | ${SITE_NAME}`,
-  description: `Term review studies run on ${SITE_NAME}, each joining a group of people to a set of terms.`
+  title: `Surveys | ${SITE_NAME}`,
+  description: `Term review surveys run on ${SITE_NAME}, each joining a group of people to a set of terms.`
 }
 
 // The page varies by who is signed in, for the viewer's own section.
@@ -69,9 +69,9 @@ export default async function StudiesPage() {
     <main className="px-4 py-8">
       <section className="max-w-4xl w-full mx-auto space-y-6">
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold">Studies</h1>
+          <h1 className="text-4xl font-bold">Surveys</h1>
           <p className="text-muted-foreground">
-            A study asks a group of people to work through a set of terms. A{" "}
+            A survey asks a group of people to review a set of terms. A{" "}
             <Link href={communitiesIndexPath} className="text-primary">
               community
             </Link>{" "}
@@ -81,7 +81,7 @@ export default async function StudiesPage() {
 
         {studies.length === 0 && mine.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No studies are running.
+            No surveys are running.
           </p>
         ) : mine.length === 0 ? (
           <ul className="space-y-3">
@@ -92,7 +92,7 @@ export default async function StudiesPage() {
         ) : (
           <>
             <div className="space-y-3">
-              <h2 className="text-2xl font-semibold">Your studies</h2>
+              <h2 className="text-2xl font-semibold">Your surveys</h2>
               <ul className="space-y-3">
                 {mine.map((study) => (
                   <StudyItem key={study.id} study={study} />
@@ -101,7 +101,7 @@ export default async function StudiesPage() {
             </div>
             {rest.length > 0 && (
               <div className="space-y-3">
-                <h2 className="text-2xl font-semibold">All studies</h2>
+                <h2 className="text-2xl font-semibold">All surveys</h2>
                 <ul className="space-y-3">
                   {rest.map((study) => (
                     <StudyItem key={study.id} study={study} />

@@ -16,6 +16,8 @@ import { definitionAssistantsRouter } from "./definition-assistants"
 import { aiAssistRouter } from "./ai-assist"
 import { termReferencesRouter } from "./term-references"
 import { ontologyContextRouter } from "./ontology-context"
+import { setupRouter } from "./setup"
+import { termDraftsRouter } from "./term-drafts"
 import { z } from "zod"
 import {
   aiModelsTable,
@@ -56,6 +58,7 @@ import {
 } from "@/lib/input-limits"
 import { currentFeaturedExampleText } from "@/lib/definition-example-queries"
 import { termIsListed } from "@/lib/term-visibility"
+import { lookupTerms } from "@/lib/term-lookup"
 import {
   parseSearchHeadline,
   type SearchMatchSource
@@ -74,6 +77,8 @@ const searchFacetKeySchema = z
 const searchFacetsSchema = z.array(searchFacetKeySchema).max(20).default([])
 
 export const appRouter = createTRPCRouter({
+  setup: setupRouter,
+  termDrafts: termDraftsRouter,
   tags: tagsRouter,
   collections: collectionsRouter,
   communities: communitiesRouter,
@@ -183,38 +188,7 @@ export const appRouter = createTRPCRouter({
           .object({ query: searchQuerySchema, limit: searchLimitSchema })
           .optional()
       )
-      .query(async ({ input }) => {
-        const { query = "", limit = 10 } = input ?? {}
-
-        return await db
-          .select({
-            id: termsTable.id,
-            term: termsTable.term,
-            slug: termsTable.slug,
-            vocabularySlug: termsTable.vocabularySlug,
-            vocabularyTitle: vocabulariesTable.title,
-            count: sql<number>`cast(count(*) as int)`.mapWith(Number)
-          })
-          .from(termsTable)
-          .innerJoin(
-            definitionsTable,
-            eq(termsTable.id, definitionsTable.termId)
-          )
-          .innerJoin(
-            vocabulariesTable,
-            eq(vocabulariesTable.slug, termsTable.vocabularySlug)
-          )
-          .where(
-            and(termIsListed(), query.trim() ? searchMatch(query) : undefined)
-          )
-          .groupBy(termsTable.id, vocabulariesTable.slug)
-          .orderBy(
-            ...(query.trim()
-              ? [...searchOrderGrouped(query), asc(termsTable.term)]
-              : [asc(termsTable.term)])
-          )
-          .limit(limit)
-      }),
+      .query(({ input }) => lookupTerms(input)),
     facets: baseProcedure
       .input(z.object({ query: searchQuerySchema }).optional())
       .query(async ({ input }) => {

@@ -29,6 +29,13 @@ export default async function EditProfilePage({
   const user = await getCurrentUser()
   if (!user) redirect(authPathWithReturnTo("/login", returnTo))
   const isWelcome = welcome === "1"
+  const destinationLabel = returnTo?.startsWith("/setup")
+    ? "setup"
+    : returnTo?.startsWith("/add")
+      ? "your term"
+      : returnTo?.startsWith("/studies/")
+        ? "the study"
+        : "the invitation"
 
   return (
     <main className="px-4 py-8">
@@ -36,7 +43,7 @@ export default async function EditProfilePage({
         <Button asChild variant="ghost" size="sm">
           <Link href={returnTo ?? "/profile"}>
             <ArrowLeftIcon className="size-4" />
-            {returnTo ? "Back to invitation" : "Back to profile"}
+            {returnTo ? `Back to ${destinationLabel}` : "Back to profile"}
           </Link>
         </Button>
         <section className="space-y-2">
@@ -49,7 +56,7 @@ export default async function EditProfilePage({
                 does. */}
             {isWelcome
               ? returnTo
-                ? "Add your name before taking part so your study contributions have the right attribution. After saving, you will return to the invitation."
+                ? `Add your name so your contributions have the right attribution. After saving, you will return to ${destinationLabel}.`
                 : "Add your name so your contributions have the right attribution. After saving, you will continue to your profile."
               : "Update the name and affiliation shown with your contributions. You can also choose whether those details and your authored terms appear together on a public profile. Authentication manages your email address and linked identities."}
           </p>

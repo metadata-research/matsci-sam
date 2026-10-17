@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto"
-import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm"
+import { and, eq, inArray, isNull, lt, not, sql } from "drizzle-orm"
+import {
+  cleanupExpiredPendingFiles,
+  fileRetainedByDraft
+} from "./term-draft-file-retention"
 import { TRPCError } from "@trpc/server"
 import {
   db,
@@ -11,6 +15,7 @@ import {
 } from "@yamz/db"
 import { activeCommunityFor } from "./community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "./public-identifiers"
+import { requireSetupVocabularyForContribution } from "./setup-service"
 import {
   createDefinitionExample,
   exampleActorKindForUser
@@ -63,7 +68,24 @@ export async function storeContributionFile(
   const metadata = contributionFileMetadataSchema.parse(input.metadata)
   const mediaType = validateContributionFile(input.bytes, input.declaredType)
   return reader.transaction(async (tx) => {
-    // Serialize pending quota checks for this account, including simultaneous uploads.
+    // Community retirement and member removal lock their scope before users.
+    // Keep that order, then serialize the account's pending upload quota.
+    if (metadata.explicitVocabulary) {
+      try {
+        await requireSetupVocabularyForContribution(
+          tx,
+          metadata.vocabularySlug,
+          input.userId,
+          true
+        )
+      } catch (error) {
+        if (!(error instanceof TRPCError)) throw error
+        throw new ContributionFileError(
+          error.message,
+          error.code === "NOT_FOUND" ? 404 : 403
+        )
+      }
+    }
     const [user] = await tx
       .select({ id: usersTable.id, name: usersTable.name })
       .from(usersTable)
@@ -74,13 +96,15 @@ export async function storeContributionFile(
         "Complete your profile before attaching files.",
         403
       )
-    const active = await activeCommunityFor(tx, input.userId)
-    const vocabulary = active?.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG
-    if (metadata.vocabularySlug !== vocabulary)
-      throw new ContributionFileError(
-        "The destination changed. Confirm the term again before attaching files.",
-        409
-      )
+    if (!metadata.explicitVocabulary) {
+      const active = await activeCommunityFor(tx, input.userId)
+      const vocabulary = active?.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG
+      if (metadata.vocabularySlug !== vocabulary)
+        throw new ContributionFileError(
+          "The destination changed. Confirm the term again before attaching files.",
+          409
+        )
+    }
     // Pending files expire, and never appear on any public projection.
     await tx
       .delete(contributionFilesTable)
@@ -88,7 +112,8 @@ export async function storeContributionFile(
         and(
           eq(contributionFilesTable.uploadedById, input.userId),
           isNull(contributionFilesTable.publishedRevisionId),
-          lt(contributionFilesTable.createdAt, expiry())
+          lt(contributionFilesTable.createdAt, expiry()),
+          not(fileRetainedByDraft())
         )
       )
     const pending = await tx
@@ -132,17 +157,39 @@ export async function removePendingContributionFile(
   userId: number,
   reader: typeof db | Transaction = db
 ) {
-  const removed = await reader
-    .delete(contributionFilesTable)
-    .where(
-      and(
-        eq(contributionFilesTable.id, fileId),
-        eq(contributionFilesTable.uploadedById, userId),
-        isNull(contributionFilesTable.publishedRevisionId)
+  return reader.transaction(async (tx) => {
+    await tx
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .for("update")
+    const [retained] = await tx
+      .select({ id: contributionFilesTable.id })
+      .from(contributionFilesTable)
+      .where(
+        and(
+          eq(contributionFilesTable.id, fileId),
+          eq(contributionFilesTable.uploadedById, userId),
+          isNull(contributionFilesTable.publishedRevisionId),
+          fileRetainedByDraft()
+        )
       )
-    )
-    .returning({ id: contributionFilesTable.id })
-  return removed.length > 0
+    // The editor removes its selection; its next save releases the draft link.
+    // Another saved draft may still need these same private bytes.
+    if (retained) return true
+    const removed = await tx
+      .delete(contributionFilesTable)
+      .where(
+        and(
+          eq(contributionFilesTable.id, fileId),
+          eq(contributionFilesTable.uploadedById, userId),
+          isNull(contributionFilesTable.publishedRevisionId),
+          not(fileRetainedByDraft())
+        )
+      )
+      .returning({ id: contributionFilesTable.id })
+    return removed.length > 0
+  })
 }
 
 export async function readContributionFile(
@@ -155,6 +202,7 @@ export async function readContributionFile(
   const [file] = await reader
     .select({
       ...contributionFileSelection,
+      retained: fileRetainedByDraft(),
       uploadedById: contributionFilesTable.uploadedById
     })
     .from(contributionFilesTable)
@@ -163,7 +211,7 @@ export async function readContributionFile(
   if (
     file.publishedRevisionId === null &&
     (file.uploadedById !== userId ||
-      Date.parse(file.createdAt) < Date.parse(expiry()))
+      (!file.retained && Date.parse(file.createdAt) < Date.parse(expiry())))
   )
     return null
   const [data] = await reader
@@ -221,6 +269,7 @@ export async function publishContributionFiles(
   const files = await tx
     .select({
       ...contributionFileSelection,
+      retained: fileRetainedByDraft(),
       uploadedById: contributionFilesTable.uploadedById,
       termText: contributionFilesTable.termText,
       vocabularySlug: contributionFilesTable.vocabularySlug
@@ -237,7 +286,7 @@ export async function publishContributionFiles(
         file.publishedRevisionId !== null ||
         file.termText !== normalizeTerm(target.term) ||
         file.vocabularySlug !== target.vocabularySlug ||
-        Date.parse(file.createdAt) < Date.parse(expiry())
+        (!file.retained && Date.parse(file.createdAt) < Date.parse(expiry()))
     )
   )
     throw new TRPCError({
@@ -297,15 +346,7 @@ export async function listPendingContributionFiles(
   userId: number,
   reader: typeof db | Transaction = db
 ) {
-  await reader
-    .delete(contributionFilesTable)
-    .where(
-      and(
-        eq(contributionFilesTable.uploadedById, userId),
-        isNull(contributionFilesTable.publishedRevisionId),
-        lt(contributionFilesTable.createdAt, expiry())
-      )
-    )
+  await cleanupExpiredPendingFiles(userId, reader)
   return reader
     .select({
       ...contributionFileSelection,

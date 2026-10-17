@@ -38,6 +38,7 @@ import { contributorProcedure } from "../procedures"
 import { discardAiContributionSuggestion } from "@/lib/ai-contribution-suggestions"
 import { activeCommunityFor } from "@/lib/community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
+import { requireSetupVocabularyForContribution } from "@/lib/setup-service"
 import {
   CONTRIBUTOR_EXAMPLE_INSTRUCTIONS,
   contributorPromptInputsSchema,
@@ -58,6 +59,7 @@ export const aiAssistRouter = createTRPCRouter({
       z.object({
         term: z.string().trim().min(1).max(TERM_MAX_LENGTH),
         expectedVocabularySlug: z.string().trim().min(1).max(200).optional(),
+        vocabularySlug: z.string().trim().min(1).max(200).optional(),
         // An optional draft or note the contributor has already written. It is
         // context, not published content, and is retained with the suggestion.
         ...contributorPromptInputsSchema.shape,
@@ -71,9 +73,19 @@ export const aiAssistRouter = createTRPCRouter({
         input.assistantProfile
       )
       const term = input.term.trim().toLowerCase()
-      const activeCommunity = await activeCommunityFor(db, userId)
+      if (input.vocabularySlug)
+        await requireSetupVocabularyForContribution(
+          db,
+          input.vocabularySlug,
+          userId
+        )
+      const activeCommunity = input.vocabularySlug
+        ? null
+        : await activeCommunityFor(db, userId)
       const vocabularySlug =
-        activeCommunity?.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG
+        input.vocabularySlug ??
+        activeCommunity?.vocabularySlug ??
+        DEFAULT_VOCABULARY_SLUG
       if (
         input.expectedVocabularySlug !== undefined &&
         input.expectedVocabularySlug !== vocabularySlug

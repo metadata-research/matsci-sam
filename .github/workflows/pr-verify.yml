@@ -105,6 +105,7 @@ jobs:
         run: |
           pnpm test:vocabularies-db
           pnpm test:canonical-db
+          pnpm test:setup-db
 
       # Exercises the ORCID connection rules against the migrated schema. The
       # helpers open their own transactions, so the script deletes its fixture
@@ -147,6 +148,12 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
         run: |
           pnpm test:search-db
+
+      - name: Test private term drafts and publication retries
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+          SYSTEM_PROMPT_KEY: materials-reference
+        run: pnpm test:term-drafts-db
 
       - name: Test term visibility and submission controls
         env:
@@ -473,6 +480,9 @@ jobs:
         run: |
           pnpm test:interface
 
+      - name: Test draft autosave serialization and retries
+        run: pnpm test:term-drafts
+
       - name: Test Inference Providers
         run: pnpm test:inference
 
@@ -500,6 +510,7 @@ jobs:
       - name: Test Community Rules
         run: |
           pnpm test:communities
+          pnpm test:setup
 
       - name: Test Pilot Curation
         run: |

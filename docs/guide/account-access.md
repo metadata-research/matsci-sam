@@ -5,7 +5,7 @@ The vocabulary and documentation are public. Use your existing account to
 keep contributions and memberships together.
 
 Begin sign-in from a study page to return there afterward. Existing members
-can find activities under **Your studies** on their profile. See
+can find activities under **Your surveys** on their profile. See
 [Studies](/docs/studies#the-study-page) for joining and participation.
 
 ## Verified email sign-in
@@ -49,6 +49,13 @@ after an ORCID connection.
 Verify that you can sign in with Google or email before removing the connection.
 Select **Disconnect** in **Edit profile**. Your contributions retain their
 account attribution. ORCID display follows your profile visibility choice.
+
+## My drafts
+
+Open **My drafts** on your profile to resume or delete an unfinished new term.
+Drafts belong to your account and remain private even when your public profile
+is enabled. You can resume from another device by signing in to the same account.
+See [Save and resume a draft](/docs/adding-terms#save-and-resume-a-draft).
 
 ## Profile visibility
 

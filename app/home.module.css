@@ -14,13 +14,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-.helpLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.5rem;
-  margin-top: 1.5rem;
-}
-
 /* About's sans styling, with a smaller title for the full name on desktop. */
 .heroTitle {
   font-family: var(--font-plex-sans);
@@ -40,21 +33,13 @@
   text-wrap: wrap;
 }
 
-.actionPanels {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 3rem;
-  align-items: start;
+.findPanel {
+  min-width: 0;
+  width: min(100%, 36rem);
   margin-top: 1.5rem;
 }
 
-.findPanel,
-.contributionPanel {
-  min-width: 0;
-}
-
-.findPanel h2,
-.contributionPanel h2 {
+.findPanel h2 {
   margin-bottom: 0.85rem;
   font-size: 1.25rem;
   font-weight: 650;
@@ -67,8 +52,60 @@
   gap: 0.6rem;
 }
 
-.findPanel > .textLink {
-  margin-top: 0.85rem;
+.searchInputWrap {
+  position: relative;
+  min-width: 0;
+}
+
+.searchSuggestions {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 20;
+  width: 100%;
+  max-height: min(24rem, 50vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+
+.searchSuggestion {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.searchSuggestion:hover,
+.searchSuggestion[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.searchSuggestionTerm {
+  font-family: var(--font-plex-serif);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.searchSuggestionVocabulary {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.searchSuggestionStatus {
+  padding: 0.6rem 0.7rem;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .activityPanels {
@@ -103,10 +140,6 @@
   text-underline-offset: 0.2em;
 }
 
-.communityName + .actionPanels {
-  margin-top: 1.25rem;
-}
-
 .footer a {
   color: var(--foreground);
   text-decoration: underline;
@@ -122,10 +155,6 @@
   text-decoration-color: currentColor;
 }
 
-.contributionPanel {
-  scroll-margin-top: 1rem;
-}
-
 .recentTerms h2 {
   margin-bottom: 0.7rem;
   font-family: var(--font-plex-sans);
@@ -133,42 +162,11 @@
   font-weight: 650;
 }
 
-.contributionIntro {
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.55;
-}
-
-.definitionStarter {
-  margin-top: 0.9rem;
-}
-
-.definitionStarter label {
-  display: block;
-  margin-bottom: 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.definitionStarterRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.6rem;
-  align-items: center;
-}
-
 .contributionNote {
   margin-top: 0.55rem;
   color: var(--muted-foreground);
   font-size: 0.75rem;
   line-height: 1.5;
-}
-
-.contributionActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 0.85rem;
 }
 
 .textLink {
@@ -534,7 +532,6 @@
     padding-top: 1.5rem;
   }
 
-  .actionPanels,
   .activityPanels {
     grid-template-columns: 1fr;
     gap: 1.5rem;
@@ -587,14 +584,6 @@
   .personalSection {
     padding-right: 1rem;
     padding-left: 1rem;
-  }
-
-  .contributionActions > * {
-    width: 100%;
-  }
-
-  .definitionStarterRow {
-    grid-template-columns: 1fr;
   }
 
   .termActivity {

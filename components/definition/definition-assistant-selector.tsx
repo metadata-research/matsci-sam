@@ -10,9 +10,16 @@ type AssistantProfile = "default" | "agent-one"
 /** Explicit choices override preferences. A stale choice never silently falls back. */
 export function useDefinitionAssistant({
   enabled = true,
-  study = false
-}: { enabled?: boolean; study?: boolean } = {}) {
-  const [choice, setChoice] = useState<AssistantProfile | null>(null)
+  study = false,
+  initialProfile
+}: {
+  enabled?: boolean
+  study?: boolean
+  initialProfile?: AssistantProfile
+} = {}) {
+  const [choice, setChoice] = useState<AssistantProfile | null>(
+    initialProfile ?? null
+  )
   const utils = trpc.useUtils()
   const catalog = trpc.definitionAssistants.catalog.useQuery(undefined, {
     enabled,

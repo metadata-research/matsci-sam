@@ -73,7 +73,7 @@
   display: none;
 }
 
-.mobileMenu summary {
+.mobileMenu > summary {
   display: grid;
   width: 34px;
   height: 34px;
@@ -86,17 +86,17 @@
   transition: background-color 120ms ease;
 }
 
-.mobileMenu summary:hover,
-.mobileMenu[open] summary {
+.mobileMenu > summary:hover,
+.mobileMenu[open] > summary {
   background: var(--accent);
   color: var(--primary);
 }
 
-.mobileMenu summary::-webkit-details-marker {
+.mobileMenu > summary::-webkit-details-marker {
   display: none;
 }
 
-.mobileMenu summary svg {
+.mobileMenu > summary svg {
   width: 17px;
   height: 17px;
 }
@@ -122,6 +122,59 @@
   display: grid;
 }
 
+.mobileNavGroup {
+  border-bottom: 1px solid var(--border);
+}
+
+.mobileNavGroup > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.mobileNavGroup > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mobileNavGroup > summary:hover,
+.mobileNavGroup:has(a[data-active]) > summary {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.mobileNavGroup > summary svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.mobileNavGroup[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+.mobileNavContents {
+  padding: 0 0 8px 8px;
+}
+
+.mobileLinkGroup {
+  display: grid;
+}
+
+.mobileLinkGroup + .mobileLinkGroup {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
 .mobileMenuPanel nav a {
   padding: 10px 12px;
   border-radius: var(--radius-md);
@@ -143,6 +196,34 @@
 
 .menuLink {
   cursor: pointer;
+}
+
+.primaryMenu {
+  width: 15rem;
+  padding: 6px;
+}
+
+.wideMenu {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 31rem;
+}
+
+.primaryMenu .menuLink {
+  min-height: 36px;
+  padding-inline: 10px;
+}
+
+.wideMenu .menuGroup + .menuGroup {
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.menuGroupLabel {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .mobileMenuPanel nav .secondaryNavLink {
@@ -283,7 +364,8 @@
 
 .navButton:focus-visible,
 .menuLink:focus-visible,
-.mobileMenu summary:focus-visible,
+.mobileMenu > summary:focus-visible,
+.mobileNavGroup > summary:focus-visible,
 .mobileMenuPanel nav a:focus-visible,
 .searchLink:focus-visible,
 .logoHome:focus-visible {
@@ -296,7 +378,7 @@
   color: var(--primary-foreground);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1150px) {
   .wrapper {
     padding: 8px 8px 4px;
   }

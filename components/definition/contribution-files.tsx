@@ -44,6 +44,7 @@ type Props = {
   onFilesChange: (files: DraftContributionFile[]) => void
   term: string
   vocabularySlug: string
+  explicitVocabulary?: boolean
   disabled?: boolean
   onBusyChange?: (busy: boolean) => void
   inline?: boolean
@@ -80,6 +81,7 @@ export function ContributionFileFields({
   onFilesChange,
   term,
   vocabularySlug,
+  explicitVocabulary = false,
   disabled,
   onBusyChange,
   exampleOnly = false
@@ -151,6 +153,7 @@ export function ContributionFileFields({
     const metadata = contributionFileMetadataSchema.safeParse({
       term,
       vocabularySlug,
+      explicitVocabulary,
       filename: file.name,
       role,
       title,
@@ -455,8 +458,8 @@ export function ContributionFileFields({
         </fieldset>
       ) : null}
       <p className="text-xs text-muted-foreground">
-        Attachments are not sent to the assistant. Unpublished uploads expire
-        after 24 hours.
+        Attachments are not sent to the assistant. Unpublished uploads that
+        are not saved in a draft expire after 24 hours.
       </p>
       {error ? (
         <p role="alert" className="text-sm text-destructive">

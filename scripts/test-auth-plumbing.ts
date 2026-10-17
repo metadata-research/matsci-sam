@@ -153,6 +153,29 @@ assert.equal(EmailAuthIntentSchema.safeParse("create").success, true)
 assert.equal(EmailAuthIntentSchema.safeParse("register").success, false)
 
 const invitationReturnTo = `/invite/${"a".repeat(43)}`
+for (const path of [
+  "/setup",
+  "/setup?task=import&vocabularySlug=materials&communityId=12",
+  "/add",
+  "/add?vocabularySlug=materials&term=grain+boundary",
+  "/add?term=Fe%2FC"
+])
+  assert.equal(normalizeAuthReturnTo(path), path)
+for (const path of [
+  "/setup?next=https://example.org",
+  "/setup?task=admin",
+  "/setup?task=import&task=community",
+  "/setup?communityId=-1",
+  "/setup?vocabularySlug=../admin",
+  "/add?term=a%0Ab",
+  "/add?vocabularySlug=a&vocabularySlug=b",
+  "/add#example",
+  "/setup/../admin",
+  "//example.org/setup",
+  "/add\\example",
+  "/setup?task=import?next=x"
+])
+  assert.equal(normalizeAuthReturnTo(path), null, path)
 assert.equal(normalizeAuthReturnTo(invitationReturnTo), invitationReturnTo)
 assert.equal(normalizeAuthReturnTo("/invite/too-short"), null)
 assert.equal(normalizeAuthReturnTo("/profile"), null)

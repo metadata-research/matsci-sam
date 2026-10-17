@@ -13,6 +13,7 @@ metadata reference.
 | [Metadata publication](metadata-publication.md)                          | Document endpoints, RDF mappings, named graphs, source evidence and historical attribution |
 | [Contribution files](contribution-files.md)                              | Upload validation, private pending files, publication scope, downloads and cleanup         |
 | [Contribution controls](contribution-controls.md)                        | Reversible term visibility, publication limits, duplicates and verification                |
+| [Saved term drafts](term-drafts-progress.md)                             | Implementation progress, private drafts, editor handoff, publication and verification      |
 | [Statement ledger](knowledge-organization-ledger.md)                     | Schema, authorization, invariants, and RDF export                                          |
 | [Examples of use](examples.md)                                           | Immutable contributions and the history of featured selections                             |
 | [Graph layer](graph-layer.md)                                            | Projection, Fuseki, SHACL, and graph checks                                                |

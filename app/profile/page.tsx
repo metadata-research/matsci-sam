@@ -174,9 +174,9 @@ export default async function ProfilePage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Your studies</CardTitle>
+            <CardTitle>Your surveys</CardTitle>
             <CardDescription>
-              The studies of the communities you belong to.
+              The surveys of the communities you belong to.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -200,14 +200,31 @@ export default async function ProfilePage({
             ) : (
               <div className="space-y-3 py-3 text-sm text-muted-foreground">
                 <p>
-                  You are not in any studies yet. A study appears here once you
+                  You are not in any surveys yet. A survey appears here once you
                   join the community running it.
                 </p>
                 <Button asChild size="sm" variant="outline">
-                  <Link href="/studies">See the studies</Link>
+                  <Link href="/studies">See the surveys</Link>
                 </Button>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>My drafts</h2>
+            </CardTitle>
+            <CardDescription>
+              Private term drafts saved to your account. Resume a draft to
+              continue writing, or delete one you no longer need.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link href="/profile/drafts">Open My drafts</Link>
+            </Button>
           </CardContent>
         </Card>
 

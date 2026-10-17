@@ -238,6 +238,8 @@ export const DocsShell = ({
             prose-code:before:content-none prose-code:after:content-none
             prose-img:rounded-lg prose-img:border prose-img:border-border
             prose-h2:scroll-mt-20
+            [&_.doc-section]:my-10 [&_.doc-section>h2]:mt-0
+            [&_.doc-section>:last-child]:mb-0
           prose-table:block prose-table:overflow-x-auto
           [&_details]:my-6 [&_details]:rounded-md [&_details]:border
           [&_details]:border-border [&_details]:px-4 [&_details]:py-3
