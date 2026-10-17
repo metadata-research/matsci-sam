@@ -13,7 +13,7 @@ import {
 import { useForm, useWatch } from "react-hook-form"
 import {
   ModelReferenceEvidence,
-  modelPromptReferenceSummary
+  modelPromptEvidenceSummary
 } from "./model-reference-evidence"
 import { ModelDraftingStatus } from "./model-drafting-status"
 import {
@@ -1385,8 +1385,8 @@ const DefinitionFormOwner = ({
             <>
               <p className="text-xs text-muted-foreground">
                 Drafted by {preview.assistantLabel}.
-                {!simpleAdd &&
-                  ` ${modelPromptReferenceSummary(preview.referenceCount)}`}
+                {(!simpleAdd || !!preview.sourceInputs?.length) &&
+                  ` ${modelPromptEvidenceSummary(preview.referenceCount, preview.sourceInputs?.length)}`}
               </p>
               {!simpleAdd && (
                 <ModelReferenceEvidence inputs={preview.referenceInputs} />
@@ -2042,9 +2042,12 @@ const DefinitionFormOwner = ({
                                       <p className="text-xs text-muted-foreground">
                                         Model draft applied from{" "}
                                         {appliedDraft.assistantLabel}.{" "}
-                                        {!simpleAdd &&
-                                          `${modelPromptReferenceSummary(
-                                            appliedDraft.referenceCount
+                                        {(!simpleAdd ||
+                                          !!appliedDraft.sourceInputs
+                                            ?.length) &&
+                                          `${modelPromptEvidenceSummary(
+                                            appliedDraft.referenceCount,
+                                            appliedDraft.sourceInputs?.length
                                           )} `}
                                         Model attribution is retained as you
                                         edit.
@@ -2178,14 +2181,20 @@ const DefinitionFormOwner = ({
                         <p className="font-medium">Model contribution</p>
                         {appliedDraft && simpleAdd ? (
                           <p className="text-muted-foreground">
-                            Drafted with {appliedDraft.assistantLabel}. Model
-                            attribution stays with this contribution.
+                            Drafted with {appliedDraft.assistantLabel}.{" "}
+                            {!!appliedDraft.sourceInputs?.length &&
+                              `${modelPromptEvidenceSummary(
+                                appliedDraft.referenceCount,
+                                appliedDraft.sourceInputs.length
+                              )} `}
+                            Model attribution stays with this contribution.
                           </p>
                         ) : appliedDraft ? (
                           <p className="text-muted-foreground">
                             Drafted with {appliedDraft.assistantLabel}.{" "}
-                            {modelPromptReferenceSummary(
-                              appliedDraft.referenceCount
+                            {modelPromptEvidenceSummary(
+                              appliedDraft.referenceCount,
+                              appliedDraft.sourceInputs?.length
                             )}{" "}
                             These model inputs are recorded separately from your
                             citations.

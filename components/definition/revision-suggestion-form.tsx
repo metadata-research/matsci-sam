@@ -12,7 +12,7 @@ import {
 } from "./chebi-reference-panel"
 import {
   ModelReferenceEvidence,
-  modelPromptReferenceSummary
+  modelPromptEvidenceSummary
 } from "./model-reference-evidence"
 import { ModelDraftingStatus } from "./model-drafting-status"
 import {
@@ -456,12 +456,12 @@ function RevisionSuggestionWorkspace({
               {!simple && (
                 <div className="flex flex-col gap-1 rounded-lg border p-3 text-sm">
                   <p className="font-medium">
-                    {modelPromptReferenceSummary(draft.referenceCount)}
+                    {modelPromptEvidenceSummary(draft.referenceCount)}
                   </p>
                   <p className="text-muted-foreground">
-                    This records references sent to the model. References cited
-                    in its response are separate. Later selections do not change
-                    the recorded inputs.
+                    This records lookup references sent to the model. References
+                    cited in its response are separate. Later selections do not
+                    change the recorded inputs.
                   </p>
                 </div>
               )}
@@ -751,7 +751,7 @@ function RevisionSuggestionWorkspace({
                           <p className="break-words text-xs text-muted-foreground">
                             Drafted by {preview.assistantLabel}.
                             {!simple &&
-                              ` ${modelPromptReferenceSummary(preview.referenceCount)}`}
+                              ` ${modelPromptEvidenceSummary(preview.referenceCount)}`}
                           </p>
                           {!simple && (
                             <p className="text-xs text-muted-foreground">
