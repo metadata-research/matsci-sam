@@ -1,7 +1,11 @@
 import "server-only"
 
 import nodemailer, { type Transporter } from "nodemailer"
-import { google, type gmail_v1 } from "googleapis"
+import {
+  auth as googleAuth,
+  gmail,
+  type gmail_v1
+} from "googleapis/build/src/apis/gmail"
 import { getAuthSiteUrl } from "@/lib/email-auth"
 import { createEmailAuthLinkFragment } from "@/lib/email-auth-token"
 import { SITE_NAME } from "@/lib/site"
@@ -69,7 +73,7 @@ const getMimeTransporter = () => {
 const getGmailClient = () => {
   if (gmailClient) return gmailClient
 
-  const auth = new google.auth.OAuth2(
+  const auth = new googleAuth.OAuth2(
     requiredEmailSetting("EMAIL_AUTH_GMAIL_CLIENT_ID"),
     requiredEmailSetting("EMAIL_AUTH_GMAIL_CLIENT_SECRET")
   )
@@ -77,7 +81,7 @@ const getGmailClient = () => {
     refresh_token: requiredEmailSetting("EMAIL_AUTH_GMAIL_REFRESH_TOKEN")
   })
 
-  gmailClient = google.gmail({ version: "v1", auth })
+  gmailClient = gmail({ version: "v1", auth })
   return gmailClient
 }
 

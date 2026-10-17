@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto"
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { google } from "googleapis"
+import { auth as googleAuth } from "googleapis/build/src/apis/gmail"
 
 const callbackPort = 53682
 const callbackPath = "/oauth2callback"
@@ -37,7 +37,7 @@ const main = async () => {
       `The OAuth client must include the redirect URI ${callbackUrl}`
     )
 
-  const oauth = new google.auth.OAuth2(
+  const oauth = new googleAuth.OAuth2(
     client.client_id,
     client.client_secret,
     callbackUrl
