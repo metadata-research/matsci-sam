@@ -1824,7 +1824,7 @@ const DefinitionFormOwner = ({
                                       field.ref(node)
                                       editorRef.current = node
                                     }}
-                                    className="h-40 max-h-80 resize-y field-sizing-fixed"
+                                    className="h-40 max-h-80 resize-y field-sizing-fixed bg-definition dark:bg-definition"
                                     maxLength={DEFINITION_MAX_LENGTH}
                                     disabled={
                                       mutation.isPending ||
@@ -2050,7 +2050,7 @@ const DefinitionFormOwner = ({
                     </h2>
                     <div className="flex flex-col gap-2">
                       <p className="font-medium">Definition</p>
-                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                      <p className="rounded-md border bg-definition p-3 whitespace-pre-wrap break-words text-sm leading-relaxed">
                         {definitionValue}
                       </p>
                       <Button

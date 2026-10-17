@@ -1626,6 +1626,7 @@ function SetupTermDraftFields({
         <FieldLabel htmlFor="setup-definition">First definition</FieldLabel>
         <Textarea
           id="setup-definition"
+          className="bg-definition dark:bg-definition"
           value={saved.payload.definition}
           required
           disabled={disabled}

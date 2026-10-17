@@ -271,6 +271,11 @@ error did not retain enough detail to establish its cause. Allowlisted server
 and admin-test diagnostics now identify HTTP, timeout, transport and invalid
 response failures without including prompts, credentials or provider bodies.
 
+The contributor's definition now uses a distinct pale blue surface in writing,
+guided setup and review, with a matching dark-mode color. References and model
+proposals keep their existing treatment. Desktop/mobile light/dark browser
+checks pass. This visual follow-up is also local and not yet deployed.
+
 ## Remaining work and limitations
 
 Copy follow-up (2026-10-17): replaced the guided setup introduction with a
