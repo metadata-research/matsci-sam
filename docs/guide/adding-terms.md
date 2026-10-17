@@ -14,7 +14,7 @@ community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
    broader class and distinguishing characteristics when useful. **Add an example**
    opens an optional example of use.
 3. Select **Review definition**. Check the wording, example, attribution and
-   any citations. Select files under **Files to publish**. **Back to writing**
+   any citations. Check **Files and text to publish**. **Back to writing**
    returns to the editor for changes.
 4. Select **Publish new term**. The term and its first definition become public.
    An example you supply has its own attribution.
@@ -50,14 +50,14 @@ changed the draft. Copy any writing you need before reloading the saved version.
 ## Simple and Advanced views
 
 Choose **Simple** or **Advanced** under **View**. The site saves your choice
-on other pages. Simple shows the writing form with **Attach an example file**
+on other pages. Simple shows the writing form with **Add file or text**
 and **Help me write with AI**. Advanced adds reference definitions, matches across
 available ontologies, and the hierarchy of the selected concept beside the
 form. These panels move below the form on small screens.
 
 The Advanced toolbar appears above the writing form and opens **Wolfram lookup**,
-**AI assistance**, **Citations**, and **Attach file**. Citations and source files are added in
-Advanced. View changes preserve your draft, selected sources, and tool
+**AI assistance**, **Citations**, and **Add file or text**. File and pasted-text
+sources are available in both views. View changes preserve your draft, selected sources, and tool
 settings. Use [term metadata](/docs/term-metadata) to save an ontology relationship
 for review.
 
@@ -102,9 +102,10 @@ request only when you select it as context. See
 Study contributions also record progress through the
 [study activity](/docs/studies).
 
-## Attach a file
+## Add file or text
 
-Select **Attach an example file** in Simple to upload an example, or **Attach
-file** in Advanced to upload an example or a source. Select files during review
-to publish them with the definition. Unselected files stay private. See
-[Files and examples](/docs/files-and-examples) for the steps and file limits.
+Select **Add file or text** to upload a document, paste source text, or add an
+image example. You can cite a source yourself or choose checked passages to
+send with an assistant request. Sources used by an accepted suggestion stay
+with the published definition. See [Files and examples](/docs/files-and-examples)
+for the steps and limits.

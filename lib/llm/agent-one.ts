@@ -3,6 +3,7 @@ import { providerReportedSources } from "../provider-reported-sources"
 import type { InferenceConfig } from "./config"
 import {
   InferenceError,
+  type InferenceFailureDiagnostic,
   type InferenceMessage,
   type InferenceMetadata,
   type InferenceResult
@@ -169,19 +170,22 @@ export async function generateAgentOne(
   messages: InferenceMessage[],
   systemPrompt: string,
   fetcher: typeof fetch = fetch
-): Promise<InferenceResult<string> | undefined> {
+): Promise<InferenceResult<string>> {
   if (
     config.provider !== "wolfram-agent-one" ||
     !config.apiKey ||
     config.baseUrl !== AGENT_ONE_ENDPOINT
   )
     throw new InferenceError("configuration")
+  const started = performance.now()
+  const signal = AbortSignal.timeout(config.timeoutMs)
+  let httpStatus: number | undefined
   try {
     const response = await fetcher(config.baseUrl, {
       method: "POST",
       redirect: "error",
       cache: "no-store",
-      signal: AbortSignal.timeout(config.timeoutMs),
+      signal,
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -199,6 +203,7 @@ export async function generateAgentOne(
       })
     })
     if (!response.ok) {
+      httpStatus = response.status
       await response.body?.cancel()
       throw new InferenceError(
         response.status === 401 || response.status === 403
@@ -215,9 +220,10 @@ export async function generateAgentOne(
       data.success === false ||
       (typeof data.code === "number" && data.code !== 200)
     )
-      return undefined
+      throw new InferenceError("unsupported_format")
     const choices = data.choices
-    if (!Array.isArray(choices) || choices.length !== 1) return undefined
+    if (!Array.isArray(choices) || choices.length !== 1)
+      throw new InferenceError("unsupported_format")
     const choice = record(choices[0])
     const message = record(choice?.message)
     if (
@@ -227,9 +233,9 @@ export async function generateAgentOne(
       message.role !== "assistant" ||
       typeof message.content !== "string"
     )
-      return undefined
+      throw new InferenceError("unsupported_format")
     const answer = agentOneFinalAnswer(message.content)
-    if (answer === undefined) return undefined
+    if (answer === undefined) throw new InferenceError("unsupported_format")
     return {
       output: answer,
       inference: {
@@ -239,7 +245,27 @@ export async function generateAgentOne(
       }
     }
   } catch (error) {
-    if (error instanceof InferenceError) throw error
-    throw new InferenceError("unavailable", true)
+    const failure =
+      error instanceof InferenceError
+        ? error
+        : new InferenceError("unavailable", true)
+    const diagnostic: InferenceFailureDiagnostic = {
+      provider: "wolfram-agent-one",
+      category:
+        httpStatus !== undefined
+          ? "http"
+          : signal.aborted
+            ? "timeout"
+            : error instanceof InferenceError
+              ? "invalid_response"
+              : "transport",
+      elapsedMs: Math.round(performance.now() - started),
+      timeoutMs: config.timeoutMs,
+      ...(httpStatus !== undefined ? { httpStatus } : {})
+    }
+    // Log only our allowlisted fields. Provider error bodies and exception
+    // messages may contain credentials, request inputs or private reasoning.
+    console.warn("Agent One request failed", diagnostic)
+    throw new InferenceError(failure.code, failure.retryable, diagnostic)
   }
 }

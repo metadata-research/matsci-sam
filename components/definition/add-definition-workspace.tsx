@@ -80,8 +80,8 @@ const commands = [
   { value: "citations", label: "Citations", icon: QuoteIcon },
   {
     value: "files",
-    label: "Attach file",
-    simpleLabel: "Attach an example file",
+    label: "Add file or text",
+    simpleLabel: "Add file or text",
     icon: PaperclipIcon
   }
 ] as const
@@ -140,7 +140,13 @@ export function DefinitionToolbox({
               key={value}
               id={`${id}-${value}-command`}
               type="button"
-              variant={active === value ? "secondary" : "ghost"}
+              variant={
+                value === "files"
+                  ? "outline"
+                  : active === value
+                    ? "secondary"
+                    : "ghost"
+              }
               size="sm"
               disabled={disabled}
               aria-expanded={active === value}

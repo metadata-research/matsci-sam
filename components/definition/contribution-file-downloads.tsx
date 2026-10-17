@@ -28,6 +28,19 @@ export function ContributionFileDownloads({
             {file.role === "source" ? "Source" : "Example"} · {file.filename} ·{" "}
             {formatContributionFileSize(file.byteSize)}
           </p>
+          {file.role === "source" ? (
+            <div className="flex flex-wrap gap-2 text-xs font-medium">
+              {file.contributorCited !== false ? (
+                <span>Cited by contributor</span>
+              ) : null}
+              {file.assistantUsed ? <span>Used by assistant</span> : null}
+              <a className="underline" href={`/sources/${file.id}`}>
+                {file.origin === "paste"
+                  ? "Read pasted text"
+                  : "Read source text"}
+              </a>
+            </div>
+          ) : null}
           {showCaption ? (
             <p className="whitespace-pre-wrap text-muted-foreground">
               {file.caption}

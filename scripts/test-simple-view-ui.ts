@@ -565,17 +565,17 @@ async function main() {
       page.getByRole("button", { name: "Add a citation" })
     ).toHaveCount(0)
     const exampleFile = page.getByRole("button", {
-      name: "Attach an example file",
+      name: "Add file or text",
       exact: true
     })
     await exampleFile.click()
     const filePanel = page.getByRole("region", {
-      name: "Attach an example file"
+      name: "Add file or text"
     })
     await expect(
-      filePanel.getByRole("button", { name: "Attach example", exact: true })
+      filePanel.getByRole("button", { name: "Attach source", exact: true })
     ).toBeVisible()
-    await expect(page.getByLabel("Use as")).toBeHidden()
+    await expect(page.getByLabel("Use as")).toBeVisible()
     await page
       .locator("[data-definition-toolbox]")
       .getByRole("button", { name: "Close tool" })
@@ -712,7 +712,7 @@ async function main() {
         "Wolfram lookup",
         "AI assistance",
         "Citations",
-        "Attach file"
+        "Add file or text"
       ])
         assert.ok(
           visited.includes(label),

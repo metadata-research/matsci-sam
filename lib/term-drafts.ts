@@ -9,6 +9,8 @@ import {
   termDraftsTable,
   termReferenceLookupsTable,
   usersTable,
+  sourceChecksTable,
+  sourceExtractionsTable,
   vocabulariesTable
 } from "@yamz/db"
 import {
@@ -19,6 +21,7 @@ import { contributionFileSelection } from "./contribution-files"
 import { CONTRIBUTION_FILE_PENDING_HOURS } from "./contribution-file-types"
 import { fileRetainedByDraft } from "./term-draft-file-retention"
 import { publishNewTerm } from "./new-term-publication"
+import { modelIdentity } from "./llm/model-identity"
 import {
   TERM_DRAFT_MAX_COUNT,
   termDraftPayloadSchema,
@@ -76,6 +79,32 @@ async function validateEvidence(
   payload: TermDraftPayload,
   ownerId: number
 ) {
+  for (const source of payload.sources ?? []) {
+    const [owned] = await reader
+      .select({ id: sourceChecksTable.id })
+      .from(sourceChecksTable)
+      .innerJoin(
+        sourceExtractionsTable,
+        eq(sourceChecksTable.extractionId, sourceExtractionsTable.id)
+      )
+      .innerJoin(
+        contributionFilesTable,
+        eq(sourceExtractionsTable.fileId, contributionFilesTable.id)
+      )
+      .where(
+        and(
+          eq(sourceChecksTable.id, source.checkId),
+          eq(sourceChecksTable.requestedById, ownerId),
+          eq(contributionFilesTable.id, source.fileId),
+          eq(contributionFilesTable.uploadedById, ownerId)
+        )
+      )
+    if (!owned)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "A document source does not belong to this draft's owner."
+      })
+  }
   const ids = suggestionIds(payload)
   if (ids.length) {
     const owned = await reader
@@ -125,7 +154,28 @@ async function retainFiles(
     .from(usersTable)
     .where(eq(usersTable.id, ownerId))
     .for("update")
-  const ids = payload.files.map((file) => file.fileId)
+  const suggestions = suggestionIds(payload)
+  const savedSuggestions = suggestions.length
+    ? await tx
+        .select({ sourceInputs: aiContributionSuggestionsTable.sourceInputs })
+        .from(aiContributionSuggestionsTable)
+        .where(
+          and(
+            inArray(aiContributionSuggestionsTable.id, suggestions),
+            eq(aiContributionSuggestionsTable.requestedById, ownerId),
+            eq(aiContributionSuggestionsTable.status, "generated")
+          )
+        )
+    : []
+  const ids = [
+    ...new Set([
+      ...payload.files.map((file) => file.fileId),
+      ...(payload.sources ?? []).map((source) => source.fileId),
+      ...savedSuggestions.flatMap((suggestion) =>
+        (suggestion.sourceInputs ?? []).map((source) => source.fileId)
+      )
+    ])
+  ]
   if (ids.length) {
     const files = await tx
       .select({
@@ -168,22 +218,36 @@ async function retainFiles(
 async function draftResult(reader: Reader, draft: Draft) {
   const payload = draft.payload ? structuredClone(draft.payload) : null
   const warnings: string[] = []
-  const files = payload?.files.length
+  const boundFiles = payload
+    ? await reader
+        .select({ fileId: termDraftFilesTable.fileId })
+        .from(termDraftFilesTable)
+        .where(eq(termDraftFilesTable.draftId, draft.id))
+    : []
+  const fileIds = [
+    ...new Set([
+      ...(payload?.files ?? []).map((file) => file.fileId),
+      ...boundFiles.map((file) => file.fileId)
+    ])
+  ]
+  const files = fileIds.length
     ? await reader
         .select(contributionFileSelection)
         .from(contributionFilesTable)
         .where(
           and(
-            inArray(
-              contributionFilesTable.id,
-              payload.files.map((file) => file.fileId)
-            ),
+            inArray(contributionFilesTable.id, fileIds),
             eq(contributionFilesTable.uploadedById, draft.ownerId),
             isNull(contributionFilesTable.publishedRevisionId)
           )
         )
     : []
-  if (payload && files.length !== payload.files.length)
+  if (
+    payload &&
+    payload.files.some(
+      (selection) => !files.some((file) => file.id === selection.fileId)
+    )
+  )
     warnings.push(
       "An attachment is unavailable. Remove it or attach the file again before publishing."
     )
@@ -228,10 +292,14 @@ async function draftResult(reader: Reader, draft: Draft) {
             : "default",
         assistantLabel:
           suggestion.inference?.provider === "wolfram-agent-one"
-            ? "Agent One"
-            : suggestion.model,
+            ? "Wolfram Agent One"
+            : modelIdentity(suggestion.model).displayName.replace(
+                /^MatBot /,
+                ""
+              ),
         referenceCount: suggestion.referenceInputs?.length ?? 0,
         referenceInputs: suggestion.referenceInputs ?? [],
+        sourceInputs: suggestion.sourceInputs ?? [],
         requestInputs: {
           definition: suggestion.inputDefinition,
           example: suggestion.inputExample,

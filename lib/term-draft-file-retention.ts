@@ -11,13 +11,22 @@ import { CONTRIBUTION_FILE_PENDING_HOURS } from "./contribution-file-types"
 /** The owning account can keep a private attachment with an active draft.
  * Keep correlated identifiers explicit: Drizzle strips interpolated column
  * qualifiers when this expression is selected from a single outer table. */
-export const fileRetainedByDraft = () => sql<boolean>`exists (
+export const fileRetainedByDraft = () => sql<boolean>`(exists (
   select 1 from ${termDraftFilesTable}
   join ${termDraftsTable} on "termDrafts"."id" = "termDraftFiles"."draftId"
   where "termDraftFiles"."fileId" = "contributionFiles"."id"
     and "termDrafts"."ownerId" = "contributionFiles"."uploadedById"
     and "termDrafts"."payload" is not null
-)`
+) OR exists (
+  select 1 from "sourceLeases" l
+  where l."fileId" = "contributionFiles"."id" and l."expiresAt" > now()
+) OR exists (
+  select 1 from "aiContributionSuggestions" a,
+    jsonb_array_elements(coalesce(a."sourceInputs", '[]'::jsonb)) s
+  where s->>'fileId' = "contributionFiles"."id"::text
+    and a."requestedById" = "contributionFiles"."uploadedById"
+    and (a.status = 'accepted' or (a.status = 'generated' and a."createdAt" > now() - interval '24 hours'))
+))`
 
 /** Serialize cleanup with new draft bindings, so a waiting DELETE cannot
  * remove a file retained by an autosave that just committed. */

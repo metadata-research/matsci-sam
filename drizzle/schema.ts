@@ -1387,6 +1387,10 @@ export const aiContributionSuggestionsTable = pgTable(
     referenceInputs:
       jsonb().$type<import("../lib/reference-types").ModelReferenceInput[]>(),
     referencePrompt: text(),
+    sourceInputs:
+      jsonb().$type<
+        import("../lib/source-document-types").SourceInputSnapshot[]
+      >(),
     suggestedDefinition: text().notNull(),
     promptKey: text().notNull(),
     promptHash: text().notNull(),
@@ -2947,6 +2951,9 @@ export const contributionFilesTable = pgTable(
     caption: text().notNull(),
     citation: text(),
     page: text(),
+    origin: text().$type<"upload" | "paste">().notNull().default("upload"),
+    contributorCited: boolean().notNull().default(true),
+    publishedExtractionId: uuid(),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -2968,7 +2975,7 @@ export const contributionFilesTable = pgTable(
     ),
     check(
       "contribution_files_media_type",
-      sql`${t.mediaType} IN ('application/pdf', 'image/png', 'image/jpeg')`
+      sql`${t.mediaType} IN ('application/pdf', 'image/png', 'image/jpeg', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')`
     ),
     check("contribution_files_role", sql`${t.role} IN ('example', 'source')`),
     check("contribution_files_hash", sql`${t.contentHash} ~ '^[a-f0-9]{64}$'`),
@@ -2980,6 +2987,97 @@ export const contributionFilesTable = pgTable(
       "contribution_files_publication",
       sql`(${t.publishedRevisionId} IS NULL AND ${t.publishedAt} IS NULL AND ${t.exampleId} IS NULL) OR (${t.publishedRevisionId} IS NOT NULL AND ${t.publishedAt} IS NOT NULL AND ${t.publishedAt} >= ${t.createdAt} AND ((${t.role} = 'source' AND ${t.exampleId} IS NULL) OR (${t.role} = 'example' AND ${t.exampleId} IS NOT NULL)))`
     )
+  ]
+)
+
+export const sourceExtractionsTable = pgTable(
+  "sourceExtractions",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    fileId: uuid()
+      .notNull()
+      .references(() => contributionFilesTable.id, { onDelete: "cascade" }),
+    status: text()
+      .$type<"queued" | "processing" | "ready" | "failed">()
+      .notNull()
+      .default("queued"),
+    forceOcr: boolean().notNull().default(false),
+    parentExtractionId: uuid().references(
+      (): AnyPgColumn => sourceExtractionsTable.id,
+      { onDelete: "cascade" }
+    ),
+    correctedById: integer().references(() => usersTable.id),
+    text: text(),
+    textHash: text(),
+    pages: jsonb().$type<import("../lib/source-document-types").SourcePage[]>(),
+    hasOcr: boolean().notNull().default(false),
+    method: text(),
+    parserVersion: text(),
+    error: text(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    startedAt: timestamp({ mode: "string", withTimezone: true }),
+    completedAt: timestamp({ mode: "string", withTimezone: true })
+  },
+  (t) => [
+    index("source_extractions_file_idx").on(t.fileId, t.createdAt),
+    index("source_extractions_queue_idx").on(t.status, t.createdAt),
+    check(
+      "source_extractions_status",
+      sql`${t.status} IN ('queued','processing','ready','failed')`
+    ),
+    check(
+      "source_extractions_size",
+      sql`${t.text} IS NULL OR char_length(${t.text}) <= 200000`
+    ),
+    check(
+      "source_extractions_result",
+      sql`${t.status} <> 'ready' OR (${t.text} IS NOT NULL AND btrim(${t.text}) <> '' AND ${t.textHash} ~ '^[a-f0-9]{64}$' AND ${t.pages} IS NOT NULL AND ${t.completedAt} IS NOT NULL)`
+    )
+  ]
+)
+
+export const sourceChecksTable = pgTable(
+  "sourceChecks",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    extractionId: uuid()
+      .notNull()
+      .references(() => sourceExtractionsTable.id, { onDelete: "cascade" }),
+    requestedById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    term: text().notNull(),
+    aliases: jsonb().$type<string[]>().notNull(),
+    matches: jsonb()
+      .$type<import("../lib/source-document-types").SourceMatch[]>()
+      .notNull(),
+    passages: jsonb()
+      .$type<import("../lib/source-document-types").SourcePassage[]>()
+      .notNull(),
+    matcherVersion: text().notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [index("source_checks_extraction_idx").on(t.extractionId)]
+)
+
+// A short reservation bridges source validation and the persisted suggestion.
+// It prevents cleanup from deleting input while a provider call is in flight.
+export const sourceLeasesTable = pgTable(
+  "sourceLeases",
+  {
+    requestId: uuid().notNull(),
+    fileId: uuid()
+      .notNull()
+      .references(() => contributionFilesTable.id, { onDelete: "cascade" }),
+    expiresAt: timestamp({ mode: "string", withTimezone: true }).notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.requestId, t.fileId] }),
+    index("source_leases_file_idx").on(t.fileId)
   ]
 )
 

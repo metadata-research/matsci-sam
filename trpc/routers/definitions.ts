@@ -653,6 +653,7 @@ export const definitionsRouter = createTRPCRouter({
 
           await publishContributionFiles(tx, {
             attachments: input.attachments,
+            modelSources: aiSuggestion?.sourceInputs ?? [],
             authorId,
             termId: dbTerm.id,
             revisionId: insertedRevision.id

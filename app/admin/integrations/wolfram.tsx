@@ -157,6 +157,16 @@ export const WolframCard = () => {
                   {(result.elapsedMs / 1000).toFixed(2)} s
                 </p>
                 <p className="text-muted-foreground">{result.message}</p>
+                {result.diagnostic ? (
+                  <p className="text-xs text-muted-foreground">
+                    Failure: {result.diagnostic.category.replaceAll("_", " ")}
+                    {result.diagnostic.httpStatus !== undefined
+                      ? ` · HTTP ${result.diagnostic.httpStatus}`
+                      : ""}
+                    {" · Request limit: "}
+                    {result.diagnostic.timeoutMs / 1000} s
+                  </p>
+                ) : null}
                 {result.inference ? (
                   <p className="break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
                     Service: Wolfram Agent One · Requested model:{" "}

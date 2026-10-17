@@ -1,5 +1,9 @@
 import { z } from "zod"
 import {
+  sourceContextSelectionsSchema,
+  sourceInputSnapshotSchema
+} from "./source-document-selection"
+import {
   DEFINITION_MAX_LENGTH,
   EXAMPLE_MAX_LENGTH,
   TERM_MAX_LENGTH
@@ -49,6 +53,7 @@ const modelSnapshot = z
     inference: jsonValue.optional(),
     referenceCount: z.number().int().nonnegative().optional(),
     referenceInputs: z.array(jsonValue).max(20).optional(),
+    sourceInputs: z.array(sourceInputSnapshotSchema).max(3).optional(),
     requestInputs: jsonValue.optional(),
     baseline: writingSnapshot,
     promptInputs: z
@@ -112,6 +117,7 @@ export const termDraftPayloadSchema = z
     files: z
       .array(z.object({ fileId: z.string().uuid(), publish: z.boolean() }))
       .max(3),
+    sources: sourceContextSelectionsSchema.default([]),
     aiSuggestionId: z.number().int().positive().nullable(),
     editorState: termDraftEditorStateSchema.nullable()
   })
@@ -154,6 +160,7 @@ export function emptyTermDraftPayload(
     collectionId: null,
     references: [],
     files: [],
+    sources: [],
     aiSuggestionId: null,
     editorState: null
   }

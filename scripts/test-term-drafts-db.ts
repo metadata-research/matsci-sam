@@ -1,6 +1,6 @@
 import "next/dist/server/node-environment"
 import assert from "node:assert/strict"
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { and, eq, inArray, sql } from "drizzle-orm"
 import {
   aiContributionSuggestionsTable,
@@ -15,6 +15,7 @@ import {
   definitionRevisionReferencesTable,
   definitionRevisionsTable,
   definitionsTable,
+  sourceExtractionsTable,
   statementsTable,
   termDraftFilesTable,
   termDraftsTable,
@@ -46,6 +47,7 @@ import { lookupTerms } from "../lib/term-lookup"
 import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
 import { deleteDefinitionRows } from "../lib/definition-purge"
 import { termDraftsRouter } from "../trpc/routers/term-drafts"
+import type { InferenceMetadata } from "../lib/llm/types"
 
 class Rollback extends Error {}
 const rejected = (promise: Promise<unknown>, code: string) =>
@@ -70,6 +72,10 @@ async function agePendingFile(
     .select()
     .from(termDraftFilesTable)
     .where(eq(termDraftFilesTable.fileId, id))
+  const extractions = await tx
+    .select()
+    .from(sourceExtractionsTable)
+    .where(eq(sourceExtractionsTable.fileId, id))
   await tx
     .delete(contributionFilesTable)
     .where(eq(contributionFilesTable.id, id))
@@ -77,6 +83,8 @@ async function agePendingFile(
     ...file,
     createdAt: new Date(Date.now() - 48 * 3600000).toISOString()
   })
+  if (extractions.length)
+    await tx.insert(sourceExtractionsTable).values(extractions)
   if (bindings.length) await tx.insert(termDraftFilesTable).values(bindings)
 }
 
@@ -353,6 +361,31 @@ async function main() {
         },
         tx
       )
+      // Supply a completed transcript without starting parser work. The outer
+      // rollback transaction prevents a background worker from seeing this job.
+      await tx
+        .delete(sourceExtractionsTable)
+        .where(eq(sourceExtractionsTable.fileId, file.id))
+      const sourceText = `${term}: evidence accompanying this definition.`
+      await tx.insert(sourceExtractionsTable).values({
+        fileId: file.id,
+        status: "ready",
+        text: sourceText,
+        textHash: createHash("sha256").update(sourceText).digest("hex"),
+        pages: [
+          {
+            page: 1,
+            start: 0,
+            end: sourceText.length,
+            method: "embedded",
+            label: "Page 1",
+            confidence: null
+          }
+        ],
+        method: "embedded",
+        parserVersion: "term-draft-fixture-v1",
+        completedAt: new Date().toISOString()
+      })
       const advanced: TermDraftPayload = {
         ...payload,
         references: [
@@ -372,7 +405,8 @@ async function main() {
             baseline: { definition: "Original writing", references: [] },
             promptInputs: [],
             definition: "Client supplied fake output",
-            model: "Client supplied fake model"
+            model: "Client supplied fake model",
+            assistantLabel: "Client supplied fake assistant label"
           },
           undo: null,
           includeDefinition: true,
@@ -395,6 +429,110 @@ async function main() {
         "Original writing",
         "the undo baseline survives restoration"
       )
+      assert.equal(
+        saved.payload?.editorState?.appliedDraft?.assistantLabel,
+        suggestion.model,
+        "An unrecognized historical model keeps its own name"
+      )
+      for (const fixture of [
+        {
+          model: "gemma4:26b",
+          provider: "ollama" as const,
+          label: "Gemma 4",
+          profile: "default"
+        },
+        {
+          model: "wolfram-agent-one",
+          provider: "wolfram-agent-one" as const,
+          label: "Wolfram Agent One",
+          profile: "agent-one"
+        }
+      ]) {
+        const inference: InferenceMetadata = {
+          provider: fixture.provider,
+          profile: "historical-fixture",
+          model: fixture.model,
+          configHash: "b".repeat(64)
+        }
+        const [historicalSuggestion] = await tx
+          .insert(aiContributionSuggestionsTable)
+          .values({
+            intent: "new_term",
+            requestedById: owner.id,
+            vocabularySlug: vocabulary.slug,
+            termText: term,
+            suggestedDefinition: "Historical generated definition.",
+            promptKey: "historical-label-test",
+            promptHash: "b".repeat(64),
+            promptText: "Historical system prompt",
+            model: fixture.model,
+            inference,
+            inputDefinition: "Historical notes",
+            userPrompt: "Historical model request"
+          })
+          .returning()
+        const forgedSnapshot = {
+          ...advanced.editorState!.appliedDraft!,
+          suggestionId: historicalSuggestion.id,
+          assistantProfile: "default" as const,
+          inference: { provider: "client-supplied-provider" }
+        }
+        const historicalPayload: TermDraftPayload = {
+          ...payload,
+          aiSuggestionId: historicalSuggestion.id,
+          editorState: {
+            ...advanced.editorState!,
+            preview: forgedSnapshot,
+            appliedDraft: forgedSnapshot,
+            undo: {
+              kind: "source",
+              label: "Undo source insertion",
+              definition: "Writing before source insertion",
+              references: [],
+              appliedDraft: forgedSnapshot
+            }
+          }
+        }
+        const historicalDraft = await createTermDraft(
+          tx,
+          { id: randomUUID(), payload: historicalPayload },
+          owner.id
+        )
+        const reopened = await getTermDraft(tx, historicalDraft.id, owner.id)
+        for (const restored of [historicalDraft, reopened]) {
+          for (const snapshot of [
+            restored.payload?.editorState?.preview,
+            restored.payload?.editorState?.appliedDraft,
+            restored.payload?.editorState?.undo?.appliedDraft
+          ]) {
+            assert.equal(
+              snapshot?.assistantLabel,
+              fixture.label,
+              "Preview, applied and undo labels use the historical server model"
+            )
+            assert.equal(snapshot?.model, fixture.model)
+            assert.equal(snapshot?.assistantProfile, fixture.profile)
+            assert.deepEqual(snapshot?.inference, inference)
+            assert.equal(
+              snapshot?.definition,
+              historicalSuggestion.suggestedDefinition
+            )
+            assert.deepEqual(snapshot?.requestInputs, {
+              definition: "Historical notes",
+              example: null,
+              userPrompt: "Historical model request"
+            })
+          }
+        }
+        await rejected(
+          createTermDraft(
+            tx,
+            { id: randomUUID(), payload: historicalPayload },
+            stranger.id
+          ),
+          "BAD_REQUEST"
+        )
+      }
       await agePendingFile(tx, file.id)
       assert.ok(
         (await listPendingContributionFiles(owner.id, tx)).some(

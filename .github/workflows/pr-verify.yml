@@ -153,7 +153,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
           SYSTEM_PROMPT_KEY: materials-reference
-        run: pnpm test:term-drafts-db
+        run: |
+          pnpm test:term-drafts-db
+          pnpm test:source-documents-db
 
       - name: Test term visibility and submission controls
         env:
@@ -485,6 +487,13 @@ jobs:
 
       - name: Test Inference Providers
         run: pnpm test:inference
+
+      - name: Test source extraction, OCR, provenance and worker lifecycle
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng ghostscript python3
+          pnpm test:source-documents
+          pnpm test:source-worker-unit
 
       - name: Test Ollama Revision Context
         run: |

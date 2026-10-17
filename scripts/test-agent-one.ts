@@ -70,6 +70,44 @@ const errorCode = (code: string) => (error: unknown) =>
   error instanceof InferenceError &&
   error.code === code &&
   !String(error).includes(secret)
+
+async function failureDiagnostic(
+  operation: () => Promise<unknown>,
+  code: string,
+  category: string,
+  httpStatus?: number
+) {
+  const originalWarn = console.warn
+  const logs: unknown[][] = []
+  console.warn = (...args: unknown[]) => logs.push(args)
+  try {
+    await assert.rejects(operation, (error: unknown) => {
+      assert(error instanceof InferenceError)
+      assert(errorCode(code)(error))
+      assert.equal(error.diagnostic?.provider, "wolfram-agent-one")
+      assert.equal(error.diagnostic?.category, category)
+      assert.equal(error.diagnostic?.httpStatus, httpStatus)
+      assert((error.diagnostic?.elapsedMs ?? -1) >= 0)
+      assert((error.diagnostic?.timeoutMs ?? 0) > 0)
+      assert.deepEqual(logs, [["Agent One request failed", error.diagnostic]])
+      assert.deepEqual(
+        Object.keys(error.diagnostic!).sort(),
+        [
+          "provider",
+          "category",
+          "elapsedMs",
+          "timeoutMs",
+          ...(httpStatus === undefined ? [] : ["httpStatus"])
+        ].sort()
+      )
+      for (const unsafe of [secret, "Private", "https://"])
+        assert(!JSON.stringify(logs).includes(unsafe))
+      return true
+    })
+  } finally {
+    console.warn = originalWarn
+  }
+}
 const sourceUri = "https://www.wolframalpha.com/input?i=austenite"
 const documentationUri =
   "https://reference.wolfram.com/language/ref/entity/Chemical#982511436"
@@ -344,10 +382,10 @@ async function main() {
     "Answer </think>",
     "Answer <THINK>Private analysis</THINK>"
   ])
-    assert.equal(
-      await generate(envelope(content)),
-      undefined,
-      "empty, oversized or exposed reasoning responses must be rejected"
+    await failureDiagnostic(
+      () => generate(envelope(content)),
+      "unsupported_format",
+      "invalid_response"
     )
   for (const data of [
     null,
@@ -364,7 +402,10 @@ async function main() {
       choices: [
         {
           finish_reason: "length",
-          message: { role: "assistant", content: "A partial definition" }
+          message: {
+            role: "assistant",
+            content: `Private incomplete definition ${secret}`
+          }
         }
       ]
     }),
@@ -389,7 +430,23 @@ async function main() {
       ]
     })
   ])
-    assert.equal(await generate(data), undefined)
+    await failureDiagnostic(
+      () => generate(data),
+      "unsupported_format",
+      "invalid_response"
+    )
+  await failureDiagnostic(
+    () =>
+      generateStructured(config, messages, "test", schema, {
+        fetcher: async () =>
+          new Response(`{"Private": "${secret}", "incomplete":`, {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+      }),
+    "unsupported_format",
+    "invalid_response"
+  )
   for (const [status, code] of [
     [401, "authentication"],
     [403, "authentication"],
@@ -398,18 +455,48 @@ async function main() {
     [429, "unavailable"],
     [500, "unavailable"]
   ] as const)
-    await assert.rejects(generate({ error: secret }, status), errorCode(code))
-  await assert.rejects(
-    generate(envelope("x".repeat(1_048_577))),
-    errorCode("unsupported_format")
+    await failureDiagnostic(
+      () => generate({ error: secret }, status),
+      code,
+      "http",
+      status
+    )
+  await failureDiagnostic(
+    () => generate(envelope("x".repeat(1_048_577))),
+    "unsupported_format",
+    "invalid_response"
   )
-  await assert.rejects(
-    generateStructured(config, messages, "test", schema, {
-      fetcher: async () => {
-        throw new Error(secret)
-      }
-    }),
-    errorCode("unavailable")
+  await failureDiagnostic(
+    () =>
+      generateStructured(config, messages, "test", schema, {
+        fetcher: async () => {
+          throw new Error(`Private https://service.invalid/?key=${secret}`)
+        }
+      }),
+    "unavailable",
+    "transport"
+  )
+  await failureDiagnostic(
+    () =>
+      generateAgentOne(
+        { ...config, timeoutMs: 5 },
+        messages,
+        "test",
+        async (_url, init) =>
+          new Promise<Response>((resolve, reject) => {
+            const timer = setTimeout(() => resolve(json(envelope())), 1000)
+            init!.signal!.addEventListener(
+              "abort",
+              () => {
+                clearTimeout(timer)
+                reject(init!.signal!.reason)
+              },
+              { once: true }
+            )
+          })
+      ),
+    "unavailable",
+    "timeout"
   )
 
   const env = { WOLFRAM_AGENT_ONE_API_KEY: secret }

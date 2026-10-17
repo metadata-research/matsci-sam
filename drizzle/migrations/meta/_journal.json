@@ -470,6 +470,20 @@
       "when": 1792233171430,
       "tag": "0066_term_draft_tombstones",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792250817051,
+      "tag": "0067_source_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1792252322316,
+      "tag": "0068_source_transcript_corrections",
+      "breakpoints": true
     }
   ]
 }

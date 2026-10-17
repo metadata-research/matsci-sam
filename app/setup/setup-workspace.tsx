@@ -74,6 +74,10 @@ import {
 } from "@/components/definition/term-draft-controller"
 import { emptyTermDraftPayload } from "@/lib/term-draft-types"
 import { changeSetupTerm, termDraftHasEvidence } from "@/lib/setup-term-draft"
+import {
+  missingSetupDestinationLabel,
+  setupDestinationState
+} from "@/lib/setup-destination-state"
 
 type Options = RouterOutput["setup"]["options"]
 type Preview = RouterOutput["setup"]["previewImport"]
@@ -240,6 +244,14 @@ function SetupWorkspace({
     attachCollection.isPending ||
     previewImport.isPending ||
     importTerms.isPending
+  const destinationState = setupDestinationState(optionsQuery, busy)
+  const destinationsReady = destinationState === "ready"
+  const destinationControlsBlocked = !destinationsReady
+  const hasMissingDestination = Boolean(
+    (draft.communityId && !community) ||
+      !vocabulary ||
+      (draft.collectionId && !collection)
+  )
 
   useEffect(() => {
     if (options.userId !== initialOptions.userId) return
@@ -429,6 +441,7 @@ function SetupWorkspace({
     }
   }
   async function reviewTerms() {
+    if (!destinationsReady) return
     await perform(async () => {
       if (!vocabulary?.canContribute)
         throw new Error(
@@ -572,7 +585,7 @@ function SetupWorkspace({
                   size="sm"
                   aria-current={draft.step === step ? "step" : undefined}
                   disabled={
-                    busy ||
+                    destinationControlsBlocked ||
                     setupSteps.indexOf(step) > draft.furthest ||
                     (step === "review" &&
                       !preview &&
@@ -617,6 +630,16 @@ function SetupWorkspace({
           </AlertDescription>
         </Alert>
       ) : null}
+      {destinationState === "updating" &&
+      (optionsQuery.isFetching || hasMissingDestination) ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Updating available destinations…
+        </p>
+      ) : optionsQuery.fetchStatus === "paused" ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Waiting to refresh available destinations…
+        </p>
+      ) : null}
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>Unable to continue</AlertTitle>
@@ -628,7 +651,7 @@ function SetupWorkspace({
           {notice}
         </p>
       ) : null}
-      {draft.communityId && !community ? (
+      {destinationsReady && draft.communityId && !community ? (
         <Alert>
           <AlertTitle>The selected community is unavailable</AlertTitle>
           <AlertDescription>
@@ -654,7 +677,8 @@ function SetupWorkspace({
           </AlertDescription>
         </Alert>
       ) : null}
-      {!directCreate &&
+      {destinationsReady &&
+      !directCreate &&
       (!vocabulary ||
         (options.profileComplete && !vocabulary.canContribute)) ? (
         <Alert>
@@ -674,7 +698,7 @@ function SetupWorkspace({
           </AlertDescription>
         </Alert>
       ) : null}
-      {draft.collectionId && !collection ? (
+      {destinationsReady && draft.collectionId && !collection ? (
         <Alert>
           <AlertTitle>The saved collection is unavailable</AlertTitle>
           <AlertDescription>
@@ -728,7 +752,7 @@ function SetupWorkspace({
                     <SetupSelect
                       id="setup-community"
                       value={draft.communityId}
-                      disabled={busy}
+                      disabled={destinationControlsBlocked}
                       onChange={(event) => {
                         const selected = options.communities.find(
                           (item) => String(item.id) === event.target.value
@@ -744,7 +768,10 @@ function SetupWorkspace({
                       <option value="">Continue without a community</option>
                       {draft.communityId && !community ? (
                         <option value={draft.communityId} disabled>
-                          Unavailable community — choose another
+                          {missingSetupDestinationLabel(
+                            "community",
+                            destinationState
+                          )}
                         </option>
                       ) : null}
                       {options.communities.map((item) => (
@@ -766,7 +793,7 @@ function SetupWorkspace({
                   <div>
                     <Button
                       disabled={
-                        busy ||
+                        destinationControlsBlocked ||
                         Boolean(draft.communityId && !community?.canContribute)
                       }
                       onClick={() => go("vocabulary")}
@@ -785,7 +812,8 @@ function SetupWorkspace({
                   <EntityForm
                     kind="community"
                     value={draft.community}
-                    disabled={busy}
+                    disabled={destinationControlsBlocked}
+                    saving={busy}
                     onChange={(value) => update({ community: value })}
                     submitLabel={
                       directCreate
@@ -856,7 +884,7 @@ function SetupWorkspace({
                     <SetupSelect
                       id="setup-vocabulary"
                       value={draft.vocabularySlug}
-                      disabled={busy}
+                      disabled={destinationControlsBlocked}
                       onChange={(event) => selectVocabulary(event.target.value)}
                     >
                       <option value="" disabled>
@@ -864,7 +892,10 @@ function SetupWorkspace({
                       </option>
                       {draft.vocabularySlug && !vocabulary ? (
                         <option value={draft.vocabularySlug} disabled>
-                          Unavailable vocabulary — choose another
+                          {missingSetupDestinationLabel(
+                            "vocabulary",
+                            destinationState
+                          )}
                         </option>
                       ) : null}
                       {options.vocabularies.map((item) => (
@@ -880,16 +911,20 @@ function SetupWorkspace({
                       ))}
                     </SetupSelect>
                     <FieldDescription>
-                      {community
-                        ? `Owned by ${community.title}.`
-                        : "This vocabulary is independent of a community."}{" "}
+                      {destinationsReady && community
+                        ? `Owned by ${community.title}. `
+                        : destinationsReady &&
+                            vocabulary &&
+                            !vocabulary.communityId
+                          ? "This vocabulary is independent of a community. "
+                          : null}
                       Choosing a destination here keeps your working community
                       elsewhere unchanged.
                     </FieldDescription>
                   </Field>
                   <StepActions
                     back={task === "import" ? undefined : () => go("community")}
-                    busy={busy}
+                    busy={destinationControlsBlocked}
                     onNext={() => go("collection")}
                     disabled={!vocabulary?.canContribute}
                   />
@@ -907,7 +942,8 @@ function SetupWorkspace({
                   <EntityForm
                     kind="vocabulary"
                     value={draft.vocabulary}
-                    disabled={busy}
+                    disabled={destinationControlsBlocked}
+                    saving={busy}
                     onChange={(value) => update({ vocabulary: value })}
                     submitLabel={
                       directCreate
@@ -976,7 +1012,7 @@ function SetupWorkspace({
                     <SetupSelect
                       id="setup-collection"
                       value={draft.collectionId}
-                      disabled={busy}
+                      disabled={destinationControlsBlocked}
                       onChange={(event) =>
                         update({ collectionId: event.target.value })
                       }
@@ -984,7 +1020,10 @@ function SetupWorkspace({
                       <option value="">No collection — skip this step</option>
                       {draft.collectionId && !collection ? (
                         <option value={draft.collectionId} disabled>
-                          Unavailable collection — choose another or skip
+                          {missingSetupDestinationLabel(
+                            "collection",
+                            destinationState
+                          )}
                         </option>
                       ) : null}
                       {options.collections.map((item) => (
@@ -1000,7 +1039,7 @@ function SetupWorkspace({
                   </Field>
                   <StepActions
                     back={() => go("vocabulary")}
-                    busy={busy}
+                    busy={destinationControlsBlocked}
                     disabled={Boolean(draft.collectionId && !collection)}
                     onNext={() =>
                       perform(async () => {
@@ -1047,7 +1086,8 @@ function SetupWorkspace({
                   <EntityForm
                     kind="collection"
                     value={draft.collection}
-                    disabled={busy}
+                    disabled={destinationControlsBlocked}
+                    saving={busy}
                     onChange={(value) => update({ collection: value })}
                     submitLabel={
                       directCreate
@@ -1300,7 +1340,7 @@ function SetupWorkspace({
                   <Button
                     type="submit"
                     disabled={
-                      busy ||
+                      destinationControlsBlocked ||
                       !options.profileComplete ||
                       !vocabulary?.canContribute
                     }
@@ -1437,7 +1477,9 @@ function SetupWorkspace({
                 </Button>
                 <Button
                   disabled={
-                    busy || !preview.canImport || !vocabulary?.canContribute
+                    destinationControlsBlocked ||
+                    !preview.canImport ||
+                    !vocabulary?.canContribute
                   }
                   onClick={() =>
                     perform(async () => {
@@ -1584,6 +1626,7 @@ function SetupTermDraftFields({
         <FieldLabel htmlFor="setup-definition">First definition</FieldLabel>
         <Textarea
           id="setup-definition"
+          className="bg-definition dark:bg-definition"
           value={saved.payload.definition}
           required
           disabled={disabled}
@@ -1662,6 +1705,7 @@ function EntityForm({
   kind,
   value,
   disabled,
+  saving,
   onChange,
   onSubmit,
   submitLabel
@@ -1669,6 +1713,7 @@ function EntityForm({
   kind: "community" | "vocabulary" | "collection"
   value: { title: string; description: string }
   disabled: boolean
+  saving: boolean
   onChange: (value: { title: string; description: string }) => void
   onSubmit: () => Promise<void>
   submitLabel: string
@@ -1677,6 +1722,7 @@ function EntityForm({
     <form
       onSubmit={(event) => {
         event.preventDefault()
+        if (disabled) return
         void onSubmit()
       }}
     >
@@ -1713,7 +1759,7 @@ function EntityForm({
         </Field>
         <div>
           <Button type="submit" disabled={disabled || !value.title.trim()}>
-            {disabled ? "Saving…" : submitLabel}
+            {saving ? "Saving…" : submitLabel}
           </Button>
         </div>
       </FieldGroup>

@@ -18,7 +18,11 @@ import {
 import { DefinitionTextOutput } from "@/lib/llm/client"
 import { generateStructured } from "@/lib/llm/generate"
 import { NewTermSystemPrompt } from "@/lib/llm/prompts"
-import { InferenceError, type InferenceMetadata } from "@/lib/llm/types"
+import {
+  InferenceError,
+  type InferenceFailureDiagnostic,
+  type InferenceMetadata
+} from "@/lib/llm/types"
 import { baseProcedure, createTRPCRouter } from "../init"
 import { adminProcedure, contributorProcedure } from "../procedures"
 
@@ -92,6 +96,7 @@ export const definitionAssistantsRouter = createTRPCRouter({
       const testedAt = new Date().toISOString()
       const started = performance.now()
       let inference: InferenceMetadata | undefined
+      let diagnostic: InferenceFailureDiagnostic | undefined
       let message: string
       let passed = false
       try {
@@ -108,6 +113,7 @@ export const definitionAssistantsRouter = createTRPCRouter({
         message =
           "Agent One returned a complete, valid definition. It can now be enabled."
       } catch (error) {
+        if (error instanceof InferenceError) diagnostic = error.diagnostic
         message =
           error instanceof InferenceError
             ? error.message
@@ -138,6 +144,7 @@ export const definitionAssistantsRouter = createTRPCRouter({
         testedAt,
         elapsedMs: Math.round(performance.now() - started),
         message,
+        ...(diagnostic ? { diagnostic } : {}),
         ...(inference ? { inference } : {})
       }
     })

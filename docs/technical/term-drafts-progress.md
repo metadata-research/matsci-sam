@@ -242,6 +242,40 @@ Local evidence (outside the repository):
 contains `results.json` and five desktop/mobile screenshots. Results include
 draft identity and example checkpoints, publication IDs, and cleanup status.
 
+## Superego acceptance follow-up — 2026-10-17
+
+The guided setup and account drafts release was deployed to Superego in PR 134
+(`21f2eaeb`). Live acceptance covered creation, publication, recovery, import,
+Gemma assistance and Wolfram lookup. Follow-up display fixes are on
+`codex/ui-acceptance-fixes` and have not yet been deployed:
+
+- Newly created destinations show a neutral updating state until their refreshed
+  options arrive. Genuine missing destinations still prompt for another choice.
+- Restored model previews, applied drafts and Undo snapshots use friendly
+  assistant names derived from the saved server evidence.
+- Wolfram graphic-only sections link to the external resource without offering
+  an empty image marker as text to insert. Surrounding readable text is retained.
+
+The focused `pnpm test:display-ui` script uses the same local QA database guards
+and browser harness as the guided setup test. It delays mocked destination
+refreshes, reloads owned draft evidence, and checks Wolfram text insertion and
+Undo at desktop/mobile sizes. It uses synthetic provider responses and deletes
+its uniquely owned fixtures. All five scenarios passed at 1365 × 1000 and
+390 × 844, without browser errors, unexpected requests or horizontal overflow.
+TypeScript, scoped ESLint, setup/recovery, Wolfram, Agent One unit/router and
+term-draft database regressions also pass. Final evidence and the live retest
+are recorded in the private Superego acceptance record.
+
+Agent One also succeeded on an unchanged live retest. The original generic
+error did not retain enough detail to establish its cause. Allowlisted server
+and admin-test diagnostics now identify HTTP, timeout, transport and invalid
+response failures without including prompts, credentials or provider bodies.
+
+The contributor's definition now uses a distinct pale blue surface in writing,
+guided setup and review, with a matching dark-mode color. References and model
+proposals keep their existing treatment. Desktop/mobile light/dark browser
+checks pass. This visual follow-up is also local and not yet deployed.
+
 ## Remaining work and limitations
 
 Copy follow-up (2026-10-17): replaced the guided setup introduction with a
@@ -260,8 +294,8 @@ vocabulary, and optional collection, then adding or importing terms.
 - Setup position, unfinished entity forms, and import text remain local to the
   current browser. Already-created communities, vocabularies, and collections
   remain saved independently of term drafts.
-- Migrations are prepared for release and applied only to the isolated local
-  test database. Production deployment is outside this task.
+- Migrations 0065 and 0066 were applied to Superego with PR 134. Ego has not
+  received this release. The follow-up display fixes remain local.
 - The existing contribution-guard DB suite declined the `_qa` database name;
   its safety gate was left intact. The new draft DB suite covers quota,
   duplicate submission, concurrent publication, and retry behavior. A full

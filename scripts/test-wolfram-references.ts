@@ -407,6 +407,40 @@ function checkReadingView() {
     wolframSectionReadingText(mixed.sections[0], []),
     "Result:\nA useful observation.\nApplies at 20 °C."
   )
+  for (const marker of ["Image:", " image:   ", "IMAGE:\t"]) {
+    const original = `Structure diagram:\n${marker}`
+    const graphics = parseWolframResult(original)
+    assert.deepEqual(graphics.sections[0].blocks, [])
+    assert.equal(
+      wolframSectionReadingText(graphics.sections[0], graphics.sections),
+      "",
+      "An empty image marker cannot be inserted into a definition"
+    )
+    const presentation = wolframResultPresentation(graphics.sections)
+    assert.deepEqual(presentation.visual, graphics.sections)
+    assert.deepEqual(presentation.overview, [])
+    assert.deepEqual(presentation.more, [])
+    assert.equal(graphics.sections[0].text, marker.trim())
+    assert.equal(graphics.sections[0].copyText, original.trim())
+    assert.equal(
+      wolframSectionCopyText(graphics.sections[0], graphics.sections),
+      original.trim(),
+      "The provider's original response remains available"
+    )
+  }
+  const mixedEmptyImageSource =
+    "Properties:\nImage:\ndensity | 2.33 g/cm^3\nMeasured at room temperature.\nimage: https://example.test/plot.png"
+  const mixedEmptyImage = parseWolframResult(mixedEmptyImageSource)
+  assert.equal(
+    wolframSectionReadingText(mixedEmptyImage.sections[0], []),
+    "Properties:\ndensity: 2.33 g/cm³\n\nMeasured at room temperature.",
+    "Useful text and qualifications survive empty and populated image markers"
+  )
+  assert.equal(mixedEmptyImage.sections[0].copyText, mixedEmptyImageSource)
+  assert.deepEqual(
+    wolframResultPresentation(mixedEmptyImage.sections).visual,
+    []
+  )
   const code = parseWolframResult(
     'Computation:\n```wolfram\nEntity["Chemical", "Water"]\n```'
   )

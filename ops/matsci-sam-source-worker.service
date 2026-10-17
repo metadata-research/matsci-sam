@@ -1,0 +1,36 @@
+[Unit]
+Description=MatSci-SAM document extraction and OCR
+PartOf=matsci-sam.service
+BindsTo=matsci-sam.service
+After=matsci-sam.service postgresql.service
+ConditionPathExists=/opt/matsci-sam/current/scripts/source-document-worker.ts
+
+[Service]
+Type=simple
+# Adapt these three paths and User to the host's existing application service.
+User=matsci-sam
+WorkingDirectory=/opt/matsci-sam/current
+EnvironmentFile=/etc/matsci-sam/app.env
+Environment=NODE_OPTIONS=--max-old-space-size=192
+Environment=OMP_THREAD_LIMIT=1
+Environment=UV_THREADPOOL_SIZE=2
+Environment=GOMAXPROCS=2
+Environment=RAYON_NUM_THREADS=2
+Environment=TOKIO_WORKER_THREADS=2
+ExecStart=/usr/bin/node --import tsx scripts/source-document-worker.ts
+Restart=on-failure
+RestartSec=10
+CPUQuota=100%
+MemoryMax=512M
+MemorySwapMax=0
+TasksMax=32
+TimeoutStopSec=130
+KillMode=mixed
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+
+[Install]
+WantedBy=matsci-sam.service

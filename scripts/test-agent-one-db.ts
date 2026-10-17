@@ -32,6 +32,7 @@ async function main() {
   let calls = 0
   let lastAgentOneInstructions = ""
   let failure = false
+  let httpFailure = false
   let hold: ((response: Response) => void) | undefined
   let holdNext = false
   const response = () =>
@@ -98,6 +99,11 @@ async function main() {
           hold = resolve
         })
       }
+      if (httpFailure)
+        return Response.json(
+          { error: "private provider error fixture-agent-key" },
+          { status: 503 }
+        )
       return response()
     }
     const rows = await db
@@ -274,6 +280,14 @@ async function main() {
     failure = false
     assert.equal((await olderFailure).status, "failed")
     assert.equal((await admin.settings()).agentOne.validated, true)
+    httpFailure = true
+    const unavailable = await admin.testAgentOne()
+    assert.equal(unavailable.status, "failed")
+    assert.equal(unavailable.diagnostic?.category, "http")
+    assert.equal(unavailable.diagnostic?.httpStatus, 503)
+    assert(!JSON.stringify(unavailable).includes("fixture-agent-key"))
+    assert(!JSON.stringify(unavailable).includes("private provider error"))
+    assert.equal((await admin.settings()).agentOne.validated, false)
     console.log(
       "Agent One router authorization, opt-in readiness, preference, attribution, study guards, key rotation and overlapping test ordering passed."
     )

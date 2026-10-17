@@ -1,49 +1,52 @@
 # Files and examples
 
-You can attach files while adding a new term. A file can illustrate the term
-or provide a source for its definition. PDF, PNG, and JPEG files are accepted,
-up to 5 MB each and three files per contribution. Uploads stay private until
-you publish them with the definition.
+Use **Add file or text** while adding a term to attach a source or an example.
+Sources accept PDF, DOCX, TXT, or pasted text; images accept PNG and JPEG.
+The limit is 5 MB each and three items per contribution. Sources and examples
+stay private until published with the definition.
 
-## Attach a file
+## Add a source or example
 
-1. Select **Attach an example file** in Simple or **Attach file** in the
-   Advanced toolbar. Simple attaches examples only.
-2. **Choose a file**. In Advanced, select its role under **Use as**. Choose
-   **Example** to illustrate the meaning or **Source** to support the
-   definition.
+1. Select **Add file or text** in Simple or Advanced.
+2. Choose **Upload file** or **Paste text**. For an upload, select **Source**
+   to support the definition or **Example** to illustrate its meaning.
 3. Enter a **Title** and explain **How does it relate to this term?** A source
    can also have a **Citation** and **Page or section**.
 4. Select **Attach example** or **Attach source**. Repeat for another file if
    needed.
 
-Check the title and explanation before attaching. Open an attached file to
-inspect it. Remove an unused file with the remove control beside its title.
-The definition assistant receives text inputs only.
+Open an attached file or its extracted text to inspect it. Remove an unused
+file with the control beside its title.
+
+## Use a source with an assistant
+
+Select **Check term**. If the term is absent, add an explicit alias and check
+again. A match is required before the source can be sent to an assistant.
+For scanned PDFs, review the OCR text; **Correct extracted text** saves a new
+transcript while preserving the original.
+
+Select **Use this source with the assistant** and choose relevant passages or
+full text. The preview shows the exact source text to send. Uploading,
+pasting, and checking a source do not contact an assistant; sending happens
+when you request a suggestion.
 
 ## Choose files for publication
 
-Select **Review definition** when your writing is ready. Under **Files
-to publish**, select the **Publish example** or **Publish and cite** checkbox
-for each file you want readers to download.
-An unchecked file stays private and is omitted from that contribution.
-Publish the definition to publish the selected files with it.
+Select **Review definition**, then check **Files and text to publish**.
+**Cite** identifies a source you cite yourself. **Used by assistant** identifies
+a source sent for the suggestion you accepted; it is included even when its
+**Cite** checkbox is off. Other unchecked items stay private.
 
-![Files to publish with a source file selected under Publish and cite, its citation and download link, and the Publish new term button](/images/docs/help-files-review.png)
-
-A published source file also becomes a citation for that exact definition
-revision. An example file has a separate example contribution credited to you.
-It remains available when the definition wording changes. Published files
-retain their original contents.
+Readers can read published source text and download the original file.
+Examples have separate attribution. Published files retain their original
+contents, including when their transcript has been corrected.
 
 ## Recover an unfinished upload
 
-After a refresh, confirm the same term and destination vocabulary again.
-Select **Attach an example file** in Simple or **Attach file** in Advanced,
-then open **Other pending files**. Simple lists pending examples. A pending
-source appears in Advanced. Select **Use in this draft** for a matching upload
-and choose it for publication during review. **Remove pending file** deletes
-an unused upload.
+Reopen a saved draft to resume its files, checked sources, and text selections.
+For an upload outside a saved draft, confirm the same term and vocabulary,
+select **Add file or text**, and open **Other pending files**. Select
+**Use in this draft** to recover it or **Remove pending file** to delete it.
 
 Files attached to a saved term draft remain available with that draft. Other
 unpublished uploads expire after 24 hours. Your account can hold six pending

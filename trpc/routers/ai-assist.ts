@@ -1,3 +1,10 @@
+import { sourceContextSelectionsSchema } from "@/lib/source-document-selection"
+import {
+  reserveSourceContext,
+  releaseSourceContext,
+  sourceDocumentPrompt,
+  SOURCE_CONTEXT_INSTRUCTIONS
+} from "@/lib/source-documents"
 import { agentOneDefinitionPrompt } from "@/lib/llm/agent-one"
 import { resolveDefinitionAssistant } from "@/lib/definition-assistants"
 import { assistantProfileSchema } from "@/lib/llm/assistant-profiles"
@@ -64,7 +71,8 @@ export const aiAssistRouter = createTRPCRouter({
         // context, not published content, and is retained with the suggestion.
         ...contributorPromptInputsSchema.shape,
         assistantProfile: assistantProfileSchema.optional(),
-        referenceIds: modelReferenceIdsSchema
+        referenceIds: modelReferenceIdsSchema,
+        sources: sourceContextSelectionsSchema.default([])
       })
     )
     .mutation(async ({ ctx: { userId }, input }) => {
@@ -115,83 +123,107 @@ export const aiAssistRouter = createTRPCRouter({
         userId,
         term
       })
-      const referencePrompt = modelReferencePrompt(referenceInputs)
-      const requestInputs = newTermPromptInputs({
+      const sourceContext = await reserveSourceContext({
+        userId,
         term,
-        context: input.context,
-        example: input.example,
-        referencePrompt
+        vocabularySlug,
+        selections: input.sources,
+        referenceCharacters: referenceInputs.reduce(
+          (size, reference) => size + reference.definition.length,
+          0
+        )
       })
-      const baseSystemPrompt =
-        NewTermSystemPrompt +
-        (requestInputs.example
-          ? `\n\n${CONTRIBUTOR_EXAMPLE_INSTRUCTIONS}`
-          : "") +
-        (referenceInputs.length ? `\n\n${REFERENCE_MODEL_INSTRUCTIONS}` : "")
-
-      const systemPrompt =
-        assistant.config.provider === "wolfram-agent-one"
-          ? agentOneDefinitionPrompt(baseSystemPrompt)
-          : baseSystemPrompt
-
-      const result = await runLLM(
-        [
-          {
-            role: "user",
-            content: requestInputs.userPrompt
-          }
-        ],
-        systemPrompt,
-        DefinitionTextOutput,
-        assistant.config
-      )
-      const suggestedDefinition = result?.output.definition.trim()
-
-      if (
-        !result ||
-        !suggestedDefinition ||
-        suggestedDefinition.length > DEFINITION_MAX_LENGTH
-      )
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            assistant.config.provider === "wolfram-agent-one"
-              ? "Agent One did not return a complete text response. Try again. Your draft is unchanged."
-              : "The model returned an invalid definition"
+      try {
+        const referencePrompt = modelReferencePrompt(referenceInputs)
+        const requestInputs = newTermPromptInputs({
+          term,
+          context: input.context,
+          example: input.example,
+          referencePrompt:
+            referencePrompt + sourceDocumentPrompt(sourceContext.inputs)
         })
+        const baseSystemPrompt =
+          NewTermSystemPrompt +
+          (requestInputs.example
+            ? `\n\n${CONTRIBUTOR_EXAMPLE_INSTRUCTIONS}`
+            : "") +
+          (referenceInputs.length
+            ? `\n\n${REFERENCE_MODEL_INSTRUCTIONS}`
+            : "") +
+          (sourceContext.inputs.length
+            ? `\n\n${SOURCE_CONTEXT_INSTRUCTIONS}`
+            : "")
 
-      const [suggestion] = await db
-        .insert(aiContributionSuggestionsTable)
-        .values({
-          intent: "new_term",
-          requestedById: userId,
-          vocabularySlug,
-          termText: term,
-          inputDefinition: requestInputs.definition,
-          inputExample: requestInputs.example,
-          userPrompt: requestInputs.userPrompt,
-          referenceInputs: referenceInputs.length ? referenceInputs : null,
-          referencePrompt: referencePrompt || null,
-          suggestedDefinition,
-          ...makeGenerationStamp(
-            NewTermPromptKey,
-            systemPrompt,
-            result.inference
-          ),
-          promptKey: NewTermPromptKey
-        })
-        .returning()
+        const systemPrompt =
+          assistant.config.provider === "wolfram-agent-one"
+            ? agentOneDefinitionPrompt(baseSystemPrompt)
+            : baseSystemPrompt
 
-      return {
-        suggestionId: suggestion.id,
-        definition: suggestion.suggestedDefinition,
-        model: suggestion.model,
-        assistantProfile: assistant.profile,
-        assistantLabel: assistant.label,
-        inference: result.inference,
-        referenceCount: referenceInputs.length,
-        referenceInputs,
-        requestInputs
+        const result = await runLLM(
+          [
+            {
+              role: "user",
+              content: requestInputs.userPrompt
+            }
+          ],
+          systemPrompt,
+          DefinitionTextOutput,
+          assistant.config
+        )
+        const suggestedDefinition = result?.output.definition.trim()
+
+        if (
+          !result ||
+          !suggestedDefinition ||
+          suggestedDefinition.length > DEFINITION_MAX_LENGTH
+        )
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              assistant.config.provider === "wolfram-agent-one"
+                ? "Agent One did not return a complete text response. Try again. Your draft is unchanged."
+                : "The model returned an invalid definition"
+          })
+
+        const [suggestion] = await db
+          .insert(aiContributionSuggestionsTable)
+          .values({
+            intent: "new_term",
+            requestedById: userId,
+            vocabularySlug,
+            termText: term,
+            inputDefinition: requestInputs.definition,
+            inputExample: requestInputs.example,
+            userPrompt: requestInputs.userPrompt,
+            referenceInputs: referenceInputs.length ? referenceInputs : null,
+            referencePrompt: referencePrompt || null,
+            sourceInputs: sourceContext.inputs.length
+              ? sourceContext.inputs
+              : null,
+            suggestedDefinition,
+            ...makeGenerationStamp(
+              NewTermPromptKey,
+              systemPrompt,
+              result.inference
+            ),
+            promptKey: NewTermPromptKey
+          })
+          .returning()
+
+        return {
+          suggestionId: suggestion.id,
+          definition: suggestion.suggestedDefinition,
+          model: suggestion.model,
+          assistantProfile: assistant.profile,
+          assistantLabel: assistant.label,
+          inference: result.inference,
+          referenceCount: referenceInputs.length,
+          referenceInputs,
+          sourceInputs: sourceContext.inputs,
+          requestInputs
+        }
+      } finally {
+        await releaseSourceContext(sourceContext.requestId)
       }
     }),
 

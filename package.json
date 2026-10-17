@@ -42,8 +42,9 @@
     "test:contribution-guard-db": "tsx --conditions=react-server scripts/test-contribution-guard-db.ts",
     "test:ollama-context": "tsx scripts/test-ollama-revision-context.ts",
     "test:communities": "tsx scripts/test-communities.ts",
-    "test:setup": "tsx scripts/test-setup-import.ts && tsx scripts/test-guided-setup.ts && tsx scripts/test-setup-creation-recovery.ts",
+    "test:setup": "tsx scripts/test-setup-import.ts && tsx scripts/test-guided-setup.ts && tsx scripts/test-setup-creation-recovery.ts && tsx scripts/test-setup-destinations.ts",
     "test:setup-ui": "tsx scripts/test-guided-setup-ui.ts",
+    "test:display-ui": "tsx scripts/test-display-regressions-ui.ts",
     "test:setup-db": "tsx --conditions=react-server scripts/test-setup-db.ts",
     "test:term-drafts-db": "tsx --conditions=react-server scripts/test-term-drafts-db.ts",
     "test:term-drafts": "tsx scripts/test-term-draft-save-queue.ts && tsx scripts/test-term-draft-navigation.ts",
@@ -94,7 +95,12 @@
     "test:term-metadata-db": "tsx --conditions=react-server scripts/test-term-metadata-db.ts",
     "test:term-metadata-rdf": "tsx --conditions=react-server scripts/test-term-metadata-rdf.ts",
     "test:term-metadata-rdf-db": "tsx --conditions=react-server scripts/test-term-metadata-rdf-db.ts",
-    "test:dictionary-metadata": "tsx scripts/test-dictionary-metadata.ts"
+    "test:dictionary-metadata": "tsx scripts/test-dictionary-metadata.ts",
+    "source-worker": "tsx scripts/source-document-worker.ts",
+    "test:source-worker-unit": "tsx scripts/test-source-worker-unit.ts",
+    "test:source-documents": "tsx scripts/test-source-documents.ts && tsx scripts/test-source-document-provenance.ts && tsx scripts/test-source-compose-ui.tsx",
+    "test:source-documents-db": "tsx --conditions=react-server scripts/test-source-documents-db.ts",
+    "test:source-documents-ui": "tsx scripts/test-source-documents-ui.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

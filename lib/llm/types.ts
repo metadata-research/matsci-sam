@@ -29,6 +29,16 @@ export type InferenceResult<T> = {
   inference: InferenceMetadata
 }
 
+// Safe operational details only. Never put provider bodies, prompts, URLs,
+// credentials or raw exception messages in this object.
+export type InferenceFailureDiagnostic = {
+  provider: "wolfram-agent-one" | "ollama"
+  category: "http" | "timeout" | "transport" | "invalid_response"
+  elapsedMs: number
+  timeoutMs: number
+  httpStatus?: number
+}
+
 export class InferenceError extends Error {
   constructor(
     public readonly code:
@@ -37,7 +47,8 @@ export class InferenceError extends Error {
       | "unavailable"
       | "model_missing"
       | "unsupported_format",
-    public readonly retryable = false
+    public readonly retryable = false,
+    public readonly diagnostic?: InferenceFailureDiagnostic
   ) {
     super(
       {

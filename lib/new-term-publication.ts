@@ -190,6 +190,7 @@ export async function publishNewTerm(
   })
   await publishContributionFiles(tx, {
     attachments: input.attachments,
+    modelSources: suggestion?.sourceInputs ?? [],
     authorId,
     termId: created.id,
     revisionId: revision.id
