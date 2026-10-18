@@ -60,6 +60,8 @@ try:
                         pieces.append("\n")
                     elif element.tag == W + "softHyphen":
                         pieces.append("\u00ad")
+                    elif element.tag == W + "noBreakHyphen":
+                        pieces.append("\u2011")
                 text = "".join(pieces).strip()
                 if text:
                     size += len(text) + 2

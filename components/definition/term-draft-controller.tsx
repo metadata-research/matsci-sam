@@ -15,6 +15,7 @@ import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import type { TermDraftPayload } from "@/lib/term-draft-types"
 import { TermDraftSaveQueue } from "@/lib/term-draft-save-queue"
+import { compactTermDraftPayload } from "@/lib/term-draft-persistence"
 import { Button } from "@/components/ui/button"
 
 export type SavedTermDraft = RouterOutput["termDrafts"]["get"]
@@ -61,14 +62,17 @@ export function useTermDraft({
   }, [enabled, loading, loadError])
   const [queue] = useState(
     () =>
-      new TermDraftSaveQueue<TermDraftPayload, SavedTermDraft>(initialPayload, {
-        create: (input) =>
-          create.mutateAsync({ ...input, expectedOwnerId: ownerId }),
-        update: (input) => update.mutateAsync(input),
-        meaningful,
-        uuid: () => crypto.randomUUID(),
-        changed: render
-      })
+      new TermDraftSaveQueue<TermDraftPayload, SavedTermDraft>(
+        compactTermDraftPayload(initialPayload),
+        {
+          create: (input) =>
+            create.mutateAsync({ ...input, expectedOwnerId: ownerId }),
+          update: (input) => update.mutateAsync(input),
+          meaningful,
+          uuid: () => crypto.randomUUID(),
+          changed: render
+        }
+      )
   )
   const restoredId = useRef<string | null>(null)
   useLayoutEffect(() => {
@@ -92,7 +96,10 @@ export function useTermDraft({
     try {
       const record = await utils.client.termDrafts.get.query({ id })
       if (!mounted.current) return
-      queue.restore(record)
+      queue.restore(
+        record,
+        record.payload ? compactTermDraftPayload(record.payload) : null
+      )
       restoredId.current = id
       latest.current.onRestore?.(record)
     } catch (error) {
@@ -113,7 +120,11 @@ export function useTermDraft({
   const setPayload = useCallback(
     (next: SetStateAction<TermDraftPayload>) => {
       if (!enabled) return
-      queue.update(typeof next === "function" ? next(queue.payload) : next)
+      queue.update(
+        compactTermDraftPayload(
+          typeof next === "function" ? next(queue.payload) : next
+        )
+      )
     },
     [enabled, queue]
   )

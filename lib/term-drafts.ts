@@ -22,6 +22,7 @@ import { CONTRIBUTION_FILE_PENDING_HOURS } from "./contribution-file-types"
 import { fileRetainedByDraft } from "./term-draft-file-retention"
 import { publishNewTerm } from "./new-term-publication"
 import { modelIdentity } from "./llm/model-identity"
+import { compactTermDraftPayload } from "./term-draft-persistence"
 import {
   TERM_DRAFT_MAX_COUNT,
   termDraftPayloadSchema,
@@ -300,6 +301,43 @@ async function draftResult(reader: Reader, draft: Draft) {
         referenceCount: suggestion.referenceInputs?.length ?? 0,
         referenceInputs: suggestion.referenceInputs ?? [],
         sourceInputs: suggestion.sourceInputs ?? [],
+        promptInputs: [
+          ...(suggestion.inputDefinition
+            ? [
+                {
+                  id: "definition",
+                  label: "Definition draft",
+                  text: suggestion.inputDefinition,
+                  included: true
+                }
+              ]
+            : []),
+          ...(suggestion.inputExample
+            ? [
+                {
+                  id: "example",
+                  label: "Example of use",
+                  text: suggestion.inputExample,
+                  included: true
+                }
+              ]
+            : []),
+          ...(suggestion.referenceInputs ?? []).map((reference) => ({
+            id: reference.referenceId,
+            label:
+              snapshot.promptInputs.find(
+                (item) => item.id === reference.referenceId
+              )?.label ?? `${reference.source}: ${reference.term}`,
+            text: reference.definition,
+            included: true
+          })),
+          ...(suggestion.sourceInputs ?? []).map((source) => ({
+            id: `source:${source.fileId}`,
+            label: `Source: ${source.title}`,
+            text: source.text,
+            included: true
+          }))
+        ],
         requestInputs: {
           definition: suggestion.inputDefinition,
           example: suggestion.inputExample,
@@ -367,8 +405,11 @@ export async function createTermDraft(
   input: { id: string; payload: TermDraftPayload },
   ownerId: number
 ) {
-  const payload = termDraftPayloadSchema.parse(input.payload)
-  const hash = contributionFingerprint(payload)
+  const submitted = termDraftPayloadSchema.parse(input.payload)
+  const payload = compactTermDraftPayload(submitted)
+  // Keep the submitted hash for retries from clients that still send hydrated
+  // evidence, while storing only editor state and owned suggestion identities.
+  const hash = contributionFingerprint(submitted)
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtext('matsci-sam:term-drafts'), ${ownerId})`
   )
@@ -383,7 +424,8 @@ export async function createTermDraft(
     if (
       existing.payload &&
       existing.version > 1 &&
-      contributionFingerprint(existing.payload) !== hash
+      contributionFingerprint(compactTermDraftPayload(existing.payload)) !==
+        contributionFingerprint(payload)
     )
       throw changed()
     return draftResult(tx, existing)
@@ -421,11 +463,12 @@ export async function updateTermDraft(
   },
   ownerId: number
 ) {
-  const payload = termDraftPayloadSchema.parse(input.payload)
+  const submitted = termDraftPayloadSchema.parse(input.payload)
+  const payload = compactTermDraftPayload(submitted)
   const draft = await ownedDraft(tx, input.id, ownerId, true)
   if (draft.publishedAt) throw published()
   const hash = contributionFingerprint({
-    payload,
+    payload: submitted,
     expectedVersion: input.expectedVersion
   })
   if (draft.lastMutationId === input.mutationId) {

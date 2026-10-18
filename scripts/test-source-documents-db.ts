@@ -34,12 +34,16 @@ import { cleanupExpiredPendingFiles } from "../lib/term-draft-file-retention"
 import {
   createTermDraft,
   deleteTermDraft,
-  getTermDraft
+  getTermDraft,
+  updateTermDraft,
+  publishTermDraft
 } from "../lib/term-drafts"
 import {
   emptyTermDraftPayload,
+  termDraftPayloadSchema,
   type TermDraftPayload
 } from "../lib/term-draft-types"
+import { compactTermDraftPayload } from "../lib/term-draft-persistence"
 import { publishNewTerm } from "../lib/new-term-publication"
 import { deleteDefinitionRows } from "../lib/definition-purge"
 import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
@@ -960,15 +964,220 @@ async function main() {
         )[0].fileId,
       retained.file.id
     )
+    const undoOnly = compactTermDraftPayload({
+      ...reopened.payload!,
+      editorState: {
+        ...reopened.payload!.editorState!,
+        preview: null,
+        undo: {
+          kind: "model",
+          label: "Undo model replacement",
+          definition: "Saved writing",
+          references: [],
+          appliedDraft: reopened.payload!.editorState!.preview
+        }
+      }
+    })
+    const undoDraft = await db.transaction((tx) =>
+      updateTermDraft(
+        tx,
+        {
+          id: draft.id,
+          expectedVersion: draft.version,
+          mutationId: randomUUID(),
+          payload: undoOnly
+        },
+        owner.id
+      )
+    )
+    await cleanupExpiredPendingFiles(owner.id)
+    assert(
+      await readContributionFile(retained.file.id, owner.id),
+      "An Undo suggestion alone retains its source evidence after compaction"
+    )
     await db.transaction((tx) =>
       deleteTermDraft(
         tx,
-        { id: draft.id, expectedVersion: draft.version },
+        { id: draft.id, expectedVersion: undoDraft.version },
         owner.id
       )
     )
     await cleanupExpiredPendingFiles(owner.id)
     assert.equal(await readContributionFile(retained.file.id, owner.id), null)
+
+    // A small selected passage can have a large immutable matching receipt.
+    // Exercise the actual reserve -> save -> reload -> apply -> publish path
+    // without contacting a provider or duplicating that receipt in the draft.
+    const manyMatches = await sourceFixture({
+      term: `draft source bounds ${stamp}`,
+      text: Array.from(
+        { length: 1500 },
+        (_, index) =>
+          `The grain boundary measurement for sample ${index + 1} is recorded.\n`
+      ).join("")
+    })
+    const manyCheck = await checkOwnedSource({
+      fileId: manyMatches.file.id,
+      extractionId: manyMatches.extraction.id,
+      userId: owner.id,
+      aliases: ["grain boundary"]
+    })
+    assert.equal(manyCheck.check.matches.length, 1500)
+    const selectedSource = {
+      fileId: manyMatches.file.id,
+      checkId: manyCheck.check.id,
+      mode: "passages" as const,
+      passageIds: [manyCheck.check.passages[0].id],
+      ocrReviewed: false
+    }
+    const reserved = await reserveSourceContext({
+      userId: owner.id,
+      term: manyMatches.file.termText,
+      vocabularySlug: DEFAULT_VOCABULARY_SLUG,
+      selections: [selectedSource],
+      referenceCharacters: 0
+    })
+    const source = reserved.inputs[0]
+    assert(source.text.length < 1000)
+    const largeSuggestion = await saveSuggestion(source)
+    await releaseSourceContext(reserved.requestId)
+    const modelPreview = {
+      suggestionId: largeSuggestion.id,
+      term: manyMatches.file.termText,
+      contextKey: "large-source-fixture",
+      baseline: { definition: "Contributor writing before AI", references: [] },
+      definition: largeSuggestion.suggestedDefinition,
+      model: largeSuggestion.model,
+      sourceInputs: [source],
+      requestInputs: { userPrompt: largeSuggestion.userPrompt },
+      promptInputs: [
+        {
+          id: `source:${source.fileId}`,
+          label: `Source: ${source.title}`,
+          text: source.text,
+          included: true
+        }
+      ]
+    }
+    const largePayload: TermDraftPayload = {
+      ...emptyTermDraftPayload(DEFAULT_VOCABULARY_SLUG),
+      term: manyMatches.file.termText,
+      files: [{ fileId: source.fileId, publish: true }],
+      sources: [selectedSource],
+      editorState: {
+        step: "write",
+        confirmed: {
+          term: manyMatches.file.termText,
+          vocabularySlug: DEFAULT_VOCABULARY_SLUG
+        },
+        references: [],
+        preview: modelPreview,
+        appliedDraft: null,
+        undo: null,
+        includeDefinition: false,
+        includeExample: false
+      }
+    }
+    assert.equal(termDraftPayloadSchema.safeParse(largePayload).success, false)
+    const compactPreview = compactTermDraftPayload(largePayload)
+    assert(termDraftPayloadSchema.safeParse(compactPreview).success)
+    const largeDraftId = randomUUID()
+    await db.transaction((tx) =>
+      createTermDraft(
+        tx,
+        { id: largeDraftId, payload: compactPreview },
+        owner.id
+      )
+    )
+    const restoredPreview = await getTermDraft(db, largeDraftId, owner.id)
+    const restoredModel = restoredPreview.payload!.editorState!.preview!
+    assert.deepEqual(restoredModel.sourceInputs, [source])
+    assert.equal(restoredModel.definition, largeSuggestion.suggestedDefinition)
+    assert.equal(restoredModel.promptInputs[0].text, source.text)
+    assert.equal(restoredModel.referenceCount, 0)
+    assert.equal(restoredModel.sourceInputs?.length, 1)
+    assert.equal(
+      restoredModel.baseline.definition,
+      "Contributor writing before AI"
+    )
+    const appliedPayload = compactTermDraftPayload({
+      ...restoredPreview.payload!,
+      definition: largeSuggestion.suggestedDefinition,
+      aiSuggestionId: largeSuggestion.id,
+      editorState: {
+        ...restoredPreview.payload!.editorState!,
+        step: "review",
+        preview: null,
+        appliedDraft: restoredModel,
+        undo: {
+          kind: "source",
+          label: "Undo source insertion",
+          definition: "Contributor edit before source insertion",
+          references: [],
+          appliedDraft: restoredModel
+        }
+      }
+    })
+    const update = {
+      id: largeDraftId,
+      expectedVersion: restoredPreview.version,
+      mutationId: randomUUID(),
+      payload: appliedPayload
+    }
+    const applied = await db.transaction((tx) =>
+      updateTermDraft(tx, update, owner.id)
+    )
+    const retried = await db.transaction((tx) =>
+      updateTermDraft(tx, update, owner.id)
+    )
+    assert.equal(
+      retried.version,
+      applied.version,
+      "A compact save retry does not create another version"
+    )
+    const restoredApplied = await getTermDraft(db, largeDraftId, owner.id)
+    for (const modelState of [
+      restoredApplied.payload!.editorState!.appliedDraft,
+      restoredApplied.payload!.editorState!.undo!.appliedDraft
+    ]) {
+      assert.deepEqual(modelState?.sourceInputs, [source])
+      assert.equal(modelState?.promptInputs[0].text, source.text)
+      assert.equal(modelState?.referenceCount, 0)
+      assert.equal(modelState?.sourceInputs?.length, 1)
+    }
+    const [storedDraft] = await db
+      .select()
+      .from(termDraftsTable)
+      .where(eq(termDraftsTable.id, largeDraftId))
+    assert(JSON.stringify(storedDraft.payload).length < 10000)
+    assert.equal(
+      storedDraft.payload!.editorState!.appliedDraft!.sourceInputs,
+      undefined
+    )
+    assert.equal(
+      storedDraft.payload!.editorState!.undo!.appliedDraft!.sourceInputs,
+      undefined
+    )
+    const published = await db.transaction((tx) =>
+      publishTermDraft(
+        tx,
+        { id: largeDraftId, expectedVersion: applied.version },
+        owner.id
+      )
+    )
+    const publishedFiles = await revisionContributionFiles([
+      published.definition.currentRevisionId!
+    ])
+    assert.equal(publishedFiles.length, 1)
+    assert.equal(publishedFiles[0].contributorCited, true)
+    assert.equal(publishedFiles[0].assistantUsed, true)
+    const savedInputs = await publishedSourceInputs(source.fileId)
+    assert.equal(savedInputs.length, 1)
+    assert.deepEqual(
+      savedInputs[0].source,
+      source,
+      "Publication preserves the complete original model receipt"
+    )
   } finally {
     await db
       .delete(termDraftsTable)

@@ -48,6 +48,7 @@ import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
 import { deleteDefinitionRows } from "../lib/definition-purge"
 import { termDraftsRouter } from "../trpc/routers/term-drafts"
 import type { InferenceMetadata } from "../lib/llm/types"
+import type { ModelReferenceInput } from "../lib/reference-types"
 
 class Rollback extends Error {}
 const rejected = (promise: Promise<unknown>, code: string) =>
@@ -434,6 +435,57 @@ async function main() {
         suggestion.model,
         "An unrecognized historical model keeps its own name"
       )
+      const [storedAdvanced] = await tx
+        .select()
+        .from(termDraftsTable)
+        .where(eq(termDraftsTable.id, advancedId))
+      assert.equal(
+        storedAdvanced.payload?.editorState?.appliedDraft?.definition,
+        undefined,
+        "Client-supplied model output is not duplicated in persisted editor state"
+      )
+      const repeatedCreate = await createTermDraft(
+        tx,
+        { id: advancedId, payload: advanced },
+        owner.id
+      )
+      assert.equal(repeatedCreate.version, saved.version)
+      const historicalReference: ModelReferenceInput = {
+        referenceId: reference.id,
+        term: reference.term,
+        definition: reference.definition,
+        source: reference.source,
+        sourceIri: reference.sourceIri,
+        sourceKey: reference.sourceKey,
+        kind: reference.kind,
+        usageStatus: reference.usageStatus,
+        version: reference.version,
+        license: reference.license,
+        contentHash: reference.contentHash,
+        retrievedAt: lookup.retrievedAt,
+        context: lookup.context,
+        responseUuid: lookup.responseUuid
+      }
+      const expectedPromptInputs = [
+        {
+          id: "definition",
+          label: "Definition draft",
+          text: "Historical notes",
+          included: true
+        },
+        {
+          id: "example",
+          label: "Example of use",
+          text: "Historical example",
+          included: true
+        },
+        {
+          id: reference.id,
+          label: "Saved lookup label",
+          text: reference.definition,
+          included: true
+        }
+      ]
       for (const fixture of [
         {
           model: "gemma4:26b",
@@ -468,6 +520,8 @@ async function main() {
             model: fixture.model,
             inference,
             inputDefinition: "Historical notes",
+            inputExample: "Historical example",
+            referenceInputs: [historicalReference],
             userPrompt: "Historical model request"
           })
           .returning()
@@ -475,7 +529,37 @@ async function main() {
           ...advanced.editorState!.appliedDraft!,
           suggestionId: historicalSuggestion.id,
           assistantProfile: "default" as const,
-          inference: { provider: "client-supplied-provider" }
+          inference: { provider: "client-supplied-provider" },
+          referenceCount: 999,
+          referenceInputs: [],
+          // Labels are editor choices, but order, text and inclusion must come
+          // from the immutable request rather than this stale client snapshot.
+          promptInputs: [
+            {
+              id: reference.id,
+              label: "Saved lookup label",
+              text: "Client supplied fake reference text",
+              included: false
+            },
+            {
+              id: "example",
+              label: "Client supplied fake example label",
+              text: "Client supplied fake example",
+              included: false
+            },
+            {
+              id: "definition",
+              label: "Client supplied fake definition label",
+              text: "Client supplied fake notes",
+              included: false
+            },
+            {
+              id: "not-in-request",
+              label: "Unrecorded input",
+              text: "Never supplied to the assistant",
+              included: true
+            }
+          ]
         }
         const historicalPayload: TermDraftPayload = {
           ...payload,
@@ -498,8 +582,36 @@ async function main() {
           { id: randomUUID(), payload: historicalPayload },
           owner.id
         )
+        const legacyUpdate = save(
+          historicalDraft.id,
+          historicalDraft.version,
+          historicalPayload
+        )
+        const updatedHistorical = await updateTermDraft(
+          tx,
+          legacyUpdate,
+          owner.id
+        )
+        const repeatedUpdate = await updateTermDraft(tx, legacyUpdate, owner.id)
+        assert.equal(repeatedUpdate.version, updatedHistorical.version)
+        const delayedCreate = await createTermDraft(
+          tx,
+          { id: historicalDraft.id, payload: historicalPayload },
+          owner.id
+        )
+        assert.equal(
+          delayedCreate.version,
+          updatedHistorical.version,
+          "A legacy create retry still matches after an update compacts the same editor state"
+        )
         const reopened = await getTermDraft(tx, historicalDraft.id, owner.id)
-        for (const restored of [historicalDraft, reopened]) {
+        for (const restored of [
+          historicalDraft,
+          updatedHistorical,
+          repeatedUpdate,
+          delayedCreate,
+          reopened
+        ]) {
           for (const snapshot of [
             restored.payload?.editorState?.preview,
             restored.payload?.editorState?.appliedDraft,
@@ -519,9 +631,16 @@ async function main() {
             )
             assert.deepEqual(snapshot?.requestInputs, {
               definition: "Historical notes",
-              example: null,
+              example: "Historical example",
               userPrompt: "Historical model request"
             })
+            assert.equal(snapshot?.referenceCount, 1)
+            assert.deepEqual(snapshot?.referenceInputs, [historicalReference])
+            assert.deepEqual(
+              snapshot?.promptInputs,
+              expectedPromptInputs,
+              "Preview, applied and undo prompt inputs restore server text and order while retaining lookup labels"
+            )
           }
         }
         await rejected(
