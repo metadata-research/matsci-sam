@@ -3,6 +3,7 @@ export const SOURCE_MAX_BYTES = 5 * 1024 * 1024
 export const SOURCE_MAX_PAGES = 50
 export const SOURCE_MAX_CHARACTERS = 200000
 export const SOURCE_MAX_ALIASES = 20
+export const SOURCE_MAX_SELECTED_PASSAGES = 100
 export const SOURCE_PARSER_VERSION = "source-extraction-v1"
 export const SOURCE_MATCHER_VERSION = "unicode-phrase-v1"
 

@@ -15,8 +15,13 @@ import type {
   SourceContextSelection,
   SourceInputSnapshot
 } from "../lib/source-document-types"
+import { sourceSelectionText } from "../lib/source-document-types"
+import { checkSourceDocument } from "../lib/source-document-matching"
 import type { ContributionFileItem } from "../lib/contribution-file-types"
-import { sourceInputSnapshotSchema } from "../lib/source-document-selection"
+import {
+  sourceContextSelectionSchema,
+  sourceInputSnapshotSchema
+} from "../lib/source-document-selection"
 
 const file: ContributionFileItem = {
   id: "c95c251c-cb45-40f8-84e9-dd73c036dd91",
@@ -167,6 +172,67 @@ const restored = termDraftPayloadSchema.parse(
   JSON.parse(JSON.stringify({ ...draft, sources: [selection] }))
 )
 assert.deepEqual(restored.sources, [selection])
+
+// Large sources stay editable within the persisted selection limit. Clearing
+// passages retains the source identity but supplies no text to the assistant.
+const largeSourceText = Array.from(
+  { length: 1700 },
+  (_, index) =>
+    `The grain boundary measurement for sample ${index + 1} is recorded.\n`
+).join("")
+const largeSourceCheck = checkSourceDocument({
+  text: largeSourceText,
+  term: "grain boundary",
+  pages: [
+    {
+      page: null,
+      start: 0,
+      end: largeSourceText.length,
+      method: "text",
+      label: "Text",
+      confidence: null
+    }
+  ]
+})
+assert.ok(largeSourceCheck.passages.length > 100)
+const hundredPassages = {
+  ...selection,
+  passageIds: largeSourceCheck.passages
+    .slice(0, 100)
+    .map((passage) => passage.id)
+}
+assert.deepEqual(
+  termDraftPayloadSchema.parse({ ...draft, sources: [hundredPassages] })
+    .sources,
+  [hundredPassages],
+  "A selection at the 100-passage limit can be saved in a draft"
+)
+assert.equal(
+  sourceContextSelectionSchema.safeParse({
+    ...selection,
+    passageIds: largeSourceCheck.passages
+      .slice(0, 101)
+      .map((passage) => passage.id)
+  }).success,
+  false,
+  "Selecting 101 passages exceeds the persisted selection limit"
+)
+const clearedSelection = { ...selection, passageIds: [] }
+assert.deepEqual(
+  termDraftPayloadSchema.parse({ ...draft, sources: [clearedSelection] })
+    .sources,
+  [clearedSelection],
+  "A cleared selection keeps its source in the saved draft"
+)
+assert.equal(
+  sourceSelectionText(
+    largeSourceText,
+    largeSourceCheck.passages,
+    clearedSelection
+  ),
+  "",
+  "Clearing passages supplies no source text to the assistant"
+)
 const extractionSteps = [
   {
     id: snapshot.extractionId,

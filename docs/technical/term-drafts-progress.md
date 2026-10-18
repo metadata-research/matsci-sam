@@ -70,6 +70,11 @@ definition and survey paths remain separate.
 editor and full editor hand off a draft ID; the setup review mounts the full
 review component. Only one editor writes the draft at a time.
 
+The full editor hands committed changes to the save queue before paint so the
+save status and leave-page protection reflect the current writing and citation
+choices. The network save still waits 700 ms after an edit. "Draft saved" means
+the latest changes have finished saving, not just an earlier draft version.
+
 Persisted model snapshots keep suggestion IDs, editor context, input labels and
 the writing needed for Undo. Generated text, exact source inputs, match records,
 request bodies and model metadata remain in the server's suggestion record.
@@ -86,6 +91,14 @@ drafts are retained by both ordinary recovery and the cleanup script. The
 existing pending-upload limit still applies.
 
 ## Verification record
+
+The October 18 citation timing follow-up used the actual review component,
+payload bridge, save queue, controller and status with simulated HTTP saves.
+The old bridge could show the previous saved label in the first frame after
+a citation edit. The layout-effect bridge showed unsaved changes before paint.
+Held saves, reload after saving, navigation flush and failure/retry passed.
+The full source UI script includes these regressions; its complete database
+harness was not rerun for this follow-up.
 
 Migrations `0065_private_term_drafts.sql` and `0066_term_draft_tombstones.sql`
 were applied to the isolated local test database. No production database was

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { SOURCE_MAX_SELECTED_PASSAGES } from "./source-document-types"
 
 const sourceLocationSchema = z.object({
   page: z.number().int().positive().nullable(),
@@ -67,7 +68,7 @@ export const sourceContextSelectionSchema = z.object({
   fileId: z.string().uuid(),
   checkId: z.string().uuid(),
   mode: z.enum(["passages", "full"]),
-  passageIds: z.array(z.string().max(200)).max(100),
+  passageIds: z.array(z.string().max(200)).max(SOURCE_MAX_SELECTED_PASSAGES),
   ocrReviewed: z.boolean()
 })
 

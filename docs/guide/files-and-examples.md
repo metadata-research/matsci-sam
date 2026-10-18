@@ -27,9 +27,11 @@ for this source.** Use **Correct extracted text** to save a corrected transcript
 while preserving the original. Check the term again after a correction.
 
 Select **Use this source with the assistant** and choose relevant passages or
-full text. The preview shows the exact source text to send. MatSci-SAM sends
-the selected text when you request a suggestion. Uploading, pasting, and
-checking a source do not contact an assistant. See
+full text. Use **Select all** or **Clear selection** above the passage list,
+then adjust individual checkboxes. You can select up to 100 passages within
+the assistant's text limit. The preview shows the exact source text to send.
+MatSci-SAM sends the selected text when you request a suggestion. Uploading,
+pasting, and checking a source do not contact an assistant. See
 [source counts](/docs/ai-refinement#review-sources-sent-to-the-assistant) when
 reviewing the response.
 

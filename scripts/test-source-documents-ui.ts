@@ -88,6 +88,8 @@ async function main() {
   let page: Page | undefined
   let failure: unknown
   let cleaned = false
+  let heldDraftSave: { started: () => void; wait: Promise<void> } | null = null
+  const draftSaveControl: { release?: () => void } = {}
 
   const step = async (name: string, action: () => Promise<void>) => {
     await action()
@@ -275,6 +277,12 @@ async function main() {
           blocked.push(`${request.method()} ${url.pathname}`)
           return route.abort("blockedbyclient")
         }
+        if (paths.includes("termDrafts.update") && heldDraftSave) {
+          const held = heldDraftSave
+          heldDraftSave = null
+          held.started()
+          await held.wait
+        }
         const response = await route.fetch({ timeout: 30000 })
         return route.fulfill({ response })
       }
@@ -347,17 +355,58 @@ async function main() {
         for (let index = 0; index < (await passages.count()); index++)
           if (await passages.nth(index).isChecked()) selected.push(index)
         assert(selected.length > 0)
-        for (const index of selected) await passages.nth(index).uncheck()
+        const passageCount = await passages.count()
+        const selectAll = source.getByRole("button", {
+          name: "Select all",
+          exact: true
+        })
+        const clearSelection = source.getByRole("button", {
+          name: "Clear selection",
+          exact: true
+        })
+        await clearSelection.click()
+        await expect(clearSelection).toBeDisabled()
+        await expect(
+          source.getByLabel("Use this source with the assistant")
+        ).toBeChecked()
+        await expect(
+          source.getByText(`0 of ${passageCount} passages selected`, {
+            exact: true
+          })
+        ).toBeVisible()
+        for (let index = 0; index < passageCount; index++)
+          await expect(passages.nth(index)).not.toBeChecked()
         await expect(
           source.getByText(
             "Include a passage containing the term or an alias.",
             { exact: true }
           )
         ).toBeVisible()
+        await selectAll.click()
+        await expect(selectAll).toBeDisabled()
+        await expect(clearSelection).toBeEnabled()
+        for (let index = 0; index < passageCount; index++)
+          await expect(passages.nth(index)).toBeChecked()
+        await expect(
+          source.getByText(
+            `${passageCount} of ${passageCount} passages selected`,
+            { exact: true }
+          )
+        ).toBeVisible()
+        await expect(
+          source.getByText(
+            "Include a passage containing the term or an alias.",
+            { exact: true }
+          )
+        ).not.toBeVisible()
+        await clearSelection.click()
         for (const index of selected) await passages.nth(index).check()
         await source.getByLabel("Full text", { exact: true }).check()
+        await expect(selectAll).not.toBeVisible()
+        await expect(clearSelection).not.toBeVisible()
         await expect(source.getByText(pasted, { exact: true })).toBeVisible()
         await source.getByLabel("Relevant passages", { exact: true }).check()
+        await expect(clearSelection).toBeVisible()
         assert.equal(
           (
             await anonymous.request.get(
@@ -567,6 +616,108 @@ async function main() {
         ).toHaveCount(2)
         await expect(review.getByRole("checkbox").first()).not.toBeChecked()
         await screenshot("03-required-evidence-review")
+      }
+    )
+
+    await step(
+      "Citation edits mark the draft dirty before paint and survive save/reload or immediate navigation",
+      async () => {
+        const review = page!.getByRole("region", {
+          name: "Review attached files"
+        })
+        const cite = review.getByRole("checkbox").first()
+        const savedLabel = page!.getByText("Draft saved to your account", {
+          exact: true
+        })
+        const savedDraft = async () =>
+          (
+            await db
+              .select()
+              .from(termDraftsTable)
+              .where(eq(termDraftsTable.ownerId, fixture.userId))
+          )[0]
+        // Establish the exact saved baseline; a pre-existing status label alone
+        // cannot prove a just-completed interaction has been persisted.
+        await expect
+          .poll(async () => (await savedDraft())?.payload?.editorState?.step)
+          .toBe("review")
+        await expect(savedLabel).toBeVisible()
+        const citationId = await cite.getAttribute("id")
+        assert(citationId)
+        const firstFrame = page!.evaluate(
+          (id) =>
+            new Promise<{
+              checked: boolean
+              saved: boolean
+              protectedFromUnload: boolean
+            }>((resolve) => {
+              const checkbox = document.getElementById(id) as HTMLInputElement
+              checkbox.addEventListener(
+                "change",
+                () =>
+                  requestAnimationFrame(() => {
+                    const unload = new Event("beforeunload", {
+                      cancelable: true
+                    })
+                    window.dispatchEvent(unload)
+                    resolve({
+                      checked: checkbox.checked,
+                      saved: Array.from(
+                        document.querySelectorAll('[role="status"]')
+                      ).some(
+                        (node) =>
+                          node.textContent === "Draft saved to your account"
+                      ),
+                      protectedFromUnload: unload.defaultPrevented
+                    })
+                  }),
+                { once: true }
+              )
+            }),
+          citationId
+        )
+        let saveStarted = false
+        const wait = new Promise<void>((resolve) => {
+          draftSaveControl.release = resolve
+        })
+        heldDraftSave = {
+          started: () => {
+            saveStarted = true
+          },
+          wait
+        }
+        await cite.check()
+        assert.deepEqual(await firstFrame, {
+          checked: true,
+          saved: false,
+          protectedFromUnload: true
+        })
+        await expect.poll(() => saveStarted).toBe(true)
+        await expect(savedLabel).not.toBeVisible()
+        await expect(
+          page!.getByText("Saving draft…", { exact: true })
+        ).toBeVisible()
+        assert.equal((await savedDraft())?.payload?.files[0].publish, false)
+        draftSaveControl.release!()
+        draftSaveControl.release = undefined
+        await expect
+          .poll(async () => (await savedDraft())?.payload?.files[0].publish)
+          .toBe(true)
+        await expect(savedLabel).toBeVisible()
+        const draftUrl = page!.url()
+        await page!.reload({ waitUntil: "domcontentloaded" })
+        await expect(cite).toBeChecked()
+
+        // Navigation must flush the newly unchecked citation, even before the
+        // 700 ms autosave timer fires. Preserve the uncited-publication coverage.
+        await cite.uncheck()
+        await page!
+          .getByRole("link", { name: "My drafts", exact: true })
+          .click()
+        await expect(page!).toHaveURL(/\/profile\/drafts$/)
+        assert.equal((await savedDraft())?.payload?.files[0].publish, false)
+        await page!.goto(draftUrl, { waitUntil: "domcontentloaded" })
+        await expect(cite).not.toBeChecked()
         await button("Publish new term").click()
         await expect(page!).toHaveURL(/\/vocabulary\/.+\/definitions\/1/)
       }
@@ -618,6 +769,7 @@ async function main() {
       ).catch(() => {})
     }
   } finally {
+    draftSaveControl.release?.()
     try {
       if (browser) await closeBrowserAfterRoutes(browser)
     } catch (error) {

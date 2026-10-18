@@ -10,6 +10,7 @@ import {
 import {
   SOURCE_MAX_ALIASES,
   SOURCE_MAX_CHARACTERS,
+  SOURCE_MAX_SELECTED_PASSAGES,
   sourceSelectionText,
   type SourceContextSelection,
   type SourceDocumentCheck,
@@ -238,6 +239,7 @@ export function SourceDocumentContext({
       mode: "passages",
       passageIds: check.passages
         .filter((passage) => passage.matchIds.length)
+        .slice(0, SOURCE_MAX_SELECTED_PASSAGES)
         .map((passage) => passage.id),
       ocrReviewed,
       ...selection,
@@ -297,6 +299,10 @@ export function SourceDocumentContext({
     }
   }
   const blocked = disabled || working || correcting
+  const selectedPassageCount =
+    check?.passages.filter((passage) =>
+      selection?.passageIds.includes(passage.id)
+    ).length ?? 0
   return (
     <section
       aria-label={`Source text: ${file.title}`}
@@ -512,51 +518,104 @@ export function SourceDocumentContext({
                 </p>
               ) : null}
               {selection.mode === "passages" ? (
-                <fieldset
-                  aria-label="Source passages"
-                  className="max-h-64 space-y-3 overflow-auto"
-                >
-                  {[...check.passages]
-                    .sort(
-                      (left, right) =>
-                        Number(right.matchIds.length > 0) -
-                          Number(left.matchIds.length > 0) ||
-                        left.start - right.start
-                    )
-                    .map((passage) => (
-                      <label
-                        key={passage.id}
-                        className="flex items-start gap-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selection.passageIds.includes(passage.id)}
-                          disabled={blocked}
-                          onChange={(event) =>
-                            updateSelection({
-                              passageIds: event.target.checked
-                                ? [...selection.passageIds, passage.id]
-                                : selection.passageIds.filter(
-                                    (value) => value !== passage.id
-                                  )
-                            })
-                          }
-                        />
-                        <span className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]">
-                          <span className="mb-1 block text-xs text-muted-foreground">
-                            {passage.locations
-                              .map((location) => location.label)
-                              .join(", ")}
-                          </span>
-                          <MatchedText
-                            text={passage.text}
-                            offset={passage.start}
-                            matches={check.matches}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      aria-controls={`${id}-passages`}
+                      disabled={
+                        blocked ||
+                        !hasMatch ||
+                        check.passages.length > SOURCE_MAX_SELECTED_PASSAGES ||
+                        selectedPassageCount === check.passages.length
+                      }
+                      onClick={() =>
+                        updateSelection({
+                          passageIds: check.passages.map(
+                            (passage) => passage.id
+                          )
+                        })
+                      }
+                    >
+                      Select all
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      aria-controls={`${id}-passages`}
+                      disabled={
+                        blocked || !hasMatch || selectedPassageCount === 0
+                      }
+                      onClick={() => updateSelection({ passageIds: [] })}
+                    >
+                      Clear selection
+                    </Button>
+                    <p role="status" className="text-xs text-muted-foreground">
+                      {selectedPassageCount} of {check.passages.length} passages
+                      selected
+                    </p>
+                  </div>
+                  {check.passages.length > SOURCE_MAX_SELECTED_PASSAGES ? (
+                    <p className="text-xs text-muted-foreground">
+                      Select up to {SOURCE_MAX_SELECTED_PASSAGES} passages.
+                      Clear the selection to choose a different set.
+                    </p>
+                  ) : null}
+                  <fieldset
+                    id={`${id}-passages`}
+                    aria-label="Source passages"
+                    className="max-h-64 space-y-3 overflow-auto"
+                  >
+                    {[...check.passages]
+                      .sort(
+                        (left, right) =>
+                          Number(right.matchIds.length > 0) -
+                            Number(left.matchIds.length > 0) ||
+                          left.start - right.start
+                      )
+                      .map((passage) => (
+                        <label
+                          key={passage.id}
+                          className="flex items-start gap-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selection.passageIds.includes(passage.id)}
+                            disabled={
+                              blocked ||
+                              (!selection.passageIds.includes(passage.id) &&
+                                selectedPassageCount >=
+                                  SOURCE_MAX_SELECTED_PASSAGES)
+                            }
+                            onChange={(event) =>
+                              updateSelection({
+                                passageIds: event.target.checked
+                                  ? [...selection.passageIds, passage.id]
+                                  : selection.passageIds.filter(
+                                      (value) => value !== passage.id
+                                    )
+                              })
+                            }
                           />
-                        </span>
-                      </label>
-                    ))}
-                </fieldset>
+                          <span className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]">
+                            <span className="mb-1 block text-xs text-muted-foreground">
+                              {passage.locations
+                                .map((location) => location.label)
+                                .join(", ")}
+                            </span>
+                            <MatchedText
+                              text={passage.text}
+                              offset={passage.start}
+                              matches={check.matches}
+                            />
+                          </span>
+                        </label>
+                      ))}
+                  </fieldset>
+                </div>
               ) : null}
               <details open>
                 <summary className="cursor-pointer font-medium">
