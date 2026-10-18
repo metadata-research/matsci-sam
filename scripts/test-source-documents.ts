@@ -338,6 +338,10 @@ def make(name, text=body, extra=None):
   f.writestr('word/document.xml', text)
   if extra: f.writestr(*extra)
 make('valid.docx')
+make('nonbreaking-hyphen.docx', body.replace(
+ 'A grain boundary separates grains.',
+ 'An x</w:t><w:noBreakHyphen/><w:t>ray is used to characterize crystal structure.'
+))
 make('doctype.docx', '<!DOCTYPE doc [<!ENTITY unsafe "private">]>' + body)
 make('bomb.docx', extra=('large.bin', 'a'*2000000))
 make('path.docx', extra=('../outside', 'no'))
@@ -387,6 +391,26 @@ make('path.docx', extra=('../outside', 'no'))
     assert.equal(
       checkSourceDocument({ ...docx, term: "grain boundary" }).matches.length,
       1
+    )
+    const nonbreakingHyphen = await extractSourceDocument({
+      bytes: await readFile(join(directory, "nonbreaking-hyphen.docx")),
+      mediaType: docxType
+    })
+    verifyLocations(nonbreakingHyphen)
+    assert.equal(
+      nonbreakingHyphen.text,
+      "An x\u2011ray is used to characterize crystal structure.\n\nSecond paragraph."
+    )
+    const hyphenMatches = checkSourceDocument({
+      ...nonbreakingHyphen,
+      term: "x-ray",
+      aliases: ["x\u2011ray"]
+    }).matches
+    assert.equal(hyphenMatches.length, 1)
+    assert.equal(hyphenMatches[0].text, "x\u2011ray")
+    assert.equal(hyphenMatches[0].isAlias, true)
+    console.log(
+      "PASS DOCX nonbreaking hyphen preservation and explicit alias match"
     )
     await rejects(
       await readFile(join(directory, "doctype.docx")),

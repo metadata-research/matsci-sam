@@ -101,8 +101,10 @@ import {
 } from "@/components/use-mutation-activity"
 import {
   emptyTermDraftPayload,
+  type TermDraftEditorState,
   type TermDraftPayload
 } from "@/lib/term-draft-types"
+import { compactTermDraftPayload } from "@/lib/term-draft-persistence"
 import {
   DraftSaveStatus,
   useTermDraft,
@@ -682,7 +684,7 @@ const DefinitionFormOwner = ({
     lockedTerm === undefined && !appliedDraft && !destinationChanged
 
   const draftPayload: TermDraftPayload | null = draftController
-    ? {
+    ? compactTermDraftPayload({
         ...draftController.payload,
         term: termValue,
         definition: definitionValue,
@@ -699,22 +701,20 @@ const DefinitionFormOwner = ({
         ],
         sources: sourceSelections,
         aiSuggestionId: appliedDraft?.suggestionId ?? null,
-        editorState: JSON.parse(
-          JSON.stringify({
-            step,
-            confirmed,
-            references,
-            preview,
-            appliedDraft,
-            undo,
-            includeDefinition,
-            includeExample,
-            exampleOpen,
-            assistantOpen,
-            assistantProfile: assistant.profile
-          })
-        )
-      }
+        editorState: {
+          step,
+          confirmed,
+          references,
+          preview,
+          appliedDraft,
+          undo,
+          includeDefinition,
+          includeExample,
+          exampleOpen,
+          assistantOpen,
+          assistantProfile: assistant.profile
+        } as unknown as TermDraftEditorState
+      })
     : null
   const serializedDraft = JSON.stringify(draftPayload)
   const savePayload = draftController?.setPayload

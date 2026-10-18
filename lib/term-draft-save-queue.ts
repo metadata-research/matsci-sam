@@ -61,9 +61,11 @@ export class TermDraftSaveQueue<
     }
   }
 
-  restore(record: R) {
+  /** Keep the hydrated record for the editor, but compare writes using the
+   * persisted representation when it differs from the restored response. */
+  restore(record: R, payload: P | null = record.payload) {
     this.record = record
-    if (record.payload !== null) this.payload = record.payload
+    if (payload !== null) this.payload = payload
     this.saved = JSON.stringify(this.payload)
     this.attempt = null
     this.error = null

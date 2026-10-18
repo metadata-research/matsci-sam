@@ -70,6 +70,13 @@ definition and survey paths remain separate.
 editor and full editor hand off a draft ID; the setup review mounts the full
 review component. Only one editor writes the draft at a time.
 
+Persisted model snapshots keep suggestion IDs, editor context, input labels and
+the writing needed for Undo. Generated text, exact source inputs, match records,
+request bodies and model metadata remain in the server's suggestion record.
+The editor removes that evidence before autosave, and owner-authorized reads
+restore it for previews, applied suggestions and Undo. This keeps large source
+receipts out of the draft-size budget without dropping publication provenance.
+
 `/profile/drafts` lists private drafts with Resume and Delete actions. Drafts
 live in separate database tables and never enter the published-term pipeline
 until the owner publishes them.
