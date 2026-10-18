@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import { useCommittedTermDraftPayload } from "./use-committed-term-draft-payload"
 import {
   ReferenceCitations,
   ReferenceStatus,
@@ -718,10 +719,7 @@ const DefinitionFormOwner = ({
     : null
   const serializedDraft = JSON.stringify(draftPayload)
   const savePayload = draftController?.setPayload
-  useEffect(() => {
-    if (savePayload && serializedDraft !== "null")
-      savePayload(JSON.parse(serializedDraft) as TermDraftPayload)
-  }, [serializedDraft, savePayload])
+  useCommittedTermDraftPayload(serializedDraft, savePayload)
 
   const reviewedRestoration = useRef(false)
   useEffect(() => {
