@@ -2359,7 +2359,8 @@ export const buildTermProvenance = async (
       definitions,
       revisions,
       citations: citedReferences,
-      suggestions: aiContributionSuggestions
+      suggestions: aiContributionSuggestions,
+      publishedFiles
     }),
     graph: { nodes, edges }
   }

@@ -29,6 +29,7 @@
     "test:study-presentation-db": "tsx --conditions=react-server scripts/test-study-presentation-db.ts",
     "test:featured-provenance": "tsx scripts/test-featured-provenance.ts",
     "test:contribution-provenance": "tsx scripts/test-contribution-provenance.ts",
+    "test:contribution-evidence-ui": "tsx scripts/test-contribution-evidence-ui.tsx",
     "test:reported-sources": "tsx --conditions=react-server scripts/test-provider-reported-sources.ts",
     "test:ai-contribution-discard-db": "tsx scripts/test-ai-contribution-discard-db.ts",
     "test:model-prompt-inputs": "tsx scripts/test-model-prompt-inputs.ts",
