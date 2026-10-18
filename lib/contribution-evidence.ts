@@ -3,8 +3,53 @@ import type { ModelReferenceInput } from "./reference-types"
 import { providerReportedSources } from "./provider-reported-sources"
 import { diffToStringSimple } from "./definition-comparison"
 import type { Diff } from "diff-match-patch-ts"
+import {
+  contributionFilePath,
+  type ContributionFileItem
+} from "./contribution-file-types"
+import type { SourceInputSnapshot } from "./source-document-types"
 
 export type ReferenceEvidence = Omit<ModelReferenceInput, "referenceId">
+export type PublishedSourceEvidence = {
+  fileId: string
+  origin: "upload" | "paste"
+  title: string
+  caption: string
+  citation: string | null
+  page: string | null
+  filename: string
+  mediaType: string
+  contentHash: string
+  contributorCited: boolean
+  assistantUsed: boolean
+  readerHref: string | null
+  downloadHref: string
+}
+export type SourceInputEvidence = Pick<
+  SourceInputSnapshot,
+  | "title"
+  | "origin"
+  | "mode"
+  | "term"
+  | "aliases"
+  | "text"
+  | "textHash"
+  | "fileHash"
+  | "extractionTextHash"
+  | "hasOcr"
+  | "ocrReviewed"
+  | "parserVersion"
+  | "method"
+  | "extractedAt"
+  | "checkedAt"
+  | "matcherVersion"
+  | "contextSelectedAt"
+  | "ocrReviewRecordedAt"
+> & {
+  fileId: string | null
+  readerHref: string | null
+  downloadHref: string | null
+}
 export type ModelEvidence = {
   name: string
   inference: InferenceMetadata | null
@@ -18,6 +63,8 @@ export type ModelEvidence = {
   output: string | null
   publication: "unchanged" | "edited" | "unknown"
   references: ReferenceEvidence[]
+  // Older accepted receipts may predate document-input recording.
+  sourceInputs: SourceInputEvidence[] | null
   reportedSources: ProviderReportedSource[]
 }
 export type ContributionEvidence = {
@@ -26,6 +73,7 @@ export type ContributionEvidence = {
   publishedAt: string
   publishedText: string
   citations: ReferenceEvidence[]
+  sources: PublishedSourceEvidence[]
   model: ModelEvidence | null
 }
 
@@ -52,6 +100,54 @@ const publicReference = (reference: ReferenceEvidence): ReferenceEvidence => ({
   ...(reference.request !== undefined ? { request: reference.request } : {})
 })
 
+const publicSourceInput = (
+  source: SourceInputSnapshot,
+  published: PublishedSourceEvidence | undefined
+): SourceInputEvidence => ({
+  fileId: published?.fileId ?? null,
+  readerHref: published?.readerHref ?? null,
+  downloadHref: published?.downloadHref ?? null,
+  title: source.title,
+  origin: source.origin,
+  mode: source.mode,
+  term: source.term,
+  aliases: [...source.aliases],
+  text: source.text,
+  textHash: source.textHash,
+  fileHash: source.fileHash,
+  extractionTextHash: source.extractionTextHash,
+  hasOcr: source.hasOcr,
+  ocrReviewed: source.ocrReviewed,
+  parserVersion: source.parserVersion,
+  ...(source.method === undefined ? {} : { method: source.method }),
+  extractedAt: source.extractedAt,
+  checkedAt: source.checkedAt,
+  matcherVersion: source.matcherVersion,
+  contextSelectedAt: source.contextSelectedAt,
+  ocrReviewRecordedAt: source.ocrReviewRecordedAt
+})
+
+const publicSource = (
+  file: ContributionFileItem,
+  assistantUsed: boolean
+): PublishedSourceEvidence => ({
+  fileId: file.id,
+  origin: file.origin ?? "upload",
+  title: file.title,
+  caption: file.caption,
+  citation: file.citation,
+  page: file.page,
+  filename: file.filename,
+  mediaType: file.mediaType,
+  contentHash: file.contentHash,
+  contributorCited: file.contributorCited === true,
+  assistantUsed,
+  readerHref: file.publishedExtractionId
+    ? `/sources/${encodeURIComponent(file.id)}`
+    : null,
+  downloadHref: contributionFilePath(file.id)
+})
+
 type Revision = {
   id: number
   definitionId: number
@@ -76,6 +172,7 @@ type Suggestion = {
   promptText: string
   userPrompt: string | null
   referenceInputs: ModelReferenceInput[] | null
+  sourceInputs?: SourceInputSnapshot[] | null
 }
 
 /** Evidence belongs to an exact published revision, never the latest draft. */
@@ -83,12 +180,14 @@ export function buildContributionEvidence({
   definitions,
   revisions,
   citations,
-  suggestions
+  suggestions,
+  publishedFiles = []
 }: {
   definitions: { id: number; definitionNumber: number }[]
   revisions: Revision[]
   citations: (ReferenceEvidence & { revisionId: number })[]
   suggestions: Suggestion[]
+  publishedFiles?: ContributionFileItem[]
 }): ContributionEvidence[] {
   const numbers = new Map(definitions.map((d) => [d.id, d.definitionNumber]))
   const accepted = new Map(
@@ -109,6 +208,29 @@ export function buildContributionEvidence({
     // Accepted outputDefinitionId binds the suggestion to revision 1 only.
     const suggestion =
       revision.version === 1 ? accepted.get(revision.definitionId) : undefined
+    const sourceInputs = new Map(
+      (suggestion?.sourceInputs ?? []).map((source) => [source.fileId, source])
+    )
+    // Scope both publication and assistant-use claims to this exact revision.
+    // The query's assistantUsed flag can refer to another accepted request.
+    const sources = [
+      ...new Map(
+        publishedFiles
+          .filter(
+            (file) =>
+              file.role === "source" &&
+              file.publishedRevisionId === revision.id &&
+              file.publishedAt !== null
+          )
+          .map((file) => [
+            file.id,
+            publicSource(file, sourceInputs.has(file.id))
+          ])
+      ).values()
+    ]
+    const sourcesById = new Map(
+      sources.map((source) => [source.fileId, source])
+    )
     const publishedText = diffToStringSimple(revision.definitionDiff)
     let model: ModelEvidence | null = null
     if (suggestion) {
@@ -128,6 +250,12 @@ export function buildContributionEvidence({
             ? "unchanged"
             : "edited",
         references: (suggestion.referenceInputs ?? []).map(publicReference),
+        sourceInputs:
+          suggestion.sourceInputs == null
+            ? null
+            : [...sourceInputs.values()].map((source) =>
+                publicSourceInput(source, sourcesById.get(source.fileId))
+              ),
         reportedSources: providerReportedSources(
           suggestion.inference,
           suggestion.suggestedDefinition
@@ -147,11 +275,12 @@ export function buildContributionEvidence({
         output: null,
         publication: "unknown",
         references: [],
+        sourceInputs: null,
         // Never extract reported links from contributor-edited published text.
         reportedSources: providerReportedSources(revision.inference, "")
       }
     }
-    return model || cited.length
+    return model || cited.length || sources.length
       ? [
           {
             definitionNumber,
@@ -159,6 +288,7 @@ export function buildContributionEvidence({
             publishedAt: revision.createdAt,
             publishedText,
             citations: cited,
+            sources,
             model
           }
         ]

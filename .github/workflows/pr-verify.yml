@@ -480,6 +480,8 @@ jobs:
       - name: Test Featured Provenance Routing
         run: |
           pnpm test:featured-provenance
+          pnpm test:contribution-provenance
+          pnpm test:contribution-evidence-ui
 
       - name: Test Interface State
         run: |

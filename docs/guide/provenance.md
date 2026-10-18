@@ -27,6 +27,14 @@ to the model.
 A published record distinguishes the sources attached as citations from
 reference material sent to an assistant.
 
+Expand a revision under **Sources and AI assistance** to see its uploaded and
+pasted sources. The citation count includes files, pasted text and lookup
+references marked as cited by the contributor. **Used by assistant** identifies
+a source sent with the accepted request. It does not add a citation. The
+assistant's uploaded and pasted inputs appear separately from lookup references.
+Open **Text sent to the assistant** to inspect the saved input, or follow the
+source link for its text and processing record.
+
 | Evidence                         | Meaning                                                     |
 | -------------------------------- | ----------------------------------------------------------- |
 | Cited reference                  | A source the contributor attached to the published revision |

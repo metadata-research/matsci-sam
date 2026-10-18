@@ -14,6 +14,8 @@ import {
 } from "../lib/example-provenance-events"
 import type { InferenceMetadata } from "../lib/llm/types"
 import type { ModelReferenceInput } from "../lib/reference-types"
+import type { ContributionFileItem } from "../lib/contribution-file-types"
+import type { SourceInputSnapshot } from "../lib/source-document-types"
 
 type EvidenceInput = Parameters<typeof buildContributionEvidence>[0]
 type Revision = EvidenceInput["revisions"][number]
@@ -311,6 +313,273 @@ assert.equal(
   })[0].model,
   null,
   "a cited source does not imply AI assistance"
+)
+
+const sourceFile = (
+  overrides: Partial<ContributionFileItem> = {}
+): ContributionFileItem => ({
+  id: "uploaded-source",
+  filename: "source.txt",
+  mediaType: "text/plain",
+  byteSize: 100,
+  contentHash: "original-file-hash",
+  role: "source",
+  title: "Uploaded source",
+  caption: "Contributor's description of the source.",
+  citation: "Contributor-provided citation.",
+  page: null,
+  createdAt: generatedAt,
+  publishedRevisionId: 501,
+  exampleId: null,
+  publishedAt,
+  origin: "upload",
+  contributorCited: true,
+  publishedExtractionId: "private-extraction-id",
+  // This global query field must not imply use by this revision's assistant.
+  assistantUsed: false,
+  ...overrides
+})
+const sourceInput = (
+  overrides: Partial<SourceInputSnapshot> = {}
+): SourceInputSnapshot => ({
+  fileId: "uploaded-source",
+  extractionId: "private-extraction-id",
+  checkId: "private-check-id",
+  title: "Uploaded source at request time",
+  origin: "upload",
+  fileHash: "original-file-hash",
+  extractionTextHash: "extracted-text-hash",
+  text: "Exact selected passage supplied to the model.",
+  textHash: "model-input-hash",
+  mode: "passages",
+  term: "ceric oxide",
+  aliases: ["ceria"],
+  matches: [],
+  locations: [],
+  parserVersion: "source-extraction-v1",
+  method: "text",
+  hasOcr: false,
+  ocrReviewed: false,
+  extractedAt: generatedAt,
+  checkedAt: generatedAt,
+  matcherVersion: "unicode-phrase-v1",
+  ocrReviewRecordedAt: null,
+  reviewerId: 701,
+  contextSelectedAt: generatedAt,
+  extractionSteps: [
+    {
+      id: "private-extraction-id",
+      parentExtractionId: null,
+      correctedById: 701,
+      textHash: "extracted-text-hash",
+      parserVersion: "source-extraction-v1",
+      method: "text",
+      hasOcr: false,
+      completedAt: generatedAt
+    }
+  ],
+  ...overrides
+})
+const privateFile = {
+  ...sourceFile(),
+  uploadedById: 701,
+  bytes: "PRIVATE FILE BYTES",
+  storagePath: "/private/source/path",
+  draftId: "private-draft-id"
+}
+const privateSourceInput = {
+  ...sourceInput(),
+  draftId: "private-draft-id",
+  storagePath: "/private/source/path",
+  requestId: "private-request-id"
+}
+const pastedFile = sourceFile({
+  id: "pasted-source",
+  title: "Pasted context",
+  origin: "paste",
+  contributorCited: false
+})
+const pastedInput = sourceInput({
+  fileId: "pasted-source",
+  title: "Pasted context at request time",
+  origin: "paste",
+  mode: "full",
+  text: "Exact full pasted text supplied to the model."
+})
+const mixedSources = evidence({
+  publishedFiles: [privateFile, pastedFile, privateFile],
+  suggestions: [
+    suggestion({
+      referenceInputs: [],
+      sourceInputs: [privateSourceInput, pastedInput, privateSourceInput]
+    })
+  ]
+})[0]
+assert.equal(mixedSources.citations.length, 0)
+assert.equal(mixedSources.sources.length, 2, "a source is counted once")
+assert.equal(
+  mixedSources.citations.length +
+    mixedSources.sources.filter((source) => source.contributorCited).length,
+  1,
+  "only the uploaded source was explicitly cited; assistant use adds no citation"
+)
+assert.deepEqual(
+  mixedSources.sources.map(({ origin, contributorCited, assistantUsed }) => ({
+    origin,
+    contributorCited,
+    assistantUsed
+  })),
+  [
+    { origin: "upload", contributorCited: true, assistantUsed: true },
+    { origin: "paste", contributorCited: false, assistantUsed: true }
+  ]
+)
+assert.equal(mixedSources.model?.sourceInputs?.length, 2)
+assert.equal(mixedSources.model?.references.length, 0)
+assert.equal(
+  mixedSources.model?.sourceInputs?.[0].title,
+  privateSourceInput.title,
+  "model input metadata comes from the accepted immutable receipt"
+)
+assert.deepEqual(
+  mixedSources.model?.sourceInputs?.map(({ mode, text }) => ({ mode, text })),
+  [
+    { mode: "passages", text: privateSourceInput.text },
+    { mode: "full", text: pastedInput.text }
+  ]
+)
+assert.equal(mixedSources.sources[0].readerHref, "/sources/uploaded-source")
+assert.equal(
+  mixedSources.sources[0].downloadHref,
+  "/api/contribution-files/uploaded-source"
+)
+assert.equal(
+  mixedSources.model?.sourceInputs?.[0].readerHref,
+  mixedSources.sources[0].readerHref
+)
+for (const projected of mixedSources.sources)
+  for (const field of [
+    "uploadedById",
+    "bytes",
+    "storagePath",
+    "draftId",
+    "publishedExtractionId",
+    "publishedRevisionId"
+  ])
+    assert(!Object.hasOwn(projected, field), `${field} is not public evidence`)
+for (const projected of mixedSources.model!.sourceInputs!)
+  for (const field of [
+    "extractionId",
+    "checkId",
+    "reviewerId",
+    "extractionSteps",
+    "draftId",
+    "storagePath",
+    "requestId"
+  ])
+    assert(!Object.hasOwn(projected, field), `${field} is not public evidence`)
+for (const privateValue of [
+  "PRIVATE FILE BYTES",
+  "private-extraction-id",
+  "private-check-id",
+  "private-draft-id",
+  "/private/source/path",
+  "private-request-id"
+])
+  assert(!JSON.stringify(mixedSources).includes(privateValue))
+
+const sourceOnly = evidence({
+  publishedFiles: [sourceFile({ assistantUsed: true })],
+  suggestions: []
+})[0]
+assert.equal(sourceOnly.model, null)
+assert.equal(sourceOnly.sources.length, 1)
+assert.equal(sourceOnly.sources[0].contributorCited, true)
+assert.equal(
+  sourceOnly.sources[0].assistantUsed,
+  false,
+  "a published file's global use flag is not evidence of use for this revision"
+)
+const withLookupCitation = evidence({
+  publishedFiles: [sourceFile()],
+  citations: [{ ...reference, revisionId: 501 }],
+  suggestions: []
+})[0]
+assert.equal(
+  withLookupCitation.citations.length +
+    withLookupCitation.sources.filter((source) => source.contributorCited)
+      .length,
+  2,
+  "lookup citations and explicitly cited files are independent citations"
+)
+for (const excluded of [
+  sourceFile({ role: "example", exampleId: 123 }),
+  sourceFile({ publishedRevisionId: null, publishedAt: null }),
+  sourceFile({ publishedAt: null }),
+  sourceFile({ publishedRevisionId: 999 })
+])
+  assert.deepEqual(
+    evidence({ publishedFiles: [excluded], suggestions: [] }),
+    [],
+    "examples, pending files and other revisions must not create evidence"
+  )
+const historicalSources = evidence({
+  revisions: [revision(), revision({ id: 502, version: 2 })],
+  publishedFiles: [
+    sourceFile(),
+    pastedFile,
+    sourceFile({
+      id: "later-source",
+      publishedRevisionId: 502,
+      assistantUsed: true
+    })
+  ],
+  suggestions: [suggestion({ sourceInputs: [sourceInput(), pastedInput] })]
+})
+assert.deepEqual(
+  historicalSources.map(({ sources }) => sources.map(({ fileId }) => fileId)),
+  [["uploaded-source", "pasted-source"], ["later-source"]]
+)
+assert.equal(historicalSources[1].model, null)
+assert.equal(historicalSources[1].sources[0].assistantUsed, false)
+assert.equal(
+  evidence({
+    publishedFiles: [sourceFile({ publishedExtractionId: null })],
+    suggestions: []
+  })[0].sources[0].readerHref,
+  null,
+  "older attachments without a transcript retain only their download link"
+)
+for (const status of ["generated", "discarded", "pending"])
+  assert.equal(
+    evidence({
+      publishedFiles: [sourceFile({ assistantUsed: true })],
+      suggestions: [suggestion({ status, sourceInputs: [sourceInput()] })]
+    })[0].sources[0].assistantUsed,
+    false,
+    "a preview must not make a published-source assistant-use claim"
+  )
+const unlinkedInput = evidence({
+  publishedFiles: [sourceFile({ publishedRevisionId: 502 })],
+  suggestions: [suggestion({ sourceInputs: [sourceInput()] })]
+})[0].model!.sourceInputs![0]
+assert.equal(unlinkedInput.text, sourceInput().text)
+assert.equal(unlinkedInput.fileId, null)
+assert.equal(unlinkedInput.readerHref, null)
+assert.equal(unlinkedInput.downloadHref, null)
+assert.equal(
+  evidence({ suggestions: [suggestion({ sourceInputs: null })] })[0].model
+    ?.sourceInputs,
+  null,
+  "older nullable receipts do not prove that zero documents were used"
+)
+assert.equal(evidence()[0].model?.sourceInputs, null)
+assert.equal(unknown.sourceInputs, null)
+assert.deepEqual(
+  evidence({ suggestions: [suggestion({ sourceInputs: [] })] })[0].model
+    ?.sourceInputs,
+  [],
+  "an explicit empty receipt records a known zero source count"
 )
 
 const publicActor = {
