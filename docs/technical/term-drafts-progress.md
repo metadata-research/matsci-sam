@@ -92,6 +92,26 @@ existing pending-upload limit still applies.
 
 ## Verification record
 
+On October 19, the complete `scripts/test-source-documents-ui.ts` harness passed
+against the current implementation, using a fresh, migrated QA database, the
+Next.js development server and the source extraction worker. All six scenarios
+passed, including first-frame citation dirty state and unload protection, held
+database saves, saved reloads, immediate navigation, publication and public
+source access. Browser errors and unexpected requests were empty, and the
+harness removed its fixtures. AI responses were controlled fixtures; this run
+did not call an external provider. This closes the complete-harness gap recorded
+below for the October 18 follow-up. All six scenarios also passed after the
+passage-control wording was clarified. Selection behavior is unchanged.
+
+A local browser typing check also passed with a 261,000-character compact
+draft and a 659-character ordinary draft. Both saved and reloaded every edit
+without a stale saved label. For 52 measured keystrokes per draft, median
+input-to-next-animation-frame time was 13.4 ms for the large draft and 12.3 ms
+for the ordinary draft. The large draft had one 57 ms long task. Its permitted
+escaped historical text deliberately stressed the size limit. These development
+browser measurements are a performance watch, not an isolated effect comparison
+or a production paint-time guarantee.
+
 The October 18 citation timing follow-up used the actual review component,
 payload bridge, save queue, controller and status with simulated HTTP saves.
 The old bridge could show the previous saved label in the first frame after
