@@ -357,7 +357,7 @@ async function main() {
         assert(selected.length > 0)
         const passageCount = await passages.count()
         const selectAll = source.getByRole("button", {
-          name: "Select all",
+          name: "Select all passages",
           exact: true
         })
         const clearSelection = source.getByRole("button", {

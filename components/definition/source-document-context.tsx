@@ -539,7 +539,7 @@ export function SourceDocumentContext({
                         })
                       }
                     >
-                      Select all
+                      Select all passages
                     </Button>
                     <Button
                       type="button"
@@ -561,7 +561,8 @@ export function SourceDocumentContext({
                   {check.passages.length > SOURCE_MAX_SELECTED_PASSAGES ? (
                     <p className="text-xs text-muted-foreground">
                       Select up to {SOURCE_MAX_SELECTED_PASSAGES} passages.
-                      Clear the selection to choose a different set.
+                      Uncheck passages or clear the selection to choose a
+                      different set.
                     </p>
                   ) : null}
                   <fieldset
