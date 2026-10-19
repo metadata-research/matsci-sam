@@ -83,6 +83,113 @@ async function main() {
     "Clean flushes and restores do not replay save acknowledgements"
   )
 
+  // JSONB can return object keys in a different order from the editor's
+  // projection. Merely opening that saved draft must not create a new version.
+  type SelectionPayload = {
+    definition: string
+    editorState: {
+      step: string
+      references: Array<{ lookupId: string; cited: boolean }>
+    }
+  }
+  type SelectionRecord = Omit<Record, "payload"> & {
+    payload: SelectionPayload
+  }
+  const renderedSelection: SelectionPayload = {
+    definition: "Saved writing",
+    editorState: {
+      step: "review",
+      references: [
+        { lookupId: "first", cited: true },
+        { lookupId: "second", cited: false }
+      ]
+    }
+  }
+  const restoredSelection: SelectionPayload = {
+    editorState: {
+      references: [
+        { cited: true, lookupId: "first" },
+        { cited: false, lookupId: "second" }
+      ],
+      step: "review"
+    },
+    definition: "Saved writing"
+  }
+  assert.deepEqual(restoredSelection, renderedSelection)
+  assert.notEqual(
+    JSON.stringify(restoredSelection),
+    JSON.stringify(renderedSelection)
+  )
+  const selectionWrites: SelectionPayload[] = []
+  const selectionQueue = new TermDraftSaveQueue<
+    SelectionPayload,
+    SelectionRecord
+  >(renderedSelection, {
+    meaningful: (payload) => !!payload.definition,
+    uuid: () => `id-${++ids}`,
+    changed() {},
+    async create() {
+      throw new Error("This fixture already has a saved draft")
+    },
+    async update(input) {
+      selectionWrites.push(input.payload)
+      return {
+        id: input.id,
+        version: input.expectedVersion + 1,
+        payload: input.payload,
+        status: "draft"
+      }
+    }
+  })
+  selectionQueue.restore({
+    id: "draft",
+    version: 1,
+    payload: restoredSelection,
+    status: "draft"
+  })
+  selectionQueue.update(renderedSelection)
+  assert.equal(
+    selectionQueue.dirty,
+    false,
+    "Object key order alone cannot dirty a restored draft or cause a phantom save"
+  )
+  await selectionQueue.flush()
+  assert.equal(selectionWrites.length, 0)
+  assert.equal(selectionQueue.record?.version, 1)
+  const reorderedSelection = {
+    ...renderedSelection,
+    editorState: {
+      ...renderedSelection.editorState,
+      references: [...renderedSelection.editorState.references].reverse()
+    }
+  }
+  selectionQueue.update(reorderedSelection)
+  assert.equal(selectionQueue.dirty, true, "Array order remains meaningful")
+  await selectionQueue.flush()
+  assert.equal(selectionWrites.length, 1)
+  assert.equal(
+    JSON.stringify(selectionWrites[0]),
+    JSON.stringify(reorderedSelection),
+    "Comparison must not rewrite the submitted payload"
+  )
+  const changedSelection = {
+    ...reorderedSelection,
+    editorState: {
+      ...reorderedSelection.editorState,
+      references: reorderedSelection.editorState.references.map(
+        (reference, index) =>
+          index === 0 ? { ...reference, cited: !reference.cited } : reference
+      )
+    }
+  }
+  selectionQueue.update(changedSelection)
+  assert.equal(selectionQueue.dirty, true, "Nested citation edits remain dirty")
+  await selectionQueue.flush()
+  assert.equal(selectionWrites.length, 2)
+  assert.deepEqual(selectionWrites[1], changedSelection)
+  assert.equal(selectionQueue.record?.version, 3)
+  assert.equal(selectionQueue.dirty, false)
+
   // The wizard immediately leaves Terms after its first successful save. The
   // next editor must see the same ID even if no React effect has run yet.
   const firstAcknowledgement = deferred<Record>()
@@ -223,6 +330,84 @@ async function main() {
   assert.notEqual(retries[1].mutationId, retries[2].mutationId)
   assert.equal(retryQueue.payload.text, "kept typing offline")
   assert.equal(retryQueue.record?.version, 3)
+
+  // A server commit can succeed even when its response never reaches the
+  // browser. Reverting a citation/text change must not make that unknown
+  // outcome clean: acknowledge the original request before saving the revert.
+  for (const revertBeforeRetry of [false, true]) {
+    type Update = {
+      id: string
+      payload: Payload
+      expectedVersion: number
+      mutationId: string
+    }
+    const previous = { text: "Citation unchecked" }
+    const attempted = { text: "Citation checked" }
+    let remote = record(previous)
+    let committed: Update | null = null
+    const requests: Update[] = []
+    const uncertainQueue = new TermDraftSaveQueue<Payload, Record>(previous, {
+      meaningful: () => true,
+      uuid: () => `id-${++ids}`,
+      changed() {},
+      async create() {
+        throw new Error("This fixture already has a saved draft")
+      },
+      async update(input) {
+        requests.push(structuredClone(input))
+        if (input.mutationId === committed?.mutationId) {
+          assert.deepEqual(input, committed)
+          return structuredClone(remote)
+        }
+        assert.equal(input.expectedVersion, remote.version)
+        remote = record(structuredClone(input.payload), remote.version + 1)
+        committed = structuredClone(input)
+        if (requests.length === 1) throw new Error("Response lost after commit")
+        return structuredClone(remote)
+      }
+    })
+    uncertainQueue.restore(structuredClone(remote))
+    uncertainQueue.update(attempted)
+    await assert.rejects(uncertainQueue.flush(), /Response lost/)
+    assert.deepEqual(remote.payload, attempted)
+    assert.equal(remote.version, 2)
+    if (revertBeforeRetry) uncertainQueue.update(previous)
+    const protectedBeforeRetry = uncertainQueue.dirty
+    await assert.rejects(
+      uncertainQueue.flush(),
+      /Response lost/,
+      "An uncertain save requires an explicit retry"
+    )
+    await uncertainQueue.flush(true)
+    assert.equal(
+      requests.length,
+      revertBeforeRetry ? 3 : 2,
+      "Retry reconciles the committed request before saving any newer writing"
+    )
+    assert.deepEqual(
+      requests[1],
+      requests[0],
+      "A lost response retries the exact identity, version and payload"
+    )
+    if (revertBeforeRetry) {
+      assert.notEqual(requests[2].mutationId, requests[0].mutationId)
+      assert.equal(requests[2].expectedVersion, 2)
+      assert.deepEqual(requests[2].payload, previous)
+    }
+    assert.equal(
+      protectedBeforeRetry,
+      true,
+      "Unknown server outcomes keep navigation/leave protection active even after an exact revert"
+    )
+    assert.deepEqual(remote.payload, revertBeforeRetry ? previous : attempted)
+    assert.equal(remote.version, revertBeforeRetry ? 3 : 2)
+    assert.deepEqual(uncertainQueue.payload, remote.payload)
+    assert.equal(uncertainQueue.record?.version, remote.version)
+    assert.equal(uncertainQueue.error, null)
+    assert.equal(uncertainQueue.dirty, false)
+    await uncertainQueue.flush()
+    assert.equal(requests.length, revertBeforeRetry ? 3 : 2)
+  }
 
   const corrected: Payload[] = []
   const validationQueue = new TermDraftSaveQueue<Payload, Record>(

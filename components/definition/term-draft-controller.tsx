@@ -7,6 +7,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useTransition,
   type SetStateAction
 } from "react"
 import Link from "next/link"
@@ -157,6 +158,7 @@ export function useTermDraft({
       if (
         !anchor ||
         anchor.download ||
+        anchor.dataset.draftNavigation === "handled" ||
         (anchor.target && anchor.target !== "_self")
       )
         return
@@ -278,13 +280,25 @@ export type TermDraftController = ReturnType<typeof useTermDraft>
 
 export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
   const router = useRouter()
+  const [openingDrafts, startNavigation] = useTransition()
+  const mounted = useRef(false)
+  const navigationStarted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const message =
     draft.error instanceof Error
       ? draft.error.message
       : "Your changes could not be saved."
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-      <p role={draft.error ? "alert" : "status"}>
+      <p
+        className="w-56 max-w-full shrink-0"
+        role={draft.error ? "alert" : "status"}
+      >
         {draft.loading
           ? "Loading your draft…"
           : draft.conflict
@@ -293,13 +307,15 @@ export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
               ? `The term could not be published. ${draft.publicationError.message}`
               : draft.error
                 ? message
-                : draft.status === "saving"
-                  ? "Saving draft…"
-                  : draft.status === "unsaved"
-                    ? "Unsaved changes"
-                    : draft.status === "saved"
-                      ? "Draft saved to your account"
-                      : "Your writing saves privately as you go."}
+                : openingDrafts
+                  ? "Opening My drafts…"
+                  : draft.status === "saving"
+                    ? "Saving draft…"
+                    : draft.status === "unsaved"
+                      ? "Unsaved changes"
+                      : draft.status === "saved"
+                        ? "Draft saved to your account"
+                        : "Your writing saves privately as you go."}
       </p>
       {draft.saveError ? (
         <>
@@ -339,8 +355,10 @@ export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
       ))}
       <Link
         href="/profile/drafts"
-        className="underline"
-        onClick={async (event) => {
+        className="self-start underline"
+        data-draft-navigation="handled"
+        aria-busy={openingDrafts}
+        onClick={(event) => {
           if (
             event.metaKey ||
             event.ctrlKey ||
@@ -350,12 +368,21 @@ export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
           )
             return
           event.preventDefault()
-          try {
-            await draft.flush()
-            router.push("/profile/drafts")
-          } catch {
-            /* Keep writing visible. */
-          }
+          if (navigationStarted.current || openingDrafts) return
+          navigationStarted.current = true
+          // This link owns its save and transition, including dirty clicks.
+          // Keep feedback visible after saving while the destination loads.
+          startNavigation(async () => {
+            try {
+              await draft.flush()
+              if (mounted.current)
+                startNavigation(() => router.push("/profile/drafts"))
+            } catch {
+              /* The save status explains why navigation paused. */
+            } finally {
+              navigationStarted.current = false
+            }
+          })
         }}
       >
         My drafts

@@ -83,13 +83,56 @@ async function main() {
   const errors: string[] = []
   const blocked: string[] = []
   const fileIds: string[] = []
+  const citationNavigations: Array<{
+    phase: "before-autosave" | "during-autosave"
+    changeToClickMs: number
+    trustedClick: boolean
+    clicks: number
+    savingAtClick: boolean
+    savedAtClick: boolean
+    requestStartedBeforeClick: boolean
+    versionBefore: number
+    versionWhileResponseHeld: number
+    citationWhileResponseHeld: boolean
+    pendingWhileDestinationHeld?: boolean
+    busyWhileDestinationHeld?: boolean
+    navigated?: boolean
+    citationAfterNavigation?: boolean
+    citationAfterReload?: boolean
+  }> = []
+  const citationSaveFailure: {
+    failureObserved?: boolean
+    citationRetained?: boolean
+    databaseUnchanged?: boolean
+    retrySaved?: boolean
+    firstClickNavigated?: boolean
+  } = {}
+  type LinkBox = { x: number; y: number; width: number; height: number }
+  const citationLinkPositions: Array<{
+    phase: "before-autosave" | "during-autosave"
+    saved: LinkBox
+    afterChange?: LinkBox
+    saveHeld?: LinkBox
+    destinationHeld?: LinkBox
+  }> = []
   let requests = 0
   let browser: Browser | undefined
   let page: Page | undefined
   let failure: unknown
   let cleaned = false
-  let heldDraftSave: { started: () => void; wait: Promise<void> } | null = null
+  let heldDraftSave: {
+    started: () => void
+    requested?: () => void
+    afterResponse?: boolean
+    wait: Promise<void>
+  } | null = null
   const draftSaveControl: { release?: () => void } = {}
+  let failNextDraftSave = false
+  let heldDraftDestination: {
+    started: () => void
+    wait: Promise<void>
+  } | null = null
+  const draftDestinationControl: { release?: () => void } = {}
 
   const step = async (name: string, action: () => Promise<void>) => {
     await action()
@@ -136,6 +179,18 @@ async function main() {
       ) {
         blocked.push(`${request.method()} ${url.pathname}`)
         return route.abort("blockedbyclient")
+      }
+      if (
+        request.method() === "GET" &&
+        url.pathname === "/profile/drafts" &&
+        heldDraftDestination
+      ) {
+        const held = heldDraftDestination
+        heldDraftDestination = null
+        const response = await route.fetch({ timeout: 30000 })
+        held.started()
+        await held.wait
+        return route.fulfill({ response })
       }
       if (
         request.method() === "GET" &&
@@ -277,13 +332,38 @@ async function main() {
           blocked.push(`${request.method()} ${url.pathname}`)
           return route.abort("blockedbyclient")
         }
-        if (paths.includes("termDrafts.update") && heldDraftSave) {
-          const held = heldDraftSave
+        if (paths.includes("termDrafts.update") && failNextDraftSave) {
+          assert.deepEqual(paths, ["termDrafts.update"])
+          failNextDraftSave = false
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([
+              {
+                error: {
+                  message:
+                    "Synthetic draft save failure. Your changes are still here.",
+                  code: -32603,
+                  data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500 }
+                }
+              }
+            ])
+          })
+        }
+        const held = paths.includes("termDrafts.update") ? heldDraftSave : null
+        if (held) {
           heldDraftSave = null
+          held.requested?.()
+          if (!held.afterResponse) {
+            held.started()
+            await held.wait
+          }
+        }
+        const response = await route.fetch({ timeout: 30000 })
+        if (held?.afterResponse) {
           held.started()
           await held.wait
         }
-        const response = await route.fetch({ timeout: 30000 })
         return route.fulfill({ response })
       }
       return route.continue()
@@ -718,6 +798,268 @@ async function main() {
         assert.equal((await savedDraft())?.payload?.files[0].publish, false)
         await page!.goto(draftUrl, { waitUntil: "domcontentloaded" })
         await expect(cite).not.toBeChecked()
+
+        for (const phase of ["before-autosave", "during-autosave"] as const) {
+          await expect(savedLabel).toBeVisible()
+          const before = await savedDraft()
+          assert(before)
+          assert.equal(before.payload?.files[0].publish, false)
+          const linkBox = async () => {
+            const box = await page!
+              .getByRole("link", { name: "My drafts", exact: true })
+              .boundingBox()
+            assert(box)
+            return box
+          }
+          const position: (typeof citationLinkPositions)[number] = {
+            phase,
+            saved: await linkBox()
+          }
+          citationLinkPositions.push(position)
+          const assertStableLink = (box: LinkBox, state: string) => {
+            for (const axis of ["x", "y", "width", "height"] as const)
+              assert(
+                Math.abs(box[axis] - position.saved[axis]) <= 0.5,
+                `My drafts ${axis} moved from ${position.saved[axis]} to ${box[axis]} while ${state}`
+              )
+          }
+          const checkboxId = await cite.getAttribute("id")
+          assert(checkboxId)
+          // Observe the real checkbox change and the first trusted link click;
+          // do not dispatch synthetic navigation or retry a swallowed click.
+          const interaction = page!
+            .evaluate(
+              (id) =>
+                new Promise<{
+                  changeToClickMs: number
+                  trustedClick: boolean
+                  clicks: number
+                  savingAtClick: boolean
+                  savedAtClick: boolean
+                }>((resolve) => {
+                  let changedAt: number | null = null
+                  let clicks = 0
+                  const listeners = new AbortController()
+                  // Keep callbacks inline: tsx's keepNames helper for a named
+                  // local callback is not available in Playwright's browser.
+                  document.addEventListener(
+                    "change",
+                    (event) => {
+                      if ((event.target as HTMLElement | null)?.id === id)
+                        changedAt = performance.now()
+                    },
+                    { capture: true, signal: listeners.signal }
+                  )
+                  document.addEventListener(
+                    "click",
+                    (event) => {
+                      const anchor =
+                        event.target instanceof Element
+                          ? event.target.closest<HTMLAnchorElement>("a[href]")
+                          : null
+                      if (
+                        !anchor ||
+                        new URL(anchor.href).pathname !== "/profile/drafts"
+                      )
+                        return
+                      clicks += 1
+                      const statuses = Array.from(
+                        document.querySelectorAll('[role="status"]'),
+                        (node) => node.textContent
+                      )
+                      listeners.abort()
+                      resolve({
+                        changeToClickMs:
+                          changedAt === null ? -1 : performance.now() - changedAt,
+                        trustedClick: event.isTrusted,
+                        clicks,
+                        savingAtClick: statuses.includes("Saving draft…"),
+                        savedAtClick: statuses.includes(
+                          "Draft saved to your account"
+                        )
+                      })
+                    },
+                    { capture: true, signal: listeners.signal }
+                  )
+                }),
+              checkboxId
+            )
+            .then(
+              (value) => ({ ok: true as const, value }),
+              (error: unknown) => ({ ok: false as const, error })
+            )
+          let requestStarted = false
+          let responseHeld = false
+          const responseWait = new Promise<void>((resolve) => {
+            draftSaveControl.release = resolve
+          })
+          heldDraftSave = {
+            requested: () => {
+              requestStarted = true
+            },
+            started: () => {
+              responseHeld = true
+            },
+            afterResponse: true,
+            wait: responseWait
+          }
+          await cite.check()
+          await expect(savedLabel).not.toBeVisible()
+          position.afterChange = await linkBox()
+          assertStableLink(position.afterChange, "the citation changed")
+          if (phase === "during-autosave") {
+            await expect.poll(() => responseHeld).toBe(true)
+            await expect(
+              page!.getByText("Saving draft…", { exact: true })
+            ).toBeVisible()
+          } else {
+            assert.equal(
+              requestStarted,
+              false,
+              "Immediate navigation must start before the autosave request"
+            )
+          }
+          const requestStartedBeforeClick = requestStarted
+          let destinationHeld = false
+          const destinationWait = new Promise<void>((resolve) => {
+            draftDestinationControl.release = resolve
+          })
+          heldDraftDestination = {
+            started: () => {
+              destinationHeld = true
+            },
+            wait: destinationWait
+          }
+          await page!
+            .getByRole("link", { name: "My drafts", exact: true })
+            .click()
+          const observation = await interaction
+          if (!observation.ok) throw observation.error
+          const observed = observation.value
+          assert.equal(observed.trustedClick, true)
+          assert.equal(observed.clicks, 1)
+          assert(observed.changeToClickMs >= 0)
+          if (phase === "before-autosave")
+            assert(
+              observed.changeToClickMs < 700,
+              `The first click took ${observed.changeToClickMs} ms; it did not exercise the debounce window`
+            )
+          else assert.equal(observed.savingAtClick, true)
+          assert.equal(observed.savedAtClick, false)
+          await expect.poll(() => responseHeld).toBe(true)
+          // The database has committed the citation, but the client has not
+          // received that response. Navigation must wait for acknowledgement.
+          assert.equal(page!.url(), draftUrl)
+          await expect(savedLabel).not.toBeVisible()
+          position.saveHeld = await linkBox()
+          assertStableLink(position.saveHeld, "the save response was held")
+          const heldRecord = await savedDraft()
+          assert(heldRecord)
+          assert.equal(heldRecord.payload?.files[0].publish, true)
+          assert(heldRecord.version > before.version)
+          const receipt: (typeof citationNavigations)[number] = {
+            phase,
+            ...observed,
+            requestStartedBeforeClick,
+            versionBefore: before.version,
+            versionWhileResponseHeld: heldRecord.version,
+            citationWhileResponseHeld: true
+          }
+          citationNavigations.push(receipt)
+          draftSaveControl.release!()
+          draftSaveControl.release = undefined
+          // Acknowledging the save does not mean the destination is ready.
+          // Hold its real response to make the pending-feedback check
+          // deterministic even when the local preview is already warm.
+          await expect.poll(() => destinationHeld).toBe(true)
+          assert.equal(page!.url(), draftUrl)
+          await expect(
+            page!.getByText("Opening My drafts…", { exact: true })
+          ).toBeVisible()
+          receipt.pendingWhileDestinationHeld = true
+          await expect(
+            page!.getByRole("link", { name: "My drafts", exact: true })
+          ).toHaveAttribute("aria-busy", "true")
+          receipt.busyWhileDestinationHeld = true
+          await expect(savedLabel).not.toBeVisible()
+          position.destinationHeld = await linkBox()
+          assertStableLink(
+            position.destinationHeld,
+            "the destination response was held"
+          )
+          await screenshot(`citation-navigation-pending-${phase}`)
+          draftDestinationControl.release!()
+          draftDestinationControl.release = undefined
+          await expect(page!).toHaveURL(/\/profile\/drafts$/)
+          receipt.navigated = true
+          receipt.citationAfterNavigation =
+            (await savedDraft())?.payload?.files[0].publish
+          assert.equal(receipt.citationAfterNavigation, true)
+          await page!.goto(draftUrl, { waitUntil: "domcontentloaded" })
+          await expect(cite).toBeChecked()
+          await page!.reload({ waitUntil: "domcontentloaded" })
+          await expect(cite).toBeChecked()
+          receipt.citationAfterReload = true
+
+          // Each case starts from a committed unchecked citation; retain the
+          // original assertion that model-used but uncited sources publish.
+          await cite.uncheck()
+          await expect
+            .poll(async () => (await savedDraft())?.payload?.files[0].publish)
+            .toBe(false)
+          await expect(savedLabel).toBeVisible()
+        }
+
+        // A failed navigation save must keep both the editor and the selected
+        // citation. Explicit retry saves it, then one new click can navigate.
+        const beforeFailure = await savedDraft()
+        assert(beforeFailure)
+        assert.equal(beforeFailure.payload?.files[0].publish, false)
+        failNextDraftSave = true
+        await cite.check()
+        await page!
+          .getByRole("link", { name: "My drafts", exact: true })
+          .click()
+        await expect(
+          page!.getByRole("alert").filter({
+            hasText:
+              "Synthetic draft save failure. Your changes are still here."
+          })
+        ).toBeVisible()
+        citationSaveFailure.failureObserved = true
+        assert.equal(page!.url(), draftUrl)
+        await expect(cite).toBeChecked()
+        citationSaveFailure.citationRetained = true
+        await expect(
+          page!.getByRole("link", { name: "My drafts", exact: true })
+        ).toHaveAttribute("aria-busy", "false")
+        await expect(
+          page!.getByText("Opening My drafts…", { exact: true })
+        ).not.toBeVisible()
+        const failedRecord = await savedDraft()
+        assert.equal(failedRecord?.payload?.files[0].publish, false)
+        assert.equal(failedRecord?.version, beforeFailure.version)
+        citationSaveFailure.databaseUnchanged = true
+        await screenshot("citation-navigation-save-failure")
+        await button("Retry save").click()
+        await expect
+          .poll(async () => (await savedDraft())?.payload?.files[0].publish)
+          .toBe(true)
+        await expect(savedLabel).toBeVisible()
+        citationSaveFailure.retrySaved = true
+        assert.equal(page!.url(), draftUrl)
+        await page!
+          .getByRole("link", { name: "My drafts", exact: true })
+          .click()
+        await expect(page!).toHaveURL(/\/profile\/drafts$/)
+        citationSaveFailure.firstClickNavigated = true
+        await page!.goto(draftUrl, { waitUntil: "domcontentloaded" })
+        await expect(cite).toBeChecked()
+        await cite.uncheck()
+        await expect
+          .poll(async () => (await savedDraft())?.payload?.files[0].publish)
+          .toBe(false)
+        await expect(savedLabel).toBeVisible()
         await button("Publish new term").click()
         await expect(page!).toHaveURL(/\/vocabulary\/.+\/definitions\/1/)
       }
@@ -770,6 +1112,7 @@ async function main() {
     }
   } finally {
     draftSaveControl.release?.()
+    draftDestinationControl.release?.()
     try {
       if (browser) await closeBrowserAfterRoutes(browser)
     } catch (error) {
@@ -803,6 +1146,9 @@ async function main() {
           blocked,
           requests,
           fileIds,
+          citationNavigations,
+          citationSaveFailure,
+          citationLinkPositions,
           cleaned,
           failure:
             failure instanceof Error ? failure.message : (failure ?? null)
