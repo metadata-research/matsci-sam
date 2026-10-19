@@ -86,11 +86,92 @@ receipts out of the draft-size budget without dropping publication provenance.
 live in separate database tables and never enter the published-term pipeline
 until the owner publishes them.
 
+The editor's My drafts link stays in the same position when the save status
+changes. It owns its save and navigation for both saved and unsaved drafts,
+waits for the latest save to finish, then opens the draft list. "Opening My
+drafts…" stays visible through the save and route transition, and repeated
+clicks do not start another navigation. A save failure keeps the editor and
+citation choices visible with the existing Retry save action.
+
+The save queue compares draft contents independently of object-key order.
+PostgreSQL can return the same JSON fields in a different order from the
+editor; opening that draft must not cause a save or a conflict in another tab.
+Array order and field values remain significant, and requests are unchanged.
+An interrupted save with an unknown outcome also remains unsaved until Retry
+save acknowledges the original request. If the contributor has changed a
+citation back meanwhile, the queue then saves that latest choice.
+
 Unlinked pending uploads still expire after 24 hours. Files linked to active
 drafts are retained by both ordinary recovery and the cleanup script. The
 existing pending-upload limit still applies.
 
 ## Verification record
+
+The October 19 draft resilience follow-up added
+`scripts/test-term-draft-resilience-ui.ts`, available through
+`npm run test:term-draft-resilience-ui`. All seven scenarios passed against a
+fresh, migrated local PostgreSQL database, the bounded Next.js development
+server, and the source worker. The repository's Playwright harness was used
+because the Browser plugin was unavailable. This was a desktop Chromium run
+at 1365 × 1000; it did not test mobile layouts, session expiry, or live AI
+providers.
+
+| Scenario | Verified result |
+| --- | --- |
+| Private draft and pasted source | One draft and one source created through the interface. |
+| Rapid My drafts clicks | Four attempted pointer clicks during held save and destination responses produced one update, one destination request, and one navigation. The citation survived return and reload. |
+| Two-tab conflict | Opening the second tab produced no write across the autosave delay. A stale edit received a real 409; its writing and citation remained visible. Cancel retained local changes; confirmed reload adopted the saved version, which could then be edited and saved. |
+| Interrupted connection | An already-dispatched save failed with the browser offline. The database stayed unchanged and writing, source, and citation remained visible. Reconnecting and Retry save persisted them through reload. |
+| Lost response after commit | Retry replayed the exact request and mutation ID. Two requests produced one version increment, with the citation retained after reload. |
+| Lost response followed by a reverted citation | Retry acknowledged the committed request, then saved the newer unchecked choice. Three requests produced two version increments and the final citation survived reload. |
+| Rapid publication | A double-click while the response was held produced one request, term, definition, and initial revision. The cited source belonged to that revision, and reopening the published draft could not publish it again. |
+
+The first browser run exposed an unnecessary save when a second tab restored
+identical content in a different object-key order. It passed the rapid-click
+case, then stopped at the resulting conflict; it did not reach the
+interrupted-save cases. A separate queue regression exposed the lost-response
+case where reverting to the last acknowledged payload made Retry save do
+nothing. Both focused regressions failed before their fixes and passed
+afterward. The complete browser run then passed with both fixes applied.
+
+The run recorded the four expected conflict and network errors, no unexpected
+browser errors or requests, and only font-preload warnings. Fixture cleanup
+succeeded. Draft save-queue, navigation, and persistence tests, TypeScript,
+and scoped ESLint also passed. All six existing source-document UI scenarios
+passed again with these queue changes, including OCR, citation-save failure
+and retry, reload, publication, and public source access. This rerun used
+synthetic model responses and recorded no unexpected browser errors or
+requests. Its first attempt stopped because the disposable OCR runtime was
+missing; restoring that runtime required no application or system-package
+changes. Both suites removed their fixtures.
+The temporary preview, worker, database, credentials, and OCR runtime were
+removed after testing; the workstation's other services were unchanged.
+
+These checks establish local behavior. Deployment and verification on a shared
+server are recorded separately from the test results.
+
+The October 19 My drafts follow-up passed all six source-document UI scenarios
+against a disposable local database. A single trusted click 175 ms after checking
+a citation, before autosave began, saved the citation and opened the draft list.
+A second case clicked during an in-flight autosave. Both held the save response
+and then the destination response separately: navigation waited for the save
+acknowledgement, pending feedback remained visible while the destination loaded,
+and the checked citation survived returning to the editor and reloading. A
+simulated save failure retained the editor and citation, left the database
+unchanged, and recovered through Retry save followed by one navigation click.
+Publication and public source-access checks still passed. Browser errors and
+unexpected requests were empty; test fixtures were removed. TypeScript, scoped
+ESLint, and the draft save-queue, navigation, and persistence tests passed.
+
+The original link moved 62 px when the status changed, exceeding its 59 px
+width. The new position assertion fails against the original code and passes
+with identical link bounds through saved, edited, saving and opening states.
+A manual Chrome check also missed the moving link, then navigated on the first
+click with the fixed layout; the citation remained checked after reload.
+The original code separately failed the pending-feedback assertion by showing
+"Draft saved" while the destination response was held. These checks establish
+the moving click target and misleading feedback, not a permanently lost router
+transition. AI responses were synthetic; these checks establish local behavior.
 
 On October 19, the complete `scripts/test-source-documents-ui.ts` harness passed
 against the current implementation, using a fresh, migrated QA database, the

@@ -1,3 +1,15 @@
+// JSONB and the editor can produce different object key orders for the same
+// contents. Normalize comparison only; arrays and submitted payloads keep their
+// order, including the exact request retained after an unknown save outcome.
+const serializePayload = (payload: unknown) =>
+  JSON.stringify(payload, (_key, value: unknown) =>
+    value !== null && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        )
+      : value
+  )
+
 /** A serialized, retry-safe save queue. It never replaces newer local writing. */
 export class TermDraftSaveQueue<
   P,
@@ -40,8 +52,11 @@ export class TermDraftSaveQueue<
   get dirty() {
     return (
       !this.stopped &&
-      JSON.stringify(this.payload) !== this.saved &&
-      (!!this.record || this.transport.meaningful(this.payload))
+      // An unacknowledged write may already have committed. Reconcile it even
+      // if the editor has since returned to its previously saved contents.
+      (this.attempt !== null ||
+        (serializePayload(this.payload) !== this.saved &&
+          (!!this.record || this.transport.meaningful(this.payload))))
     )
   }
 
@@ -66,7 +81,7 @@ export class TermDraftSaveQueue<
   restore(record: R, payload: P | null = record.payload) {
     this.record = record
     if (payload !== null) this.payload = payload
-    this.saved = JSON.stringify(this.payload)
+    this.saved = serializePayload(this.payload)
     this.attempt = null
     this.error = null
     this.stopped = record.status !== "draft"
@@ -108,7 +123,7 @@ export class TermDraftSaveQueue<
                   expectedVersion: attempt.expectedVersion
                 })
           this.record = saved
-          this.saved = JSON.stringify(attempt.payload)
+          this.saved = serializePayload(attempt.payload)
           this.attempt = null
           if (saved.status !== "draft") this.stopped = true
           // Identity must reach the owner before a flush caller can navigate
