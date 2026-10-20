@@ -140,9 +140,21 @@ export default async function LoginPage({
             <>
               <div className="flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                 <span className="h-px flex-1 bg-border" aria-hidden />
-                Or use email
+                Sign in with email
                 <span className="h-px flex-1 bg-border" aria-hidden />
               </div>
+              {emailAccountCreationEnabled ? (
+                <p className="text-center text-sm text-muted-foreground">
+                  New here?{" "}
+                  <Link
+                    href={authPathWithReturnTo("/register", returnTo)}
+                    className="text-primary underline"
+                  >
+                    Create an account with email
+                  </Link>
+                  . No password is required.
+                </p>
+              ) : null}
               <form
                 action="/api/auth/email/start"
                 method="post"
@@ -175,25 +187,14 @@ export default async function LoginPage({
                     id="login-email-help"
                     className="text-xs text-muted-foreground"
                   >
-                    If an account exists for this address, MatSci-SAM will email
-                    a one-time sign-in link.
+                    For existing accounts. Use the email address on your
+                    MatSci-SAM account to receive a one-time sign-in link.
                   </p>
                 </div>
                 <Button type="submit" className="w-full">
                   Email me a sign-in link
                 </Button>
               </form>
-              {emailAccountCreationEnabled ? (
-                <p className="text-center text-sm text-muted-foreground">
-                  New here?{" "}
-                  <Link
-                    href={authPathWithReturnTo("/register", returnTo)}
-                    className="text-primary underline"
-                  >
-                    Create an account with email
-                  </Link>
-                </p>
-              ) : null}
             </>
           ) : null}
           {devEnabled ? (

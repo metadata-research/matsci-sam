@@ -560,8 +560,8 @@ export function ReferenceTools({
       >
         Choosing Insert text and cite adds source text and attaches a removable
         citation. Viewing and copying do not attach citations or add AI context.
-        Attach a citation when you reuse source text, and check the source&apos;s
-        licence before publishing.
+        Attach a citation when you reuse source text, and check the
+        source&apos;s licence before publishing.
       </CardFooter>
     </Card>
   )
@@ -649,16 +649,19 @@ export function ReferenceCitations({
   return (
     <FieldSet className="min-w-0">
       <FieldLegend ref={heading} tabIndex={-1}>
-        {compact ? "Citations" : "Citations for this definition"}
+        Lookup citations
       </FieldLegend>
       {!compact && (
         <p className="text-sm text-muted-foreground">
-          Keep the citations for sources you used in this definition. Sources
-          sent to an assistant are recorded separately.
+          References cited from lookups appear here. Uploaded and pasted sources
+          are cited separately; sending a source to an assistant does not cite
+          it.
         </p>
       )}
       {!compact && !attached.length && (
-        <p className="text-sm text-muted-foreground">No citations attached.</p>
+        <p className="text-sm text-muted-foreground">
+          No lookup references cited.
+        </p>
       )}
       {attached.map((item) => (
         <div
