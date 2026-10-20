@@ -13,13 +13,17 @@ can find activities under **Your surveys** on their profile. See
 Use **Email me a sign-in link** for an existing account. Enter the email
 address attached to that account and open the one-time link to sign in
 without a password. No email is sent if the address has no account. The
-confirmation looks the same in either case.
+confirmation says **Check your email to sign in** and looks the same whether
+or not the address has an account. Select **Create an account with email**
+on that page if you are new. Your invitation, survey or term destination is
+retained.
 
 ## Create an account with email
 
 New contributors can select **Create an account with email** on the login
-page when available. No password is required. Follow the email link to confirm
-your address and create your account. On **Your account is ready**, add your
+page when available. The confirmation says **Check your email to create your
+account**. No password is required. Follow the email link to confirm your
+address and create your account. On **Your account is ready**, add your
 name and select **Save and continue**, or select **Skip for now**. You can
 browse immediately and add your name when you first contribute. Affiliation,
 ORCID and a public profile are optional.
