@@ -1,3 +1,7 @@
+import {
+  ImportAttribution,
+  DeclaredSource
+} from "@/components/definition/import-attribution"
 import Link from "next/link"
 import type { ContributionEvidence } from "@/lib/contribution-evidence"
 import { contributionEvidenceAnchor } from "@/lib/contribution-evidence"
@@ -37,12 +41,13 @@ export function ContributionEvidencePanel({
       </h2>
       <p className="text-sm text-muted-foreground">
         Evidence attached to each published revision. Citation counts include
-        files, pasted text and lookup references cited by the contributor.
-        Sources sent to an assistant are recorded separately.
+        files, pasted text, lookup references and declared references cited by
+        the contributor. Sources sent to an assistant are recorded separately.
       </p>
       {contributions.map((entry) => {
         const citationCount =
           entry.citations.length +
+          (entry.manualCitations?.length ?? 0) +
           entry.sources.filter((source) => source.contributorCited).length
         return (
           <details
@@ -77,6 +82,23 @@ export function ContributionEvidencePanel({
                   Open this revision
                 </Link>
               </p>
+              {entry.importOrigin && (
+                <ImportAttribution origin={entry.importOrigin} />
+              )}
+              {!!entry.manualCitations?.length && (
+                <section aria-label="Declared references" className="space-y-3">
+                  <h3 className="text-base font-semibold">
+                    Declared references ({entry.manualCitations.length})
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Source details supplied by the contributor. These are not
+                    verified lookup results.
+                  </p>
+                  {entry.manualCitations.map((source, index) => (
+                    <DeclaredSource key={index} source={source} />
+                  ))}
+                </section>
+              )}
               {entry.sources.length > 0 && (
                 <section
                   aria-label="Uploaded and pasted sources"

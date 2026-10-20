@@ -99,10 +99,18 @@
     "test:term-metadata-rdf-db": "tsx --conditions=react-server scripts/test-term-metadata-rdf-db.ts",
     "test:dictionary-metadata": "tsx scripts/test-dictionary-metadata.ts",
     "source-worker": "tsx scripts/source-document-worker.ts",
-    "test:source-worker-unit": "tsx scripts/test-source-worker-unit.ts",
+    "test:source-worker-unit": "tsx scripts/test-source-worker-unit.ts && tsx scripts/test-source-worker-result.ts",
     "test:source-documents": "tsx scripts/test-source-documents.ts && tsx scripts/test-source-document-provenance.ts && tsx scripts/test-source-compose-ui.tsx",
     "test:source-documents-db": "tsx --conditions=react-server scripts/test-source-documents-db.ts",
-    "test:source-documents-ui": "tsx scripts/test-source-documents-ui.ts"
+    "test:source-documents-ui": "tsx --conditions=react-server scripts/test-source-documents-ui.ts",
+    "test:import-drafts": "tsx scripts/test-import-draft-parser.ts && tsx scripts/test-import-file-decoding.ts && tsx scripts/test-import-origin-provenance.tsx && tsx --conditions=react-server scripts/test-import-origin-rdf.ts",
+    "test:import-drafts-db": "tsx --conditions=react-server scripts/test-import-drafts-db.ts",
+    "test:import-draft-reads-db": "tsx --conditions=react-server scripts/test-import-draft-reads-db.ts",
+    "test:import-drafts-migration": "tsx scripts/test-import-drafts-migration.ts",
+    "test:import-drafts-ui": "tsx --conditions=react-server scripts/test-import-drafts-ui.ts",
+    "test:contribution-source-assets-db": "tsx --conditions=react-server scripts/test-contribution-source-assets-db.ts",
+    "test:import-source-locks-db": "tsx --conditions=react-server scripts/test-import-source-locks-db.ts",
+    "test:import-destination-locks-db": "tsx --conditions=react-server scripts/test-import-destination-locks-db.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

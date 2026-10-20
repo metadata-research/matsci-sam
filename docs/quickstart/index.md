@@ -27,16 +27,16 @@ Advanced tools when you need them.
 
 ## Import terms
 
-Add a batch of terms and definitions.
+Create private drafts for a batch of new terms.
 
 Open [Import terms](/setup?task=import), choose the destination vocabulary,
 and choose a collection or **Skip collection**. Upload or paste CSV or TSV
-with `term` and `definition` columns. New terms need a definition.
+with `term` and `definition` columns. Definitions can be completed later.
 
 Select **Preview terms** to check new terms, existing terms, and duplicate
-rows. Fix any errors, then select **Import terms**. Existing definitions stay
-unchanged. Imports allow up to 100 rows, with five new definitions per account
-in ten minutes. [Import details](/docs/communities#quick-start-and-guided-setup).
+rows. Fix any errors and choose the rows to save, then select **Create private
+drafts**. Return through [My drafts](/profile/drafts) to review and publish.
+Existing definitions stay unchanged. [Import details](/docs/importing-terms).
 
 ## Create collection
 

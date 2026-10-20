@@ -3,12 +3,14 @@ import { TERM_MAX_LENGTH } from "./input-limits"
 
 export const CONTRIBUTION_FILE_MAX_BYTES = 5 * 1024 * 1024
 export const CONTRIBUTION_FILE_MAX_COUNT = 3
+/** Unattached temporary uploads; saved draft assets have a separate quota. */
 export const CONTRIBUTION_FILE_PENDING_MAX_COUNT = 6
 export const CONTRIBUTION_FILE_PENDING_HOURS = 24
 export const contributionFileMetadataSchema = z.object({
   term: z.string().trim().min(1).max(TERM_MAX_LENGTH),
   vocabularySlug: z.string().trim().min(1).max(200),
   explicitVocabulary: z.boolean().optional(),
+  draftId: z.string().uuid().optional(),
   filename: z.string().trim().min(1).max(180),
   role: z.enum(["example", "source"]),
   title: z.string().trim().min(1, "Give the file a title").max(200),
@@ -53,6 +55,7 @@ export type ContributionFileItem = {
   origin?: "upload" | "paste"
   contributorCited?: boolean
   publishedExtractionId?: string | null
+  sourceExtractionId?: string | null
   assistantUsed?: boolean
 }
 export const contributionFilePath = (id: string) =>

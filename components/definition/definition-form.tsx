@@ -106,6 +106,8 @@ import {
   type TermDraftPayload
 } from "@/lib/term-draft-types"
 import { compactTermDraftPayload } from "@/lib/term-draft-persistence"
+import { ImportEvidenceEditor } from "./import-evidence-editor"
+import type { ImportEvidence } from "@/lib/import-draft-types"
 import {
   DraftSaveStatus,
   useTermDraft,
@@ -305,6 +307,29 @@ function SavedNewTermForm(props: DefinitionFormProps & { ownerId: number }) {
   return (
     <div className="flex flex-col gap-3">
       <DraftSaveStatus draft={draft} />
+      {draft.record?.importBatchId ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm">
+          <span>This term belongs to a private import.</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={draft.publishing}
+            onClick={async () => {
+              try {
+                await draft.flush()
+                router.push(
+                  `/profile/drafts/imports/${draft.record!.importBatchId}`
+                )
+              } catch {
+                /* The draft save status offers recovery without losing writing. */
+              }
+            }}
+          >
+            Save and return to import
+          </Button>
+        </div>
+      ) : null}
       {props.setupReturnTo && (
         <Button
           type="button"
@@ -373,6 +398,10 @@ const DefinitionFormOwner = ({
     ? (pinnedVocabulary ?? vocabularySlug)
     : undefined
   const saved = savedDraft?.payload.editorState
+  const [importEvidence, setImportEvidence] = useState<
+    ImportEvidence | undefined
+  >(savedDraft?.payload.importEvidence)
+  const importBatchId = savedDraft?.importBatchId
   const savedConfirmationMatches =
     !saved?.confirmed ||
     (saved.confirmed.term.trim().toLowerCase() ===
@@ -525,7 +554,10 @@ const DefinitionFormOwner = ({
     refetch: refetchVocabulary
   } = trpc.terms.list.useQuery(
     explicitVocabularySlug
-      ? { vocabularySlug: explicitVocabularySlug }
+      ? {
+          vocabularySlug: explicitVocabularySlug,
+          ...(savedDraft?.id ? { draftId: savedDraft.id } : {})
+        }
       : undefined,
     { enabled: lockedTerm === undefined }
   )
@@ -701,6 +733,7 @@ const DefinitionFormOwner = ({
           ...unavailableFiles
         ],
         sources: sourceSelections,
+        ...(importEvidence ? { importEvidence } : {}),
         aiSuggestionId: appliedDraft?.suggestionId ?? null,
         editorState: {
           step,
@@ -926,10 +959,20 @@ const DefinitionFormOwner = ({
       vocabularySlug: targetVocabulary.slug,
       vocabularyTitle: targetVocabulary.title
     }
+    // An imported draft can already have sources before its first editor
+    // confirmation. Keep those bindings when its saved term is unchanged.
+    const previousScope =
+      confirmed ??
+      (savedDraft
+        ? {
+            term: savedDraft.payload.term,
+            vocabularySlug: savedDraft.payload.vocabularySlug
+          }
+        : null)
     const changed =
-      !confirmed ||
-      confirmed.term.trim().toLowerCase() !== next.term.toLowerCase() ||
-      confirmed.vocabularySlug !== next.vocabularySlug
+      !previousScope ||
+      previousScope.term.trim().toLowerCase() !== next.term.toLowerCase() ||
+      previousScope.vocabularySlug !== next.vocabularySlug
     if (changed) {
       if (appliedDraft || preview) return
       generation.current += 1
@@ -1172,6 +1215,13 @@ const DefinitionFormOwner = ({
         term: confirmed.term
       })
       try {
+        if (importBatchId) {
+          await draftController.flush()
+          router.push(
+            `/profile/drafts/imports/${importBatchId}?review=${draftController.record?.id ?? savedDraft?.id ?? ""}`
+          )
+          return
+        }
         const published = await draftController.publish()
         if (onPublished) onPublished(published)
         else
@@ -1538,13 +1588,15 @@ const DefinitionFormOwner = ({
     </section>
   )
 
-  const publishLabel = derivedFromRevisionId
-    ? "Publish alternative"
-    : replacesDefinitionId
-      ? "Publish replacement proposal"
-      : surveyStepId !== undefined
-        ? "Publish new definition"
-        : "Publish new term"
+  const publishLabel = importBatchId
+    ? "Save and review import"
+    : derivedFromRevisionId
+      ? "Publish alternative"
+      : replacesDefinitionId
+        ? "Publish replacement proposal"
+        : surveyStepId !== undefined
+          ? "Publish new definition"
+          : "Publish new term"
 
   const editorContent = (
     <Card className="py-0">
@@ -1813,6 +1865,14 @@ const DefinitionFormOwner = ({
                   disabled={busy || assistantOpen}
                 />
               )}
+              {importEvidence ? (
+                <ImportEvidenceEditor
+                  value={importEvidence}
+                  onChange={setImportEvidence}
+                  files={files}
+                  disabled={busy || assistantOpen}
+                />
+              ) : null}
               <ContributionWorkspace
                 context={
                   isAdd || assistantOpen || simpleLocked ? undefined : context
@@ -2435,6 +2495,7 @@ const DefinitionFormOwner = ({
                           inline
                           term={confirmed.term}
                           vocabularySlug={confirmed.vocabularySlug}
+                          draftId={draftController?.record?.id}
                           explicitVocabulary={Boolean(explicitVocabularySlug)}
                           files={files}
                           onFilesChange={setFiles}

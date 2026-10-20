@@ -11,14 +11,25 @@ import {
   usersTable,
   sourceChecksTable,
   sourceExtractionsTable,
-  vocabulariesTable
+  vocabulariesTable,
+  importBatchesTable
 } from "@yamz/db"
+import { importRowsTable } from "@yamz/db"
+import {
+  importedDraftOrigin,
+  publishImportedDraftEvidence,
+  validateImportEvidence
+} from "./import-draft-publication"
 import {
   contributionFingerprint,
   lockContributionSubmissions
 } from "./contribution-guard"
 import { contributionFileSelection } from "./contribution-files"
-import { CONTRIBUTION_FILE_PENDING_HOURS } from "./contribution-file-types"
+import { sourceExtractionForFile } from "./contribution-source-assets"
+import {
+  CONTRIBUTION_FILE_PENDING_HOURS,
+  type ContributionFileItem
+} from "./contribution-file-types"
 import { fileRetainedByDraft } from "./term-draft-file-retention"
 import { publishNewTerm } from "./new-term-publication"
 import { modelIdentity } from "./llm/model-identity"
@@ -45,6 +56,11 @@ const published = () =>
     code: "CONFLICT",
     message:
       "This draft has already been published. Reload to open the published term."
+  })
+const unassociatedImportEvidence = () =>
+  new TRPCError({
+    code: "BAD_REQUEST",
+    message: "Imported evidence can only be saved on an imported draft."
   })
 const ownerScope = (id: string, ownerId: number) =>
   and(eq(termDraftsTable.id, id), eq(termDraftsTable.ownerId, ownerId))
@@ -90,7 +106,7 @@ async function validateEvidence(
       )
       .innerJoin(
         contributionFilesTable,
-        eq(sourceExtractionsTable.fileId, contributionFilesTable.id)
+        sourceExtractionForFile(contributionFilesTable)
       )
       .where(
         and(
@@ -216,18 +232,33 @@ async function retainFiles(
       .values(ids.map((fileId) => ({ draftId: id, fileId })))
 }
 
-async function draftResult(reader: Reader, draft: Draft) {
-  const payload = draft.payload ? structuredClone(draft.payload) : null
-  const warnings: string[] = []
-  const boundFiles = payload
+type DraftHydration = {
+  boundFiles: { draftId: string; fileId: string }[]
+  files: ContributionFileItem[]
+  suggestions: (typeof aiContributionSuggestionsTable.$inferSelect)[]
+  imports: { draftId: string | null; batchId: string }[]
+}
+async function hydrateDraftResults(reader: Reader, drafts: Draft[]) {
+  if (!drafts.length) return []
+  const ownerId = drafts[0].ownerId
+  if (drafts.some((draft) => draft.ownerId !== ownerId)) throw missing()
+  const activeIds = drafts
+    .filter((draft) => draft.payload)
+    .map((draft) => draft.id)
+  const boundFiles = activeIds.length
     ? await reader
-        .select({ fileId: termDraftFilesTable.fileId })
+        .select({
+          draftId: termDraftFilesTable.draftId,
+          fileId: termDraftFilesTable.fileId
+        })
         .from(termDraftFilesTable)
-        .where(eq(termDraftFilesTable.draftId, draft.id))
+        .where(inArray(termDraftFilesTable.draftId, activeIds))
     : []
   const fileIds = [
     ...new Set([
-      ...(payload?.files ?? []).map((file) => file.fileId),
+      ...drafts.flatMap((draft) =>
+        (draft.payload?.files ?? []).map((file) => file.fileId)
+      ),
       ...boundFiles.map((file) => file.fileId)
     ])
   ]
@@ -238,11 +269,58 @@ async function draftResult(reader: Reader, draft: Draft) {
         .where(
           and(
             inArray(contributionFilesTable.id, fileIds),
-            eq(contributionFilesTable.uploadedById, draft.ownerId),
+            eq(contributionFilesTable.uploadedById, ownerId),
             isNull(contributionFilesTable.publishedRevisionId)
           )
         )
     : []
+  const ids = [
+    ...new Set(
+      drafts.flatMap((draft) =>
+        draft.payload ? suggestionIds(draft.payload) : []
+      )
+    )
+  ]
+  const suggestions = ids.length
+    ? await reader
+        .select()
+        .from(aiContributionSuggestionsTable)
+        .where(
+          and(
+            inArray(aiContributionSuggestionsTable.id, ids),
+            eq(aiContributionSuggestionsTable.requestedById, ownerId),
+            eq(aiContributionSuggestionsTable.intent, "new_term")
+          )
+        )
+    : []
+  const imports = await reader
+    .select({
+      draftId: importRowsTable.draftId,
+      batchId: importRowsTable.batchId
+    })
+    .from(importRowsTable)
+    .where(
+      inArray(
+        importRowsTable.draftId,
+        drafts.map((draft) => draft.id)
+      )
+    )
+  const hydration = { boundFiles, files, suggestions, imports }
+  return drafts.map((draft) => draftResultFromHydration(draft, hydration))
+}
+function draftResultFromHydration(draft: Draft, hydration: DraftHydration) {
+  const payload = draft.payload ? structuredClone(draft.payload) : null
+  const warnings: string[] = []
+  const boundFiles = hydration.boundFiles.filter(
+    (file) => file.draftId === draft.id
+  )
+  const fileIds = [
+    ...new Set([
+      ...(payload?.files ?? []).map((file) => file.fileId),
+      ...boundFiles.map((file) => file.fileId)
+    ])
+  ]
+  const files = hydration.files.filter((file) => fileIds.includes(file.id))
   if (
     payload &&
     payload.files.some(
@@ -254,18 +332,9 @@ async function draftResult(reader: Reader, draft: Draft) {
     )
   if (payload) {
     const ids = suggestionIds(payload)
-    const suggestions = ids.length
-      ? await reader
-          .select()
-          .from(aiContributionSuggestionsTable)
-          .where(
-            and(
-              inArray(aiContributionSuggestionsTable.id, ids),
-              eq(aiContributionSuggestionsTable.requestedById, draft.ownerId),
-              eq(aiContributionSuggestionsTable.intent, "new_term")
-            )
-          )
-      : []
+    const suggestions = hydration.suggestions.filter((suggestion) =>
+      ids.includes(suggestion.id)
+    )
     const snapshots = [
       payload.editorState?.preview,
       payload.editorState?.appliedDraft,
@@ -352,7 +421,9 @@ async function draftResult(reader: Reader, draft: Draft) {
     createdAt: draft.createdAt,
     updatedAt: draft.updatedAt,
     files,
-    warnings: [...new Set(warnings)]
+    warnings: [...new Set(warnings)],
+    importBatchId:
+      hydration.imports.find((row) => row.draftId === draft.id)?.batchId ?? null
   }
   if (payload)
     return { ...common, payload, status: "draft" as const, publication: null }
@@ -364,6 +435,29 @@ async function draftResult(reader: Reader, draft: Draft) {
     status: "published" as const,
     publication: draft.publication
   }
+}
+async function draftResult(reader: Reader, draft: Draft) {
+  return (await hydrateDraftResults(reader, [draft]))[0]
+}
+/** Owner-scoped bulk hydration for import overviews. Missing/deleted drafts are
+ * omitted so callers can retain the corresponding import-row tombstones. */
+export async function getTermDrafts(
+  reader: Reader,
+  ids: string[],
+  ownerId: number
+) {
+  if (!ids.length) return []
+  const drafts = await reader
+    .select()
+    .from(termDraftsTable)
+    .where(
+      and(
+        inArray(termDraftsTable.id, ids),
+        eq(termDraftsTable.ownerId, ownerId),
+        isNull(termDraftsTable.deletedAt)
+      )
+    )
+  return hydrateDraftResults(reader, drafts)
 }
 export async function getTermDraft(
   reader: Reader,
@@ -383,9 +477,11 @@ export async function listTermDrafts(reader: Reader, ownerId: number) {
       >`${termDraftsTable.payload}->>'vocabularySlug'`,
       vocabularyTitle: vocabulariesTable.title,
       createdAt: termDraftsTable.createdAt,
-      updatedAt: termDraftsTable.updatedAt
+      updatedAt: termDraftsTable.updatedAt,
+      importBatchId: importRowsTable.batchId
     })
     .from(termDraftsTable)
+    .leftJoin(importRowsTable, eq(importRowsTable.draftId, termDraftsTable.id))
     .leftJoin(
       vocabulariesTable,
       sql`${vocabulariesTable.slug} = ${termDraftsTable.payload}->>'vocabularySlug'`
@@ -403,10 +499,30 @@ export async function listTermDrafts(reader: Reader, ownerId: number) {
 export async function createTermDraft(
   tx: Transaction,
   input: { id: string; payload: TermDraftPayload },
-  ownerId: number
+  ownerId: number,
+  // Only the import creator supplies this while establishing the import row
+  // in the same transaction. Client draft routes never accept this option.
+  options: { importBatchId?: string } = {}
 ) {
   const submitted = termDraftPayloadSchema.parse(input.payload)
   const payload = compactTermDraftPayload(submitted)
+  if (payload.importEvidence) {
+    const associated = await importedDraftOrigin(tx, input.id, ownerId)
+    const [creatingInBatch] =
+      !associated && options.importBatchId
+        ? await tx
+            .select({ id: importBatchesTable.id })
+            .from(importBatchesTable)
+            .where(
+              and(
+                eq(importBatchesTable.id, options.importBatchId),
+                eq(importBatchesTable.ownerId, ownerId),
+                isNull(importBatchesTable.archivedAt)
+              )
+            )
+        : []
+    if (!associated && !creatingInBatch) throw unassociatedImportEvidence()
+  }
   // Keep the submitted hash for retries from clients that still send hydrated
   // evidence, while storing only editor state and owned suggestion identities.
   const hash = contributionFingerprint(submitted)
@@ -467,6 +583,11 @@ export async function updateTermDraft(
   const payload = compactTermDraftPayload(submitted)
   const draft = await ownedDraft(tx, input.id, ownerId, true)
   if (draft.publishedAt) throw published()
+  if (
+    payload.importEvidence &&
+    !(await importedDraftOrigin(tx, input.id, ownerId))
+  )
+    throw unassociatedImportEvidence()
   const hash = contributionFingerprint({
     payload: submitted,
     expectedVersion: input.expectedVersion
@@ -519,7 +640,9 @@ export async function deleteTermDraft(
 export async function publishTermDraft(
   tx: Transaction,
   input: { id: string; expectedVersion: number },
-  ownerId: number
+  ownerId: number,
+  // Only the import service passes this after an explicit group review.
+  options: { reviewedImport?: boolean } = {}
 ) {
   await lockContributionSubmissions(tx, ownerId)
   const draft = await ownedDraft(tx, input.id, ownerId, true)
@@ -529,7 +652,16 @@ export async function publishTermDraft(
     return draft.publication
   }
   if (draft.version !== input.expectedVersion) throw changed()
+  const importOrigin = await importedDraftOrigin(tx, draft.id, ownerId)
+  if (!options.reviewedImport && importOrigin)
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Review this imported draft in its import before publishing."
+    })
   const payload = termDraftPayloadSchema.parse(draft.payload)
+  if (payload.importEvidence && !importOrigin)
+    throw unassociatedImportEvidence()
+  if (importOrigin) validateImportEvidence(payload, importOrigin.row.original)
   if (!payload.vocabularySlug)
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -556,6 +688,14 @@ export async function publishTermDraft(
     },
     ownerId
   )
+  if (importOrigin)
+    await publishImportedDraftEvidence(tx, {
+      draftId: draft.id,
+      ownerId,
+      payload,
+      termId: result.term.id,
+      revisionId: result.definition.currentRevisionId!
+    })
   await tx
     .update(termDraftsTable)
     .set({

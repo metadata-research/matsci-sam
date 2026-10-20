@@ -66,16 +66,20 @@ checks and unaccepted model inputs are not exposed publicly.
 
 ## Storage, retention and access
 
-`contributionFiles` stores the bytes, content hash, filename, media type, size,
-uploader, confirmed term and vocabulary, role, title, caption, optional citation
-and page information, and original-text origin. Bytes are PostgreSQL `bytea` and
+From migration 0069, `contributionSourceAssets` stores immutable bytes, content
+hash, media type, size and owner. `contributionFiles` supplies the per-term
+binding: filename, uploader, confirmed term and vocabulary, role, title, caption,
+optional citation and page information, and original-text origin. Published
+binding IDs and download routes remain stable. Bytes are PostgreSQL `bytea` and
 are included in database backups, restores and workstation snapshots. The upload
 endpoint buffers at most 5 MiB plus 64 KiB of multipart overhead and checks the
 file byte count separately. The reverse proxy must permit that request size.
 Signature checks establish the expected container type; worker parsing adds
 bounded structure/content checks. Neither is a malware scan.
 
-An account can retain six pending files, totaling at most 30 MiB. Quota checks,
+An account can retain 50 unique unpublished assets, totaling at most 30 MiB,
+with at most six unattached temporary assets. Shared bindings count once.
+Three files per contribution remains the limit. Quota checks,
 draft binding, removal and cleanup serialize on the owning account row. A pending
 file remains private. It normally expires after 24 hours, but is retained while
 linked to an active saved draft, reserved by an unexpired generation lease, or
@@ -90,8 +94,17 @@ uses the file. Removing one draft's link does not release another draft's file.
 Expired unretained rows are removed when the owner lists or uploads files;
 `pnpm files:cleanup` performs the same cleanup across accounts. The pending list
 allows recovery after refresh, term changes or publication with unused uploads.
-Files from another confirmed context may be removed but cannot be attached to
-the current contribution.
+The import workflow can reuse an owned source in another imported draft by
+creating a separate term binding. It does not copy citation choices, term
+checks, passage selections or model-use claims. Other pending files still need
+the same confirmed context before they can be recovered into a contribution.
+
+Private bindings pin `sourceExtractionId`; publication pins
+`publishedExtractionId`. A correction in another draft cannot change either
+binding's transcript. Accepted model snapshots retain their exact check and
+input text. Deleting the original binding preserves an asset and its extraction
+history while another binding uses it; deleting the final binding releases the
+asset under the existing retention and lease rules.
 
 Upload, term-check, OCR retry and removal require a session and configured same
 origin. Upload also requires a completed contributor profile and active

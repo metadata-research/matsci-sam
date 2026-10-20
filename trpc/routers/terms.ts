@@ -1,10 +1,10 @@
-import { db, termsTable, vocabulariesTable } from "@yamz/db"
+import { db, termsTable, vocabulariesTable, termDraftsTable } from "@yamz/db"
 import { baseProcedure, createTRPCRouter } from "../init"
 import { z } from "zod"
 import { buildTermProvenance } from "@/lib/provenance"
 import { activeCommunityFor } from "@/lib/community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
-import { asc, eq } from "drizzle-orm"
+import { and, asc, eq, isNull } from "drizzle-orm"
 import { termIsListed } from "@/lib/term-visibility"
 import { TRPCError } from "@trpc/server"
 import { requireSetupVocabularyForContribution } from "@/lib/setup-service"
@@ -19,7 +19,12 @@ export const termsRouter = createTRPCRouter({
     ),
   list: baseProcedure
     .input(
-      z.object({ vocabularySlug: z.string().trim().min(1).max(200) }).optional()
+      z
+        .object({
+          vocabularySlug: z.string().trim().min(1).max(200),
+          draftId: z.string().uuid().optional()
+        })
+        .optional()
     )
     .query(async ({ ctx: { userId }, input }) => {
       if (input?.vocabularySlug) {
@@ -28,11 +33,30 @@ export const termsRouter = createTRPCRouter({
             code: "UNAUTHORIZED",
             message: "Sign in to choose a contribution vocabulary."
           })
-        await requireSetupVocabularyForContribution(
-          db,
-          input.vocabularySlug,
-          userId
-        )
+        if (input.draftId) {
+          const [draft] = await db
+            .select({ payload: termDraftsTable.payload })
+            .from(termDraftsTable)
+            .where(
+              and(
+                eq(termDraftsTable.id, input.draftId),
+                eq(termDraftsTable.ownerId, userId),
+                isNull(termDraftsTable.publishedAt),
+                isNull(termDraftsTable.deletedAt)
+              )
+            )
+          if (!draft || draft.payload?.vocabularySlug !== input.vocabularySlug)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Draft not found."
+            })
+        } else {
+          await requireSetupVocabularyForContribution(
+            db,
+            input.vocabularySlug,
+            userId
+          )
+        }
       }
       const active =
         !input?.vocabularySlug && userId

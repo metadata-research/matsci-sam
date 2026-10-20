@@ -1,11 +1,13 @@
 import "dotenv/config"
 import pg from "pg"
 import { and, asc, eq } from "drizzle-orm"
-import { db, sourceExtractionsTable, contributionFilesTable } from "../drizzle"
 import {
-  extractSourceDocument,
-  SourceDocumentError
-} from "../lib/source-document-extraction"
+  db,
+  sourceExtractionsTable,
+  contributionFilesTable,
+  contributionSourceAssetsTable
+} from "../drizzle"
+import { sourceDocumentWorkerResult } from "./source-document-worker-result"
 
 // One session lock covers all worker invocations sharing a database, including
 // overlapping deploys. OCR never executes in a Next request or per-upload worker.
@@ -43,6 +45,7 @@ async function main() {
           .select({
             id: sourceExtractionsTable.id,
             fileId: sourceExtractionsTable.fileId,
+            assetId: sourceExtractionsTable.assetId,
             forceOcr: sourceExtractionsTable.forceOcr
           })
           .from(sourceExtractionsTable)
@@ -58,68 +61,44 @@ async function main() {
         return next
       })
       if (job) {
-        const [file] = await db
-          .select({
-            bytes: contributionFilesTable.bytes,
-            mediaType: contributionFilesTable.mediaType
-          })
-          .from(contributionFilesTable)
-          .where(eq(contributionFilesTable.id, job.fileId))
-        if (file) {
-          try {
-            const result = await extractSourceDocument({
-              ...file,
-              forceOcr: job.forceOcr
-            })
-            await db
-              .update(sourceExtractionsTable)
-              .set({
-                ...result,
-                status: "ready",
-                completedAt: new Date().toISOString()
+        const [asset] = job.assetId
+          ? await db
+              .select({
+                bytes: contributionSourceAssetsTable.bytes,
+                mediaType: contributionSourceAssetsTable.mediaType
               })
-              .where(
-                and(
-                  eq(sourceExtractionsTable.id, job.id),
-                  eq(sourceExtractionsTable.status, "processing")
-                )
-              )
-            console.log(
-              JSON.stringify({
-                event: "source_ready",
-                extractionId: job.id,
-                pages: result.pages.length,
-                ocr: result.hasOcr
-              })
+              .from(contributionSourceAssetsTable)
+              .where(eq(contributionSourceAssetsTable.id, job.assetId))
+          : []
+        const [legacy] =
+          !asset && job.fileId
+            ? await db
+                .select({
+                  bytes: contributionFilesTable.bytes,
+                  mediaType: contributionFilesTable.mediaType
+                })
+                .from(contributionFilesTable)
+                .where(eq(contributionFilesTable.id, job.fileId))
+            : []
+        const outcome = await sourceDocumentWorkerResult(
+          asset ?? legacy,
+          job.forceOcr
+        )
+        const completed = await db
+          .update(sourceExtractionsTable)
+          .set(outcome.update)
+          .where(
+            and(
+              eq(sourceExtractionsTable.id, job.id),
+              eq(sourceExtractionsTable.status, "processing")
             )
-          } catch (error) {
-            await db
-              .update(sourceExtractionsTable)
-              .set({
-                status: "failed",
-                completedAt: new Date().toISOString(),
-                error:
-                  error instanceof SourceDocumentError
-                    ? error.message
-                    : "This document could not be read. Try a readable PDF, DOCX or plain text."
-              })
-              .where(
-                and(
-                  eq(sourceExtractionsTable.id, job.id),
-                  eq(sourceExtractionsTable.status, "processing")
-                )
-              )
-            console.warn(
-              JSON.stringify({
-                event: "source_failed",
-                extractionId: job.id,
-                category:
-                  error instanceof SourceDocumentError
-                    ? error.code
-                    : "processing"
-              })
-            )
-          }
+          )
+          .returning({ id: sourceExtractionsTable.id })
+        // A deleted source may have removed its job while extraction ran.
+        if (completed.length) {
+          const log =
+            outcome.update.status === "ready" ? console.log : console.warn
+          log(JSON.stringify({ ...outcome.event, extractionId: job.id }))
         }
       }
       if (process.argv.includes("--once")) break

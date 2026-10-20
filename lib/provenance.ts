@@ -1,9 +1,14 @@
 import {
+  importOriginProvenance,
+  publicImportOrigin
+} from "./import-origin-provenance"
+import {
   metadataAssertionFact,
   metadataAssertionUri,
   type MetadataAssertionEvidence
 } from "./term-metadata-rdf"
 import { contributionFileSelection } from "./contribution-files"
+import { sameSourceAsset } from "./contribution-source-assets"
 import { contributionFilePath } from "./contribution-file-types"
 import { inferenceProperties } from "./llm/types"
 import { termReferencesQuery } from "./term-references"
@@ -36,6 +41,8 @@ import {
   definitionsTable,
   refinementsTable,
   sourceExtractionsTable,
+  revisionImportOriginsTable,
+  revisionManualCitationsTable,
   termsTable,
   termMetadataAssertionsTable,
   usersTable,
@@ -121,6 +128,7 @@ export type ProvEvent = {
   at: string
   kind:
     | "term-created"
+    | "term-imported"
     | "initial-message"
     | "feedback"
     | "ai-generation"
@@ -423,6 +431,7 @@ export const buildTermProvenance = async (
         ...contributionFileSelection,
         definitionId: definitionRevisionsTable.definitionId,
         version: definitionRevisionsTable.version,
+        assetId: contributionFilesTable.assetId,
         uploadedById: contributionFilesTable.uploadedById,
         publishedExtractionId: contributionFilesTable.publishedExtractionId
       })
@@ -486,6 +495,20 @@ export const buildTermProvenance = async (
       )
   ])
 
+  const revisionIds = revisions.map((revision) => revision.id)
+  const [importOrigins, manualCitations] = revisionIds.length
+    ? await Promise.all([
+        db
+          .select()
+          .from(revisionImportOriginsTable)
+          .where(inArray(revisionImportOriginsTable.revisionId, revisionIds)),
+        db
+          .select()
+          .from(revisionManualCitationsTable)
+          .where(inArray(revisionManualCitationsTable.revisionId, revisionIds))
+      ])
+    : [[], []]
+
   // Publication binds one immutable extraction. A later OCR retry must never
   // replace the transcript that supported an earlier contribution.
   const publishedExtractionIds = [
@@ -500,6 +523,7 @@ export const buildTermProvenance = async (
         .select({
           id: sourceExtractionsTable.id,
           fileId: sourceExtractionsTable.fileId,
+          assetId: sourceExtractionsTable.assetId,
           textHash: sourceExtractionsTable.textHash,
           parserVersion: sourceExtractionsTable.parserVersion,
           method: sourceExtractionsTable.method,
@@ -537,6 +561,7 @@ export const buildTermProvenance = async (
       .select({
         id: sourceExtractionsTable.id,
         fileId: sourceExtractionsTable.fileId,
+        assetId: sourceExtractionsTable.assetId,
         textHash: sourceExtractionsTable.textHash,
         parserVersion: sourceExtractionsTable.parserVersion,
         method: sourceExtractionsTable.method,
@@ -556,7 +581,8 @@ export const buildTermProvenance = async (
       frontier.some(
         (child) =>
           child.parentExtractionId === parent.id &&
-          child.fileId === parent.fileId
+          ((child.fileId !== null && child.fileId === parent.fileId) ||
+            (child.assetId !== null && child.assetId === parent.assetId))
       )
     )
     for (const parent of frontier) extractionById.set(parent.id, parent)
@@ -2273,7 +2299,9 @@ export const buildTermProvenance = async (
         )
     }
     const extraction = publishedExtractions.find(
-      (row) => row.id === file.publishedExtractionId && row.fileId === file.id
+      (row) =>
+        row.id === file.publishedExtractionId &&
+        sameSourceAsset(file, row)
     )
     if (extraction?.textHash && extraction.completedAt) {
       const evidence = sourceExtractionProvenance({
@@ -2286,7 +2314,9 @@ export const buildTermProvenance = async (
         hasOcr: extraction.hasOcr,
         extractedAt: extraction.completedAt,
         extractionSteps: [...extractionById.values()].flatMap((step) =>
-          step.fileId === file.id && step.textHash && step.completedAt
+          sameSourceAsset(file, step) &&
+          step.textHash &&
+          step.completedAt
             ? [
                 {
                   id: step.id,
@@ -2306,6 +2336,55 @@ export const buildTermProvenance = async (
       for (const edge of evidence.edges)
         addEdge(edge.source, edge.target, edge.rel)
     }
+  }
+
+  for (const imported of importOrigins) {
+    const revision = revisionById.get(imported.revisionId)
+    if (!revision) continue
+    const definition = definitionById.get(revision.definitionId)
+    const author = definition?.author
+    const evidence = importOriginProvenance(
+      publicImportOrigin(imported.receipt),
+      revisionNodeId(revision.definitionId, revision.version),
+      author ? personNode(author) : null
+    )
+    for (const node of evidence.nodes) addNode(node)
+    for (const edge of evidence.edges)
+      addEdge(edge.source, edge.target, edge.rel)
+    events.push({
+      id: `import_${imported.revisionId}`,
+      at: imported.receipt.importedAt,
+      kind: "term-imported",
+      actor: author?.name ?? "Contributor",
+      actorKind: author ? "person" : "unknown",
+      profileUserId: publicProfileUserId(author),
+      summary: "Imported wording into a private draft before publication.",
+      href: `#${contributionEvidenceAnchor(definition!.definitionNumber, revision.version)}`
+    })
+  }
+  for (const citation of manualCitations) {
+    const revision = revisionById.get(citation.revisionId)
+    if (!revision) continue
+    const source = citation.declaration
+    const id = `declared_reference_${citation.id}`
+    addNode({
+      id,
+      type: "entity",
+      label: source.title || source.url,
+      meta: {
+        sourceIri: source.url,
+        sourceCreator: source.creator,
+        release: source.version,
+        license: source.license,
+        evidenceBasis: "contributor_declared",
+        citationBasis: "contributor"
+      }
+    })
+    addEdge(
+      revisionNodeId(revision.definitionId, revision.version),
+      id,
+      "references"
+    )
   }
 
   for (const reference of citedReferences) {
@@ -2360,7 +2439,9 @@ export const buildTermProvenance = async (
       revisions,
       citations: citedReferences,
       suggestions: aiContributionSuggestions,
-      publishedFiles
+      publishedFiles,
+      importOrigins,
+      manualCitations
     }),
     graph: { nodes, edges }
   }

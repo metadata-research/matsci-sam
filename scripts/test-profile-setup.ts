@@ -431,11 +431,19 @@ async function profileUiChecks() {
     "@yamz/db": { db: {} },
     zod: { z },
     "@/trpc/server": {
-      HydrateClient: noSideEffect,
+      HydrateClient: ({ children }: { children: ReactNode }) => children,
       trpc: { terms: { list: { prefetch: noSideEffect } } }
     },
     "./initial-term": { initialTermFromSearchParam },
-    "./page-content": { AddTermPageContent: noSideEffect },
+    "./page-content": {
+      AddTermPageContent: ({ draftId }: { draftId?: string }) => {
+        assert.ok(
+          draftId,
+          "An unnamed user can only restore a saved private draft"
+        )
+        return createElement("p", null, `Private draft ${draftId}`)
+      }
+    },
     "@/lib/community-queries": { getActiveCommunity: noSideEffect },
     "@/lib/setup-service": {
       requireSetupVocabularyForContribution: noSideEffect
@@ -454,6 +462,7 @@ async function profileUiChecks() {
     addDestination,
     "/setup",
     "/profile/drafts",
+    "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50",
     "/studies/profile-fixture/run",
     `/invite/${"a".repeat(43)}`,
     "//other.example.test/setup",
@@ -513,21 +522,34 @@ async function profileUiChecks() {
     "Do not leave while a profile save is pending"
   )
 
-  const gate = renderToStaticMarkup(
+  const privateDraft = renderToStaticMarkup(
     await addPage({ searchParams: Promise.resolve(addParameters) })
+  )
+  assert.match(
+    privateDraft,
+    /Private draft 74dde90f-41bf-4912-bccc-d1761cf58a50/
+  )
+  const newTermParameters = { ...addParameters, draftId: "" }
+  const newTermDestination = `/add?${new URLSearchParams({
+    vocabularySlug: addParameters.vocabularySlug,
+    term: addParameters.term,
+    setupReturnTo: addParameters.setupReturnTo
+  })}`
+  const gate = renderToStaticMarkup(
+    await addPage({ searchParams: Promise.resolve(newTermParameters) })
   )
   assert.match(gate, /Add your name to contribute/)
   const href = /<a[^>]*href="([^"]+)"/.exec(gate)?.[1]
   assert.equal(
     href?.replaceAll("&amp;", "&"),
-    authReturn.profileCompletionPath(addDestination),
-    "Inline attribution gate retains term, draft, vocabulary and setup context"
+    authReturn.profileCompletionPath(newTermDestination),
+    "Inline attribution gate retains term, vocabulary and setup context"
   )
   // Re-entering /add after Skip reaches this gate again, without redirecting or
   // touching the editor/data dependencies guarded above.
   assert.equal(
     renderToStaticMarkup(
-      await addPage({ searchParams: Promise.resolve(addParameters) })
+      await addPage({ searchParams: Promise.resolve(newTermParameters) })
     ),
     gate
   )

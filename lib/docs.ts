@@ -51,6 +51,7 @@ const SECTIONS: Record<DocSection, SectionConfig> = {
       "communities",
       "studies",
       "adding-terms",
+      "importing-terms",
       "community",
       "ai-refinement",
       "discussion",

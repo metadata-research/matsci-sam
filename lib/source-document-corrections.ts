@@ -2,9 +2,15 @@ import "server-only"
 import { createHash } from "node:crypto"
 import { and, eq, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
-import { db, sourceExtractionsTable, usersTable } from "@yamz/db"
+import {
+  db,
+  sourceExtractionsTable,
+  contributionFilesTable,
+  usersTable
+} from "@yamz/db"
 import { readContributionFile } from "./contribution-files"
 import { SOURCE_MAX_CHARACTERS } from "./source-document-types"
+import { sourceExtractionForFile } from "./contribution-source-assets"
 
 const invalid = (message: string) =>
   new TRPCError({ code: "BAD_REQUEST", message })
@@ -13,12 +19,15 @@ const missing = () =>
 
 /** Corrections are new immutable transcripts; uploaded bytes and prior checks
  * remain unchanged so a saved AI receipt still identifies its exact input. */
-export async function correctOwnedSource(input: {
-  fileId: string
-  userId: number
-  extractionId: string
-  text: string
-}) {
+export async function correctOwnedSource(
+  input: {
+    fileId: string
+    userId: number
+    extractionId: string
+    text: string
+  },
+  reader: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0] = db
+) {
   const text = input.text.replace(/\r\n?/g, "\n")
   if (!text.trim() || text.length > SOURCE_MAX_CHARACTERS)
     throw invalid("Enter a transcript between 1 and 200,000 characters.")
@@ -30,7 +39,7 @@ export async function correctOwnedSource(input: {
       "Enter readable Unicode text without binary control characters."
     )
   const textHash = createHash("sha256").update(text).digest("hex")
-  return db.transaction(async (tx) => {
+  return reader.transaction(async (tx) => {
     // The account lock serializes correction/retry quotas and publication.
     await tx
       .select({ id: usersTable.id })
@@ -51,7 +60,7 @@ export async function correctOwnedSource(input: {
       .where(
         and(
           eq(sourceExtractionsTable.id, input.extractionId),
-          eq(sourceExtractionsTable.fileId, input.fileId)
+          sourceExtractionForFile(file)
         )
       )
     if (!parent || parent.status !== "ready" || !parent.text)
@@ -64,7 +73,7 @@ export async function correctOwnedSource(input: {
       .from(sourceExtractionsTable)
       .where(
         and(
-          eq(sourceExtractionsTable.fileId, input.fileId),
+          sourceExtractionForFile(file),
           eq(sourceExtractionsTable.parentExtractionId, parent.id),
           eq(sourceExtractionsTable.correctedById, input.userId),
           eq(sourceExtractionsTable.status, "ready"),
@@ -72,11 +81,17 @@ export async function correctOwnedSource(input: {
         )
       )
       .limit(1)
-    if (existing?.text === text) return { extraction: existing }
+    if (existing?.text === text) {
+      await tx
+        .update(contributionFilesTable)
+        .set({ sourceExtractionId: existing.id })
+        .where(eq(contributionFilesTable.id, file.id))
+      return { extraction: existing }
+    }
     const [{ count }] = await tx
       .select({ count: sql<number>`count(*)::int` })
       .from(sourceExtractionsTable)
-      .where(eq(sourceExtractionsTable.fileId, input.fileId))
+      .where(sourceExtractionForFile(file))
     if (count >= 5)
       throw invalid(
         "This source has reached its transcript version limit. Add a fresh source to continue."
@@ -86,6 +101,7 @@ export async function correctOwnedSource(input: {
       .insert(sourceExtractionsTable)
       .values({
         fileId: file.id,
+        assetId: file.assetId,
         status: "ready",
         forceOcr: false,
         text,
@@ -110,6 +126,10 @@ export async function correctOwnedSource(input: {
         completedAt: now
       })
       .returning()
+    await tx
+      .update(contributionFilesTable)
+      .set({ sourceExtractionId: extraction.id })
+      .where(eq(contributionFilesTable.id, file.id))
     return { extraction }
   })
 }

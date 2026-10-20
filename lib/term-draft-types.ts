@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { importEvidenceSchema } from "./import-draft-types"
 import {
   sourceContextSelectionsSchema,
   sourceInputSnapshotSchema
@@ -118,6 +119,9 @@ export const termDraftPayloadSchema = z
       .array(z.object({ fileId: z.string().uuid(), publish: z.boolean() }))
       .max(3),
     sources: sourceContextSelectionsSchema.default([]),
+    // Optional for existing version-one drafts. Imported declarations remain
+    // separate from trusted lookup IDs, document checks and AI generations.
+    importEvidence: importEvidenceSchema.optional(),
     aiSuggestionId: z.number().int().positive().nullable(),
     editorState: termDraftEditorStateSchema.nullable()
   })

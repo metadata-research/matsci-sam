@@ -9,6 +9,7 @@ import {
   communitiesTable,
   communityMembersTable,
   contributionFilesTable,
+  contributionSourceAssetsTable,
   contributionSubmissionsTable,
   db,
   definitionExamplesTable,
@@ -77,15 +78,32 @@ async function agePendingFile(
     .select()
     .from(sourceExtractionsTable)
     .where(eq(sourceExtractionsTable.fileId, id))
+  const [asset] = file.assetId
+    ? await tx
+        .select()
+        .from(contributionSourceAssetsTable)
+        .where(eq(contributionSourceAssetsTable.id, file.assetId))
+    : []
   await tx
     .delete(contributionFilesTable)
     .where(eq(contributionFilesTable.id, id))
+  if (asset)
+    await tx
+      .insert(contributionSourceAssetsTable)
+      .values(asset)
+      .onConflictDoNothing()
   await tx.insert(contributionFilesTable).values({
     ...file,
+    sourceExtractionId: null,
     createdAt: new Date(Date.now() - 48 * 3600000).toISOString()
   })
   if (extractions.length)
     await tx.insert(sourceExtractionsTable).values(extractions)
+  if (file.sourceExtractionId)
+    await tx
+      .update(contributionFilesTable)
+      .set({ sourceExtractionId: file.sourceExtractionId })
+      .where(eq(contributionFilesTable.id, id))
   if (bindings.length) await tx.insert(termDraftFilesTable).values(bindings)
 }
 
@@ -364,29 +382,41 @@ async function main() {
       )
       // Supply a completed transcript without starting parser work. The outer
       // rollback transaction prevents a background worker from seeing this job.
+      const [queuedExtraction] = await tx
+        .select()
+        .from(sourceExtractionsTable)
+        .where(eq(sourceExtractionsTable.fileId, file.id))
       await tx
         .delete(sourceExtractionsTable)
         .where(eq(sourceExtractionsTable.fileId, file.id))
       const sourceText = `${term}: evidence accompanying this definition.`
-      await tx.insert(sourceExtractionsTable).values({
-        fileId: file.id,
-        status: "ready",
-        text: sourceText,
-        textHash: createHash("sha256").update(sourceText).digest("hex"),
-        pages: [
-          {
-            page: 1,
-            start: 0,
-            end: sourceText.length,
-            method: "embedded",
-            label: "Page 1",
-            confidence: null
-          }
-        ],
-        method: "embedded",
-        parserVersion: "term-draft-fixture-v1",
-        completedAt: new Date().toISOString()
-      })
+      const [readyExtraction] = await tx
+        .insert(sourceExtractionsTable)
+        .values({
+          fileId: file.id,
+          assetId: queuedExtraction.assetId,
+          status: "ready",
+          text: sourceText,
+          textHash: createHash("sha256").update(sourceText).digest("hex"),
+          pages: [
+            {
+              page: 1,
+              start: 0,
+              end: sourceText.length,
+              method: "embedded",
+              label: "Page 1",
+              confidence: null
+            }
+          ],
+          method: "embedded",
+          parserVersion: "term-draft-fixture-v1",
+          completedAt: new Date().toISOString()
+        })
+        .returning({ id: sourceExtractionsTable.id })
+      await tx
+        .update(contributionFilesTable)
+        .set({ sourceExtractionId: readyExtraction.id })
+        .where(eq(contributionFilesTable.id, file.id))
       const advanced: TermDraftPayload = {
         ...payload,
         references: [

@@ -149,9 +149,11 @@ async function main() {
         )
       )
       .toBe(true)
-    await expect(page!.locator("nextjs-portal")).not.toContainText(
-      /Build Error|Runtime Error|Unhandled Runtime/
-    )
+    await expect(
+      page!.locator("nextjs-portal").filter({
+        hasText: /Build Error|Runtime Error|Unhandled Runtime/
+      })
+    ).toHaveCount(0)
     await page!.screenshot({
       path: resolve(output, `${name}.png`),
       fullPage: true,

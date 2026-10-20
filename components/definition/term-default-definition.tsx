@@ -1,3 +1,4 @@
+import { ImportAttribution, DeclaredSource } from "./import-attribution"
 import "server-only"
 
 import { TRPCError } from "@trpc/server"
@@ -58,7 +59,8 @@ export async function TermDefaultDefinition({
     "inline-flex min-h-9 items-center gap-1.5 rounded-sm text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
   const linkBoxClass =
     "flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-sm"
-  const referenceCount = definition.references.length
+  const referenceCount =
+    definition.references.length + definition.manualCitations.length
   const sourceFileCount = definition.attachments.filter(
     (file) => file.role === "source"
   ).length
@@ -197,6 +199,9 @@ export async function TermDefaultDefinition({
           </div>
         )}
 
+        {definition.importOrigin && (
+          <ImportAttribution origin={definition.importOrigin} />
+        )}
         {referenceCount > 0 && (
           <AdvancedOnly
             as="section"
@@ -209,6 +214,9 @@ export async function TermDefaultDefinition({
             >
               Cited references
             </h3>
+            {definition.manualCitations.map((source, index) => (
+              <DeclaredSource key={index} source={source} />
+            ))}
             {definition.references.map((reference) => (
               <ReferenceSnapshot key={reference.id} reference={reference} />
             ))}

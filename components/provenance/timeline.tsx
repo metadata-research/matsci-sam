@@ -22,6 +22,7 @@ import {
 import type { LucideIcon } from "lucide-react"
 
 const KIND: Record<ProvEvent["kind"], { icon: LucideIcon; color: string }> = {
+  "term-imported": { icon: FilePlusIcon, color: "text-primary" },
   "term-created": { icon: TagIcon, color: "text-green-600" },
   "initial-message": {
     icon: MessageCircleIcon,

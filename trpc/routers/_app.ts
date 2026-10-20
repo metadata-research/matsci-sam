@@ -18,6 +18,7 @@ import { termReferencesRouter } from "./term-references"
 import { ontologyContextRouter } from "./ontology-context"
 import { setupRouter } from "./setup"
 import { termDraftsRouter } from "./term-drafts"
+import { importDraftsRouter } from "./import-drafts"
 import { z } from "zod"
 import {
   aiModelsTable,
@@ -79,6 +80,7 @@ const searchFacetsSchema = z.array(searchFacetKeySchema).max(20).default([])
 export const appRouter = createTRPCRouter({
   setup: setupRouter,
   termDrafts: termDraftsRouter,
+  importDrafts: importDraftsRouter,
   tags: tagsRouter,
   collections: collectionsRouter,
   communities: communitiesRouter,

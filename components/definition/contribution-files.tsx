@@ -53,6 +53,7 @@ type Props = {
   onFilesChange: (files: DraftContributionFile[]) => void
   term: string
   vocabularySlug: string
+  draftId?: string
   explicitVocabulary?: boolean
   disabled?: boolean
   onBusyChange?: (busy: boolean) => void
@@ -93,6 +94,7 @@ export function ContributionFileFields({
   onFilesChange,
   term,
   vocabularySlug,
+  draftId,
   explicitVocabulary = false,
   disabled,
   onBusyChange,
@@ -177,6 +179,7 @@ export function ContributionFileFields({
     const metadata = contributionFileMetadataSchema.safeParse({
       term,
       vocabularySlug,
+      draftId,
       explicitVocabulary,
       filename: selectedFile.name,
       origin,
