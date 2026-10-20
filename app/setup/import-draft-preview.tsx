@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { termPath } from "@/lib/public-identifiers"
+import { termLabelKey } from "@/lib/term-label-key"
 
 type Preview = RouterOutput["importDrafts"]["preview"]
 type Input = RouterInput["importDrafts"]["preview"]
@@ -209,12 +210,12 @@ export function ImportDraftPreview({
       <ul className="divide-y">
         {preview.rows.map((row) => {
           const checked = selected.includes(row.rowId)
-          const group = row.term.trim().toLowerCase()
+          const group = termLabelKey(row.term)
           const selectable = row.status === "new" || !!row.duplicateOf
           const anotherVersionSelected = preview.rows.some(
             (item) =>
               item.rowId !== row.rowId &&
-              item.term.trim().toLowerCase() === group &&
+              termLabelKey(item.term) === group &&
               selected.includes(item.rowId)
           )
           return (

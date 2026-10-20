@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { formatDateTime } from "@/lib/date"
 import { definitionPath, vocabularyPath } from "@/lib/public-identifiers"
 import { profileCompletionPath } from "@/lib/auth-return"
+import { CONTRIBUTION_LIMITS } from "@/lib/contribution-limits"
 
 type Import = RouterOutput["importDrafts"]["get"]
 type Review = RouterOutput["importDrafts"]["review"]
@@ -243,9 +244,10 @@ export function ImportOverview({
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Select up to five drafts for a publication review. The current
-          ten-minute contribution allowance is checked before anything is
-          published.
+          Select up to {CONTRIBUTION_LIMITS.definition.count} drafts for a
+          publication review. The contribution allowance over the past{" "}
+          {CONTRIBUTION_LIMITS.definition.seconds / 60} minutes is checked
+          before anything is published.
           {allowance.data
             ? ` ${allowance.data.remaining} publications are available now.`
             : ""}
@@ -271,7 +273,8 @@ export function ImportOverview({
                       busy ||
                       !active ||
                       !!data.batch.archivedAt ||
-                      (!checked && selected.length >= 5)
+                      (!checked &&
+                        selected.length >= CONTRIBUTION_LIMITS.definition.count)
                     }
                     onChange={(event) => {
                       if (!draft) return

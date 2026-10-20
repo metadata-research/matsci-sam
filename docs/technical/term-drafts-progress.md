@@ -70,8 +70,35 @@ existing terms remain a later phase.
   OCR, citation-save and navigation browser regression.
 - [x] Complete final integration review, including concurrent destination locks
   and disclosure of original wording in publication review.
-- [ ] Complete Muse review follow-up, open a PR, pass CI and deploy to Superego
-  as requested. Ego deployment is outside this request.
+- [x] Complete Muse review follow-up and pass remote CI.
+- [ ] Deploy to Superego when the user resumes rollout. Ego deployment is
+  outside this request. Current release details are in the private state record.
+
+#### Code-quality follow-up — October 20
+
+The separate follow-up addresses Q4 and Q7 from the code-quality review.
+The reviewed release remains unchanged while deployment is on hold.
+
+- [x] Share contribution limits between server enforcement, import validation
+  and the selection controls in a browser-safe module. Matching quota text
+  uses the same values. The limit remains five definitions per ten minutes;
+  current account usage is still checked separately before publication.
+- [x] Name the unchanged 30-minute publication-review lifetime.
+- [x] Rename the raw-input SHA-256 helper to `rawTextHash` so it is distinct
+  from canonical JSON fingerprints.
+- [x] Reuse `termLabelKey` for the existing trim/lowercase comparison and
+  source-binding keys. Original scientific text, CSV header parsing, document
+  matching, SQL comparisons and fingerprint algorithms are unchanged.
+
+The existing setup, import parser/decoder, contribution action, attachment and
+public HTML/JSON/RDF provenance checks pass. Full type checking, scoped ESLint,
+formatting and independent diff review pass. This mechanical follow-up did not
+rerun the database, production build or browser suites and started no services.
+
+The shared tokenizer (Q1), import module split (Q2) and component extraction
+(Q3) remain scheduled before extending imports to existing terms. Retry-helper
+and test-fixture consolidation (Q5–Q6) remain optional work when new callers
+or suites justify it.
 
 #### Muse review follow-up — October 20
 
@@ -79,7 +106,8 @@ The alternate review is recorded in
 `docs-internal/IMPORT-DRAFTS-CODE-REVIEW-2026-10-20.md`. It found two open release
 gates (remote CI and migration rehearsal at realistic scale) and recommended
 seven improvements. The code changes, local migration rehearsal and production
-browser acceptance are complete. Remote CI remains a release gate.
+browser acceptance are complete. Remote CI also passed for the original import
+implementation. A subsequent follow-up needs its own CI before merging.
 
 - Original imported wording is private by default. A separate, explicit
   choice allows a contributor to include it in public provenance. The private

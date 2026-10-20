@@ -20,11 +20,11 @@ import { mayAssertIn, mayCreateCollection } from "./kos"
 import { mayRunCommunity } from "./communities"
 import { DEFAULT_VOCABULARY_SLUG } from "./public-identifiers"
 import {
-  CONTRIBUTION_LIMITS,
   definitionSubmissionFingerprint,
   lockContributionSubmissions,
   reserveContributionSubmission
 } from "./contribution-guard"
+import { CONTRIBUTION_LIMITS } from "./contribution-limits"
 import { createDefinitionWithInitialRevision } from "./definition-revisions"
 import { reserveCollectionMembership } from "./collection-membership-lock"
 import {
@@ -36,6 +36,7 @@ import {
 } from "./setup-import"
 import { uniqueSlug } from "./slug"
 import { publishNewTerm } from "./new-term-publication"
+import { termLabelKey } from "./term-label-key"
 
 export type SetupTransaction = Parameters<
   Parameters<typeof db.transaction>[0]
@@ -283,9 +284,7 @@ async function importPreview(
   lock = false
 ) {
   const parsed = parseImportText(input.text, input.format)
-  const labels = [
-    ...new Set(parsed.rows.map((row) => row.term.trim().toLowerCase()))
-  ]
+  const labels = [...new Set(parsed.rows.map((row) => termLabelKey(row.term)))]
   const existingQuery = executor
     .select({
       id: termsTable.id,
@@ -311,7 +310,7 @@ async function importPreview(
   const errors = [...parsed.errors]
   if (newCount > CONTRIBUTION_LIMITS.definition.count)
     errors.push(
-      "Import at most five new definitions at a time. The account limit is five definitions in ten minutes."
+      `Import at most ${CONTRIBUTION_LIMITS.definition.count} new definitions at a time. The account limit is ${CONTRIBUTION_LIMITS.definition.count} definitions in ${CONTRIBUTION_LIMITS.definition.seconds / 60} minutes.`
     )
   const previewToken = createHash("sha256")
     .update(JSON.stringify({ input, userId, rows, errors }))
@@ -381,7 +380,7 @@ async function publishImportedTerm(
   reserved: Set<string>,
   imported: boolean
 ) {
-  const term = row.term.trim().toLowerCase()
+  const term = termLabelKey(row.term)
   await reserveContributionSubmission(tx, {
     userId,
     kind: "definition",

@@ -10,16 +10,12 @@ import {
 import type { ContributionFilePublication } from "./contribution-file-types"
 import type { ModelReferenceInput } from "./reference-types"
 import type { ReferenceSelection } from "./term-references"
+import { CONTRIBUTION_LIMITS } from "./contribution-limits"
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 export type ContributionKind = "definition" | "comment" | "example"
 
 export const CONTRIBUTION_DUPLICATE_WINDOW_SECONDS = 60
-export const CONTRIBUTION_LIMITS = {
-  definition: { count: 5, seconds: 600 },
-  comment: { count: 10, seconds: 60 },
-  example: { count: 10, seconds: 60 }
-} as const
 
 const canonicalValue = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(canonicalValue)
@@ -119,10 +115,7 @@ export const reserveContributionSubmission = async (
   if (recent.count >= limit.count)
     throw new TRPCError({
       code: "TOO_MANY_REQUESTS",
-      message:
-        input.kind === "definition"
-          ? "You can publish up to five definitions in ten minutes. Please wait before submitting another definition."
-          : `You can publish up to ten ${input.kind}s per minute. Please wait before submitting another ${input.kind}.`
+      message: `You can publish up to ${limit.count} ${input.kind}s in ${limit.seconds / 60} ${limit.seconds === 60 ? "minute" : "minutes"}. Please wait before submitting another ${input.kind}.`
     })
 
   await tx.insert(contributionSubmissionsTable).values({
