@@ -23,10 +23,12 @@ import { trpc } from "@/trpc/client"
 
 export const EditProfileForm = ({
   defaults,
-  returnTo = null
+  returnTo = null,
+  isWelcome = false
 }: {
   defaults: User
   returnTo?: string | null
+  isWelcome?: boolean
 }) => {
   const router = useRouter()
   const form = useForm<EditProfile>({
@@ -89,7 +91,7 @@ export const EditProfileForm = ({
               name="affiliation"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Affiliation</FormLabel>
+                  <FormLabel>Affiliation (optional)</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="University, laboratory, or organization"
@@ -127,8 +129,23 @@ export const EditProfileForm = ({
               )}
             />
             <Button type="submit" disabled={isPending} className="w-full">
-              {isPending ? "Saving…" : "Save profile"}
+              {isPending
+                ? "Saving…"
+                : isWelcome
+                  ? "Save and continue"
+                  : "Save profile"}
             </Button>
+            {isWelcome ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending}
+                className="w-full"
+                onClick={() => router.push(returnTo ?? "/profile")}
+              >
+                Skip for now
+              </Button>
+            ) : null}
           </form>
         </Form>
       </CardContent>

@@ -19,9 +19,15 @@ confirmation looks the same in either case.
 
 New contributors can select **Create an account with email** on the login
 page when available. No password is required. Follow the email link to confirm
-your address and create your account, then complete your name and profile
-choices. An invitation or study destination is retained, including when you
-open the link on another device.
+your address and create your account. On **Your account is ready**, add your
+name and select **Save and continue**, or select **Skip for now**. You can
+browse immediately and add your name when you first contribute. Affiliation,
+ORCID and a public profile are optional.
+
+An invitation, survey or term destination is retained, including when you open
+the link on another device. Skipping returns you there. If you were adding a
+term, the page asks for your name before you can write or attach sources.
+Later sign-ins do not send you back through profile setup.
 
 Use your existing account if you have contributed before. A second account
 has separate contributions and memberships. Contact the person who invited
@@ -29,9 +35,9 @@ you if no available method lets you create an account.
 
 ## Continue with Google
 
-Select **Continue with Google** and choose your usual account. Complete your
-profile if requested before returning to the pending study or invitation.
-Check the selected Google account if access is refused.
+Select **Continue with Google** and choose your usual account. A new account
+offers the same optional profile setup. Existing accounts return to the
+pending destination. Check the selected Google account if access is refused.
 
 ## ORCID
 

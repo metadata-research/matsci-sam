@@ -49,7 +49,9 @@ const plexMono = localFont({
 })
 
 export const metadata: Metadata = {
-  title: SITE_NAME
+  title: SITE_NAME,
+  // Reset the verification page's no-referrer policy after client navigation.
+  referrer: "strict-origin-when-cross-origin"
 }
 
 export default async function RootLayout({

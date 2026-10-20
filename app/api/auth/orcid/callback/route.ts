@@ -13,11 +13,7 @@ import { publicRedirect } from "@/lib/public-redirect"
 import { getSession } from "@/lib/session"
 import { revalidatePath } from "next/cache"
 import { NextRequest } from "next/server"
-import {
-  authPathWithReturnTo,
-  normalizeAuthReturnTo,
-  profileCompletionPath
-} from "@/lib/auth-return"
+import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
 
 // OAuth error codes are lowercase words joined by underscores. Anything else
 // is not echoed back.
@@ -106,10 +102,8 @@ export const GET = async (request: NextRequest) => {
     )
   }
 
-  const { needsProfile } = await connectOrcidAccount({ userId, tokens })
+  await connectOrcidAccount({ userId, tokens })
   session.id = userId
   await session.save()
-  return publicRedirect(
-    needsProfile ? profileCompletionPath(returnTo) : (returnTo ?? "/profile")
-  )
+  return publicRedirect(returnTo ?? "/profile")
 }

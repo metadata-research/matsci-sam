@@ -61,6 +61,7 @@ export const POST = async (request: Request) => {
       )
       .limit(1)
     let user = existingUser
+    let isNewAccount = false
 
     if (user) {
       const [updatedUser] = await tx
@@ -83,6 +84,7 @@ export const POST = async (request: Request) => {
         .onConflictDoNothing()
         .returning()
       user = insertedUser
+      isNewAccount = !!insertedUser
 
       if (!user) {
         const [concurrentUser] = await tx
@@ -114,7 +116,7 @@ export const POST = async (request: Request) => {
 
     return {
       userId: user.id,
-      needsProfile: !user.firstName || !user.lastName
+      isNewAccount
     }
   })
 
@@ -129,7 +131,7 @@ export const POST = async (request: Request) => {
   await session.save()
 
   return Response.json({
-    redirectTo: result.needsProfile
+    redirectTo: result.isNewAccount
       ? profileCompletionPath(returnTo)
       : (returnTo ?? "/profile")
   })
