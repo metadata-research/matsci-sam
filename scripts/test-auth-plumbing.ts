@@ -327,11 +327,11 @@ assert.match(
 assert.match(loginPage, /aria-describedby="login-email-help"/)
 assert.match(
   checkEmailPage.replace(/\s+/g, " "),
-  /Sign-in links are sent only for existing accounts/
+  /If this email address belongs to an account, you will receive a one-time link to sign in\./
 )
 assert.match(
   checkEmailPage.replace(/\s+/g, " "),
-  /if you requested a sign-in link but do not have an account/
+  /Open the one-time link to confirm your email address and create your account\./
 )
 const orcidDescriptionReference = loginPage.indexOf(
   'aria-describedby="orcid-unavailable"'

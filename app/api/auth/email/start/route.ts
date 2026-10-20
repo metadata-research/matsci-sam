@@ -14,9 +14,6 @@ import {
 import { sendEmailSignInLink } from "@/lib/email"
 import { normalizeAuthReturnTo } from "@/lib/auth-return"
 
-const genericRedirect = () =>
-  NextResponse.redirect(new URL("/register/check-email", getAuthSiteUrl()), 303)
-
 export const POST = async (request: NextRequest) => {
   if (!isEmailAuthEnabled()) return new Response("Not found", { status: 404 })
 
@@ -27,10 +24,16 @@ export const POST = async (request: NextRequest) => {
   const form = await request.formData()
   const parsed = EmailAddressSchema.safeParse(form.get("email"))
   const parsedIntent = EmailAuthIntentSchema.safeParse(form.get("intent"))
+  const returnTo = normalizeAuthReturnTo(form.get("returnTo"))
+  // Confirm the requested action without exposing account or delivery status.
+  const confirmationUrl = new URL("/register/check-email", getAuthSiteUrl())
+  if (parsedIntent.success)
+    confirmationUrl.searchParams.set("intent", parsedIntent.data)
+  if (returnTo) confirmationUrl.searchParams.set("returnTo", returnTo)
+  const genericRedirect = () => NextResponse.redirect(confirmationUrl, 303)
   if (!parsed.success || !parsedIntent.success) return genericRedirect()
 
   const email = parsed.data
-  const returnTo = normalizeAuthReturnTo(form.get("returnTo"))
   const allowAccountCreation = parsedIntent.data === "create"
   if (allowAccountCreation && !isEmailAccountCreationEnabled())
     return genericRedirect()
