@@ -10,15 +10,18 @@ can find activities under **Your surveys** on their profile. See
 
 ## Verified email sign-in
 
-Enter the email address attached to your account and select **Email me a
-sign-in link**. Open the one-time link to sign in without a password. The
-confirmation looks the same whether or not the address matches an account.
+Use **Email me a sign-in link** for an existing account. Enter the email
+address attached to that account and open the one-time link to sign in
+without a password. No email is sent if the address has no account. The
+confirmation looks the same in either case.
 
 ## Create an account with email
 
-Select **Create an account with email** when available. Follow the email link,
-then complete your name and profile choices. An invitation or study destination
-is retained, including when you open the link on another device.
+New contributors can select **Create an account with email** on the login
+page when available. No password is required. Follow the email link to confirm
+your address and create your account, then complete your name and profile
+choices. An invitation or study destination is retained, including when you
+open the link on another device.
 
 Use your existing account if you have contributed before. A second account
 has separate contributions and memberships. Contact the person who invited
@@ -69,8 +72,10 @@ private profile.
 
 ## Trouble signing in
 
-- Check spam and the email address if no sign-in message arrives. Request
-  another link after the waiting period shown on the page.
+- Use **Create an account with email** if you have no account. The sign-in
+  form sends links only for existing accounts.
+- Check spam and the email address if no message arrives. Wait at least one
+  minute before requesting another link.
 - Request a new link if the previous one expired or was used. Open the most
   recent message.
 - Check your account if studies or contributions are missing. Memberships and

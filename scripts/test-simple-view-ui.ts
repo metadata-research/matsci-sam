@@ -619,7 +619,7 @@ async function main() {
     for (const text of [
       "No example added.",
       "No model draft is applied to this contribution.",
-      "No citations attached.",
+      "No lookup references cited.",
       "Citations already attached"
     ])
       await expect(review.getByText(text, { exact: true })).toHaveCount(0)
@@ -628,7 +628,7 @@ async function main() {
     ).toBeVisible()
     await tab("Advanced").click()
     await expect(
-      review.getByText("No citations attached.", { exact: true })
+      review.getByText("No lookup references cited.", { exact: true })
     ).toBeVisible()
     await expect(
       review.getByText("No model draft is applied to this contribution.", {

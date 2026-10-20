@@ -308,16 +308,16 @@ assert.match(loginPage, /Continue with ORCID/)
 assert.match(loginPage, /ORCID sign-in is not available yet\./)
 assert.match(
   loginPage.replace(/\s+/g, " "),
-  /If an account exists for this address, MatSci-SAM will email a one-time sign-in link\./
+  /For existing accounts\. Use the email address on your MatSci-SAM account to receive a one-time sign-in link\./
 )
 assert.match(loginPage, /aria-describedby="login-email-help"/)
 assert.match(
   checkEmailPage.replace(/\s+/g, " "),
-  /sends a sign-in link only for an existing account/
+  /Sign-in links are sent only for existing accounts/
 )
 assert.match(
   checkEmailPage.replace(/\s+/g, " "),
-  /New contributors receive a link after choosing Create an account with email/
+  /if you requested a sign-in link but do not have an account/
 )
 const orcidDescriptionReference = loginPage.indexOf(
   'aria-describedby="orcid-unavailable"'
