@@ -9,12 +9,11 @@ import {
   useSyncExternalStore,
   type RefObject
 } from "react"
-import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardHeader,
@@ -33,14 +32,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
 import {
   communityPath,
   DEFAULT_VOCABULARY_SLUG,
   collectionPath,
   vocabularyPath,
-  definitionPath,
-  termPath
+  definitionPath
 } from "@/lib/public-identifiers"
 import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "@/lib/input-limits"
 import {
@@ -54,6 +51,7 @@ import {
 } from "@/lib/guided-setup"
 import { cn } from "@/lib/utils"
 import { profileCompletionPath } from "@/lib/auth-return"
+import { decodeDraftImportFile } from "@/lib/import-file-decoding"
 import {
   isKnownSetupCreationRejection,
   newSetupCreationAttempt,
@@ -65,6 +63,7 @@ import {
   type SetupCreationMatch
 } from "@/lib/setup-creation-recovery"
 import { SetupCreationRecovery } from "./creation-recovery"
+import { ImportDraftPreview } from "./import-draft-preview"
 import { DefinitionForm } from "@/components/definition/definition-form"
 import {
   useTermDraft,
@@ -80,7 +79,7 @@ import {
 } from "@/lib/setup-destination-state"
 
 type Options = RouterOutput["setup"]["options"]
-type Preview = RouterOutput["setup"]["previewImport"]
+type Preview = RouterOutput["importDrafts"]["preview"]
 type Props = {
   draftKey: string
   draftId?: string
@@ -126,7 +125,7 @@ export function GuidedSetup(props: Props) {
         </h1>
         <p className="max-w-2xl text-muted-foreground">
           {props.task === "import"
-            ? "Preview a batch of terms and definitions before adding them to a vocabulary."
+            ? "Import terms as private drafts, then review their definitions and sources before publishing."
             : "Use this guide to select or create a community, vocabulary, and optional collection, then add or import terms."}
         </p>
       </header>
@@ -218,8 +217,8 @@ function SetupWorkspace({
   const createCollection = trpc.collections.create.useMutation()
   const createWorklist = trpc.communities.createWorklistCollection.useMutation()
   const attachCollection = trpc.communities.setCollection.useMutation()
-  const previewImport = trpc.setup.previewImport.useMutation()
-  const importTerms = trpc.setup.importTerms.useMutation()
+  const previewImport = trpc.importDrafts.preview.useMutation()
+  const [ignoredColumns, setIgnoredColumns] = useState<string[]>([])
   const directCreate = task !== undefined && task !== "import"
   const steps: readonly SetupStep[] = directCreate
     ? [task]
@@ -242,8 +241,7 @@ function SetupWorkspace({
     createCollection.isPending ||
     createWorklist.isPending ||
     attachCollection.isPending ||
-    previewImport.isPending ||
-    importTerms.isPending
+    previewImport.isPending
   const destinationState = setupDestinationState(optionsQuery, busy)
   const destinationsReady = destinationState === "ready"
   const destinationControlsBlocked = !destinationsReady
@@ -437,13 +435,14 @@ function SetupWorkspace({
         draft.mode === "single"
           ? singleTermImportText(draft.term, draft.definition)
           : draft.text,
-      format: draft.mode === "single" ? ("csv" as const) : draft.format
+      format: draft.mode === "single" ? ("csv" as const) : draft.format,
+      ignoredColumns
     }
   }
   async function reviewTerms() {
     if (!destinationsReady) return
     await perform(async () => {
-      if (!vocabulary?.canContribute)
+      if (!vocabulary || (draft.mode === "single" && !vocabulary.canContribute))
         throw new Error(
           "Choose a vocabulary you can contribute to before reviewing terms."
         )
@@ -537,7 +536,9 @@ function SetupWorkspace({
                     ? "collection"
                     : draft.receipt.title === "Term published"
                       ? "term"
-                      : "vocabulary"}
+                      : draft.receipt.title === "Drafts imported"
+                        ? "import"
+                        : "vocabulary"}
                 <ArrowRightIcon aria-hidden data-icon="inline-end" />
               </Link>
             </Button>
@@ -604,11 +605,11 @@ function SetupWorkspace({
 
       {!options.profileComplete ? (
         <Alert>
-          <AlertTitle>Complete your profile to define terms</AlertTitle>
+          <AlertTitle>Add your name before publishing</AlertTitle>
           <AlertDescription>
             <p>
-              Your contributions need an attributed name. You can still explore
-              the setup steps.
+              Your published contributions need an attributed name. You can
+              import private drafts before completing your profile.
             </p>
             <Link className="underline" href={profileCompletionPath(returnTo)}>
               Complete your profile
@@ -680,7 +681,9 @@ function SetupWorkspace({
       {destinationsReady &&
       !directCreate &&
       (!vocabulary ||
-        (options.profileComplete && !vocabulary.canContribute)) ? (
+        (draft.mode === "single" &&
+          options.profileComplete &&
+          !vocabulary.canContribute)) ? (
         <Alert>
           <AlertTitle>Choose an available vocabulary</AlertTitle>
           <AlertDescription>
@@ -724,7 +727,9 @@ function SetupWorkspace({
               {draft.step === "terms"
                 ? "Add your terms"
                 : draft.step === "review"
-                  ? "Review before publishing"
+                  ? draft.mode === "import"
+                    ? "Review the import"
+                    : "Review before publishing"
                   : `${directCreate ? "Create" : "Choose"} ${draft.step === "community" ? "a community" : draft.step === "vocabulary" ? "a vocabulary" : "a collection"}`}
             </h2>
           </CardTitle>
@@ -736,8 +741,12 @@ function SetupWorkspace({
                 : draft.step === "collection"
                   ? "A collection groups terms for a project, event, or review. It can include terms from different vocabularies."
                   : draft.step === "terms"
-                    ? `New definitions will be published in ${vocabulary?.title ?? "your selected vocabulary"}${collection ? ` and grouped in ${collection.title}` : ""}.`
-                    : "New terms receive their first definition. Existing definitions are kept as they are."}
+                    ? draft.mode === "import"
+                      ? `Prepare private drafts for ${vocabulary?.title ?? "your selected vocabulary"}. Sources and ontology references can be reviewed after import.`
+                      : `New definitions will be published in ${vocabulary?.title ?? "your selected vocabulary"}${collection ? ` and grouped in ${collection.title}` : ""}.`
+                    : draft.mode === "import"
+                      ? "Choose which new rows to save as drafts. Existing terms are preserved."
+                      : "New terms receive their first definition. Existing definitions are kept as they are."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
@@ -902,11 +911,15 @@ function SetupWorkspace({
                         <option
                           key={item.slug}
                           value={item.slug}
-                          disabled={!item.canContribute}
+                          disabled={
+                            draft.mode === "single" && !item.canContribute
+                          }
                         >
                           {item.title}
                           {item.communityId ? " — community vocabulary" : ""}
-                          {!item.canContribute ? " — unavailable" : ""}
+                          {draft.mode === "single" && !item.canContribute
+                            ? " — unavailable"
+                            : ""}
                         </option>
                       ))}
                     </SetupSelect>
@@ -926,7 +939,10 @@ function SetupWorkspace({
                     back={task === "import" ? undefined : () => go("community")}
                     busy={destinationControlsBlocked}
                     onNext={() => go("collection")}
-                    disabled={!vocabulary?.canContribute}
+                    disabled={
+                      !vocabulary ||
+                      (draft.mode === "single" && !vocabulary.canContribute)
+                    }
                   />
                 </FieldGroup>
               ) : null}
@@ -1259,13 +1275,17 @@ function SetupWorkspace({
                         onChange={(event) => {
                           const file = event.target.files?.[0]
                           if (!file) return
+                          event.currentTarget.value = ""
                           void perform(async () => {
                             if (file.size > 1000000)
                               throw new Error(
                                 "Choose a file smaller than 1 MB."
                               )
+                            const text = decodeDraftImportFile(
+                              await file.arrayBuffer()
+                            )
                             update({
-                              text: await file.text(),
+                              text,
                               format: file.name.toLowerCase().endsWith(".tsv")
                                 ? "tsv"
                                 : "csv"
@@ -1311,20 +1331,56 @@ function SetupWorkspace({
                       />
                       <FieldDescription>
                         Start with a <code>term,definition</code> header (or the
-                        same columns separated by a tab). New terms need a
-                        definition. Existing terms can leave it blank and will
-                        be reused without changes.
+                        same columns separated by a tab). Definitions can be
+                        completed later. Existing terms and duplicate rows are
+                        shown for review and are not imported.{" "}
+                        <a
+                          href="/templates/term-import.csv"
+                          download
+                          className="underline"
+                        >
+                          Download the template
+                        </a>
+                        .
                       </FieldDescription>
                     </Field>
+                    <details className="text-sm">
+                      <summary className="cursor-pointer font-medium">
+                        Optional columns for sources and ontology references
+                      </summary>
+                      <div className="mt-3 space-y-2 text-muted-foreground">
+                        <p>
+                          Use <code>example</code> and <code>scope_note</code>{" "}
+                          for context. Source fields are <code>source_url</code>
+                          , <code>source_title</code>,{" "}
+                          <code>source_creator</code>,{" "}
+                          <code>source_version</code> and{" "}
+                          <code>source_license</code>.
+                        </p>
+                        <p>
+                          Ontology fields are <code>ontology_iri</code>,{" "}
+                          <code>ontology_label</code>,{" "}
+                          <code>ontology_name</code>,{" "}
+                          <code>ontology_version</code>,{" "}
+                          <code>ontology_source_url</code> and{" "}
+                          <code>ontology_note</code>.
+                        </p>
+                        <p>
+                          <code>source_keys</code> names sources you will upload
+                          or paste after import. Separate up to three keys with
+                          semicolons, for example <code>paper-a;lab-note</code>.
+                          The original input stays private; each item needs
+                          review before publication.
+                        </p>
+                      </div>
+                    </details>
                   </>
                 )}
                 {draft.mode === "import" ? (
                   <p className="text-sm text-muted-foreground">
                     Preview up to {options.importLimits.maxRows} rows. Your
-                    account can publish up to{" "}
-                    {options.importLimits.newDefinitionsPerWindow} new
-                    definitions in {options.importLimits.windowMinutes} minutes;
-                    reusing existing terms does not use this allowance.
+                    account can hold up to 50 active drafts. Importing does not
+                    publish terms or use your publication allowance.
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-3">
@@ -1341,8 +1397,9 @@ function SetupWorkspace({
                     type="submit"
                     disabled={
                       destinationControlsBlocked ||
-                      !options.profileComplete ||
-                      !vocabulary?.canContribute
+                      !vocabulary ||
+                      (draft.mode === "single" &&
+                        (!options.profileComplete || !vocabulary.canContribute))
                     }
                   >
                     {busy
@@ -1383,123 +1440,35 @@ function SetupWorkspace({
           ) : null}
 
           {draft.step === "review" && draft.mode === "import" && preview ? (
-            <>
-              <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-muted-foreground">Vocabulary</dt>
-                  <dd className="font-medium">
-                    {vocabulary?.title ?? draft.vocabularySlug}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Collection</dt>
-                  <dd className="font-medium">
-                    {collection?.title ?? "No collection"}
-                  </dd>
-                </div>
-              </dl>
-              <p role="status" className="text-sm">
-                {preview.newCount} new · {preview.reuseCount} existing ·{" "}
-                {preview.duplicateCount} duplicate rows skipped
-              </p>
-              {preview.errors.length ? (
-                <Alert variant="destructive">
-                  <AlertTitle>Resolve these issues before importing</AlertTitle>
-                  <AlertDescription>
-                    <ul className="list-disc pl-4">
-                      {preview.errors.map((message, index) => (
-                        <li key={index}>{message}</li>
-                      ))}
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <ul className="flex flex-col divide-y">
-                {preview.rows.map((row, index) => (
-                  <li
-                    key={index}
-                    className="flex min-w-0 flex-col gap-2 py-4 first:pt-0"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium [overflow-wrap:anywhere]">
-                        {row.term || `Row ${row.line}`}
-                      </span>
-                      <Badge
-                        variant={
-                          row.action === "error" ? "destructive" : "secondary"
-                        }
-                      >
-                        {row.action === "create"
-                          ? "New term"
-                          : row.action === "reuse"
-                            ? "Use existing"
-                            : row.action === "duplicate"
-                              ? "Skip duplicate"
-                              : "Needs attention"}
-                      </Badge>
-                    </div>
-                    {row.action === "create" ? (
-                      <p className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">
-                        {row.definition}
-                      </p>
-                    ) : null}
-                    <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                      {row.message}
-                    </p>
-                    {row.termSlug ? (
-                      <Link
-                        className="w-fit text-sm text-primary underline"
-                        href={termPath(row.termSlug, draft.vocabularySlug)}
-                      >
-                        View existing term
-                      </Link>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-              <Separator />
-              <p className="text-sm text-muted-foreground">
-                Publishing makes new terms and definitions public, attributed to
-                your account
-                {collection
-                  ? ", and adds the selected terms to the collection"
-                  : ""}
-                .
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => go("terms")}
-                >
-                  <ArrowLeftIcon aria-hidden data-icon="inline-start" />
-                  Edit terms
-                </Button>
-                <Button
-                  disabled={
-                    destinationControlsBlocked ||
-                    !preview.canImport ||
-                    !vocabulary?.canContribute
-                  }
-                  onClick={() =>
-                    perform(async () => {
-                      const result = await importTerms.mutateAsync({
-                        ...inputForImport(),
-                        previewToken: preview.previewToken
-                      })
-                      finish(
-                        "Terms ready",
-                        vocabularyPath(result.vocabularySlug),
-                        `${result.created} new terms published; ${result.reused} existing terms reused.${result.collectionAdded ? ` ${result.collectionAdded} terms added to the collection.` : ""}`
-                      )
-                    })
-                  }
-                >
-                  {busy ? "Publishing…" : "Import terms"}
-                  <CheckIcon aria-hidden data-icon="inline-end" />
-                </Button>
-              </div>
-            </>
+            <ImportDraftPreview
+              key={preview.inputHash}
+              preview={preview}
+              input={inputForImport()}
+              ownerId={initialOptions.userId!}
+              storageKey={`${storageKey}:import-attempt`}
+              vocabularyTitle={vocabulary?.title ?? draft.vocabularySlug}
+              collectionTitle={collection?.title}
+              disabled={destinationControlsBlocked || !vocabulary}
+              onBusyChange={setLocalBusy}
+              onBack={() => go("terms")}
+              onIgnoreColumns={async (columns) => {
+                await perform(async () => {
+                  const next = await previewImport.mutateAsync({
+                    ...inputForImport(),
+                    ignoredColumns: columns
+                  })
+                  setIgnoredColumns(columns)
+                  setPreview(next)
+                })
+              }}
+              onCreated={(id, count) =>
+                finish(
+                  "Drafts imported",
+                  `/profile/drafts/imports/${id}`,
+                  `${count} private drafts saved to your account. Review them before publishing; your original import stays private.`
+                )
+              }
+            />
           ) : null}
         </CardContent>
       </Card>

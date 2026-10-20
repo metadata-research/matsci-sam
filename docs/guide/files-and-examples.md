@@ -64,10 +64,13 @@ select **Add file or text**, and open **Other pending files**. Select
 **Use in this draft** to recover it or **Remove pending file** to delete it.
 
 Files attached to a saved term draft remain available with that draft. Other
-unpublished uploads expire after 24 hours. Your account can hold six pending
-files, including files kept with drafts. Remove unused files before uploading
-more when that limit is reached. Removing a file from one draft does not remove
-it from another draft that uses it.
+unpublished uploads expire after 24 hours. Your account can hold six unattached
+temporary files and up to 50 distinct unpublished files across drafts, within
+30 MiB in total. A document reused across imported drafts counts once toward
+storage. Each contribution can include up to three files.
+
+Remove unused files when a limit is reached. Removing a file from one draft
+does not remove it from another draft that uses it.
 
 ## Add a written example
 

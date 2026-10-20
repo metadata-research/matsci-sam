@@ -2,6 +2,29 @@
 
 DO $validation$
 BEGIN
+  IF to_regclass('public."contributionSourceAssets"') IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM "contributionFiles" f JOIN "contributionSourceAssets" a ON a.id=f."assetId"
+      WHERE f."uploadedById"<>a."ownerId" OR f."contentHash"<>a."contentHash"
+        OR f."mediaType"<>a."mediaType" OR f."byteSize"<>a."byteSize" OR f.bytes IS NOT NULL
+    ) THEN RAISE EXCEPTION 'source binding does not match immutable owned asset'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM "contributionFiles" f LEFT JOIN "sourceExtractions" e ON e.id=f."publishedExtractionId"
+      WHERE f."publishedExtractionId" IS NOT NULL AND (e.id IS NULL OR e.status<>'ready'
+        OR NOT coalesce(e."fileId"=f.id OR e."assetId"=f."assetId",false))
+    ) THEN RAISE EXCEPTION 'published source does not identify its exact ready extraction'; END IF;
+  END IF;
+  IF to_regclass('public."revisionImportOrigins"') IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM "revisionImportOrigins" i JOIN "definitionRevisions" r ON r.id=i."revisionId"
+        JOIN definitions d ON d.id=r."definitionId"
+      WHERE i."importedById"<>d."authorId" OR i.receipt->>'schemaVersion'<>'1'
+    ) THEN RAISE EXCEPTION 'published import receipt does not identify its contributor'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM "importRows" r JOIN "importBatches" b ON b.id=r."batchId" JOIN "termDrafts" d ON d.id=r."draftId"
+      WHERE d."ownerId"<>b."ownerId"
+    ) THEN RAISE EXCEPTION 'import row and private draft have different owners'; END IF;
+  END IF;
   IF to_regclass('public."termVisibilityEvents"') IS NOT NULL THEN
     -- Visibility is a reversible decision backed by one durable event per
     -- state change. The version is the number of decisions, not a wall clock.

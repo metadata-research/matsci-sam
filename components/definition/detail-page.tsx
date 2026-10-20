@@ -1,3 +1,4 @@
+import { ImportAttribution, DeclaredSource } from "./import-attribution"
 import { ContributionFileDownloads } from "./contribution-file-downloads"
 import { ReferenceSnapshot } from "./reference-snapshot"
 import { EditDefinitionDialog } from "@/components/definition/edit-dialog"
@@ -211,7 +212,11 @@ export async function DefinitionDetailPage({
                     />
                   </section>
                 ) : null}
-                {definition.references.length > 0 && (
+                {definition.importOrigin && (
+                  <ImportAttribution origin={definition.importOrigin} />
+                )}
+                {(definition.references.length > 0 ||
+                  definition.manualCitations.length > 0) && (
                   <section
                     id="cited-references"
                     aria-label="Cited references"
@@ -221,6 +226,9 @@ export async function DefinitionDetailPage({
                     <p className="text-sm text-muted-foreground">
                       Sources the contributor declared using for this revision.
                     </p>
+                    {definition.manualCitations.map((source, index) => (
+                      <DeclaredSource key={index} source={source} />
+                    ))}
                     {definition.references.map((reference) => (
                       <ReferenceSnapshot
                         key={reference.id}

@@ -39,17 +39,19 @@ Guided setup walks through **Community**, **Vocabulary**, **Collection**,
 **Terms**, and **Review**. Choose an existing destination or create one when
 your account allows it. A collection is optional. Creating a community,
 vocabulary, or collection saves it immediately. New definitions are published
-only after the final review. Single-term drafts save privately to your account
-and can continue in the full editor. Setup choices and unfinished imports are
-remembered in the same browser on this device when storage is available.
+only after the final review. Single-term and imported drafts save privately to
+your account and can continue in the full editor. Before you create drafts,
+setup choices and pasted import text are remembered in the same browser on
+this device when storage is available.
 Returning to a draft requires a fresh review before publication.
 
 For an import, upload a CSV or TSV file or paste its contents. Use the columns
-`term,definition` (tab-separated in TSV). New terms need a first definition.
-The preview identifies existing terms to reuse, duplicate rows to skip, and
-errors to fix. Existing definitions are never overwritten. You can preview up
-to 100 rows; the existing account limit of five new definitions in ten minutes
-also applies to imports. A failed import publishes none of its new terms.
+`term,definition` (tab-separated in TSV). A definition can be completed later.
+The preview identifies existing terms, duplicate rows and errors. Select the
+new rows to save as private drafts, then return through **My drafts** to review
+and publish. Existing definitions are never overwritten. You can preview up to
+100 rows and keep up to 50 active drafts. The limit of five new definitions in
+ten minutes applies when you publish. [Import guide](/docs/importing-terms).
 
 For instructions and background, open **Help & Guides** in the navigation.
 

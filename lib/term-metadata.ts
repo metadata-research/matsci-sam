@@ -206,7 +206,8 @@ export type TermMetadataRecord = Awaited<ReturnType<typeof getTermMetadata>>
 export async function addTermMetadata(
   userId: number,
   input: TermMetadataInput,
-  reader: Reader = db
+  reader: Reader = db,
+  options: { requireCuratorReview?: boolean } = {}
 ) {
   const parsed = termMetadataInputSchema.safeParse(input)
   if (!parsed.success)
@@ -257,7 +258,7 @@ export async function addTermMetadata(
           message: "Choose a revision belonging to this term."
         })
     }
-    const accepted = user.role === "admin"
+    const accepted = user.role === "admin" && !options.requireCuratorReview
     const stamp = new Date().toISOString()
     const [row] = await tx
       .insert(termMetadataAssertionsTable)

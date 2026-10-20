@@ -35,9 +35,11 @@ export default async function EditProfilePage({
       ? "your term"
       : returnTo?.startsWith("/studies/")
         ? "the survey"
-        : returnTo === "/profile/drafts"
-          ? "My drafts"
-          : "the invitation"
+        : returnTo?.startsWith("/profile/drafts/imports/")
+          ? "your import"
+          : returnTo === "/profile/drafts"
+            ? "My drafts"
+            : "the invitation"
 
   return (
     <main className="px-4 py-8">

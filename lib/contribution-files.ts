@@ -8,11 +8,14 @@ import { TRPCError } from "@trpc/server"
 import {
   db,
   contributionFilesTable,
+  contributionSourceAssetsTable,
   definitionRevisionsTable,
   definitionsTable,
   termsTable,
   usersTable,
-  sourceExtractionsTable
+  sourceExtractionsTable,
+  termDraftsTable,
+  vocabulariesTable
 } from "@yamz/db"
 import { activeCommunityFor } from "./community-queries"
 import { DEFAULT_VOCABULARY_SLUG } from "./public-identifiers"
@@ -24,7 +27,6 @@ import {
 import {
   CONTRIBUTION_FILE_MAX_COUNT,
   CONTRIBUTION_FILE_PENDING_HOURS,
-  CONTRIBUTION_FILE_PENDING_MAX_COUNT,
   contributionFileMetadataSchema,
   type ContributionFileItem,
   type ContributionFileMetadata,
@@ -35,6 +37,14 @@ import {
   safeContributionFilename,
   validateContributionFile
 } from "./contribution-file-validation"
+import {
+  accountSourceAssetUsage,
+  cleanupUnreferencedSourceAssets,
+  sourceExtractionForFile,
+  SOURCE_PRIVATE_ASSET_MAX_BYTES,
+  SOURCE_PRIVATE_ASSET_MAX_COUNT,
+  SOURCE_UNBOUND_ASSET_MAX_COUNT
+} from "./contribution-source-assets"
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 const normalizeTerm = (value: string) => value.trim().toLowerCase()
@@ -58,7 +68,13 @@ export const contributionFileSelection = {
   origin: contributionFilesTable.origin,
   contributorCited: contributionFilesTable.contributorCited,
   publishedExtractionId: contributionFilesTable.publishedExtractionId,
-  assistantUsed: sql<boolean>`exists (select 1 from "aiContributionSuggestions" a where a.status = 'accepted' and a."sourceInputs" @> jsonb_build_array(jsonb_build_object('fileId', "contributionFiles"."id"::text)))`
+  sourceExtractionId: contributionFilesTable.sourceExtractionId,
+  assistantUsed: sql<boolean>`exists (
+    select 1 from "aiContributionSuggestions" a
+    join "definitionRevisions" r on r.id = "contributionFiles"."publishedRevisionId"
+    where a.status = 'accepted' and a."outputDefinitionId" = r."definitionId"
+      and a."sourceInputs" @> jsonb_build_array(jsonb_build_object('fileId', "contributionFiles"."id"::text))
+  )`
 } as const
 
 export async function storeContributionFile(
@@ -81,9 +97,43 @@ export async function storeContributionFile(
     )
   }
   return reader.transaction(async (tx) => {
+    // Private drafts can collect evidence before completing a public profile.
+    // Lock the draft before its owner, matching the versioned save writer.
+    if (metadata.draftId) {
+      const [draft] = await tx
+        .select({ payload: termDraftsTable.payload })
+        .from(termDraftsTable)
+        .where(
+          and(
+            eq(termDraftsTable.id, metadata.draftId),
+            eq(termDraftsTable.ownerId, input.userId)
+          )
+        )
+        .for("update")
+      if (
+        !draft?.payload ||
+        normalizeTerm(draft.payload.term) !== normalizeTerm(metadata.term) ||
+        draft.payload.vocabularySlug !== metadata.vocabularySlug
+      )
+        throw new ContributionFileError(
+          "Save the draft's current term and vocabulary before attaching a source.",
+          409
+        )
+      const [vocabulary] = await tx
+        .select({ slug: vocabulariesTable.slug })
+        .from(vocabulariesTable)
+        .where(
+          and(
+            eq(vocabulariesTable.slug, metadata.vocabularySlug),
+            isNull(vocabulariesTable.retiredAt)
+          )
+        )
+      if (!vocabulary)
+        throw new ContributionFileError("Choose an active vocabulary.", 409)
+    }
     // Community retirement and member removal lock their scope before users.
     // Keep that order, then serialize the account's pending upload quota.
-    if (metadata.explicitVocabulary) {
+    if (metadata.explicitVocabulary && !metadata.draftId) {
       try {
         await requireSetupVocabularyForContribution(
           tx,
@@ -104,12 +154,12 @@ export async function storeContributionFile(
       .from(usersTable)
       .where(eq(usersTable.id, input.userId))
       .for("update")
-    if (!user?.name?.trim())
+    if (!user || (!metadata.draftId && !user.name?.trim()))
       throw new ContributionFileError(
         "Complete your profile before attaching files.",
         403
       )
-    if (!metadata.explicitVocabulary) {
+    if (!metadata.explicitVocabulary && !metadata.draftId) {
       const active = await activeCommunityFor(tx, input.userId)
       const vocabulary = active?.vocabularySlug ?? DEFAULT_VOCABULARY_SLUG
       if (metadata.vocabularySlug !== vocabulary)
@@ -129,31 +179,44 @@ export async function storeContributionFile(
           not(fileRetainedByDraft())
         )
       )
-    const pending = await tx
-      .select({ id: contributionFilesTable.id })
-      .from(contributionFilesTable)
-      .where(
-        and(
-          eq(contributionFilesTable.uploadedById, input.userId),
-          isNull(contributionFilesTable.publishedRevisionId)
-        )
-      )
-    if (pending.length >= CONTRIBUTION_FILE_PENDING_MAX_COUNT)
+    const usage = await accountSourceAssetUsage(tx, input.userId)
+    if (usage.unboundAssets >= SOURCE_UNBOUND_ASSET_MAX_COUNT)
       throw new ContributionFileError(
-        "You have six pending files. Remove an unused file before uploading another.",
+        "You have six unattached files. Save them in drafts or remove an unused file before uploading another.",
         429
       )
+    if (
+      usage.privateAssets >= SOURCE_PRIVATE_ASSET_MAX_COUNT ||
+      usage.privateBytes + input.bytes.byteLength >
+        SOURCE_PRIVATE_ASSET_MAX_BYTES
+    )
+      throw new ContributionFileError(
+        "Private sources are limited to 50 documents and 30 MiB per account. Remove an unused source before uploading another.",
+        429
+      )
+    const contentHash = createHash("sha256").update(input.bytes).digest("hex")
+    const [asset] = await tx
+      .insert(contributionSourceAssetsTable)
+      .values({
+        ownerId: input.userId,
+        mediaType,
+        byteSize: input.bytes.byteLength,
+        contentHash,
+        bytes: input.bytes
+      })
+      .returning({ id: contributionSourceAssetsTable.id })
     const [file] = await tx
       .insert(contributionFilesTable)
       .values({
         uploadedById: input.userId,
+        assetId: asset.id,
         termText: normalizeTerm(metadata.term),
         vocabularySlug: metadata.vocabularySlug,
         filename: safeContributionFilename(metadata.filename),
         mediaType,
         byteSize: input.bytes.byteLength,
-        bytes: input.bytes,
-        contentHash: createHash("sha256").update(input.bytes).digest("hex"),
+        bytes: null,
+        contentHash,
         role: metadata.role,
         title: metadata.title,
         caption: metadata.caption,
@@ -162,8 +225,17 @@ export async function storeContributionFile(
         origin: metadata.origin ?? "upload"
       })
       .returning(contributionFileSelection)
-    if (metadata.role === "source")
-      await tx.insert(sourceExtractionsTable).values({ fileId: file.id })
+    if (metadata.role === "source") {
+      const [extraction] = await tx
+        .insert(sourceExtractionsTable)
+        .values({ fileId: file.id, assetId: asset.id })
+        .returning({ id: sourceExtractionsTable.id })
+      await tx
+        .update(contributionFilesTable)
+        .set({ sourceExtractionId: extraction.id })
+        .where(eq(contributionFilesTable.id, file.id))
+      return { ...file, sourceExtractionId: extraction.id }
+    }
     return file
   })
 }
@@ -204,6 +276,7 @@ export async function removePendingContributionFile(
         )
       )
       .returning({ id: contributionFilesTable.id })
+    await cleanupUnreferencedSourceAssets(tx, userId)
     return removed.length > 0
   })
 }
@@ -219,6 +292,7 @@ export async function readContributionFile(
     .select({
       ...contributionFileSelection,
       retained: fileRetainedByDraft(),
+      assetId: contributionFilesTable.assetId,
       uploadedById: contributionFilesTable.uploadedById
     })
     .from(contributionFilesTable)
@@ -231,10 +305,18 @@ export async function readContributionFile(
   )
     return null
   const [data] = await reader
-    .select({ bytes: contributionFilesTable.bytes })
+    .select({
+      bytes: contributionFilesTable.bytes,
+      assetBytes: contributionSourceAssetsTable.bytes
+    })
     .from(contributionFilesTable)
+    .leftJoin(
+      contributionSourceAssetsTable,
+      eq(contributionFilesTable.assetId, contributionSourceAssetsTable.id)
+    )
     .where(eq(contributionFilesTable.id, fileId))
-  return data ? { ...file, bytes: data.bytes } : null
+  const bytes = data?.assetBytes ?? data?.bytes
+  return bytes ? { ...file, bytes } : null
 }
 
 export async function publishContributionFiles(
@@ -292,6 +374,7 @@ export async function publishContributionFiles(
       ...contributionFileSelection,
       retained: fileRetainedByDraft(),
       uploadedById: contributionFilesTable.uploadedById,
+      assetId: contributionFilesTable.assetId,
       termText: contributionFilesTable.termText,
       vocabularySlug: contributionFilesTable.vocabularySlug
     })
@@ -301,6 +384,8 @@ export async function publishContributionFiles(
     .for("update")
   if (
     files.length !== ids.length ||
+    new Set(files.map((file) => file.assetId ?? file.id)).size !==
+      files.length ||
     files.some(
       (file) =>
         file.uploadedById !== input.authorId ||
@@ -329,17 +414,19 @@ export async function publishContributionFiles(
             .from(sourceExtractionsTable)
             .where(
               and(
-                eq(sourceExtractionsTable.fileId, file.id),
+                sourceExtractionForFile(file),
                 usedSource
                   ? eq(sourceExtractionsTable.id, usedSource.extractionId)
-                  : undefined
+                  : file.sourceExtractionId
+                    ? eq(sourceExtractionsTable.id, file.sourceExtractionId)
+                    : undefined
               )
             )
             .orderBy(desc(sourceExtractionsTable.createdAt))
             .limit(1)
         : []
     if (
-      (usedSource && !extraction) ||
+      ((usedSource || file.sourceExtractionId) && !extraction) ||
       (extraction && extraction.status !== "ready")
     )
       throw new TRPCError({

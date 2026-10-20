@@ -158,7 +158,8 @@ for (const path of [
   "/setup?task=import&vocabularySlug=materials&communityId=12",
   "/add",
   "/add?vocabularySlug=materials&term=grain+boundary",
-  "/add?term=Fe%2FC"
+  "/add?term=Fe%2FC",
+  "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50"
 ])
   assert.equal(normalizeAuthReturnTo(path), path)
 for (const path of [
@@ -173,7 +174,10 @@ for (const path of [
   "/setup/../admin",
   "//example.org/setup",
   "/add\\example",
-  "/setup?task=import?next=x"
+  "/setup?task=import?next=x",
+  "/profile/drafts/imports/not-an-id",
+  "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50?next=/admin",
+  "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50/../../admin"
 ])
   assert.equal(normalizeAuthReturnTo(path), null, path)
 assert.equal(normalizeAuthReturnTo(invitationReturnTo), invitationReturnTo)

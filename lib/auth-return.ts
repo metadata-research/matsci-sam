@@ -3,6 +3,8 @@ const STUDY_RETURN_PATH = /^\/studies\/[a-z0-9][a-z0-9_-]*(?:\/run)?$/
 const VOCABULARY_SLUG = /^[a-z0-9][a-z0-9_-]{0,199}$/
 const DRAFT_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const IMPORT_RETURN_PATH =
+  /^\/profile\/drafts\/imports\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isContributionReturnPath(value: string) {
   if (value.length > 2048 || /[\\#\u0000-\u001f\u007f]/.test(value))
@@ -60,6 +62,7 @@ export const normalizeAuthReturnTo = (value: unknown): string | null =>
   value === value.trim() &&
   (INVITATION_RETURN_PATH.test(value) ||
     STUDY_RETURN_PATH.test(value) ||
+    IMPORT_RETURN_PATH.test(value) ||
     value === "/profile/drafts" ||
     isContributionReturnPath(value))
     ? value

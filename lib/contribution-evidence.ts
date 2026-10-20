@@ -8,6 +8,16 @@ import {
   type ContributionFileItem
 } from "./contribution-file-types"
 import type { SourceInputSnapshot } from "./source-document-types"
+import {
+  publicDeclaredSource,
+  publicImportOrigin,
+  type ManualCitationEvidence,
+  type PublicImportOrigin
+} from "./import-origin-provenance"
+import type {
+  DeclaredImportSource,
+  RevisionImportReceipt
+} from "./import-draft-types"
 
 export type ReferenceEvidence = Omit<ModelReferenceInput, "referenceId">
 export type PublishedSourceEvidence = {
@@ -75,6 +85,8 @@ export type ContributionEvidence = {
   citations: ReferenceEvidence[]
   sources: PublishedSourceEvidence[]
   model: ModelEvidence | null
+  manualCitations?: ManualCitationEvidence[]
+  importOrigin?: PublicImportOrigin
 }
 
 export const contributionEvidenceAnchor = (number: number, version: number) =>
@@ -181,13 +193,17 @@ export function buildContributionEvidence({
   revisions,
   citations,
   suggestions,
-  publishedFiles = []
+  publishedFiles = [],
+  importOrigins = [],
+  manualCitations = []
 }: {
   definitions: { id: number; definitionNumber: number }[]
   revisions: Revision[]
   citations: (ReferenceEvidence & { revisionId: number })[]
   suggestions: Suggestion[]
   publishedFiles?: ContributionFileItem[]
+  importOrigins?: { revisionId: number; receipt: RevisionImportReceipt }[]
+  manualCitations?: { revisionId: number; declaration: DeclaredImportSource }[]
 }): ContributionEvidence[] {
   const numbers = new Map(definitions.map((d) => [d.id, d.definitionNumber]))
   const accepted = new Map(
@@ -196,6 +212,18 @@ export function buildContributionEvidence({
       .map((s) => [s.outputDefinitionId, s])
   )
   const citationsByRevision = new Map<number, ReferenceEvidence[]>()
+  const originsByRevision = new Map(
+    importOrigins.map((row) => [
+      row.revisionId,
+      publicImportOrigin(row.receipt)
+    ])
+  )
+  const manualByRevision = new Map<number, ManualCitationEvidence[]>()
+  for (const row of manualCitations) {
+    const entries = manualByRevision.get(row.revisionId) ?? []
+    entries.push(publicDeclaredSource(row.declaration))
+    manualByRevision.set(row.revisionId, entries)
+  }
   for (const reference of citations) {
     const sources = citationsByRevision.get(reference.revisionId) ?? []
     sources.push(publicReference(reference))
@@ -205,6 +233,8 @@ export function buildContributionEvidence({
     const definitionNumber = numbers.get(revision.definitionId)
     if (definitionNumber === undefined) return []
     const cited = citationsByRevision.get(revision.id) ?? []
+    const declared = manualByRevision.get(revision.id) ?? []
+    const importOrigin = originsByRevision.get(revision.id)
     // Accepted outputDefinitionId binds the suggestion to revision 1 only.
     const suggestion =
       revision.version === 1 ? accepted.get(revision.definitionId) : undefined
@@ -280,7 +310,11 @@ export function buildContributionEvidence({
         reportedSources: providerReportedSources(revision.inference, "")
       }
     }
-    return model || cited.length || sources.length
+    return model ||
+      cited.length ||
+      sources.length ||
+      declared.length ||
+      importOrigin
       ? [
           {
             definitionNumber,
@@ -289,7 +323,9 @@ export function buildContributionEvidence({
             publishedText,
             citations: cited,
             sources,
-            model
+            model,
+            ...(declared.length ? { manualCitations: declared } : {}),
+            ...(importOrigin ? { importOrigin } : {})
           }
         ]
       : []

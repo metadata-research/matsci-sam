@@ -2930,6 +2930,39 @@ export const termDraftsTable = pgTable(
   ]
 )
 
+// Immutable account-owned bytes, shared by separate draft/revision bindings.
+export const contributionSourceAssetsTable = pgTable(
+  "contributionSourceAssets",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    mediaType: text().notNull(),
+    byteSize: integer().notNull(),
+    contentHash: text().notNull(),
+    bytes: contributionFileBytes().notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    index("contribution_source_assets_owner_idx").on(t.ownerId),
+    check(
+      "contribution_source_assets_size",
+      sql`${t.byteSize} > 0 AND ${t.byteSize} <= 5242880 AND octet_length(${t.bytes}) = ${t.byteSize}`
+    ),
+    check(
+      "contribution_source_assets_hash",
+      sql`${t.contentHash} ~ '^[a-f0-9]{64}$'`
+    ),
+    check(
+      "contribution_source_assets_media_type",
+      sql`${t.mediaType} IN ('application/pdf', 'image/png', 'image/jpeg', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')`
+    )
+  ]
+)
+
 export const contributionFilesTable = pgTable(
   "contributionFiles",
   {
@@ -2937,6 +2970,8 @@ export const contributionFilesTable = pgTable(
     uploadedById: integer()
       .notNull()
       .references(() => usersTable.id),
+    // Nullable solely for legacy insertion compatibility; promoted lazily.
+    assetId: uuid().references(() => contributionSourceAssetsTable.id),
     termText: text().notNull(),
     vocabularySlug: text()
       .notNull()
@@ -2945,7 +2980,7 @@ export const contributionFilesTable = pgTable(
     mediaType: text().notNull(),
     byteSize: integer().notNull(),
     contentHash: text().notNull(),
-    bytes: contributionFileBytes().notNull(),
+    bytes: contributionFileBytes(),
     role: text().$type<"example" | "source">().notNull(),
     title: text().notNull(),
     caption: text().notNull(),
@@ -2953,6 +2988,7 @@ export const contributionFilesTable = pgTable(
     page: text(),
     origin: text().$type<"upload" | "paste">().notNull().default("upload"),
     contributorCited: boolean().notNull().default(true),
+    sourceExtractionId: uuid(),
     publishedExtractionId: uuid(),
     createdAt: timestamp({ mode: "string", withTimezone: true })
       .notNull()
@@ -2968,10 +3004,11 @@ export const contributionFilesTable = pgTable(
       .on(t.uploadedById, t.createdAt)
       .where(sql`${t.publishedRevisionId} IS NULL`),
     index("contribution_files_revision_idx").on(t.publishedRevisionId),
+    index("contribution_files_asset_idx").on(t.assetId),
     index("contribution_files_example_idx").on(t.exampleId),
     check(
       "contribution_files_size",
-      sql`${t.byteSize} > 0 AND ${t.byteSize} <= 5242880 AND octet_length(${t.bytes}) = ${t.byteSize}`
+      sql`${t.byteSize} > 0 AND ${t.byteSize} <= 5242880 AND ((${t.assetId} IS NULL AND ${t.bytes} IS NOT NULL AND octet_length(${t.bytes}) = ${t.byteSize}) OR (${t.assetId} IS NOT NULL AND ${t.bytes} IS NULL))`
     ),
     check(
       "contribution_files_media_type",
@@ -2994,9 +3031,12 @@ export const sourceExtractionsTable = pgTable(
   "sourceExtractions",
   {
     id: uuid().primaryKey().defaultRandom(),
-    fileId: uuid()
-      .notNull()
-      .references(() => contributionFilesTable.id, { onDelete: "cascade" }),
+    fileId: uuid().references(() => contributionFilesTable.id, {
+      onDelete: "set null"
+    }),
+    assetId: uuid().references(() => contributionSourceAssetsTable.id, {
+      onDelete: "cascade"
+    }),
     status: text()
       .$type<"queued" | "processing" | "ready" | "failed">()
       .notNull()
@@ -3022,6 +3062,11 @@ export const sourceExtractionsTable = pgTable(
   },
   (t) => [
     index("source_extractions_file_idx").on(t.fileId, t.createdAt),
+    index("source_extractions_asset_idx").on(t.assetId, t.createdAt),
+    check(
+      "source_extractions_input",
+      sql`${t.fileId} IS NOT NULL OR ${t.assetId} IS NOT NULL`
+    ),
     index("source_extractions_queue_idx").on(t.status, t.createdAt),
     check(
       "source_extractions_status",
@@ -3197,3 +3242,136 @@ export const termMetadataAssertionsTable = pgTable(
 )
 export type TermMetadataAssertion =
   typeof termMetadataAssertionsTable.$inferSelect
+
+// Private import originals and row associations never enter public serializers.
+export const importBatchesTable = pgTable(
+  "importBatches",
+  {
+    id: uuid().primaryKey(),
+    ownerId: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    name: text().notNull(),
+    creationHash: text().notNull(),
+    inputHash: text().notNull(),
+    parserVersion: text().notNull(),
+    encoding: text().notNull().default("utf-8"),
+    format: text().$type<"csv" | "tsv">().notNull(),
+    originalText: text(),
+    vocabularySlug: text()
+      .notNull()
+      .references(() => vocabulariesTable.slug),
+    collectionId: integer().references(() => collectionsTable.id),
+    ignoredColumns: jsonb().$type<string[]>().notNull().default([]),
+    archivedAt: timestamp({ mode: "string", withTimezone: true }),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    index("import_batches_owner_created_idx").on(t.ownerId, t.createdAt),
+    check(
+      "import_batches_original_bound",
+      sql`${t.originalText} IS NULL OR octet_length(${t.originalText}) <= 1000000`
+    )
+  ]
+)
+export const importRowsTable = pgTable(
+  "importRows",
+  {
+    id: uuid().primaryKey(),
+    batchId: uuid()
+      .notNull()
+      .references(() => importBatchesTable.id, { onDelete: "cascade" }),
+    rowIdentity: text().notNull(),
+    recordNumber: integer().notNull(),
+    sourceLine: integer().notNull(),
+    rowHash: text().notNull(),
+    original: jsonb().$type<Record<string, string>>(),
+    decision: text().$type<"selected" | "skipped">().notNull(),
+    draftId: uuid().references(() => termDraftsTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("import_rows_batch_identity_idx").on(t.batchId, t.rowIdentity),
+    uniqueIndex("import_rows_draft_idx").on(t.draftId),
+    check(
+      "import_rows_original_bound",
+      sql`${t.original} IS NULL OR octet_length(${t.original}::text) <= 1000000`
+    )
+  ]
+)
+export const importPublicationReviewsTable = pgTable(
+  "importPublicationReviews",
+  {
+    id: uuid().primaryKey(),
+    batchId: uuid()
+      .notNull()
+      .references(() => importBatchesTable.id, { onDelete: "cascade" }),
+    ownerId: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    selection: jsonb()
+      .$type<{ id: string; expectedVersion: number }[]>()
+      .notNull(),
+    evidenceHash: text().notNull(),
+    publication: jsonb().$type<{
+      publications: { term: Term; definition: Definition; walkthrough: null }[]
+      // Owner-only review history survives draft payload clearing. Public
+      // origin serializers never read this private group receipt.
+      reviewedEvidence?: {
+        draftId: string
+        version: number
+        importEvidence: import("../lib/import-draft-types").ImportEvidence
+      }[]
+    }>(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp({ mode: "string", withTimezone: true }).notNull()
+  },
+  (t) => [index("import_reviews_batch_idx").on(t.batchId)]
+)
+// Exact-revision public snapshots deliberately have no FK to private batches:
+// deleting the remainder of an import cannot erase published attribution.
+export const revisionImportOriginsTable = pgTable("revisionImportOrigins", {
+  revisionId: integer()
+    .primaryKey()
+    .references(() => definitionRevisionsTable.id, { onDelete: "cascade" }),
+  importedById: integer()
+    .notNull()
+    .references(() => usersTable.id),
+  receipt: jsonb()
+    .$type<import("../lib/import-draft-types").RevisionImportReceipt>()
+    .notNull(),
+  createdAt: timestamp({ mode: "string", withTimezone: true })
+    .notNull()
+    .defaultNow()
+})
+export const revisionManualCitationsTable = pgTable(
+  "revisionManualCitations",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    revisionId: integer()
+      .notNull()
+      .references(() => definitionRevisionsTable.id, { onDelete: "cascade" }),
+    assertedById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    citationIdentity: text().notNull(),
+    declaration: jsonb()
+      .$type<import("../lib/import-draft-types").DeclaredImportSource>()
+      .notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("revision_manual_citations_identity_idx").on(
+      t.revisionId,
+      t.citationIdentity
+    )
+  ]
+)

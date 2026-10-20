@@ -153,9 +153,21 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
           SYSTEM_PROMPT_KEY: materials-reference
+          GRAPH_PROJECTION_ENABLED: "false"
         run: |
           pnpm test:term-drafts-db
+          pnpm test:import-drafts-db
+          pnpm test:import-draft-reads-db
+          pnpm test:contribution-source-assets-db
+          pnpm test:import-source-locks-db
+          pnpm test:import-destination-locks-db
           pnpm test:source-documents-db
+
+      - name: Test populated import and shared-source upgrade
+        env:
+          MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_import_migration_test
+          GRAPH_PROJECTION_ENABLED: "false"
+        run: pnpm test:import-drafts-migration
 
       - name: Test term visibility and submission controls
         env:
@@ -525,6 +537,7 @@ jobs:
         run: |
           pnpm test:communities
           pnpm test:setup
+          pnpm test:import-drafts
 
       - name: Test Pilot Curation
         run: |
@@ -569,6 +582,7 @@ jobs:
       - name: Build
         env:
           SYSTEM_PROMPT_KEY: materials-reference
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3110
           NODE_OPTIONS: --max-old-space-size=2560
           # Font compilation must succeed without an external download.
           HTTP_PROXY: http://127.0.0.1:9
@@ -580,8 +594,48 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_http_ci
           SYSTEM_PROMPT_KEY: materials-reference
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3110
           GRAPH_PROJECTION_ENABLED: "false"
         run: |
           pnpm db:migrate
           W3ID_KEEP_FIXTURE=true pnpm test:canonical-db
           pnpm test:vocabulary-http
+
+      - name: Install browser for production import acceptance
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test private imports in the production UI
+        timeout-minutes: 10
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_http_ci
+          SYSTEM_PROMPT_KEY: materials-reference
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3110
+          SAM_UI_TEST_URL: http://127.0.0.1:3110
+          SAM_UI_TEST_OUTPUT_DIR: ui-evidence/import
+          GRAPH_PROJECTION_ENABLED: "false"
+          DEV_AUTH_ENABLED: "true"
+          SESSION_COOKIE_SECURE: "false"
+          NODE_OPTIONS: --max-old-space-size=2560
+          RAYON_NUM_THREADS: "2"
+          TOKIO_WORKER_THREADS: "2"
+          UV_THREADPOOL_SIZE: "2"
+        run: |
+          mkdir -p ui-evidence/import
+          export SESSION_PASSWORD="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+          node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3110 >ui-evidence/server.log 2>&1 &
+          import_server_pid=$!
+          NODE_OPTIONS=--max-old-space-size=512 node --conditions=react-server --import tsx scripts/source-document-worker.ts --loop >ui-evidence/worker.log 2>&1 &
+          import_worker_pid=$!
+          trap 'kill "$import_server_pid" "$import_worker_pid" 2>/dev/null || true; wait "$import_server_pid" "$import_worker_pid" 2>/dev/null || true' EXIT
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors --max-time 5 http://127.0.0.1:3110/api/health
+          pnpm test:import-drafts-ui
+          pnpm db:invariants
+
+      - name: Retain import browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: import-ui-evidence
+          path: ui-evidence/
+          if-no-files-found: ignore
+          retention-days: 7

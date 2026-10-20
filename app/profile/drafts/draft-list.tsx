@@ -25,6 +25,7 @@ export type DraftListItem = {
   vocabularyTitle: string | null
   updatedAt: string
   createdAt: string
+  importBatchId?: string | null
 }
 
 const draftName = (draft: DraftListItem) => draft.term.trim() || "Untitled term"

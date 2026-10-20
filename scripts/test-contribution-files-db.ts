@@ -80,30 +80,39 @@ async function main() {
         if (role === "source") {
           // This transaction is invisible to the worker. Replace the queued
           // fixture with a controlled ready transcript; no parser is invoked.
-          await tx
+          const [queued] = await tx
             .delete(sourceExtractionsTable)
             .where(eq(sourceExtractionsTable.fileId, file.id))
+            .returning({ assetId: sourceExtractionsTable.assetId })
           const text = `${term.term}: synthetic source text.`
-          await tx.insert(sourceExtractionsTable).values({
-            fileId: file.id,
-            status: "ready",
-            text,
-            textHash: createHash("sha256").update(text).digest("hex"),
-            pages: [
-              {
-                page: 1,
-                start: 0,
-                end: text.length,
-                method: "embedded",
-                label: "Page 1",
-                confidence: null
-              }
-            ],
-            hasOcr: false,
-            method: "embedded",
-            parserVersion: "contribution-files-fixture-v1",
-            completedAt: new Date().toISOString()
-          })
+          const [extraction] = await tx
+            .insert(sourceExtractionsTable)
+            .values({
+              fileId: file.id,
+              assetId: queued.assetId,
+              status: "ready",
+              text,
+              textHash: createHash("sha256").update(text).digest("hex"),
+              pages: [
+                {
+                  page: 1,
+                  start: 0,
+                  end: text.length,
+                  method: "embedded",
+                  label: "Page 1",
+                  confidence: null
+                }
+              ],
+              hasOcr: false,
+              method: "embedded",
+              parserVersion: "contribution-files-fixture-v1",
+              completedAt: new Date().toISOString()
+            })
+            .returning({ id: sourceExtractionsTable.id })
+          await tx
+            .update(contributionFilesTable)
+            .set({ sourceExtractionId: extraction.id })
+            .where(eq(contributionFilesTable.id, file.id))
         }
         return file
       }
@@ -302,7 +311,7 @@ async function main() {
         0,
         "Recovery is owner-only"
       )
-      await assert.rejects(makeFile(), /six pending files/)
+      await assert.rejects(makeFile(), /six unattached files/)
       assert.equal(
         await removePendingContributionFile(pending[0].id, author.id, tx),
         true

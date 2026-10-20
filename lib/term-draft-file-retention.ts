@@ -7,6 +7,7 @@ import {
   usersTable
 } from "@yamz/db"
 import { CONTRIBUTION_FILE_PENDING_HOURS } from "./contribution-file-types"
+import { cleanupUnreferencedSourceAssets } from "./contribution-source-assets"
 
 /** The owning account can keep a private attachment with an active draft.
  * Keep correlated identifiers explicit: Drizzle strips interpolated column
@@ -40,7 +41,7 @@ export async function cleanupExpiredPendingFiles(
       .from(usersTable)
       .where(eq(usersTable.id, ownerId))
       .for("update")
-    return tx
+    const removed = await tx
       .delete(contributionFilesTable)
       .where(
         and(
@@ -56,5 +57,7 @@ export async function cleanupExpiredPendingFiles(
         )
       )
       .returning({ id: contributionFilesTable.id })
+    await cleanupUnreferencedSourceAssets(tx, ownerId)
+    return removed
   })
 }

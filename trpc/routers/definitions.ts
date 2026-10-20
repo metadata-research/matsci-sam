@@ -1,3 +1,7 @@
+import {
+  publicDeclaredSource,
+  publicImportOrigin
+} from "@/lib/import-origin-provenance"
 import { contributionFilePublicationsSchema } from "@/lib/contribution-file-types"
 import {
   definitionSubmissionFingerprint,
@@ -16,6 +20,8 @@ import {
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
+  revisionImportOriginsTable,
+  revisionManualCitationsTable,
   aiModelsTable,
   db,
   termsTable,
@@ -1090,6 +1096,24 @@ export const definitionsRouter = createTRPCRouter({
             })
           : null
 
+      const [references, attachments, importOrigins, manualCitations] =
+        await Promise.all([
+          revisionReferencesQuery([selectedRevision.id]),
+          revisionContributionFiles([selectedRevision.id]),
+          db
+            .select()
+            .from(revisionImportOriginsTable)
+            .where(
+              eq(revisionImportOriginsTable.revisionId, selectedRevision.id)
+            ),
+          db
+            .select()
+            .from(revisionManualCitationsTable)
+            .where(
+              eq(revisionManualCitationsTable.revisionId, selectedRevision.id)
+            )
+        ])
+
       const currentVersion =
         revisions.find((revision) => revision.id === def.currentRevisionId)
           ?.version ?? selectedRevision.version
@@ -1117,8 +1141,14 @@ export const definitionsRouter = createTRPCRouter({
         legacyIncomplete: selectedRevision.legacyIncomplete,
         editor: selectedRevision.editor,
         comparison,
-        references: await revisionReferencesQuery([selectedRevision.id]),
-        attachments: await revisionContributionFiles([selectedRevision.id]),
+        references,
+        attachments,
+        importOrigin: importOrigins[0]
+          ? publicImportOrigin(importOrigins[0].receipt)
+          : null,
+        manualCitations: manualCitations.map((row) =>
+          publicDeclaredSource(row.declaration)
+        ),
         modelReferences: acceptedSuggestion?.referenceInputs ?? [],
         // Listed rather than spread: previousRevisionId and
         // derivedFromRevisionId in the select feed the server-side comparison

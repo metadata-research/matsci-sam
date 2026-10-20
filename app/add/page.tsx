@@ -61,7 +61,7 @@ export default async function AddTermPage({
   if (setupReturnTo) returnParams.set("setupReturnTo", setupReturnTo)
   const returnTo = returnParams.size ? `/add?${returnParams}` : "/add"
   if (!user) redirect(authPathWithReturnTo("/login", returnTo))
-  if (!user.name?.trim())
+  if (!user.name?.trim() && !draftId)
     return (
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-8">
         <h1 className="text-3xl font-bold">Add your name to contribute</h1>

@@ -21,8 +21,9 @@ offers a link to existing drafts without adding another required step.
 
 - Drafts are private to their owner and separate from published terms. They do
   not appear in search, public profiles, activity, exports, or graph projection.
-- Version 1 covers new single terms. Survey contributions, revisions,
-  replacements, batch imports, and community proposal review remain separate.
+- The initial version covers new single terms. The October 20 extension adds
+  private imports of new terms. Survey contributions, revisions, replacements
+  and community proposal review remain separate.
 - Preserve incomplete term, definition, example, destination vocabulary,
   optional collection, reference selections, attached files, and AI attribution.
 - Preserve the distinction between an unapplied model preview and applied AI
@@ -38,11 +39,156 @@ offers a link to existing drafts without adding another required step.
 - Files linked to active drafts must survive the existing 24-hour pending-upload
   expiry. Preserve upload limits and cleanup of genuinely abandoned files.
 - Wizard position, unfinished community/vocabulary/collection forms, and import
-  text remain browser-local. Single-term content uses an account draft.
+  input before draft creation remain browser-local. Created imports and their
+  term drafts are saved privately to the account.
 - Creating a community, vocabulary, or collection still saves it immediately.
   Deleting a term draft does not delete those objects.
 
 ## Progress
+
+### Importing new terms into drafts — October 20
+
+Implementation is on `feat/import-term-drafts`, based on reviewed dev commit
+`b9c42a0`. This extension covers **new terms only**. Additional definitions for
+existing terms remain a later phase.
+
+- [x] Add CSV/TSV preview, explicit duplicate/unknown-column decisions and atomic,
+  idempotent creation within the existing 50-active-draft allowance.
+- [x] Group account drafts by import and reuse the existing editor/save queue.
+- [x] Review source credit, declared citations, source mappings and ontology
+  candidates with explicit include/omit choices.
+- [x] Reuse immutable source assets while retaining independent term checks,
+  selected transcripts, citation choices and accepted model-input evidence.
+- [x] Review and publish selected groups atomically within the existing quota,
+  with stale-review checks and durable retry receipts.
+- [x] Record import origin and chosen source credit in public provenance without
+  exposing the import file, unrelated rows or proposed private metadata.
+- [x] Add migration 0069, compatibility guards and database invariants.
+- [x] Verify parser, database behavior, populated migration preservation and
+  existing source/draft regressions in disposable local databases.
+- [x] Complete desktop/mobile import acceptance and the full existing upload,
+  OCR, citation-save and navigation browser regression.
+- [x] Complete final integration review, including concurrent destination locks
+  and disclosure of original wording in publication review.
+- [ ] Complete Muse review follow-up, open a PR, pass CI and deploy to Superego
+  as requested. Ego deployment is outside this request.
+
+#### Muse review follow-up — October 20
+
+The alternate review is recorded in
+`docs-internal/IMPORT-DRAFTS-CODE-REVIEW-2026-10-20.md`. It found two open release
+gates (remote CI and migration rehearsal at realistic scale) and recommended
+seven improvements. The code changes, local migration rehearsal and production
+browser acceptance are complete. Remote CI remains a release gate.
+
+- Original imported wording is private by default. A separate, explicit
+  choice allows a contributor to include it in public provenance. The private
+  receipt retains the original for audit; public HTML, JSON and RDF follow the
+  same choice. Missing choices on older receipts mean private.
+- Whole-input and raw-row hashes stay private. Both can identify omitted
+  content; neither is needed to show the public import activity.
+- Imported ontology candidates remain proposed, even for administrators,
+  until a separate curator review. Ordinary metadata entry is unchanged.
+- Pure import validation runs for every selected row before canonical writes.
+  Imported evidence requires an actual owned import row on save and publish.
+- Publication locks are explicit, separate from evidence loading and
+  fingerprinting. At 10 imports, 1,000 rows and 50 active drafts with sources
+  and reviews, the list uses **7 queries** and an overview uses **11 queries**.
+  These read paths take no publication locks.
+- The installed migrator passed interruption and rerun checks on **38 files,
+  110,137,610 source bytes**, covering PDF, DOCX, PNG, JPEG and text; source and
+  example roles; and queued, processing, failed and ready extractions. Killing
+  the migration after eight asset inserts preserved the exact old schema,
+  evidence and 69-entry ledger. Rerun and idempotent rerun produced 70 entries.
+- The successful synthetic migration took **1,589 ms**, with an observed
+  exclusive attachment lock of **1,532 ms** (25 ms sampling). Database size
+  grew from **126,539,443 to 241,350,323 bytes** without vacuum. This measures
+  database storage, not peak cluster/WAL use. Superego's official frozen-backup
+  rehearsal and disk-headroom check remain mandatory.
+- CI now includes production-build import browser acceptance and retained
+  screenshots/logs. Strict UTF-8 decoding preserves existing input on failure.
+  Missing source bytes now produce a failed worker result instead of leaving
+  a job processing indefinitely.
+
+Follow-up checks passed: parser/decoder, public HTML/JSON/RDF privacy, backend
+import validation and association, administrator proposal/curator acceptance,
+capacity reads, source/destination concurrency, existing drafts and shared
+source evidence, populated migration/interruption, worker results, full types,
+lint (two existing warnings, no errors) and the bounded production build.
+The production build used the release's 2560 MiB Node heap cap.
+
+Both browser suites passed against that production build: six import scenarios
+and six existing source/OCR/citation/navigation scenarios. The import suite
+checks invalid UTF-8 preservation, duplicate and lost-response recovery, both
+original-wording choices, source reuse, atomic publication and mobile layout.
+No browser errors or unexpected provider requests were recorded; model responses
+in the source suite were synthetic. Production-specific harness fixes distinguish
+the application alert from Next's route announcer and allow the development
+error portal to be absent. Desktop/mobile screenshots were inspected.
+
+Migration evidence is retained at
+`.matsci-stage/import-drafts-dev/migration-review-evidence/`; updated browser
+evidence is in `review-ui-evidence/` and `review-source-ui-evidence/` beside it.
+Final database invariants passed. Synthetic migration databases were removed,
+and the temporary preview, worker and PostgreSQL cluster were stopped.
+No shared service or database was changed.
+
+The populated upgrade test verifies pending/published legacy attachments,
+original bytes and hashes, public IDs, extraction/correction histories, citations
+and accepted AI source snapshots. Migration guards remain active throughout.
+No shared database, Superego service, Ego service or live vocabulary has changed.
+
+The local test preview ran on port 3110 with CPUQuota=200%, MemoryMax=6 GiB,
+TasksMax=128 and a 3072 MiB Node heap; its separate OCR worker was also bounded.
+Provider and graph writes were disabled for the test environment. Documentation
+now explains private import drafts, optional evidence and explicit publication.
+
+#### October 20 import verification
+
+The repository's Playwright harness ran against disposable PostgreSQL 17
+databases and a separate local preview. The Browser plugin was unavailable.
+Desktop Chromium used a 1365-pixel viewport; the import overview was also checked
+at 390 pixels. Both screenshots were inspected for clipping and overflow.
+The regular local preview and shared environments were not used as fixtures.
+
+| Scenario | Verified result |
+| --- | --- |
+| Twelve-term Ion Transport import | Unknown columns required consent, a duplicate alternative required an explicit choice, and a lost creation response retried to the same twelve private drafts. |
+| Existing editor | Original credit, a manual citation, ontology review and source mapping survived autosave and reload. Publication review distinguishes the edited definition from original wording retained in provenance. |
+| Shared source | One upload produced separate draft bindings and term checks. Assignment started uncited; each draft's citation choice remained independent. |
+| Reviewed publication | Two selected drafts published together, including import receipts, declared citations and proposed metadata. Ten drafts remained private. My drafts grouped the import correctly. |
+| Public evidence | Public origin projections, definition/evidence rendering and provenance graph tests preserve imported wording and separate declared credit, citations and recorded AI use. Raw row IDs, unrelated rows, omitted credit and private metadata proposals remain private. |
+| Accepted assistant source | Deterministic stored assistant evidence permitted an included source mapping with `publish: false`, yielding `assistantUsed: true` and `contributorCited: false`. Exact source text/extraction survived later sibling corrections. A mapping alone could not claim a citation or AI use. |
+| Existing source workflow | Pasted text, failed match/explicit alias, scanned-PDF OCR retry/correction/review, draft reload, synthetic provider failure and accepted input evidence all passed. |
+| Citation recovery | A citation change was dirty before paint. First-click navigation before or during autosave retained it; a failed save preserved edits and Retry save recovered them. An uncited model-used source was readable after publication without login. |
+| Database safety | Parser, import, shared-source, legacy source/file/draft suites, populated migration, concurrent source-correction/publication and final database invariants passed. |
+| Concurrent destinations | A deterministic test reproduced PostgreSQL `40P01` when grouped and ordinary publication acquired overlapping destinations in different orders. Group review/publication now reserve all collections and vocabulary locks in a consistent order. Group-versus-single and opposite-order group tests pass. |
+
+The source browser run initially encountered a Next.js development-memory
+restart. Its complete rerun passed on a fresh preview with the same resource
+limits. A later import run captured a client-script loading error that did not
+recur. The following run completed all interactions but exposed Playwright's
+caret-hiding style changes during mobile hydration. The harness now preserves
+caret styles and exercises mobile selection before capture. The final complete
+run passed with no captured errors or unexpected requests. The preview, OCR
+worker and disposable PostgreSQL cluster were stopped after verification.
+No live Gemma or Wolfram requests were made; browser model responses and accepted
+database evidence were deterministic fixtures.
+
+Full TypeScript checking and ESLint passed (two existing TanStack compiler
+warnings, no lint errors). Migration metadata checks passed. CI has been extended
+with the new parser/provenance, database, concurrency and populated-upgrade
+suites; remote CI has not run because the branch has not been pushed.
+
+Local evidence is preserved in
+`.matsci-stage/import-drafts-dev/ui-evidence/` and
+`.matsci-stage/import-drafts-dev/source-ui-evidence/` outside the repository.
+Migration 0069 changes source storage as well as adding import records.
+Deployment must stop the app and source worker during migration and start a
+compatible release. An older release requires a compatible fix or restoration
+of the verified pre-migration backup, as documented in the source worker guide.
+
+### Completed initial implementation
 
 - [x] Inspect current full editor, guided setup, publication, and file retention.
 - [x] Agree first-version scope and user-facing behavior.

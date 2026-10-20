@@ -20,6 +20,15 @@ uses the application's service account and paths:
 | Protected environment | `/etc/matsci-sam/app.env`                                      |
 | Command               | `/usr/bin/node --import tsx scripts/source-document-worker.ts` |
 
+Migration 0069 introduces shared source assets. Stop the application and its
+worker through the release procedure before migrating, then start both from
+the new release. The migration preserves existing file IDs, bytes, hashes and
+extraction history, but older application/worker releases do not understand the
+new storage layout. Rollback needs an asset-compatible release or restoration
+of the pre-migration backup; switching only the release pointer to older code
+is insufficient. No additional parser or OCR package is needed for this
+migration.
+
 Verify those paths and permissions against the target host's application service
 before installing the unit. The release must include `scripts/`, the imported
 `lib/` and `drizzle/` sources, and the `tsx`, `pg` and other runtime dependencies.

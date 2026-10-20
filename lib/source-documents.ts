@@ -6,6 +6,7 @@ import { TRPCError } from "@trpc/server"
 import {
   db,
   contributionFilesTable,
+  definitionRevisionsTable,
   sourceExtractionsTable,
   sourceChecksTable,
   sourceLeasesTable,
@@ -14,6 +15,7 @@ import {
 } from "@yamz/db"
 import { contributionFileSelection } from "./contribution-files"
 import { fileRetainedByDraft } from "./term-draft-file-retention"
+import { sourceExtractionForFile } from "./contribution-source-assets"
 import { checkSourceDocument } from "./source-document-matching"
 import {
   sourceSelectionText,
@@ -34,6 +36,8 @@ async function sourceFile(id: string, userId?: number, reader: Reader = db) {
     .select({
       ...contributionFileSelection,
       uploadedById: contributionFilesTable.uploadedById,
+      assetId: contributionFilesTable.assetId,
+      sourceExtractionId: contributionFilesTable.sourceExtractionId,
       termText: contributionFilesTable.termText,
       vocabularySlug: contributionFilesTable.vocabularySlug,
       retained: fileRetainedByDraft()
@@ -58,12 +62,20 @@ export async function sourceExtractionHistory(
   extractionId: string,
   reader: Reader = db
 ) {
+  const [file] = await reader
+    .select({
+      id: contributionFilesTable.id,
+      assetId: contributionFilesTable.assetId
+    })
+    .from(contributionFilesTable)
+    .where(eq(contributionFilesTable.id, fileId))
+  if (!file) throw missing()
   const versions = await reader
     .select()
     .from(sourceExtractionsTable)
     .where(
       and(
-        eq(sourceExtractionsTable.fileId, fileId),
+        sourceExtractionForFile(file),
         eq(sourceExtractionsTable.status, "ready")
       )
     )
@@ -85,12 +97,13 @@ export async function sourceExtractionHistory(
 export async function inspectSourceDocument(
   fileId: string,
   userId?: number,
-  checkId?: string
+  checkId?: string,
+  reader: Reader = db
 ) {
-  const file = await sourceFile(fileId, userId)
+  const file = await sourceFile(fileId, userId, reader)
   const [savedCheck] =
     checkId && file.publishedRevisionId === null && file.uploadedById === userId
-      ? await db
+      ? await reader
           .select()
           .from(sourceChecksTable)
           .innerJoin(
@@ -101,7 +114,8 @@ export async function inspectSourceDocument(
             and(
               eq(sourceChecksTable.id, checkId),
               eq(sourceChecksTable.requestedById, userId),
-              eq(sourceExtractionsTable.fileId, fileId)
+              sourceExtractionForFile(file),
+              eq(sourceChecksTable.term, file.termText)
             )
           )
       : []
@@ -110,15 +124,17 @@ export async function inspectSourceDocument(
     ? [savedCheck.sourceExtractions]
     : file.publishedRevisionId !== null && !file.publishedExtractionId
       ? []
-      : await db
+      : await reader
           .select()
           .from(sourceExtractionsTable)
           .where(
             and(
-              eq(sourceExtractionsTable.fileId, fileId),
+              sourceExtractionForFile(file),
               file.publishedRevisionId !== null
                 ? eq(sourceExtractionsTable.id, file.publishedExtractionId!)
-                : undefined
+                : file.sourceExtractionId
+                  ? eq(sourceExtractionsTable.id, file.sourceExtractionId)
+                  : undefined
             )
           )
           .orderBy(desc(sourceExtractionsTable.createdAt))
@@ -128,12 +144,13 @@ export async function inspectSourceDocument(
     : extraction &&
         file.publishedRevisionId === null &&
         userId === file.uploadedById
-      ? await db
+      ? await reader
           .select()
           .from(sourceChecksTable)
           .where(
             and(
               eq(sourceChecksTable.extractionId, extraction.id),
+              eq(sourceChecksTable.term, file.termText),
               eq(sourceChecksTable.requestedById, userId)
             )
           )
@@ -141,23 +158,39 @@ export async function inspectSourceDocument(
           .limit(1)
       : []
   // Never include original bytes or unrelated/private checks in a reader response.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Remove private fields from the returned metadata.
-  const { uploadedById: _uploadedById, retained: _retained, ...metadata } = file
+  /* eslint-disable @typescript-eslint/no-unused-vars -- Omit private storage and donor identifiers from reader responses. */
+  const {
+    uploadedById: _uploadedById,
+    retained: _retained,
+    assetId: _assetId,
+    ...metadata
+  } = file
+  // An extraction may originate at a still-private binding. Do not expose that
+  // binding or the internal shared-asset key through another reader route.
+  const publicExtraction = extraction
+    ? (({ fileId: _fileId, assetId: _extractionAssetId, ...value }) => value)(
+        extraction
+      )
+    : null
+  /* eslint-enable @typescript-eslint/no-unused-vars */
   return {
     file: metadata,
-    extraction: extraction ?? null,
+    extraction: publicExtraction,
     check: latestCheck ?? null,
     latestCheck: latestCheck ?? null
   }
 }
 
-export async function checkOwnedSource(input: {
-  fileId: string
-  extractionId: string
-  userId: number
-  aliases: string[]
-}) {
-  return db.transaction(async (tx) => {
+export async function checkOwnedSource(
+  input: {
+    fileId: string
+    extractionId: string
+    userId: number
+    aliases: string[]
+  },
+  reader: Reader = db
+) {
+  return reader.transaction(async (tx) => {
     await tx
       .select({ id: usersTable.id })
       .from(usersTable)
@@ -172,7 +205,7 @@ export async function checkOwnedSource(input: {
       .where(
         and(
           eq(sourceExtractionsTable.id, input.extractionId),
-          eq(sourceExtractionsTable.fileId, input.fileId)
+          sourceExtractionForFile(file)
         )
       )
     if (
@@ -183,6 +216,10 @@ export async function checkOwnedSource(input: {
     )
       throw invalid(
         "Wait until this source has been read before checking the term."
+      )
+    if (file.sourceExtractionId && file.sourceExtractionId !== extraction.id)
+      throw invalid(
+        "This source transcript changed. Reload it before checking the term."
       )
     const result = checkSourceDocument({
       text: extraction.text,
@@ -210,7 +247,7 @@ export async function checkOwnedSource(input: {
       .where(eq(sourceChecksTable.extractionId, extraction.id))
     if (count >= 100)
       throw invalid(
-        "This source has many saved term checks. Add a fresh source to continue."
+        "This document has reached its limit of 100 saved term and alias checks. Reuse an existing check or choose a different source."
       )
     const [check] = await tx
       .insert(sourceChecksTable)
@@ -224,8 +261,12 @@ export async function checkOwnedSource(input: {
   })
 }
 
-export async function retrySourceOcr(fileId: string, userId: number) {
-  return db.transaction(async (tx) => {
+export async function retrySourceOcr(
+  fileId: string,
+  userId: number,
+  reader: Reader = db
+) {
+  return reader.transaction(async (tx) => {
     await tx
       .select({ id: usersTable.id })
       .from(usersTable)
@@ -237,26 +278,39 @@ export async function retrySourceOcr(fileId: string, userId: number) {
     const [latest] = await tx
       .select()
       .from(sourceExtractionsTable)
-      .where(eq(sourceExtractionsTable.fileId, fileId))
+      .where(sourceExtractionForFile(file))
       .orderBy(desc(sourceExtractionsTable.createdAt))
       .limit(1)
     if (
       latest &&
       (latest.status === "queued" || latest.status === "processing")
-    )
+    ) {
+      await tx
+        .update(contributionFilesTable)
+        .set({ sourceExtractionId: latest.id })
+        .where(eq(contributionFilesTable.id, fileId))
       return { extraction: latest }
+    }
     const [{ count }] = await tx
       .select({ count: sql<number>`count(*)::int` })
       .from(sourceExtractionsTable)
-      .where(eq(sourceExtractionsTable.fileId, fileId))
+      .where(sourceExtractionForFile(file))
     if (count >= 5)
       throw invalid(
         "This source has reached its processing retry limit. Add a fresh source to continue."
       )
     const [extraction] = await tx
       .insert(sourceExtractionsTable)
-      .values({ fileId, forceOcr: file.mediaType === "application/pdf" })
+      .values({
+        fileId,
+        assetId: file.assetId,
+        forceOcr: file.mediaType === "application/pdf"
+      })
       .returning()
+    await tx
+      .update(contributionFilesTable)
+      .set({ sourceExtractionId: extraction.id })
+      .where(eq(contributionFilesTable.id, fileId))
     return { extraction }
   })
 }
@@ -271,13 +325,16 @@ export function sourceDocumentPrompt(inputs: SourceInputSnapshot[]) {
 
 /** Validate and reserve before contacting a provider. Only IDs/selections cross
  * the client boundary; text, matches and provenance are loaded server-side. */
-export async function reserveSourceContext(input: {
-  userId: number
-  term: string
-  vocabularySlug: string
-  selections: SourceContextSelection[]
-  referenceCharacters: number
-}) {
+export async function reserveSourceContext(
+  input: {
+    userId: number
+    term: string
+    vocabularySlug: string
+    selections: SourceContextSelection[]
+    referenceCharacters: number
+  },
+  reader: Reader = db
+) {
   const requestId = randomUUID()
   if (!input.selections.length)
     return { requestId, inputs: [] as SourceInputSnapshot[] }
@@ -287,7 +344,7 @@ export async function reserveSourceContext(input: {
       input.selections.length
   )
     throw invalid("Select up to three distinct document sources.")
-  const inputs = await db.transaction(async (tx) => {
+  const inputs = await reader.transaction(async (tx) => {
     await tx
       .select({ id: usersTable.id })
       .from(usersTable)
@@ -316,11 +373,13 @@ export async function reserveSourceContext(input: {
           and(
             eq(sourceChecksTable.id, selection.checkId),
             eq(sourceChecksTable.requestedById, input.userId),
-            eq(sourceExtractionsTable.fileId, file.id)
+            sourceExtractionForFile(file)
           )
         )
       if (!row) throw missing()
       const { sourceChecks: check, sourceExtractions: extraction } = row
+      // A restored draft may explicitly select an older immutable check. Keep
+      // its exact text rather than silently substituting a later correction.
       if (
         extraction.status !== "ready" ||
         !extraction.text ||
@@ -441,8 +500,11 @@ export async function releaseSourceContext(requestId: string) {
     .where(eq(sourceLeasesTable.requestId, requestId))
 }
 
-export async function publishedSourceInputs(fileId: string) {
-  const rows = await db
+export async function publishedSourceInputs(
+  fileId: string,
+  reader: Reader = db
+) {
+  const rows = await reader
     .select({
       id: aiContributionSuggestionsTable.id,
       sourceInputs: aiContributionSuggestionsTable.sourceInputs,
@@ -450,8 +512,23 @@ export async function publishedSourceInputs(fileId: string) {
       createdAt: aiContributionSuggestionsTable.createdAt
     })
     .from(aiContributionSuggestionsTable)
+    .innerJoin(
+      definitionRevisionsTable,
+      eq(
+        aiContributionSuggestionsTable.outputDefinitionId,
+        definitionRevisionsTable.definitionId
+      )
+    )
+    .innerJoin(
+      contributionFilesTable,
+      eq(
+        contributionFilesTable.publishedRevisionId,
+        definitionRevisionsTable.id
+      )
+    )
     .where(
       and(
+        eq(contributionFilesTable.id, fileId),
         eq(aiContributionSuggestionsTable.status, "accepted"),
         sql`${aiContributionSuggestionsTable.sourceInputs} @> ${JSON.stringify([{ fileId }])}::jsonb`
       )
