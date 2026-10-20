@@ -144,8 +144,7 @@ export const GET = async (req: NextRequest) => {
   session.id = user!.id
   await session.save()
 
-  const needsProfile = isNewAccount || !user!.firstName || !user!.lastName
   redirect(
-    needsProfile ? profileCompletionPath(returnTo) : (returnTo ?? "/profile")
+    isNewAccount ? profileCompletionPath(returnTo) : (returnTo ?? "/profile")
   )
 }

@@ -34,8 +34,10 @@ export default async function EditProfilePage({
     : returnTo?.startsWith("/add")
       ? "your term"
       : returnTo?.startsWith("/studies/")
-        ? "the study"
-        : "the invitation"
+        ? "the survey"
+        : returnTo === "/profile/drafts"
+          ? "My drafts"
+          : "the invitation"
 
   return (
     <main className="px-4 py-8">
@@ -48,20 +50,19 @@ export default async function EditProfilePage({
         </Button>
         <section className="space-y-2">
           <h1 className="text-3xl font-bold">
-            {isWelcome ? "Finish your profile" : "Edit profile"}
+            {isWelcome ? "Your account is ready" : "Edit profile"}
           </h1>
           <p className="text-muted-foreground">
-            {/* An ordinary signup lands here too, with no invitation to
-                return to, so the copy branches on returnTo as the back-link
-                does. */}
             {isWelcome
-              ? returnTo
-                ? `Add your name so your contributions have the right attribution. After saving, you will return to ${destinationLabel}.`
-                : "Add your name so your contributions have the right attribution. After saving, you will continue to your profile."
+              ? "Add your name now, or do this when you make your first contribution. Affiliation and a public profile are optional."
               : "Update the name and affiliation shown with your contributions. You can also choose whether those details and your authored terms appear together on a public profile. Authentication manages your email address and linked identities."}
           </p>
         </section>
-        <EditProfileForm defaults={user} returnTo={returnTo} />
+        <EditProfileForm
+          defaults={user}
+          returnTo={returnTo}
+          isWelcome={isWelcome}
+        />
         {isOrcidAuthEnabled() ? (
           <Card>
             <CardHeader>

@@ -292,6 +292,20 @@ const emailVerifyClient = readFileSync(
   resolve("app/register/verify/verify-email-link.tsx"),
   "utf8"
 )
+const rootLayout = readFileSync(resolve("app/layout.tsx"), "utf8")
+const emailVerifyPage = readFileSync(
+  resolve("app/register/verify/page.tsx"),
+  "utf8"
+)
+// Client navigation must explicitly restore the ordinary document policy after
+// verification. Removing its no-referrer meta alone leaves native POST Origin
+// null in the browser; keep token-page protection and the CSRF check intact.
+assert.match(rootLayout, /referrer:\s*"strict-origin-when-cross-origin"/)
+assert.match(emailVerifyPage, /referrer:\s*"no-referrer"/)
+assert.match(
+  emailStartRoute,
+  /request\.headers\.get\("origin"\) !== expectedOrigin/
+)
 const schemaSource = readFileSync(resolve("drizzle/schema.ts"), "utf8")
 const emailAuthTokenSchema = schemaSource.slice(
   schemaSource.indexOf("export const emailAuthTokensTable"),

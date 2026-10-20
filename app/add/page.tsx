@@ -61,7 +61,20 @@ export default async function AddTermPage({
   if (setupReturnTo) returnParams.set("setupReturnTo", setupReturnTo)
   const returnTo = returnParams.size ? `/add?${returnParams}` : "/add"
   if (!user) redirect(authPathWithReturnTo("/login", returnTo))
-  if (!user.name?.trim()) redirect(profileCompletionPath(returnTo))
+  if (!user.name?.trim())
+    return (
+      <main className="mx-auto max-w-2xl space-y-4 px-4 py-8">
+        <h1 className="text-3xl font-bold">Add your name to contribute</h1>
+        <p className="text-muted-foreground">
+          Your account is ready. Add your name so your definitions and sources
+          have the right attribution. You can continue browsing without adding
+          it.
+        </p>
+        <Button asChild>
+          <Link href={profileCompletionPath(returnTo)}>Add your name</Link>
+        </Button>
+      </main>
+    )
   if (requestedDraft && !draftId)
     return (
       <main className="mx-auto max-w-2xl space-y-3 px-4 py-8">

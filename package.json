@@ -15,7 +15,7 @@
     "test:date": "tsx scripts/test-date.ts",
     "test:activity-db": "tsx --conditions=react-server scripts/test-term-activity-db.ts",
     "test:identifiers": "tsx scripts/test-public-identifiers.ts",
-    "test:auth": "tsx scripts/test-auth-plumbing.ts",
+    "test:auth": "tsx scripts/test-auth-plumbing.ts && tsx scripts/test-profile-setup.ts",
     "test:orcid": "tsx --conditions=react-server scripts/test-orcid-flow.ts && tsx --conditions=react-server scripts/test-orcid-session-binding.ts",
     "test:orcid-account-db": "tsx --conditions=react-server scripts/test-orcid-account-db.ts",
     "test:contributions": "tsx scripts/test-contribution-actions.ts",
