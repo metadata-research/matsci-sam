@@ -1,10 +1,12 @@
 import { z } from "zod"
 import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "./input-limits"
+import { CONTRIBUTION_LIMITS } from "./contribution-limits"
 
 export const IMPORT_DRAFT_MAX_ROWS = 100
 export const IMPORT_DRAFT_MAX_BYTES = 1_000_000
 export const IMPORT_DRAFT_MAX_BATCHES = 10
 export const IMPORT_DRAFT_PARSER_VERSION = "draft-csv-v1"
+export const IMPORT_REVIEW_TTL_MS = 30 * 60 * 1000
 export const importDecisionSchema = z.enum(["pending", "include", "omit"])
 const text = (max: number) => z.string().trim().max(max).default("")
 const declaredSourceSchema = z
@@ -93,7 +95,7 @@ export const importDraftSelectionSchema = z
     })
   )
   .min(1)
-  .max(5)
+  .max(CONTRIBUTION_LIMITS.definition.count)
 
 export type ParsedDraftImportRow = {
   rowId: string

@@ -16,6 +16,7 @@ import {
   CONTRIBUTION_FILE_MAX_COUNT,
   CONTRIBUTION_FILE_PENDING_MAX_COUNT
 } from "./contribution-file-types"
+import { termLabelKey } from "./term-label-key"
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type Reader = typeof db | Transaction
@@ -279,7 +280,7 @@ export async function reuseContributionSource(
   const existing = linked.find(
     (binding) =>
       binding.assetId === file.assetId &&
-      binding.termText === draft.payload!.term.trim().toLowerCase() &&
+      binding.termText === termLabelKey(draft.payload!.term) &&
       binding.vocabularySlug === draft.payload!.vocabularySlug &&
       binding.publishedRevisionId === null
   )
@@ -310,7 +311,7 @@ export async function reuseContributionSource(
     .values({
       uploadedById: input.userId,
       assetId: file.assetId,
-      termText: draft.payload.term.trim().toLowerCase(),
+      termText: termLabelKey(draft.payload.term),
       vocabularySlug: draft.payload.vocabularySlug,
       filename: file.filename,
       mediaType: file.mediaType,

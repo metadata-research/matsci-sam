@@ -45,9 +45,9 @@ import {
   SOURCE_PRIVATE_ASSET_MAX_COUNT,
   SOURCE_UNBOUND_ASSET_MAX_COUNT
 } from "./contribution-source-assets"
+import { termLabelKey } from "./term-label-key"
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
-const normalizeTerm = (value: string) => value.trim().toLowerCase()
 const expiry = () =>
   new Date(Date.now() - CONTRIBUTION_FILE_PENDING_HOURS * 3600000).toISOString()
 export const contributionFileSelection = {
@@ -112,7 +112,7 @@ export async function storeContributionFile(
         .for("update")
       if (
         !draft?.payload ||
-        normalizeTerm(draft.payload.term) !== normalizeTerm(metadata.term) ||
+        termLabelKey(draft.payload.term) !== termLabelKey(metadata.term) ||
         draft.payload.vocabularySlug !== metadata.vocabularySlug
       )
         throw new ContributionFileError(
@@ -210,7 +210,7 @@ export async function storeContributionFile(
       .values({
         uploadedById: input.userId,
         assetId: asset.id,
-        termText: normalizeTerm(metadata.term),
+        termText: termLabelKey(metadata.term),
         vocabularySlug: metadata.vocabularySlug,
         filename: safeContributionFilename(metadata.filename),
         mediaType,
@@ -390,7 +390,7 @@ export async function publishContributionFiles(
       (file) =>
         file.uploadedById !== input.authorId ||
         file.publishedRevisionId !== null ||
-        file.termText !== normalizeTerm(target.term) ||
+        file.termText !== termLabelKey(target.term) ||
         file.vocabularySlug !== target.vocabularySlug ||
         (!file.retained && Date.parse(file.createdAt) < Date.parse(expiry()))
     )

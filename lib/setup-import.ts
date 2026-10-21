@@ -1,4 +1,5 @@
 import { DEFINITION_MAX_LENGTH, TERM_MAX_LENGTH } from "./input-limits"
+import { termLabelKey } from "./term-label-key"
 
 export const IMPORT_MAX_ROWS = 100
 export const IMPORT_MAX_TEXT_LENGTH = 1_100_000
@@ -107,11 +108,11 @@ export function planImportRows(
   existingTerms: ExistingImportTerm[]
 ): ImportPreviewRow[] {
   const existing = new Map(
-    existingTerms.map((term) => [term.term.trim().toLowerCase(), term])
+    existingTerms.map((term) => [termLabelKey(term.term), term])
   )
   const seen = new Map<string, ImportRow>()
   return rows.map((row) => {
-    const key = row.term.trim().toLowerCase()
+    const key = termLabelKey(row.term)
     const invalid = (message: string): ImportPreviewRow => ({
       ...row,
       action: "error",

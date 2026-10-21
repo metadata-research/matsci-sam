@@ -22,6 +22,7 @@ import {
 import {
   IMPORT_DRAFT_MAX_BATCHES,
   IMPORT_DRAFT_PARSER_VERSION,
+  IMPORT_REVIEW_TTL_MS,
   importDraftInputSchema,
   importDraftSelectionSchema,
   importEvidenceSchema,
@@ -43,15 +44,16 @@ import {
   updateTermDraft
 } from "./term-drafts"
 import {
-  CONTRIBUTION_LIMITS,
   contributionFingerprint,
   lockContributionSubmissions
 } from "./contribution-guard"
+import { CONTRIBUTION_LIMITS } from "./contribution-limits"
 import {
   requireImportCollection,
   requireSetupVocabularyForContribution
 } from "./setup-service"
 import { revisionContributionFiles } from "./contribution-files"
+import { termLabelKey } from "./term-label-key"
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type Reader = typeof db | Transaction
@@ -66,7 +68,8 @@ const fail = (
 ): never => {
   throw new TRPCError({ code, message })
 }
-const hash = (text: string) => createHash("sha256").update(text).digest("hex")
+const rawTextHash = (text: string) =>
+  createHash("sha256").update(text).digest("hex")
 const draftLock = async (tx: Transaction, ownerId: number) => {
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtext('matsci-sam:term-drafts'), ${ownerId})`
@@ -141,9 +144,7 @@ export async function previewImportDrafts(
     input.format,
     input.ignoredColumns
   )
-  const labels = [
-    ...new Set(parsed.rows.map((row) => row.term.trim().toLowerCase()))
-  ]
+  const labels = [...new Set(parsed.rows.map((row) => termLabelKey(row.term)))]
   const existing = labels.length
     ? await reader
         .select({
@@ -172,17 +173,15 @@ export async function previewImportDrafts(
     )
   const grouped = new Map<string, string[]>()
   for (const row of parsed.rows) {
-    const key = row.term.trim().toLowerCase()
+    const key = termLabelKey(row.term)
     grouped.set(key, [...(grouped.get(key) ?? []), row.rowId])
   }
   const rows: DraftImportPreviewRow[] = parsed.rows.map((row) => {
-    const key = row.term.trim().toLowerCase()
+    const key = termLabelKey(row.term)
     const duplicateOf = grouped.get(key)?.find((id) => id !== row.rowId)
     if (row.errors.length)
       return { ...row, status: "error", message: row.errors.join(" ") }
-    const match = existing.find(
-      (item) => item.term.trim().toLowerCase() === key
-    )
+    const match = existing.find((item) => termLabelKey(item.term) === key)
     if (match?.hiddenAt)
       return {
         ...row,
@@ -203,7 +202,7 @@ export async function previewImportDrafts(
     const draft = drafts.find(
       (item) =>
         item.payload?.vocabularySlug === input.vocabularySlug &&
-        item.payload.term.trim().toLowerCase() === key
+        termLabelKey(item.payload.term) === key
     )
     if (draft)
       return {
@@ -233,7 +232,7 @@ export async function previewImportDrafts(
     errors: parsed.errors,
     unknownColumns: parsed.unknownColumns,
     availableDraftSlots: await draftCapacity(reader, ownerId),
-    inputHash: hash(input.text)
+    inputHash: rawTextHash(input.text)
   }
 }
 
@@ -288,7 +287,7 @@ export async function createImportDrafts(
       !(row.status === "duplicate" && row.duplicateOf)
     )
       fail(`Row ${row.record}: ${row.message}`)
-    const key = row.term.trim().toLowerCase()
+    const key = termLabelKey(row.term)
     if (labels.has(key)) fail(`Select only one input row for "${row.term}".`)
     labels.add(key)
   }
@@ -1023,7 +1022,7 @@ export async function reviewImportDrafts(
       ownerId,
       selection,
       evidenceHash: snapshot.hash,
-      expiresAt: new Date(Date.now() + 30 * 60000).toISOString()
+      expiresAt: new Date(Date.now() + IMPORT_REVIEW_TTL_MS).toISOString()
     })
   }
   const summaries = []
