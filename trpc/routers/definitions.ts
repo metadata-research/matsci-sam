@@ -323,20 +323,6 @@ export const definitionsRouter = createTRPCRouter({
       let written
       try {
         written = await db.transaction(async (tx) => {
-          if (input.derivedFromRevisionId)
-            await requireRevisionContent(
-              tx,
-              input.derivedFromRevisionId,
-              authorId,
-              { lock: true }
-            )
-          if (input.replacesDefinitionId)
-            await requireDefinitionContent(
-              tx,
-              input.replacesDefinitionId,
-              authorId,
-              { lock: true }
-            )
           await lockContributionSubmissions(tx, authorId)
           if (input.vocabularySlug)
             await requireSetupVocabularyForContribution(
@@ -345,16 +331,6 @@ export const definitionsRouter = createTRPCRouter({
               authorId,
               true
             )
-          const lockedWalkthroughStep =
-            walkthroughStep && input.surveyStepId !== undefined
-              ? await lockParticipation(
-                  tx,
-                  input.surveyStepId,
-                  walkthroughStep.study.id,
-                  authorId,
-                  input.expectedInstructions!
-                )
-              : null
           const aiSuggestion = input.aiSuggestionId
             ? (
                 await tx
@@ -433,6 +409,56 @@ export const definitionsRouter = createTRPCRouter({
             aiSuggestion?.intent === "revise_definition"
               ? aiSuggestion.sourceRevisionId!
               : input.derivedFromRevisionId
+          // Account, study (when present), target term, then source definition.
+          // Publication allocates a number on the term. Taking its write lock
+          // now avoids two authors upgrading compatible SHARE locks later.
+          const lockedWalkthroughStep =
+            walkthroughStep && input.surveyStepId !== undefined
+              ? await lockParticipation(
+                  tx,
+                  input.surveyStepId,
+                  walkthroughStep.study.id,
+                  authorId,
+                  input.expectedInstructions!,
+                  { termLock: "update" }
+                )
+              : null
+          if (derivedFromRevisionId !== undefined) {
+            if (lockedWalkthroughStep) {
+              const [target] = await tx
+                .select({ termId: definitionsTable.termId })
+                .from(definitionRevisionsTable)
+                .innerJoin(
+                  definitionsTable,
+                  eq(definitionsTable.id, definitionRevisionsTable.definitionId)
+                )
+                .where(eq(definitionRevisionsTable.id, derivedFromRevisionId))
+              if (
+                !target ||
+                target.termId !== lockedWalkthroughStep.step.termId
+              )
+                throw new TRPCError({
+                  code: "BAD_REQUEST",
+                  message: "That revision is not a candidate of this term"
+                })
+            }
+            // Use the locked suggestion's actual source as well as explicit
+            // alternatives, so an AI-only request cannot skip live access.
+            await requireRevisionContent(tx, derivedFromRevisionId, authorId, {
+              lock: true,
+              termLock: "update"
+            })
+          }
+          if (input.replacesDefinitionId !== undefined)
+            await requireDefinitionContent(
+              tx,
+              input.replacesDefinitionId,
+              authorId,
+              {
+                lock: true,
+                termLock: "update"
+              }
+            )
           const isRevision = derivedFromRevisionId !== undefined
           const isReplacement = input.replacesDefinitionId !== undefined
           // A Position step may publish a term-level candidate when none of

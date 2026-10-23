@@ -170,7 +170,8 @@ export const lockParticipation = async (
   stepId: number,
   studyId: number,
   userId: number,
-  expectedInstructions: string | null
+  expectedInstructions: string | null,
+  options: { termLock?: "update" } = {}
 ) => {
   const lockedStudy = await lockStudy(tx, studyId)
   if (!lockedStudy) throw regeneratedConflict()
@@ -194,7 +195,10 @@ export const lockParticipation = async (
     lock: true
   })
   if (found.step.termId !== null)
-    await requireTermContent(tx, found.step.termId, userId, { lock: true })
+    await requireTermContent(tx, found.step.termId, userId, {
+      lock: true,
+      termLock: options.termLock
+    })
   const currentInstructions = await instructionPromptOfStudy(
     tx,
     studyId,

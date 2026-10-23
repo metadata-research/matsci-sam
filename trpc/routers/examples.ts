@@ -2,6 +2,7 @@ import { requireDefinitionContent } from "@/lib/content-access"
 import { exampleContributionFiles } from "@/lib/contribution-files"
 import {
   contributionFingerprint,
+  lockContributionSubmissions,
   reserveContributionSubmission
 } from "@/lib/contribution-guard"
 import { TRPCError } from "@trpc/server"
@@ -178,6 +179,7 @@ export const examplesRouter = createTRPCRouter({
       await requireDefinitionContent(db, input.definitionId, userId)
       try {
         const { example } = await db.transaction(async (tx) => {
+          await lockContributionSubmissions(tx, userId)
           await requireDefinitionContent(tx, input.definitionId, userId, {
             lock: true
           })

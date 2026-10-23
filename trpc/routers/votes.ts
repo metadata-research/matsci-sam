@@ -105,9 +105,6 @@ export const votesRouter = createTRPCRouter({
 
         try {
           const [updatedDefinition] = await db.transaction(async (tx) => {
-            await requireDefinitionContent(tx, definitionId, userId, {
-              lock: true
-            })
             const lockedWalkthrough =
               walkthrough && surveyStepId !== undefined
                 ? await lockParticipation(
@@ -118,6 +115,9 @@ export const votesRouter = createTRPCRouter({
                     expectedInstructions!
                   )
                 : null
+            await requireDefinitionContent(tx, definitionId, userId, {
+              lock: true
+            })
             if (lockedWalkthrough)
               await requireStudyCandidate(
                 tx,

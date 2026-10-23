@@ -54,7 +54,7 @@ export async function requireDefinitionContent(
   reader: Reader,
   id: number,
   viewerId: number | null = null,
-  options: { lock?: boolean } = {}
+  options: { lock?: boolean; termLock?: "update" } = {}
 ) {
   const [definition] = await reader
     .select({ id: definitionsTable.id, termId: definitionsTable.termId })
@@ -74,7 +74,7 @@ export async function requireRevisionContent(
   reader: Reader,
   id: number,
   viewerId: number | null = null,
-  options: { lock?: boolean } = {}
+  options: { lock?: boolean; termLock?: "update" } = {}
 ) {
   const [revision] = await reader
     .select({

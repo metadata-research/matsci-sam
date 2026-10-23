@@ -131,18 +131,20 @@ export async function requireVocabularyContent(
   return row
 }
 
+// Number-allocating publications must take UPDATE immediately; a later
+// SHARE-to-UPDATE upgrade can deadlock with another authorized contributor.
 export async function requireTermContent(
   reader: CommunityReader,
   id: number,
   viewerId: number | null = null,
-  options: { lock?: boolean } = {}
+  options: { lock?: boolean; termLock?: "update" } = {}
 ) {
   if (options.lock) {
     const [term] = await reader
       .select({ id: termsTable.id, vocabularySlug: termsTable.vocabularySlug })
       .from(termsTable)
       .where(eq(termsTable.id, id))
-      .for("share")
+      .for(options.termLock ?? "share")
     if (!term) throw unavailable()
     await requireVocabularyContent(
       reader,

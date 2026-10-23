@@ -13,6 +13,7 @@ import {
   contributionSubmissionsTable,
   db,
   definitionExamplesTable,
+  definitionRevisionsTable,
   definitionsTable,
   termReferenceEntriesTable,
   termReferenceLookupsTable,
@@ -35,6 +36,35 @@ import { DEFAULT_VOCABULARY_SLUG } from "../lib/public-identifiers"
 import { commentsRouter } from "../trpc/routers/comments"
 import { definitionsRouter } from "../trpc/routers/definitions"
 import { examplesRouter } from "../trpc/routers/examples"
+
+const deferred = () => {
+  let resolve!: () => void
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
+
+const waitUntil = async (check: () => Promise<boolean>, message: string) => {
+  const deadline = Date.now() + 8_000
+  do {
+    if (await check()) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  } while (Date.now() < deadline)
+  assert.fail(message)
+}
+
+const publicationLocks = async (userId: number) =>
+  (
+    await db.execute(sql`SELECT pid, granted, pg_blocking_pids(pid) AS blockers
+    FROM pg_locks WHERE locktype = 'advisory'
+      AND classid = hashtext('matsci-sam:contribution-submissions')::oid
+      AND objid = ${userId}::oid AND objsubid = 2`)
+  ).rows as {
+    pid: number
+    granted: boolean
+    blockers: number[]
+  }[]
 
 const main = async () => {
   const databaseUrl = new URL(process.env.DATABASE_URL!)
@@ -96,7 +126,10 @@ const main = async () => {
           "comment quota",
           "example quota",
           "AI contributor",
-          "clock waiter"
+          "clock waiter",
+          "lock ordering",
+          "parallel author a",
+          "parallel author b"
         ].map((name) => ({
           name: `Contribution guard ${name} ${stamp}`,
           role:
@@ -113,7 +146,10 @@ const main = async () => {
       commentQuota,
       exampleQuota,
       aiContributor,
-      waiter
+      waiter,
+      orderingAuthor,
+      parallelAuthorA,
+      parallelAuthorB
     ] = users
     const context = (id: number) => ({ session: { id } }) as never
     const comments = commentsRouter.createCaller(context(contributor.id))
@@ -375,6 +411,140 @@ const main = async () => {
     await definitionsRouter
       .createCaller(context(other.id))
       .create(alternativeInput)
+    // A queued publication must wait for its account before retaining any
+    // term lock. Otherwise another publication by that account can hold the
+    // advisory lock while waiting for this transaction's term SHARE lock.
+    const accountHeld = deferred()
+    const releaseAccount = deferred()
+    const accountHolder = db.transaction(async (tx) => {
+      await lockContributionSubmissions(tx, orderingAuthor.id)
+      accountHeld.resolve()
+      await releaseAccount.promise
+    })
+    let accountPublications:
+      | Promise<PromiseSettledResult<unknown>[]>
+      | undefined
+    try {
+      await accountHeld.promise
+      accountPublications = Promise.allSettled([
+        definitionsRouter
+          .createCaller(context(orderingAuthor.id))
+          .create(alternativeInput),
+        commentsRouter.createCaller(context(orderingAuthor.id)).create({
+          ...commentInput,
+          revisionId: revised.revision.id
+        }),
+        examplesRouter
+          .createCaller(context(orderingAuthor.id))
+          .create(exampleInput)
+      ])
+      await waitUntil(
+        async () =>
+          (await publicationLocks(orderingAuthor.id)).filter(
+            (lock) => !lock.granted
+          ).length === 3,
+        "All three publication kinds must wait for the held account lock"
+      )
+      await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT id FROM terms WHERE id=${term.id} FOR UPDATE NOWAIT`
+        )
+      })
+      releaseAccount.resolve()
+      const results = await accountPublications
+      for (const result of results) assert.equal(result.status, "fulfilled")
+      assert.equal(await receiptCount(orderingAuthor.id), 3)
+    } finally {
+      releaseAccount.resolve()
+      await accountHolder
+      await accountPublications
+    }
+
+    // Hold the source definition so the first author is paused after taking
+    // the term lock. The second author must wait on that author, rather than
+    // acquiring another term SHARE lock and waiting on the same source. This
+    // proves the ordering before either transaction can reach the counter.
+    const sourceHeld = deferred()
+    const releaseSource = deferred()
+    let holderPid!: number
+    const sourceHolder = db.transaction(async (tx) => {
+      holderPid = Number(
+        (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid
+      )
+      await tx.execute(
+        sql`SELECT id FROM definitions WHERE id=${source.definition.id} FOR UPDATE`
+      )
+      sourceHeld.resolve()
+      await releaseSource.promise
+    })
+    const parallelPublications: ReturnType<typeof definitions.create>[] = []
+    const parallelSettled: Promise<PromiseSettledResult<unknown>[]>[] = []
+    try {
+      await sourceHeld.promise
+      parallelPublications.push(
+        definitionsRouter
+          .createCaller(context(parallelAuthorA.id))
+          .create(alternativeInput)
+      )
+      parallelSettled.push(Promise.allSettled(parallelPublications.slice(-1)))
+      let firstPid!: number
+      await waitUntil(async () => {
+        const first = (await publicationLocks(parallelAuthorA.id)).find(
+          (lock) => lock.granted
+        )
+        if (!first?.blockers.includes(holderPid)) return false
+        firstPid = first.pid
+        return true
+      }, "The first author must reach the held source definition")
+      parallelPublications.push(
+        definitionsRouter
+          .createCaller(context(parallelAuthorB.id))
+          .create(alternativeInput)
+      )
+      parallelSettled.push(Promise.allSettled(parallelPublications.slice(-1)))
+      await waitUntil(async () => {
+        const second = (await publicationLocks(parallelAuthorB.id)).find(
+          (lock) => lock.granted
+        )
+        return (
+          !!second?.blockers.includes(firstPid) &&
+          !second.blockers.includes(holderPid)
+        )
+      }, "The second author must wait for the first author's term write lock")
+      releaseSource.resolve()
+      const results = await Promise.all(parallelPublications)
+      const numbers = results
+        .map((result) => result.definition.definitionNumber)
+        .sort((a, b) => a - b)
+      assert.equal(
+        numbers[1],
+        numbers[0] + 1,
+        "Concurrent authors receive distinct consecutive definition numbers"
+      )
+      for (const result of results) {
+        const revision = await db.query.definitionRevisionsTable.findFirst({
+          where: eq(
+            definitionRevisionsTable.id,
+            result.definition.currentRevisionId!
+          )
+        })
+        assert.equal(revision?.derivedFromRevisionId, revised.revision.id)
+        assert.ok(revision?.editorId)
+        assert.ok(
+          [parallelAuthorA.id, parallelAuthorB.id].includes(revision.editorId)
+        )
+        assert.ok(result.definition.authorId)
+        assert.equal(
+          await receiptCount(result.definition.authorId, "definition"),
+          1
+        )
+      }
+    } finally {
+      releaseSource.resolve()
+      await sourceHolder
+      await Promise.all(parallelSettled)
+    }
+
     const beforeFailedDefinition = await receiptCount(contributor.id)
     const failedTerm = `failed guard ${stamp}`
     await assert.rejects(
@@ -593,7 +763,7 @@ const main = async () => {
     }
 
     console.log(
-      "Contribution guards passed: real publication duplicate/quota races, rollback, source/author context, AI preview provenance, expiry and contended database clock."
+      "Contribution guards passed: real publication duplicate/quota races, rollback, source/author context, AI preview provenance, expiry, account-first locks across contribution kinds, distinct-author term serialization and contended database clock."
     )
   } finally {
     if (userIds.length)

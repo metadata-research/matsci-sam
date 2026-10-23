@@ -5,6 +5,7 @@ import {
 import { requireStudyCandidate } from "@/lib/study-candidates"
 import {
   contributionFingerprint,
+  lockContributionSubmissions,
   reserveContributionSubmission
 } from "@/lib/contribution-guard"
 import { z } from "zod"
@@ -93,17 +94,7 @@ export const commentsRouter = createTRPCRouter({
               })
 
         const insertedComment = await db.transaction(async (tx) => {
-          await requireDefinitionContent(tx, id, userId, { lock: true })
-          await reserveContributionSubmission(tx, {
-            userId,
-            kind: "comment",
-            fingerprint: contributionFingerprint({
-              definitionId: id,
-              revisionId,
-              surveyStepId: surveyStepId ?? null,
-              comment
-            })
-          })
+          await lockContributionSubmissions(tx, userId)
           if (walkthrough && surveyStepId !== undefined) {
             const locked = await lockParticipation(
               tx,
@@ -115,6 +106,17 @@ export const commentsRouter = createTRPCRouter({
             await requireStudyCandidate(tx, locked.study.id, id)
             await requireIncompleteStepForAct(tx, locked.step.id, userId)
           }
+          await requireDefinitionContent(tx, id, userId, { lock: true })
+          await reserveContributionSubmission(tx, {
+            userId,
+            kind: "comment",
+            fingerprint: contributionFingerprint({
+              definitionId: id,
+              revisionId,
+              surveyStepId: surveyStepId ?? null,
+              comment
+            })
+          })
           let written
           try {
             // A session comment is a human act. The table CHECK refuses a

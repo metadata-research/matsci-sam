@@ -585,3 +585,15 @@ unchecked item is not a passing result.
   unchanged test passed with 256 task slots for the browser runner instead of
   128. The cause is unconfirmed, with no browser errors or application change.
   Original-column preservation still passes for all 65 baseline tables.
+
+- A later CI contribution regression exposed an account/term lock inversion
+  during simultaneous submissions. Definition, comment and example submissions
+  now take the account lock first. Definition publication takes the term's
+  write lock before its source lock, avoiding a second deadlock when different
+  authors would otherwise upgrade compatible read locks. Survey publication,
+  comments and votes retain study-first ordering. Access checks remain intact.
+  Deterministic regressions verify account ordering, two-author publication,
+  consecutive definition numbers and preserved source provenance. Survey
+  positions, definition source locking, examples, ordinary drafts and all 71
+  content-privacy checks pass, as do TypeScript and scoped lint. Independent
+  review found no remaining blocker. No schema or interface change is required.
