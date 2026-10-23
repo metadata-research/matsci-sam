@@ -203,7 +203,7 @@ export const Header = async () => {
             </nav>
             {memberships.length > 0 && (
               <div className={styles.mobileUtility}>
-                <span>Working in</span>
+                <span>Default community</span>
                 <CommunityMenu scope={scope} memberships={memberships} />
               </div>
             )}
@@ -354,10 +354,15 @@ const CommunityMenu = ({
     <DropdownMenuTrigger
       className={cn(buttonVariants({ variant: "outline" }), styles.scopePill)}
       aria-label={
-        scope ? `Working in ${scope.title}` : "Working in every community"
+        scope
+          ? `Default community: ${scope.title}`
+          : "Default community: Everything"
       }
     >
       <UsersIcon aria-hidden />
+      <span className="hidden text-xs text-muted-foreground lg:inline">
+        Default
+      </span>
       <span className={styles.scopeName}>
         {scope ? scope.title : "Everything"}
       </span>

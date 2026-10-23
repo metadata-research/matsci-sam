@@ -477,6 +477,9 @@ async function main() {
       "Membership removal takes effect on the next page, API and source request"
     )
     await stewardPage.goto(`${base}${path}`)
+    await stewardPage
+      .getByRole("link", { name: "Settings", exact: true })
+      .click()
     await stewardPage.getByLabel("Who can view content").selectOption("public")
     await stewardPage
       .getByRole("button", { name: "Save content access", exact: true })

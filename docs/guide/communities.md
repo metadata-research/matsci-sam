@@ -19,11 +19,14 @@ gather terms that already exist without copying their definitions.
 
 ## Community workspace
 
-The community page is its workspace. **Overview** describes its purpose;
-**Vocabulary** shows published terms and fields, plus the versioned source
-catalog when MatCore is enabled; **My work** contains your
-private drafts and contribution tools. **Collections** shows the community
-worklist, **People** covers membership, and **Surveys** appears when relevant.
+The community page is its workspace. **Overview** describes its purpose and
+shows your recently saved drafts when you have work to continue. **Vocabulary**
+shows published terms and fields. Communities with an installed reference
+catalog offer separate **Reference catalog** and **Community contributions**
+views. **My work** contains your private drafts and contribution tools, with
+saved work before empty sections. **Collections** contains shared term lists,
+**People** covers membership, and **Surveys** appears when relevant. Managers
+can use **Settings** to control content access and metadata tools.
 
 In longer views, **On this page** lists the available sections. Select one to
 jump to it; the destination is briefly highlighted. On a small screen, open
@@ -39,14 +42,16 @@ prepare a batch of private drafts. These actions use the community's
 vocabulary. Your drafts remain private even when other contributors belong
 to the same community.
 
-Stewards and site administrators can enable metadata development to add
-**New metadata field**. MatCore is an optional standard within those tools;
+In **Settings**, stewards and site administrators can enable metadata
+development to add **New metadata field**. MatCore is an optional standard within those tools;
 it is not required to define a field. An independent field can record value
 types, units and requirement rules with its own citations. The
 [metadata workflow guide](/docs/matcore-workflow) explains field editing and
 MatCore source entries and proposals.
 
-In the MatCore catalog, select a source version and open a field. **Propose a
+In the MatCore catalog, select a source version. **Find a field** searches all
+entries in that version and the selected profile by name, path or definition.
+Open a result to read the field. **Propose a
 change** creates a private draft for that field. **Continue my draft** resumes
 your existing work, including drafts imported earlier. Browsing the catalog
 creates no drafts. The preserved source entry remains unchanged when you edit
@@ -71,7 +76,7 @@ when your request is awaiting review. A steward or site administrator can open
 **People**, find **Access requests**, and approve or decline it. Check the same
 community page for the outcome. This does not send an email notification.
 
-Stewards can open **Overview** and use **Content access** to choose **Public**
+Stewards can open **Settings** and use **Content access** to choose **Public**
 or **Members only**, then select **Save content access**. A community containing
 protected source material must remain members-only. An installed MatCore source
 requires a separate grant from a site administrator. Enabling MatCore tools
@@ -125,7 +130,7 @@ For instructions and background, open **Help & Guides** in the navigation.
 
 ## Working in a community
 
-The community selector beside your account sets the default context for
+The **Default community** selector beside your account sets the context for
 browsing and new contributions. Select a community or **Everything**; the
 choice is saved for your account across sessions. Changing it reloads the
 current page. Select **Open workspace** in the same menu to open that
@@ -150,7 +155,7 @@ your saved selection.
 
 An **Add term** link from a particular community, or a destination chosen in
 guided setup, explicitly selects that vocabulary for the contribution. It
-does not change the account's saved **Working in** selection. Always check the
+does not change your saved **Default community** selection. Always check the
 vocabulary named in the term editor.
 
 A collection created within a members-only community follows that community's

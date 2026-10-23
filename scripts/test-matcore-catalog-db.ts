@@ -268,6 +268,42 @@ async function main() {
         "Profile filter uses source profile"
       )
       same(dft.profileKey, "dft", "Selected profile returned")
+      const lastDft = MATCORE_STANDARD_MANIFEST.occurrences
+        .filter((row) => row.profileId === "dft")
+        .at(-1)!
+      const searched = await listMatcoreSourceCatalog(tx, {
+        vocabularySlug: vocabulary.slug,
+        search: lastDft.path.join(".").toUpperCase(),
+        limit: 1
+      })
+      check(
+        searched.total > 0,
+        "Search includes entries beyond the first page and ignores case"
+      )
+      check(
+        searched.occurrences[0].source.path
+          .join(".")
+          .includes(lastDft.path.join(".")),
+        "Search returns the matching source path"
+      )
+      same(
+        (
+          await listMatcoreSourceCatalog(tx, {
+            vocabularySlug: vocabulary.slug,
+            search: "no matching synthetic field 98765"
+          })
+        ).total,
+        0,
+        "Unmatched search is empty"
+      )
+      await rejects(
+        listCatalog(
+          tx,
+          { vocabularySlug: vocabulary.slug, search: lastDft.path.join(".") },
+          outsider.id
+        ),
+        "NOT_FOUND"
+      )
       const selected = catalog.occurrences[0]
       const other = catalog.occurrences[1]
       const input = {

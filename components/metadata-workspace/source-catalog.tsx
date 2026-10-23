@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
+import { InfoPopover } from "@/components/info-popover"
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { matcoreCatalogHref } from "@/lib/matcore-catalog-navigation"
@@ -38,12 +40,55 @@ export function SourceCatalog({ community, catalog, entry, viewerId }: Props) {
     profileKey?: MatcoreProfileKey
     offset?: number
     source?: string
-  }) => matcoreCatalogHref(community.slug, next)
+    search?: string
+  }) => matcoreCatalogHref(community.slug, { search: catalog.search, ...next })
   const listHref = href({
     releaseId: selectedRelease.id,
     profileKey,
     offset: catalog.offset
   })
+
+  const pages = (position: "top" | "bottom") =>
+    catalog.total > catalog.limit || catalog.offset > 0 ? (
+      <nav
+        aria-label={`Catalog pages ${position}`}
+        className="flex flex-wrap items-center justify-between gap-3"
+      >
+        <Button
+          variant="outline"
+          disabled={catalog.offset === 0}
+          onClick={() =>
+            router.push(
+              href({
+                releaseId: selectedRelease.id,
+                profileKey,
+                offset: Math.max(0, catalog.offset - catalog.limit)
+              })
+            )
+          }
+        >
+          Previous
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          Page {Math.floor(catalog.offset / catalog.limit) + 1}
+        </p>
+        <Button
+          variant="outline"
+          disabled={catalog.offset + catalog.limit >= catalog.total}
+          onClick={() =>
+            router.push(
+              href({
+                releaseId: selectedRelease.id,
+                profileKey,
+                offset: catalog.offset + catalog.limit
+              })
+            )
+          }
+        >
+          Next
+        </Button>
+      </nav>
+    ) : null
 
   return (
     <section
@@ -51,17 +96,20 @@ export function SourceCatalog({ community, catalog, entry, viewerId }: Props) {
       className="flex min-w-0 flex-col gap-5"
     >
       <header className="flex flex-col gap-2">
-        <h2 id="matcore-catalog-heading" className="text-xl font-semibold">
-          MatCore catalog
-        </h2>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          Versioned reference entries from the preserved MatCore source. Changes
-          are prepared separately as local proposals.
-        </p>
+        <div className="flex items-center gap-1">
+          <h2 id="matcore-catalog-heading" className="text-xl font-semibold">
+            MatCore catalog
+          </h2>
+          <InfoPopover label="About the reference catalog">
+            Preserved source versions. Propose a change to create a private
+            draft. Publishing a local proposal does not change the source
+            version or record MatCore approval.
+          </InfoPopover>
+        </div>
       </header>
       <FieldGroup className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="matcore-catalog-version">
+          <FieldLabel htmlFor="matcore-catalog-version" className="min-h-8">
             Source version
           </FieldLabel>
           <WorkspaceSelect
@@ -79,7 +127,13 @@ export function SourceCatalog({ community, catalog, entry, viewerId }: Props) {
           </WorkspaceSelect>
         </Field>
         <Field>
-          <FieldLabel htmlFor="matcore-catalog-profile">Profile</FieldLabel>
+          <div className="flex items-center gap-1">
+            <FieldLabel htmlFor="matcore-catalog-profile">Profile</FieldLabel>
+            <InfoPopover label="About catalog profiles">
+              A profile groups fields for a method or use. The common core is
+              listed as Minimal.
+            </InfoPopover>
+          </div>
           <WorkspaceSelect
             id="matcore-catalog-profile"
             value={profileKey ?? ""}
@@ -103,6 +157,51 @@ export function SourceCatalog({ community, catalog, entry, viewerId }: Props) {
           </WorkspaceSelect>
         </Field>
       </FieldGroup>
+      <form
+        role="search"
+        aria-label="Reference catalog"
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          const data = new FormData(event.currentTarget)
+          router.push(
+            href({
+              releaseId: selectedRelease.id,
+              profileKey,
+              search: String(data.get("q") ?? "").trim()
+            })
+          )
+        }}
+      >
+        <Field className="min-w-0 flex-1 basis-48">
+          <FieldLabel htmlFor="catalog-search">Find a field</FieldLabel>
+          <Input
+            key={catalog.search}
+            id="catalog-search"
+            name="q"
+            type="search"
+            maxLength={200}
+            defaultValue={catalog.search}
+            placeholder="Name, path or definition"
+          />
+        </Field>
+        <Button type="submit" variant="outline">
+          Search
+        </Button>
+        {catalog.search ? (
+          <Button asChild variant="ghost">
+            <Link
+              href={href({
+                releaseId: selectedRelease.id,
+                profileKey,
+                search: ""
+              })}
+            >
+              Clear search
+            </Link>
+          </Button>
+        ) : null}
+      </form>
       {entry ? (
         <SourceCatalogEntry
           key={`${entry.releaseId}:${entry.occurrenceId}`}
@@ -126,6 +225,7 @@ export function SourceCatalog({ community, catalog, entry, viewerId }: Props) {
               ? ` · Showing ${catalog.offset + 1}–${catalog.offset + catalog.occurrences.length}`
               : ""}
           </p>
+          {pages("top")}
           {catalog.occurrences.length ? (
             <ul className="flex min-w-0 flex-col divide-y rounded-lg border">
               {catalog.occurrences.map((occurrence) => (
@@ -155,7 +255,9 @@ export function SourceCatalog({ community, catalog, entry, viewerId }: Props) {
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No source entries on this page.{" "}
+              {catalog.search
+                ? "No fields match this search."
+                : "No source entries on this page."}{" "}
               {catalog.offset > 0 ? (
                 <Link
                   className="underline underline-offset-4"
@@ -169,46 +271,7 @@ export function SourceCatalog({ community, catalog, entry, viewerId }: Props) {
               ) : null}
             </p>
           )}
-          {catalog.total > catalog.limit || catalog.offset > 0 ? (
-            <nav
-              aria-label="MatCore catalog pages"
-              className="flex flex-wrap items-center justify-between gap-3"
-            >
-              <Button
-                variant="outline"
-                disabled={catalog.offset === 0}
-                onClick={() =>
-                  router.push(
-                    href({
-                      releaseId: selectedRelease.id,
-                      profileKey,
-                      offset: Math.max(0, catalog.offset - catalog.limit)
-                    })
-                  )
-                }
-              >
-                Previous
-              </Button>
-              <p className="text-sm text-muted-foreground">
-                Page {Math.floor(catalog.offset / catalog.limit) + 1}
-              </p>
-              <Button
-                variant="outline"
-                disabled={catalog.offset + catalog.limit >= catalog.total}
-                onClick={() =>
-                  router.push(
-                    href({
-                      releaseId: selectedRelease.id,
-                      profileKey,
-                      offset: catalog.offset + catalog.limit
-                    })
-                  )
-                }
-              >
-                Next
-              </Button>
-            </nav>
-          ) : null}
+          {pages("bottom")}
         </>
       )}
     </section>

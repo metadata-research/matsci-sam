@@ -35,8 +35,8 @@ accepting a local proposal does not issue a new MatCore release.
 
 ## Start a metadata field
 
-A community steward or site administrator can open **Workspace tools** and
-select **Enable metadata development**. This adds the field tools without
+A community steward or site administrator can open **Settings**, then
+**Workspace tools**, and select **Enable metadata development**. This adds the field tools without
 requiring a standard or profile. Enabling **MatCore** is a separate choice.
 A site administrator must also install and grant a source version to this
 community. Until then, the catalog is empty and independent metadata fields
@@ -54,9 +54,11 @@ view does not move drafts or change their vocabulary.
 
 ## Propose a change to a MatCore field
 
-Open **Vocabulary**, then choose a **Source version** and **Profile** in the
-MatCore catalog. The catalog shows preserved source entries, including their
-definitions, field rules and attribution. Browsing creates no drafts. The
+Open **Vocabulary**, select **Reference catalog**, then choose a **Source
+version** and **Profile**. Use **Find a field** to search names, paths and
+definitions across the selected version and profile. The catalog shows
+preserved source entries, including their definitions, field rules and
+attribution. Browsing creates no drafts. The
 **Source version** list contains the snapshots installed for this community.
 
 Open a field and select **Propose a change**. This creates one private draft
@@ -65,8 +67,8 @@ select **Continue my draft**. Existing edits are kept. The original source stays
 unchanged when you edit, save or publish your proposal.
 
 In the editor, **Back to source entry** saves pending changes before returning
-to the same version, profile, result page and source entry. If saving fails,
-your writing stays in the editor and **Retry save** is available. The draft
+to the same version, profile, search, result page and source entry. If saving
+fails, your writing stays in the editor and **Retry save** is available. The draft
 also appears under **My work** in the community.
 
 Sign in with an account that can contribute to the community. If your account

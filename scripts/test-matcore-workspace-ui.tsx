@@ -95,9 +95,9 @@ const editor = renderToStaticMarkup(
   />
 )
 assert.match(editor, /Required when the optional creator object is present/)
-assert.match(editor, /required means required when its parent is present/)
-assert.match(editor, /does not mean optional/)
-assert.match(editor, /A list value is a separate choice/)
+assert.match(editor, /aria-label="About field requirements"/)
+assert.match(editor, /aria-label="About repeatable fields"/)
+assert.match(editor, /aria-haspopup="dialog" aria-expanded="false"/)
 assert.match(editor, /<label[^>]*for="field-requirement"/)
 assert.match(editor, /<option value="conditional" selected=""/)
 const summary = renderToStaticMarkup(
@@ -171,7 +171,7 @@ const genericEditor = renderToStaticMarkup(
     onChange={() => {}}
   />
 )
-assert.match(genericEditor, /identifies the field within this vocabulary/)
+assert.match(genericEditor, /aria-label="About field paths"/)
 assert.match(genericEditor, /for="field-requirement"[^>]*>Requirement</)
 assert.doesNotMatch(genericEditor, /MatCore|Common core|Requirement in/)
 const genericSummary = renderToStaticMarkup(

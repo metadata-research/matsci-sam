@@ -38,6 +38,12 @@ export function normalizeMatcoreCatalogReturnTo(
     if (key === "profile" && matcoreProfileSchema.safeParse(parameter).success)
       continue
     if (
+      key === "q" &&
+      parameter.length <= 200 &&
+      !/[\u0000-\u001f\u007f]/.test(parameter)
+    )
+      continue
+    if (
       key === "offset" &&
       /^\d+$/.test(parameter) &&
       Number(parameter) <= 10000
@@ -63,6 +69,7 @@ export function matcoreCatalogHref(
     profileKey?: string
     offset?: number
     source?: string
+    search?: string
   } = {}
 ) {
   if (!slugPattern.test(communitySlug))
@@ -72,6 +79,7 @@ export function matcoreCatalogHref(
   if (options.profileKey) params.set("profile", options.profileKey)
   if (options.offset) params.set("offset", String(options.offset))
   if (options.source) params.set("source", options.source)
+  if (options.search) params.set("q", options.search)
   const href = `/communities/${communitySlug}?${params}`
   if (!normalizeMatcoreCatalogReturnTo(href))
     throw new Error("Invalid catalog context")

@@ -1,10 +1,24 @@
 # Community interface inventory
 
-Reviewed 23 October 2026 on local branch `feat/matcore-workflow`.
-The first delivery—section navigation, compact My work layout and contextual
-return links—is implemented locally. Search/filtering and the other later
-items below remain planned. Implementation and verification are recorded in
+The shared community template now separates browsing, private work and settings.
+Installed catalogs, enabled tools, permissions and available work determine the
+visible controls. Community names and slugs do not select a special layout.
+Catalog search and the changes below follow the October 23 usability review.
+The original observations remain below as a record of that review.
+Implementation and verification are recorded in
 [metadata workflow progress](matcore-workflow-progress.md).
+
+- Overview offers vocabulary browsing and recent private work for its author.
+- My work places saved sections before empty ones, with creation actions in
+  the corresponding term or field section.
+- Catalog communities have separate reference and contribution views. Search
+  covers the selected version and profile before pagination, with page controls
+  above and below results.
+- Settings contains access and workspace controls for authorized managers.
+- The header identifies the saved default community. Visiting a different
+  community does not change that selection.
+- Information popovers provide field and source context on request. Visibility,
+  save status, errors and publication consequences remain visible.
 
 ## Recommendation
 
@@ -18,7 +32,7 @@ compact, and keep workspace configuration separate from routine contribution.
 The same pattern can then serve People, import review, Profile and collection
 detail pages when they contain several sections.
 
-## Evidence and scope
+## Original evidence and scope
 
 The signed-in local MatCore Development **My work** view was inspected in the
 in-app browser as an ordinary member, at 1280 × 720. It contains 248 private
@@ -69,7 +83,6 @@ then has a narrow left navigation column and a full reading column:
 | Term drafts | Saved ordinary-term drafts, or a compact empty state |
 | Term imports, when present | Import batches and their review status |
 | Metadata drafts, when available | Search, filters, result count, pagination and field drafts |
-| Workspace tools, managers only | Collapsed community configuration |
 
 Use “Metadata drafts” for the navigation label while retaining the existing
 `my-field-drafts` target. Avoid separate outline entries for “Metadata fields,”

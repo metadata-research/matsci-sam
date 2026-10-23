@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { InfoPopover } from "@/components/info-popover"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PlusIcon } from "lucide-react"
@@ -189,19 +190,24 @@ export function WorkspaceList({
               Pause after this group
             </Button>
           ) : null}
-          <Link
-            className="text-sm underline underline-offset-4"
-            href="/docs/matcore-workflow"
-          >
-            Field workflow guide
-          </Link>
+          <InfoPopover label="About metadata drafts">
+            <p>
+              Metadata fields define what a value represents and which values
+              are allowed.
+            </p>
+            {workspace.hasMatcoreCatalog ? (
+              <p className="mt-2">
+                Draft proposals do not change the preserved MatCore source.
+              </p>
+            ) : null}
+            <Link
+              className="mt-2 inline-block underline underline-offset-4"
+              href="/docs/matcore-workflow"
+            >
+              Field workflow guide
+            </Link>
+          </InfoPopover>
         </div>
-        {workspace.hasMatcoreCatalog ? (
-          <p className="text-sm text-muted-foreground">
-            The MatCore catalog preserves source versions. These drafts are your
-            private working copies; editing them does not change the source.
-          </p>
-        ) : null}
         {workspace.matcoreEnabled &&
         workspace.metadataEnabled &&
         catalog.release &&

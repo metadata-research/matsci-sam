@@ -5,7 +5,6 @@ import { getCurrentUser } from "@/lib/current-user"
 import { authPathWithReturnTo } from "@/lib/auth-return"
 import { matcoreProfileSchema } from "@/lib/matcore-workflow-types"
 import { WorkspaceList } from "@/components/metadata-workspace/workspace-list"
-import { WorkspaceSettings } from "./workspace-settings"
 import { DraftList } from "@/app/profile/drafts/draft-list"
 import { Button } from "@/components/ui/button"
 import { OnThisPage, type PageSection } from "@/components/on-this-page"
@@ -82,44 +81,22 @@ export async function CommunityWork({
       : []),
     ...(showMetadata
       ? [{ id: "my-field-drafts", label: "Metadata drafts" }]
-      : []),
-    ...(workspace.canManage
-      ? [{ id: "workspace-tools", label: "Workspace tools" }]
       : [])
   ]
+  const hasWork: Record<string, boolean> = {
+    "term-drafts": ownDrafts.length > 0,
+    "term-imports": ownImports.length > 0,
+    "my-field-drafts": fields.total > 0
+  }
+  sections.sort((a, b) => Number(hasWork[b.id]) - Number(hasWork[a.id]))
   return (
     <section className="flex flex-col gap-5">
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-semibold">My work</h2>
-          {destination?.canContribute ? (
-            <div className="flex flex-wrap gap-2">
-              <Button asChild>
-                <Link
-                  href={withCommunityWorkReturn(
-                    `/add?vocabularySlug=${encodeURIComponent(vocabularySlug)}`,
-                    `${returnPath}#term-drafts`
-                  )}
-                >
-                  Define a term
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link
-                  href={withCommunityWorkReturn(
-                    `/setup?${params}`,
-                    `${returnPath}#term-imports`
-                  )}
-                >
-                  Import terms
-                </Link>
-              </Button>
-            </div>
-          ) : null}
         </div>
         <p className="text-sm text-muted-foreground">
-          Your private drafts and imports for this vocabulary. Other community
-          members cannot see them.
+          Your drafts are private until published.
         </p>
         {!destination?.canContribute ? (
           <p className="text-sm text-muted-foreground">
@@ -129,84 +106,115 @@ export async function CommunityWork({
         ) : null}
       </header>
       <OnThisPage sections={sections}>
-        <section className="flex flex-col gap-2" aria-labelledby="term-drafts">
-          <h3
-            id="term-drafts"
-            tabIndex={-1}
-            data-section-target
-            className="text-lg font-semibold"
-          >
-            My term drafts
-          </h3>
-          <DraftList
-            key={`${user.id}:${vocabularySlug}`}
-            drafts={ownDrafts}
-            compact
-            returnTo={`${returnPath}#term-drafts`}
-          />
-        </section>
-        {ownImports.length ? (
-          <section
-            className="flex flex-col gap-3"
-            aria-labelledby="term-imports"
-          >
-            <h3
-              id="term-imports"
-              tabIndex={-1}
-              data-section-target
-              className="text-lg font-semibold"
-            >
-              My term imports
-            </h3>
-            {ownImports.map((batch) => (
-              <div
-                key={batch.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
+        {sections.map((section) => {
+          if (section.id === "term-drafts")
+            return (
+              <section
+                key="term-drafts"
+                className="flex flex-col gap-2"
+                aria-labelledby="term-drafts"
               >
-                <div>
-                  <p className="font-medium">{batch.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {batch.counts.needsReview} need review ·{" "}
-                    {batch.counts.ready} ready · {batch.counts.published}{" "}
-                    published
-                  </p>
-                </div>
-                <Button asChild variant="outline">
-                  <Link
-                    href={withCommunityWorkReturn(
-                      `/profile/drafts/imports/${batch.id}`,
-                      `${returnPath}#term-imports`
-                    )}
+                <h3
+                  id="term-drafts"
+                  tabIndex={-1}
+                  data-section-target
+                  className="text-lg font-semibold"
+                >
+                  My term drafts
+                </h3>
+                {destination?.canContribute ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild>
+                      <Link
+                        href={withCommunityWorkReturn(
+                          `/add?vocabularySlug=${encodeURIComponent(vocabularySlug)}`,
+                          `${returnPath}#term-drafts`
+                        )}
+                      >
+                        Define a term
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link
+                        href={withCommunityWorkReturn(
+                          `/setup?${params}`,
+                          `${returnPath}#term-imports`
+                        )}
+                      >
+                        Import terms
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
+                <DraftList
+                  key={`${user.id}:${vocabularySlug}`}
+                  drafts={ownDrafts}
+                  compact
+                  returnTo={`${returnPath}#term-drafts`}
+                />
+              </section>
+            )
+          if (section.id === "term-imports")
+            return (
+              <section
+                key="term-imports"
+                className="flex flex-col gap-3"
+                aria-labelledby="term-imports"
+              >
+                <h3
+                  id="term-imports"
+                  tabIndex={-1}
+                  data-section-target
+                  className="text-lg font-semibold"
+                >
+                  My term imports
+                </h3>
+                {ownImports.map((batch) => (
+                  <div
+                    key={batch.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
                   >
-                    Review import
-                  </Link>
-                </Button>
-              </div>
-            ))}
-          </section>
-        ) : null}
-        {showMetadata && catalog ? (
-          <WorkspaceList
-            key={`${user.id}:${vocabularySlug}:${profileKey ?? ""}:${offset}:${workspace.metadataEnabled}:${workspace.matcoreEnabled}`}
-            ownerId={user.id}
-            options={{
-              ...options,
-              vocabularies: destination ? [destination] : []
-            }}
-            workspace={workspace}
-            workPath={workPath}
-            returnTo={`${returnPath}#my-field-drafts`}
-            catalog={catalog}
-            result={fields}
-            vocabularySlug={vocabularySlug}
-            profileKey={profileKey}
-            offset={offset}
-          />
-        ) : null}
-        <WorkspaceSettings
-          key={`${user.id}:${vocabularySlug}:${workspace.metadataEnabled}:${workspace.matcoreEnabled}`}
-          workspace={workspace}
-        />
+                    <div>
+                      <p className="font-medium">{batch.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {batch.counts.needsReview} need review ·{" "}
+                        {batch.counts.ready} ready · {batch.counts.published}{" "}
+                        published
+                      </p>
+                    </div>
+                    <Button asChild variant="outline">
+                      <Link
+                        href={withCommunityWorkReturn(
+                          `/profile/drafts/imports/${batch.id}`,
+                          `${returnPath}#term-imports`
+                        )}
+                      >
+                        Review import
+                      </Link>
+                    </Button>
+                  </div>
+                ))}
+              </section>
+            )
+          return catalog ? (
+            <WorkspaceList
+              key={`${user.id}:${vocabularySlug}:${profileKey ?? ""}:${offset}:${workspace.metadataEnabled}:${workspace.matcoreEnabled}`}
+              ownerId={user.id}
+              options={{
+                ...options,
+                vocabularies: destination ? [destination] : []
+              }}
+              workspace={workspace}
+              workPath={workPath}
+              returnTo={`${returnPath}#my-field-drafts`}
+              catalog={catalog}
+              result={fields}
+              vocabularySlug={vocabularySlug}
+              profileKey={profileKey}
+              offset={offset}
+            />
+          ) : null
+        })}
       </OnThisPage>
     </section>
   )
