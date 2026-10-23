@@ -10,7 +10,6 @@ import {
   useTransition,
   type SetStateAction
 } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
@@ -18,6 +17,9 @@ import type { TermDraftPayload } from "@/lib/term-draft-types"
 import { TermDraftSaveQueue } from "@/lib/term-draft-save-queue"
 import { compactTermDraftPayload } from "@/lib/term-draft-persistence"
 import { Button } from "@/components/ui/button"
+import type { WorkReturnLink } from "@/lib/community-work-return"
+import { normalizeCommunityWorkReturnTo } from "@/lib/community-work-return"
+import { CommunityWorkReturnLink } from "@/components/community-work-return-link"
 
 export type SavedTermDraft = RouterOutput["termDrafts"]["get"]
 const meaningful = (p: TermDraftPayload) =>
@@ -175,9 +177,15 @@ export function useTermDraft({
       navigating = true
       void queue
         .flush()
-        .then(() =>
-          router.push(`${target.pathname}${target.search}${target.hash}`)
-        )
+        .then(() => {
+          const href = `${target.pathname}${target.search}${target.hash}`
+          if (
+            anchor.dataset.draftNavigation === "document" &&
+            normalizeCommunityWorkReturnTo(href)
+          )
+            window.location.assign(href)
+          else router.push(href)
+        })
         .catch(() => {})
         .finally(() => {
           navigating = false
@@ -278,7 +286,13 @@ export function useTermDraft({
 
 export type TermDraftController = ReturnType<typeof useTermDraft>
 
-export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
+export function DraftSaveStatus({
+  draft,
+  returnLink = { href: "/profile/drafts", label: "My drafts" }
+}: {
+  draft: TermDraftController
+  returnLink?: WorkReturnLink
+}) {
   const router = useRouter()
   const [openingDrafts, startNavigation] = useTransition()
   const mounted = useRef(false)
@@ -308,7 +322,9 @@ export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
               : draft.error
                 ? message
                 : openingDrafts
-                  ? "Opening My drafts…"
+                  ? returnLink.href.startsWith("/communities/")
+                    ? "Opening My work…"
+                    : "Opening My drafts…"
                   : draft.status === "saving"
                     ? "Saving draft…"
                     : draft.status === "unsaved"
@@ -353,8 +369,8 @@ export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
           {warning}
         </p>
       ))}
-      <Link
-        href="/profile/drafts"
+      <CommunityWorkReturnLink
+        href={returnLink.href}
         className="self-start underline"
         data-draft-navigation="handled"
         aria-busy={openingDrafts}
@@ -375,8 +391,11 @@ export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
           startNavigation(async () => {
             try {
               await draft.flush()
-              if (mounted.current)
-                startNavigation(() => router.push("/profile/drafts"))
+              if (mounted.current) {
+                if (normalizeCommunityWorkReturnTo(returnLink.href))
+                  window.location.assign(returnLink.href)
+                else startNavigation(() => router.push(returnLink.href))
+              }
             } catch {
               /* The save status explains why navigation paused. */
             } finally {
@@ -385,8 +404,8 @@ export function DraftSaveStatus({ draft }: { draft: TermDraftController }) {
           })
         }}
       >
-        My drafts
-      </Link>
+        {returnLink.label}
+      </CommunityWorkReturnLink>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { SITE_NAME } from "@/lib/site"
@@ -33,7 +34,10 @@ export default async function CollectionsPage({
   // A per-request override that persists nothing, so it never disagrees with
   // the standing choice in the account menu.
   const active = scope === "all" ? null : await getActiveCommunity()
-  const collections = await collectionsWithCounts({ communityId: active?.id })
+  const collections = await collectionsWithCounts({
+    communityId: active?.id,
+    viewerId: await currentContentViewer()
+  })
   const user = await getCurrentUser()
   const canCreate = mayCreateCollection(user ?? null)
 

@@ -1,3 +1,5 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import "server-only"
 
 import {
@@ -45,7 +47,15 @@ export const findVocabulary = cache(
         communitiesTable,
         eq(communitiesTable.vocabularySlug, vocabulariesTable.slug)
       )
-      .where(eq(vocabulariesTable.slug, slug))
+      .where(
+        and(
+          eq(vocabulariesTable.slug, slug),
+          vocabularyContentVisible(
+            vocabulariesTable.slug,
+            await currentContentViewer()
+          )
+        )
+      )
       .limit(1)
 
     if (!row) return null
@@ -96,6 +106,10 @@ export const findVocabularyTerm = cache(
       .where(
         and(
           eq(termsTable.vocabularySlug, vocabularySlug),
+          vocabularyContentVisible(
+            termsTable.vocabularySlug,
+            await currentContentViewer()
+          ),
           eq(termsTable.slug, termSlug)
         )
       )
@@ -127,7 +141,11 @@ export const findTermRouteAlias = cache(
       .where(
         and(
           eq(termRouteAliasesTable.vocabularySlug, vocabularySlug),
-          eq(termRouteAliasesTable.termSlug, termSlug)
+          eq(termRouteAliasesTable.termSlug, termSlug),
+          vocabularyContentVisible(
+            termsTable.vocabularySlug,
+            await currentContentViewer()
+          )
         )
       )
       .limit(1)
@@ -157,7 +175,16 @@ export const vocabularyTerms = cache(async (vocabularySlug: string) =>
     })
     .from(termsTable)
     .leftJoin(definitionsTable, eq(definitionsTable.termId, termsTable.id))
-    .where(and(termIsListed(), eq(termsTable.vocabularySlug, vocabularySlug)))
+    .where(
+      and(
+        termIsListed(),
+        eq(termsTable.vocabularySlug, vocabularySlug),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        )
+      )
+    )
     .groupBy(termsTable.id)
     .orderBy(asc(sql`lower(btrim(${termsTable.term}))`))
 )
@@ -205,6 +232,10 @@ export const vocabularyReferences = cache(async (vocabularySlug: string) =>
     .where(
       and(
         termIsListed(),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        ),
         eq(communitiesTable.vocabularySlug, vocabularySlug),
         ne(termsTable.vocabularySlug, vocabularySlug)
       )
@@ -231,7 +262,15 @@ const vocabularyCatalog = cache(async (includeDefault: boolean) =>
       termsTable,
       and(eq(termsTable.vocabularySlug, vocabulariesTable.slug), termIsListed())
     )
-    .where(includeDefault ? undefined : eq(vocabulariesTable.isDefault, false))
+    .where(
+      and(
+        vocabularyContentVisible(
+          vocabulariesTable.slug,
+          await currentContentViewer()
+        ),
+        includeDefault ? undefined : eq(vocabulariesTable.isDefault, false)
+      )
+    )
     .groupBy(vocabulariesTable.slug)
     .orderBy(
       asc(sql`lower(btrim(${vocabulariesTable.title}))`),

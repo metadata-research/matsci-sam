@@ -29,27 +29,34 @@ export const CommunitySwitcher = ({
   active: { id: number } | null
   memberships: { id: number; title: string }[]
 }) => {
-  const { mutate: setActive } = trpc.communities.setActive.useMutation({
-    onSuccess: () => window.location.reload(),
-    onError: (error) => toast.error(error.message)
-  })
+  const { mutate: setActive, isPending } =
+    trpc.communities.setActive.useMutation({
+      onSuccess: () => window.location.reload(),
+      onError: (error) => toast.error(error.message)
+    })
 
   if (memberships.length === 0) return null
 
   return (
     <>
-      <DropdownMenuLabel>Working in</DropdownMenuLabel>
+      <DropdownMenuLabel>Community context</DropdownMenuLabel>
+      <p className="max-w-64 px-2 pb-2 text-xs text-muted-foreground">
+        Default for browsing and new contributions.
+      </p>
       <DropdownMenuRadioGroup
         value={String(active?.id ?? "all")}
         onValueChange={(value) =>
           setActive({ communityId: value === "all" ? null : Number(value) })
         }
       >
-        <DropdownMenuRadioItem value="all">Everything</DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="all" disabled={isPending}>
+          Everything
+        </DropdownMenuRadioItem>
         {memberships.map((community) => (
           <DropdownMenuRadioItem
             key={community.id}
             value={String(community.id)}
+            disabled={isPending}
           >
             {community.title}
           </DropdownMenuRadioItem>

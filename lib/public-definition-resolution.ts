@@ -1,3 +1,5 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import {
   currentDefinitionRevision,
   publicDefinitionAuthor,
@@ -46,6 +48,10 @@ export const findDefinitionByPublicNumber = cache(
       .where(
         and(
           eq(termsTable.slug, termSlug),
+          vocabularyContentVisible(
+            termsTable.vocabularySlug,
+            await currentContentViewer()
+          ),
           eq(termsTable.vocabularySlug, vocabularySlug),
           eq(definitionsTable.definitionNumber, definitionNumber)
         )
@@ -82,6 +88,10 @@ export const findDefinitionRevisionByPublicNumber = cache(
       .where(
         and(
           eq(termsTable.slug, termSlug),
+          vocabularyContentVisible(
+            termsTable.vocabularySlug,
+            await currentContentViewer()
+          ),
           eq(termsTable.vocabularySlug, vocabularySlug),
           eq(definitionsTable.definitionNumber, definitionNumber),
           eq(definitionRevisionsTable.version, version)
@@ -109,7 +119,15 @@ export const findDefinitionPublicIdentity = cache(
       })
       .from(definitionsTable)
       .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-      .where(eq(definitionsTable.id, definitionId))
+      .where(
+        and(
+          eq(definitionsTable.id, definitionId),
+          vocabularyContentVisible(
+            termsTable.vocabularySlug,
+            await currentContentViewer()
+          )
+        )
+      )
       .limit(1)
 
     return definition
@@ -142,6 +160,10 @@ export async function findDefinitionAtRank(
     .where(
       and(
         eq(termsTable.slug, termSlug),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        ),
         eq(termsTable.vocabularySlug, vocabularySlug)
       )
     )

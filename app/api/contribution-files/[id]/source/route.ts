@@ -34,7 +34,10 @@ function failure(error: unknown) {
           ? error.message
           : "The source could not be read. Please try again."
     },
-    { status, headers: { "Cache-Control": "private, no-store" } }
+    {
+      status,
+      headers: { "Cache-Control": "private, no-store", Vary: "Cookie" }
+    }
   )
 }
 export async function GET(request: Request, context: Context) {
@@ -47,7 +50,7 @@ export async function GET(request: Request, context: Context) {
   try {
     return Response.json(
       await inspectSourceDocument(id, (await getSession()).id, checkId),
-      { headers: { "Cache-Control": "private, no-store" } }
+      { headers: { "Cache-Control": "private, no-store", Vary: "Cookie" } }
     )
   } catch (error) {
     return failure(error)
@@ -96,7 +99,7 @@ export async function POST(request: Request, context: Context) {
               aliases: input.aliases
             })
     return Response.json(result, {
-      headers: { "Cache-Control": "private, no-store" }
+      headers: { "Cache-Control": "private, no-store", Vary: "Cookie" }
     })
   } catch (error) {
     return failure(error)

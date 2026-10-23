@@ -16,6 +16,7 @@ import {
 import { authPathWithReturnTo } from "@/lib/auth-return"
 import { formatDateTime } from "@/lib/date"
 import { trpc } from "@/trpc/client"
+import { withCommunityWorkReturn } from "@/lib/community-work-return"
 
 export type DraftListItem = {
   id: string
@@ -30,7 +31,15 @@ export type DraftListItem = {
 
 const draftName = (draft: DraftListItem) => draft.term.trim() || "Untitled term"
 
-export function DraftList({ drafts }: { drafts: DraftListItem[] | null }) {
+export function DraftList({
+  drafts,
+  returnTo,
+  compact = false
+}: {
+  drafts: DraftListItem[] | null
+  returnTo?: string
+  compact?: boolean
+}) {
   const router = useRouter()
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
@@ -84,7 +93,12 @@ export function DraftList({ drafts }: { drafts: DraftListItem[] | null }) {
         <AlertDescription>
           <p>Sign in to open the drafts saved to your account.</p>
           <Button asChild variant="outline">
-            <Link href={authPathWithReturnTo("/login", "/profile/drafts")}>
+            <Link
+              href={authPathWithReturnTo(
+                "/login",
+                returnTo ?? "/profile/drafts"
+              )}
+            >
               Sign in
             </Link>
           </Button>
@@ -138,7 +152,12 @@ export function DraftList({ drafts }: { drafts: DraftListItem[] | null }) {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button asChild size="sm">
-                  <Link href={`/add?draftId=${encodeURIComponent(draft.id)}`}>
+                  <Link
+                    href={withCommunityWorkReturn(
+                      `/add?draftId=${encodeURIComponent(draft.id)}`,
+                      returnTo
+                    )}
+                  >
                     Resume
                     <span className="sr-only"> {draftName(draft)}</span>
                   </Link>
@@ -161,6 +180,10 @@ export function DraftList({ drafts }: { drafts: DraftListItem[] | null }) {
             </li>
           ))}
         </ul>
+      ) : compact ? (
+        <p className="text-sm text-muted-foreground">
+          No saved term drafts yet.
+        </p>
       ) : (
         <div className="space-y-2 rounded-lg border bg-card p-6">
           <p className="font-medium">No saved drafts yet.</p>

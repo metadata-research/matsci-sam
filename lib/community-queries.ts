@@ -18,6 +18,11 @@ import { getCurrentUser } from "@/lib/current-user"
 import { invitationOutcome, type InvitationOutcome } from "@/lib/communities"
 import { studyInstructions } from "@/lib/study-protocol"
 import { listedTermId } from "@/lib/term-visibility"
+import {
+  vocabularyContentVisible,
+  collectionContentVisible,
+  readableTermId
+} from "@/lib/community-access"
 
 export type InvitationView = {
   // A link addressed to one person, or the open join link of a community.
@@ -41,6 +46,7 @@ export type InvitationView = {
     slug: string
     title: string
     description: string | null
+    visibility: "public" | "members"
     retiredAt: string | null
   }
   // The address the invitation was sent to, shown back so the person can tell
@@ -48,14 +54,17 @@ export type InvitationView = {
   email: string | null
 }
 
-const communityColumns = {
+const communityColumns = (viewerId: number | null) => ({
   id: communitiesTable.id,
   slug: communitiesTable.slug,
   vocabularySlug: communitiesTable.vocabularySlug,
   title: communitiesTable.title,
-  description: communitiesTable.description,
+  visibility: communitiesTable.visibility,
+  description: sql<
+    string | null
+  >`CASE WHEN ${vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId)} THEN ${communitiesTable.description} ELSE NULL END`,
   retiredAt: communitiesTable.retiredAt
-}
+})
 
 /*
  * Resolve a link. A per-person invitation is found by the digest of the token,
@@ -66,7 +75,8 @@ const communityColumns = {
  * link does not have to know which kind they were given.
  */
 export const invitationForToken = async (
-  token: string
+  token: string,
+  viewerId: number | null = null
 ): Promise<InvitationView | null> => {
   const [invitation] = await db
     .select({
@@ -74,7 +84,8 @@ export const invitationForToken = async (
       expiresAt: communityInvitationsTable.expiresAt,
       revokedAt: communityInvitationsTable.revokedAt,
       redeemedAt: communityInvitationsTable.redeemedAt,
-      community: communityColumns,
+      community: communityColumns(viewerId),
+      canRead: sql<boolean>`${vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId)}`,
       study: {
         slug: studiesTable.slug,
         title: studiesTable.title,
@@ -108,6 +119,7 @@ export const invitationForToken = async (
     // rebuilt under that guard rather than asserted.
     const joined = invitation.study
     const study =
+      invitation.canRead &&
       joined &&
       joined.slug !== null &&
       joined.title !== null &&
@@ -135,7 +147,7 @@ export const invitationForToken = async (
   }
 
   const [open] = await db
-    .select(communityColumns)
+    .select(communityColumns(viewerId))
     .from(communitiesTable)
     .where(eq(communitiesTable.joinToken, token))
     .limit(1)
@@ -256,18 +268,30 @@ const liveCollections = sql<number>`cast(count(distinct ${communityCollectionsTa
  * the joins inner and drop every community with an empty roster or worklist.
  */
 export const communitiesWithCounts = async ({
-  includeRetired = false
-}: { includeRetired?: boolean } = {}) =>
+  includeRetired = false,
+  viewerId = null
+}: { includeRetired?: boolean; viewerId?: number | null } = {}) =>
   db
     .select({
       id: communitiesTable.id,
       slug: communitiesTable.slug,
       vocabularySlug: communitiesTable.vocabularySlug,
       title: communitiesTable.title,
-      description: communitiesTable.description,
+      description: sql<
+        string | null
+      >`CASE WHEN ${vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId)} THEN ${communitiesTable.description} ELSE NULL END`,
+      visibility: communitiesTable.visibility,
+      canRead: vocabularyContentVisible(
+        communitiesTable.vocabularySlug,
+        viewerId
+      ).mapWith(Boolean),
       retiredAt: communitiesTable.retiredAt,
-      people: livePeople,
-      collections: liveCollections
+      people: sql<
+        number | null
+      >`CASE WHEN ${vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId)} THEN ${livePeople} ELSE NULL END`,
+      collections: sql<
+        number | null
+      >`CASE WHEN ${vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId)} THEN ${liveCollections} ELSE NULL END`
     })
     .from(communitiesTable)
     .leftJoin(
@@ -281,7 +305,11 @@ export const communitiesWithCounts = async ({
       communityCollectionsTable,
       and(
         eq(communityCollectionsTable.communityId, communitiesTable.id),
-        isNull(communityCollectionsTable.removedAt)
+        isNull(communityCollectionsTable.removedAt),
+        collectionContentVisible(
+          communityCollectionsTable.collectionId,
+          viewerId
+        )
       )
     )
     .where(includeRetired ? undefined : isNull(communitiesTable.retiredAt))
@@ -328,18 +356,35 @@ export const communityWorklistsForCollection = async (
             isNull(communityMembersTable.removedAt)
           )
     )
+    .where(
+      and(
+        vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId),
+        collectionContentVisible(sql`${collectionId}`, viewerId)
+      )
+    )
     .orderBy(asc(sql`lower(btrim(${communitiesTable.title}))`))
 
-export const communityBySlug = async (slug: string) => {
+export const communityBySlug = async (
+  slug: string,
+  viewerId: number | null = null
+) => {
   const [row] = await db
     .select({
       id: communitiesTable.id,
       slug: communitiesTable.slug,
       vocabularySlug: communitiesTable.vocabularySlug,
       title: communitiesTable.title,
-      description: communitiesTable.description,
+      description: sql<
+        string | null
+      >`CASE WHEN ${vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId)} THEN ${communitiesTable.description} ELSE NULL END`,
+      visibility: communitiesTable.visibility,
       retiredAt: communitiesTable.retiredAt,
-      joinToken: communitiesTable.joinToken
+      joinToken: sql<
+        string | null
+      >`CASE WHEN ${viewerId}::integer IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM ${usersTable} AS runner WHERE runner.id = ${viewerId} AND runner.role = 'admin') OR
+        EXISTS (SELECT 1 FROM ${communityMembersTable} AS runner_membership WHERE runner_membership."communityId" = "communities"."id" AND runner_membership."userId" = ${viewerId} AND runner_membership.role = 'steward' AND runner_membership."removedAt" IS NULL)
+      ) THEN ${communitiesTable.joinToken} ELSE NULL END`
     })
     .from(communitiesTable)
     .where(eq(communitiesTable.slug, slug))
@@ -391,7 +436,10 @@ export const lockMembershipIn = async (
   return row ?? null
 }
 
-export const communityRoster = async (communityId: number) =>
+export const communityRoster = async (
+  communityId: number,
+  viewerId: number | null = null
+) =>
   db
     .select({
       userId: usersTable.id,
@@ -405,7 +453,8 @@ export const communityRoster = async (communityId: number) =>
     .where(
       and(
         eq(communityMembersTable.communityId, communityId),
-        isNull(communityMembersTable.removedAt)
+        isNull(communityMembersTable.removedAt),
+        sql`EXISTS (SELECT 1 FROM ${communitiesTable} AS roster_community WHERE roster_community.id = ${communityId} AND ${vocabularyContentVisible(sql`roster_community."vocabularySlug"`, viewerId)})`
       )
     )
     .orderBy(asc(sql`lower(btrim(coalesce(${usersTable.name}, '')))`))
@@ -413,7 +462,10 @@ export const communityRoster = async (communityId: number) =>
 // A worklist entry may name a collection that has since been retired, because
 // retiring a collection does not touch the communities working on it. The
 // retired flag comes back so the page can say so.
-export const communityWorklist = async (communityId: number) =>
+export const communityWorklist = async (
+  communityId: number,
+  viewerId: number | null = null
+) =>
   db
     .select({
       id: collectionsTable.id,
@@ -437,6 +489,7 @@ export const communityWorklist = async (communityId: number) =>
           and s.predicate = 'skos:member'
           and s."retractedAt" is null
           and ${listedTermId(sql`s."objectTermId"`)}
+          and ${readableTermId(sql`s."objectTermId"`, viewerId)}
       )`
     })
     .from(communityCollectionsTable)
@@ -447,14 +500,19 @@ export const communityWorklist = async (communityId: number) =>
     .where(
       and(
         eq(communityCollectionsTable.communityId, communityId),
-        isNull(communityCollectionsTable.removedAt)
+        isNull(communityCollectionsTable.removedAt),
+        collectionContentVisible(collectionsTable.id, viewerId),
+        sql`EXISTS (SELECT 1 FROM ${communitiesTable} AS work_community WHERE work_community.id = ${communityId} AND ${vocabularyContentVisible(sql`work_community."vocabularySlug"`, viewerId)})`
       )
     )
     .orderBy(asc(sql`lower(btrim(${collectionsTable.title}))`))
 
 // Invitations, newest first, each labeled with the study it opens when it is
 // a participant invitation. No token and no digest leaves this function.
-export const communityInvitations = async (communityId: number) =>
+export const communityInvitations = async (
+  communityId: number,
+  viewerId: number | null = null
+) =>
   db
     .select({
       id: communityInvitationsTable.id,
@@ -472,5 +530,13 @@ export const communityInvitations = async (communityId: number) =>
       studiesTable,
       eq(studiesTable.id, communityInvitationsTable.studyId)
     )
-    .where(eq(communityInvitationsTable.communityId, communityId))
+    .where(
+      and(
+        eq(communityInvitationsTable.communityId, communityId),
+        sql`${viewerId}::integer IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM ${usersTable} AS runner WHERE runner.id = ${viewerId} AND runner.role = 'admin') OR
+      EXISTS (SELECT 1 FROM ${communityMembersTable} AS runner_membership WHERE runner_membership."communityId" = ${communityId} AND runner_membership."userId" = ${viewerId} AND runner_membership.role = 'steward' AND runner_membership."removedAt" IS NULL)
+    )`
+      )
+    )
     .orderBy(desc(communityInvitationsTable.createdAt))

@@ -1,3 +1,10 @@
+import { participationContentVisible } from "@/lib/content-access"
+import {
+  requireDefinitionContent,
+  requireRevisionContent,
+  readableStudyId
+} from "@/lib/content-access"
+import { readableTermId, requireTermContent } from "@/lib/community-access"
 import {
   publicDeclaredSource,
   publicImportOrigin
@@ -175,6 +182,10 @@ export const definitionsRouter = createTRPCRouter({
         )
     )
     .mutation(async ({ ctx: { userId: authorId }, input }) => {
+      if (input.derivedFromRevisionId)
+        await requireRevisionContent(db, input.derivedFromRevisionId, authorId)
+      if (input.replacesDefinitionId)
+        await requireDefinitionContent(db, input.replacesDefinitionId, authorId)
       if (
         input.surveyStepId !== undefined &&
         input.expectedInstructions === undefined
@@ -312,6 +323,20 @@ export const definitionsRouter = createTRPCRouter({
       let written
       try {
         written = await db.transaction(async (tx) => {
+          if (input.derivedFromRevisionId)
+            await requireRevisionContent(
+              tx,
+              input.derivedFromRevisionId,
+              authorId,
+              { lock: true }
+            )
+          if (input.replacesDefinitionId)
+            await requireDefinitionContent(
+              tx,
+              input.replacesDefinitionId,
+              authorId,
+              { lock: true }
+            )
           await lockContributionSubmissions(tx, authorId)
           if (input.vocabularySlug)
             await requireSetupVocabularyForContribution(
@@ -743,7 +768,8 @@ export const definitionsRouter = createTRPCRouter({
   // explicitly published revision.
   currentVersion: baseProcedure
     .input(z.number())
-    .query(async ({ input: definitionId }) => {
+    .query(async ({ ctx: { userId }, input: definitionId }) => {
+      await requireDefinitionContent(db, definitionId, userId ?? null)
       const [row] = await db
         .select({ version: definitionRevisionsTable.version })
         .from(definitionsTable)
@@ -775,8 +801,10 @@ export const definitionsRouter = createTRPCRouter({
         ctx: { userId },
         input: { id, definition, changeNote, expectedRevisionId, references }
       }) => {
+        await requireDefinitionContent(db, id, userId)
         try {
           const result = await db.transaction(async (tx) => {
+            await requireDefinitionContent(tx, id, userId, { lock: true })
             const owned = await tx.query.definitionsTable.findFirst({
               columns: { id: true, example: true },
               where: and(
@@ -848,8 +876,12 @@ export const definitionsRouter = createTRPCRouter({
         ctx: { userId },
         input: { definitionId, revisionId, expectedRevisionId, changeNote }
       }) => {
+        await requireDefinitionContent(db, definitionId, userId)
         try {
           const result = await db.transaction(async (tx) => {
+            await requireDefinitionContent(tx, definitionId, userId, {
+              lock: true
+            })
             const definition = await tx.query.definitionsTable.findFirst({
               columns: { id: true, example: true },
               where: and(
@@ -916,6 +948,7 @@ export const definitionsRouter = createTRPCRouter({
       z.object({ definitionId: z.number(), version: z.number().optional() })
     )
     .query(async ({ ctx: { userId }, input: { definitionId, version } }) => {
+      await requireDefinitionContent(db, definitionId, userId ?? null)
       const [def] = await db
         .select({
           ...getTableColumns(definitionsTable),
@@ -1003,6 +1036,7 @@ export const definitionsRouter = createTRPCRouter({
           vocabularySlug: def.termVocabularySlug
         },
         selectedRevision,
+        viewerId: userId ?? null,
         revisions
       })
 
@@ -1098,8 +1132,8 @@ export const definitionsRouter = createTRPCRouter({
 
       const [references, attachments, importOrigins, manualCitations] =
         await Promise.all([
-          revisionReferencesQuery([selectedRevision.id]),
-          revisionContributionFiles([selectedRevision.id]),
+          revisionReferencesQuery([selectedRevision.id], db, userId ?? null),
+          revisionContributionFiles([selectedRevision.id], db, userId ?? null),
           db
             .select()
             .from(revisionImportOriginsTable)
@@ -1186,13 +1220,21 @@ export const definitionsRouter = createTRPCRouter({
       }
     }),
   mine: authenticatedProcedure.query(async ({ ctx: { userId } }) => {
-    const definitionsQuery = db.query.definitionsTable.findMany({
-      where: eq(definitionsTable.authorId, userId),
-      with: { term: true },
-      orderBy: desc(definitionsTable.createdAt)
-    })
-
-    return await definitionsQuery
+    const rows = await db
+      .select({
+        definition: getTableColumns(definitionsTable),
+        term: getTableColumns(termsTable)
+      })
+      .from(definitionsTable)
+      .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
+      .where(
+        and(
+          eq(definitionsTable.authorId, userId),
+          readableTermId(definitionsTable.termId, userId)
+        )
+      )
+      .orderBy(desc(definitionsTable.createdAt))
+    return rows.map(({ definition, term }) => ({ ...definition, term }))
   }),
   list: baseProcedure
     .input(
@@ -1207,13 +1249,25 @@ export const definitionsRouter = createTRPCRouter({
         ctx: { userId },
         input: { termId, surveyStepId, includeExcluded }
       }) => {
+        await requireTermContent(db, termId, userId ?? null)
         const step =
           surveyStepId === undefined
             ? null
-            : await db.query.surveyStepsTable.findFirst({
-                columns: { studyId: true, termId: true },
-                where: eq(surveyStepsTable.id, surveyStepId)
-              })
+            : (
+                await db
+                  .select({
+                    studyId: surveyStepsTable.studyId,
+                    termId: surveyStepsTable.termId
+                  })
+                  .from(surveyStepsTable)
+                  .where(
+                    and(
+                      eq(surveyStepsTable.id, surveyStepId),
+                      readableStudyId(surveyStepsTable.studyId, userId ?? null)
+                    )
+                  )
+                  .limit(1)
+              )[0]
         if (surveyStepId !== undefined && (!step || step.termId !== termId))
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -1234,7 +1288,7 @@ export const definitionsRouter = createTRPCRouter({
             authorProfilePublic: usersTable.isProfilePublic,
             authorModelSlug: aiModelsTable.slug,
             comments:
-              sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
+              sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id} AND ${participationContentVisible(commentsTable.surveyStepId, userId ?? null)})`
                 .mapWith(Number)
                 .as("comments"),
             vote: userId

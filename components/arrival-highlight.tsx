@@ -1,6 +1,6 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect } from "react"
 
 const ARRIVED = "data-arrived"
@@ -32,6 +32,7 @@ const regionFor = (target: HTMLElement) =>
  */
 export function ArrivalHighlight() {
   const pathname = usePathname()
+  const search = useSearchParams().toString()
   useEffect(() => {
     let frame = 0
     let timer = 0
@@ -47,6 +48,16 @@ export function ArrivalHighlight() {
       const started = performance.now()
       const attempt = () => {
         const target = document.getElementById(id)
+        // Only explicitly registered section targets opt into focus/reveal.
+        // Ordinary reference and documentation highlights retain their behavior.
+        const sectionTarget = target?.hasAttribute("data-section-target")
+        if (target && sectionTarget) {
+          let ancestor = target.parentElement
+          while (ancestor) {
+            if (ancestor instanceof HTMLDetailsElement) ancestor.open = true
+            ancestor = ancestor.parentElement
+          }
+        }
         if (!target?.checkVisibility()) {
           if (performance.now() - started < WAIT_MS)
             frame = requestAnimationFrame(attempt)
@@ -65,6 +76,11 @@ export function ArrivalHighlight() {
         marked = region
         markedAt = now
         timer = window.setTimeout(clear, MARK_MS + 100)
+        if (sectionTarget) {
+          target.scrollIntoView({ block: "start", behavior: "instant" })
+          target.focus({ preventScroll: true })
+          return
+        }
         // A heading lands at the top of the window, above which its section
         // begins. Show the whole mark.
         const top = region.getBoundingClientRect().top
@@ -102,6 +118,6 @@ export function ArrivalHighlight() {
       window.clearTimeout(timer)
       clear()
     }
-  }, [pathname])
+  }, [pathname, search])
   return null
 }

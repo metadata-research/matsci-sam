@@ -13,6 +13,7 @@ import { ViewPreferenceProvider } from "@/components/interface-view"
 import { INTERFACE_VIEW_COOKIE, parseInterfaceView } from "@/lib/interface-view"
 import localFont from "next/font/local"
 import { cookies } from "next/headers"
+import { Suspense } from "react"
 
 // One designed family across roles: Plex Sans for body, headings and UI,
 // Plex Serif for term headwords only, Plex Mono for model names, prompt keys,
@@ -87,7 +88,9 @@ export default async function RootLayout({
               <ViewPreferenceProvider initialView={initialView}>
                 {children}
               </ViewPreferenceProvider>
-              <ArrivalHighlight />
+              <Suspense fallback={null}>
+                <ArrivalHighlight />
+              </Suspense>
             </div>
             <FeedbackWidget identity={feedbackIdentity} />
             <Toaster />

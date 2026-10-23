@@ -45,7 +45,8 @@ export default async function InvitePage({
 }) {
   const { token } = await params
   const returnTo = invitePath(token)
-  const invitation = await invitationForToken(token)
+  const user = await getCurrentUser()
+  const invitation = await invitationForToken(token, user?.id ?? null)
 
   // A replaced, rotated or withdrawn link resolves to nothing. There is no
   // root not-found page, so notFound() here would drop an invitee who did
@@ -73,7 +74,6 @@ export default async function InvitePage({
     )
 
   const { community, outcome, email, study } = invitation
-  const user = await getCurrentUser()
   const alreadyIn = user ? await isMemberOf(community.id, user.id) : false
   const communityCopy = communityInvitationPageCopy({
     communitySlug: community.slug,
@@ -82,6 +82,8 @@ export default async function InvitePage({
     alreadyIn
   })
 
+  const approvalRequired =
+    invitation.kind === "open" && community.visibility === "members"
   const dead = DEAD[outcome]
   // A live link to a study that closed or was retired: the router would
   // refuse the accept, so the page says why instead of offering it.
@@ -131,6 +133,7 @@ export default async function InvitePage({
               incidental to it. */}
           {!community.retiredAt &&
             !alreadyIn &&
+            !approvalRequired &&
             !DEAD[outcome] &&
             !studyEnded && (
               <p className="text-sm text-muted-foreground">
@@ -176,6 +179,16 @@ export default async function InvitePage({
                 ? "This study has been retired, so the invitation can no longer be accepted."
                 : "This study has closed, so the invitation can no longer be accepted."}
             </p>
+          ) : approvalRequired ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                This community requires approval. Request access from its
+                community page; a steward will review your request.
+              </p>
+              <Button asChild>
+                <Link href={communityPath(community.slug)}>Open community</Link>
+              </Button>
+            </>
           ) : user ? (
             <>
               <AcceptInvitation

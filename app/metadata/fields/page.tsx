@@ -33,6 +33,31 @@ export default function MetadataFieldsPage() {
           experiment.
         </p>
       </header>
+      <Card>
+        <CardHeader>
+          <Badge variant="outline" className="w-fit">
+            MatSci-SAM proposals
+          </Badge>
+          <CardTitle>
+            <h2>Develop metadata fields</h2>
+          </CardTitle>
+          <CardDescription>
+            MatCore definitions and field specifications
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="max-w-3xl text-sm">
+            Import the MatCore 0.3.0 sections into private drafts, review their
+            definitions and value rules, and publish local proposals with
+            sources and revision history.
+          </p>
+        </CardContent>
+        <CardFooter>
+          <Button asChild>
+            <Link href="/metadata/workspace">Choose a community workspace</Link>
+          </Button>
+        </CardFooter>
+      </Card>
       <div className="grid gap-5 md:grid-cols-2">
         <Card>
           <CardHeader>

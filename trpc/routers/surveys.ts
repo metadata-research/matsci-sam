@@ -1,4 +1,5 @@
 import { requireStudyCandidate } from "@/lib/study-candidates"
+import { requireStudyContentScope } from "@/lib/study-content-scope"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
@@ -58,6 +59,11 @@ import { communityPath, studyPath } from "@/lib/public-identifiers"
 import { isActiveStudyStep } from "@/lib/study-protocol"
 import { studyActMatchesStep } from "@/lib/study-protocol-actions"
 import { joinOpenStudy } from "@/lib/study-enrollment"
+import {
+  communityAccess,
+  requireTermContent,
+  requireVocabularyContent
+} from "@/lib/community-access"
 
 /*
  * The survey walkthrough: the ordered steps of a study, and a participant's
@@ -95,8 +101,8 @@ export const regeneratedConflict = () =>
     message: "The walkthrough was regenerated. Reload the page."
   })
 
-const requireStudy = async (studyId: number) => {
-  const study = await studyById(studyId)
+const requireStudy = async (studyId: number, viewerId: number) => {
+  const study = await studyById(studyId, viewerId)
   if (!study)
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -115,7 +121,7 @@ const requireParticipation = async (
   userId: number,
   executor: typeof db | DatabaseTransaction = db
 ) => {
-  const found = await stepWithStudy(executor, stepId)
+  const found = await stepWithStudy(executor, stepId, userId)
   if (!found)
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -168,6 +174,12 @@ export const lockParticipation = async (
 ) => {
   const lockedStudy = await lockStudy(tx, studyId)
   if (!lockedStudy) throw regeneratedConflict()
+  await requireStudyContentScope(
+    tx,
+    lockedStudy.communityId,
+    lockedStudy.collectionId,
+    lockedStudy.id
+  )
   await lockMembershipIn(tx, lockedStudy.communityId, userId)
   let found
   try {
@@ -178,7 +190,16 @@ export const lockParticipation = async (
     throw error
   }
   if (found.study.id !== studyId) throw regeneratedConflict()
-  const currentInstructions = await instructionPromptOfStudy(tx, studyId)
+  await requireVocabularyContent(tx, found.study.vocabularySlug, userId, {
+    lock: true
+  })
+  if (found.step.termId !== null)
+    await requireTermContent(tx, found.step.termId, userId, { lock: true })
+  const currentInstructions = await instructionPromptOfStudy(
+    tx,
+    studyId,
+    userId
+  )
   if (currentInstructions !== expectedInstructions)
     throw new TRPCError({
       code: "CONFLICT",
@@ -379,7 +400,7 @@ export const surveysRouter = createTRPCRouter({
   get: baseProcedure
     .input(z.object({ studySlug: z.string().min(1) }))
     .query(async ({ ctx: { userId }, input: { studySlug } }) => {
-      const study = await studyBySlug(studySlug)
+      const study = await studyBySlug(studySlug, userId ?? null)
       if (!study)
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -425,7 +446,7 @@ export const surveysRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx: { userId }, input }) => {
-      const study = await requireStudy(input.studyId)
+      const study = await requireStudy(input.studyId, userId)
       await requireRunner(study.communityId, userId)
       if (study.retiredAt)
         throw new TRPCError({
@@ -460,7 +481,31 @@ export const surveysRouter = createTRPCRouter({
               code: "BAD_REQUEST",
               message: "This study or one of its parents has been retired"
             })
-          const terms = await collectionMembers(currentStudy.collectionId, tx)
+          await requireVocabularyContent(
+            tx,
+            currentStudy.vocabularySlug,
+            userId,
+            { lock: true }
+          )
+          if (
+            !(await communityAccess(tx, currentStudy.communityId, userId))
+              .canManage
+          )
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Only a steward can change this study."
+            })
+          const terms = await collectionMembers(
+            currentStudy.collectionId,
+            tx,
+            userId
+          )
+          await requireStudyContentScope(
+            tx,
+            currentStudy.communityId,
+            currentStudy.collectionId,
+            currentStudy.id
+          )
           if (terms.length === 0)
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -504,7 +549,7 @@ export const surveysRouter = createTRPCRouter({
     .input(questionSchema.extend({ studyId: z.number().int() }))
     .mutation(
       async ({ ctx: { userId }, input: { studyId, prompt, responseKind } }) => {
-        const study = await requireStudy(studyId)
+        const study = await requireStudy(studyId, userId)
         await requireRunner(study.communityId, userId)
         if (study.retiredAt)
           throw new TRPCError({
@@ -529,6 +574,20 @@ export const surveysRouter = createTRPCRouter({
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message: "This study or one of its parents has been retired"
+              })
+            await requireVocabularyContent(
+              tx,
+              currentStudy.vocabularySlug,
+              userId,
+              { lock: true }
+            )
+            if (
+              !(await communityAccess(tx, currentStudy.communityId, userId))
+                .canManage
+            )
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: "Only a steward can change this study."
               })
             return appendQuestionStep(tx, study.id, { prompt, responseKind })
           })
@@ -965,10 +1024,10 @@ export const surveysRouter = createTRPCRouter({
   progressOfStudy: authenticatedProcedure
     .input(z.object({ studyId: z.number().int() }))
     .query(async ({ ctx: { userId }, input: { studyId } }) => {
-      const study = await requireStudy(studyId)
+      const study = await requireStudy(studyId, userId)
       await requireRunner(study.communityId, userId)
 
-      const progress = await studyProgress(db, study.id)
+      const progress = await studyProgress(db, study.id, userId)
       if (!progress)
         throw new TRPCError({
           code: "NOT_FOUND",

@@ -25,6 +25,7 @@ import * as forms from "../components/ui/form"
 import * as inputs from "../components/ui/input"
 import * as switches from "../components/ui/switch"
 import * as authReturn from "../lib/auth-return"
+import * as communityWorkReturn from "../lib/community-work-return"
 import { publicRedirect } from "../lib/public-redirect"
 import { EditProfileSchema } from "../lib/schemas/profile"
 import { initialTermFromSearchParam } from "../app/add/initial-term"
@@ -445,6 +446,11 @@ async function profileUiChecks() {
       }
     },
     "@/lib/community-queries": { getActiveCommunity: noSideEffect },
+    "@/lib/community-work-return": communityWorkReturn,
+    "@/lib/community-work-return.server": {
+      communityForTermDraft: async () => null,
+      communityForWorkVocabulary: async () => null
+    },
     "@/lib/setup-service": {
       requireSetupVocabularyForContribution: noSideEffect
     }

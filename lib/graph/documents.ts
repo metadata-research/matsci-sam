@@ -1,3 +1,5 @@
+type Reader = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]
+import { vocabularyContentVisible } from "../community-access"
 import "server-only"
 
 import { db, termsTable } from "@yamz/db"
@@ -68,10 +70,11 @@ export const countTriples = (turtle: string) => {
 // it. Two terms at once would leave nothing for a write during a rebuild.
 const TERM_BATCH = 1
 
-export const loadProvenanceGraph = async () => {
-  const terms = await db
+export const loadProvenanceGraph = async (reader: Reader = db) => {
+  const terms = await reader
     .select({ id: termsTable.id, hiddenAt: termsTable.hiddenAt })
     .from(termsTable)
+    .where(vocabularyContentVisible(termsTable.vocabularySlug))
     .orderBy(asc(termsTable.id))
 
   const bodies: string[] = []
@@ -83,6 +86,7 @@ export const loadProvenanceGraph = async () => {
         // model with a profile is named by its own IRI, as those events
         // name it.
         buildTermProvenance(term.id, {
+          reader,
           anonymizeVoters: true,
           includeVotes: false,
           modelIdentities: true
@@ -100,7 +104,9 @@ export const loadProvenanceGraph = async () => {
         )
   }
 
-  const view = new ProvenanceDatasetView(await loadProvenanceDatasetData())
+  const view = new ProvenanceDatasetView(
+    await loadProvenanceDatasetData(reader)
+  )
   return provenanceGraphTurtle(bodies, provenanceDatasetBlocksTurtle(view))
 }
 

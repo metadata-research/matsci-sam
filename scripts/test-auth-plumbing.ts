@@ -159,7 +159,11 @@ for (const path of [
   "/add",
   "/add?vocabularySlug=materials&term=grain+boundary",
   "/add?term=Fe%2FC",
-  "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50"
+  "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50",
+  "/communities/matcore_development?view=work",
+  "/metadata/workspace?vocabularySlug=local_fields&offset=40",
+  "/metadata/workspace",
+  "/metadata/workspace/74dde90f-41bf-4912-bccc-d1761cf58a50"
 ])
   assert.equal(normalizeAuthReturnTo(path), path)
 for (const path of [
@@ -177,7 +181,17 @@ for (const path of [
   "/setup?task=import?next=x",
   "/profile/drafts/imports/not-an-id",
   "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50?next=/admin",
-  "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50/../../admin"
+  "/profile/drafts/imports/74dde90f-41bf-4912-bccc-d1761cf58a50/../../admin",
+  "/communities/example?view=work&next=/admin",
+  "/communities/example?view=work&view=people",
+  "/communities/example?offset=-1",
+  "/communities/example#private",
+  "/metadata/workspace/not-an-id",
+  "/metadata/workspace?next=https://example.org",
+  "/metadata/workspace/74dde90f-41bf-4912-bccc-d1761cf58a50/../../admin",
+  "/metadata/workspace/74dde90f-41bf-4912-bccc-d1761cf58a50?next=/admin",
+  "/metadata/workspace#private",
+  "//example.org/metadata/workspace"
 ])
   assert.equal(normalizeAuthReturnTo(path), null, path)
 assert.equal(normalizeAuthReturnTo(invitationReturnTo), invitationReturnTo)

@@ -1,8 +1,10 @@
+import { collectionContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { collectionsTable, db } from "@yamz/db"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { SITE_NAME } from "@/lib/site"
 import { collectionMembers } from "@/lib/kos-queries"
 import {
@@ -37,9 +39,21 @@ import { Badge } from "@/components/ui/badge"
  */
 
 const loadCollection = async (slug: string) =>
-  (await db.query.collectionsTable.findFirst({
-    where: eq(collectionsTable.slug, slug)
-  })) ?? null
+  (
+    await db
+      .select()
+      .from(collectionsTable)
+      .where(
+        and(
+          eq(collectionsTable.slug, slug),
+          collectionContentVisible(
+            collectionsTable.id,
+            await currentContentViewer()
+          )
+        )
+      )
+      .limit(1)
+  )[0] ?? null
 
 export async function generateMetadata({
   params
@@ -67,7 +81,9 @@ export default async function CollectionPage({
   const userPromise = getCurrentUser()
   const [members, user, activeCommunity, communityWorklists] =
     await Promise.all([
-      collectionMembers(collection.id),
+      userPromise.then((viewer) =>
+        collectionMembers(collection.id, db, viewer?.id ?? null)
+      ),
       userPromise,
       getActiveCommunity(),
       userPromise.then((viewer) =>

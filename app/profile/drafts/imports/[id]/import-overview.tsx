@@ -12,6 +12,7 @@ import { formatDateTime } from "@/lib/date"
 import { definitionPath, vocabularyPath } from "@/lib/public-identifiers"
 import { profileCompletionPath } from "@/lib/auth-return"
 import { CONTRIBUTION_LIMITS } from "@/lib/contribution-limits"
+import { withCommunityWorkReturn } from "@/lib/community-work-return"
 
 type Import = RouterOutput["importDrafts"]["get"]
 type Review = RouterOutput["importDrafts"]["review"]
@@ -26,11 +27,13 @@ const readinessLabels = {
 export function ImportOverview({
   initialData,
   reviewDraftId,
-  profileComplete
+  profileComplete,
+  workspaceReturnTo
 }: {
   initialData: Import
   reviewDraftId?: string
   profileComplete: boolean
+  workspaceReturnTo?: string
 }) {
   const router = useRouter()
   const query = trpc.importDrafts.get.useQuery(
@@ -216,7 +219,10 @@ export function ImportOverview({
             <Link
               className="underline"
               href={profileCompletionPath(
-                `/profile/drafts/imports/${data.batch.id}`
+                withCommunityWorkReturn(
+                  `/profile/drafts/imports/${data.batch.id}`,
+                  workspaceReturnTo
+                )
               )}
             >
               Add your name
@@ -307,7 +313,14 @@ export function ImportOverview({
                 </div>
                 {active ? (
                   <Button asChild variant="outline" size="sm">
-                    <Link href={`/add?draftId=${draft.id}`}>Review term</Link>
+                    <Link
+                      href={withCommunityWorkReturn(
+                        `/add?draftId=${draft.id}`,
+                        workspaceReturnTo
+                      )}
+                    >
+                      Review term
+                    </Link>
                   </Button>
                 ) : publication ? (
                   <Button asChild variant="outline" size="sm">

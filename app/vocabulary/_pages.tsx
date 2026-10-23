@@ -30,6 +30,7 @@ import { ActivityIcon, NetworkIcon } from "lucide-react"
 import Link from "next/link"
 import { Suspense } from "react"
 import { TermVisibilityNotice } from "@/components/term/visibility-notice"
+import { findPublishedMetadataField } from "@/lib/published-metadata-field"
 import {
   findVocabulary,
   otherVocabularies,
@@ -269,10 +270,11 @@ export async function VocabularyTermPage({
     1,
     term.vocabularySlug
   )
-  const [, user, topDefinition] = await Promise.all([
+  const [, user, topDefinition, metadataField] = await Promise.all([
     prefetches,
     userPromise,
-    topDefinitionPromise
+    topDefinitionPromise,
+    findPublishedMetadataField(term.id)
   ])
   const isCurator = user?.role === "admin"
   const options = isCurator ? await facetOptions() : []
@@ -333,6 +335,14 @@ export async function VocabularyTermPage({
               >
                 Usage &amp; metadata
               </Link>
+              {metadataField ? (
+                <Link
+                  href={`/metadata/fields/${metadataField.id}`}
+                  className="text-primary hover:underline"
+                >
+                  Field specification
+                </Link>
+              ) : null}
               <AdvancedOnly className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <Link
                   href={termActivityPath(term.slug, term.vocabularySlug)}
@@ -404,7 +414,29 @@ export async function VocabularyTermPage({
                   </p>
                 )}
               </div>
-              <TermOntologyContext term={term.term} />
+              {metadataField ? (
+                <AdvancedOnly className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+                  <aside
+                    aria-label="Metadata field context"
+                    className="flex flex-col gap-2 text-sm"
+                  >
+                    <h2 className="font-semibold">Metadata field</h2>
+                    <p className="text-muted-foreground">
+                      The field specification records value rules, the source
+                      baseline and community proposals separately from these
+                      definitions.
+                    </p>
+                    <Link
+                      href={`/metadata/fields/${metadataField.id}`}
+                      className="text-primary hover:underline"
+                    >
+                      Open field specification
+                    </Link>
+                  </aside>
+                </AdvancedOnly>
+              ) : (
+                <TermOntologyContext term={term.term} />
+              )}
               {topDefinition && (
                 <div className="min-w-0 lg:col-start-1">
                   <DefinitionList

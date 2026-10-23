@@ -1,3 +1,5 @@
+import { requireRevisionContent, readableRevisionId } from "./content-access"
+import { requireVocabularyContent } from "./community-access"
 import "server-only"
 import { createHash, randomUUID } from "node:crypto"
 import { isDeepStrictEqual } from "node:util"
@@ -52,6 +54,14 @@ async function sourceFile(id: string, userId?: number, reader: Reader = db) {
         (!file.retained && Date.parse(file.createdAt) < Date.now() - 86400000)))
   )
     throw missing()
+  if (file.publishedRevisionId !== null)
+    await requireRevisionContent(
+      reader,
+      file.publishedRevisionId,
+      userId ?? null
+    )
+  else if (file.vocabularySlug)
+    await requireVocabularyContent(reader, file.vocabularySlug, userId ?? null)
   return file
 }
 
@@ -502,7 +512,8 @@ export async function releaseSourceContext(requestId: string) {
 
 export async function publishedSourceInputs(
   fileId: string,
-  reader: Reader = db
+  reader: Reader = db,
+  viewerId: number | null = null
 ) {
   const rows = await reader
     .select({
@@ -529,6 +540,10 @@ export async function publishedSourceInputs(
     .where(
       and(
         eq(contributionFilesTable.id, fileId),
+        readableRevisionId(
+          contributionFilesTable.publishedRevisionId,
+          viewerId
+        ),
         eq(aiContributionSuggestionsTable.status, "accepted"),
         sql`${aiContributionSuggestionsTable.sourceInputs} @> ${JSON.stringify([{ fileId }])}::jsonb`
       )

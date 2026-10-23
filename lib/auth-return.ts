@@ -1,3 +1,6 @@
+import { normalizeCommunityWorkReturnTo } from "./community-work-return"
+import { normalizeMatcoreCatalogReturnTo } from "./matcore-catalog-navigation"
+
 const INVITATION_RETURN_PATH = /^\/invite\/[A-Za-z0-9_-]{43}$/
 const STUDY_RETURN_PATH = /^\/studies\/[a-z0-9][a-z0-9_-]*(?:\/run)?$/
 const VOCABULARY_SLUG = /^[a-z0-9][a-z0-9_-]{0,199}$/
@@ -5,6 +8,59 @@ const DRAFT_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const IMPORT_RETURN_PATH =
   /^\/profile\/drafts\/imports\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const FIELD_WORKSPACE_RETURN_PATH =
+  /^\/metadata\/workspace(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/i
+
+function isWorkspaceReturnPath(value: string) {
+  if (
+    value.length > 2048 ||
+    /[\\#\u0000-\u001f\u007f]/.test(value) ||
+    value.split("?").length > 2
+  )
+    return false
+  const [path, query] = value.split("?")
+  const community = /^\/communities\/[a-z0-9][a-z0-9_-]{0,199}$/.test(path)
+  if (!community && path !== "/metadata/workspace") return false
+  const seen = new Set<string>()
+  for (const [key, parameter] of new URLSearchParams(query)) {
+    if (seen.has(key)) return false
+    seen.add(key)
+    if (
+      community &&
+      key === "view" &&
+      [
+        "overview",
+        "work",
+        "vocabulary",
+        "collections",
+        "people",
+        "surveys"
+      ].includes(parameter)
+    )
+      continue
+    if (
+      !community &&
+      key === "vocabularySlug" &&
+      VOCABULARY_SLUG.test(parameter)
+    )
+      continue
+    if (
+      key === "profile" &&
+      ["minimal", "dft", "md", "mbpt", "ml", "pf", "derived"].includes(
+        parameter
+      )
+    )
+      continue
+    if (
+      key === "offset" &&
+      /^\d+$/.test(parameter) &&
+      Number(parameter) <= 10000
+    )
+      continue
+    return false
+  }
+  return true
+}
 
 function isContributionReturnPath(value: string) {
   if (value.length > 2048 || /[\\#\u0000-\u001f\u007f]/.test(value))
@@ -19,6 +75,8 @@ function isContributionReturnPath(value: string) {
     seen.add(key)
     if (key === "vocabularySlug" && VOCABULARY_SLUG.test(parameter)) continue
     if (key === "draftId" && DRAFT_ID.test(parameter)) continue
+    if (key === "returnTo" && normalizeCommunityWorkReturnTo(parameter))
+      continue
     if (
       path === "/add" &&
       key === "setupReturnTo" &&
@@ -45,6 +103,36 @@ function isContributionReturnPath(value: string) {
   return true
 }
 
+function isDraftContextReturnPath(value: string) {
+  if (value.length > 4096 || /[\\#\u0000-\u001f\u007f]/.test(value))
+    return false
+  const [path, query, extra] = value.split("?")
+  if (extra !== undefined || !query) return false
+  if (!IMPORT_RETURN_PATH.test(path) && !FIELD_WORKSPACE_RETURN_PATH.test(path))
+    return false
+  if (path === "/metadata/workspace") return false
+  const seen = new Set<string>()
+  for (const [key, parameter] of new URLSearchParams(query)) {
+    if (seen.has(key)) return false
+    seen.add(key)
+    if (
+      key === "returnTo" &&
+      (normalizeCommunityWorkReturnTo(parameter) ||
+        (FIELD_WORKSPACE_RETURN_PATH.test(path) &&
+          normalizeMatcoreCatalogReturnTo(parameter)))
+    )
+      continue
+    if (
+      key === "review" &&
+      IMPORT_RETURN_PATH.test(path) &&
+      DRAFT_ID.test(parameter)
+    )
+      continue
+    return false
+  }
+  return true
+}
+
 export const normalizeSetupReturnTo = (value: unknown): string | null =>
   typeof value === "string" &&
   (value === "/setup" || value.startsWith("/setup?")) &&
@@ -63,6 +151,11 @@ export const normalizeAuthReturnTo = (value: unknown): string | null =>
   (INVITATION_RETURN_PATH.test(value) ||
     STUDY_RETURN_PATH.test(value) ||
     IMPORT_RETURN_PATH.test(value) ||
+    FIELD_WORKSPACE_RETURN_PATH.test(value) ||
+    isDraftContextReturnPath(value) ||
+    normalizeCommunityWorkReturnTo(value) !== null ||
+    normalizeMatcoreCatalogReturnTo(value) !== null ||
+    isWorkspaceReturnPath(value) ||
     value === "/profile/drafts" ||
     isContributionReturnPath(value))
     ? value

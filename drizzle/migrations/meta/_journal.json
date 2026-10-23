@@ -491,6 +491,34 @@
       "when": 1792517297531,
       "tag": "0069_import_term_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1792742252186,
+      "tag": "0070_matcore_field_workflow",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1792747744683,
+      "tag": "0071_community_metadata_workspace",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1792758767269,
+      "tag": "0072_community_content_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1792760508643,
+      "tag": "0073_community_collection_scope",
+      "breakpoints": true
     }
   ]
 }

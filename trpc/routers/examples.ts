@@ -1,3 +1,4 @@
+import { requireDefinitionContent } from "@/lib/content-access"
 import { exampleContributionFiles } from "@/lib/contribution-files"
 import {
   contributionFingerprint,
@@ -109,6 +110,7 @@ export const examplesRouter = createTRPCRouter({
   list: baseProcedure
     .input(z.object({ definitionId: definitionIdSchema }))
     .query(async ({ ctx: { userId }, input: { definitionId } }) => {
+      await requireDefinitionContent(db, definitionId, userId ?? null)
       const definition = await db.query.definitionsTable.findFirst({
         columns: { id: true, authorId: true },
         where: eq(definitionsTable.id, definitionId)
@@ -150,7 +152,11 @@ export const examplesRouter = createTRPCRouter({
           asc(definitionExamplesTable.exampleNumber)
         )
 
-      const files = await exampleContributionFiles(items.map((item) => item.id))
+      const files = await exampleContributionFiles(
+        items.map((item) => item.id),
+        db,
+        userId ?? null
+      )
       return {
         items: items.map((item) => ({
           ...item,
@@ -169,8 +175,12 @@ export const examplesRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx: { userId }, input }) => {
+      await requireDefinitionContent(db, input.definitionId, userId)
       try {
         const { example } = await db.transaction(async (tx) => {
+          await requireDefinitionContent(tx, input.definitionId, userId, {
+            lock: true
+          })
           await reserveContributionSubmission(tx, {
             userId,
             kind: "example",
@@ -199,8 +209,12 @@ export const examplesRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx: { userId }, input }) => {
+      await requireDefinitionContent(db, input.definitionId, userId)
       try {
         await db.transaction(async (tx) => {
+          await requireDefinitionContent(tx, input.definitionId, userId, {
+            lock: true
+          })
           const definition = await tx.query.definitionsTable.findFirst({
             columns: { id: true, authorId: true },
             where: eq(definitionsTable.id, input.definitionId)

@@ -193,6 +193,29 @@ async function main() {
       )
       assert.deepEqual(await listTermDrafts(tx, stranger.id), [])
       assert.deepEqual(
+        (
+          await listTermDrafts(tx, owner.id, {
+            vocabularySlug: vocabulary.slug
+          })
+        ).map((row) => row.id),
+        [id],
+        "Vocabulary scope includes the owner's matching draft"
+      )
+      assert.deepEqual(
+        await listTermDrafts(tx, owner.id, {
+          vocabularySlug: `different_${stamp}`
+        }),
+        [],
+        "Vocabulary scope excludes drafts in another namespace"
+      )
+      assert.deepEqual(
+        await listTermDrafts(tx, stranger.id, {
+          vocabularySlug: vocabulary.slug
+        }),
+        [],
+        "Vocabulary scope never widens owner privacy"
+      )
+      assert.deepEqual(
         await lookupTerms({ query: term }, tx),
         [],
         "a draft is absent from public discovery"
@@ -968,7 +991,14 @@ async function main() {
         (result) =>
           result.status === "rejected" && result.reason.code === "CONFLICT"
       ).length,
-      1
+      1,
+      `The competing save must report CONFLICT: ${updates
+        .filter((result) => result.status === "rejected")
+        .map(
+          (result) =>
+            `${result.reason?.stack ?? String(result.reason)}\n${result.reason?.cause?.message ?? ""}`
+        )
+        .join("\n")}`
     )
     const publications = await Promise.all(
       [1, 2].map(() =>

@@ -7,17 +7,20 @@ metadata reference.
 
 ## Data and publication
 
-| Document                                                                 | Contents                                                                                   |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [Metadata dictionary](metadata-dictionary-plan.md)                       | Source versions, term/revision scope, Simple/Advanced views, curation and exports          |
-| [Metadata publication](metadata-publication.md)                          | Document endpoints, RDF mappings, named graphs, source evidence and historical attribution |
-| [Contribution files](contribution-files.md)                              | Upload validation, private pending files, publication scope, downloads and cleanup         |
-| [Contribution controls](contribution-controls.md)                        | Reversible term visibility, publication limits, duplicates and verification                |
-| [Saved term drafts](term-drafts-progress.md)                             | Implementation progress, private drafts, editor handoff, publication and verification      |
-| [Statement ledger](knowledge-organization-ledger.md)                     | Schema, authorization, invariants, and RDF export                                          |
-| [Examples of use](examples.md)                                           | Immutable contributions and the history of featured selections                             |
-| [Graph layer](graph-layer.md)                                            | Projection, Fuseki, SHACL, and graph checks                                                |
-| [Canonical definitions and identifiers](w3id-canonical-term-proposal.md) | Ordering, readable routes, content negotiation, and compatibility limits                   |
+| Document                                                                 | Contents                                                                                         |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| [Metadata dictionary](metadata-dictionary-plan.md)                       | Source versions, term/revision scope, Simple/Advanced views, curation and exports                |
+| [Metadata publication](metadata-publication.md)                          | Document endpoints, RDF mappings, named graphs, source evidence and historical attribution       |
+| [Contribution files](contribution-files.md)                              | Upload validation, private pending files, publication scope, downloads and cleanup               |
+| [Contribution controls](contribution-controls.md)                        | Reversible term visibility, publication limits, duplicates and verification                      |
+| [Saved term drafts](term-drafts-progress.md)                             | Implementation progress, private drafts, editor handoff, publication and verification            |
+| [Community metadata workflow](matcore-workflow-progress.md)              | Community workspaces, generic metadata fields, MatCore import, preserved drafts and verification |
+| [MatCore deployment](matcore-deployment.md)                             | Source catalog setup, migrations, preservation and acceptance on Superego and Ego                 |
+| [Community interface inventory](community-interface-inventory.md)        | Navigation review, long-page section links, finding drafts and prioritized usability improvements |
+| [Statement ledger](knowledge-organization-ledger.md)                     | Schema, authorization, invariants, and RDF export                                                |
+| [Examples of use](examples.md)                                           | Immutable contributions and the history of featured selections                                   |
+| [Graph layer](graph-layer.md)                                            | Projection, Fuseki, SHACL, and graph checks                                                      |
+| [Canonical definitions and identifiers](w3id-canonical-term-proposal.md) | Ordering, readable routes, content negotiation, and compatibility limits                         |
 
 ## Contributions and studies
 

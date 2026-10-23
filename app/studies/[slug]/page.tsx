@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { cache } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -26,7 +27,9 @@ import { JoinStudy } from "@/components/studies/join-study"
 import { allowsStudySelfEnrollment } from "@/lib/study-protocol"
 
 // Shared by generateMetadata and the body, so the page runs one query.
-const loadStudy = cache(async (slug: string) => studyBySlug(slug))
+const loadStudy = cache(async (slug: string) =>
+  studyBySlug(slug, await currentContentViewer())
+)
 
 export async function generateMetadata({
   params
@@ -91,8 +94,13 @@ export default async function StudyPage({
   // steps exist, which is the exact text participants were shown, and the
   // welcome text of a study whose steps are not generated yet.
   const participantInstructions =
-    (study.steps > 0 ? await instructionPromptOfStudy(db, study.id) : null) ??
-    study.welcome
+    (study.steps > 0
+      ? await instructionPromptOfStudy(
+          db,
+          study.id,
+          await currentContentViewer()
+        )
+      : null) ?? study.welcome
 
   const activityActionLabel = walks
     ? studyActivityActionLabel(

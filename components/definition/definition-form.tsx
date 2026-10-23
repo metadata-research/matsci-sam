@@ -64,6 +64,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { CommunityWorkReturnLink } from "@/components/community-work-return-link"
 import { TermAutocomplete } from "@/components/term-autocomplete"
 import { Button } from "@/components/ui/button"
 import {
@@ -114,6 +115,10 @@ import {
   type SavedTermDraft,
   type TermDraftController
 } from "./term-draft-controller"
+import {
+  withCommunityWorkReturn,
+  type WorkReturnLink
+} from "@/lib/community-work-return"
 
 function TermGuidance({
   normalizedTerm,
@@ -232,6 +237,7 @@ type DefinitionFormProps = {
   ownerId?: number
   reviewOnLoad?: boolean
   setupReturnTo?: string
+  draftReturn?: WorkReturnLink
   onDraftController?: (controller: TermDraftController | null) => void
 } & MutationActivityCallbacks
 
@@ -282,7 +288,8 @@ function SavedNewTermForm(props: DefinitionFormProps & { ownerId: number }) {
     onDraftController?.(draft)
     return () => onDraftController?.(null)
   }, [onDraftController, draft])
-  if (draft.loading || draft.loadError) return <DraftSaveStatus draft={draft} />
+  if (draft.loading || draft.loadError)
+    return <DraftSaveStatus draft={draft} returnLink={props.draftReturn} />
   const published = draft.record?.publication
   if (published)
     return (
@@ -299,14 +306,17 @@ function SavedNewTermForm(props: DefinitionFormProps & { ownerId: number }) {
             View published term
           </Link>
         </Button>
-        <Link href="/profile/drafts" className="ml-3 underline">
-          My drafts
-        </Link>
+        <CommunityWorkReturnLink
+          href={props.draftReturn?.href ?? "/profile/drafts"}
+          className="ml-3 underline"
+        >
+          {props.draftReturn?.label ?? "My drafts"}
+        </CommunityWorkReturnLink>
       </div>
     )
   return (
     <div className="flex flex-col gap-3">
-      <DraftSaveStatus draft={draft} />
+      <DraftSaveStatus draft={draft} returnLink={props.draftReturn} />
       {draft.record?.importBatchId ? (
         <div className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm">
           <span>This term belongs to a private import.</span>
@@ -319,7 +329,10 @@ function SavedNewTermForm(props: DefinitionFormProps & { ownerId: number }) {
               try {
                 await draft.flush()
                 router.push(
-                  `/profile/drafts/imports/${draft.record!.importBatchId}`
+                  withCommunityWorkReturn(
+                    `/profile/drafts/imports/${draft.record!.importBatchId}`,
+                    props.draftReturn?.href
+                  )
                 )
               } catch {
                 /* The draft save status offers recovery without losing writing. */
@@ -386,7 +399,8 @@ const DefinitionFormOwner = ({
   onMutationEnd,
   savedDraft,
   draftController,
-  reviewOnLoad
+  reviewOnLoad,
+  draftReturn
 }: DefinitionFormProps & {
   savedDraft?: SavedTermDraft & { payload: TermDraftPayload }
   draftController?: TermDraftController
@@ -1218,7 +1232,10 @@ const DefinitionFormOwner = ({
         if (importBatchId) {
           await draftController.flush()
           router.push(
-            `/profile/drafts/imports/${importBatchId}?review=${draftController.record?.id ?? savedDraft?.id ?? ""}`
+            withCommunityWorkReturn(
+              `/profile/drafts/imports/${importBatchId}?review=${draftController.record?.id ?? savedDraft?.id ?? ""}`,
+              draftReturn?.href
+            )
           )
           return
         }

@@ -1,10 +1,60 @@
 import "server-only"
 
+import { db } from "@yamz/db"
+import { sql } from "drizzle-orm"
+import { TRPCError } from "@trpc/server"
 import { Parser } from "n3"
 import { buildContentGraphs, countTriples } from "./documents"
 import { CONTENT_GRAPH_NAMES, graphIri } from "./names"
 import type { ContentGraphName, GraphName } from "./names"
 import { metaGraphTurtle } from "./void"
+
+type GraphTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** Visibility changes and external projections share one cross-process lock. */
+export async function acquireGraphPrivacyLock(tx: GraphTransaction) {
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock(hashtext('matsci-sam:public-graph-privacy'), 1)`
+  )
+}
+
+/** Called under the privacy lock before restricting previously public content.
+ * A failed external removal must abort the visibility transaction. */
+export async function clearPublicGraphProjection() {
+  state().last = null
+  state().dirty = true
+  const configured = process.env.FUSEKI_DATASET_URL?.replace(/\/+$/, "")
+  if (!configured) {
+    if (isGraphProjectionEnabled())
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message:
+          "Configure the public graph store before changing content visibility."
+      })
+    return
+  }
+  try {
+    const update = [...CONTENT_GRAPH_NAMES, "meta" as const]
+      .map((name) => `CLEAR SILENT GRAPH <${graphIri(name)}>`)
+      .join(";\n")
+    const response = await fetch(`${configured}/update`, {
+      method: "POST",
+      headers: {
+        ...authorization(),
+        "Content-Type": "application/sparql-update"
+      },
+      body: update,
+      signal: AbortSignal.timeout(10_000)
+    })
+    if (!response.ok) throw new Error("Public graph removal failed")
+  } catch {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "The public graph store could not be cleared. Visibility has not changed. Restore graph-store access before trying again."
+    })
+  }
+}
 
 /*
  * The projector: Postgres is the system of record, and the Fuseki store is
@@ -43,8 +93,8 @@ type ProjectorState = {
   // The projection in flight, so two callers cannot run two rebuilds at
   // once: every run is chained on the one before it.
   running: Promise<void> | null
-  // The documents of the last projection that reached the store, which the
-  // routes serve in place of a rebuild per request.
+  // Diagnostic snapshot of the last successful store projection. Public
+  // document routes rebuild from current access-filtered SQL instead.
   last: { graphs: Record<GraphName, string>; result: ProjectionResult } | null
 }
 
@@ -98,7 +148,7 @@ export const lastProjectedGraphs = () => {
   // A moderation change must not serve an old public vocabulary snapshot
   // while the external projection is waiting or failing. The routes rebuild
   // from PostgreSQL until the projection becomes current again.
-  return s.dirty || s.running ? null : s.last?.graphs ?? null
+  return s.dirty || s.running ? null : (s.last?.graphs ?? null)
 }
 
 const datasetUrl = () => {
@@ -119,7 +169,10 @@ const authorization = (): Record<string, string> => {
 // A store that is down or unconfigured is found out before the rebuild,
 // which would otherwise run the whole database load on every sweep only to
 // fail at the first PUT. ASK {} is the cheapest query every dataset answers.
-const assertStoreReachable = async (url: string, headers: Record<string, string>) => {
+const assertStoreReachable = async (
+  url: string,
+  headers: Record<string, string>
+) => {
   const response = await fetch(`${url}/query`, {
     method: "POST",
     headers: {
@@ -127,7 +180,8 @@ const assertStoreReachable = async (url: string, headers: Record<string, string>
       Accept: "application/sparql-results+json",
       ...headers
     },
-    body: "ASK {}"
+    body: "ASK {}",
+    signal: AbortSignal.timeout(10_000)
   }).catch((error: unknown) => {
     throw new Error(
       `The store at ${url} is not reachable: ${error instanceof Error ? error.message : String(error)}`
@@ -148,14 +202,12 @@ const putGraph = async (
   turtle: string
 ) => {
   const iri = graphIri(name)
-  const response = await fetch(
-    `${url}/data?graph=${encodeURIComponent(iri)}`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "text/turtle; charset=utf-8", ...headers },
-      body: turtle
-    }
-  )
+  const response = await fetch(`${url}/data?graph=${encodeURIComponent(iri)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "text/turtle; charset=utf-8", ...headers },
+    body: turtle,
+    signal: AbortSignal.timeout(10_000)
+  })
   if (!response.ok) {
     const detail = (await response.text().catch(() => "")).slice(0, 200)
     throw new Error(
@@ -175,23 +227,26 @@ const putGraph = async (
  * log or exit on.
  */
 export const projectGraphs = async (): Promise<ProjectionResult> => {
-  const started = Date.now()
-  state().dirty = false
-  try {
-    const url = datasetUrl()
-    const headers = authorization()
-    await assertStoreReachable(url, headers)
-    const { graphs, counts, projectedAt } = await buildGraphs()
-    for (const name of CONTENT_GRAPH_NAMES)
-      await putGraph(url, headers, name, graphs[name])
-    await putGraph(url, headers, "meta", graphs.meta)
-    const result = { projectedAt, counts, durationMs: Date.now() - started }
-    state().last = { graphs, result }
-    return result
-  } catch (error) {
-    state().dirty = true
-    throw error
-  }
+  return db.transaction(async (tx) => {
+    await acquireGraphPrivacyLock(tx)
+    const started = Date.now()
+    state().dirty = false
+    try {
+      const url = datasetUrl()
+      const headers = authorization()
+      await assertStoreReachable(url, headers)
+      const { graphs, counts, projectedAt } = await buildGraphs()
+      for (const name of CONTENT_GRAPH_NAMES)
+        await putGraph(url, headers, name, graphs[name])
+      await putGraph(url, headers, "meta", graphs.meta)
+      const result = { projectedAt, counts, durationMs: Date.now() - started }
+      state().last = { graphs, result }
+      return result
+    } catch (error) {
+      state().dirty = true
+      throw error
+    }
+  })
 }
 
 const logFailure = (error: unknown) =>

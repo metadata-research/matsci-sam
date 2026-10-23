@@ -1,3 +1,5 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
 export const metadata: Metadata = { title: `Browse Terms | ${SITE_NAME}` }
@@ -43,6 +45,10 @@ export default async function TermsPage({
     .where(
       and(
         termIsListed(),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        ),
         q?.trim() ? searchMatch(q) : undefined,
         active ? vocabularyTermScope(active.vocabularySlug) : undefined
       )

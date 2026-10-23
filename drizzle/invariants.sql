@@ -2,6 +2,31 @@
 
 DO $validation$
 BEGIN
+  IF to_regclass('public."vocabularyMatcoreSources"') IS NOT NULL THEN
+    IF to_regprocedure('study_content_scope_valid(integer,integer,integer)') IS NOT NULL THEN
+      IF EXISTS (SELECT 1 FROM "studies" s WHERE NOT study_content_scope_valid(s."communityId",s."collectionId",s.id)) THEN
+        RAISE EXCEPTION 'survey content crosses its community visibility scope';
+      END IF;
+    END IF;
+    IF EXISTS (SELECT 1 FROM "vocabularyMatcoreSources" g
+      LEFT JOIN communities c ON c."vocabularySlug"=g."vocabularySlug"
+      WHERE c.visibility IS DISTINCT FROM 'members') THEN
+      RAISE EXCEPTION 'protected source entitlement is outside a members-only community';
+    END IF;
+    IF EXISTS (SELECT 1 FROM "matcoreFields" f
+      LEFT JOIN communities c ON c."vocabularySlug"=f."vocabularySlug"
+      WHERE c.visibility IS DISTINCT FROM 'members' AND (
+        f."sourceFieldId" IS NOT NULL
+        OR EXISTS (SELECT 1 FROM "matcoreSpecDrafts" d WHERE d."fieldId"=f.id AND d."profileReleaseId" IS NOT NULL)
+        OR EXISTS (SELECT 1 FROM "matcoreSpecRevisions" r WHERE r."fieldId"=f.id AND r."profileReleaseId" IS NOT NULL))) THEN
+      RAISE EXCEPTION 'protected source pins are outside a members-only community';
+    END IF;
+    IF EXISTS (SELECT 1 FROM "communityAccessRequests" r
+      LEFT JOIN "communityMembers" m ON m.id=r."membershipId"
+      WHERE r.status='approved' AND (m.id IS NULL OR m."communityId"<>r."communityId" OR m."userId"<>r."requesterId")) THEN
+      RAISE EXCEPTION 'approved access request differs from its membership episode';
+    END IF;
+  END IF;
   IF to_regclass('public."contributionSourceAssets"') IS NOT NULL THEN
     IF EXISTS (
       SELECT 1 FROM "contributionFiles" f JOIN "contributionSourceAssets" a ON a.id=f."assetId"
@@ -1382,3 +1407,51 @@ BEGIN
   END IF;
 END
 $validation$;
+
+-- MatCore's current source, local proposals and vocabulary definitions retain
+-- separate identities. Historical definition votes cannot select a spec.
+DO $matcore_validation$
+BEGIN
+  IF to_regclass('public."matcoreSpecRevisions"') IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM "matcoreSpecRevisions" r
+      JOIN "matcoreFields" f ON f.id=r."fieldId"
+      JOIN "definitionRevisions" dr ON dr.id=r."definitionRevisionId"
+      JOIN definitions d ON d.id=dr."definitionId"
+      JOIN terms t ON t.id=d."termId"
+      WHERE t.id IS DISTINCT FROM f."termId" OR t."vocabularySlug"<>f."vocabularySlug"
+    ) THEN RAISE EXCEPTION 'MatCore proposal pins a definition outside its field'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM "matcoreSpecRevisions" r JOIN "matcoreSpecRevisions" p ON p.id=r."previousRevisionId"
+      WHERE p."fieldId"<>r."fieldId" OR p."occurrenceKey"<>r."occurrenceKey" OR p."profileKey" IS DISTINCT FROM r."profileKey" OR p."profileReleaseId" IS DISTINCT FROM r."profileReleaseId" OR p."sourceOccurrenceId" IS DISTINCT FROM r."sourceOccurrenceId" OR p.version<>r.version-1
+    ) THEN RAISE EXCEPTION 'MatCore revision chain crosses scope or skips a version'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM "matcoreSpecDrafts" d JOIN "matcoreSpecRevisions" r ON r.id=d."publishedRevisionId"
+      WHERE d."fieldId"<>r."fieldId" OR d."occurrenceKey"<>r."occurrenceKey" OR d."ownerId"<>r."createdById" OR d.payload<>r.payload
+    ) THEN RAISE EXCEPTION 'MatCore published receipt differs from its proposal'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM "matcoreSpecRevisions" r JOIN "matcoreFields" f ON f.id=r."fieldId"
+      JOIN "matcoreSourceOccurrences" s ON s.id=r."sourceOccurrenceId"
+      WHERE s."sourceFieldId" IS DISTINCT FROM f."sourceFieldId" OR s."profileKey" IS DISTINCT FROM r."profileKey" OR s."releaseId" IS DISTINCT FROM r."profileReleaseId" OR s.id<>r."occurrenceKey"
+    ) THEN RAISE EXCEPTION 'MatCore source baseline does not belong to proposal profile'; END IF;
+  END IF;
+END
+$matcore_validation$;
+
+
+DO $metadata_workspace_validation$
+BEGIN
+  IF to_regclass('public."vocabularyWorkspaceSettings"') IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM (
+        SELECT "profileKey", "profileReleaseId", "sourceOccurrenceId" FROM "matcoreSpecDrafts"
+        UNION ALL
+        SELECT "profileKey", "profileReleaseId", "sourceOccurrenceId" FROM "matcoreSpecRevisions"
+      ) entry WHERE ("profileKey" IS NULL) <> ("profileReleaseId" IS NULL)
+        OR ("sourceOccurrenceId" IS NOT NULL AND "profileKey" IS NULL)
+    ) THEN RAISE EXCEPTION 'Metadata field has an incomplete or missing source profile'; END IF;
+    IF EXISTS (SELECT 1 FROM "vocabularyWorkspaceSettings" WHERE "matcoreEnabled" AND NOT "metadataEnabled")
+      THEN RAISE EXCEPTION 'MatCore capability requires metadata fields'; END IF;
+  END IF;
+END
+$metadata_workspace_validation$;

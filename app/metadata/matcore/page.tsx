@@ -10,6 +10,7 @@ import {
 } from "@/lib/matcore"
 import { matCoreElementUri } from "@/lib/public-identifiers"
 import { SITE_NAME } from "@/lib/site"
+import { Button } from "@/components/ui/button"
 import styles from "./matcore.module.css"
 
 export const metadata: Metadata = {
@@ -58,9 +59,21 @@ export default function MatCoreMetadataPage() {
             <p className={styles.notice}>
               <InfoIcon aria-hidden />
               <span>
-                Preliminary snapshot from the 2025 paper. This is not an official MatCore release.
+                Preliminary snapshot from the 2025 paper. This is not an
+                official MatCore release.
               </span>
             </p>
+            <div className="mt-4 flex flex-col items-start gap-2">
+              <Button asChild variant="outline">
+                <Link href="/metadata/workspace">
+                  Choose a community workspace
+                </Link>
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                Develop local proposals against the MatCore 0.3.0 baseline. This
+                historical reference catalog keeps its original identifiers.
+              </p>
+            </div>
             <p className={styles.machineNote}>
               Every element below has an identifier of its own, formed from this
               address and the element key, so <code>#creator</code> names the

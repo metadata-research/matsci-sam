@@ -1,3 +1,4 @@
+import { currentContentViewer } from "./content-access"
 import {
   findNondefaultVocabulary,
   findVocabulary,
@@ -26,6 +27,7 @@ export async function vocabularyDocumentResponse(
   format: string | null,
   history: boolean
 ) {
+  const viewerId = await currentContentViewer()
   const doc = vocabularyDocument(path)
   if (
     !doc ||
@@ -45,7 +47,7 @@ export async function vocabularyDocumentResponse(
         ? await findNondefaultVocabulary(scope[0])
         : null
   if (vocabulary && definitionIndex < 0 && !history) {
-    const document = await loadSchemeDocument()
+    const document = await loadSchemeDocument(viewerId)
     turtle = renderSchemeTurtle({
       ...document,
       vocabularies: document.vocabularies.filter(
@@ -90,20 +92,21 @@ export async function vocabularyDocumentResponse(
     }
     if (history || revision) {
       const provenance = await buildTermProvenance(term.id, {
-        anonymizeVoters: true
+        anonymizeVoters: true,
+        viewerId
       })
       if (!provenance) return new Response("Not found", { status: 404 })
       turtle = provenanceTurtle(provenance)
     } else {
-      const kos = await loadKos({ includeHidden: true })
-      const skos = await buildTermSkos(term.id, kos)
+      const kos = await loadKos({ includeHidden: true, viewerId })
+      const skos = await buildTermSkos(term.id, kos, { viewerId })
       if (!skos) return new Response("Not found", { status: 404 })
       turtle = termTurtle(skos, kos)
     }
   }
   const headers = {
-    "Cache-Control": "no-store",
-    "Access-Control-Allow-Origin": "*"
+    "Cache-Control": "private, no-store",
+    Vary: "Cookie"
   }
   return format === "jsonld"
     ? Response.json(turtleJsonLd(turtle), {

@@ -1,10 +1,12 @@
 import { DefineTermForm } from "./form"
+import type { WorkReturnLink } from "@/lib/community-work-return"
 
 export function AddTermPageContent({
   initialTerm = "",
   ownerId,
   draftId,
   setupReturnTo,
+  draftReturn,
   vocabularySlug,
   vocabularyTitle
 }: {
@@ -12,6 +14,7 @@ export function AddTermPageContent({
   ownerId: number
   draftId?: string
   setupReturnTo?: string
+  draftReturn?: WorkReturnLink
   vocabularySlug?: string
   vocabularyTitle: string
 }) {
@@ -36,6 +39,7 @@ export function AddTermPageContent({
           ownerId={ownerId}
           draftId={draftId}
           setupReturnTo={setupReturnTo}
+          draftReturn={draftReturn}
           vocabularySlug={vocabularySlug}
         />
       </div>

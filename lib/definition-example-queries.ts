@@ -42,13 +42,14 @@ export type ActiveDefinitionExampleText = {
  * first while retaining permanent example-number order for the remainder.
  */
 export const activeExampleTextsForDefinitions = async (
-  definitionIds: number[]
+  definitionIds: number[],
+  reader: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0] = db
 ): Promise<ActiveDefinitionExampleText[]> => {
   if (definitionIds.length === 0) return []
 
   const isFeatured = sql<boolean>`${definitionExampleSelectionsTable.id} is not null`
 
-  return db
+  return reader
     .select({
       definitionId: definitionExamplesTable.definitionId,
       exampleNumber: definitionExamplesTable.exampleNumber,

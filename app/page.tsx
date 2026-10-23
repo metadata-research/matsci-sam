@@ -1,3 +1,6 @@
+import { participationContentVisible } from "@/lib/content-access"
+import { vocabularyContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRightIcon, SearchIcon } from "lucide-react"
@@ -394,6 +397,10 @@ async function getLatestTerms(vocabularySlug?: string) {
     .where(
       and(
         termIsListed(),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        ),
         vocabularySlug ? vocabularyTermScope(vocabularySlug) : undefined
       )
     )
@@ -416,6 +423,10 @@ async function getCommunityReferenceCount(
     .where(
       and(
         termIsListed(),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        ),
         communityReferenceScope(communityId),
         sql`${termsTable.vocabularySlug} <> ${vocabularySlug}`
       )
@@ -456,6 +467,14 @@ async function getRecentDiscussion(vocabularySlug?: string) {
     .where(
       and(
         termIsListed(),
+        participationContentVisible(
+          commentsTable.surveyStepId,
+          await currentContentViewer()
+        ),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        ),
         vocabularySlug ? vocabularyTermScope(vocabularySlug) : undefined
       )
     )
@@ -520,11 +539,21 @@ async function getPersonalWork(userId: number, vocabularySlug?: string) {
     )
     .leftJoin(
       commentsTable,
-      eq(commentsTable.definitionId, definitionsTable.id)
+      and(
+        eq(commentsTable.definitionId, definitionsTable.id),
+        participationContentVisible(
+          commentsTable.surveyStepId,
+          await currentContentViewer()
+        )
+      )
     )
     .where(
       and(
         termIsListed(),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        ),
         vocabularySlug ? vocabularyTermScope(vocabularySlug) : undefined,
         or(
           eq(definitionsTable.authorId, userId),

@@ -168,6 +168,16 @@
   fill: currentColor;
 }
 
+/* Leave room for the compact mobile section navigator after a fragment jump. */
+.section-layout [data-section-target],
+.section-layout [data-arrived] {
+  scroll-margin-top: 6rem;
+}
+.section-layout [data-section-target]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+
 /* The section a link led to, marked for a moment by ArrivalHighlight. The
    colors are custom properties because the CSS minifier drops a keyframe
    that holds color-mix() directly. */

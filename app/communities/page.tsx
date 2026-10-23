@@ -28,7 +28,10 @@ export default async function CommunitiesPage() {
     // Retired communities are listed for an administrator only, because
     // Restore renders on the community page and nothing else links to a
     // retired one. Their addresses resolve for everyone either way.
-    communitiesWithCounts({ includeRetired: mayManageCommunity(user ?? null) }),
+    communitiesWithCounts({
+      includeRetired: mayManageCommunity(user ?? null),
+      viewerId: user?.id ?? null
+    }),
     user ? myCommunities(user.id) : Promise.resolve([])
   ])
   const memberOf = new Set(mine.map((row) => row.id))
@@ -39,13 +42,11 @@ export default async function CommunitiesPage() {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold">Communities</h1>
           <p className="text-muted-foreground">
-            A community is a named group of people, such as a lab, a specialty
-            or a review panel. It scopes what its members see to the{" "}
+            Communities bring together people working on a vocabulary and shared{" "}
             <Link href={collectionsIndexPath} className="text-primary">
               collections
-            </Link>{" "}
-            it is working through. A term belongs to the vocabulary, not to a
-            community.
+            </Link>
+            . A community may share its content publicly or limit it to members.
           </p>
           {mayManageCommunity(user ?? null) && <CreateCommunity />}
         </div>
@@ -65,6 +66,9 @@ export default async function CommunitiesPage() {
                   <span className="space-y-1">
                     <span className="flex items-center gap-2 font-medium">
                       {community.title}
+                      {community.visibility === "members" ? (
+                        <Badge variant="outline">Members only</Badge>
+                      ) : null}
                       {memberOf.has(community.id) && (
                         <Badge variant="outline">Member</Badge>
                       )}
@@ -78,12 +82,20 @@ export default async function CommunitiesPage() {
                       </span>
                     )}
                   </span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {community.people}{" "}
-                    {community.people === 1 ? "person" : "people"},{" "}
-                    {community.collections}{" "}
-                    {community.collections === 1 ? "collection" : "collections"}
-                  </span>
+                  {community.canRead ? (
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {community.people}{" "}
+                      {community.people === 1 ? "person" : "people"},{" "}
+                      {community.collections}{" "}
+                      {community.collections === 1
+                        ? "collection"
+                        : "collections"}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      Request access
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}

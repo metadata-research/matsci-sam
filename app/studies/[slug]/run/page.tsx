@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { cache, type ReactNode } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -25,7 +26,9 @@ import { JoinStudy } from "@/components/studies/join-study"
 import { allowsStudySelfEnrollment } from "@/lib/study-protocol"
 
 // Shared by generateMetadata and the body, so the page runs one query.
-const loadStudy = cache(async (slug: string) => studyBySlug(slug))
+const loadStudy = cache(async (slug: string) =>
+  studyBySlug(slug, await currentContentViewer())
+)
 
 export async function generateMetadata({
   params

@@ -1,3 +1,5 @@
+import { readableRevisionId } from "./content-access"
+import { requireTermContent } from "./community-access"
 import {
   db,
   definitionRevisionReferencesTable,
@@ -118,7 +120,8 @@ export async function attachRevisionReferences(
 /** Only cited evidence is public. The clipboard and uncited lookup history stay private. */
 export async function revisionReferencesQuery(
   revisionIds: number[],
-  reader: typeof db | Transaction = db
+  reader: typeof db | Transaction = db,
+  viewerId: number | null = null
 ) {
   if (!revisionIds.length) return Promise.resolve([])
   const rows = await reader
@@ -155,7 +158,15 @@ export async function revisionReferencesQuery(
       termReferenceLookupsTable,
       eq(termReferenceLookupsTable.id, termReferenceEntriesTable.lookupId)
     )
-    .where(inArray(definitionRevisionReferencesTable.revisionId, revisionIds))
+    .where(
+      and(
+        inArray(definitionRevisionReferencesTable.revisionId, revisionIds),
+        readableRevisionId(
+          definitionRevisionReferencesTable.revisionId,
+          viewerId
+        )
+      )
+    )
     .orderBy(asc(termReferenceEntriesTable.term))
   return rows.map(({ endpoint, provider, ...reference }) => ({
     ...reference,
@@ -171,8 +182,12 @@ export async function revisionReferencesQuery(
   }))
 }
 
-export async function termReferencesQuery(termId: number) {
-  const revisions = await db
+export async function termReferencesQuery(
+  termId: number,
+  viewerId: number | null = null,
+  reader: typeof db | Transaction = db
+) {
+  const revisions = await reader
     .select({ id: definitionRevisionsTable.id })
     .from(definitionRevisionsTable)
     .innerJoin(
@@ -180,7 +195,11 @@ export async function termReferencesQuery(termId: number) {
       eq(definitionsTable.id, definitionRevisionsTable.definitionId)
     )
     .where(eq(definitionsTable.termId, termId))
-  return revisionReferencesQuery(revisions.map((r) => r.id))
+  return revisionReferencesQuery(
+    revisions.map((r) => r.id),
+    reader,
+    viewerId
+  )
 }
 
 /** Build model evidence from owned stored entries, never client-supplied text. */
@@ -193,6 +212,7 @@ export async function loadModelReferences(
   },
   reader: typeof db | Transaction = db
 ): Promise<ModelReferenceInput[]> {
+  if (input.termId) await requireTermContent(reader, input.termId, input.userId)
   const ids = [...new Set(input.referenceIds)].sort()
   if (!ids.length) return []
   const rows = await reader

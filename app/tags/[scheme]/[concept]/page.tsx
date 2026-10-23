@@ -1,3 +1,8 @@
+import { currentContentViewer } from "@/lib/content-access"
+import {
+  vocabularyContentVisible,
+  readableTermId
+} from "@/lib/community-access"
 import { TermDefinition } from "@/components/term/preview"
 import { Card } from "@/components/ui/card"
 import {
@@ -142,7 +147,13 @@ export default async function ConceptPage({
             // of its target term and follows that term's listing state.
             or(
               isNull(statementsTable.objectTermId),
-              listedTermId(statementsTable.objectTermId)
+              and(
+                listedTermId(statementsTable.objectTermId),
+                readableTermId(
+                  statementsTable.objectTermId,
+                  await currentContentViewer()
+                )
+              )
             ),
             isNull(statementsTable.retractedAt)
           )
@@ -160,6 +171,10 @@ export default async function ConceptPage({
         .where(
           and(
             termIsListed(),
+            vocabularyContentVisible(
+              termsTable.vocabularySlug,
+              await currentContentViewer()
+            ),
             eq(statementsTable.predicate, "dcterms:subject"),
             eq(statementsTable.objectConceptId, concept.id),
             isNull(statementsTable.retractedAt)
@@ -177,6 +192,10 @@ export default async function ConceptPage({
         .where(
           and(
             termIsListed(),
+            vocabularyContentVisible(
+              termsTable.vocabularySlug,
+              await currentContentViewer()
+            ),
             eq(statementsTable.predicate, "dcterms:subject"),
             eq(statementsTable.objectConceptId, concept.id),
             isNull(statementsTable.retractedAt)

@@ -156,6 +156,11 @@ jobs:
           GRAPH_PROJECTION_ENABLED: "false"
         run: |
           pnpm test:term-drafts-db
+          pnpm test:matcore-db
+          pnpm test:matcore-catalog-db
+          pnpm test:community-access-db
+          pnpm test:community-membership-db
+          pnpm test:community-content-db
           pnpm test:import-drafts-db
           pnpm test:import-draft-reads-db
           pnpm test:contribution-source-assets-db
@@ -528,6 +533,8 @@ jobs:
           pnpm test:term-metadata
           pnpm test:term-metadata-rdf
           pnpm test:dictionary-metadata
+          pnpm test:matcore
+          pnpm test:matcore-catalog-navigation
 
       - name: Test Graph Layer
         run: |
@@ -601,11 +608,11 @@ jobs:
           W3ID_KEEP_FIXTURE=true pnpm test:canonical-db
           pnpm test:vocabulary-http
 
-      - name: Install browser for production import acceptance
+      - name: Install browser for production workflow acceptance
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Test private imports in the production UI
-        timeout-minutes: 10
+      - name: Test imports, metadata proposals and community navigation in the production UI
+        timeout-minutes: 25
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_http_ci
           SYSTEM_PROMPT_KEY: materials-reference
@@ -613,6 +620,9 @@ jobs:
           SAM_UI_TEST_URL: http://127.0.0.1:3110
           SAM_UI_TEST_OUTPUT_DIR: ui-evidence/import
           GRAPH_PROJECTION_ENABLED: "false"
+          FUSEKI_DATASET_URL: ""
+          FUSEKI_USER: ""
+          FUSEKI_PASSWORD: ""
           DEV_AUTH_ENABLED: "true"
           SESSION_COOKIE_SECURE: "false"
           NODE_OPTIONS: --max-old-space-size=2560
@@ -629,13 +639,20 @@ jobs:
           trap 'kill "$import_server_pid" "$import_worker_pid" 2>/dev/null || true; wait "$import_server_pid" "$import_worker_pid" 2>/dev/null || true' EXIT
           curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors --max-time 5 http://127.0.0.1:3110/api/health
           pnpm test:import-drafts-ui
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/matcore pnpm test:matcore-ui
+          # Each MatCore suite installs its own invented source fixture;
+          # the protected standard corpus is never available to CI.
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/matcore-catalog pnpm test:matcore-catalog-ui
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-header pnpm exec tsx --conditions=react-server scripts/test-community-header-ui.ts
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-sections pnpm test:community-sections-ui
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-privacy pnpm test:community-privacy-ui
           pnpm db:invariants
 
-      - name: Retain import browser evidence
+      - name: Retain workflow browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: import-ui-evidence
+          name: workflow-ui-evidence
           path: ui-evidence/
           if-no-files-found: ignore
           retention-days: 7

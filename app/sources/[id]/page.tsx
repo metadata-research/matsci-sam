@@ -24,7 +24,9 @@ export default async function SourcePage({
   if (!inspected) notFound()
   const { file, extraction } = inspected
   const uses =
-    file.publishedRevisionId !== null ? await publishedSourceInputs(id) : []
+    file.publishedRevisionId !== null
+      ? await publishedSourceInputs(id, undefined, session.id ?? null)
+      : []
   const earlierTranscripts =
     extraction?.status === "ready" && extraction.parentExtractionId
       ? (await sourceExtractionHistory(id, extraction.id)).filter(

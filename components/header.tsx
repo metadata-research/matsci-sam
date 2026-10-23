@@ -40,6 +40,13 @@ import styles from "./header.module.css"
  * beside the account, with room for its name, because that standing choice
  * scopes what the pages show and was easy to miss inside the account menu.
  */
+const METADATA_CATALOG_PATHS = [
+  "/metadata/fields",
+  "/metadata/matcore",
+  "/metadata/experimental",
+  "/metadata/examples"
+]
+
 const VOCABULARY: Entry[] = [
   { href: "/terms", label: "Browse terms" },
   { href: "/search", label: "Search terms" },
@@ -52,8 +59,8 @@ const VOCABULARY: Entry[] = [
   { href: tagsIndexPath, label: "Tags & facets" },
   {
     href: "/metadata/fields",
-    label: "Metadata fields",
-    activePaths: ["/metadata"]
+    label: "Metadata field catalog",
+    activePaths: METADATA_CATALOG_PATHS
   }
 ]
 
@@ -107,7 +114,7 @@ export const Header = async () => {
         "/vocabulary",
         "/collections",
         "/tags",
-        "/metadata",
+        ...METADATA_CATALOG_PATHS,
         "/add"
       ],
       activeHrefs: createEntries.map((entry) => entry.href),
@@ -118,10 +125,22 @@ export const Header = async () => {
     },
     {
       label: "Participate",
-      activePaths: ["/communities", "/discussion", "/studies", "/models"],
+      activePaths: [
+        "/communities",
+        "/metadata/workspace",
+        "/discussion",
+        "/studies",
+        "/models"
+      ],
       groups: [
         {
-          entries: [{ href: communitiesIndexPath, label: "Communities" }]
+          entries: [
+            {
+              href: communitiesIndexPath,
+              label: "Community workspaces",
+              activePaths: ["/communities", "/metadata/workspace"]
+            }
+          ]
         },
         {
           entries: [
@@ -320,7 +339,8 @@ const MobileNavGroup = ({ label, groups }: Menu) => (
 /*
  * The community a person is working in. The trigger names it, or says
  * "Everything" when no scope is chosen. The menu holds the switcher and the
- * way into the community's page and studies. Rendered only for a member of
+ * one way into the selected community's work. Other sections live inside
+ * that workspace; Participate holds the directory. Rendered only for a member of
  * at least one community, so a reader with none sees no new chrome.
  */
 const CommunityMenu = ({
@@ -345,28 +365,18 @@ const CommunityMenu = ({
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end">
       <CommunitySwitcher active={scope} memberships={memberships} />
-      <DropdownMenuSeparator />
       {scope && (
         <>
-          <DropdownMenuLabel>{scope.title}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
-              <Link href={communityPath(scope.slug)}>Community page</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`${communityPath(scope.slug)}#studies`}>
-                Surveys of {scope.title}
+              <Link href={`${communityPath(scope.slug)}?view=work`}>
+                Open workspace
               </Link>
             </DropdownMenuItem>
           </DropdownMenuGroup>
-          <DropdownMenuSeparator />
         </>
       )}
-      <DropdownMenuGroup>
-        <DropdownMenuItem asChild>
-          <Link href={communitiesIndexPath}>All communities</Link>
-        </DropdownMenuItem>
-      </DropdownMenuGroup>
     </DropdownMenuContent>
   </DropdownMenu>
 )
@@ -409,6 +419,9 @@ const AccountMenu = ({
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
               <Link href="/profile">Profile</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/profile/drafts">My term drafts</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/profile#authored-terms">Definitions</Link>

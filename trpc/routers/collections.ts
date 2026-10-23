@@ -1,7 +1,19 @@
+import { activeCommunityFor } from "@/lib/community-queries"
+import {
+  requireTermContent,
+  requireCollectionContent,
+  requireVocabularyContent
+} from "@/lib/community-access"
 import { z } from "zod"
 import { authenticatedProcedure } from "../procedures"
 import { createTRPCRouter } from "../init"
-import { collectionsTable, db, statementsTable, termsTable } from "@yamz/db"
+import {
+  collectionsTable,
+  communitiesTable,
+  db,
+  statementsTable,
+  termsTable
+} from "@yamz/db"
 import { and, eq, isNull, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
@@ -47,6 +59,7 @@ const loadCollection = async (id: number) => {
 // A retired collection accepts no change until it is restored, so every
 // mutation below funnels through the same two refusals.
 const requireEditable = async (collectionId: number, userId: number) => {
+  await requireCollectionContent(db, collectionId, userId)
   const collection = await loadCollection(collectionId)
   if (!collection)
     throw new TRPCError({
@@ -104,21 +117,40 @@ export const collectionsRouter = createTRPCRouter({
           message: "That title does not produce a usable address"
         })
 
-      const [created] = await db
-        .insert(collectionsTable)
-        .values({
-          slug,
-          title,
-          description: description || null,
-          // A curator's collection stays curated. One created under an open
-          // deployment belongs to the contributor who made it.
-          assertableBy: user?.role === "admin" ? "curator" : "contributor",
-          createdById: userId
-        })
-        .returning({
-          id: collectionsTable.id,
-          slug: collectionsTable.slug
-        })
+      const active = await activeCommunityFor(db, userId)
+      const [created] = await db.transaction(async (tx) => {
+        const [scope] = active
+          ? await tx
+              .select({
+                id: communitiesTable.id,
+                visibility: communitiesTable.visibility
+              })
+              .from(communitiesTable)
+              .where(eq(communitiesTable.id, active.id))
+              .for("share")
+          : []
+        if (scope?.visibility === "members")
+          await requireVocabularyContent(tx, active!.vocabularySlug, userId, {
+            lock: true
+          })
+        return tx
+          .insert(collectionsTable)
+          .values({
+            slug,
+            visibilityCommunityId:
+              scope?.visibility === "members" ? scope.id : null,
+            title,
+            description: description || null,
+            // A curator's collection stays curated. One created under an open
+            // deployment belongs to the contributor who made it.
+            assertableBy: user?.role === "admin" ? "curator" : "contributor",
+            createdById: userId
+          })
+          .returning({
+            id: collectionsTable.id,
+            slug: collectionsTable.slug
+          })
+      })
 
       revalidatePath(collectionsIndexPath)
 
@@ -142,15 +174,20 @@ export const collectionsRouter = createTRPCRouter({
 
         // The slug is not derived again. A published address stays put even
         // when the title it came from changes.
-        await db
-          .update(collectionsTable)
-          .set({
-            ...(title === undefined ? {} : { title }),
-            ...(description === undefined
-              ? {}
-              : { description: description || null })
+        await db.transaction(async (tx) => {
+          await requireCollectionContent(tx, collectionId, userId, {
+            lock: true
           })
-          .where(eq(collectionsTable.id, collectionId))
+          await tx
+            .update(collectionsTable)
+            .set({
+              ...(title === undefined ? {} : { title }),
+              ...(description === undefined
+                ? {}
+                : { description: description || null })
+            })
+            .where(eq(collectionsTable.id, collectionId))
+        })
 
         revalidatePath(collectionsIndexPath)
         revalidatePath(collectionPath(collection.slug))
@@ -170,6 +207,7 @@ export const collectionsRouter = createTRPCRouter({
     .mutation(
       async ({ ctx: { userId }, input: { collectionId, termId, on } }) => {
         const collection = await requireEditable(collectionId, userId)
+        await requireTermContent(db, termId, userId)
 
         const [term] = await db
           .select({ id: termsTable.id, slug: termsTable.slug })
@@ -183,6 +221,10 @@ export const collectionsRouter = createTRPCRouter({
           })
 
         await db.transaction(async (tx) => {
+          await requireCollectionContent(tx, collectionId, userId, {
+            lock: true
+          })
+          await requireTermContent(tx, termId, userId, { lock: true })
           await reserveCollectionMembership(tx, collectionId)
           const lockedCollection = await lockCollectionMembershipRow(
             tx,

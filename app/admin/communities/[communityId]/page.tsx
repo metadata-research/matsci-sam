@@ -75,7 +75,7 @@ export default async function AdminCommunityPage({
   if (!community) notFound()
 
   const [roster, invitations] = await Promise.all([
-    communityRoster(community.id),
+    communityRoster(community.id, viewer?.id ?? null),
     adminInvitationsOfCommunity(community.id)
   ])
   const active = !community.retiredAt
@@ -183,8 +183,8 @@ export default async function AdminCommunityPage({
             <p className={styles.studyPanelDescription}>
               An invitation admits whoever opens the link and signs in, once.
               Inviting someone here joins them to the community. Participant
-              invitations are created on their study pages, and the full
-              history of both kinds is listed below.
+              invitations are created on their study pages, and the full history
+              of both kinds is listed below.
             </p>
           </div>
         </div>

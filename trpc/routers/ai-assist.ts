@@ -1,3 +1,4 @@
+import { requireDefinitionContent } from "@/lib/content-access"
 import { sourceContextSelectionsSchema } from "@/lib/source-document-selection"
 import {
   reserveSourceContext,
@@ -240,6 +241,8 @@ export const aiAssistRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx: { userId }, input }) => {
+      if ("definitionId" in input && typeof input.definitionId === "number")
+        await requireDefinitionContent(db, input.definitionId, userId)
       const assistant = await resolveDefinitionAssistant(
         userId,
         input.assistantProfile,

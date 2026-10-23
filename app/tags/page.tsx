@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { SITE_NAME } from "@/lib/site"
@@ -44,10 +45,11 @@ const groupByLetter = <T extends { label: string }>(items: T[]) => {
 }
 
 export default async function TagsPage() {
+  const viewerId = await currentContentViewer()
   const [schemes, topics, collections] = await Promise.all([
     facetSchemes(),
-    topicConcepts(),
-    collectionsWithCounts()
+    topicConcepts(viewerId),
+    collectionsWithCounts({ viewerId })
   ])
 
   // One extra query per curated scheme. There is one today, and the page is
@@ -55,7 +57,7 @@ export default async function TagsPage() {
   const facetGroups = await Promise.all(
     schemes.map(async (scheme) => ({
       scheme,
-      concepts: await conceptsOfScheme(scheme.slug, "seeded")
+      concepts: await conceptsOfScheme(scheme.slug, "seeded", viewerId)
     }))
   )
 
