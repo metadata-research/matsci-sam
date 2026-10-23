@@ -53,6 +53,14 @@ identifiers and published metadata. Implementation details are in the
 
 ## Metadata models
 
+Use a [community workspace](/metadata/workspace) to develop metadata field
+definitions and value rules alongside vocabulary terms. A MatCore community
+also provides a versioned source catalog. Browse its entries, then choose
+**Propose a change** to start a private draft or **Continue my draft** to resume
+existing work. The [metadata fields and MatCore guide](/docs/matcore-workflow)
+explains source versions, drafts, publication and local review. Bulk imports
+are optional.
+
 Use the [field catalog](/metadata/fields) to find metadata fields and
 [examples](/metadata/examples) to distinguish a concept, a field and a value.
 [MatCore and the vocabulary](/docs/reference/matcore-and-the-vocabulary)

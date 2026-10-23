@@ -1,3 +1,5 @@
+import { readableTermId } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { SparklesIcon } from "lucide-react"
@@ -40,7 +42,8 @@ export default async function ModelsPage() {
       definitionsTable,
       and(
         eq(definitionsTable.authorId, aiModelsTable.userId),
-        listedTermId(definitionsTable.termId)
+        listedTermId(definitionsTable.termId),
+        readableTermId(definitionsTable.termId, await currentContentViewer())
       )
     )
     .groupBy(aiModelsTable.userId, usersTable.name)

@@ -67,3 +67,10 @@ docs-internal
 graphs-export/
 # Fixture graphs test:graph --export writes for the SHACL step
 graph-fixtures/
+
+# Protected MatCore source snapshots are installed outside the repository.
+data/matcore/*.html
+data/matcore/*.json
+
+# Python parser bytecode
+__pycache__/

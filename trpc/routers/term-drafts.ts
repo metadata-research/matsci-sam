@@ -22,7 +22,20 @@ const versioned = identity.extend({
 const privateProcedure = authenticatedProcedure.meta({ marksGraphs: false })
 
 export const termDraftsRouter = createTRPCRouter({
-  list: privateProcedure.query(({ ctx }) => listTermDrafts(db, ctx.userId)),
+  list: privateProcedure
+    .input(
+      z
+        .object({
+          vocabularySlug: z
+            .string()
+            .regex(/^[a-z0-9][a-z0-9_-]*$/)
+            .max(200)
+            .optional()
+        })
+        .strict()
+        .optional()
+    )
+    .query(({ ctx, input }) => listTermDrafts(db, ctx.userId, input)),
   get: privateProcedure
     .input(identity)
     .query(({ ctx, input }) => getTermDraft(db, input.id, ctx.userId)),

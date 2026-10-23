@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { authenticatedProcedure } from "../procedures"
-import { createTRPCRouter } from "../init"
+import { baseProcedure, createTRPCRouter } from "../init"
 import {
   communitiesTable,
   communityCollectionsTable,
@@ -27,15 +27,31 @@ import {
   mayManageCommunity,
   mayRunCommunity,
   maySearchPeople,
-  studyAcceptsParticipants,
-  maySetCommunityMember,
-  maySetCommunityRole,
-  type CommunityRole
+  studyAcceptsParticipants
 } from "@/lib/communities"
 import { uniqueSlug } from "@/lib/slug"
 import { setStudyRetired, updateStudyDetails } from "@/lib/study-update"
 import { lockMembershipIn } from "@/lib/community-queries"
 import { lockStudy } from "@/lib/survey-queries"
+import {
+  setCommunityMember,
+  setCommunityMemberRole,
+  requireCommunityInvitationManager,
+  requireOpenCommunityJoin
+} from "@/lib/community-membership"
+import {
+  communityAccess,
+  requireCollectionContent
+} from "@/lib/community-access"
+import {
+  setCommunityVisibility,
+  communityCollectionScope,
+  requestCommunityAccess,
+  listCommunityAccessRequests,
+  reviewCommunityAccessRequest
+} from "@/lib/community-permissions"
+import { markGraphsDirty } from "@/lib/graph/projector"
+import { requireStudyContentScope } from "@/lib/study-content-scope"
 import {
   collectionPath,
   collectionsIndexPath,
@@ -157,6 +173,60 @@ const requireAdmin = async (userId: number, message: string) => {
 }
 
 export const communitiesRouter = createTRPCRouter({
+  access: baseProcedure
+    .input(z.object({ communityId: z.number().int().positive() }))
+    .query(({ ctx, input }) =>
+      communityAccess(db, input.communityId, ctx.session.id ?? null)
+    ),
+
+  setVisibility: authenticatedProcedure
+    .input(
+      z.object({
+        communityId: z.number().int().positive(),
+        visibility: z.enum(["public", "members"])
+      })
+    )
+    .mutation(async ({ ctx: { userId }, input }) => {
+      const result = await db.transaction((tx) =>
+        setCommunityVisibility(tx, { ...input, actorId: userId })
+      )
+      if (result.changed) {
+        markGraphsDirty()
+        revalidatePath("/", "layout")
+        revalidatePath(communityPath(result.slug))
+      }
+      return result
+    }),
+
+  requestAccess: authenticatedProcedure
+    .input(z.object({ communityId: z.number().int().positive() }))
+    .mutation(async ({ ctx: { userId }, input }) => {
+      const result = await db.transaction((tx) =>
+        requestCommunityAccess(tx, { ...input, requesterId: userId })
+      )
+      revalidatePath(communitiesIndexPath)
+      return result
+    }),
+
+  accessRequests: authenticatedProcedure
+    .input(z.object({ communityId: z.number().int().positive() }))
+    .query(({ ctx: { userId }, input }) =>
+      db.transaction((tx) =>
+        listCommunityAccessRequests(tx, { ...input, actorId: userId })
+      )
+    ),
+
+  reviewAccessRequest: authenticatedProcedure
+    .input(z.object({ id: z.number().int().positive(), approve: z.boolean() }))
+    .mutation(async ({ ctx: { userId }, input }) => {
+      const result = await db.transaction((tx) =>
+        reviewCommunityAccessRequest(tx, { ...input, actorId: userId })
+      )
+      revalidatePath(communityPath(result.communitySlug))
+      revalidatePath("/", "layout")
+      return result
+    }),
+
   create: authenticatedProcedure
     .input(
       z.object({
@@ -280,78 +350,16 @@ export const communitiesRouter = createTRPCRouter({
         ctx: { userId: callerId },
         input: { communityId, userId: targetId, on }
       }) => {
-        const community = await requireCommunity(communityId)
-        // Adding to a retired community is meaningless. Leaving one is not, so
-        // only the add is refused: nobody is frozen into a group that ended.
-        if (community.retiredAt && on)
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "This community has been retired"
-          })
-
-        const [caller, callerMembership, targetMembership] = await Promise.all([
-          GetUser(callerId),
-          membershipOf(communityId, callerId),
-          membershipOf(communityId, targetId)
-        ])
-
-        if (
-          !maySetCommunityMember(
-            caller ?? null,
-            callerMembership,
-            { userId: targetId, role: targetMembership?.role ?? null },
+        const result = await db.transaction((tx) =>
+          setCommunityMember(tx, {
+            communityId,
+            actorId: callerId,
+            targetId,
             on
-          )
+          })
         )
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Only a steward can change who is in this community"
-          })
-
-        const [target] = await db
-          .select({ id: usersTable.id })
-          .from(usersTable)
-          .where(eq(usersTable.id, targetId))
-          .limit(1)
-        if (!target)
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "This person doesn't exist"
-          })
-
-        await db.transaction(async (tx) => {
-          if (on && !targetMembership)
-            await tx
-              .insert(communityMembersTable)
-              .values({
-                communityId,
-                userId: targetId,
-                addedById: callerId
-              })
-              .onConflictDoNothing()
-          else if (!on && targetMembership) {
-            await tx
-              .update(communityMembersTable)
-              .set({ removedAt: sql`now()`, removedById: callerId })
-              .where(eq(communityMembersTable.id, targetMembership.id))
-
-            // A scope nobody can use must not persist. Cleared in the same
-            // transaction as the removal, which is what lets the invariant
-            // hold in its strong form.
-            await tx
-              .update(usersTable)
-              .set({ activeCommunityId: null })
-              .where(
-                and(
-                  eq(usersTable.id, targetId),
-                  eq(usersTable.activeCommunityId, communityId)
-                )
-              )
-          }
-        })
-
         revalidatePath(communitiesIndexPath)
-        revalidatePath(communityPath(community.slug))
+        revalidatePath(communityPath(result.communitySlug))
         if (!on) revalidatePath("/", "layout")
 
         return { ok: true, on }
@@ -373,27 +381,16 @@ export const communitiesRouter = createTRPCRouter({
         ctx: { userId: callerId },
         input: { communityId, userId: targetId, role }
       }) => {
-        const caller = await GetUser(callerId)
-        if (!maySetCommunityRole(caller ?? null))
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Only a curator can name a steward"
+        const result = await db.transaction((tx) =>
+          setCommunityMemberRole(tx, {
+            communityId,
+            actorId: callerId,
+            targetId,
+            role
           })
-        const community = await requireCommunity(communityId)
-
-        const membership = await membershipOf(communityId, targetId)
-        if (!membership)
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "This person is not in this community"
-          })
-
-        await db
-          .update(communityMembersTable)
-          .set({ role: role as CommunityRole })
-          .where(eq(communityMembersTable.id, membership.id))
-
-        revalidatePath(communityPath(community.slug))
+        )
+        revalidatePath(communityPath(result.communitySlug))
+        revalidatePath("/", "layout")
 
         return { ok: true, role }
       }
@@ -428,6 +425,11 @@ export const communitiesRouter = createTRPCRouter({
           .from(collectionsTable)
 
         const created = await db.transaction(async (tx) => {
+          const visibilityCommunityId = await communityCollectionScope(
+            tx,
+            communityId,
+            userId
+          )
           const [collection] = await tx
             .insert(collectionsTable)
             .values({
@@ -438,6 +440,7 @@ export const communitiesRouter = createTRPCRouter({
               ),
               title,
               description: description || null,
+              visibilityCommunityId,
               assertableBy:
                 runner?.role === "admin" ? "curator" : "contributor",
               createdById: userId
@@ -476,6 +479,8 @@ export const communitiesRouter = createTRPCRouter({
       async ({ ctx: { userId }, input: { communityId, collectionId, on } }) => {
         const community = await requireRunner(communityId, userId)
 
+        await requireCollectionContent(db, collectionId, userId)
+
         const [collection] = await db
           .select({
             id: collectionsTable.id,
@@ -497,6 +502,10 @@ export const communitiesRouter = createTRPCRouter({
           })
 
         await db.transaction(async (tx) => {
+          await communityCollectionScope(tx, communityId, userId)
+          await requireCollectionContent(tx, collectionId, userId, {
+            lock: true
+          })
           const [active] = await tx
             .select({ id: communityCollectionsTable.id })
             .from(communityCollectionsTable)
@@ -635,20 +644,24 @@ export const communitiesRouter = createTRPCRouter({
         }
 
         const token = createOneTimeToken()
-        const [created] = await db
-          .insert(communityInvitationsTable)
-          .values({
-            communityId,
-            email,
-            tokenHash: hashOneTimeToken(token),
-            invitedById: userId,
-            studyId: studyId ?? null,
-            expiresAt: invitationExpiry().toISOString()
-          })
-          .returning({
-            id: communityInvitationsTable.id,
-            expiresAt: communityInvitationsTable.expiresAt
-          })
+        const created = await db.transaction(async (tx) => {
+          await requireCommunityInvitationManager(tx, communityId, userId)
+          const [created] = await tx
+            .insert(communityInvitationsTable)
+            .values({
+              communityId,
+              email,
+              tokenHash: hashOneTimeToken(token),
+              invitedById: userId,
+              studyId: studyId ?? null,
+              expiresAt: invitationExpiry().toISOString()
+            })
+            .returning({
+              id: communityInvitationsTable.id,
+              expiresAt: communityInvitationsTable.expiresAt
+            })
+          return created
+        })
 
         const link = invitePath(token)
         // Sending happens here or not at all. The digest is all that survives,
@@ -714,6 +727,11 @@ export const communitiesRouter = createTRPCRouter({
 
       const token = createOneTimeToken()
       await db.transaction(async (tx) => {
+        await requireCommunityInvitationManager(
+          tx,
+          invitation.communityId,
+          userId
+        )
         const [current] = await tx
           .select({
             tokenHash: communityInvitationsTable.tokenHash,
@@ -804,6 +822,11 @@ export const communitiesRouter = createTRPCRouter({
       const community = await requireRunner(invitation.communityId, userId)
 
       await db.transaction(async (tx) => {
+        await requireCommunityInvitationManager(
+          tx,
+          invitation.communityId,
+          userId
+        )
         const [current] = await tx
           .select({
             redeemedAt: communityInvitationsTable.redeemedAt,
@@ -871,6 +894,11 @@ export const communitiesRouter = createTRPCRouter({
       const community = await requireRunner(invitation.communityId, userId)
 
       await db.transaction(async (tx) => {
+        await requireCommunityInvitationManager(
+          tx,
+          invitation.communityId,
+          userId
+        )
         const [current] = await tx
           .select({
             redeemedAt: communityInvitationsTable.redeemedAt,
@@ -935,34 +963,37 @@ export const communitiesRouter = createTRPCRouter({
     )
     .mutation(
       async ({ ctx: { userId }, input: { communityId, on, rotate } }) => {
-        const community = await requireRunner(communityId, userId)
-
-        const [current] = await db
-          .select({ joinToken: communitiesTable.joinToken })
-          .from(communitiesTable)
-          .where(eq(communitiesTable.id, communityId))
-          .limit(1)
-
-        if (on && current?.joinToken && !rotate)
+        const result = await db.transaction(async (tx) => {
+          const community = await requireCommunityInvitationManager(
+            tx,
+            communityId,
+            userId
+          )
+          if (on && community.visibility === "members")
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Members-only communities use approved requests or named invitations, not open join links."
+            })
+          if (on && community.joinToken && !rotate)
+            return {
+              communitySlug: community.slug,
+              link: invitePath(community.joinToken),
+              rotated: false
+            }
+          const token = on ? createOneTimeToken() : null
+          await tx
+            .update(communitiesTable)
+            .set({ joinToken: token })
+            .where(eq(communitiesTable.id, communityId))
           return {
-            ok: true,
-            link: invitePath(current.joinToken),
-            rotated: false
+            communitySlug: community.slug,
+            link: token ? invitePath(token) : null,
+            rotated: Boolean(token)
           }
-
-        const token = on ? createOneTimeToken() : null
-        await db
-          .update(communitiesTable)
-          .set({ joinToken: token })
-          .where(eq(communitiesTable.id, communityId))
-
-        revalidatePath(communityPath(community.slug))
-
-        return {
-          ok: true,
-          link: token ? invitePath(token) : null,
-          rotated: Boolean(token)
-        }
+        })
+        revalidatePath(communityPath(result.communitySlug))
+        return { ok: true, link: result.link, rotated: result.rotated }
       }
     ),
 
@@ -1088,11 +1119,8 @@ export const communitiesRouter = createTRPCRouter({
               code: "BAD_REQUEST",
               message: "This invitation has expired"
             })
-        } else if (community.joinToken !== token) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "This invitation link is not valid"
-          })
+        } else {
+          await requireOpenCommunityJoin(tx, communityId, token)
         }
 
         const existing = await lockMembershipIn(tx, communityId, userId)
@@ -1271,6 +1299,11 @@ export const communitiesRouter = createTRPCRouter({
       ])
 
       const created = await db.transaction(async (tx) => {
+        const visibilityCommunityId = await communityCollectionScope(
+          tx,
+          input.communityId,
+          userId
+        )
         let collectionId = input.collectionId
 
         if (input.newCollectionTitle) {
@@ -1283,6 +1316,7 @@ export const communitiesRouter = createTRPCRouter({
                 "collection"
               ),
               title: input.newCollectionTitle,
+              visibilityCommunityId,
               // Stamped by the standing of whoever made it, the same rule
               // collections.create follows. Hardcoding "curator" here would
               // lock a steward who is not an administrator out of the
@@ -1294,6 +1328,9 @@ export const communitiesRouter = createTRPCRouter({
             .returning({ id: collectionsTable.id })
           collectionId = collection.id
         } else {
+          await requireCollectionContent(tx, collectionId!, userId, {
+            lock: true
+          })
           const [existing] = await tx
             .select({
               id: collectionsTable.id,
@@ -1314,6 +1351,7 @@ export const communitiesRouter = createTRPCRouter({
             })
         }
 
+        await requireStudyContentScope(tx, input.communityId, collectionId!)
         const [study] = await tx
           .insert(studiesTable)
           .values({

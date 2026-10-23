@@ -1,3 +1,10 @@
+type Reader = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]
+import {
+  collectionContentVisible,
+  vocabularyContentVisible,
+  readableTermId
+} from "../community-access"
+import { readableDefinitionId, readableStudyId } from "../content-access"
 import "server-only"
 import {
   isPublicMetadataAssertion,
@@ -25,7 +32,7 @@ import {
   usersTable,
   voteEventsTable
 } from "@yamz/db"
-import { asc, eq, inArray } from "drizzle-orm"
+import { and, or, isNull, asc, eq, inArray } from "drizzle-orm"
 import { PREDICATES, objectOf, subjectOf } from "../kos"
 import type { Predicate, StatementEnds } from "../kos"
 import { en, turtleBlock } from "../kos-export"
@@ -644,174 +651,220 @@ export const provenanceDatasetBlocksTurtle = (view: ProvenanceDatasetView) =>
 // rows and the vote events name are read, and nothing else about them. A
 // vote event and a comment that name a walkthrough step are joined to the
 // step here, for its study. The step itself reaches no graph.
-export const loadProvenanceDatasetData =
-  async (): Promise<ProvenanceDatasetData> => {
-    const [
-      terms,
-      definitions,
-      revisions,
-      concepts,
-      collections,
-      models,
-      assertions,
-      metadataAssertions,
-      voteEvents,
-      walkthroughComments,
-      studies
-    ] = await Promise.all([
-      db
-        .select({
-          id: termsTable.id,
-          slug: termsTable.slug,
-          vocabularySlug: termsTable.vocabularySlug,
-          hiddenAt: termsTable.hiddenAt
-        })
-        .from(termsTable),
-      db
-        .select({
-          id: definitionsTable.id,
-          termId: definitionsTable.termId,
-          definitionNumber: definitionsTable.definitionNumber
-        })
-        .from(definitionsTable),
-      db
-        .select({
-          id: definitionRevisionsTable.id,
-          definitionId: definitionRevisionsTable.definitionId,
-          version: definitionRevisionsTable.version
-        })
-        .from(definitionRevisionsTable),
-      db
-        .select({
-          id: conceptsTable.id,
-          schemeSlug: conceptSchemesTable.slug,
-          slug: conceptsTable.slug
-        })
-        .from(conceptsTable)
-        .innerJoin(
-          conceptSchemesTable,
-          eq(conceptSchemesTable.id, conceptsTable.schemeId)
-        ),
-      db
-        .select({ id: collectionsTable.id, slug: collectionsTable.slug })
-        .from(collectionsTable),
-      db
-        .select({
-          userId: aiModelsTable.userId,
-          slug: aiModelsTable.slug,
-          tag: aiModelsTable.tag
-        })
-        .from(aiModelsTable),
-      db
-        .select({
-          id: statementsTable.id,
-          key: statementsTable.key,
-          predicate: statementsTable.predicate,
-          subjectTermId: statementsTable.subjectTermId,
-          subjectDefinitionId: statementsTable.subjectDefinitionId,
-          subjectConceptId: statementsTable.subjectConceptId,
-          subjectCollectionId: statementsTable.subjectCollectionId,
-          objectTermId: statementsTable.objectTermId,
-          objectConceptId: statementsTable.objectConceptId,
-          objectIri: statementsTable.objectIri,
-          assertedById: statementsTable.assertedById,
-          createdAt: statementsTable.createdAt,
-          retractedAt: statementsTable.retractedAt,
-          retractedById: statementsTable.retractedById
-        })
-        .from(statementsTable)
-        .orderBy(asc(statementsTable.id)),
-      db
-        .select()
-        .from(termMetadataAssertionsTable)
-        .where(eq(termMetadataAssertionsTable.status, "accepted"))
-        .orderBy(
-          asc(termMetadataAssertionsTable.createdAt),
-          asc(termMetadataAssertionsTable.id)
-        ),
-      db
-        .select({
-          id: voteEventsTable.id,
-          definitionId: voteEventsTable.definitionId,
-          revisionId: voteEventsTable.revisionId,
-          userId: voteEventsTable.userId,
-          kind: voteEventsTable.kind,
-          actorKind: voteEventsTable.actorKind,
-          createdAt: voteEventsTable.createdAt,
-          backfilled: voteEventsTable.backfilled,
-          migratedLegacy: voteEventsTable.migratedLegacy,
-          studyId: surveyStepsTable.studyId
-        })
-        .from(voteEventsTable)
-        .leftJoin(
-          surveyStepsTable,
-          eq(surveyStepsTable.id, voteEventsTable.surveyStepId)
+export const loadProvenanceDatasetData = async (
+  reader: Reader = db
+): Promise<ProvenanceDatasetData> => {
+  const [
+    terms,
+    definitions,
+    revisions,
+    concepts,
+    collections,
+    models,
+    assertions,
+    metadataAssertions,
+    voteEvents,
+    walkthroughComments,
+    studies
+  ] = await Promise.all([
+    reader
+      .select({
+        id: termsTable.id,
+        slug: termsTable.slug,
+        vocabularySlug: termsTable.vocabularySlug,
+        hiddenAt: termsTable.hiddenAt
+      })
+      .from(termsTable)
+      .where(vocabularyContentVisible(termsTable.vocabularySlug)),
+    reader
+      .select({
+        id: definitionsTable.id,
+        termId: definitionsTable.termId,
+        definitionNumber: definitionsTable.definitionNumber
+      })
+      .from(definitionsTable)
+      .where(readableTermId(definitionsTable.termId)),
+    reader
+      .select({
+        id: definitionRevisionsTable.id,
+        definitionId: definitionRevisionsTable.definitionId,
+        version: definitionRevisionsTable.version
+      })
+      .from(definitionRevisionsTable)
+      .where(readableDefinitionId(definitionRevisionsTable.definitionId)),
+    reader
+      .select({
+        id: conceptsTable.id,
+        schemeSlug: conceptSchemesTable.slug,
+        slug: conceptsTable.slug
+      })
+      .from(conceptsTable)
+      .innerJoin(
+        conceptSchemesTable,
+        eq(conceptSchemesTable.id, conceptsTable.schemeId)
+      ),
+    reader
+      .select({ id: collectionsTable.id, slug: collectionsTable.slug })
+      .from(collectionsTable)
+      .where(collectionContentVisible(collectionsTable.id)),
+    reader
+      .select({
+        userId: aiModelsTable.userId,
+        slug: aiModelsTable.slug,
+        tag: aiModelsTable.tag
+      })
+      .from(aiModelsTable),
+    reader
+      .select({
+        id: statementsTable.id,
+        key: statementsTable.key,
+        predicate: statementsTable.predicate,
+        subjectTermId: statementsTable.subjectTermId,
+        subjectDefinitionId: statementsTable.subjectDefinitionId,
+        subjectConceptId: statementsTable.subjectConceptId,
+        subjectCollectionId: statementsTable.subjectCollectionId,
+        objectTermId: statementsTable.objectTermId,
+        objectConceptId: statementsTable.objectConceptId,
+        objectIri: statementsTable.objectIri,
+        assertedById: statementsTable.assertedById,
+        createdAt: statementsTable.createdAt,
+        retractedAt: statementsTable.retractedAt,
+        retractedById: statementsTable.retractedById
+      })
+      .from(statementsTable)
+      .where(
+        and(
+          or(
+            isNull(statementsTable.subjectCollectionId),
+            collectionContentVisible(statementsTable.subjectCollectionId)
+          ),
+          or(
+            isNull(statementsTable.subjectTermId),
+            readableTermId(statementsTable.subjectTermId)
+          ),
+          or(
+            isNull(statementsTable.objectTermId),
+            readableTermId(statementsTable.objectTermId)
+          ),
+          or(
+            isNull(statementsTable.subjectDefinitionId),
+            readableDefinitionId(statementsTable.subjectDefinitionId)
+          )
         )
-        .orderBy(asc(voteEventsTable.id)),
-      db
-        .select({
-          id: commentsTable.id,
-          definitionId: commentsTable.definitionId,
-          studyId: surveyStepsTable.studyId
-        })
-        .from(commentsTable)
-        .innerJoin(
-          surveyStepsTable,
-          eq(surveyStepsTable.id, commentsTable.surveyStepId)
+      )
+      .orderBy(asc(statementsTable.id)),
+    reader
+      .select()
+      .from(termMetadataAssertionsTable)
+      .where(
+        and(
+          eq(termMetadataAssertionsTable.status, "accepted"),
+          readableTermId(termMetadataAssertionsTable.termId)
         )
-        .orderBy(asc(commentsTable.id)),
-      db
-        .select({
-          id: studiesTable.id,
-          slug: studiesTable.slug,
-          title: studiesTable.title,
-          collectionId: studiesTable.collectionId,
-          opensAt: studiesTable.opensAt,
-          closesAt: studiesTable.closesAt,
-          retiredAt: studiesTable.retiredAt
-        })
-        .from(studiesTable)
-        .orderBy(asc(studiesTable.id))
+      )
+      .orderBy(
+        asc(termMetadataAssertionsTable.createdAt),
+        asc(termMetadataAssertionsTable.id)
+      ),
+    reader
+      .select({
+        id: voteEventsTable.id,
+        definitionId: voteEventsTable.definitionId,
+        revisionId: voteEventsTable.revisionId,
+        userId: voteEventsTable.userId,
+        kind: voteEventsTable.kind,
+        actorKind: voteEventsTable.actorKind,
+        createdAt: voteEventsTable.createdAt,
+        backfilled: voteEventsTable.backfilled,
+        migratedLegacy: voteEventsTable.migratedLegacy,
+        studyId: surveyStepsTable.studyId
+      })
+      .from(voteEventsTable)
+      .leftJoin(
+        surveyStepsTable,
+        eq(surveyStepsTable.id, voteEventsTable.surveyStepId)
+      )
+      .where(
+        and(
+          readableDefinitionId(voteEventsTable.definitionId),
+          or(
+            isNull(surveyStepsTable.studyId),
+            readableStudyId(surveyStepsTable.studyId)
+          )
+        )
+      )
+      .orderBy(asc(voteEventsTable.id)),
+    reader
+      .select({
+        id: commentsTable.id,
+        definitionId: commentsTable.definitionId,
+        studyId: surveyStepsTable.studyId
+      })
+      .from(commentsTable)
+      .innerJoin(
+        surveyStepsTable,
+        eq(surveyStepsTable.id, commentsTable.surveyStepId)
+      )
+      .where(
+        and(
+          readableDefinitionId(commentsTable.definitionId),
+          readableStudyId(surveyStepsTable.studyId)
+        )
+      )
+      .orderBy(asc(commentsTable.id)),
+    reader
+      .select({
+        id: studiesTable.id,
+        slug: studiesTable.slug,
+        title: studiesTable.title,
+        collectionId: studiesTable.collectionId,
+        opensAt: studiesTable.opensAt,
+        closesAt: studiesTable.closesAt,
+        retiredAt: studiesTable.retiredAt
+      })
+      .from(studiesTable)
+      .where(readableStudyId(studiesTable.id))
+      .orderBy(asc(studiesTable.id))
+  ])
+
+  const userIds = [
+    ...new Set([
+      ...assertions.flatMap((s) => [s.assertedById, s.retractedById]),
+      ...metadataAssertions.flatMap((s) => [
+        s.assertedById,
+        s.reviewedById,
+        s.retractedById
+      ]),
+      ...voteEvents.map((e) => e.userId)
     ])
+  ].filter((id): id is number => id !== null)
+  const users = userIds.length
+    ? await reader
+        .select({
+          id: usersTable.id,
+          name: usersTable.name,
+          isAi: usersTable.isAi,
+          isProfilePublic: usersTable.isProfilePublic
+        })
+        .from(usersTable)
+        .where(inArray(usersTable.id, userIds))
+    : []
 
-    const userIds = [
-      ...new Set([
-        ...assertions.flatMap((s) => [s.assertedById, s.retractedById]),
-        ...metadataAssertions.flatMap((s) => [
-          s.assertedById,
-          s.reviewedById,
-          s.retractedById
-        ]),
-        ...voteEvents.map((e) => e.userId)
-      ])
-    ].filter((id): id is number => id !== null)
-    const users = userIds.length
-      ? await db
-          .select({
-            id: usersTable.id,
-            name: usersTable.name,
-            isAi: usersTable.isAi,
-            isProfilePublic: usersTable.isProfilePublic
-          })
-          .from(usersTable)
-          .where(inArray(usersTable.id, userIds))
-      : []
-
-    return {
-      users,
-      models,
-      terms,
-      definitions,
-      revisions,
-      concepts,
-      collections,
-      assertions: assertions.map((s) => ({
-        ...s,
-        predicate: s.predicate as Predicate
-      })),
-      metadataAssertions,
-      voteEvents,
-      walkthroughComments,
-      studies
-    }
+  return {
+    users,
+    models,
+    terms,
+    definitions,
+    revisions,
+    concepts,
+    collections,
+    assertions: assertions.map((s) => ({
+      ...s,
+      predicate: s.predicate as Predicate
+    })),
+    metadataAssertions,
+    voteEvents,
+    walkthroughComments,
+    studies
   }
+}

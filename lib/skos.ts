@@ -1,3 +1,10 @@
+type Reader = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]
+import {
+  collectionContentVisible,
+  vocabularyContentVisible,
+  readableTermId
+} from "./community-access"
+import { readableDefinitionId } from "./content-access"
 import {
   isCurrentMetadataAssertion,
   metadataAssertionFact,
@@ -134,14 +141,24 @@ export type TermSkos = {
 // The whole knowledge-organization layer in a handful of queries: schemes,
 // live and retired concepts (only `proposed` is excluded), collections, every
 // active statement, and the terms those statements name.
-export const loadKos = async ({
-  includeHidden = false
-}: { includeHidden?: boolean } = {}): Promise<KosData> => {
+export const loadKos = async (
+  {
+    includeHidden = false,
+    viewerId = null
+  }: { includeHidden?: boolean; viewerId?: number | null } = {},
+  reader: Reader = db
+): Promise<KosData> => {
   const [schemes, concepts, collections, statements] = await Promise.all([
-    db.select().from(conceptSchemesTable),
-    db.select().from(conceptsTable).where(ne(conceptsTable.status, "proposed")),
-    db.select().from(collectionsTable),
-    db
+    reader.select().from(conceptSchemesTable),
+    reader
+      .select()
+      .from(conceptsTable)
+      .where(ne(conceptsTable.status, "proposed")),
+    reader
+      .select()
+      .from(collectionsTable)
+      .where(collectionContentVisible(collectionsTable.id, viewerId)),
+    reader
       .select({
         id: statementsTable.id,
         key: statementsTable.key,
@@ -158,6 +175,25 @@ export const loadKos = async ({
       .where(
         and(
           isNull(statementsTable.retractedAt),
+          or(
+            isNull(statementsTable.subjectCollectionId),
+            collectionContentVisible(
+              statementsTable.subjectCollectionId,
+              viewerId
+            )
+          ),
+          or(
+            isNull(statementsTable.subjectTermId),
+            readableTermId(statementsTable.subjectTermId, viewerId)
+          ),
+          or(
+            isNull(statementsTable.objectTermId),
+            readableTermId(statementsTable.objectTermId, viewerId)
+          ),
+          or(
+            isNull(statementsTable.subjectDefinitionId),
+            readableDefinitionId(statementsTable.subjectDefinitionId, viewerId)
+          ),
           includeHidden
             ? undefined
             : and(
@@ -189,7 +225,7 @@ export const loadKos = async ({
     )
   ]
   const terms = termIds.length
-    ? await db
+    ? await reader
         .select({
           id: termsTable.id,
           term: termsTable.term,
@@ -200,6 +236,7 @@ export const loadKos = async ({
         .where(
           and(
             inArray(termsTable.id, termIds),
+            vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
             includeHidden ? undefined : termIsListed()
           )
         )
@@ -419,11 +456,15 @@ export const assembleTermSkos = (
 export const buildTermsSkos = async (
   kos: KosData,
   termIds?: number[],
-  { includeHidden = false }: { includeHidden?: boolean } = {}
+  {
+    includeHidden = false,
+    viewerId = null
+  }: { includeHidden?: boolean; viewerId?: number | null } = {},
+  reader: Reader = db
 ): Promise<TermSkos[]> => {
   if (termIds && termIds.length === 0) return []
 
-  const terms = await db
+  const terms = await reader
     .select({
       id: termsTable.id,
       term: termsTable.term,
@@ -436,13 +477,14 @@ export const buildTermsSkos = async (
     .where(
       and(
         termIds ? inArray(termsTable.id, termIds) : undefined,
+        vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
         includeHidden ? undefined : termIsListed()
       )
     )
     .orderBy(asc(termsTable.term))
   if (terms.length === 0) return []
 
-  const definitions = await db
+  const definitions = await reader
     .select({
       id: definitionsTable.id,
       termId: definitionsTable.termId,
@@ -472,7 +514,7 @@ export const buildTermsSkos = async (
   const definitionIds = definitions.map((d) => d.id)
   const [coauthors, examples] = definitionIds.length
     ? await Promise.all([
-        db
+        reader
           .select({
             definitionId: coauthorsTable.definitionId,
             name: usersTable.name,
@@ -481,11 +523,11 @@ export const buildTermsSkos = async (
           .from(coauthorsTable)
           .innerJoin(usersTable, eq(usersTable.id, coauthorsTable.userId))
           .where(inArray(coauthorsTable.definitionId, definitionIds)),
-        activeExampleTextsForDefinitions(definitionIds)
+        activeExampleTextsForDefinitions(definitionIds, reader)
       ])
     : [[], []]
 
-  const metadata = await db
+  const metadata = await reader
     .select({
       assertion: getTableColumns(termMetadataAssertionsTable),
       definitionNumber: definitionsTable.definitionNumber,
@@ -527,13 +569,18 @@ export const buildTermsSkos = async (
 export const buildTermSkos = async (
   termId: number,
   kos?: KosData,
-  { includeHidden = true }: { includeHidden?: boolean } = {}
+  {
+    includeHidden = true,
+    viewerId = null
+  }: { includeHidden?: boolean; viewerId?: number | null } = {},
+  reader: Reader = db
 ): Promise<TermSkos | null> => {
   if (!Number.isInteger(termId)) return null
   const [record] = await buildTermsSkos(
-    kos ?? (await loadKos({ includeHidden })),
+    kos ?? (await loadKos({ includeHidden, viewerId }, reader)),
     [termId],
-    { includeHidden }
+    { includeHidden, viewerId },
+    reader
   )
   return record ?? null
 }
@@ -652,10 +699,13 @@ export type SchemeDocument = {
   vocabularies: VocabularyScheme[]
 }
 
-export const loadSchemeDocument = async (): Promise<SchemeDocument> => {
+export const loadSchemeDocument = async (
+  viewerId: number | null = null,
+  reader: Reader = db
+): Promise<SchemeDocument> => {
   const [kos, vocabularies] = await Promise.all([
-    loadKos(),
-    db
+    loadKos({ viewerId }, reader),
+    reader
       .select({
         slug: vocabulariesTable.slug,
         title: vocabulariesTable.title,
@@ -664,9 +714,10 @@ export const loadSchemeDocument = async (): Promise<SchemeDocument> => {
         retiredAt: vocabulariesTable.retiredAt
       })
       .from(vocabulariesTable)
+      .where(vocabularyContentVisible(vocabulariesTable.slug, viewerId))
       .orderBy(desc(vocabulariesTable.isDefault), asc(vocabulariesTable.slug))
   ])
-  const records = await buildTermsSkos(kos)
+  const records = await buildTermsSkos(kos, undefined, { viewerId }, reader)
   return { kos, records, vocabularies }
 }
 

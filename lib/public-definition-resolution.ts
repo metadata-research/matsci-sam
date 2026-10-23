@@ -1,3 +1,4 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
 import {
   currentDefinitionRevision,
   publicDefinitionAuthor,
@@ -24,13 +25,15 @@ export function parsePositivePublicNumber(value: string) {
 
 /**
  * Resolve a public, term-scoped definition number to the private database key
- * used by application services.
+ * used by application services. Callers pass request identity explicitly;
+ * background jobs and CLI consumers default to anonymous access.
  */
 export const findDefinitionByPublicNumber = cache(
   async (
     termSlug: string,
     definitionNumber: number,
-    vocabularySlug = DEFAULT_VOCABULARY_SLUG
+    vocabularySlug = DEFAULT_VOCABULARY_SLUG,
+    viewerId: number | null = null
   ) => {
     const [definition] = await db
       .select({
@@ -46,6 +49,7 @@ export const findDefinitionByPublicNumber = cache(
       .where(
         and(
           eq(termsTable.slug, termSlug),
+          vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
           eq(termsTable.vocabularySlug, vocabularySlug),
           eq(definitionsTable.definitionNumber, definitionNumber)
         )
@@ -61,7 +65,8 @@ export const findDefinitionRevisionByPublicNumber = cache(
     termSlug: string,
     definitionNumber: number,
     version: number,
-    vocabularySlug = DEFAULT_VOCABULARY_SLUG
+    vocabularySlug = DEFAULT_VOCABULARY_SLUG,
+    viewerId: number | null = null
   ) => {
     const [definition] = await db
       .select({
@@ -82,6 +87,7 @@ export const findDefinitionRevisionByPublicNumber = cache(
       .where(
         and(
           eq(termsTable.slug, termSlug),
+          vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
           eq(termsTable.vocabularySlug, vocabularySlug),
           eq(definitionsTable.definitionNumber, definitionNumber),
           eq(definitionRevisionsTable.version, version)
@@ -98,7 +104,7 @@ export const findDefinitionRevisionByPublicNumber = cache(
  * compatibility redirects. New links should never expose the row id.
  */
 export const findDefinitionPublicIdentity = cache(
-  async (definitionId: number) => {
+  async (definitionId: number, viewerId: number | null = null) => {
     const [definition] = await db
       .select({
         id: definitionsTable.id,
@@ -109,7 +115,12 @@ export const findDefinitionPublicIdentity = cache(
       })
       .from(definitionsTable)
       .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-      .where(eq(definitionsTable.id, definitionId))
+      .where(
+        and(
+          eq(definitionsTable.id, definitionId),
+          vocabularyContentVisible(termsTable.vocabularySlug, viewerId)
+        )
+      )
       .limit(1)
 
     return definition
@@ -124,7 +135,8 @@ export const findDefinitionPublicIdentity = cache(
 export async function findDefinitionAtRank(
   termSlug: string,
   rank: number,
-  vocabularySlug = DEFAULT_VOCABULARY_SLUG
+  vocabularySlug = DEFAULT_VOCABULARY_SLUG,
+  viewerId: number | null = null
 ) {
   const [definition] = await db
     .select({
@@ -142,6 +154,7 @@ export async function findDefinitionAtRank(
     .where(
       and(
         eq(termsTable.slug, termSlug),
+        vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
         eq(termsTable.vocabularySlug, vocabularySlug)
       )
     )

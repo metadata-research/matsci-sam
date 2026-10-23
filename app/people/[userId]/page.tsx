@@ -1,3 +1,5 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { cache } from "react"
@@ -94,7 +96,16 @@ export default async function PublicProfilePage({
     })
     .from(definitionsTable)
     .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-    .where(and(termIsListed(), eq(definitionsTable.authorId, profile.id)))
+    .where(
+      and(
+        termIsListed(),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        ),
+        eq(definitionsTable.authorId, profile.id)
+      )
+    )
     .groupBy(termsTable.id)
     .orderBy(asc(termsTable.term))
 

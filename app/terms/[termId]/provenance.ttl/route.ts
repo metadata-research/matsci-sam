@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { buildTermProvenance } from "@/lib/provenance"
 import { provenanceTurtle } from "@/lib/provenance-rdf"
 
@@ -7,13 +8,19 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ termId: string }> }
 ) {
+  const viewerId = await currentContentViewer()
   const { termId } = await params
   const prov = await buildTermProvenance(Number(termId), {
-    anonymizeVoters: true
+    anonymizeVoters: true,
+    viewerId
   })
   if (!prov) return new Response("Not found", { status: 404 })
 
   return new Response(provenanceTurtle(prov), {
-    headers: { "Content-Type": "text/turtle; charset=utf-8" }
+    headers: {
+      "Cache-Control": "private, no-store",
+      Vary: "Cookie",
+      "Content-Type": "text/turtle; charset=utf-8"
+    }
   })
 }

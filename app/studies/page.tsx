@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { SITE_NAME } from "@/lib/site"
@@ -59,7 +60,7 @@ const StudyItem = ({ study }: { study: Listed & { saved?: number } }) => {
 export default async function StudiesPage() {
   const user = await getCurrentUser()
   const [studies, mine] = await Promise.all([
-    listStudies(),
+    listStudies(await currentContentViewer()),
     user ? studiesOfViewer(user.id) : []
   ])
   const mineIds = new Set(mine.map((study) => study.id))

@@ -271,7 +271,13 @@ async function main() {
     )
     await button("Create 12 private drafts").click()
     await page.getByRole("link", { name: "Open import", exact: true }).click()
-    await expect(page).toHaveURL(/\/profile\/drafts\/imports\/[a-f0-9-]+$/)
+    await expect(page).toHaveURL((url) =>
+      /^\/profile\/drafts\/imports\/[a-f0-9-]+$/.test(url.pathname)
+    )
+    assert.equal(
+      new URL(page.url()).searchParams.get("returnTo"),
+      `/communities/${fixture.communitySlug}?view=work#term-imports`
+    )
     batchId = new URL(page.url()).pathname.split("/").at(-1)!
     assert.equal((await drafts()).length, 12)
     assert.equal(
@@ -354,7 +360,10 @@ async function main() {
     ).toHaveValue(fileA.id)
     await button("Save and return to import").click()
     await expect(page).toHaveURL(
-      new RegExp(`/profile/drafts/imports/${batchId}$`)
+      (url) =>
+        url.pathname === `/profile/drafts/imports/${batchId}` &&
+        url.searchParams.get("returnTo") ===
+          `/communities/${fixture.communitySlug}?view=work#term-imports`
     )
     record(
       "The existing editor saves and reloads declared credit, manual citation, ontology review and attached source mapping"
@@ -409,7 +418,9 @@ async function main() {
       .check()
     await button("Save and review import").click()
     await expect(page).toHaveURL(
-      new RegExp(`/profile/drafts/imports/${batchId}\\?review=`)
+      (url) =>
+        url.pathname === `/profile/drafts/imports/${batchId}` &&
+        Boolean(url.searchParams.get("review"))
     )
     record(
       "One upload is assigned to another draft with separate binding and saved publication choices"

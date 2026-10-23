@@ -4,6 +4,10 @@ import { SITE_NAME } from "@/lib/site"
 import { setupTasks, type SetupTask } from "@/lib/guided-setup"
 import { trpc } from "@/trpc/server"
 import { GuidedSetup } from "./setup-workspace"
+import {
+  communityWorkReturn,
+  normalizeCommunityWorkReturnTo
+} from "@/lib/community-work-return"
 
 export const metadata: Metadata = {
   title: `Quick start & guided setup | ${SITE_NAME}`
@@ -17,6 +21,7 @@ export default async function SetupPage({
     communityId?: string
     vocabularySlug?: string
     draftId?: string
+    returnTo?: string
   }>
 }) {
   const [params, options] = await Promise.all([
@@ -66,6 +71,16 @@ export default async function SetupPage({
   if (params.vocabularySlug)
     returnParams.set("vocabularySlug", params.vocabularySlug)
   if (params.draftId) returnParams.set("draftId", params.draftId)
+  const requestedWorkReturn = normalizeCommunityWorkReturnTo(params.returnTo)
+  if (requestedWorkReturn) returnParams.set("returnTo", requestedWorkReturn)
+  const workspaceReturn = destinationCommunity
+    ? communityWorkReturn(
+        destinationCommunity,
+        requestedWorkReturn,
+        undefined,
+        task === "import" ? "term-imports" : "term-drafts"
+      )
+    : undefined
   return (
     <main className="px-4 py-6 sm:py-8">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -74,6 +89,7 @@ export default async function SetupPage({
           draftKey={draftKey}
           draftId={params.draftId}
           returnTo={returnParams.size ? `/setup?${returnParams}` : "/setup"}
+          workspaceReturn={workspaceReturn}
           options={options}
           task={task}
           communityId={

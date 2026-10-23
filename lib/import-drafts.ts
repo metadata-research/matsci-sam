@@ -1,3 +1,8 @@
+import {
+  requireVocabularyContent,
+  readableTermId,
+  vocabularyContentVisible
+} from "./community-access"
 import "server-only"
 import { createHash, randomUUID } from "node:crypto"
 import { TRPCError } from "@trpc/server"
@@ -100,6 +105,9 @@ async function ownedBatch(
     )
   const [batch] = await (lock ? query.for("update") : query)
   if (!batch) return fail("This import is unavailable.", "NOT_FOUND")
+  await requireVocabularyContent(reader, batch.vocabularySlug, ownerId, {
+    lock
+  })
   return batch
 }
 async function draftCapacity(reader: Reader, ownerId: number) {
@@ -128,6 +136,7 @@ async function privateDestination(
     .from(vocabulariesTable)
     .where(eq(vocabulariesTable.slug, input.vocabularySlug))
   if (!vocabulary || vocabulary.retiredAt) fail("Choose an active vocabulary.")
+  await requireVocabularyContent(reader, input.vocabularySlug, ownerId)
   // Drafting requires an account, not a completed contributor profile. Current
   // contribution/community permissions are checked again at publication.
   await requireImportCollection(reader, input.collectionId, ownerId)
@@ -245,6 +254,7 @@ export async function createImportDrafts(
   },
   ownerId: number
 ) {
+  await lockContributionSubmissions(tx, ownerId)
   await draftLock(tx, ownerId)
   const creationHash = contributionFingerprint({
     ...input,
@@ -297,6 +307,7 @@ export async function createImportDrafts(
     .where(
       and(
         eq(importBatchesTable.ownerId, ownerId),
+        vocabularyContentVisible(importBatchesTable.vocabularySlug, ownerId),
         isNull(importBatchesTable.archivedAt)
       )
     )
@@ -375,7 +386,11 @@ async function loadImportEvidenceSnapshot(
         .where(
           and(
             inArray(aiContributionSuggestionsTable.id, suggestionIds),
-            eq(aiContributionSuggestionsTable.requestedById, ownerId)
+            eq(aiContributionSuggestionsTable.requestedById, ownerId),
+            vocabularyContentVisible(
+              aiContributionSuggestionsTable.vocabularySlug,
+              ownerId
+            )
           )
         )
         .orderBy(asc(aiContributionSuggestionsTable.id))
@@ -412,9 +427,12 @@ async function loadImportEvidenceSnapshot(
     })
     .from(contributionFilesTable)
     .where(
-      inArray(
-        contributionFilesTable.id,
-        fileIds.length ? fileIds : [randomUUID()]
+      and(
+        inArray(
+          contributionFilesTable.id,
+          fileIds.length ? fileIds : [randomUUID()]
+        ),
+        vocabularyContentVisible(contributionFilesTable.vocabularySlug, ownerId)
       )
     )
     .orderBy(asc(contributionFilesTable.id))
@@ -459,7 +477,16 @@ async function loadImportEvidenceSnapshot(
     ? await reader
         .select()
         .from(termReferenceLookupsTable)
-        .where(inArray(termReferenceLookupsTable.id, lookupIds))
+        .where(
+          and(
+            inArray(termReferenceLookupsTable.id, lookupIds),
+            eq(termReferenceLookupsTable.requestedById, ownerId),
+            or(
+              isNull(termReferenceLookupsTable.termId),
+              readableTermId(termReferenceLookupsTable.termId, ownerId)
+            )
+          )
+        )
         .orderBy(asc(termReferenceLookupsTable.id))
     : []
   const entries = lookupIds.length
@@ -660,7 +687,11 @@ async function lockImportPublicationScope(
         .where(
           and(
             inArray(aiContributionSuggestionsTable.id, suggestionIds),
-            eq(aiContributionSuggestionsTable.requestedById, ownerId)
+            eq(aiContributionSuggestionsTable.requestedById, ownerId),
+            vocabularyContentVisible(
+              aiContributionSuggestionsTable.vocabularySlug,
+              ownerId
+            )
           )
         )
     : []
@@ -815,7 +846,8 @@ export async function getImportDrafts(
         ? [draft.publication.definition.currentRevisionId]
         : []
     ),
-    reader
+    reader,
+    ownerId
   )
   const draftsById = new Map(drafts.map((draft) => [draft.id, draft]))
   const result = []
@@ -895,13 +927,21 @@ async function readyImportDraftIds(
   }
   return ready
 }
-export async function listImportDrafts(reader: Reader, ownerId: number) {
+export async function listImportDrafts(
+  reader: Reader,
+  ownerId: number,
+  input: { vocabularySlug?: string } = {}
+) {
   const batches = await reader
     .select()
     .from(importBatchesTable)
     .where(
       and(
         eq(importBatchesTable.ownerId, ownerId),
+        vocabularyContentVisible(importBatchesTable.vocabularySlug, ownerId),
+        input.vocabularySlug
+          ? eq(importBatchesTable.vocabularySlug, input.vocabularySlug)
+          : undefined,
         isNull(importBatchesTable.archivedAt)
       )
     )
@@ -1139,6 +1179,7 @@ export async function archiveImportDrafts(
   id: string,
   ownerId: number
 ) {
+  await lockContributionSubmissions(tx, ownerId)
   await draftLock(tx, ownerId)
   await ownedBatch(tx, id, ownerId, true)
   const [active] = await tx

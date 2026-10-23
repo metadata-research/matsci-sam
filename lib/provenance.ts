@@ -1,3 +1,6 @@
+import { participationContentVisible } from "./content-access"
+type Reader = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]
+import { vocabularyContentVisible } from "./community-access"
 import {
   importOriginProvenance,
   publicImportOrigin
@@ -198,14 +201,17 @@ export const buildTermProvenance = async (
   // IRI, the agent its assertions and vote events name in that graph. The
   // per-term document keeps naming a model by the string it ran under.
   options: {
+    reader?: Reader
+    viewerId?: number | null
     anonymizeVoters?: boolean
     includeVotes?: boolean
     modelIdentities?: boolean
   } = {}
 ) => {
+  const reader: Reader = options.reader ?? db
   const includeVotes = options.includeVotes ?? true
   const modelIdentities = options.modelIdentities
-    ? await db
+    ? await reader
         .select({
           userId: aiModelsTable.userId,
           slug: aiModelsTable.slug,
@@ -217,12 +223,22 @@ export const buildTermProvenance = async (
   const modelSlugByUserId = new Map(
     modelIdentities.map((m) => [m.userId, m.slug])
   )
-  const term = await db.query.termsTable.findFirst({
-    where: eq(termsTable.id, termId)
-  })
+  const [term] = await reader
+    .select()
+    .from(termsTable)
+    .where(
+      and(
+        eq(termsTable.id, termId),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          options.viewerId ?? null
+        )
+      )
+    )
+    .limit(1)
   if (!term) return null
 
-  const definitions = await db
+  const definitions = await reader
     .select({
       id: definitionsTable.id,
       definitionNumber: definitionsTable.definitionNumber,
@@ -258,7 +274,7 @@ export const buildTermProvenance = async (
     metadataAssertions
   ] = await Promise.all([
     definitionIds.length
-      ? db
+      ? reader
           .select({
             id: definitionRevisionsTable.id,
             definitionId: definitionRevisionsTable.definitionId,
@@ -299,7 +315,7 @@ export const buildTermProvenance = async (
           )
       : Promise.resolve([]),
     definitionIds.length
-      ? db
+      ? reader
           .select({
             id: commentsTable.id,
             definitionId: commentsTable.definitionId,
@@ -321,10 +337,18 @@ export const buildTermProvenance = async (
           })
           .from(commentsTable)
           .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
-          .where(inArray(commentsTable.definitionId, definitionIds))
+          .where(
+            and(
+              inArray(commentsTable.definitionId, definitionIds),
+              participationContentVisible(
+                commentsTable.surveyStepId,
+                options.viewerId ?? null
+              )
+            )
+          )
           .orderBy(asc(commentsTable.createdAt))
       : Promise.resolve([]),
-    db
+    reader
       .select({
         ...getTableColumns(chatsTable),
         authorName: usersTable.name,
@@ -339,7 +363,7 @@ export const buildTermProvenance = async (
     // The current-state votes, read for the standing score of each revision
     // and nothing else: every voting act is in voteEvents.
     definitionIds.length
-      ? db
+      ? reader
           .select({
             revisionId: votesTable.revisionId,
             kind: votesTable.kind
@@ -348,7 +372,7 @@ export const buildTermProvenance = async (
           .where(inArray(votesTable.definitionId, definitionIds))
       : Promise.resolve([]),
     definitionIds.length
-      ? db
+      ? reader
           .select()
           .from(refinementsTable)
           .where(inArray(refinementsTable.definitionId, definitionIds))
@@ -360,7 +384,7 @@ export const buildTermProvenance = async (
     acceptedLegacyDiscussionSuggestionsForOutputs(definitionIds),
     acceptedAiSuggestionsForOutputs(definitionIds),
     definitionIds.length
-      ? db
+      ? reader
           .select({
             ...getTableColumns(definitionExamplesTable),
             author: {
@@ -382,7 +406,7 @@ export const buildTermProvenance = async (
           )
       : Promise.resolve([]),
     definitionIds.length
-      ? db
+      ? reader
           .select({
             ...getTableColumns(definitionExampleSelectionsTable),
             selectedBy: {
@@ -425,8 +449,8 @@ export const buildTermProvenance = async (
             asc(definitionExampleSelectionsTable.id)
           )
       : Promise.resolve([]),
-    termReferencesQuery(termId),
-    db
+    termReferencesQuery(termId, options.viewerId ?? null, reader),
+    reader
       .select({
         ...contributionFileSelection,
         definitionId: definitionRevisionsTable.definitionId,
@@ -448,7 +472,7 @@ export const buildTermProvenance = async (
         eq(definitionRevisionsTable.definitionId, definitionsTable.id)
       )
       .where(eq(definitionsTable.termId, termId)),
-    db
+    reader
       .select({
         assertion: getTableColumns(termMetadataAssertionsTable),
         author: {
@@ -498,11 +522,11 @@ export const buildTermProvenance = async (
   const revisionIds = revisions.map((revision) => revision.id)
   const [importOrigins, manualCitations] = revisionIds.length
     ? await Promise.all([
-        db
+        reader
           .select()
           .from(revisionImportOriginsTable)
           .where(inArray(revisionImportOriginsTable.revisionId, revisionIds)),
-        db
+        reader
           .select()
           .from(revisionManualCitationsTable)
           .where(inArray(revisionManualCitationsTable.revisionId, revisionIds))
@@ -519,7 +543,7 @@ export const buildTermProvenance = async (
     )
   ]
   const publishedExtractions = publishedExtractionIds.length
-    ? await db
+    ? await reader
         .select({
           id: sourceExtractionsTable.id,
           fileId: sourceExtractionsTable.fileId,
@@ -557,7 +581,7 @@ export const buildTermProvenance = async (
       )
     ]
     if (!parentIds.length) break
-    const parents = await db
+    const parents = await reader
       .select({
         id: sourceExtractionsTable.id,
         fileId: sourceExtractionsTable.fileId,
@@ -593,7 +617,7 @@ export const buildTermProvenance = async (
   // vote as the 0043 backfill wrote it, at the recorded time of the vote.
   const voteEvents =
     definitionIds.length && includeVotes
-      ? await db
+      ? await reader
           .select({
             id: voteEventsTable.id,
             revisionId: voteEventsTable.revisionId,
@@ -612,7 +636,15 @@ export const buildTermProvenance = async (
           })
           .from(voteEventsTable)
           .innerJoin(usersTable, eq(voteEventsTable.userId, usersTable.id))
-          .where(inArray(voteEventsTable.definitionId, definitionIds))
+          .where(
+            and(
+              inArray(voteEventsTable.definitionId, definitionIds),
+              participationContentVisible(
+                voteEventsTable.surveyStepId,
+                options.viewerId ?? null
+              )
+            )
+          )
           .orderBy(asc(voteEventsTable.createdAt), asc(voteEventsTable.id))
       : []
 
@@ -716,7 +748,7 @@ export const buildTermProvenance = async (
   )
   const externalSourceById = new Map(
     (missingDerivedIds.length
-      ? await db
+      ? await reader
           .select({
             id: definitionRevisionsTable.id,
             version: definitionRevisionsTable.version,
@@ -732,7 +764,15 @@ export const buildTermProvenance = async (
             eq(definitionsTable.id, definitionRevisionsTable.definitionId)
           )
           .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-          .where(inArray(definitionRevisionsTable.id, missingDerivedIds))
+          .where(
+            and(
+              inArray(definitionRevisionsTable.id, missingDerivedIds),
+              vocabularyContentVisible(
+                termsTable.vocabularySlug,
+                options.viewerId ?? null
+              )
+            )
+          )
       : []
     ).map((source) => [source.id, source] as const)
   )
@@ -2300,8 +2340,7 @@ export const buildTermProvenance = async (
     }
     const extraction = publishedExtractions.find(
       (row) =>
-        row.id === file.publishedExtractionId &&
-        sameSourceAsset(file, row)
+        row.id === file.publishedExtractionId && sameSourceAsset(file, row)
     )
     if (extraction?.textHash && extraction.completedAt) {
       const evidence = sourceExtractionProvenance({
@@ -2314,9 +2353,7 @@ export const buildTermProvenance = async (
         hasOcr: extraction.hasOcr,
         extractedAt: extraction.completedAt,
         extractionSteps: [...extractionById.values()].flatMap((step) =>
-          sameSourceAsset(file, step) &&
-          step.textHash &&
-          step.completedAt
+          sameSourceAsset(file, step) && step.textHash && step.completedAt
             ? [
                 {
                   id: step.id,

@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import {
   PublicRevisionRoute,
   revisionRouteMetadata
@@ -13,7 +14,8 @@ type NamespacedRevisionParams = {
 }
 
 const requireVocabulary = async (slug: string) => {
-  if (!(await findNondefaultVocabulary(slug))) notFound()
+  if (!(await findNondefaultVocabulary(slug, await currentContentViewer())))
+    notFound()
 }
 
 export async function generateMetadata({

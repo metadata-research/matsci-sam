@@ -1,6 +1,7 @@
+import { readableTermId } from "@/lib/community-access"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, isNull, or, sql } from "drizzle-orm"
 import {
   db,
   termReferenceEntriesTable,
@@ -49,6 +50,10 @@ export const termReferencesRouter = createTRPCRouter({
           and(
             eq(termReferenceLookupsTable.id, input.lookupId),
             eq(termReferenceLookupsTable.requestedById, ctx.userId),
+            or(
+              isNull(termReferenceLookupsTable.termId),
+              readableTermId(termReferenceLookupsTable.termId, ctx.userId)
+            ),
             eq(termReferenceLookupsTable.provider, input.provider)
           )
         )
@@ -233,7 +238,8 @@ export const termReferencesRouter = createTRPCRouter({
             eq(termReferenceEntriesTable.id, input.referenceId),
             sql`exists (
           select 1 from ${termReferenceLookupsTable} where ${termReferenceLookupsTable.id} = ${termReferenceEntriesTable.lookupId}
-          and ${termReferenceLookupsTable.requestedById} = ${ctx.userId})`
+          and ${termReferenceLookupsTable.requestedById} = ${ctx.userId}
+          and (${termReferenceLookupsTable.termId} IS NULL OR ${readableTermId(termReferenceLookupsTable.termId, ctx.userId)}))`
           )
         )
         .returning({ id: termReferenceEntriesTable.id })

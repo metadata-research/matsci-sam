@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { CommunityWorkReturnLink } from "@/components/community-work-return-link"
 import { useRouter } from "next/navigation"
 import {
   useEffect,
@@ -74,6 +75,11 @@ import {
 import { emptyTermDraftPayload } from "@/lib/term-draft-types"
 import { changeSetupTerm, termDraftHasEvidence } from "@/lib/setup-term-draft"
 import {
+  communityWorkReturn,
+  withCommunityWorkReturn,
+  type WorkReturnLink
+} from "@/lib/community-work-return"
+import {
   missingSetupDestinationLabel,
   setupDestinationState
 } from "@/lib/setup-destination-state"
@@ -84,6 +90,7 @@ type Props = {
   draftKey: string
   draftId?: string
   returnTo: string
+  workspaceReturn?: WorkReturnLink
   options: Options
   task?: SetupTask
   communityId?: number
@@ -117,9 +124,12 @@ export function GuidedSetup(props: Props) {
   return (
     <>
       <header className="flex flex-col gap-2">
-        <Link href="/" className="w-fit text-sm text-primary hover:underline">
-          Home
-        </Link>
+        <CommunityWorkReturnLink
+          href={props.workspaceReturn?.href ?? "/"}
+          className="w-fit text-sm text-primary hover:underline"
+        >
+          {props.workspaceReturn?.label ?? "Home"}
+        </CommunityWorkReturnLink>
         <h1 className="text-3xl font-semibold tracking-tight">
           {props.task ? titles[props.task] : "Guided setup"}
         </h1>
@@ -164,7 +174,8 @@ function SetupWorkspace({
   task,
   communityId,
   vocabularySlug,
-  returnTo
+  returnTo,
+  workspaceReturn
 }: Props & { returnTo: string }) {
   const router = useRouter()
   const storageKey = `matsci:setup:v1:${initialOptions.userId}:${draftKey}`
@@ -206,6 +217,17 @@ function SetupWorkspace({
     initialData: initialOptions
   })
   const options = optionsQuery.data ?? initialOptions
+  const selectedVocabulary = options.vocabularies.find(
+    (item) => item.slug === draft.vocabularySlug
+  )
+  const draftReturn = communityWorkReturn(
+    options.communities.find(
+      (item) => item.id === selectedVocabulary?.communityId
+    ),
+    workspaceReturn?.href,
+    undefined,
+    task === "import" ? "term-imports" : "term-drafts"
+  )
   const [preview, setPreview] = useState<Preview | null>(null)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
@@ -474,7 +496,10 @@ function SetupWorkspace({
   if (draft.communityId) continueHref.set("communityId", draft.communityId)
   if (draft.vocabularySlug)
     continueHref.set("vocabularySlug", draft.vocabularySlug)
-  const addHref = `/add?${new URLSearchParams({ vocabularySlug: draft.vocabularySlug })}`
+  const addHref = withCommunityWorkReturn(
+    `/add?${new URLSearchParams({ vocabularySlug: draft.vocabularySlug })}`,
+    draftReturn.href
+  )
 
   if (options.userId !== initialOptions.userId)
     return (
@@ -528,7 +553,16 @@ function SetupWorkspace({
         <CardContent className="flex flex-col gap-5">
           <div className="flex flex-wrap gap-3">
             <Button asChild>
-              <Link href={draft.receipt.href}>
+              <Link
+                href={
+                  draft.receipt.href.startsWith("/profile/drafts/imports/")
+                    ? withCommunityWorkReturn(
+                        draft.receipt.href,
+                        draftReturn.href
+                      )
+                    : draft.receipt.href
+                }
+              >
                 Open{" "}
                 {task === "community"
                   ? "community"
@@ -544,7 +578,12 @@ function SetupWorkspace({
             </Button>
             {directCreate ? (
               <Button asChild variant="outline">
-                <Link href={`/setup?${continueHref}`}>
+                <Link
+                  href={withCommunityWorkReturn(
+                    `/setup?${continueHref}`,
+                    draftReturn.href
+                  )}
+                >
                   Continue with guided setup
                 </Link>
               </Button>
@@ -1216,6 +1255,7 @@ function SetupWorkspace({
                     draft={draft}
                     busy={busy}
                     returnTo={returnTo}
+                    workspaceReturnTo={draftReturn.href}
                     controllerRef={singleTermEditor}
                     perform={perform}
                     onEdit={(patch) => update(patch)}
@@ -1421,6 +1461,7 @@ function SetupWorkspace({
               ownerId={initialOptions.userId!}
               draftId={draft.termDraftId}
               reviewOnLoad
+              draftReturn={draftReturn}
               onDraftController={(controller) => {
                 singleTermEditor.current = controller
               }}
@@ -1464,7 +1505,10 @@ function SetupWorkspace({
               onCreated={(id, count) =>
                 finish(
                   "Drafts imported",
-                  `/profile/drafts/imports/${id}`,
+                  withCommunityWorkReturn(
+                    `/profile/drafts/imports/${id}`,
+                    draftReturn.href
+                  ),
                   `${count} private drafts saved to your account. Review them before publishing; your original import stays private.`
                 )
               }
@@ -1498,6 +1542,7 @@ function SetupTermDraftFields({
   draft,
   busy,
   returnTo,
+  workspaceReturnTo,
   controllerRef,
   perform,
   onEdit,
@@ -1508,6 +1553,7 @@ function SetupTermDraftFields({
   draft: SetupDraft
   busy: boolean
   returnTo: string
+  workspaceReturnTo?: string
   controllerRef: RefObject<TermDraftController | null>
   perform: (work: () => Promise<void>) => Promise<void>
   onEdit: (patch: Partial<SetupDraft>) => void
@@ -1623,7 +1669,10 @@ function SetupTermDraftFields({
                 const back = new URL(returnTo, window.location.origin)
                 back.searchParams.set("draftId", record.id)
                 router.push(
-                  `/add?${new URLSearchParams({ draftId: record.id, setupReturnTo: `${back.pathname}${back.search}` })}`
+                  withCommunityWorkReturn(
+                    `/add?${new URLSearchParams({ draftId: record.id, setupReturnTo: `${back.pathname}${back.search}` })}`,
+                    workspaceReturnTo
+                  )
                 )
               })
             }

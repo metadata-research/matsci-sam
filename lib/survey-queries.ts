@@ -1,4 +1,22 @@
-import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNull,
+  or,
+  sql,
+  type SQLWrapper
+} from "drizzle-orm"
+import { TRPCError } from "@trpc/server"
+import { requireStudyContentScope } from "./study-content-scope"
+import {
+  readableTermId,
+  collectionContentVisible,
+  requireTermContent,
+  requireVocabularyContent,
+  vocabularyContentVisible
+} from "./community-access"
 import {
   commentsTable,
   collectionsTable,
@@ -36,9 +54,9 @@ import {
  * Reads for the walkthrough, and the two multi-row writes the router and the
  * pilot driver share: replacing the steps of a study and answering a
  * question. The rules are in lib/surveys.ts. This module loads the facts
- * those rules take and writes the rows they describe. Nothing here gates on
- * the viewer: the router and the pages check membership and the study state
- * before calling in, and the driver acts under its persona accounts.
+ * those rules take and writes the rows they describe. Read models enforce the
+ * community boundary and the independent visibility of each referenced term.
+ * Participation still checks membership and the study state at the router.
  *
  * No "server-only" marker, unlike lib/study-queries.ts, because
  * scripts/test-kos-db.ts drives these writes inside its rolled-back
@@ -47,6 +65,24 @@ import {
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type Executor = typeof db | DatabaseTransaction
+
+const readableStudyId = (
+  column: SQLWrapper,
+  viewerId: number | null
+) => sql`${column} IN (
+  SELECT privacy_study.id FROM "studies" privacy_study
+  JOIN "communities" privacy_community ON privacy_community.id=privacy_study."communityId"
+  WHERE ${vocabularyContentVisible(sql`privacy_community."vocabularySlug"`, viewerId)}
+    AND ${collectionContentVisible(sql`privacy_study."collectionId"`, viewerId)}
+)`
+const readableStepId = (
+  column: SQLWrapper,
+  viewerId: number | null
+) => sql`${column} IN (
+  SELECT privacy_step.id FROM "surveySteps" privacy_step
+  WHERE ${readableStudyId(sql`privacy_step."studyId"`, viewerId)}
+    AND (privacy_step."termId" IS NULL OR ${readableTermId(sql`privacy_step."termId"`, viewerId)})
+)`
 
 const stepColumns = {
   id: surveyStepsTable.id,
@@ -68,7 +104,8 @@ export type StepWithTerm = Step & {
 // The steps of a study in position order.
 export const stepsOfStudy = async (
   executor: Executor,
-  studyId: number
+  studyId: number,
+  viewerId: number | null = null
 ): Promise<StepWithTerm[]> =>
   executor
     .select({
@@ -79,15 +116,27 @@ export const stepsOfStudy = async (
     })
     .from(surveyStepsTable)
     .leftJoin(termsTable, eq(termsTable.id, surveyStepsTable.termId))
-    .where(eq(surveyStepsTable.studyId, studyId))
+    .where(
+      and(
+        eq(surveyStepsTable.studyId, studyId),
+        readableStepId(surveyStepsTable.id, viewerId)
+      )
+    )
     .orderBy(asc(surveyStepsTable.position))
 
-const protocolStepsOfStudy = async (executor: Executor, studyId: number) => {
+const protocolStepsOfStudy = async (
+  executor: Executor,
+  studyId: number,
+  viewerId: number | null = null
+) => {
   const [steps, study] = await Promise.all([
-    stepsOfStudy(executor, studyId),
+    stepsOfStudy(executor, studyId, viewerId),
     executor.query.studiesTable.findFirst({
       columns: { slug: true },
-      where: eq(studiesTable.id, studyId)
+      where: and(
+        eq(studiesTable.id, studyId),
+        readableStudyId(studiesTable.id, viewerId)
+      )
     })
   ])
   return {
@@ -100,7 +149,11 @@ const protocolStepsOfStudy = async (executor: Executor, studyId: number) => {
 // One step with the study it belongs to, which is what every participation
 // check needs: the community for the membership and whether it is retired,
 // the window for the state.
-export const stepWithStudy = async (executor: Executor, stepId: number) => {
+export const stepWithStudy = async (
+  executor: Executor,
+  stepId: number,
+  viewerId: number | null = null
+) => {
   const [row] = await executor
     .select({
       step: stepColumns,
@@ -108,6 +161,8 @@ export const stepWithStudy = async (executor: Executor, stepId: number) => {
         id: studiesTable.id,
         slug: studiesTable.slug,
         communityId: studiesTable.communityId,
+        collectionId: studiesTable.collectionId,
+        vocabularySlug: communitiesTable.vocabularySlug,
         opensAt: studiesTable.opensAt,
         closesAt: studiesTable.closesAt,
         retiredAt: studiesTable.retiredAt,
@@ -129,7 +184,12 @@ export const stepWithStudy = async (executor: Executor, stepId: number) => {
       collectionsTable,
       eq(collectionsTable.id, studiesTable.collectionId)
     )
-    .where(eq(surveyStepsTable.id, stepId))
+    .where(
+      and(
+        eq(surveyStepsTable.id, stepId),
+        readableStepId(surveyStepsTable.id, viewerId)
+      )
+    )
     .limit(1)
   return row ?? null
 }
@@ -163,6 +223,7 @@ export const lockStudy = async (tx: DatabaseTransaction, studyId: number) => {
   const [community] = await tx
     .select({
       slug: communitiesTable.slug,
+      vocabularySlug: communitiesTable.vocabularySlug,
       retiredAt: communitiesTable.retiredAt
     })
     .from(communitiesTable)
@@ -180,6 +241,7 @@ export const lockStudy = async (tx: DatabaseTransaction, studyId: number) => {
   return {
     ...study,
     communitySlug: community.slug,
+    vocabularySlug: community.vocabularySlug,
     communityRetiredAt: community.retiredAt,
     collectionRetiredAt: collection.retiredAt
   }
@@ -189,7 +251,8 @@ export const lockStudy = async (tx: DatabaseTransaction, studyId: number) => {
 // meaningful: it says the walkthrough has no canonical instructions step.
 export const instructionPromptOfStudy = async (
   executor: Executor,
-  studyId: number
+  studyId: number,
+  viewerId: number | null = null
 ): Promise<string | null> => {
   const [row] = await executor
     .select({ prompt: surveyStepsTable.prompt, slug: studiesTable.slug })
@@ -198,6 +261,7 @@ export const instructionPromptOfStudy = async (
     .where(
       and(
         eq(surveyStepsTable.studyId, studyId),
+        readableStepId(surveyStepsTable.id, viewerId),
         eq(surveyStepsTable.position, 1),
         eq(surveyStepsTable.kind, "instructions")
       )
@@ -227,6 +291,7 @@ export const completionOutcomesOf = async (
     .where(
       and(
         eq(surveyStepsTable.studyId, studyId),
+        readableStepId(surveyStepsTable.id, userId),
         eq(surveyStepCompletionsTable.userId, userId)
       )
     )
@@ -380,6 +445,8 @@ export const positionsOf = async (
       .where(
         and(
           inArray(surveyStepPositionsTable.stepId, stepIds),
+          readableStepId(surveyStepPositionsTable.stepId, userId),
+          readableTermId(definitionsTable.termId, userId),
           eq(surveyStepPositionsTable.userId, userId)
         )
       ),
@@ -411,6 +478,8 @@ export const positionsOf = async (
       .where(
         and(
           inArray(voteEventsTable.surveyStepId, stepIds),
+          readableStepId(voteEventsTable.surveyStepId, userId),
+          readableTermId(definitionsTable.termId, userId),
           eq(voteEventsTable.userId, userId),
           eq(voteEventsTable.kind, "up")
         )
@@ -434,6 +503,8 @@ export const positionsOf = async (
       .where(
         and(
           inArray(definitionRevisionsTable.surveyStepId, stepIds),
+          readableStepId(definitionRevisionsTable.surveyStepId, userId),
+          readableTermId(definitionsTable.termId, userId),
           eq(definitionRevisionsTable.editorId, userId),
           eq(definitionRevisionsTable.version, 1)
         )
@@ -559,6 +630,8 @@ export const reviewRecordsOf = async (
       .where(
         and(
           inArray(voteEventsTable.surveyStepId, stepIds),
+          readableStepId(voteEventsTable.surveyStepId, userId),
+          readableTermId(definitionsTable.termId, userId),
           eq(voteEventsTable.userId, userId)
         )
       )
@@ -585,6 +658,8 @@ export const reviewRecordsOf = async (
       .where(
         and(
           inArray(commentsTable.surveyStepId, stepIds),
+          readableStepId(commentsTable.surveyStepId, userId),
+          readableTermId(definitionsTable.termId, userId),
           eq(commentsTable.userId, userId)
         )
       )
@@ -636,6 +711,7 @@ export const stepsWithPosition = async (
     .where(
       and(
         inArray(surveyStepsTable.id, stepIds),
+        readableStepId(surveyStepsTable.id, userId),
         eq(surveyStepsTable.kind, "define"),
         or(
           sql`exists (
@@ -691,6 +767,7 @@ export const actNamesStep = async (
     .where(
       and(
         eq(surveyStepsTable.id, stepId),
+        readableStepId(surveyStepsTable.id, userId),
         or(
           sql`exists (
             select 1 from ${voteEventsTable} e
@@ -737,6 +814,7 @@ export const responseOf = async (
     .where(
       and(
         eq(surveyResponsesTable.stepId, stepId),
+        readableStepId(surveyResponsesTable.stepId, userId),
         eq(surveyResponsesTable.userId, userId)
       )
     )
@@ -804,7 +882,7 @@ export const walkthroughOf = async (
     stored: steps,
     active,
     slug
-  } = await protocolStepsOfStudy(executor, studyId)
+  } = await protocolStepsOfStudy(executor, studyId, userId)
   if (userId === null)
     return {
       steps: active.map((step) => ({
@@ -911,7 +989,7 @@ export const nextPositionFor = async (
   userId: number
 ): Promise<number | null> => {
   const [steps, completed] = await Promise.all([
-    protocolStepsOfStudy(executor, studyId),
+    protocolStepsOfStudy(executor, studyId, userId),
     completedStepIdsOf(executor, studyId, userId)
   ])
   return resumePosition(steps.active, completed)
@@ -928,6 +1006,20 @@ export const replaceSteps = async (
   studyId: number,
   plan: Omit<Step, "id">[]
 ): Promise<Step[]> => {
+  const [study] = await tx
+    .select({
+      communityId: studiesTable.communityId,
+      collectionId: studiesTable.collectionId
+    })
+    .from(studiesTable)
+    .where(eq(studiesTable.id, studyId))
+  if (study)
+    await requireStudyContentScope(
+      tx,
+      study.communityId,
+      study.collectionId,
+      studyId
+    )
   await tx.delete(surveyStepsTable).where(eq(surveyStepsTable.studyId, studyId))
   if (plan.length === 0) return []
   return tx
@@ -943,6 +1035,20 @@ export const appendQuestionStep = async (
   studyId: number,
   question: Question
 ): Promise<Step> => {
+  const [study] = await tx
+    .select({
+      communityId: studiesTable.communityId,
+      collectionId: studiesTable.collectionId
+    })
+    .from(studiesTable)
+    .where(eq(studiesTable.id, studyId))
+  if (study)
+    await requireStudyContentScope(
+      tx,
+      study.communityId,
+      study.collectionId,
+      studyId
+    )
   const [last] = await tx
     .select({
       position: sql<number>`coalesce(max(${surveyStepsTable.position}), 0)`
@@ -983,6 +1089,25 @@ export const recordResponse = async (
     stamp?: GenerationStampInput
   }
 ) => {
+  const found = await stepWithStudy(tx, input.stepId, input.userId)
+  if (!found)
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "This survey step is unavailable."
+    })
+  await requireVocabularyContent(tx, found.study.vocabularySlug, input.userId, {
+    lock: true
+  })
+  await requireStudyContentScope(
+    tx,
+    found.study.communityId,
+    found.study.collectionId,
+    found.study.id
+  )
+  if (found.step.termId !== null)
+    await requireTermContent(tx, found.step.termId, input.userId, {
+      lock: true
+    })
   const [response] = await tx
     .insert(surveyResponsesTable)
     .values({
@@ -1006,15 +1131,28 @@ export const recordResponse = async (
  * through. No page renders the matrix. The community page reads the
  * "k of n participants have finished" line from the participants.
  */
-export const studyProgress = async (executor: Executor, studyId: number) => {
+export const studyProgress = async (
+  executor: Executor,
+  studyId: number,
+  viewerId: number | null = null
+) => {
   const [study] = await executor
     .select({ communityId: studiesTable.communityId })
     .from(studiesTable)
-    .where(eq(studiesTable.id, studyId))
+    .where(
+      and(
+        eq(studiesTable.id, studyId),
+        readableStudyId(studiesTable.id, viewerId)
+      )
+    )
     .limit(1)
   if (!study) return null
 
-  const { active: steps } = await protocolStepsOfStudy(executor, studyId)
+  const { active: steps } = await protocolStepsOfStudy(
+    executor,
+    studyId,
+    viewerId
+  )
   const stepIds = steps.map((step) => step.id)
 
   const [members, completions] = await Promise.all([

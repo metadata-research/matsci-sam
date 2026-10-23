@@ -1,3 +1,5 @@
+import { requireVocabularyContent } from "./community-access"
+import { requireRevisionContent } from "./content-access"
 import { and, desc, eq, isNull, or, sql, type SQLWrapper } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import {
@@ -173,16 +175,6 @@ export async function reuseContributionSource(
   tx: Transaction,
   input: { fileId: string; targetDraftId: string; userId: number }
 ) {
-  const [user] = await tx
-    .select({ id: usersTable.id })
-    .from(usersTable)
-    .where(eq(usersTable.id, input.userId))
-    .for("update")
-  if (!user)
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Log in to assign sources."
-    })
   const [draft] = await tx
     .select()
     .from(termDraftsTable)
@@ -201,6 +193,12 @@ export async function reuseContributionSource(
       code: "NOT_FOUND",
       message: "Choose an active imported draft with a term and vocabulary."
     })
+  await requireVocabularyContent(
+    tx,
+    draft.payload.vocabularySlug,
+    input.userId,
+    { lock: true }
+  )
   const [vocabulary] = await tx
     .select({ slug: vocabulariesTable.slug })
     .from(vocabulariesTable)
@@ -241,6 +239,26 @@ export async function reuseContributionSource(
       code: "NOT_FOUND",
       message:
         "Choose a source from one of your active imported drafts or published contributions."
+    })
+  if (donor.publishedRevisionId)
+    await requireRevisionContent(tx, donor.publishedRevisionId, input.userId, {
+      lock: true
+    })
+  else
+    await requireVocabularyContent(tx, donor.vocabularySlug, input.userId, {
+      lock: true
+    })
+  // Authorization locks precede the account quota lock, matching membership
+  // changes. The caller already holds the account mutation advisory lock.
+  const [user] = await tx
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.id, input.userId))
+    .for("update")
+  if (!user)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Log in to assign sources."
     })
   const file = await ensureContributionSourceAsset(tx, donor.id, input.userId)
   const selectedId =

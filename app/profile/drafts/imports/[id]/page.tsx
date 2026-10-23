@@ -8,6 +8,13 @@ import { getCurrentUser } from "@/lib/current-user"
 import { SITE_NAME } from "@/lib/site"
 import { trpc } from "@/trpc/server"
 import { ImportOverview } from "./import-overview"
+import { CommunityWorkReturnLink } from "@/components/community-work-return-link"
+import {
+  communityWorkReturn,
+  normalizeCommunityWorkReturnTo,
+  withCommunityWorkReturn
+} from "@/lib/community-work-return"
+import { communityForWorkVocabulary } from "@/lib/community-work-return.server"
 
 export const metadata: Metadata = { title: `Review import | ${SITE_NAME}` }
 
@@ -16,7 +23,7 @@ export default async function ImportDraftsPage({
   searchParams
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ review?: string }>
+  searchParams: Promise<{ review?: string; returnTo?: string }>
 }) {
   const [{ id }, query, user] = await Promise.all([
     params,
@@ -25,7 +32,15 @@ export default async function ImportDraftsPage({
   ])
   if (!z.string().uuid().safeParse(id).success) notFound()
   if (!user)
-    redirect(authPathWithReturnTo("/login", `/profile/drafts/imports/${id}`))
+    redirect(
+      authPathWithReturnTo(
+        "/login",
+        withCommunityWorkReturn(
+          `/profile/drafts/imports/${id}`,
+          normalizeCommunityWorkReturnTo(query.returnTo)
+        )
+      )
+    )
   let result
   try {
     result = await trpc.importDrafts.get({ id })
@@ -45,16 +60,26 @@ export default async function ImportDraftsPage({
       </main>
     )
   }
+  const workReturn = communityWorkReturn(
+    await communityForWorkVocabulary(result.batch.vocabularySlug),
+    query.returnTo,
+    "/profile/drafts",
+    "term-imports"
+  )
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <Link href="/profile/drafts" className="text-sm underline">
-        My drafts
-      </Link>
+      <CommunityWorkReturnLink
+        href={workReturn.href}
+        className="text-sm underline"
+      >
+        {workReturn.label}
+      </CommunityWorkReturnLink>
       <ImportOverview
         key={`${user.id}:${id}`}
         initialData={result}
         reviewDraftId={query.review}
         profileComplete={!!user.name?.trim()}
+        workspaceReturnTo={workReturn.href}
       />
     </main>
   )

@@ -1894,6 +1894,11 @@ export const collectionsTable = pgTable(
     slug: text().notNull().unique(),
     title: text().notNull(), // skos:prefLabel / dcterms:title
     description: text(),
+    // Newly created worklists can inherit a community's visibility. Existing
+    // public collections stay independent when linked to a private workspace.
+    visibilityCommunityId: integer().references(
+      (): AnyPgColumn => communitiesTable.id
+    ),
     // Who may change membership. Creation is governed separately, by
     // COLLECTION_CREATION_OPEN, because creating a collection has no
     // collection to consult.
@@ -1911,6 +1916,7 @@ export const collectionsTable = pgTable(
       .notNull()
   },
   (t) => [
+    index("collections_visibility_community_idx").on(t.visibilityCommunityId),
     check("collections_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
     check("collections_title_nonblank", sql`btrim(${t.title}) <> ''`)
   ]
@@ -2100,6 +2106,10 @@ export const communitiesTable = pgTable(
     // stay active on retirement: retracting them would record that everyone
     // left, and nobody did.
     retiredAt: timestamp({ mode: "string", withTimezone: true }),
+    visibility: text()
+      .$type<"public" | "members">()
+      .notNull()
+      .default("public"),
     // The shareable join link, stored readable rather than hashed, because
     // its purpose is to be re-read and pasted into a lab channel. It is a
     // lower-value secret than a per-person invitation: it admits whoever holds
@@ -2117,6 +2127,10 @@ export const communitiesTable = pgTable(
   (t) => [
     check("communities_slug_shape", sql`${t.slug} ~ '^[a-z0-9][a-z0-9_-]*$'`),
     check("communities_title_nonblank", sql`btrim(${t.title}) <> ''`),
+    check(
+      "communities_visibility",
+      sql`${t.visibility} IN ('public', 'members')`
+    ),
     // A community slug is its vocabulary namespace. Keeping both columns
     // equal makes the public route stable and rules out the default scheme.
     check(
@@ -2180,6 +2194,52 @@ export const communityMembersTable = pgTable(
       .on(t.communityId, t.userId)
       .where(sql`${t.removedAt} IS NULL`),
     index("community_members_user_idx").on(t.userId)
+  ]
+)
+
+// A request is a durable episode. Approval points to the membership it created
+// or reused; revoking that membership never rewrites the request's history.
+export const communityAccessRequestsTable = pgTable(
+  "communityAccessRequests",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    communityId: integer()
+      .notNull()
+      .references(() => communitiesTable.id),
+    requesterId: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    status: text()
+      .$type<"pending" | "approved" | "declined">()
+      .notNull()
+      .default("pending"),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    decidedAt: timestamp({ mode: "string", withTimezone: true }),
+    decidedById: integer().references(() => usersTable.id),
+    membershipId: integer().references(() => communityMembersTable.id)
+  },
+  (t) => [
+    uniqueIndex("community_access_request_pending")
+      .on(t.communityId, t.requesterId)
+      .where(sql`${t.status} = 'pending'`),
+    index("community_access_request_queue").on(
+      t.communityId,
+      t.status,
+      t.createdAt
+    ),
+    index("community_access_request_requester").on(t.requesterId),
+    index("community_access_request_decider").on(t.decidedById),
+    index("community_access_request_membership").on(t.membershipId),
+    check(
+      "community_access_request_decision",
+      sql`(${t.status} = 'pending' AND ${t.decidedAt} IS NULL AND ${t.decidedById} IS NULL AND ${t.membershipId} IS NULL) OR (${t.status} = 'declined' AND ${t.decidedAt} IS NOT NULL AND ${t.decidedById} IS NOT NULL AND ${t.membershipId} IS NULL) OR (${t.status} = 'approved' AND ${t.decidedAt} IS NOT NULL AND ${t.decidedById} IS NOT NULL AND ${t.membershipId} IS NOT NULL)`
+    ),
+    check(
+      "community_access_request_time",
+      sql`${t.decidedAt} IS NULL OR ${t.decidedAt} >= ${t.createdAt}`
+    )
   ]
 )
 
@@ -3372,6 +3432,288 @@ export const revisionManualCitationsTable = pgTable(
     uniqueIndex("revision_manual_citations_identity_idx").on(
       t.revisionId,
       t.citationIdentity
+    )
+  ]
+)
+
+// MatCore specifications are separate from metadata ABOUT dictionary entries.
+// A source baseline never changes when a contributor publishes a local proposal.
+export const matcoreSourceReleasesTable = pgTable(
+  "matcoreSourceReleases",
+  {
+    id: text().primaryKey(),
+    version: text().notNull(),
+    source: jsonb()
+      .$type<import("../lib/matcore-workflow-types").MatcoreSourceRelease>()
+      .notNull(),
+    profiles: jsonb().$type<unknown[]>().notNull(),
+    manifestHash: text().notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    check("matcore_release_hash", sql`${t.manifestHash} ~ '^[a-f0-9]{64}$'`)
+  ]
+)
+
+export const matcoreSourceOccurrencesTable = pgTable(
+  "matcoreSourceOccurrences",
+  {
+    id: text().primaryKey(),
+    releaseId: text()
+      .notNull()
+      .references(() => matcoreSourceReleasesTable.id),
+    sourceFieldId: text().notNull(),
+    profileKey: text().notNull(),
+    source: jsonb()
+      .$type<import("../lib/matcore-workflow-types").MatcoreSourceOccurrence>()
+      .notNull(),
+    baseline: jsonb()
+      .$type<import("../lib/matcore-workflow-types").MatcoreDraftPayload>()
+      .notNull()
+  },
+  (t) => [index("matcore_source_release_idx").on(t.releaseId, t.profileKey)]
+)
+
+// A stored source is available only in explicitly provisioned vocabularies.
+// Ordinary members cannot grant a community access to another source corpus.
+export const vocabularyMatcoreSourcesTable = pgTable(
+  "vocabularyMatcoreSources",
+  {
+    vocabularySlug: text()
+      .notNull()
+      .references(() => vocabulariesTable.slug),
+    releaseId: text()
+      .notNull()
+      .references(() => matcoreSourceReleasesTable.id),
+    grantedById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.vocabularySlug, t.releaseId] }),
+    index("vocabulary_matcore_source_release").on(t.releaseId),
+    index("vocabulary_matcore_source_grantor").on(t.grantedById)
+  ]
+)
+
+export const matcoreFieldsTable = pgTable(
+  "matcoreFields",
+  {
+    id: uuid().primaryKey(),
+    vocabularySlug: text()
+      .notNull()
+      .references(() => vocabulariesTable.slug),
+    sourceFieldId: text(),
+    termId: integer().references(() => termsTable.id),
+    label: text().notNull(),
+    createdById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("matcore_field_source_identity").on(
+      t.vocabularySlug,
+      t.sourceFieldId
+    ),
+    uniqueIndex("matcore_field_term_identity").on(t.termId),
+    index("matcore_field_creator_idx").on(t.createdById)
+  ]
+)
+
+export const matcoreSpecRevisionsTable = pgTable(
+  "matcoreSpecRevisions",
+  {
+    id: uuid().primaryKey(),
+    fieldId: uuid()
+      .notNull()
+      .references(() => matcoreFieldsTable.id),
+    occurrenceKey: text().notNull(),
+    profileKey: text(),
+    profileReleaseId: text().references(() => matcoreSourceReleasesTable.id),
+    sourceOccurrenceId: text().references(
+      () => matcoreSourceOccurrencesTable.id
+    ),
+    version: integer().notNull(),
+    previousRevisionId: uuid().references(
+      (): AnyPgColumn => matcoreSpecRevisionsTable.id
+    ),
+    definitionRevisionId: integer()
+      .notNull()
+      .references(() => definitionRevisionsTable.id),
+    payload: jsonb()
+      .$type<import("../lib/matcore-workflow-types").MatcoreDraftPayload>()
+      .notNull(),
+    createdById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    policyVersion: text().notNull(),
+    authority: text().notNull().default("matsci_sam_proposal"),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("matcore_revision_number").on(
+      t.fieldId,
+      t.occurrenceKey,
+      t.version
+    ),
+    index("matcore_revision_source_idx").on(t.sourceOccurrenceId),
+    index("matcore_revision_profile_release_idx").on(t.profileReleaseId),
+    index("matcore_revision_definition_idx").on(t.definitionRevisionId),
+    index("matcore_revision_author_idx").on(t.createdById),
+    index("matcore_revision_previous_idx").on(t.previousRevisionId),
+    check(
+      "matcore_revision_profile_pair",
+      sql`(${t.profileKey} IS NULL) = (${t.profileReleaseId} IS NULL) AND (${t.sourceOccurrenceId} IS NULL OR ${t.profileKey} IS NOT NULL)`
+    ),
+    check("matcore_revision_positive", sql`${t.version} > 0`),
+    check(
+      "matcore_revision_predecessor",
+      sql`(${t.version} = 1 AND ${t.previousRevisionId} IS NULL) OR (${t.version} > 1 AND ${t.previousRevisionId} IS NOT NULL)`
+    ),
+    check(
+      "matcore_revision_authority",
+      sql`${t.authority} = 'matsci_sam_proposal'`
+    ),
+    check(
+      "matcore_revision_payload_size",
+      sql`jsonb_typeof(${t.payload}) = 'object' AND octet_length(${t.payload}::text) <= 400000`
+    )
+  ]
+)
+
+export const matcoreSpecDraftsTable = pgTable(
+  "matcoreSpecDrafts",
+  {
+    id: uuid().primaryKey(),
+    ownerId: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    fieldId: uuid()
+      .notNull()
+      .references(() => matcoreFieldsTable.id),
+    occurrenceKey: text().notNull(),
+    profileKey: text(),
+    profileReleaseId: text().references(() => matcoreSourceReleasesTable.id),
+    sourceOccurrenceId: text().references(
+      () => matcoreSourceOccurrencesTable.id
+    ),
+    // An import receipt survives publication, so retrying never seeds it twice.
+    importKey: text(),
+    baseRevisionId: uuid().references(() => matcoreSpecRevisionsTable.id),
+    payload: jsonb()
+      .$type<import("../lib/matcore-workflow-types").MatcoreDraftPayload>()
+      .notNull(),
+    version: integer().notNull().default(1),
+    lastMutationId: uuid(),
+    lastMutationHash: text(),
+    creationHash: text().notNull(),
+    publishedRevisionId: uuid().references(() => matcoreSpecRevisionsTable.id),
+    publication:
+      jsonb().$type<
+        import("../lib/matcore-workflow-types").MatcorePublication
+      >(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("matcore_draft_import_receipt").on(t.ownerId, t.importKey),
+    index("matcore_draft_owner_updated_idx").on(t.ownerId, t.updatedAt),
+    index("matcore_draft_field_idx").on(t.fieldId),
+    index("matcore_draft_source_idx").on(t.sourceOccurrenceId),
+    index("matcore_draft_profile_release_idx").on(t.profileReleaseId),
+    index("matcore_draft_base_idx").on(t.baseRevisionId),
+    index("matcore_draft_publication_idx").on(t.publishedRevisionId),
+    check(
+      "matcore_draft_profile_pair",
+      sql`(${t.profileKey} IS NULL) = (${t.profileReleaseId} IS NULL) AND (${t.sourceOccurrenceId} IS NULL OR ${t.profileKey} IS NOT NULL)`
+    ),
+    check("matcore_draft_positive_version", sql`${t.version} > 0`),
+    check(
+      "matcore_draft_publication_shape",
+      sql`(${t.publishedRevisionId} IS NULL) = (${t.publication} IS NULL)`
+    ),
+    check(
+      "matcore_draft_payload_size",
+      sql`jsonb_typeof(${t.payload}) = 'object' AND octet_length(${t.payload}::text) <= 400000`
+    )
+  ]
+)
+
+export const matcoreWorkflowEventsTable = pgTable(
+  "matcoreWorkflowEvents",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    fieldId: uuid()
+      .notNull()
+      .references(() => matcoreFieldsTable.id),
+    draftId: uuid().references(() => matcoreSpecDraftsTable.id),
+    revisionId: uuid().references(() => matcoreSpecRevisionsTable.id),
+    actorId: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    action: text()
+      .$type<
+        | "imported"
+        | "created"
+        | "saved"
+        | "published"
+        | "reviewed"
+        | "revision_started"
+        | "withdrawn"
+      >()
+      .notNull(),
+    detail: jsonb()
+      .$type<import("../lib/matcore-workflow-types").MatcoreEventDetail>()
+      .notNull(),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    index("matcore_event_field_time_idx").on(t.fieldId, t.createdAt),
+    index("matcore_event_draft_idx").on(t.draftId),
+    index("matcore_event_revision_idx").on(t.revisionId),
+    index("matcore_event_actor_idx").on(t.actorId),
+    check(
+      "matcore_event_action",
+      sql`${t.action} IN ('imported','created','saved','published','reviewed','revision_started','withdrawn')`
+    )
+  ]
+)
+
+// Capabilities are scoped to the vocabulary, including standalone vocabularies.
+// Disabling creation never removes access to existing field records or drafts.
+export const vocabularyWorkspaceSettingsTable = pgTable(
+  "vocabularyWorkspaceSettings",
+  {
+    vocabularySlug: text()
+      .primaryKey()
+      .references(() => vocabulariesTable.slug),
+    metadataEnabled: boolean().notNull().default(false),
+    matcoreEnabled: boolean().notNull().default(false),
+    updatedById: integer().references(() => usersTable.id),
+    updatedAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    check(
+      "workspace_matcore_requires_metadata",
+      sql`NOT ${t.matcoreEnabled} OR ${t.metadataEnabled}`
     )
   ]
 )

@@ -1,3 +1,4 @@
+import { vocabularyContentVisible } from "./community-access"
 import "server-only"
 
 import {
@@ -6,7 +7,7 @@ import {
   definitionsTable,
   termsTable
 } from "@yamz/db"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import {
   buildStoredRevisionComparison,
   type DefinitionComparisonView,
@@ -31,10 +32,12 @@ type DefinitionComparisonSubject = {
 export async function loadDefinitionRevisionComparison({
   definition,
   selectedRevision,
-  revisions
+  revisions,
+  viewerId = null
 }: {
   definition: DefinitionComparisonSubject
   selectedRevision: RevisionComparisonRecord
+  viewerId?: number | null
   revisions: RevisionComparisonRecord[]
 }): Promise<DefinitionComparisonView> {
   const previousRevision = selectedRevision.previousRevisionId
@@ -60,9 +63,12 @@ export async function loadDefinitionRevisionComparison({
           )
           .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
           .where(
-            eq(
-              definitionRevisionsTable.id,
-              selectedRevision.derivedFromRevisionId
+            and(
+              eq(
+                definitionRevisionsTable.id,
+                selectedRevision.derivedFromRevisionId
+              ),
+              vocabularyContentVisible(termsTable.vocabularySlug, viewerId)
             )
           )
           .limit(1)

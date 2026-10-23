@@ -1,3 +1,4 @@
+import { requireTermContent } from "./community-access"
 import "server-only"
 import { TRPCError } from "@trpc/server"
 import { diffToStringSimple } from "./definition-comparison"
@@ -68,6 +69,7 @@ export async function getTermMetadata(
   userId?: number,
   reader: Reader = db
 ) {
+  await requireTermContent(reader, termId, userId ?? null)
   const [term] = await reader
     .select({
       id: termsTable.id,
@@ -217,6 +219,7 @@ export async function addTermMetadata(
     })
   const value = parsed.data
   return reader.transaction(async (tx) => {
+    await requireTermContent(tx, value.termId, userId, { lock: true })
     const user = await contributorFor(userId, tx)
     const [term] = await tx
       .select({ id: termsTable.id, retiredAt: vocabulariesTable.retiredAt })
@@ -305,6 +308,7 @@ export async function retractTermMetadata(
         code: "NOT_FOUND",
         message: "This metadata contribution does not exist."
       })
+    await requireTermContent(tx, row.termId, userId, { lock: true })
     if (row.assertedById !== userId && user.role !== "admin")
       throw new TRPCError({
         code: "FORBIDDEN",

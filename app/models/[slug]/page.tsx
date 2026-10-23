@@ -1,3 +1,5 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -83,7 +85,16 @@ export default async function ModelPage({
       })
       .from(definitionsTable)
       .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-      .where(and(termIsListed(), eq(definitionsTable.authorId, model.userId)))
+      .where(
+        and(
+          termIsListed(),
+          vocabularyContentVisible(
+            termsTable.vocabularySlug,
+            await currentContentViewer()
+          ),
+          eq(definitionsTable.authorId, model.userId)
+        )
+      )
       .orderBy(desc(definitionsTable.createdAt))
       .limit(50),
     // Which prompt versions this model worked under. The hash is what makes
@@ -103,6 +114,10 @@ export default async function ModelPage({
       .where(
         and(
           termIsListed(),
+          vocabularyContentVisible(
+            termsTable.vocabularySlug,
+            await currentContentViewer()
+          ),
           eq(definitionRevisionsTable.model, model.tag),
           sql`${definitionRevisionsTable.prompt} IS NOT NULL`
         )

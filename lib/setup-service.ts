@@ -1,3 +1,8 @@
+import {
+  collectionContentVisible,
+  requireCollectionContent,
+  vocabularyContentVisible
+} from "./community-access"
 import "server-only"
 
 import { createHash } from "node:crypto"
@@ -58,15 +63,6 @@ export async function requireSetupVocabularyForContribution(
   userId: number,
   lock = false
 ) {
-  const [user] = await executor
-    .select({ id: usersTable.id, role: usersTable.role, name: usersTable.name })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-  if (!user?.name?.trim())
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Complete your profile before contributing."
-    })
   const communityQuery = executor
     .select({
       id: communitiesTable.id,
@@ -98,7 +94,11 @@ export async function requireSetupVocabularyForContribution(
       code: "BAD_REQUEST",
       message: "This vocabulary has been retired."
     })
-  if (community && user.role !== "admin") {
+  // Keep the same community → vocabulary → membership → user lock order as
+  // content authorization. Read the role only after acquiring those locks: an
+  // administrator demoted while waiting must not retain a stale bypass.
+  let membership: { id: number } | undefined
+  if (community) {
     const membershipQuery = executor
       .select({ id: communityMembersTable.id })
       .from(communityMembersTable)
@@ -109,15 +109,25 @@ export async function requireSetupVocabularyForContribution(
           isNull(communityMembersTable.removedAt)
         )
       )
-    const [membership] = await (lock
+    ;[membership] = await (lock
       ? membershipQuery.for("share")
       : membershipQuery)
-    if (!membership)
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Join this community before contributing to its vocabulary."
-      })
   }
+  const userQuery = executor
+    .select({ id: usersTable.id, role: usersTable.role, name: usersTable.name })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+  const [user] = await (lock ? userQuery.for("share") : userQuery)
+  if (!user?.name?.trim())
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Complete your profile before contributing."
+    })
+  if (community && user.role !== "admin" && !membership)
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Join this community before contributing to its vocabulary."
+    })
   return vocabulary
 }
 
@@ -128,6 +138,7 @@ export async function requireImportCollection(
   lock = false
 ) {
   if (collectionId === undefined) return null
+  await requireCollectionContent(executor, collectionId, userId, { lock })
   if (lock) await reserveCollectionMembership(executor, collectionId)
   const query = executor
     .select()
@@ -185,7 +196,12 @@ export async function setupOptions(
             isNull(communityMembersTable.removedAt)
           )
         )
-        .where(isNull(communitiesTable.retiredAt))
+        .where(
+          and(
+            isNull(communitiesTable.retiredAt),
+            vocabularyContentVisible(communitiesTable.vocabularySlug, userId)
+          )
+        )
         .orderBy(asc(communitiesTable.title)),
       executor
         .select({
@@ -199,7 +215,12 @@ export async function setupOptions(
           communitiesTable,
           eq(communitiesTable.vocabularySlug, vocabulariesTable.slug)
         )
-        .where(isNull(vocabulariesTable.retiredAt))
+        .where(
+          and(
+            isNull(vocabulariesTable.retiredAt),
+            vocabularyContentVisible(vocabulariesTable.slug, userId)
+          )
+        )
         .orderBy(asc(vocabulariesTable.title)),
       executor
         .select({
@@ -209,7 +230,12 @@ export async function setupOptions(
           assertableBy: collectionsTable.assertableBy
         })
         .from(collectionsTable)
-        .where(isNull(collectionsTable.retiredAt))
+        .where(
+          and(
+            isNull(collectionsTable.retiredAt),
+            collectionContentVisible(collectionsTable.id, userId)
+          )
+        )
         .orderBy(asc(collectionsTable.title)),
       executor
         .select({
@@ -217,7 +243,16 @@ export async function setupOptions(
           collectionId: communityCollectionsTable.collectionId
         })
         .from(communityCollectionsTable)
-        .where(isNull(communityCollectionsTable.removedAt))
+        .where(
+          and(
+            isNull(communityCollectionsTable.removedAt),
+            collectionContentVisible(
+              communityCollectionsTable.collectionId,
+              userId
+            ),
+            sql`exists (select 1 from "communities" setup_c where setup_c.id=${communityCollectionsTable.communityId} AND ${vocabularyContentVisible(sql`setup_c."vocabularySlug"`, userId)})`
+          )
+        )
     ]
   )
   const canContribute = Boolean(user?.name?.trim())

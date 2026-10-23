@@ -1,3 +1,4 @@
+import { vocabularyContentVisible } from "./community-access"
 import { db, definitionsTable, termsTable, vocabulariesTable } from "@yamz/db"
 import { and, asc, eq, ilike, or, sql } from "drizzle-orm"
 import { escapeLike, searchMatch, searchOrderGrouped } from "./search"
@@ -10,7 +11,8 @@ type LookupDatabase =
 /** Public, cross-vocabulary suggestions for search and collection pickers. */
 export async function lookupTerms(
   input: { query?: string; limit?: number } = {},
-  database: LookupDatabase = db
+  database: LookupDatabase = db,
+  viewerId: number | null = null
 ) {
   const query = input.query?.trim() ?? ""
 
@@ -32,6 +34,7 @@ export async function lookupTerms(
     .where(
       and(
         termIsListed(),
+        vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
         query
           ? or(
               // Short prefixes often miss both whole-word FTS and trigram

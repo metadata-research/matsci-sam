@@ -1,3 +1,9 @@
+import { lockContributionSubmissions } from "./contribution-guard"
+import { requireRevisionContent, readableRevisionId } from "./content-access"
+import {
+  requireVocabularyContent,
+  vocabularyContentVisible
+} from "./community-access"
 import { createHash } from "node:crypto"
 import { and, desc, eq, inArray, isNull, lt, not, sql } from "drizzle-orm"
 import {
@@ -97,6 +103,10 @@ export async function storeContributionFile(
     )
   }
   return reader.transaction(async (tx) => {
+    await lockContributionSubmissions(tx, input.userId)
+    await requireVocabularyContent(tx, metadata.vocabularySlug, input.userId, {
+      lock: true
+    })
     // Private drafts can collect evidence before completing a public profile.
     // Lock the draft before its owner, matching the versioned save writer.
     if (metadata.draftId) {
@@ -246,6 +256,20 @@ export async function removePendingContributionFile(
   reader: typeof db | Transaction = db
 ) {
   return reader.transaction(async (tx) => {
+    await lockContributionSubmissions(tx, userId)
+    const [file] = await tx
+      .select({ vocabularySlug: contributionFilesTable.vocabularySlug })
+      .from(contributionFilesTable)
+      .where(
+        and(
+          eq(contributionFilesTable.id, fileId),
+          eq(contributionFilesTable.uploadedById, userId)
+        )
+      )
+    if (file)
+      await requireVocabularyContent(tx, file.vocabularySlug, userId, {
+        lock: true
+      })
     await tx
       .select({ id: usersTable.id })
       .from(usersTable)
@@ -286,14 +310,15 @@ export async function readContributionFile(
   userId?: number,
   reader: typeof db | Transaction = db
 ) {
-  // Read metadata/authorization before fetching bytes. All published definitions
-  // have public read access. Pending UUIDs alone grant no access.
+  // Authorize the enclosing content before fetching bytes. Publication does
+  // not make a members-only community source public.
   const [file] = await reader
     .select({
       ...contributionFileSelection,
       retained: fileRetainedByDraft(),
       assetId: contributionFilesTable.assetId,
-      uploadedById: contributionFilesTable.uploadedById
+      uploadedById: contributionFilesTable.uploadedById,
+      vocabularySlug: contributionFilesTable.vocabularySlug
     })
     .from(contributionFilesTable)
     .where(eq(contributionFilesTable.id, fileId))
@@ -304,6 +329,27 @@ export async function readContributionFile(
       (!file.retained && Date.parse(file.createdAt) < Date.parse(expiry())))
   )
     return null
+  if (file.publishedRevisionId !== null) {
+    try {
+      await requireRevisionContent(
+        reader,
+        file.publishedRevisionId,
+        userId ?? null
+      )
+    } catch {
+      return null
+    }
+  } else if (file.vocabularySlug) {
+    try {
+      await requireVocabularyContent(
+        reader,
+        file.vocabularySlug,
+        userId ?? null
+      )
+    } catch {
+      return null
+    }
+  }
   const [data] = await reader
     .select({
       bytes: contributionFilesTable.bytes,
@@ -461,25 +507,37 @@ export async function publishContributionFiles(
 
 export async function revisionContributionFiles(
   revisionIds: number[],
-  reader: typeof db | Transaction = db
+  reader: typeof db | Transaction = db,
+  viewerId: number | null = null
 ) {
   if (!revisionIds.length) return []
   return reader
     .select(contributionFileSelection)
     .from(contributionFilesTable)
-    .where(inArray(contributionFilesTable.publishedRevisionId, revisionIds))
+    .where(
+      and(
+        inArray(contributionFilesTable.publishedRevisionId, revisionIds),
+        readableRevisionId(contributionFilesTable.publishedRevisionId, viewerId)
+      )
+    )
     .orderBy(contributionFilesTable.createdAt)
 }
 
 export async function exampleContributionFiles(
   exampleIds: number[],
-  reader: typeof db | Transaction = db
+  reader: typeof db | Transaction = db,
+  viewerId: number | null = null
 ) {
   if (!exampleIds.length) return []
   return reader
     .select(contributionFileSelection)
     .from(contributionFilesTable)
-    .where(inArray(contributionFilesTable.exampleId, exampleIds))
+    .where(
+      and(
+        inArray(contributionFilesTable.exampleId, exampleIds),
+        readableRevisionId(contributionFilesTable.publishedRevisionId, viewerId)
+      )
+    )
     .orderBy(contributionFilesTable.createdAt)
 }
 
@@ -499,6 +557,7 @@ export async function listPendingContributionFiles(
     .where(
       and(
         eq(contributionFilesTable.uploadedById, userId),
+        vocabularyContentVisible(contributionFilesTable.vocabularySlug, userId),
         isNull(contributionFilesTable.publishedRevisionId)
       )
     )

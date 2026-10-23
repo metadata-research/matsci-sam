@@ -1,6 +1,11 @@
+import {
+  requireVocabularyContent,
+  readableTermId,
+  vocabularyContentVisible
+} from "./community-access"
 import "server-only"
 import { TRPCError } from "@trpc/server"
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm"
 import {
   aiContributionSuggestionsTable,
   contributionFilesTable,
@@ -62,6 +67,12 @@ const unassociatedImportEvidence = () =>
     code: "BAD_REQUEST",
     message: "Imported evidence can only be saved on an imported draft."
   })
+const draftVocabulary = sql`coalesce(nullif(${termDraftsTable.payload}->>'vocabularySlug',''), ${termDraftsTable.publication}->'term'->>'vocabularySlug')`
+const draftContentVisible = (ownerId: number) =>
+  or(
+    isNull(draftVocabulary),
+    vocabularyContentVisible(draftVocabulary, ownerId)
+  )
 const ownerScope = (id: string, ownerId: number) =>
   and(eq(termDraftsTable.id, id), eq(termDraftsTable.ownerId, ownerId))
 
@@ -77,6 +88,10 @@ async function ownedDraft(
     .where(ownerScope(id, ownerId))
   const [draft] = await (lock ? query.for("update") : query)
   if (!draft || draft.deletedAt) throw missing()
+  const vocabularySlug =
+    draft.payload?.vocabularySlug ?? draft.publication?.term.vocabularySlug
+  if (vocabularySlug)
+    await requireVocabularyContent(reader, vocabularySlug, ownerId, { lock })
   return draft
 }
 function suggestionIds(payload: TermDraftPayload) {
@@ -113,7 +128,11 @@ async function validateEvidence(
           eq(sourceChecksTable.id, source.checkId),
           eq(sourceChecksTable.requestedById, ownerId),
           eq(contributionFilesTable.id, source.fileId),
-          eq(contributionFilesTable.uploadedById, ownerId)
+          eq(contributionFilesTable.uploadedById, ownerId),
+          vocabularyContentVisible(
+            contributionFilesTable.vocabularySlug,
+            ownerId
+          )
         )
       )
     if (!owned)
@@ -131,6 +150,10 @@ async function validateEvidence(
         and(
           inArray(aiContributionSuggestionsTable.id, ids),
           eq(aiContributionSuggestionsTable.requestedById, ownerId),
+          vocabularyContentVisible(
+            aiContributionSuggestionsTable.vocabularySlug,
+            ownerId
+          ),
           eq(aiContributionSuggestionsTable.intent, "new_term")
         )
       )
@@ -150,7 +173,11 @@ async function validateEvidence(
       .where(
         and(
           inArray(termReferenceLookupsTable.id, lookups),
-          eq(termReferenceLookupsTable.requestedById, ownerId)
+          eq(termReferenceLookupsTable.requestedById, ownerId),
+          or(
+            isNull(termReferenceLookupsTable.termId),
+            readableTermId(termReferenceLookupsTable.termId, ownerId)
+          )
         )
       )
     if (owned.length !== lookups.length)
@@ -180,6 +207,10 @@ async function retainFiles(
           and(
             inArray(aiContributionSuggestionsTable.id, suggestions),
             eq(aiContributionSuggestionsTable.requestedById, ownerId),
+            vocabularyContentVisible(
+              aiContributionSuggestionsTable.vocabularySlug,
+              ownerId
+            ),
             eq(aiContributionSuggestionsTable.status, "generated")
           )
         )
@@ -203,7 +234,15 @@ async function retainFiles(
         retained: fileRetainedByDraft()
       })
       .from(contributionFilesTable)
-      .where(inArray(contributionFilesTable.id, ids))
+      .where(
+        and(
+          inArray(contributionFilesTable.id, ids),
+          vocabularyContentVisible(
+            contributionFilesTable.vocabularySlug,
+            ownerId
+          )
+        )
+      )
       .orderBy(contributionFilesTable.id)
       .for("update")
     if (
@@ -270,6 +309,10 @@ async function hydrateDraftResults(reader: Reader, drafts: Draft[]) {
           and(
             inArray(contributionFilesTable.id, fileIds),
             eq(contributionFilesTable.uploadedById, ownerId),
+            vocabularyContentVisible(
+              contributionFilesTable.vocabularySlug,
+              ownerId
+            ),
             isNull(contributionFilesTable.publishedRevisionId)
           )
         )
@@ -289,6 +332,10 @@ async function hydrateDraftResults(reader: Reader, drafts: Draft[]) {
           and(
             inArray(aiContributionSuggestionsTable.id, ids),
             eq(aiContributionSuggestionsTable.requestedById, ownerId),
+            vocabularyContentVisible(
+              aiContributionSuggestionsTable.vocabularySlug,
+              ownerId
+            ),
             eq(aiContributionSuggestionsTable.intent, "new_term")
           )
         )
@@ -309,7 +356,7 @@ async function hydrateDraftResults(reader: Reader, drafts: Draft[]) {
   return drafts.map((draft) => draftResultFromHydration(draft, hydration))
 }
 function draftResultFromHydration(draft: Draft, hydration: DraftHydration) {
-  const payload = draft.payload ? structuredClone(draft.payload) : null
+  const payload = draft.payload ? compactTermDraftPayload(draft.payload) : null
   const warnings: string[] = []
   const boundFiles = hydration.boundFiles.filter(
     (file) => file.draftId === draft.id
@@ -454,6 +501,7 @@ export async function getTermDrafts(
       and(
         inArray(termDraftsTable.id, ids),
         eq(termDraftsTable.ownerId, ownerId),
+        draftContentVisible(ownerId),
         isNull(termDraftsTable.deletedAt)
       )
     )
@@ -466,7 +514,11 @@ export async function getTermDraft(
 ) {
   return draftResult(reader, await ownedDraft(reader, id, ownerId))
 }
-export async function listTermDrafts(reader: Reader, ownerId: number) {
+export async function listTermDrafts(
+  reader: Reader,
+  ownerId: number,
+  input: { vocabularySlug?: string } = {}
+) {
   return reader
     .select({
       id: termDraftsTable.id,
@@ -489,6 +541,10 @@ export async function listTermDrafts(reader: Reader, ownerId: number) {
     .where(
       and(
         eq(termDraftsTable.ownerId, ownerId),
+        draftContentVisible(ownerId),
+        input.vocabularySlug
+          ? sql`${termDraftsTable.payload}->>'vocabularySlug' = ${input.vocabularySlug}`
+          : undefined,
         isNull(termDraftsTable.publishedAt),
         isNull(termDraftsTable.deletedAt)
       )
@@ -504,8 +560,16 @@ export async function createTermDraft(
   // in the same transaction. Client draft routes never accept this option.
   options: { importBatchId?: string } = {}
 ) {
+  // Serialize account mutations before taking permission or draft locks. File
+  // retention later takes the owner's row lock; concurrent saves must not hold
+  // permission SHARE locks while waiting for that same draft/account.
+  await lockContributionSubmissions(tx, ownerId)
   const submitted = termDraftPayloadSchema.parse(input.payload)
   const payload = compactTermDraftPayload(submitted)
+  if (payload.vocabularySlug)
+    await requireVocabularyContent(tx, payload.vocabularySlug, ownerId, {
+      lock: true
+    })
   if (payload.importEvidence) {
     const associated = await importedDraftOrigin(tx, input.id, ownerId)
     const [creatingInBatch] =
@@ -544,6 +608,7 @@ export async function createTermDraft(
         contributionFingerprint(payload)
     )
       throw changed()
+    await ownedDraft(tx, existing.id, ownerId)
     return draftResult(tx, existing)
   }
   const [count] = await tx
@@ -579,8 +644,16 @@ export async function updateTermDraft(
   },
   ownerId: number
 ) {
+  // Serialize account mutations before taking permission or draft locks. File
+  // retention later takes the owner's row lock; concurrent saves must not hold
+  // permission SHARE locks while waiting for that same draft/account.
+  await lockContributionSubmissions(tx, ownerId)
   const submitted = termDraftPayloadSchema.parse(input.payload)
   const payload = compactTermDraftPayload(submitted)
+  if (payload.vocabularySlug)
+    await requireVocabularyContent(tx, payload.vocabularySlug, ownerId, {
+      lock: true
+    })
   const draft = await ownedDraft(tx, input.id, ownerId, true)
   if (draft.publishedAt) throw published()
   if (
@@ -617,6 +690,7 @@ export async function deleteTermDraft(
   input: { id: string; expectedVersion: number },
   ownerId: number
 ) {
+  await lockContributionSubmissions(tx, ownerId)
   const draft = await ownedDraft(tx, input.id, ownerId, true)
   if (draft.publishedAt) throw published()
   if (draft.version !== input.expectedVersion) throw changed()

@@ -115,7 +115,10 @@ const vocabularyMenu = {
     "/search",
     "/collections",
     "/tags",
-    "/metadata",
+    "/metadata/fields",
+    "/metadata/matcore",
+    "/metadata/experimental",
+    "/metadata/examples",
     "/add"
   ],
   activeHrefs: [
@@ -127,7 +130,13 @@ const vocabularyMenu = {
   ]
 }
 const participateMenu = {
-  activePaths: ["/discussion", "/communities", "/studies", "/models"]
+  activePaths: [
+    "/discussion",
+    "/communities",
+    "/metadata/workspace",
+    "/studies",
+    "/models"
+  ]
 }
 for (const [location, vocabularyActive] of [
   ["/setup?communityId=1", true],
@@ -136,6 +145,12 @@ for (const [location, vocabularyActive] of [
   ["/setup?task=vocabulary", true],
   ["/setup?task=community&vocabularySlug=alloys", true],
   ["/communities", false],
+  ["/communities/matcore_development", false],
+  ["/communities/matcore_development?view=work", false],
+  ["/communities/matcore_development?view=surveys", false],
+  ["/metadata/workspace", false],
+  ["/metadata/workspace/73909137-2d04-4b63-ad41-2f0787984809", false],
+  ["/metadata/fields/73909137-2d04-4b63-ad41-2f0787984809", true],
   ["/metadata/matcore", true],
   ["/vocabulary/alloys/steel", true],
   ["/models/example", false]
@@ -456,8 +471,8 @@ const communityPage = readFileSync(
 )
 assert.match(
   communityPage,
-  /\{\(runs \|\| loose\.length > 0\) && \(/,
-  "plain members must not see an empty additional-collections section"
+  /view === "collections" && \(/,
+  "collections have an explicit view, including a useful empty state"
 )
 assert.match(
   communityPage,
@@ -469,7 +484,7 @@ assert.match(
   /collection\.retiredAt === null &&\s*!onWorklist\.has\(collection\.id\)/,
   "stewards must not be offered a retired collection to add"
 )
-assert.match(communityPage, />Additional collections<\/h2>/)
+assert.match(communityPage, />Collections<\/h2>/)
 assert.doesNotMatch(communityPage, /Other terms in view/)
 
 // Titles are contributor text, so the HTML body escapes them.

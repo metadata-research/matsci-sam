@@ -1,3 +1,4 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
 import { db, termsTable, vocabulariesTable, termDraftsTable } from "@yamz/db"
 import { baseProcedure, createTRPCRouter } from "../init"
 import { z } from "zod"
@@ -14,8 +15,11 @@ export const termsRouter = createTRPCRouter({
   // endpoint admin.provenance keeps full detail)
   provenance: baseProcedure
     .input(z.number())
-    .query(async ({ input: termId }) =>
-      buildTermProvenance(termId, { anonymizeVoters: true })
+    .query(async ({ ctx, input: termId }) =>
+      buildTermProvenance(termId, {
+        anonymizeVoters: true,
+        viewerId: ctx.userId ?? null
+      })
     ),
   list: baseProcedure
     .input(
@@ -81,7 +85,15 @@ export const termsRouter = createTRPCRouter({
             vocabulariesTable,
             eq(vocabulariesTable.slug, termsTable.vocabularySlug)
           )
-          .where(termIsListed())
+          .where(
+            and(
+              termIsListed(),
+              vocabularyContentVisible(
+                termsTable.vocabularySlug,
+                userId ?? null
+              )
+            )
+          )
           .orderBy(asc(termsTable.term), asc(vocabulariesTable.title)),
         db.query.vocabulariesTable.findFirst({
           columns: { slug: true, title: true, isDefault: true },

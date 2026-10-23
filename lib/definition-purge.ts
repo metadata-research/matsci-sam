@@ -8,6 +8,7 @@ import {
   definitionExampleSelectionsTable,
   definitionRevisionsTable,
   definitionsTable,
+  matcoreSpecRevisionsTable,
   discussionSuggestionsTable,
   editsTable,
   refinementsTable,
@@ -20,6 +21,7 @@ import {
   votesTable
 } from "@yamz/db"
 import { eq, or, inArray } from "drizzle-orm"
+import { TRPCError } from "@trpc/server"
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -38,6 +40,24 @@ export const deleteDefinitionRows = async (
   tx: DatabaseTransaction,
   id: number
 ) => {
+  const [pinnedSpecification] = await tx
+    .select({ id: matcoreSpecRevisionsTable.id })
+    .from(matcoreSpecRevisionsTable)
+    .innerJoin(
+      definitionRevisionsTable,
+      eq(
+        matcoreSpecRevisionsTable.definitionRevisionId,
+        definitionRevisionsTable.id
+      )
+    )
+    .where(eq(definitionRevisionsTable.definitionId, id))
+    .limit(1)
+  if (pinnedSpecification)
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        "This definition is preserved by a metadata field proposal. Withdraw the proposal to retain its source history; permanent removal requires a scoped metadata cleanup."
+    })
   // The exceptional permanent purge also removes study curation history.
   await tx
     .delete(studyDefinitionExclusionsTable)

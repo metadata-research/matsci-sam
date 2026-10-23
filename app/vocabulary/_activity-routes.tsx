@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { findVocabularyTermRoute } from "@/app/vocabulary/_data"
 import { TermActivityPage } from "@/components/activity/term-activity-page"
 import { loadTermActivity } from "@/lib/term-activity"
@@ -10,7 +11,11 @@ const resolveActivityTerm = async (
   vocabularySlug: string,
   termSlug: string
 ) => {
-  const route = await findVocabularyTermRoute(vocabularySlug, termSlug)
+  const route = await findVocabularyTermRoute(
+    vocabularySlug,
+    termSlug,
+    await currentContentViewer()
+  )
   if (!route) notFound()
   return route
 }
@@ -42,7 +47,10 @@ export async function PublicTermActivityRoute({
       termActivityPath(route.term.slug, route.term.vocabularySlug)
     )
 
-  const activity = await loadTermActivity(route.term.id)
+  const activity = await loadTermActivity(
+    route.term.id,
+    await currentContentViewer()
+  )
   if (!activity) notFound()
   return (
     <TermActivityPage

@@ -1,7 +1,8 @@
+import { readableTermId } from "@/lib/community-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { asc, eq, sql } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 import {
   Building2Icon,
   ExternalLinkIcon,
@@ -62,7 +63,12 @@ export default async function ProfilePage({
     })
     .from(definitionsTable)
     .innerJoin(termsTable, eq(termsTable.id, definitionsTable.termId))
-    .where(eq(definitionsTable.authorId, user.id))
+    .where(
+      and(
+        eq(definitionsTable.authorId, user.id),
+        readableTermId(definitionsTable.termId, user.id)
+      )
+    )
     .groupBy(termsTable.id)
     .orderBy(asc(termsTable.term))
 

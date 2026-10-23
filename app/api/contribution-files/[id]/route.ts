@@ -17,11 +17,15 @@ export async function GET(_request: Request, context: Context) {
   const file = await readContributionFile(id, session.id)
   if (!file) return new Response("Not found", { status: 404 })
   return new Response(new Uint8Array(file.bytes), {
-    headers: contributionFileDownloadHeaders(
-      file.filename,
-      file.mediaType,
-      file.byteSize
-    )
+    headers: {
+      Vary: "Cookie",
+      ...contributionFileDownloadHeaders(
+        file.filename,
+        file.mediaType,
+        file.byteSize
+      ),
+      "Cache-Control": "private, no-store"
+    }
   })
 }
 export async function DELETE(request: Request, context: Context) {

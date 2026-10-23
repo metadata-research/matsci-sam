@@ -40,6 +40,14 @@ async function main() {
           createdById: owner.id
         })
         .returning()
+      const [secondVocabulary] = await tx
+        .insert(schema.vocabulariesTable)
+        .values({
+          slug: `other_read_${stamp}`,
+          title: "Second read scope",
+          createdById: owner.id
+        })
+        .returning()
       type Batch = Awaited<ReturnType<typeof createImportDrafts>>
       const batches: {
         batch: Batch
@@ -47,6 +55,7 @@ async function main() {
         file: Awaited<ReturnType<typeof storeContributionFile>>
       }[] = []
       for (let index = 0; index < 10; index++) {
+        const batchVocabulary = index === 0 ? secondVocabulary : vocabulary
         const batch = await createImportDrafts(
           tx,
           {
@@ -59,7 +68,7 @@ async function main() {
                   `Import ${index} row ${row} ${stamp},Definition ${row}.`
               ).join("\n"),
             format: "csv",
-            vocabularySlug: vocabulary.slug,
+            vocabularySlug: batchVocabulary.slug,
             ignoredColumns: [],
             selectedRowIds: Array.from(
               { length: 5 },
@@ -78,7 +87,7 @@ async function main() {
             metadata: {
               draftId: first.id,
               term: first.payload!.term,
-              vocabularySlug: vocabulary.slug,
+              vocabularySlug: batchVocabulary.slug,
               filename: "source.txt",
               role: "source",
               title: `Source ${index}`,
@@ -138,6 +147,30 @@ async function main() {
           (query) => !/for (?:update|share|key share)|pg_advisory/i.test(query)
         ),
         "Reading readiness does not acquire publication locks"
+      )
+
+      assert.equal(
+        (
+          await listImportDrafts(tx, owner.id, {
+            vocabularySlug: vocabulary.slug
+          })
+        ).length,
+        9,
+        "Scoped list excludes another vocabulary's import"
+      )
+      assert.deepEqual(
+        (
+          await listImportDrafts(tx, owner.id, {
+            vocabularySlug: secondVocabulary.slug
+          })
+        ).map((batch) => batch.id),
+        [batches[0].batch.batch.id],
+        "Scoped list includes the less recent vocabulary import before pagination"
+      )
+      assert.deepEqual(
+        await listImportDrafts(tx, -1, { vocabularySlug: vocabulary.slug }),
+        [],
+        "Scoped import list remains private"
       )
 
       queries.length = 0

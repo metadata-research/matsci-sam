@@ -5,6 +5,8 @@ import { lockStudy, stepsOfStudy } from "./survey-queries"
 import { lockMembershipIn } from "./community-queries"
 import { studyState } from "./communities"
 import { allowsStudySelfEnrollment } from "./study-protocol"
+import { communityAccess } from "./community-access"
+import { requireStudyContentScope } from "./study-content-scope"
 
 // Called only by the authenticated join mutation. Opening a page never joins
 // a community, consumes an invitation, or records a participant response.
@@ -30,12 +32,25 @@ export const joinOpenStudy = async (studySlug: string, userId: number) => {
         code: "BAD_REQUEST",
         message: "This study is not accepting participants."
       })
-    if ((await stepsOfStudy(tx, locked.id)).length === 0)
+    const access = await communityAccess(tx, locked.communityId, userId)
+    await requireStudyContentScope(
+      tx,
+      locked.communityId,
+      locked.collectionId,
+      locked.id
+    )
+    const existing = await lockMembershipIn(tx, locked.communityId, userId)
+    if (access.visibility === "members" && !existing)
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Request community access or use an invitation before joining this survey."
+      })
+    if ((await stepsOfStudy(tx, locked.id, userId)).length === 0)
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "The study activity is not ready yet."
       })
-    const existing = await lockMembershipIn(tx, locked.communityId, userId)
     if (!existing) {
       await tx
         .insert(communityMembersTable)

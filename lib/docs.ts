@@ -52,6 +52,7 @@ const SECTIONS: Record<DocSection, SectionConfig> = {
       "studies",
       "adding-terms",
       "importing-terms",
+      "matcore-workflow",
       "community",
       "ai-refinement",
       "discussion",

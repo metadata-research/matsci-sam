@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 }
 
 export default async function VocabulariesPage() {
-  const vocabularies = await allVocabularies()
+  const vocabularies = await allVocabularies(await currentContentViewer())
 
   return (
     <main className="px-4 py-8">

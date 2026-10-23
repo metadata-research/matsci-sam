@@ -1,12 +1,10 @@
 import { buildContentGraph } from "@/lib/graph/documents"
 import { isGraphName } from "@/lib/graph/names"
-import { buildAllGraphs, lastProjectedGraphs } from "@/lib/graph/projector"
+import { buildAllGraphs } from "@/lib/graph/projector"
 
-// One named graph of the dataset as Turtle, so a consumer without SPARQL can
-// fetch exactly one graph. With a projection in this process it is the
-// document the projector wrote to the store under this IRI. Without one it
-// is built from the database on request, and only that graph is built,
-// except for the meta graph, which counts the other four.
+// One named graph of the current public dataset as Turtle. Build from live
+// access-filtered SQL so a previously public community cannot remain in a
+// cached response. The meta graph counts all four content graphs.
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ name: string }> }
@@ -14,13 +12,15 @@ export async function GET(
   const { name } = await params
   if (!isGraphName(name)) return new Response("Not found", { status: 404 })
 
-  const projected = lastProjectedGraphs()
-  const turtle = projected
-    ? projected[name]
-    : name === "meta"
+  // Never serve a projection cached before a community privacy change.
+  const turtle =
+    name === "meta"
       ? (await buildAllGraphs()).meta
       : await buildContentGraph(name)
   return new Response(turtle, {
-    headers: { "Content-Type": "text/turtle; charset=utf-8" }
+    headers: {
+      "Content-Type": "text/turtle; charset=utf-8",
+      "Cache-Control": "no-store"
+    }
   })
 }

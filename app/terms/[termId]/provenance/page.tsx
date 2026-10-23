@@ -1,7 +1,9 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import { notFound } from "next/navigation"
 import { TermProvenancePage } from "@/components/provenance/page"
 import { db, termsTable } from "@yamz/db"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import type { Metadata } from "next"
 import { cache } from "react"
 import { termPath } from "@/lib/public-identifiers"
@@ -10,17 +12,19 @@ import { SITE_NAME } from "@/lib/site"
 const findTerm = cache(async (termId: string) => {
   const id = Number(termId)
   if (!Number.isSafeInteger(id) || id < 1) notFound()
-  const term = await db.query.termsTable.findFirst({
-    columns: {
-      id: true,
-      term: true,
-      slug: true,
-      vocabularySlug: true,
-      hiddenAt: true,
-      hiddenReason: true
-    },
-    where: eq(termsTable.id, id)
-  })
+  const [term] = await db
+    .select()
+    .from(termsTable)
+    .where(
+      and(
+        eq(termsTable.id, id),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        )
+      )
+    )
+    .limit(1)
   if (!term) notFound()
   return term
 })

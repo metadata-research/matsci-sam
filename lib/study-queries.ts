@@ -1,3 +1,8 @@
+import {
+  collectionContentVisible,
+  vocabularyContentVisible,
+  readableTermId
+} from "./community-access"
 import "server-only"
 
 import {
@@ -23,12 +28,11 @@ import { activeStudyStepSql } from "./study-protocol-queries"
 import { listedTermId, termIsListed } from "./term-visibility"
 
 /*
- * Reads for studies. A study is public as a page, so none of these gate on the
- * viewer: what is protected is the roster of the community behind it, which
- * lib/communities.ts mayViewRoster still governs on the community page.
+ * Studies inherit their community and collection visibility. Every referenced
+ * term is filtered independently, while personal progress remains owner-only.
  */
 
-const studyColumns = {
+const studyColumns = (viewerId: number | null = null) => ({
   id: studiesTable.id,
   slug: studiesTable.slug,
   title: studiesTable.title,
@@ -54,7 +58,7 @@ const studyColumns = {
     where s."subjectCollectionId" = ${collectionsTable.id}
       and s.predicate = 'skos:member'
       and s."retractedAt" is null
-      and ${listedTermId(sql`s."objectTermId"`)}
+      and ${listedTermId(sql`s."objectTermId"`)} and ${readableTermId(sql`s."objectTermId"`, viewerId)}
   )`,
   // How many steps its walkthrough has, so the study page can say whether
   // positions are being taken without reading the walkthrough.
@@ -64,11 +68,11 @@ const studyColumns = {
     where st."studyId" = ${studiesTable.id}
       and ${activeStudyStepSql(studiesTable.slug, "st")}
   )`
-}
+})
 
-const withNames = () =>
+const withNames = (viewerId: number | null = null) =>
   db
-    .select(studyColumns)
+    .select(studyColumns(viewerId))
     .from(studiesTable)
     .innerJoin(
       communitiesTable,
@@ -79,22 +83,43 @@ const withNames = () =>
       eq(collectionsTable.id, studiesTable.collectionId)
     )
 
-export const studyBySlug = async (slug: string) => {
-  const [row] = await withNames().where(eq(studiesTable.slug, slug)).limit(1)
+export const studyBySlug = async (
+  slug: string,
+  viewerId: number | null = null
+) => {
+  const [row] = await withNames(viewerId)
+    .where(
+      and(
+        eq(studiesTable.slug, slug),
+        vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId),
+        collectionContentVisible(studiesTable.collectionId, viewerId)
+      )
+    )
+    .limit(1)
   return row ?? null
 }
 
-export const studyById = async (id: number) => {
-  const [row] = await withNames().where(eq(studiesTable.id, id)).limit(1)
+export const studyById = async (id: number, viewerId: number | null = null) => {
+  const [row] = await withNames(viewerId)
+    .where(
+      and(
+        eq(studiesTable.id, id),
+        vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId),
+        collectionContentVisible(studiesTable.collectionId, viewerId)
+      )
+    )
+    .limit(1)
   return row ?? null
 }
 
 // Retired studies are not listed. Their addresses keep resolving, because a
 // study slug is assigned once and anything that cited it must keep working.
-export const listStudies = async () =>
-  withNames()
+export const listStudies = async (viewerId: number | null = null) =>
+  withNames(viewerId)
     .where(
       and(
+        vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId),
+        collectionContentVisible(studiesTable.collectionId, viewerId),
         isNull(studiesTable.retiredAt),
         isNull(communitiesTable.retiredAt),
         isNull(collectionsTable.retiredAt)
@@ -111,7 +136,7 @@ export const listStudies = async () =>
 export const studiesOfViewer = async (userId: number) =>
   db
     .select({
-      ...studyColumns,
+      ...studyColumns(userId),
       saved: sql<number>`(
         select cast(count(*) as int)
         from ${surveyStepCompletionsTable} c
@@ -140,6 +165,8 @@ export const studiesOfViewer = async (userId: number) =>
     )
     .where(
       and(
+        vocabularyContentVisible(communitiesTable.vocabularySlug, userId),
+        collectionContentVisible(studiesTable.collectionId, userId),
         isNull(studiesTable.retiredAt),
         isNull(communitiesTable.retiredAt),
         isNull(collectionsTable.retiredAt)
@@ -147,11 +174,16 @@ export const studiesOfViewer = async (userId: number) =>
     )
     .orderBy(desc(studiesTable.createdAt))
 
-export const studiesOfCommunity = async (communityId: number) =>
-  withNames()
+export const studiesOfCommunity = async (
+  communityId: number,
+  viewerId: number | null = null
+) =>
+  withNames(viewerId)
     .where(
       and(
         eq(studiesTable.communityId, communityId),
+        vocabularyContentVisible(communitiesTable.vocabularySlug, viewerId),
+        collectionContentVisible(studiesTable.collectionId, viewerId),
         isNull(studiesTable.retiredAt),
         isNull(communitiesTable.retiredAt),
         isNull(collectionsTable.retiredAt)
@@ -189,7 +221,8 @@ export type MostSupportedDefinition = {
 
 export const mostSupportedDefinitions = async (
   collectionId: number,
-  asOf?: string | null
+  asOf?: string | null,
+  viewerId: number | null = null
 ) => {
   const terms = await db
     .select({
@@ -205,6 +238,7 @@ export const mostSupportedDefinitions = async (
         // Historical support summaries and assigned walkthrough steps retain
         // their study context; current worklist discovery follows visibility.
         asOf ? undefined : termIsListed(),
+        vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
         eq(statementsTable.predicate, "skos:member"),
         eq(statementsTable.subjectCollectionId, collectionId),
         isNull(statementsTable.retractedAt)

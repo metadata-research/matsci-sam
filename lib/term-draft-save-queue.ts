@@ -28,6 +28,7 @@ export class TermDraftSaveQueue<
     mutationId: string
   } | null = null
   private stopped = false
+  private requiresAcknowledgement = false
   private savedListener: { notify(record: R): void } | null = null
   private acknowledgedVersion: string | null = null
 
@@ -54,7 +55,8 @@ export class TermDraftSaveQueue<
       !this.stopped &&
       // An unacknowledged write may already have committed. Reconcile it even
       // if the editor has since returned to its previously saved contents.
-      (this.attempt !== null ||
+      (this.requiresAcknowledgement ||
+        this.attempt !== null ||
         (serializePayload(this.payload) !== this.saved &&
           (!!this.record || this.transport.meaningful(this.payload))))
     )
@@ -78,10 +80,19 @@ export class TermDraftSaveQueue<
 
   /** Keep the hydrated record for the editor, but compare writes using the
    * persisted representation when it differs from the restored response. */
-  restore(record: R, payload: P | null = record.payload) {
+  restore(
+    record: R,
+    payload: P | null = record.payload,
+    options: { requireAcknowledgement?: boolean } = {}
+  ) {
     this.record = record
     if (payload !== null) this.payload = payload
     this.saved = serializePayload(this.payload)
+    // A browser recovery copy can equal the last observed row while an older
+    // unacknowledged request is still in flight. Preserve the user's final
+    // intent with an explicit version-checked save, never a silent rebase.
+    this.requiresAcknowledgement =
+      !!options.requireAcknowledgement && record.status === "draft"
     this.attempt = null
     this.error = null
     this.stopped = record.status !== "draft"
@@ -124,6 +135,7 @@ export class TermDraftSaveQueue<
                 })
           this.record = saved
           this.saved = serializePayload(attempt.payload)
+          this.requiresAcknowledgement = false
           this.attempt = null
           if (saved.status !== "draft") this.stopped = true
           // Identity must reach the owner before a flush caller can navigate

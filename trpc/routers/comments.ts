@@ -1,6 +1,11 @@
+import {
+  participationContentVisible,
+  requireDefinitionContent
+} from "@/lib/content-access"
 import { requireStudyCandidate } from "@/lib/study-candidates"
 import {
   contributionFingerprint,
+  lockContributionSubmissions,
   reserveContributionSubmission
 } from "@/lib/contribution-guard"
 import { z } from "zod"
@@ -11,7 +16,7 @@ import {
   usersTable,
   definitionRevisionsTable
 } from "@yamz/db"
-import { asc, eq, getTableColumns } from "drizzle-orm"
+import { and, asc, eq, getTableColumns } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { COMMENT_MAX_LENGTH } from "@/lib/input-limits"
 import { contributorProcedure } from "../procedures"
@@ -24,29 +29,40 @@ import {
 } from "./surveys"
 
 export const commentsRouter = createTRPCRouter({
-  get: baseProcedure.input(z.number()).query(async ({ input: id }) => {
-    const comments = await db
-      .select({
-        ...getTableColumns(commentsTable),
-        author: {
-          id: usersTable.id,
-          name: usersTable.name,
-          isAi: usersTable.isAi,
-          isProfilePublic: usersTable.isProfilePublic
-        },
-        version: definitionRevisionsTable.version
-      })
-      .from(commentsTable)
-      .where(eq(commentsTable.definitionId, id))
-      .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
-      .innerJoin(
-        definitionRevisionsTable,
-        eq(definitionRevisionsTable.id, commentsTable.revisionId)
-      )
-      .orderBy(asc(commentsTable.createdAt))
+  get: baseProcedure
+    .input(z.number())
+    .query(async ({ ctx: { userId }, input: id }) => {
+      await requireDefinitionContent(db, id, userId ?? null)
+      const comments = await db
+        .select({
+          ...getTableColumns(commentsTable),
+          author: {
+            id: usersTable.id,
+            name: usersTable.name,
+            isAi: usersTable.isAi,
+            isProfilePublic: usersTable.isProfilePublic
+          },
+          version: definitionRevisionsTable.version
+        })
+        .from(commentsTable)
+        .where(
+          and(
+            eq(commentsTable.definitionId, id),
+            participationContentVisible(
+              commentsTable.surveyStepId,
+              userId ?? null
+            )
+          )
+        )
+        .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
+        .innerJoin(
+          definitionRevisionsTable,
+          eq(definitionRevisionsTable.id, commentsTable.revisionId)
+        )
+        .orderBy(asc(commentsTable.createdAt))
 
-    return comments
-  }),
+      return comments
+    }),
   create: contributorProcedure
     .input(
       z.object({
@@ -63,6 +79,7 @@ export const commentsRouter = createTRPCRouter({
         input: { id, revisionId, comment, surveyStepId, expectedInstructions },
         ctx: { userId }
       }) => {
+        await requireDefinitionContent(db, id, userId)
         if (surveyStepId !== undefined && expectedInstructions === undefined)
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -77,16 +94,7 @@ export const commentsRouter = createTRPCRouter({
               })
 
         const insertedComment = await db.transaction(async (tx) => {
-          await reserveContributionSubmission(tx, {
-            userId,
-            kind: "comment",
-            fingerprint: contributionFingerprint({
-              definitionId: id,
-              revisionId,
-              surveyStepId: surveyStepId ?? null,
-              comment
-            })
-          })
+          await lockContributionSubmissions(tx, userId)
           if (walkthrough && surveyStepId !== undefined) {
             const locked = await lockParticipation(
               tx,
@@ -98,6 +106,17 @@ export const commentsRouter = createTRPCRouter({
             await requireStudyCandidate(tx, locked.study.id, id)
             await requireIncompleteStepForAct(tx, locked.step.id, userId)
           }
+          await requireDefinitionContent(tx, id, userId, { lock: true })
+          await reserveContributionSubmission(tx, {
+            userId,
+            kind: "comment",
+            fingerprint: contributionFingerprint({
+              definitionId: id,
+              revisionId,
+              surveyStepId: surveyStepId ?? null,
+              comment
+            })
+          })
           let written
           try {
             // A session comment is a human act. The table CHECK refuses a

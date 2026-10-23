@@ -1,3 +1,5 @@
+import { participationContentVisible } from "./content-access"
+import { vocabularyContentVisible } from "./community-access"
 import "server-only"
 
 import {
@@ -20,7 +22,10 @@ import { alias } from "drizzle-orm/pg-core"
 const selectedByUsers = alias(usersTable, "activityExampleSelectedBy")
 const endedByUsers = alias(usersTable, "activityExampleEndedBy")
 
-export async function loadTermActivityRecords(termId: number) {
+export async function loadTermActivityRecords(
+  termId: number,
+  viewerId: number | null = null
+) {
   const [term] = await db
     .select({
       label: termsTable.term,
@@ -33,7 +38,12 @@ export async function loadTermActivityRecords(termId: number) {
       vocabulariesTable,
       eq(vocabulariesTable.slug, termsTable.vocabularySlug)
     )
-    .where(eq(termsTable.id, termId))
+    .where(
+      and(
+        eq(termsTable.id, termId),
+        vocabularyContentVisible(termsTable.vocabularySlug, viewerId)
+      )
+    )
     .limit(1)
 
   if (!term) return null
@@ -110,7 +120,12 @@ export async function loadTermActivityRecords(termId: number) {
         createdAt: commentsTable.createdAt
       })
       .from(commentsTable)
-      .where(inArray(commentsTable.definitionId, definitionIds))
+      .where(
+        and(
+          inArray(commentsTable.definitionId, definitionIds),
+          participationContentVisible(commentsTable.surveyStepId, viewerId)
+        )
+      )
       .orderBy(asc(commentsTable.createdAt), asc(commentsTable.id)),
     db
       .select({
@@ -121,7 +136,12 @@ export async function loadTermActivityRecords(termId: number) {
         createdAt: voteEventsTable.createdAt
       })
       .from(voteEventsTable)
-      .where(inArray(voteEventsTable.definitionId, definitionIds))
+      .where(
+        and(
+          inArray(voteEventsTable.definitionId, definitionIds),
+          participationContentVisible(voteEventsTable.surveyStepId, viewerId)
+        )
+      )
       .orderBy(asc(voteEventsTable.createdAt), asc(voteEventsTable.id)),
     db
       .select({

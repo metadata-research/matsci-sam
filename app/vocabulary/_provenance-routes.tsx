@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { findVocabularyTermRoute } from "@/app/vocabulary/_data"
 import { TermProvenancePage } from "@/components/provenance/page"
 import { termPath } from "@/lib/public-identifiers"
@@ -9,7 +10,11 @@ const resolveProvenanceTerm = async (
   vocabularySlug: string,
   termSlug: string
 ) => {
-  const route = await findVocabularyTermRoute(vocabularySlug, termSlug)
+  const route = await findVocabularyTermRoute(
+    vocabularySlug,
+    termSlug,
+    await currentContentViewer()
+  )
   if (!route) notFound()
   return route
 }

@@ -63,7 +63,10 @@ async function main() {
           assert.ok(response.headers.get("content-type")?.includes(
             format === "ttl" ? "text/turtle" : "application/ld+json"
           ))
-          assert.equal(response.headers.get("cache-control"), "no-store")
+          const cacheControl = response.headers.get("cache-control") ?? ""
+          assert.match(cacheControl, /(?:^|,)\s*private(?:,|$)/)
+          assert.match(cacheControl, /(?:^|,)\s*no-store(?:,|$)/)
+          assert.match(response.headers.get("vary") ?? "", /(?:^|,)\s*cookie(?:,|$)/i)
           if (resource === term && format === "jsonld") {
             const graph = await response.json()
             const concept = graph.find((node: Record<string, unknown>) =>

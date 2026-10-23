@@ -1,3 +1,10 @@
+import {
+  collectionContentVisible,
+  requireCollectionContent,
+  vocabularyContentVisible,
+  readableTermId
+} from "./community-access"
+import { readableDefinitionId } from "./content-access"
 import "server-only"
 
 import {
@@ -32,18 +39,22 @@ type Executor = typeof db | DatabaseTransaction
 // definition level in an open one (a topic). Counting the subject column that
 // is non-null for the level in question yields zero for an unused concept and
 // ignores a row asserted at the wrong level.
-const activeSubjectOfConcept = and(
-  eq(statementsTable.objectConceptId, conceptsTable.id),
-  eq(statementsTable.predicate, "dcterms:subject"),
-  isNull(statementsTable.retractedAt),
-  or(
-    listedTermId(statementsTable.subjectTermId),
-    sql`${statementsTable.subjectDefinitionId} in (
+const activeSubjectOfConcept = (viewerId: number | null) =>
+  and(
+    eq(statementsTable.objectConceptId, conceptsTable.id),
+    eq(statementsTable.predicate, "dcterms:subject"),
+    isNull(statementsTable.retractedAt),
+    or(
+      and(
+        listedTermId(statementsTable.subjectTermId),
+        readableTermId(statementsTable.subjectTermId, viewerId)
+      ),
+      sql`${statementsTable.subjectDefinitionId} in (
       select ${definitionsTable.id} from ${definitionsTable}
-      where ${listedTermId(definitionsTable.termId)}
+      where ${listedTermId(definitionsTable.termId)} AND ${readableTermId(definitionsTable.termId, viewerId)}
     )`
+    )
   )
-)
 
 // Terms reached either way: directly for a facet, through the definition for
 // a topic, deduplicated because two definitions of one term may share a topic.
@@ -70,7 +81,8 @@ export type ConceptSummary = {
  */
 export const conceptsOfScheme = async (
   schemeSlug: string,
-  order: "label" | "seeded" = "label"
+  order: "label" | "seeded" = "label",
+  viewerId: number | null = null
 ): Promise<ConceptSummary[]> =>
   await db
     .select({
@@ -86,7 +98,7 @@ export const conceptsOfScheme = async (
       conceptSchemesTable,
       eq(conceptSchemesTable.id, conceptsTable.schemeId)
     )
-    .leftJoin(statementsTable, activeSubjectOfConcept)
+    .leftJoin(statementsTable, activeSubjectOfConcept(viewerId))
     .leftJoin(
       definitionsTable,
       eq(definitionsTable.id, statementsTable.subjectDefinitionId)
@@ -104,7 +116,8 @@ export const conceptsOfScheme = async (
         : asc(sql`lower(btrim(${conceptsTable.prefLabel}))`)
     )
 
-export const topicConcepts = () => conceptsOfScheme(TOPICS_SCHEME_SLUG, "label")
+export const topicConcepts = (viewerId: number | null = null) =>
+  conceptsOfScheme(TOPICS_SCHEME_SLUG, "label", viewerId)
 
 export type SchemeSummary = {
   id: number
@@ -164,8 +177,13 @@ export const facetOptions = async (): Promise<ConceptRow[]> =>
  */
 export const collectionsWithCounts = async ({
   includeRetired = false,
-  communityId
-}: { includeRetired?: boolean; communityId?: number } = {}) =>
+  communityId,
+  viewerId = null
+}: {
+  includeRetired?: boolean
+  communityId?: number
+  viewerId?: number | null
+} = {}) =>
   await db
     .select({
       id: collectionsTable.id,
@@ -182,11 +200,13 @@ export const collectionsWithCounts = async ({
         eq(statementsTable.subjectCollectionId, collectionsTable.id),
         eq(statementsTable.predicate, "skos:member"),
         isNull(statementsTable.retractedAt),
-        listedTermId(statementsTable.objectTermId)
+        listedTermId(statementsTable.objectTermId),
+        readableTermId(statementsTable.objectTermId, viewerId)
       )
     )
     .where(
       and(
+        collectionContentVisible(collectionsTable.id, viewerId),
         includeRetired ? undefined : isNull(collectionsTable.retiredAt),
         communityId === undefined
           ? undefined
@@ -214,9 +234,11 @@ export const collectionsWithCounts = async ({
 // in WHERE here. There is no outer join to degrade.
 export const collectionMembers = async (
   collectionId: number,
-  executor: Executor = db
-) =>
-  await executor
+  executor: Executor = db,
+  viewerId: number | null = null
+) => {
+  await requireCollectionContent(executor, collectionId, viewerId)
+  return await executor
     .select({
       id: termsTable.id,
       term: termsTable.term,
@@ -235,6 +257,7 @@ export const collectionMembers = async (
     .where(
       and(
         termIsListed(),
+        vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
         eq(statementsTable.predicate, "skos:member"),
         eq(statementsTable.subjectCollectionId, collectionId),
         isNull(statementsTable.retractedAt)
@@ -245,6 +268,7 @@ export const collectionMembers = async (
       asc(sql`lower(btrim(${termsTable.term}))`),
       asc(sql`lower(btrim(${vocabulariesTable.title}))`)
     )
+}
 
 export type CommunityCollectionVocabularyCount = {
   collectionId: number
@@ -261,7 +285,8 @@ export type CommunityCollectionVocabularyCount = {
  * returns the source namespace and count.
  */
 export const communityCollectionVocabularyCounts = async (
-  communityId: number
+  communityId: number,
+  viewerId: number | null = null
 ): Promise<CommunityCollectionVocabularyCount[]> =>
   await db
     .select({
@@ -290,7 +315,12 @@ export const communityCollectionVocabularyCounts = async (
     .where(
       and(
         termIsListed(),
+        vocabularyContentVisible(termsTable.vocabularySlug, viewerId),
         eq(communityCollectionsTable.communityId, communityId),
+        collectionContentVisible(
+          communityCollectionsTable.collectionId,
+          viewerId
+        ),
         isNull(communityCollectionsTable.removedAt)
       )
     )
@@ -373,7 +403,9 @@ export type TagDrift = {
 // A revision that rewrote at least this much of the text is worth a look.
 export const DRIFT_THRESHOLD = "0.25"
 
-export const tagsWithDrift = async (): Promise<TagDrift[]> => {
+export const tagsWithDrift = async (
+  viewerId: number | null = null
+): Promise<TagDrift[]> => {
   const rows = await db.execute(sql`
     WITH bridge AS (
       SELECT
@@ -383,7 +415,7 @@ export const tagsWithDrift = async (): Promise<TagDrift[]> => {
       FROM ${statementsTable} s
       WHERE s."retractedAt" IS NULL
         AND s.predicate = 'skos:exactMatch'
-        AND s."objectTermId" IS NOT NULL
+        AND s."objectTermId" IS NOT NULL AND ${readableTermId(sql`s."objectTermId"`, viewerId)}
       GROUP BY s."subjectConceptId", s."objectTermId"
     ),
     filed AS (
@@ -393,7 +425,7 @@ export const tagsWithDrift = async (): Promise<TagDrift[]> => {
         min(s."createdAt")  AS first_filed
       FROM ${statementsTable} s
       WHERE s."retractedAt" IS NULL
-        AND s.predicate = 'dcterms:subject'
+        AND s.predicate = 'dcterms:subject' AND (${readableTermId(sql`s."subjectTermId"`, viewerId)} OR ${readableDefinitionId(sql`s."subjectDefinitionId"`, viewerId)})
       GROUP BY s."objectConceptId"
     )
     SELECT

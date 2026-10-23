@@ -388,11 +388,12 @@ export function buildTermActivity(
 }
 
 export async function loadTermActivity(
-  termId: number
+  termId: number,
+  viewerId: number | null = null
 ): Promise<TermActivityData | null> {
   // Keep the pure builder usable by fixture tests without importing a database
   // connection. The records module enforces its own server-only boundary.
   const { loadTermActivityRecords } = await import("./term-activity-records")
-  const records = await loadTermActivityRecords(termId)
+  const records = await loadTermActivityRecords(termId, viewerId)
   return records ? buildTermActivity(records) : null
 }

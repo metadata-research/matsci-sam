@@ -52,7 +52,20 @@ export const importDraftsRouter = createTRPCRouter({
         createImportDrafts(tx, creation, ctx.userId)
       )
     }),
-  list: privateProcedure.query(({ ctx }) => listImportDrafts(db, ctx.userId)),
+  list: privateProcedure
+    .input(
+      z
+        .object({
+          vocabularySlug: z
+            .string()
+            .regex(/^[a-z0-9][a-z0-9_-]*$/)
+            .max(200)
+            .optional()
+        })
+        .strict()
+        .optional()
+    )
+    .query(({ ctx, input }) => listImportDrafts(db, ctx.userId, input)),
   get: privateProcedure
     .input(identity)
     .query(({ ctx, input }) => getImportDrafts(db, input.id, ctx.userId)),

@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import {
   PublicTermActivityRoute,
   activityRouteMetadata
@@ -8,7 +9,8 @@ import { notFound } from "next/navigation"
 type NamespacedActivityParams = { slug: string; termSlug: string }
 
 const requireVocabulary = async (slug: string) => {
-  if (!(await findNondefaultVocabulary(slug))) notFound()
+  if (!(await findNondefaultVocabulary(slug, await currentContentViewer())))
+    notFound()
 }
 
 export async function generateMetadata({

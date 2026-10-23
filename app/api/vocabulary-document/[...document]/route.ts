@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { vocabularyDocumentResponse } from "@/lib/vocabulary-document-response"
 
 export const dynamic = "force-dynamic"
@@ -11,6 +12,9 @@ export async function GET(
   if (!["skos", "provenance"].includes(kind))
     return new Response("Not found", { status: 404 })
   return vocabularyDocumentResponse(
-    "/" + resource.join("/"), format, kind === "provenance"
+    "/" + resource.join("/"),
+    format,
+    kind === "provenance",
+    await currentContentViewer()
   )
 }

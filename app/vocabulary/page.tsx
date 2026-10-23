@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 import { SITE_NAME } from "@/lib/site"
 import type { Metadata } from "next"
@@ -14,7 +15,10 @@ export const metadata: Metadata = {
 }
 
 export default async function VocabularyPage() {
-  const vocabulary = await findVocabulary(DEFAULT_VOCABULARY_SLUG)
+  const vocabulary = await findVocabulary(
+    DEFAULT_VOCABULARY_SLUG,
+    await currentContentViewer()
+  )
   if (!vocabulary) notFound()
 
   return <VocabularySchemePage vocabulary={vocabulary} />

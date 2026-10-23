@@ -204,8 +204,8 @@ export const adminRouter = createTRPCRouter({
   }),
   provenance: adminProcedure
     .input(z.number())
-    .query(async ({ input: termId }) => {
-      const provenance = await buildTermProvenance(termId)
+    .query(async ({ ctx: { userId }, input: termId }) => {
+      const provenance = await buildTermProvenance(termId, { viewerId: userId })
       if (!provenance)
         throw new TRPCError({ code: "NOT_FOUND", message: "No such term" })
 

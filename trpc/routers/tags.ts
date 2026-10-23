@@ -1,3 +1,8 @@
+import { requireDefinitionContent } from "@/lib/content-access"
+import {
+  requireTermContent,
+  vocabularyContentVisible
+} from "@/lib/community-access"
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
@@ -216,6 +221,7 @@ export const tagsRouter = createTRPCRouter({
           .where(
             and(
               termIsListed(),
+              vocabularyContentVisible(termsTable.vocabularySlug, userId),
               sql`lower(btrim(${termsTable.term})) = ${normalized}`
             )
           )
@@ -294,6 +300,7 @@ export const tagsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx: { userId }, input: { conceptId, termId, on } }) => {
+      await requireTermContent(db, termId, userId)
       const concept = await loadConceptWithScheme(conceptId)
       if (!concept)
         throw new TRPCError({
@@ -363,6 +370,7 @@ export const tagsRouter = createTRPCRouter({
       }
 
       await db.transaction(async (tx) => {
+        await requireTermContent(tx, termId, userId, { lock: true })
         const active = await tx
           .select({
             id: statementsTable.id,
@@ -377,6 +385,12 @@ export const tagsRouter = createTRPCRouter({
               isNull(statementsTable.retractedAt)
             )
           )
+
+        for (const row of active)
+          if (row.objectTermId)
+            await requireTermContent(tx, row.objectTermId, userId, {
+              lock: true
+            })
 
         // A concept links to one term, so re-linking retracts the old row
         // first. The partial unique index would refuse it otherwise.
@@ -634,7 +648,8 @@ export const tagsRouter = createTRPCRouter({
   // Topics on one definition: active definition-level dcterms:subject rows.
   get: baseProcedure
     .input(z.object({ definitionId: z.number().int() }))
-    .query(async ({ input: { definitionId } }) => {
+    .query(async ({ ctx: { userId }, input: { definitionId } }) => {
+      await requireDefinitionContent(db, definitionId, userId ?? null)
       return await db
         .select(conceptSelection)
         .from(statementsTable)
@@ -666,6 +681,7 @@ export const tagsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx: { userId }, input: { definitionId, tagId } }) => {
+      await requireDefinitionContent(db, definitionId, userId)
       const [definition] = await db
         .select({
           authorId: definitionsTable.authorId,
@@ -713,6 +729,7 @@ export const tagsRouter = createTRPCRouter({
         })
 
       const on = await db.transaction(async (tx) => {
+        await requireDefinitionContent(tx, definitionId, userId, { lock: true })
         const [active] = await tx
           .select({ id: statementsTable.id })
           .from(statementsTable)
@@ -774,7 +791,8 @@ export const tagsRouter = createTRPCRouter({
   // is in a scheme that attaches at term level.
   facets: baseProcedure
     .input(z.object({ termId: z.number().int() }))
-    .query(async ({ input: { termId } }) => {
+    .query(async ({ ctx: { userId }, input: { termId } }) => {
+      await requireTermContent(db, termId, userId ?? null)
       return await db
         .select(conceptSelection)
         .from(statementsTable)

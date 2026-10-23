@@ -1,3 +1,4 @@
+import { requireDefinitionContent } from "@/lib/content-access"
 import { revalidatePublicDefinition } from "@/lib/revalidate-public-definition"
 import { requireStudyCandidate } from "@/lib/study-candidates"
 import { z } from "zod"
@@ -29,6 +30,7 @@ export const votesRouter = createTRPCRouter({
   get: baseProcedure
     .input(voteTargetSchema)
     .query(async ({ ctx: { userId }, input: { definitionId, revisionId } }) => {
+      await requireDefinitionContent(db, definitionId, userId ?? null)
       const [data] = await db
         .select({
           score:
@@ -86,6 +88,7 @@ export const votesRouter = createTRPCRouter({
           expectedInstructions
         }
       }) => {
+        await requireDefinitionContent(db, definitionId, userId)
         if (surveyStepId !== undefined && expectedInstructions === undefined)
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -112,6 +115,9 @@ export const votesRouter = createTRPCRouter({
                     expectedInstructions!
                   )
                 : null
+            await requireDefinitionContent(tx, definitionId, userId, {
+              lock: true
+            })
             if (lockedWalkthrough)
               await requireStudyCandidate(
                 tx,

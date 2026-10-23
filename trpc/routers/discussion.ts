@@ -1,3 +1,5 @@
+import { participationContentVisible } from "@/lib/content-access"
+import { vocabularyContentVisible } from "@/lib/community-access"
 import { z } from "zod"
 import { baseProcedure, createTRPCRouter } from "../init"
 import {
@@ -51,6 +53,7 @@ export const discussionRouter = createTRPCRouter({
         .where(
           and(
             termIsListed(),
+            vocabularyContentVisible(termsTable.vocabularySlug, userId ?? null),
             activeCommunity
               ? vocabularyTermScope(activeCommunity.vocabularySlug)
               : undefined
@@ -81,7 +84,7 @@ export const discussionRouter = createTRPCRouter({
           refinedFromId: definitionsTable.refinedFromId,
           comments: sql<number>`(
             SELECT count(*) FROM ${commentsTable}
-            WHERE ${commentsTable.definitionId} = ${definitionsTable.id}
+            WHERE ${commentsTable.definitionId} = ${definitionsTable.id} AND ${participationContentVisible(commentsTable.surveyStepId, userId ?? null)}
           )`
             .mapWith(Number)
             .as("comments")
@@ -155,7 +158,15 @@ export const discussionRouter = createTRPCRouter({
                 )
               )
               .innerJoin(usersTable, eq(usersTable.id, commentsTable.userId))
-              .where(inArray(commentsTable.definitionId, definitionIds))
+              .where(
+                and(
+                  inArray(commentsTable.definitionId, definitionIds),
+                  participationContentVisible(
+                    commentsTable.surveyStepId,
+                    userId ?? null
+                  )
+                )
+              )
           ])
         : [[], []]
 

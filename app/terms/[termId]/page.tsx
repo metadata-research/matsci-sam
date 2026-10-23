@@ -1,5 +1,7 @@
+import { vocabularyContentVisible } from "@/lib/community-access"
+import { currentContentViewer } from "@/lib/content-access"
 import { db, termsTable } from "@yamz/db"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { notFound, permanentRedirect } from "next/navigation"
 import { termPath } from "@/lib/public-identifiers"
 
@@ -22,9 +24,19 @@ export default async function TermByIdPage(props: {
   const id = Number(termId)
   if (!Number.isInteger(id)) notFound()
 
-  const term = await db.query.termsTable.findFirst({
-    where: eq(termsTable.id, id)
-  })
+  const [term] = await db
+    .select()
+    .from(termsTable)
+    .where(
+      and(
+        eq(termsTable.id, id),
+        vocabularyContentVisible(
+          termsTable.vocabularySlug,
+          await currentContentViewer()
+        )
+      )
+    )
+    .limit(1)
 
   if (!term) notFound()
 

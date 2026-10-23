@@ -1,3 +1,5 @@
+import { participationContentVisible } from "@/lib/content-access"
+import { vocabularyContentVisible } from "@/lib/community-access"
 import { baseProcedure, createTRPCRouter } from "../init"
 import { collectionsRouter } from "./collections"
 import { communitiesRouter } from "./communities"
@@ -19,6 +21,7 @@ import { ontologyContextRouter } from "./ontology-context"
 import { setupRouter } from "./setup"
 import { termDraftsRouter } from "./term-drafts"
 import { importDraftsRouter } from "./import-drafts"
+import { matcoreWorkflowRouter } from "./matcore-workflow"
 import { z } from "zod"
 import {
   aiModelsTable,
@@ -81,6 +84,7 @@ export const appRouter = createTRPCRouter({
   setup: setupRouter,
   termDrafts: termDraftsRouter,
   importDrafts: importDraftsRouter,
+  matcoreWorkflow: matcoreWorkflowRouter,
   tags: tagsRouter,
   collections: collectionsRouter,
   communities: communitiesRouter,
@@ -123,7 +127,7 @@ export const appRouter = createTRPCRouter({
           })
           .optional()
       )
-      .query(async ({ input }) => {
+      .query(async ({ ctx: { userId }, input }) => {
         const { query = "", limit = 10, facets = [] } = input ?? {}
         const hasQuery = query.trim().length > 0
 
@@ -158,6 +162,10 @@ export const appRouter = createTRPCRouter({
           .where(
             and(
               termIsListed(),
+              vocabularyContentVisible(
+                termsTable.vocabularySlug,
+                userId ?? null
+              ),
               hasQuery ? searchMatch(query) : undefined,
               facetTermScope(facets)
             )
@@ -190,10 +198,10 @@ export const appRouter = createTRPCRouter({
           .object({ query: searchQuerySchema, limit: searchLimitSchema })
           .optional()
       )
-      .query(({ input }) => lookupTerms(input)),
+      .query(({ ctx, input }) => lookupTerms(input, db, ctx.userId ?? null)),
     facets: baseProcedure
       .input(z.object({ query: searchQuerySchema }).optional())
-      .query(async ({ input }) => {
+      .query(async ({ ctx: { userId }, input }) => {
         const query = input?.query ?? ""
 
         return await db
@@ -226,6 +234,10 @@ export const appRouter = createTRPCRouter({
             and(
               eq(termsTable.id, statementsTable.subjectTermId),
               termIsListed(),
+              vocabularyContentVisible(
+                termsTable.vocabularySlug,
+                userId ?? null
+              ),
               query.trim() ? searchMatch(query) : undefined
             )
           )
@@ -285,7 +297,7 @@ export const appRouter = createTRPCRouter({
               ? definitionMatchHeadline(query).as("matchHeadline")
               : sql<string | null>`null`.as("matchHeadline"),
             comments:
-              sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id})`
+              sql<number>`(SELECT count(*) FROM ${commentsTable} WHERE ${commentsTable.definitionId} = ${definitionsTable.id} AND ${participationContentVisible(commentsTable.surveyStepId, userId ?? null)})`
                 .mapWith(Number)
                 .as("comments"),
             vote: userId
@@ -312,6 +324,10 @@ export const appRouter = createTRPCRouter({
           .where(
             and(
               termIsListed(),
+              vocabularyContentVisible(
+                termsTable.vocabularySlug,
+                userId ?? null
+              ),
               hasQuery ? definitionSearchMatch(query) : undefined,
               facetTermScope(facets),
               author === "all"
@@ -353,7 +369,7 @@ export const appRouter = createTRPCRouter({
           .object({ query: searchQuerySchema, limit: searchLimitSchema })
           .optional()
       )
-      .query(async ({ input }) => {
+      .query(async ({ ctx: { userId }, input }) => {
         const { query, limit } = input || { query: "", limit: 10 }
 
         const results = await db
@@ -364,7 +380,16 @@ export const appRouter = createTRPCRouter({
             eq(termsTable.id, definitionsTable.termId)
           )
           // Empty query keeps the newest-first browse the homepage prefetches.
-          .where(query.trim() ? searchMatch(query) : undefined)
+          .where(
+            and(
+              vocabularyContentVisible(
+                termsTable.vocabularySlug,
+                userId ?? null
+              ),
+              termIsListed(),
+              query.trim() ? searchMatch(query) : undefined
+            )
+          )
           .limit(limit)
           .orderBy(
             ...(query.trim()

@@ -18,6 +18,14 @@ import { AddTermPageContent } from "./page-content"
 import { getActiveCommunity } from "@/lib/community-queries"
 import { requireSetupVocabularyForContribution } from "@/lib/setup-service"
 import { Button } from "@/components/ui/button"
+import {
+  communityWorkReturn,
+  normalizeCommunityWorkReturnTo
+} from "@/lib/community-work-return"
+import {
+  communityForTermDraft,
+  communityForWorkVocabulary
+} from "@/lib/community-work-return.server"
 
 export default async function AddTermPage({
   searchParams
@@ -27,6 +35,7 @@ export default async function AddTermPage({
     vocabularySlug?: string | string[]
     draftId?: string | string[]
     setupReturnTo?: string | string[]
+    returnTo?: string | string[]
   }>
 }) {
   const [
@@ -34,7 +43,8 @@ export default async function AddTermPage({
       term,
       vocabularySlug: requestedVocabulary,
       draftId: requestedDraft,
-      setupReturnTo: requestedSetup
+      setupReturnTo: requestedSetup,
+      returnTo: requestedWorkReturn
     },
     user
   ] = await Promise.all([searchParams, getCurrentUser()])
@@ -54,11 +64,13 @@ export default async function AddTermPage({
       : requestedVocabulary
     )?.trim() || undefined
   const initialTerm = initialTermFromSearchParam(term)
+  const workspaceReturnTo = normalizeCommunityWorkReturnTo(requestedWorkReturn)
   const returnParams = new URLSearchParams()
   if (vocabularySlug) returnParams.set("vocabularySlug", vocabularySlug)
   if (initialTerm) returnParams.set("term", initialTerm)
   if (draftId) returnParams.set("draftId", draftId)
   if (setupReturnTo) returnParams.set("setupReturnTo", setupReturnTo)
+  if (workspaceReturnTo) returnParams.set("returnTo", workspaceReturnTo)
   const returnTo = returnParams.size ? `/add?${returnParams}` : "/add"
   if (!user) redirect(authPathWithReturnTo("/login", returnTo))
   if (!user.name?.trim() && !draftId)
@@ -114,6 +126,14 @@ export default async function AddTermPage({
           vocabularySlug ? { vocabularySlug } : undefined
         )
   ])
+  const draftReturn = communityWorkReturn(
+    draftId
+      ? await communityForTermDraft(user.id, draftId)
+      : await communityForWorkVocabulary(
+          vocabularySlug ?? activeCommunity?.vocabularySlug
+        ),
+    workspaceReturnTo
+  )
 
   return (
     <HydrateClient>
@@ -122,6 +142,7 @@ export default async function AddTermPage({
         ownerId={user.id}
         draftId={draftId}
         setupReturnTo={setupReturnTo}
+        draftReturn={draftReturn}
         vocabularySlug={vocabularySlug}
         vocabularyTitle={
           explicitVocabulary?.title ?? activeCommunity?.title ?? SITE_NAME

@@ -24,7 +24,8 @@ import { vocabularyDocument } from "@/lib/vocabulary-http"
 export async function vocabularyDocumentResponse(
   path: string,
   format: string | null,
-  history: boolean
+  history: boolean,
+  viewerId: number | null = null
 ) {
   const doc = vocabularyDocument(path)
   if (
@@ -40,12 +41,12 @@ export async function vocabularyDocumentResponse(
   let turtle: string
   const vocabulary =
     scope.length === 0
-      ? await findVocabulary(DEFAULT_VOCABULARY_SLUG)
+      ? await findVocabulary(DEFAULT_VOCABULARY_SLUG, viewerId)
       : scope.length === 1
-        ? await findNondefaultVocabulary(scope[0])
+        ? await findNondefaultVocabulary(scope[0], viewerId)
         : null
   if (vocabulary && definitionIndex < 0 && !history) {
-    const document = await loadSchemeDocument()
+    const document = await loadSchemeDocument(viewerId)
     turtle = renderSchemeTurtle({
       ...document,
       vocabularies: document.vocabularies.filter(
@@ -60,7 +61,8 @@ export async function vocabularyDocumentResponse(
       return new Response("Not found", { status: 404 })
     const route = await findVocabularyTermRoute(
       scope.length === 2 ? scope[0] : DEFAULT_VOCABULARY_SLUG,
-      scope.at(-1)!
+      scope.at(-1)!,
+      viewerId
     )
     if (!route) return new Response("Not found", { status: 404 })
     const { term } = route
@@ -78,32 +80,35 @@ export async function vocabularyDocumentResponse(
             term.slug,
             number,
             version,
-            term.vocabularySlug
+            term.vocabularySlug,
+            viewerId
           )
         : await findDefinitionByPublicNumber(
             term.slug,
             number,
-            term.vocabularySlug
+            term.vocabularySlug,
+            viewerId
           )
       if (!found) return new Response("Not found", { status: 404 })
       revision = !!version
     }
     if (history || revision) {
       const provenance = await buildTermProvenance(term.id, {
-        anonymizeVoters: true
+        anonymizeVoters: true,
+        viewerId
       })
       if (!provenance) return new Response("Not found", { status: 404 })
       turtle = provenanceTurtle(provenance)
     } else {
-      const kos = await loadKos({ includeHidden: true })
-      const skos = await buildTermSkos(term.id, kos)
+      const kos = await loadKos({ includeHidden: true, viewerId })
+      const skos = await buildTermSkos(term.id, kos, { viewerId })
       if (!skos) return new Response("Not found", { status: 404 })
       turtle = termTurtle(skos, kos)
     }
   }
   const headers = {
-    "Cache-Control": "no-store",
-    "Access-Control-Allow-Origin": "*"
+    "Cache-Control": "private, no-store",
+    Vary: "Cookie"
   }
   return format === "jsonld"
     ? Response.json(turtleJsonLd(turtle), {

@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { DefinitionDetailPage } from "@/components/definition/detail-page"
 import { findTermRouteAlias } from "@/app/vocabulary/_data"
 import {
@@ -27,10 +28,15 @@ const resolveDefinition = async (
   const definition = await findDefinitionByPublicNumber(
     termSlug,
     definitionNumber,
-    vocabularySlug
+    vocabularySlug,
+    await currentContentViewer()
   )
   if (!definition) {
-    const alias = await findTermRouteAlias(vocabularySlug, termSlug)
+    const alias = await findTermRouteAlias(
+      vocabularySlug,
+      termSlug,
+      await currentContentViewer()
+    )
     if (alias)
       permanentRedirect(
         definitionPath(alias.slug, definitionNumber, alias.vocabularySlug)
@@ -54,10 +60,15 @@ const resolveRevision = async (
     termSlug,
     definitionNumber,
     version,
-    vocabularySlug
+    vocabularySlug,
+    await currentContentViewer()
   )
   if (!definition) {
-    const alias = await findTermRouteAlias(vocabularySlug, termSlug)
+    const alias = await findTermRouteAlias(
+      vocabularySlug,
+      termSlug,
+      await currentContentViewer()
+    )
     if (alias)
       permanentRedirect(
         revisionPath(
