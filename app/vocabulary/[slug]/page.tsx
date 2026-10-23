@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import {
   DEFAULT_VOCABULARY_SLUG,
   termPath,
@@ -14,8 +15,12 @@ type HybridVocabularyParams = { slug: string }
 
 const resolveHybridRoute = async (slug: string) => {
   const [vocabulary, termRoute] = await Promise.all([
-    findNondefaultVocabulary(slug),
-    findVocabularyTermRoute(DEFAULT_VOCABULARY_SLUG, slug)
+    findNondefaultVocabulary(slug, await currentContentViewer()),
+    findVocabularyTermRoute(
+      DEFAULT_VOCABULARY_SLUG,
+      slug,
+      await currentContentViewer()
+    )
   ])
   return { vocabulary, termRoute }
 }

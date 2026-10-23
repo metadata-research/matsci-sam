@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { findNondefaultVocabulary } from "@/app/vocabulary/_data"
 import { redirectDefinitionAtRank } from "@/app/vocabulary/_route-handlers"
 
@@ -12,7 +13,13 @@ export async function GET(
   }
 ) {
   const { slug, termSlug, rank } = await params
-  if (!(await findNondefaultVocabulary(slug)))
+  if (!(await findNondefaultVocabulary(slug, await currentContentViewer())))
     return new Response("Not found", { status: 404 })
-  return redirectDefinitionAtRank(request, slug, termSlug, rank)
+  return redirectDefinitionAtRank(
+    request,
+    slug,
+    termSlug,
+    rank,
+    await currentContentViewer()
+  )
 }

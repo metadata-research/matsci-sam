@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { findDefinitionAtRank } from "@/lib/public-definition-resolution"
 import { DefinitionList } from "@/app/terms/[termId]/definitions"
 import { TermDefaultDefinition } from "@/components/definition/term-default-definition"
@@ -48,12 +49,14 @@ export async function VocabularySchemePage({
   vocabulary: VocabularyPageRecord
 }) {
   const [terms, notTop, references, catalog] = await Promise.all([
-    vocabularyTerms(vocabulary.slug),
+    vocabularyTerms(vocabulary.slug, await currentContentViewer()),
     termIdsWithActiveBroader(),
     vocabulary.isDefault
       ? Promise.resolve([])
-      : vocabularyReferences(vocabulary.slug),
-    vocabulary.isDefault ? otherVocabularies() : Promise.resolve([])
+      : vocabularyReferences(vocabulary.slug, await currentContentViewer()),
+    vocabulary.isDefault
+      ? otherVocabularies(await currentContentViewer())
+      : Promise.resolve([])
   ])
   const title = vocabulary.isDefault
     ? SITE_NAME + " Vocabulary"
@@ -268,7 +271,8 @@ export async function VocabularyTermPage({
   const topDefinitionPromise = findDefinitionAtRank(
     term.slug,
     1,
-    term.vocabularySlug
+    term.vocabularySlug,
+    await currentContentViewer()
   )
   const [, user, topDefinition, metadataField] = await Promise.all([
     prefetches,
@@ -461,7 +465,10 @@ export async function VocabularySourceLabel({
 }: {
   vocabularySlug: string
 }) {
-  const vocabulary = await findVocabulary(vocabularySlug)
+  const vocabulary = await findVocabulary(
+    vocabularySlug,
+    await currentContentViewer()
+  )
   if (!vocabulary) return null
 
   return (

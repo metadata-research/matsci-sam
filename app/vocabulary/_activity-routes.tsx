@@ -11,7 +11,11 @@ const resolveActivityTerm = async (
   vocabularySlug: string,
   termSlug: string
 ) => {
-  const route = await findVocabularyTermRoute(vocabularySlug, termSlug)
+  const route = await findVocabularyTermRoute(
+    vocabularySlug,
+    termSlug,
+    await currentContentViewer()
+  )
   if (!route) notFound()
   return route
 }

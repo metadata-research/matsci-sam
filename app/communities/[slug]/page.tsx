@@ -141,7 +141,9 @@ export default async function CommunityPage({
     notFound()
   const workPath = `/communities/${community.slug}?view=work`
   const terms =
-    view === "vocabulary" ? await vocabularyTerms(community.vocabularySlug) : []
+    view === "vocabulary"
+      ? await vocabularyTerms(community.vocabularySlug, user?.id ?? null)
+      : []
 
   const membership = user ? await membershipIn(community.id, user.id) : null
   const workspace = ["overview", "vocabulary"].includes(view)

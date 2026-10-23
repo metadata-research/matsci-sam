@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import { redirectDefinitionAtRank } from "@/app/vocabulary/_route-handlers"
 import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 
@@ -8,5 +9,11 @@ export async function GET(
   { params }: { params: Promise<{ slug: string; rank: string }> }
 ) {
   const { slug, rank } = await params
-  return redirectDefinitionAtRank(request, DEFAULT_VOCABULARY_SLUG, slug, rank)
+  return redirectDefinitionAtRank(
+    request,
+    DEFAULT_VOCABULARY_SLUG,
+    slug,
+    rank,
+    await currentContentViewer()
+  )
 }

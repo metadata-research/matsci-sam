@@ -569,3 +569,19 @@ unchecked item is not a passing result.
   pre-permissions baseline are unchanged, including all 248 drafts and history.
   The preview is active within its existing 6 GiB / 128-task limits, using
   about 189 MiB and 11 threads at the final check. No remote deployment yet.
+
+- CI exposed a request-context dependency in the canonical-definition database
+  suite and its HTTP fixture setup. Shared definition, vocabulary and document
+  loaders now accept an explicit viewer and default to anonymous access;
+  request handlers resolve the session. Viewer identity remains in cache keys.
+  Anonymous, member and nonmember resolver cases pass, along with metadata,
+  RDF/provenance and all 71 content-privacy checks. Independent review, TypeScript
+  and scoped lint pass. HTTP cache assertions now require private, no-store
+  responses that vary by cookie. The follow-up bounded build passes with two
+  workers, 3.2 GiB peak and no swap. Production HTTP checks pass directly and
+  behind HTTPS forwarding; exact fixture cleanup leaves all 67 table
+  fingerprints unchanged. Privacy acceptance passes all eight groups on the
+  rebuilt preview. Its first run timed out once waiting for a reload; the
+  unchanged test passed with 256 task slots for the browser runner instead of
+  128. The cause is unconfirmed, with no browser errors or application change.
+  Original-column preservation still passes for all 65 baseline tables.

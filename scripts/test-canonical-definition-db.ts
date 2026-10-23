@@ -8,7 +8,9 @@ import {
   usersTable,
   vocabulariesTable,
   termsTable,
-  definitionsTable
+  definitionsTable,
+  communitiesTable,
+  communityMembersTable
 } from "../drizzle"
 import {
   createDefinitionWithInitialRevision,
@@ -18,6 +20,8 @@ import { castVote } from "../lib/participation"
 import { deleteDefinitionRows } from "../lib/definition-purge"
 import {
   findDefinitionAtRank,
+  findDefinitionByPublicNumber,
+  findDefinitionPublicIdentity,
   findDefinitionRevisionByPublicNumber
 } from "../lib/public-definition-resolution"
 import {
@@ -27,16 +31,31 @@ import {
   termJsonLd,
   termTurtle
 } from "../lib/skos"
+import {
+  findVocabulary,
+  findVocabularyTermRoute
+} from "../app/vocabulary/_data"
 import { vocabularyGraphTurtle } from "../lib/graph/documents"
 import { definitionsRouter } from "../trpc/routers/definitions"
 import { Parser, Store } from "n3"
 import { redirectDefinitionAtRank } from "../app/vocabulary/_route-handlers"
-import { GET as getDocument } from "../app/api/vocabulary-document/route"
+import { vocabularyDocumentResponse } from "../lib/vocabulary-document-response"
 import {
   applicationMetadataNamespaceUri,
   definitionUri,
   termUri
 } from "../lib/public-identifiers"
+
+// HTTP route wrappers resolve cookies in Next's request scope. This database
+// suite exercises the pure responder with explicit anonymous identity instead.
+const getDocument = (request: Request) => {
+  const params = new URL(request.url).searchParams
+  return vocabularyDocumentResponse(
+    params.get("resource") ?? "",
+    params.get("format"),
+    params.get("provenance") === "true"
+  )
+}
 
 async function main() {
   const stamp = `${Date.now()}_${process.pid}`
@@ -44,6 +63,7 @@ async function main() {
   const userIds: number[] = [],
     termIds: number[] = [],
     definitionIds: number[] = []
+  let communityId: number | undefined
   try {
     const fixture = await db.transaction(async (tx) => {
       const users = await tx
@@ -222,6 +242,72 @@ async function main() {
       (await buildTermSkos(empty.id, await loadKos()))?.canonicalDefinition,
       undefined
     )
+    const [privateCommunity] = await db
+      .insert(communitiesTable)
+      .values({
+        slug: scopes[1],
+        title: "Private resolver fixture",
+        vocabularySlug: scopes[1],
+        visibility: "members",
+        createdById: fixture.author
+      })
+      .returning({ id: communitiesTable.id })
+    communityId = privateCommunity.id
+    await db.insert(communityMembersTable).values({
+      communityId,
+      userId: fixture.author,
+      addedById: fixture.author
+    })
+    const privateDefinition = fixture.definitions[2].definition
+    for (const viewerId of [undefined, fixture.reviewer, fixture.author]) {
+      const expected = viewerId === fixture.author
+      assert.equal(
+        !!(await findDefinitionAtRank("metal", 1, scopes[1], viewerId)),
+        expected,
+        "Rank resolver defaults anonymous and respects explicit membership"
+      )
+      assert.equal(
+        !!(await findDefinitionByPublicNumber("metal", 1, scopes[1], viewerId)),
+        expected,
+        "Definition resolver scopes the explicit viewer"
+      )
+      assert.equal(
+        !!(await findDefinitionRevisionByPublicNumber(
+          "metal",
+          1,
+          1,
+          scopes[1],
+          viewerId
+        )),
+        expected,
+        "Revision resolver scopes the explicit viewer"
+      )
+      assert.equal(
+        !!(await findDefinitionPublicIdentity(privateDefinition.id, viewerId)),
+        expected,
+        "Legacy identity resolver scopes the explicit viewer"
+      )
+      assert.equal(!!(await findVocabulary(scopes[1], viewerId)), expected)
+      assert.equal(
+        !!(await findVocabularyTermRoute(scopes[1], "metal", viewerId)),
+        expected
+      )
+      const redirect = await redirectDefinitionAtRank(
+        new Request("http://localhost/ignored"),
+        scopes[1],
+        "metal",
+        "1",
+        viewerId
+      )
+      assert.equal(redirect.status, expected ? 307 : 404)
+      const document = await vocabularyDocumentResponse(
+        `/vocabulary/${scopes[1]}/metal`,
+        "ttl",
+        false,
+        viewerId
+      )
+      assert.equal(document.status, expected ? 200 : 404)
+    }
     if (process.env.W3ID_KEEP_FIXTURE === "true")
       writeFileSync(
         "/tmp/w3id-fixture.json",
@@ -237,6 +323,14 @@ async function main() {
         for (const id of definitionIds) await deleteDefinitionRows(tx, id)
         if (termIds.length)
           await tx.delete(termsTable).where(inArray(termsTable.id, termIds))
+        if (communityId !== undefined) {
+          await tx
+            .delete(communityMembersTable)
+            .where(eq(communityMembersTable.communityId, communityId))
+          await tx
+            .delete(communitiesTable)
+            .where(eq(communitiesTable.id, communityId))
+        }
         await tx
           .delete(vocabulariesTable)
           .where(inArray(vocabulariesTable.slug, scopes))

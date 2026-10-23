@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import {
   findNondefaultVocabulary,
   findVocabularyTermRoute
@@ -18,8 +19,12 @@ const resolveNamespacedTerm = async (
   termSlug: string
 ) => {
   const [vocabulary, term] = await Promise.all([
-    findNondefaultVocabulary(vocabularySlug),
-    findVocabularyTermRoute(vocabularySlug, termSlug)
+    findNondefaultVocabulary(vocabularySlug, await currentContentViewer()),
+    findVocabularyTermRoute(
+      vocabularySlug,
+      termSlug,
+      await currentContentViewer()
+    )
   ])
   if (!vocabulary || !term) notFound()
   return term

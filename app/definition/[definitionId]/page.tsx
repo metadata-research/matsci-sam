@@ -1,3 +1,4 @@
+import { currentContentViewer } from "@/lib/content-access"
 import {
   findDefinitionPublicIdentity,
   parsePositivePublicNumber
@@ -22,7 +23,10 @@ export default async function LegacyDefinitionPage({
 
   if (!definitionId || (versionParam !== undefined && !version)) notFound()
 
-  const definition = await findDefinitionPublicIdentity(definitionId)
+  const definition = await findDefinitionPublicIdentity(
+    definitionId,
+    await currentContentViewer()
+  )
   if (!definition) notFound()
 
   permanentRedirect(
