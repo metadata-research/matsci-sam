@@ -137,7 +137,9 @@ export function PublishedField({
               setError("")
               void revise
                 .mutateAsync({ revisionId: selected.id })
-                .then((draft) => router.push(`/metadata/workspace/${draft.id}`))
+                .then((draft) =>
+                  window.location.assign(`/metadata/workspace/${draft.id}`)
+                )
                 .catch((error: unknown) => setError(errorMessage(error)))
             }}
           >

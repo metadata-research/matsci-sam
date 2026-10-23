@@ -597,3 +597,17 @@ unchecked item is not a passing result.
   positions, definition source locking, examples, ordinary drafts and all 71
   content-privacy checks pass, as do TypeScript and scoped lint. Independent
   review found no remaining blocker. No schema or interface change is required.
+
+- CI and a local reproduction showed an intermittently empty metadata editor
+  after client navigation, despite a completed HTTP 200 route response and no
+  browser errors. Private editor links and successful create/propose/revise
+  actions now load a fresh document. This is a defensive navigation boundary;
+  the underlying router cause remains unconfirmed. Save guards remain intact.
+  Section navigation passes nine groups, metadata workflow passes 13, and the
+  catalog passes nine on the rebuilt production preview. Browser Back coverage
+  now verifies canceling the unsaved-work warning, then confirming departure
+  and recovering the writing. All fixtures were removed with no unexpected
+  browser errors; all 67 retained-table fingerprints and the original columns
+  and rows of all 65 baseline tables match. Evidence is under
+  `.matsci-stage/community-privacy/metadata-entry-acceptance/`. TypeScript,
+  scoped lint, presentation checks and independent review pass.

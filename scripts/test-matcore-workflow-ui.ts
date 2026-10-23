@@ -124,6 +124,11 @@ async function main() {
       animations: "disabled"
     })
   }
+  const expectedUnloads = new Map<
+    Page,
+    { action: "accept" | "dismiss"; seen: boolean }
+  >()
+  const unloadDecisions: string[] = []
   const observe = (page: Page) => {
     page.setDefaultTimeout(30000)
     page.setDefaultNavigationTimeout(90000)
@@ -138,6 +143,13 @@ async function main() {
       if (!expected) errors.push(message.text())
     })
     page.on("dialog", async (dialog) => {
+      const expected = expectedUnloads.get(page)
+      if (dialog.type() === "beforeunload" && expected) {
+        expected.seen = true
+        unloadDecisions.push(expected.action)
+        await dialog[expected.action]()
+        return
+      }
       errors.push(`Unexpected native dialog: ${dialog.message()}`)
       await dialog.dismiss()
     })
@@ -375,12 +387,10 @@ async function main() {
       "A committed save with a lost response retries the same mutation without an extra version"
     )
 
-    // Enter using Next's link navigation so browser Back exercises popstate,
-    // not a document unload. Failed saves must survive editor unmounting.
+    // Private editor entry uses a fresh document. Browser Back must preserve
+    // the existing leave warning and this tab's recovery copy after leaving.
     const returnFromWorkspace = async () => {
-      // The contextual return intentionally loads a fresh document. Confirm
-      // this client component is interactive before following its Next link;
-      // otherwise a click before hydration tests a document unload instead.
+      // Keep the workspace interactivity check as well as the editor check.
       await button(page, "New metadata field").click()
       const dialog = page.getByRole("dialog")
       await expect(dialog).toBeVisible()
@@ -396,10 +406,24 @@ async function main() {
       await expect(definition(page)).toBeEditable()
     }
     const backToWorkspace = async () => {
-      await page.goBack()
-      await expect(
-        page.getByRole("heading", { name: fixture.communityTitle, exact: true })
-      ).toBeVisible()
+      const leave = { action: "accept" as const, seen: false }
+      expectedUnloads.set(page, leave)
+      try {
+        await page.goBack()
+        assert.equal(
+          leave.seen,
+          true,
+          "Leaving an unsaved draft requires confirmation"
+        )
+        await expect(
+          page.getByRole("heading", {
+            name: fixture.communityTitle,
+            exact: true
+          })
+        ).toBeVisible()
+      } finally {
+        expectedUnloads.delete(page)
+      }
     }
     await page
       .getByRole("link", {
@@ -417,6 +441,18 @@ async function main() {
       (await activeDraft()).payload.definition,
       beforeBack.payload.definition
     )
+    const canceledBack = { action: "dismiss" as const, seen: false }
+    expectedUnloads.set(page, canceledBack)
+    const beforeCanceledBack = page.url()
+    try {
+      await page.evaluate(() => history.back())
+      await expect.poll(() => canceledBack.seen).toBe(true)
+      await expect(page).toHaveURL(beforeCanceledBack)
+      await expect(definition(page)).toHaveValue(backWriting)
+      assert.equal((await activeDraft()).version, beforeBack.version)
+    } finally {
+      expectedUnloads.delete(page)
+    }
     await backToWorkspace()
     await returnFromWorkspace()
     await expect(definition(page)).toHaveValue(backWriting)
@@ -433,7 +469,7 @@ async function main() {
     await expect(saved(page)).toBeVisible()
     assert.equal((await activeDraft()).payload.definition, backWriting)
     record(
-      "Failed save → browser Back → Next link restores this tab's writing; an explicit save acknowledges recovery"
+      "Failed-save Back can be canceled; confirmed leaving and reopening restore this tab's writing, and an explicit save acknowledges recovery"
     )
 
     await page
@@ -842,7 +878,9 @@ async function main() {
     await privatePage.close()
     await generic.goto(genericWorkspace)
     await expect(
-      generic.locator(`a[href^="/metadata/workspace/${genericDraftId}"]`).first()
+      generic
+        .locator(`a[href^="/metadata/workspace/${genericDraftId}"]`)
+        .first()
     ).toBeVisible()
     await expect(
       generic.locator(`a[href^="/metadata/workspace/${selected.id}"]`)
@@ -1115,6 +1153,7 @@ async function main() {
           passed,
           blocked,
           errors,
+          unloadDecisions,
           cleaned,
           fixtures: { fixture, genericFixture },
           cleanupFailure:

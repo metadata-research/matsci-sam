@@ -31,6 +31,7 @@ import {
   profileLabel
 } from "./workspace-presenters"
 import { WorkspaceSelect } from "./workspace-select"
+import { FieldDestinationLink } from "./field-destination-link"
 
 type Props = {
   ownerId: number
@@ -297,7 +298,7 @@ export function WorkspaceList({
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link
+                  <FieldDestinationLink
                     className="break-words font-medium underline underline-offset-4"
                     href={
                       draft.status === "published"
@@ -309,7 +310,7 @@ export function WorkspaceList({
                     }
                   >
                     {draft.label || "Untitled field"}
-                  </Link>
+                  </FieldDestinationLink>
                   <Badge
                     variant={
                       draft.status === "published" ? "secondary" : "outline"
@@ -331,7 +332,7 @@ export function WorkspaceList({
                 </p>
               </div>
               <Button asChild variant="outline" size="sm">
-                <Link
+                <FieldDestinationLink
                   href={
                     draft.status === "published"
                       ? `/metadata/fields/${draft.fieldId}?revision=${draft.publishedRevisionId}`
@@ -342,7 +343,7 @@ export function WorkspaceList({
                   }
                 >
                   {draft.status === "published" ? "View proposal" : "Continue"}
-                </Link>
+                </FieldDestinationLink>
               </Button>
             </li>
           ))}
@@ -453,7 +454,7 @@ export function WorkspaceList({
                   expectedOwnerId: ownerId
                 })
                 .then((draft) =>
-                  router.push(
+                  window.location.assign(
                     withCommunityWorkReturn(
                       `/metadata/workspace/${draft.id}`,
                       returnTo

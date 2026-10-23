@@ -12,6 +12,7 @@ import {
   type Browser,
   type BrowserContext,
   type Page,
+  type Request,
   type Route
 } from "@playwright/test"
 import { and, eq, inArray } from "drizzle-orm"
@@ -83,6 +84,15 @@ async function main() {
   const expectedFailures: string[] = []
   const mutations: Array<{ path: string; id: unknown }> = []
   const measurements: Record<string, unknown> = {}
+  const navigationRequests: Array<{
+    path: string
+    type: string
+    prefetch: boolean
+    rsc: boolean
+    status?: number
+    finished?: boolean
+    failure?: string
+  }> = []
   const fieldIds: string[] = []
   const fieldDraftIds: string[] = []
   const termId = randomUUID()
@@ -103,6 +113,43 @@ async function main() {
   const observe = (page: Page) => {
     observedPage = page
     page.setDefaultNavigationTimeout(90000)
+    const requests = new Map<Request, (typeof navigationRequests)[number]>()
+    page.on("request", (request) => {
+      const url = new URL(request.url())
+      if (url.origin !== origin) return
+      const headers = request.headers()
+      if (
+        !request.isNavigationRequest() &&
+        headers.rsc !== "1" &&
+        request.resourceType() !== "script"
+      )
+        return
+      // Capture navigation state without cookies, authorization or response
+      // bodies. A blank page must be distinguishable from a missing label.
+      const entry = {
+        path: `${url.pathname}${url.search}`,
+        type: request.resourceType(),
+        prefetch: headers["next-router-prefetch"] === "1",
+        rsc: headers.rsc === "1"
+      }
+      requests.set(request, entry)
+      navigationRequests.push(entry)
+      if (navigationRequests.length > 200) navigationRequests.shift()
+    })
+    page.on("response", (response) => {
+      const entry = requests.get(response.request())
+      if (entry) entry.status = response.status()
+    })
+    page.on("requestfinished", (request) => {
+      const entry = requests.get(request)
+      if (entry) entry.finished = true
+      requests.delete(request)
+    })
+    page.on("requestfailed", (request) => {
+      const entry = requests.get(request)
+      if (entry) entry.failure = request.failure()?.errorText ?? "unknown"
+      requests.delete(request)
+    })
     page.on("pageerror", (error) => errors.push(error.message))
     page.on("console", (message) => {
       if (message.type() !== "error") return
@@ -508,6 +555,9 @@ async function main() {
       "href",
       `${workPath}&offset=40#my-field-drafts`
     )
+    measurements.fieldEntryNavigation = navigationRequests.filter(
+      (request) => new URL(request.path, base).pathname === fieldURL.pathname
+    )
     const fieldWriting = page.getByRole("textbox", {
       name: "Definition",
       exact: true
@@ -712,6 +762,28 @@ async function main() {
     failure = error
     if (observedPage && !observedPage.isClosed()) {
       measurements.failureURL = observedPage.url()
+      measurements.failureTitle = await observedPage.title().catch(() => null)
+      measurements.failureBody = await observedPage
+        .locator("body")
+        .ariaSnapshot()
+        .then((snapshot) => snapshot.slice(0, 8000))
+        .catch(() => null)
+      measurements.failureStructure = await observedPage
+        .evaluate(() => ({
+          readyState: document.readyState,
+          main: [...document.querySelectorAll("main")]
+            .slice(0, 5)
+            .map((node) => ({
+              label: node.getAttribute("aria-label"),
+              text: node.textContent?.slice(0, 1000),
+              hidden: node.hidden
+            })),
+          loading:
+            document.querySelector(
+              '[aria-label="Loading metadata workspace"]'
+            ) !== null
+        }))
+        .catch(() => null)
       await observedPage
         .screenshot({
           path: resolve(output, "failure.png"),
@@ -826,6 +898,7 @@ async function main() {
           expectedFailures,
           mutations,
           measurements,
+          navigationRequests,
           cleaned,
           retainedBefore,
           retainedAfter,

@@ -13,6 +13,7 @@ import { withMatcoreCatalogReturn } from "@/lib/matcore-catalog-navigation"
 import { SpecificationSummary } from "./field-specification"
 import { ProfileContext } from "./source-history"
 import { errorMessage, profileLabel } from "./workspace-presenters"
+import { FieldDestinationLink } from "./field-destination-link"
 
 type Props = {
   community: { slug: string; title: string }
@@ -64,7 +65,7 @@ export function SourceCatalogEntry({
       })
       if (!mounted.current) return
       if (result.kind === "draft") {
-        router.push(
+        window.location.assign(
           withMatcoreCatalogReturn(
             `/metadata/workspace/${result.draftId}`,
             detailHref
@@ -119,14 +120,14 @@ export function SourceCatalogEntry({
       <div className="flex flex-wrap items-center gap-3">
         {ownDraft && entry.canResume ? (
           <Button asChild>
-            <Link
+            <FieldDestinationLink
               href={withMatcoreCatalogReturn(
                 `/metadata/workspace/${ownDraft.id}`,
                 detailHref
               )}
             >
               Continue my draft
-            </Link>
+            </FieldDestinationLink>
           </Button>
         ) : entry.latestProposal ? (
           <Button asChild variant="outline">
