@@ -43,6 +43,9 @@ import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { PublicProfileName } from "@/components/public-profile-name"
 import { Button } from "@/components/ui/button"
+import { WorkspaceSettings } from "@/components/communities/workspace-settings"
+import { RecentCommunityWork } from "@/components/communities/recent-work"
+import { InfoPopover } from "@/components/info-popover"
 import { CommunityWork } from "@/components/communities/community-work"
 import { CommunityNavigation } from "@/components/communities/community-navigation"
 import { SourceCatalog } from "@/components/metadata-workspace/source-catalog"
@@ -104,6 +107,8 @@ export default async function CommunityPage({
     offset?: string
     release?: string
     source?: string
+    q?: string
+    content?: string
   }>
 }) {
   const { slug } = await params
@@ -135,7 +140,8 @@ export default async function CommunityPage({
       "work",
       "collections",
       "people",
-      "surveys"
+      "surveys",
+      "settings"
     ].includes(view)
   )
     notFound()
@@ -146,11 +152,13 @@ export default async function CommunityPage({
       : []
 
   const membership = user ? await membershipIn(community.id, user.id) : null
-  const workspace = ["overview", "vocabulary"].includes(view)
-    ? await trpc.matcoreWorkflow.workspace({
-        vocabularySlug: community.vocabularySlug
-      })
-    : null
+  const workspace = await trpc.matcoreWorkflow.workspace({
+    vocabularySlug: community.vocabularySlug
+  })
+  const showSettings = access.canManage || workspace.canManage
+  if (view === "settings" && !showSettings) notFound()
+  if (query.content && query.content !== "contributions") notFound()
+  const showContributions = query.content === "contributions" && !query.source
   const hasCatalog = workspace?.hasMatcoreCatalog ?? false
   const catalogPath = matcoreCatalogHref(community.slug)
   const profile = query.profile
@@ -165,7 +173,9 @@ export default async function CommunityPage({
       !Number.isInteger(offset) ||
       offset < 0 ||
       offset > 10000 ||
-      (query.source && !query.release))
+      (query.source && !query.release) ||
+      (query.q !== undefined &&
+        (query.q.length > 200 || /[\u0000-\u001f\u007f]/.test(query.q))))
   )
     notFound()
   if (view === "vocabulary" && !hasCatalog && (query.release || query.source))
@@ -173,12 +183,13 @@ export default async function CommunityPage({
   const catalogInput = {
     vocabularySlug: community.vocabularySlug,
     releaseId: query.release,
+    search: query.q,
     profileKey: profile?.success ? profile.data : undefined,
     offset,
     limit: 40
   }
   const [sourceCatalog, sourceEntry] =
-    view === "vocabulary" && hasCatalog
+    view === "vocabulary" && hasCatalog && !showContributions
       ? await Promise.all([
           trpc.matcoreWorkflow.sourceCatalog(catalogInput),
           query.source && query.release
@@ -292,37 +303,59 @@ export default async function CommunityPage({
           slug={community.slug}
           view={view}
           showSurveys={runs || studies.length > 0}
+          showSettings={showSettings}
         />
         {view === "overview" ? (
-          <section className="flex flex-col gap-4">
-            <h2 className="text-2xl font-semibold">Community workspace</h2>
-            <p className="text-muted-foreground">
-              {hasCatalog
-                ? "Browse preserved MatCore source versions and propose changes to individual fields. Your drafts remain private; published local proposals are separate from the source."
-                : "Browse published entries or continue your own drafts. Collections organize shared work; drafts remain private until published."}
-            </p>
+          <div className="flex flex-col gap-6">
+            {user ? (
+              <RecentCommunityWork
+                vocabularySlug={community.vocabularySlug}
+                workPath={workPath}
+              />
+            ) : null}
             <div className="flex flex-wrap gap-3">
               <Button asChild>
-                <Link href={hasCatalog ? catalogPath : workPath}>
-                  {hasCatalog ? "Browse MatCore catalog" : "Open my work"}
+                <Link href={catalogPath}>
+                  {hasCatalog
+                    ? "Browse reference catalog"
+                    : "Browse vocabulary"}
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link
-                  href={
-                    hasCatalog
-                      ? workPath
-                      : `/communities/${community.slug}?view=vocabulary`
-                  }
-                >
-                  {hasCatalog ? "Open my work" : "Browse vocabulary"}
-                </Link>
+                <Link href={workPath}>Open my work</Link>
               </Button>
             </div>
+          </div>
+        ) : null}
+        {view === "settings" ? (
+          <section
+            className="flex flex-col gap-5"
+            aria-labelledby="community-settings"
+          >
+            <h2 id="community-settings" className="text-2xl font-semibold">
+              Settings
+            </h2>
             <CommunityAccessSettings
               key={`${community.id}:${access.visibility}`}
               access={access}
             />
+            <WorkspaceSettings
+              key={community.vocabularySlug}
+              workspace={workspace}
+            />
+            {isAdmin ? (
+              <div className="flex flex-wrap gap-2">
+                <EditCommunity
+                  communityId={community.id}
+                  title={community.title}
+                  description={community.description}
+                />
+                <RetireCommunity
+                  communityId={community.id}
+                  retired={Boolean(community.retiredAt)}
+                />
+              </div>
+            ) : null}
           </section>
         ) : null}
         {view === "work" ? (
@@ -335,7 +368,36 @@ export default async function CommunityPage({
           />
         ) : null}
         {view === "vocabulary" ? (
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-6">
+            {hasCatalog ? (
+              <nav
+                aria-label="Vocabulary content"
+                className="flex flex-wrap gap-2"
+              >
+                <Button
+                  asChild
+                  variant={showContributions ? "outline" : "secondary"}
+                >
+                  <Link
+                    href={catalogPath}
+                    aria-current={!showContributions ? "page" : undefined}
+                  >
+                    Reference catalog
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant={showContributions ? "secondary" : "outline"}
+                >
+                  <Link
+                    href={`${catalogPath}&content=contributions`}
+                    aria-current={showContributions ? "page" : undefined}
+                  >
+                    Community contributions
+                  </Link>
+                </Button>
+              </nav>
+            ) : null}
             {sourceCatalog ? (
               <SourceCatalog
                 community={{ slug: community.slug, title: community.title }}
@@ -344,18 +406,18 @@ export default async function CommunityPage({
                 viewerId={user?.id ?? null}
               />
             ) : null}
-            {!sourceEntry ? (
+            {!hasCatalog || showContributions ? (
               <section className="flex flex-col gap-4">
-                <h2 className="text-2xl font-semibold">
-                  {hasCatalog ? "Community contributions" : "Vocabulary"}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {hasCatalog
-                    ? "Published local terms and metadata proposals in this community."
-                    : "Published terms and metadata fields defined in this community."}
-                  Each field entry links to its specification and revision
-                  history.
-                </p>
+                <div className="flex items-center gap-1">
+                  <h2 className="text-2xl font-semibold">
+                    {hasCatalog ? "Community contributions" : "Vocabulary"}
+                  </h2>
+                  <InfoPopover label="About community contributions">
+                    Published terms and metadata fields from this community.
+                    Metadata fields include their specification and revision
+                    history.
+                  </InfoPopover>
+                </div>
                 <Link
                   className="text-sm underline underline-offset-4"
                   href={vocabularyPath(community.vocabularySlug)}
@@ -583,19 +645,6 @@ export default async function CommunityPage({
               {/* Affordances only. The router checks the same rules. */}
               {(isAdmin || runs || membership) && (
                 <div className="flex flex-wrap items-start gap-2">
-                  {isAdmin && (
-                    <EditCommunity
-                      communityId={community.id}
-                      title={community.title}
-                      description={community.description}
-                    />
-                  )}
-                  {isAdmin && (
-                    <RetireCommunity
-                      communityId={community.id}
-                      retired={Boolean(community.retiredAt)}
-                    />
-                  )}
                   {user &&
                     membership &&
                     maySetCommunityMember(

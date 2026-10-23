@@ -306,6 +306,23 @@ async function main() {
       .click()
     await page.getByLabel("Value type", { exact: true }).selectOption("text")
     await page.getByLabel("Format", { exact: true }).fill("YYYY-MM-DD")
+    for (const [label, explanation] of [
+      ["About field paths", /Include the parent context/],
+      [
+        "About field requirements",
+        /required child field must be supplied when its parent is present/
+      ],
+      ["About repeatable fields", /single field contains several values/]
+    ] as const) {
+      const help = page.getByRole("button", { name: label, exact: true })
+      await help.focus()
+      await page.keyboard.press("Enter")
+      await expect(
+        page.getByRole("dialog", { name: label, exact: true })
+      ).toContainText(explanation)
+      await page.keyboard.press("Escape")
+      await expect(help).toBeFocused()
+    }
     await page.locator("#field-requirement").selectOption("conditional")
     await page
       .getByLabel("Requirement condition", { exact: true })
@@ -731,8 +748,11 @@ async function main() {
       })
     ).toBeVisible()
     await expect(button(generic, "New metadata field")).toHaveCount(0)
+    await generic.getByRole("link", { name: "Settings", exact: true }).click()
     await generic.locator("summary#workspace-tools").click()
     await button(generic, "Enable metadata development").click()
+    await expect(button(generic, "Disable new metadata fields")).toBeVisible()
+    await generic.goto(genericWorkspace)
     await expect(button(generic, "New metadata field")).toBeVisible()
     await expect(button(generic, "Import all sections as drafts")).toHaveCount(
       0

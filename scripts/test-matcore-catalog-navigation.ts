@@ -16,7 +16,8 @@ const href = matcoreCatalogHref(context.communitySlug, {
   releaseId: context.releaseId,
   source,
   profileKey: "dft",
-  offset: 40
+  offset: 40,
+  search: "diffusion α & method"
 })
 assert.equal(normalizeMatcoreCatalogReturnTo(href, context), href)
 assert.equal(normalizeAuthReturnTo(href), href)
@@ -61,6 +62,9 @@ for (const bad of [
   `${href}&source=another`,
   `${href}&redirect=https://example.com`,
   `${href}&offset=0`,
+  `${href}&q=duplicate`,
+  "/communities/example?view=vocabulary&q=%00",
+  `/communities/example?view=vocabulary&q=${"a".repeat(201)}`,
   "/communities/matcore_development?view=vocabulary&source=orphan",
   "/communities/matcore_development?view=vocabulary&release=%2Fetc%2Fpasswd",
   "/communities/matcore_development?view=vocabulary&source=%00&release=matcore:0.3.0",

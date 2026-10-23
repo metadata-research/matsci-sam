@@ -145,14 +145,17 @@ async function main() {
       [{ label: "Community workspaces", href: "/communities" }]
     )
     await close()
-    await open(`Working in ${fixture.communityTitle}`)
+    await open(`Default community: ${fixture.communityTitle}`)
     await expect(
-      menu().getByText("Community context", { exact: true })
+      menu().getByText("Default community", { exact: true })
     ).toBeVisible()
     await expect(
-      menu().getByText("Default for browsing and new contributions.", {
-        exact: true
-      })
+      menu().getByText(
+        "Used for browsing and new contributions outside a community page.",
+        {
+          exact: true
+        }
+      )
     ).toBeVisible()
     assert.deepEqual(await links(menu()), [
       { label: "Open workspace", href: workspacePath }
@@ -229,18 +232,18 @@ async function main() {
     )
 
     await page.goto(workspace)
-    await open(`Working in ${fixture.communityTitle}`)
+    await open(`Default community: ${fixture.communityTitle}`)
     await menu()
       .getByRole("menuitemradio", { name: "Everything", exact: true })
       .click()
     await expect(
       primary.getByRole("button", {
-        name: "Working in every community",
+        name: "Default community: Everything",
         exact: true
       })
     ).toBeVisible()
     await expect(page).toHaveURL(workspace)
-    await open("Working in every community")
+    await open("Default community: Everything")
     await expect(
       menu().getByRole("menuitem", { name: "Open workspace", exact: true })
     ).toHaveCount(0)
@@ -249,7 +252,7 @@ async function main() {
       .click()
     await expect(
       primary.getByRole("button", {
-        name: `Working in ${fixture.communityTitle}`,
+        name: `Default community: ${fixture.communityTitle}`,
         exact: true
       })
     ).toBeVisible()
@@ -260,7 +263,7 @@ async function main() {
       .where(eq(usersTable.id, fixture.userId))
     assert.equal(updatedUser.activeCommunityId, fixture.communityId)
     record(
-      "Community context persists and reloads the current route without navigating away"
+      "Default community persists and reloads the current route without navigating away"
     )
 
     await page.goto(`${base}/metadata/fields`)
@@ -314,7 +317,7 @@ async function main() {
     })
     await page
       .getByRole("button", {
-        name: `Working in ${fixture.communityTitle}`,
+        name: `Default community: ${fixture.communityTitle}`,
         exact: true
       })
       .click()
@@ -358,7 +361,7 @@ async function main() {
       anonymousPrimary.getByRole("link", { name: "Login", exact: true })
     ).toBeVisible()
     await expect(
-      anonymousPrimary.getByRole("button", { name: /^Working in/ })
+      anonymousPrimary.getByRole("button", { name: /^Default community/ })
     ).toHaveCount(0)
     await anonymousPrimary
       .getByRole("button", { name: "Participate", exact: true })

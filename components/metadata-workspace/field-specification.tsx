@@ -8,6 +8,7 @@ import {
   FieldGroup,
   FieldLabel
 } from "@/components/ui/field"
+import { InfoPopover } from "@/components/info-popover"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { WorkspaceSelect } from "./workspace-select"
@@ -92,23 +93,24 @@ export function FieldSpecification({
   return (
     <FieldGroup>
       <Field>
-        <FieldLabel htmlFor="field-path">Field path</FieldLabel>
+        <div className="flex items-center gap-1">
+          <FieldLabel htmlFor="field-path">Field path</FieldLabel>
+          <InfoPopover label="About field paths">
+            Include the parent context, for example creator.name.
+          </InfoPopover>
+        </div>
         <Input
           id="field-path"
           value={specification.path}
           maxLength={500}
           onChange={(event) => set("path", event.target.value)}
         />
-        <FieldDescription>
-          Keep the parent context, for example creator.name.
-          {profileKey
-            ? ` This identifies the field’s use in ${profileLabel(profileKey)}.`
-            : " This identifies the field within this vocabulary."}
-        </FieldDescription>
       </Field>
       <div className="grid gap-6 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="field-value-type">Value type</FieldLabel>
+          <FieldLabel htmlFor="field-value-type" className="min-h-8">
+            Value type
+          </FieldLabel>
           <WorkspaceSelect
             id="field-value-type"
             value={specification.valueType}
@@ -124,7 +126,9 @@ export function FieldSpecification({
           </WorkspaceSelect>
         </Field>
         <Field>
-          <FieldLabel htmlFor="field-format">Format</FieldLabel>
+          <FieldLabel htmlFor="field-format" className="min-h-8">
+            Format
+          </FieldLabel>
           <Input
             id="field-format"
             value={specification.format}
@@ -134,9 +138,16 @@ export function FieldSpecification({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="field-requirement">
-            Requirement{profileKey ? ` in ${profileLabel(profileKey)}` : ""}
-          </FieldLabel>
+          <div className="flex items-center gap-1">
+            <FieldLabel htmlFor="field-requirement">
+              Requirement{profileKey ? ` in ${profileLabel(profileKey)}` : ""}
+            </FieldLabel>
+            <InfoPopover label="About field requirements">
+              A required child field must be supplied when its parent is
+              present. Record other conditions below. Not specified means no
+              rule has been established.
+            </InfoPopover>
+          </div>
           <WorkspaceSelect
             id="field-requirement"
             value={specification.requirement}
@@ -153,16 +164,17 @@ export function FieldSpecification({
               </option>
             ))}
           </WorkspaceSelect>
-          <FieldDescription>
-            For a child field, required means required when its parent is
-            present. Record other conditions below. Not specified means the rule
-            has not been established; it does not mean optional.
-          </FieldDescription>
         </Field>
         <Field>
-          <FieldLabel htmlFor="field-repeatability">
-            Repeatable field
-          </FieldLabel>
+          <div className="flex items-center gap-1">
+            <FieldLabel htmlFor="field-repeatability">
+              Repeatable field
+            </FieldLabel>
+            <InfoPopover label="About repeatable fields">
+              Whether the field can occur more than once. Choose List as the
+              value type when a single field contains several values.
+            </InfoPopover>
+          </div>
           <WorkspaceSelect
             id="field-repeatability"
             value={specification.repeatability}
@@ -179,10 +191,6 @@ export function FieldSpecification({
               </option>
             ))}
           </WorkspaceSelect>
-          <FieldDescription>
-            Whether the field may occur more than once. A list value is a
-            separate choice above.
-          </FieldDescription>
         </Field>
       </div>
       {specification.requirement === "conditional" ||

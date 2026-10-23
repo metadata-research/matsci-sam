@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { InfoPopover } from "@/components/info-popover"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
@@ -111,11 +112,6 @@ export function SourceCatalogEntry({
           {profileLabel(sourceOccurrence.profileKey)} ·{" "}
           {sourceOccurrence.path.join(" / ")}
         </p>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          This entry records the source wording and rules for this version.
-          Proposing a change opens a private draft in {community.title}; the
-          source entry stays unchanged.
-        </p>
       </header>
       <div className="flex flex-wrap items-center gap-3">
         {ownDraft && entry.canResume ? (
@@ -148,6 +144,10 @@ export function SourceCatalogEntry({
             </Link>
           </Button>
         ) : null}
+        <InfoPopover label="About proposing a change">
+          Creates a private draft in {community.title}. The source entry stays
+          unchanged.
+        </InfoPopover>
         <a
           href={sourceOccurrence.sourceUrl}
           target="_blank"
@@ -226,17 +226,19 @@ export function SourceCatalogEntry({
         aria-labelledby="matcore-source-rules"
         className="flex flex-col gap-3"
       >
-        <h4 id="matcore-source-rules" className="font-semibold">
-          Field rules
-        </h4>
+        <div className="flex items-center gap-1">
+          <h4 id="matcore-source-rules" className="font-semibold">
+            Field rules
+          </h4>
+          <InfoPopover label="About source field rules">
+            Not specified means that the source record has no established rule.
+            It does not mean optional.
+          </InfoPopover>
+        </div>
         <SpecificationSummary
           specification={baseline.specification}
           profileKey={sourceOccurrence.profileKey}
         />
-        <p className="text-sm text-muted-foreground">
-          Not specified means that no rule was established in this source
-          record; it does not mean optional.
-        </p>
       </section>
       <ProfileContext context={entry.profileContext} />
       {sourceOccurrence.warnings.length ? (

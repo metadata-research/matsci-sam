@@ -206,6 +206,7 @@ type SourceCatalogInput = {
   profileKey?: MatcoreProfileKey
   offset?: number
   limit?: number
+  search?: string
 }
 type SourceEntryInput = {
   vocabularySlug: string
@@ -292,8 +293,20 @@ export async function listMatcoreSourceCatalog(
         .from(occurrences)
         .where(eq(occurrences.releaseId, selected.id))
     : []
+  const search = input.search?.trim() ?? ""
+  const needle = search.toLocaleLowerCase()
   const filtered = rows
     .filter((row) => !input.profileKey || row.profileKey === input.profileKey)
+    .filter(
+      (row) =>
+        !needle ||
+        [
+          row.baseline.label,
+          row.baseline.definition,
+          row.baseline.specification.path,
+          row.source.path.join(" / ")
+        ].some((text) => text.toLocaleLowerCase().includes(needle))
+    )
     .sort(
       (a, b) =>
         profileOrder(a.profileKey) - profileOrder(b.profileKey) ||
@@ -315,6 +328,7 @@ export async function listMatcoreSourceCatalog(
       count: rows.filter((row) => row.profileKey === profile.id).length
     })),
     profileKey: input.profileKey ?? null,
+    search,
     occurrences: filtered.slice(offset, offset + limit),
     total: filtered.length,
     offset,
@@ -865,10 +879,14 @@ export async function listMatcoreDrafts(
     profileKey?: MatcoreProfileKey
     offset?: number
     limit?: number
+    recentUnpublished?: boolean
   }
 ) {
   const filter = and(
     eq(drafts.ownerId, ownerId),
+    input.recentUnpublished
+      ? sql`${drafts.publishedRevisionId} IS NULL`
+      : undefined,
     vocabularyContentVisible(fields.vocabularySlug, ownerId),
     sql`(${drafts.profileReleaseId} IS NULL OR EXISTS (SELECT 1 FROM ${sourceGrants} sg WHERE sg."vocabularySlug"=${fields.vocabularySlug} AND sg."releaseId"=${drafts.profileReleaseId}))`,
     input.vocabularySlug
@@ -903,6 +921,7 @@ export async function listMatcoreDrafts(
     .innerJoin(fields, eq(drafts.fieldId, fields.id))
     .where(filter)
     .orderBy(
+      ...(input.recentUnpublished ? [sql`${drafts.updatedAt} DESC`] : []),
       sql`CASE ${drafts.profileKey} WHEN 'minimal' THEN 0 WHEN 'dft' THEN 1 ELSE 2 END`,
       asc(drafts.profileKey),
       asc(sql`${drafts.payload}->'specification'->>'path'`),

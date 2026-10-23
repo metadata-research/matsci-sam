@@ -308,7 +308,7 @@ async function main() {
       `${base}/communities/${fixture.communitySlug}?${new URLSearchParams({ view: "vocabulary", release: releaseId, profile: "dft" })}`
     )
     const pagination = page.getByRole("navigation", {
-      name: "MatCore catalog pages",
+      name: "Catalog pages top",
       exact: true
     })
     await expect(
@@ -321,6 +321,82 @@ async function main() {
     ).toBeDisabled()
     record(
       "A fresh member can browse and filter the versioned catalog, paginate DFT entries, and create no private drafts by browsing"
+    )
+
+    await pagination
+      .getByRole("button", { name: "Previous", exact: true })
+      .click()
+    await expect(
+      page.getByRole("link", { name: source.baseline.label, exact: true })
+    ).toHaveCount(0)
+    await page
+      .getByLabel("Find a field", { exact: true })
+      .fill(source.baseline.label.toUpperCase())
+    await page
+      .getByRole("search", { name: "Reference catalog", exact: true })
+      .getByRole("button", { name: "Search", exact: true })
+      .click()
+    await expect(
+      page.getByRole("link", { name: source.baseline.label, exact: true })
+    ).toBeVisible()
+    assert.equal(new URL(page.url()).searchParams.get("offset"), null)
+    await page
+      .getByRole("link", { name: source.baseline.label, exact: true })
+      .click()
+    assert.equal(
+      new URL(page.url()).searchParams.get("q"),
+      source.baseline.label.toUpperCase()
+    )
+    const about = page.getByRole("button", {
+      name: "About proposing a change",
+      exact: true
+    })
+    await about.focus()
+    await page.keyboard.press("Enter")
+    await expect(
+      page.getByRole("dialog", {
+        name: "About proposing a change",
+        exact: true
+      })
+    ).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(about).toBeFocused()
+    await page
+      .getByRole("link", { name: "Back to MatCore catalog", exact: true })
+      .click()
+    await expect(page.getByLabel("Find a field", { exact: true })).toHaveValue(
+      source.baseline.label.toUpperCase()
+    )
+    await page.getByRole("link", { name: "Clear search", exact: true }).click()
+    await expect(page.getByLabel("Find a field", { exact: true })).toHaveValue(
+      ""
+    )
+    await page
+      .getByLabel("Find a field", { exact: true })
+      .fill("missing field query 987654321")
+    await page
+      .getByRole("search", { name: "Reference catalog", exact: true })
+      .getByRole("button", { name: "Search", exact: true })
+      .click()
+    await expect(
+      page.getByText("No fields match this search.", { exact: true })
+    ).toBeVisible()
+    await page
+      .getByRole("navigation", { name: "Vocabulary content", exact: true })
+      .getByRole("link", { name: "Community contributions", exact: true })
+      .click()
+    await expect(
+      page.getByRole("heading", {
+        name: "Community contributions",
+        exact: true
+      })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "MatCore catalog", exact: true })
+    ).toHaveCount(0)
+    await page.goto(`${base}${catalogPath}`)
+    record(
+      "Catalog search finds a field beyond page one, preserves query on return, clears and reports empty results, and separates community contributions"
     )
 
     await page

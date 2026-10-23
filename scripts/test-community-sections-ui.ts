@@ -82,6 +82,7 @@ async function main() {
   const blocked: string[] = []
   const errors: string[] = []
   const expectedFailures: string[] = []
+  const expectedNotFound = new Set<string>()
   const mutations: Array<{ path: string; id: unknown }> = []
   const measurements: Record<string, unknown> = {}
   const navigationRequests: Array<{
@@ -154,10 +155,12 @@ async function main() {
     page.on("console", (message) => {
       if (message.type() !== "error") return
       const expected =
-        message
+        (expectedNotFound.has(message.location().url) &&
+          /status of 404/.test(message.text())) ||
+        (message
           .location()
           .url.includes("/api/trpc/matcoreWorkflow.updateDraft") &&
-        /ERR_CONNECTION_RESET|ERR_FAILED/.test(message.text())
+          /ERR_CONNECTION_RESET|ERR_FAILED/.test(message.text()))
       if (expected) expectedFailures.push(message.text())
       else errors.push(message.text())
     })
@@ -404,18 +407,21 @@ async function main() {
     assert.deepEqual(await outlineTargets(page), [
       "#term-drafts",
       "#term-imports",
-      "#my-field-drafts",
-      "#workspace-tools"
+      "#my-field-drafts"
     ])
     await jump(page, "my-field-drafts", true)
     await jump(page, "my-field-drafts")
-    await jump(page, "workspace-tools")
+    await expect(page.locator("#community-access")).toHaveCount(0)
+    await page.getByRole("link", { name: "Settings", exact: true }).click()
+    await expect(page.getByLabel("Who can view content")).toBeVisible()
+    await page.locator("summary#workspace-tools").click()
     await expect(
       page.getByRole("button", {
         name: "Disable new metadata fields",
         exact: true
       })
     ).toBeVisible()
+    await page.goto(work)
     await jump(page, "term-drafts")
     await capture(page, "my-work-desktop")
     record(
@@ -435,7 +441,7 @@ async function main() {
     await expect(page.locator("#term-drafts")).toBeFocused()
     await expect(page.locator("#term-drafts")).not.toBeInViewport()
     await expect(
-      outline(page).locator('a[href$="#workspace-tools"]')
+      outline(page).locator('a[href$="#my-field-drafts"]')
     ).toHaveAttribute("aria-current", "location")
     assert.equal(page.url(), beforeScrollURL)
     await page
@@ -516,13 +522,15 @@ async function main() {
     await jump(page, "my-field-drafts")
     await jump(page, "my-field-drafts", true)
     await capture(page, "my-work-mobile")
-    await jump(page, "workspace-tools", true)
+    await page.getByRole("link", { name: "Settings", exact: true }).click()
+    await page.locator("summary#workspace-tools").click()
     await expect(
       page.getByRole("button", {
         name: "Disable new metadata fields",
         exact: true
       })
     ).toBeVisible()
+    await capture(page, "settings-mobile")
     await page.goto(`${people}#invitations`)
     await jump(page, "join-link")
     await capture(page, "people-mobile")
@@ -685,6 +693,14 @@ async function main() {
     await expect(
       page.locator('a[href^="/metadata/workspace/"]').first()
     ).toBeVisible()
+    await expect(
+      page.getByRole("link", { name: "Settings", exact: true })
+    ).toHaveCount(0)
+    const deniedSettings = `${base}/communities/${fixture.communitySlug}?view=settings`
+    expectedNotFound.add(deniedSettings)
+    assert.equal((await page.goto(deniedSettings))?.status(), 404)
+    await expect(page.getByLabel("Who can view content")).toHaveCount(0)
+    await expect(page.locator("#workspace-tools")).toHaveCount(0)
     await page.goto(`${people}#invitations`)
     await expect(outline(page)).toHaveCount(0)
     await expect(page.locator("#access-requests")).toHaveCount(0)
@@ -733,12 +749,84 @@ async function main() {
       "Compact empty term state keeps metadata work in the first desktop screen"
     )
     await capture(emptyPage, "empty-metadata-work-desktop")
+    const genericPayload = emptyMatcoreDraftPayload()
+    genericPayload.label = `Recent field ${emptyFixture.token}`
+    genericPayload.definition = "Synthetic metadata for community navigation."
+    genericPayload.specification.path = "sample.identifier"
+    const recentFieldId = randomUUID(),
+      recentDraftId = randomUUID()
+    await db.insert(matcoreFieldsTable).values({
+      id: recentFieldId,
+      vocabularySlug: emptyFixture.vocabularySlug,
+      label: genericPayload.label,
+      createdById: emptyFixture.userId
+    })
+    fieldIds.push(recentFieldId)
+    await db.insert(matcoreSpecDraftsTable).values({
+      id: recentDraftId,
+      ownerId: emptyFixture.userId,
+      fieldId: recentFieldId,
+      occurrenceKey: `local:${recentDraftId}`,
+      payload: genericPayload,
+      creationHash: hash(genericPayload)
+    })
+    fieldDraftIds.push(recentDraftId)
+    await emptyPage.setViewportSize({ width: 390, height: 844 })
+    await emptyPage.reload()
+    assert.deepEqual(await outlineTargets(emptyPage), [
+      "#my-field-drafts",
+      "#term-drafts"
+    ])
+    await expect(
+      emptyPage.getByRole("link", { name: genericPayload.label, exact: true })
+    ).toBeInViewport()
+    await expect(emptyPage.getByText(/MatCore/)).toHaveCount(0)
+    const help = emptyPage.getByRole("button", {
+      name: "About metadata drafts",
+      exact: true
+    })
+    await help.focus()
+    await emptyPage.keyboard.press("Enter")
+    await expect(
+      emptyPage.getByRole("dialog", {
+        name: "About metadata drafts",
+        exact: true
+      })
+    ).toBeVisible()
+    await emptyPage.keyboard.press("Escape")
+    await expect(help).toBeFocused()
+    await capture(emptyPage, "generic-saved-work-mobile")
+    await emptyPage.goto(`${base}/communities/${emptyFixture.communitySlug}`)
+    await expect(
+      emptyPage.getByRole("heading", {
+        name: "Continue your work",
+        exact: true
+      })
+    ).toBeVisible()
+    await expect(
+      emptyPage.getByRole("link", { name: new RegExp(genericPayload.label) })
+    ).toBeVisible()
+    await expect(emptyPage.getByLabel("Who can view content")).toHaveCount(0)
+    record(
+      "Generic metadata work appears before empty term drafts, recent work stays private, and help supports keyboard and mobile use without MatCore controls"
+    )
     const anonymous = await browser.newContext({
       viewport: { width: 390, height: 844 }
     })
     await guard(anonymous)
     const visitor = await anonymous.newPage()
     observe(visitor)
+    await visitor.goto(`${base}/communities/${emptyFixture.communitySlug}`)
+    await expect(
+      visitor.getByRole("link", { name: "Browse vocabulary", exact: true })
+    ).toBeVisible()
+    await expect(
+      visitor.getByRole("heading", { name: "Continue your work", exact: true })
+    ).toHaveCount(0)
+    await expect(
+      visitor.getByText(genericPayload.label, { exact: true })
+    ).toHaveCount(0)
+    await expect(visitor.getByText(/MatCore/)).toHaveCount(0)
     await visitor.goto(work)
     await expect(outline(visitor)).toHaveCount(0)
     await expect(
@@ -807,7 +895,7 @@ async function main() {
             assert.ok(
               drafts.every(
                 (row) =>
-                  row.ownerId === fixture.userId &&
+                  fixtures.some((item) => item.userId === row.ownerId) &&
                   fieldDraftIds.includes(row.id)
               )
             )
@@ -816,17 +904,23 @@ async function main() {
               .from(matcoreFieldsTable)
               .where(inArray(matcoreFieldsTable.id, fieldIds))
             assert.ok(
-              fields.every(
-                (row) =>
-                  row.createdById === fixture.userId &&
-                  row.vocabularySlug === fixture.vocabularySlug
+              fields.every((row) =>
+                fixtures.some(
+                  (item) =>
+                    row.createdById === item.userId &&
+                    row.vocabularySlug === item.vocabularySlug
+                )
               )
             )
             const events = await tx
               .select()
               .from(matcoreWorkflowEventsTable)
               .where(inArray(matcoreWorkflowEventsTable.fieldId, fieldIds))
-            assert.ok(events.every((row) => row.actorId === fixture.userId))
+            assert.ok(
+              events.every((row) =>
+                fixtures.some((item) => row.actorId === item.userId)
+              )
+            )
             await tx
               .delete(matcoreWorkflowEventsTable)
               .where(inArray(matcoreWorkflowEventsTable.fieldId, fieldIds))

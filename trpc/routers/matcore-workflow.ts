@@ -84,6 +84,11 @@ export const matcoreWorkflowRouter = createTRPCRouter({
           vocabularySlug,
           releaseId: sourceId.optional(),
           profileKey: matcoreProfileSchema.optional(),
+          search: z
+            .string()
+            .max(200)
+            .regex(/^[^\u0000-\u001f\u007f]*$/)
+            .optional(),
           offset: z.number().int().min(0).max(10000).optional(),
           limit: z.number().int().min(1).max(100).optional()
         })
@@ -132,6 +137,7 @@ export const matcoreWorkflowRouter = createTRPCRouter({
           vocabularySlug: vocabularySlug.optional(),
           communitySlug: vocabularySlug.optional(),
           profileKey: matcoreProfileSchema.optional(),
+          recentUnpublished: z.boolean().optional(),
           offset: z.number().int().min(0).max(10000).optional(),
           limit: z.number().int().min(1).max(100).optional()
         })

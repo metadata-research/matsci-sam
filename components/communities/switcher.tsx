@@ -39,9 +39,9 @@ export const CommunitySwitcher = ({
 
   return (
     <>
-      <DropdownMenuLabel>Community context</DropdownMenuLabel>
+      <DropdownMenuLabel>Default community</DropdownMenuLabel>
       <p className="max-w-64 px-2 pb-2 text-xs text-muted-foreground">
-        Default for browsing and new contributions.
+        Used for browsing and new contributions outside a community page.
       </p>
       <DropdownMenuRadioGroup
         value={String(active?.id ?? "all")}

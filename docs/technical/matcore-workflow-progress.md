@@ -611,3 +611,50 @@ unchecked item is not a passing result.
   and rows of all 65 baseline tables match. Evidence is under
   `.matsci-stage/community-privacy/metadata-entry-acceptance/`. TypeScript,
   scoped lint, presentation checks and independent review pass.
+
+
+## Community usability follow-up, October 23
+
+Implemented one community template. Controls depend on permissions, enabled
+metadata tools and granted source catalogs, with no branch based on a community
+name or slug. Ordinary communities and independent metadata fields use the same
+page structure as catalog communities.
+
+- Overview offers vocabulary browsing and recent drafts belonging to the viewer.
+  My work places sections with saved work before empty sections. Creation
+  controls sit with the corresponding term or metadata list.
+- Catalog communities have separate Reference catalog and Community
+  contributions views. Search covers names, paths and definitions in the
+  selected version and profile before pagination. Search, filters and source
+  identity remain in contextual return links. Page controls appear above and
+  below catalog results.
+- Settings holds content access and workspace tools, plus community editing
+  and retirement for site administrators. Existing authorization rules still
+  apply. Old authorized workspace-tools links lead to Settings.
+- The header identifies the saved Default community. Viewing another community
+  does not change that default. Short information popovers replace repeated
+  explanations of source entries and field rules. Draft visibility, save errors
+  and publication consequences remain visible.
+- Updated the community and metadata guides using the canonical writing guide.
+  No schema, source import, draft migration or publication change is included.
+
+Verification covers ordinary communities, independent metadata fields and a
+catalog installed in a community with a generated name. The five production
+browser suites pass 48 groups, including desktop, 390-pixel and 320-pixel
+navigation, permissions, search beyond the first page, keyboard help, contextual
+returns, interrupted saves, reload, publication and provenance. The catalog
+database suite passes 93 checks with transaction rollback. Navigation and
+presentation checks, type checking, scoped lint, guide rendering and the
+bounded production build pass.
+
+The added second-community fixture exposed a cleanup guard that assumed a
+single field owner. The guard now verifies both explicit fixture identities.
+The two failed cleanup runs were removed by exact fixture identity, and retained
+record fingerprints matched before the final suites. A workflow test also
+caught Settings collapsing after a tool change. Keeping the mounted settings
+component stable fixes that interaction. Final test cleanup and preservation
+checks pass. Evidence is outside the repository under
+`.matsci-stage/community-usability-implementation-20261023/`. The Browser plugin
+was not available, so automated checks used the existing bounded Playwright
+harness. Manual local review used the in-app browser. This is interface
+acceptance, not a usability study with new participants.
