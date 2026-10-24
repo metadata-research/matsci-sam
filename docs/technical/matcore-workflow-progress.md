@@ -731,10 +731,11 @@ Term and metadata editors register their save queues for menu navigation.
 A switch waits for unsaved writing before changing the account preference. A
 failed save leaves the editor and preference unchanged. Pending state remains
 mounted when the menu closes, so reopening it cannot start a competing switch.
+The selector stays disabled until hydration attaches its event handlers.
 Existing link, unload and save-recovery protections remain in place.
 
-The production header and community section suites pass 22 groups, including
-keyboard selection, desktop and mobile navigation, reselection, failed
+The production header and community section suites pass 23 groups, including
+delayed hydration, keyboard selection, desktop and mobile navigation, reselection, failed
 preference saves, pending term saves, metadata save failure, retry and reload.
 The retained metadata fields, drafts, revisions and history have matching
 fingerprints after fixture cleanup. Draft queue, navigation and persistence

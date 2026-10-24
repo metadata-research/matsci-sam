@@ -49,6 +49,7 @@ async function main() {
   let failure: unknown
   let cleanupFailure: unknown
   let cleaned = false
+  let releaseHydration: (() => void) | undefined
   const record = (name: string) => {
     passed.push(name)
     console.log(`PASS ${name}`)
@@ -130,7 +131,28 @@ async function main() {
       await expect(menu()).toBeVisible()
     }
     const close = () => page.keyboard.press("Escape")
-    await page.goto(workspace)
+    const hydrationGate = new Promise<void>((resolve) => {
+      releaseHydration = resolve
+    })
+    const scriptPattern = "**/_next/static/**/*.js"
+    await page.route(scriptPattern, async (route) => {
+      await hydrationGate
+      await route.continue()
+    })
+    await page.goto(workspace, { waitUntil: "commit" })
+    const communityTrigger = primary.getByRole("button", {
+      name: `Community: ${fixture.communityTitle}`,
+      exact: true
+    })
+    await expect(communityTrigger).toBeDisabled()
+    releaseHydration!()
+    await expect(communityTrigger).toBeEnabled()
+    await page.unroute(scriptPattern)
+    await open(`Community: ${fixture.communityTitle}`)
+    await close()
+    record(
+      "Community selection waits for hydration and opens on the first enabled click"
+    )
     await expect(primary.locator('button[data-active="true"]')).toHaveCount(1)
     await expect(
       primary.getByRole("button", { name: "Participate", exact: true })
@@ -492,6 +514,7 @@ async function main() {
   } catch (error) {
     failure = error
   } finally {
+    releaseHydration?.()
     if (browser) await closeBrowserAfterRoutes(browser)
     try {
       await removeGuidedSetupFixture(fixture)

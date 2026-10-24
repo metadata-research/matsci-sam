@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useRef, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { ChevronDownIcon, UsersIcon } from "lucide-react"
 import { buttonVariants } from "../ui/button"
@@ -23,6 +23,9 @@ import {
 } from "../ui/dropdown-menu"
 
 type Community = { id: number; slug: string; title: string }
+const subscribeHydration = () => () => {}
+const clientReady = () => true
+const serverReady = () => false
 
 // Keep pending state outside the menu content so closing and reopening it
 // during a draft save cannot start a second switch.
@@ -33,6 +36,11 @@ export const CommunityMenu = ({
   scope: Community | null
   memberships: Community[]
 }) => {
+  const hydrated = useSyncExternalStore(
+    subscribeHydration,
+    clientReady,
+    serverReady
+  )
   const { mutateAsync: setActive } = trpc.communities.setActive.useMutation()
   const switching = useRef(false)
   const [isPending, setPending] = useState(false)
@@ -72,6 +80,7 @@ export const CommunityMenu = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        disabled={!hydrated}
         className={cn(buttonVariants({ variant: "outline" }), styles.scopePill)}
         aria-label={
           scope ? `Community: ${scope.title}` : "Community: Everything"
