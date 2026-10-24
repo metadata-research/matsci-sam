@@ -718,3 +718,31 @@ checks pass. Evidence is outside the repository under
 was not available, so automated checks used the existing bounded Playwright
 harness. Manual local review used the in-app browser. This is interface
 acceptance, not a usability study with new participants.
+
+
+## Community selection navigation, October 24
+
+Selecting a community in the header opens its Overview and saves the browsing
+and contribution context. Selecting the active community again also opens its
+Overview. Everything opens Home. The menu is labelled Community, with a My work
+shortcut for the selected community. The behavior is shared across communities.
+
+Term and metadata editors register their save queues for menu navigation.
+A switch waits for unsaved writing before changing the account preference. A
+failed save leaves the editor and preference unchanged. Pending state remains
+mounted when the menu closes, so reopening it cannot start a competing switch.
+The selector stays disabled until hydration attaches its event handlers.
+Existing link, unload and save-recovery protections remain in place.
+
+The production header and community section suites pass 23 groups, including
+delayed hydration, keyboard selection, desktop and mobile navigation, reselection, failed
+preference saves, pending term saves, metadata save failure, retry and reload.
+The retained metadata fields, drafts, revisions and history have matching
+fingerprints after fixture cleanup. Draft queue, navigation and persistence
+checks, scoped lint, type checking and the bounded production build pass. Manual
+local MatCore selection also opens Overview without browser console errors.
+The first header run required a corrected locator for the mobile utility menu.
+Final suites have no unexpected browser errors or blocked requests.
+The community guide describes the updated navigation. Evidence is outside Git
+in `.matsci-stage/community-switcher-20261024/`. No migration or catalog change
+is needed. This fix has been verified locally and has not been deployed.

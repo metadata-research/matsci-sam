@@ -49,10 +49,14 @@ async function main() {
   let failure: unknown
   let cleanupFailure: unknown
   let cleaned = false
+  let releaseHydration: (() => void) | undefined
   const record = (name: string) => {
     passed.push(name)
     console.log(`PASS ${name}`)
   }
+  const community = `${base}/communities/${fixture.communitySlug}`
+  let rejectSwitch = false
+  let switchRequests = 0
   const workspacePath = `/communities/${fixture.communitySlug}?view=work`
   const workspace = `${base}${workspacePath}`
   try {
@@ -93,6 +97,23 @@ async function main() {
           blocked.push(`${request.method()} ${url.pathname}`)
           return route.abort("blockedbyclient")
         }
+        if (paths[0] === "communities.setActive") {
+          switchRequests++
+          if (rejectSwitch)
+            return route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify([
+                {
+                  error: {
+                    message: "Community switch test failure",
+                    code: -32603,
+                    data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500 }
+                  }
+                }
+              ])
+            })
+        }
         return route.continue()
       })
     }
@@ -110,7 +131,28 @@ async function main() {
       await expect(menu()).toBeVisible()
     }
     const close = () => page.keyboard.press("Escape")
-    await page.goto(workspace)
+    const hydrationGate = new Promise<void>((resolve) => {
+      releaseHydration = resolve
+    })
+    const scriptPattern = "**/_next/static/**/*.js"
+    await page.route(scriptPattern, async (route) => {
+      await hydrationGate
+      await route.continue()
+    })
+    await page.goto(workspace, { waitUntil: "commit" })
+    const communityTrigger = primary.getByRole("button", {
+      name: `Community: ${fixture.communityTitle}`,
+      exact: true
+    })
+    await expect(communityTrigger).toBeDisabled()
+    releaseHydration!()
+    await expect(communityTrigger).toBeEnabled()
+    await page.unroute(scriptPattern)
+    await open(`Community: ${fixture.communityTitle}`)
+    await close()
+    record(
+      "Community selection waits for hydration and opens on the first enabled click"
+    )
     await expect(primary.locator('button[data-active="true"]')).toHaveCount(1)
     await expect(
       primary.getByRole("button", { name: "Participate", exact: true })
@@ -145,24 +187,20 @@ async function main() {
       [{ label: "Community workspaces", href: "/communities" }]
     )
     await close()
-    await open(`Default community: ${fixture.communityTitle}`)
-    await expect(
-      menu().getByText("Default community", { exact: true })
-    ).toBeVisible()
+    await open(`Community: ${fixture.communityTitle}`)
+    await expect(menu().getByText("Community", { exact: true })).toBeVisible()
     await expect(
       menu().getByText(
-        "Used for browsing and new contributions outside a community page.",
+        "Opens the community and uses it for browsing and new contributions.",
         {
           exact: true
         }
       )
     ).toBeVisible()
     assert.deepEqual(await links(menu()), [
-      { label: "Open workspace", href: workspacePath }
+      { label: "My work", href: workspacePath }
     ])
-    await menu()
-      .getByRole("menuitem", { name: "Open workspace", exact: true })
-      .click()
+    await menu().getByRole("menuitem", { name: "My work", exact: true }).click()
     await expect(page).toHaveURL(workspace)
     await expect(
       page.getByRole("heading", { name: "My work", exact: true })
@@ -232,38 +270,97 @@ async function main() {
     )
 
     await page.goto(workspace)
-    await open(`Default community: ${fixture.communityTitle}`)
+    await open(`Community: ${fixture.communityTitle}`)
     await menu()
       .getByRole("menuitemradio", { name: "Everything", exact: true })
       .click()
     await expect(
       primary.getByRole("button", {
-        name: "Default community: Everything",
+        name: "Community: Everything",
         exact: true
       })
     ).toBeVisible()
-    await expect(page).toHaveURL(workspace)
-    await open("Default community: Everything")
+    await expect(page).toHaveURL(`${base}/`)
+    await open("Community: Everything")
     await expect(
-      menu().getByRole("menuitem", { name: "Open workspace", exact: true })
+      menu().getByRole("menuitem", { name: "My work", exact: true })
     ).toHaveCount(0)
     await menu()
       .getByRole("menuitemradio", { name: fixture.communityTitle, exact: true })
       .click()
     await expect(
       primary.getByRole("button", {
-        name: `Default community: ${fixture.communityTitle}`,
+        name: `Community: ${fixture.communityTitle}`,
         exact: true
       })
     ).toBeVisible()
-    await expect(page).toHaveURL(workspace)
+    await expect(page).toHaveURL(community)
     const [updatedUser] = await db
       .select({ activeCommunityId: usersTable.activeCommunityId })
       .from(usersTable)
       .where(eq(usersTable.id, fixture.userId))
     assert.equal(updatedUser.activeCommunityId, fixture.communityId)
     record(
-      "Default community persists and reloads the current route without navigating away"
+      "Community selection persists and opens its Overview; Everything opens Home"
+    )
+
+    await page.goto(`${base}/terms`)
+    const beforeReselect = switchRequests
+    await open(`Community: ${fixture.communityTitle}`)
+    await menu()
+      .getByRole("menuitemradio", { name: fixture.communityTitle, exact: true })
+      .press("Enter")
+    await expect(page).toHaveURL(community)
+    assert.equal(
+      switchRequests,
+      beforeReselect,
+      "Reselecting needs no preference write"
+    )
+    await expect(
+      page.getByRole("heading", { name: fixture.communityTitle, exact: true })
+    ).toBeVisible()
+    await page.screenshot({
+      path: resolve(output, "desktop-community-selection.png"),
+      fullPage: true,
+      animations: "disabled"
+    })
+    record(
+      "Keyboard selection of the active community opens Overview from another page"
+    )
+
+    rejectSwitch = true
+    await open(`Community: ${fixture.communityTitle}`)
+    await menu()
+      .getByRole("menuitemradio", { name: "Everything", exact: true })
+      .click()
+    await expect(
+      page.getByText("Community switch test failure", { exact: true })
+    ).toBeVisible()
+    await expect(page).toHaveURL(community)
+    const [unchangedUser] = await db
+      .select({ activeCommunityId: usersTable.activeCommunityId })
+      .from(usersTable)
+      .where(eq(usersTable.id, fixture.userId))
+    assert.equal(unchangedUser.activeCommunityId, fixture.communityId)
+    rejectSwitch = false
+    await open(`Community: ${fixture.communityTitle}`)
+    await menu()
+      .getByRole("menuitemradio", { name: "Everything", exact: true })
+      .click()
+    await expect(page).toHaveURL(`${base}/`)
+    await page.goto(`${base}/terms`)
+    await open("Community: Everything")
+    await menu()
+      .getByRole("menuitemradio", { name: "Everything", exact: true })
+      .click()
+    await expect(page).toHaveURL(`${base}/`)
+    await open("Community: Everything")
+    await menu()
+      .getByRole("menuitemradio", { name: fixture.communityTitle, exact: true })
+      .click()
+    await expect(page).toHaveURL(community)
+    record(
+      "Failed preference save keeps the current page and allows retry; reselecting Everything opens Home"
     )
 
     await page.goto(`${base}/metadata/fields`)
@@ -317,16 +414,14 @@ async function main() {
     })
     await page
       .getByRole("button", {
-        name: `Default community: ${fixture.communityTitle}`,
+        name: `Community: ${fixture.communityTitle}`,
         exact: true
       })
       .click()
     assert.deepEqual(await links(menu()), [
-      { label: "Open workspace", href: workspacePath }
+      { label: "My work", href: workspacePath }
     ])
-    await menu()
-      .getByRole("menuitem", { name: "Open workspace", exact: true })
-      .click()
+    await menu().getByRole("menuitem", { name: "My work", exact: true }).click()
     await expect(page).toHaveURL(workspace)
     await expect(
       page.getByLabel("Open navigation menu", { exact: true })
@@ -345,6 +440,34 @@ async function main() {
     record(
       "Mobile menus retain desktop destinations and close after workspace or draft navigation"
     )
+    await page.getByLabel("Open navigation menu", { exact: true }).click()
+    await page
+      .getByRole("button", {
+        name: `Community: ${fixture.communityTitle}`,
+        exact: true
+      })
+      .click()
+    await menu()
+      .getByRole("menuitemradio", { name: "Everything", exact: true })
+      .click()
+    await expect(page).toHaveURL(`${base}/`)
+    await page.getByLabel("Open navigation menu", { exact: true }).click()
+    await page
+      .getByRole("button", { name: "Community: Everything", exact: true })
+      .click()
+    await menu()
+      .getByRole("menuitemradio", { name: fixture.communityTitle, exact: true })
+      .click()
+    await expect(page).toHaveURL(community)
+    await expect(
+      page.getByLabel("Open navigation menu", { exact: true })
+    ).toBeVisible()
+    await page.screenshot({
+      path: resolve(output, "mobile-community-selection.png"),
+      fullPage: true,
+      animations: "disabled"
+    })
+    record("Mobile community selection opens Overview and closes navigation")
 
     const anonymous = await browser.newContext({
       viewport: { width: 1440, height: 1000 }
@@ -361,7 +484,7 @@ async function main() {
       anonymousPrimary.getByRole("link", { name: "Login", exact: true })
     ).toBeVisible()
     await expect(
-      anonymousPrimary.getByRole("button", { name: /^Default community/ })
+      anonymousPrimary.getByRole("button", { name: /^Community/ })
     ).toHaveCount(0)
     await anonymousPrimary
       .getByRole("button", { name: "Participate", exact: true })
@@ -391,6 +514,7 @@ async function main() {
   } catch (error) {
     failure = error
   } finally {
+    releaseHydration?.()
     if (browser) await closeBrowserAfterRoutes(browser)
     try {
       await removeGuidedSetupFixture(fixture)

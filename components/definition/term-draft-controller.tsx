@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import type { WorkReturnLink } from "@/lib/community-work-return"
 import { normalizeCommunityWorkReturnTo } from "@/lib/community-work-return"
 import { CommunityWorkReturnLink } from "@/components/community-work-return-link"
+import { registerDraftNavigationGuard } from "@/lib/draft-navigation-guards"
 
 export type SavedTermDraft = RouterOutput["termDrafts"]["get"]
 const meaningful = (p: TermDraftPayload) =>
@@ -137,6 +138,12 @@ export function useTermDraft({
       throw loadError ?? new Error("The draft is still loading.")
     return queue.flush()
   }, [enabled, loading, loadError, queue])
+  useEffect(() => {
+    if (!enabled) return
+    return registerDraftNavigationGuard(async () => {
+      if (queue.dirty) await flush()
+    })
+  }, [enabled, flush, queue])
   useEffect(() => {
     if (!enabled) return
     let navigating = false

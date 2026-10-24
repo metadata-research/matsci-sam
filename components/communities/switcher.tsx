@@ -1,67 +1,137 @@
 "use client"
 
+import { useRef, useState, useSyncExternalStore } from "react"
+import Link from "next/link"
+import { ChevronDownIcon, UsersIcon } from "lucide-react"
+import { buttonVariants } from "../ui/button"
+import { cn } from "@/lib/utils"
+import styles from "../header.module.css"
 import { toast } from "sonner"
 import { trpc } from "@/trpc/client"
+import { communityPath } from "@/lib/public-identifiers"
+import { saveDraftsBeforeNavigation } from "@/lib/draft-navigation-guards"
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuSeparator,
+  DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem
 } from "../ui/dropdown-menu"
 
-/*
- * The standing choice of which community to work in, and the only surface a
- * plain member needs.
- *
- * It renders nothing at all for a person who belongs to no community, so a
- * signed-out reader and someone who has joined nothing see no new chrome. The
- * value is the active community or "all", not a boolean, because "I have no
- * communities", "I have not chosen" and "I chose everything" all have to look
- * the same on screen and all mean the unscoped view.
- *
- * Switching reloads the current route after the preference is saved. The
- * active vocabulary affects both the root layout and page-level server
- * queries, so a full navigation keeps those two surfaces in lockstep.
- */
-export const CommunitySwitcher = ({
-  active,
+type Community = { id: number; slug: string; title: string }
+const subscribeHydration = () => () => {}
+const clientReady = () => true
+const serverReady = () => false
+
+// Keep pending state outside the menu content so closing and reopening it
+// during a draft save cannot start a second switch.
+export const CommunityMenu = ({
+  scope,
   memberships
 }: {
-  active: { id: number } | null
-  memberships: { id: number; title: string }[]
+  scope: Community | null
+  memberships: Community[]
 }) => {
-  const { mutate: setActive, isPending } =
-    trpc.communities.setActive.useMutation({
-      onSuccess: () => window.location.reload(),
-      onError: (error) => toast.error(error.message)
-    })
+  const hydrated = useSyncExternalStore(
+    subscribeHydration,
+    clientReady,
+    serverReady
+  )
+  const { mutateAsync: setActive } = trpc.communities.setActive.useMutation()
+  const switching = useRef(false)
+  const [isPending, setPending] = useState(false)
+
+  async function select(community: (typeof memberships)[number] | null) {
+    if (switching.current) return
+    switching.current = true
+    setPending(true)
+    try {
+      // Menu selection is not an anchor click, so ask the editors to save
+      // before changing account context or leaving the page.
+      try {
+        await saveDraftsBeforeNavigation()
+      } catch {
+        toast.error(
+          "Your draft could not be saved. Retry saving before switching communities."
+        )
+        return
+      }
+      const communityId = community?.id ?? null
+      if (communityId !== (scope?.id ?? null)) await setActive({ communityId })
+      // Full navigation refreshes both server scope and page content. Selecting
+      // the current community also opens it, without another preference write.
+      window.location.assign(community ? communityPath(community.slug) : "/")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not switch communities."
+      )
+    } finally {
+      switching.current = false
+      setPending(false)
+    }
+  }
 
   if (memberships.length === 0) return null
 
   return (
-    <>
-      <DropdownMenuLabel>Default community</DropdownMenuLabel>
-      <p className="max-w-64 px-2 pb-2 text-xs text-muted-foreground">
-        Used for browsing and new contributions outside a community page.
-      </p>
-      <DropdownMenuRadioGroup
-        value={String(active?.id ?? "all")}
-        onValueChange={(value) =>
-          setActive({ communityId: value === "all" ? null : Number(value) })
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={!hydrated}
+        className={cn(buttonVariants({ variant: "outline" }), styles.scopePill)}
+        aria-label={
+          scope ? `Community: ${scope.title}` : "Community: Everything"
         }
       >
-        <DropdownMenuRadioItem value="all" disabled={isPending}>
-          Everything
-        </DropdownMenuRadioItem>
-        {memberships.map((community) => (
+        <UsersIcon aria-hidden />
+        <span className="hidden text-xs text-muted-foreground lg:inline">
+          Community
+        </span>
+        <span className={styles.scopeName}>
+          {scope ? scope.title : "Everything"}
+        </span>
+        <ChevronDownIcon className={styles.navChevron} aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Community</DropdownMenuLabel>
+        <p className="max-w-64 px-2 pb-2 text-xs text-muted-foreground">
+          Opens the community and uses it for browsing and new contributions.
+        </p>
+        <DropdownMenuRadioGroup value={String(scope?.id ?? "all")}>
           <DropdownMenuRadioItem
-            key={community.id}
-            value={String(community.id)}
+            value="all"
             disabled={isPending}
+            onSelect={() => void select(null)}
           >
-            {community.title}
+            Everything
           </DropdownMenuRadioItem>
-        ))}
-      </DropdownMenuRadioGroup>
-    </>
+          {memberships.map((community) => (
+            <DropdownMenuRadioItem
+              key={community.id}
+              value={String(community.id)}
+              disabled={isPending}
+              onSelect={() => void select(community)}
+            >
+              {community.title}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        {scope && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                <Link href={`${communityPath(scope.slug)}?view=work`}>
+                  My work
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

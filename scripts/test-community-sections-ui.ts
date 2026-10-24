@@ -26,6 +26,7 @@ import {
   matcoreSpecRevisionsTable,
   matcoreWorkflowEventsTable,
   termDraftsTable,
+  usersTable,
   vocabularyWorkspaceSettingsTable
 } from "../drizzle"
 import { emptyMatcoreDraftPayload } from "../lib/matcore-workflow-types"
@@ -263,10 +264,16 @@ async function main() {
         blocked.push(`${request.method()} ${url.pathname}`)
         return route.abort("blockedbyclient")
       }
-      const input = request.postDataJSON() as Record<string, { id?: string }>
+      const input = request.postDataJSON() as Record<
+        string,
+        { id?: string; communityId?: number | null }
+      >
       const allowed =
         paths.length === 1 &&
-        ((paths[0] === "termDrafts.update" && input[0]?.id === termId) ||
+        ((paths[0] === "communities.setActive" &&
+          (input[0]?.communityId === null ||
+            input[0]?.communityId === fixtures[0]?.communityId)) ||
+          (paths[0] === "termDrafts.update" && input[0]?.id === termId) ||
           (paths[0] === "matcoreWorkflow.updateDraft" &&
             fieldDraftIds.includes(input[0]?.id ?? "")))
       if (!allowed) {
@@ -600,6 +607,58 @@ async function main() {
     record(
       "Metadata draft return preserves page 2 and section; a failed save retains writing until retry succeeds"
     )
+    // A menu action must wait for the same save queue as contextual links.
+    const chooseCommunity = async (name: string) => {
+      await page
+        .getByRole("navigation", { name: "Primary", exact: true })
+        .getByRole("button", { name: /^Community:/ })
+        .click()
+      await page.getByRole("menuitemradio", { name, exact: true }).click()
+    }
+    await page.goto(fieldURL.href)
+    await expect(fieldWriting).toBeEditable()
+    const switchWriting =
+      "This metadata edit must save before the community changes."
+    const switchesBeforeFailure = mutations.filter(
+      (entry) => entry.path === "communities.setActive"
+    ).length
+    rejectFieldSaves = true
+    await fieldWriting.fill(switchWriting)
+    await chooseCommunity(fixture.communityTitle)
+    await expect(
+      page.getByText(
+        "Your draft could not be saved. Retry saving before switching communities.",
+        { exact: true }
+      )
+    ).toBeVisible()
+    await expect(page).toHaveURL(fieldURL.href)
+    await expect(fieldWriting).toHaveValue(switchWriting)
+    assert.equal(
+      mutations.filter((entry) => entry.path === "communities.setActive")
+        .length,
+      switchesBeforeFailure
+    )
+    rejectFieldSaves = false
+    await page.getByRole("button", { name: "Retry save", exact: true }).click()
+    await expect(
+      page.getByText("Draft saved to your account", { exact: true })
+    ).toBeVisible()
+    await chooseCommunity(fixture.communityTitle)
+    await expect(page).toHaveURL(`${base}/communities/${fixture.communitySlug}`)
+    assert.equal(
+      (
+        await db
+          .select()
+          .from(matcoreSpecDraftsTable)
+          .where(eq(matcoreSpecDraftsTable.id, fieldId))
+      )[0].payload.definition,
+      switchWriting
+    )
+    await page.goto(fieldURL.href)
+    await expect(fieldWriting).toHaveValue(switchWriting)
+    record(
+      "A failed metadata save blocks community switching without changing preference; retry preserves the draft on reload"
+    )
 
     const filteredWork = `${work}&profile=dft&offset=40`
     const filteredWorkPath = `${workPath}&profile=dft&offset=40`
@@ -646,6 +705,65 @@ async function main() {
     await expect(page).toHaveURL(`${filteredWork}#term-drafts`)
     record(
       "Term draft first-click contextual return waits for the real save, preserves filters and pagination, and retains writing on re-entry"
+    )
+    await page.goto(termURL)
+    await expect(termWriting).toBeEditable()
+    const switchTermText =
+      "This term edit must save before switching to Everything."
+    heldTermSave = deferred()
+    const switchesBeforeSave = mutations.filter(
+      (entry) => entry.path === "communities.setActive"
+    ).length
+    await termWriting.fill(switchTermText)
+    await chooseCommunity("Everything")
+    await expect.poll(() => heldTermSave!.reached).toBe(true)
+    await expect(page).toHaveURL(termURL)
+    assert.equal(
+      mutations.filter((entry) => entry.path === "communities.setActive")
+        .length,
+      switchesBeforeSave
+    )
+    // Reopening the menu during the held save must not enqueue another switch.
+    await page
+      .getByRole("navigation", { name: "Primary", exact: true })
+      .getByRole("button", { name: /^Community:/ })
+      .click()
+    await expect(
+      page.getByRole("menuitemradio", { name: "Everything", exact: true })
+    ).toHaveAttribute("aria-disabled", "true")
+    await page.keyboard.press("Escape")
+    heldTermSave.release()
+    await expect(page).toHaveURL(`${base}/`)
+    heldTermSave = undefined
+    assert.equal(
+      mutations.filter((entry) => entry.path === "communities.setActive")
+        .length,
+      switchesBeforeSave + 1
+    )
+    assert.equal(
+      (
+        await db
+          .select()
+          .from(usersTable)
+          .where(eq(usersTable.id, fixture.userId))
+      )[0].activeCommunityId,
+      null
+    )
+    assert.equal(
+      (
+        await db
+          .select()
+          .from(termDraftsTable)
+          .where(eq(termDraftsTable.id, termId))
+      )[0].payload?.definition,
+      switchTermText
+    )
+    await page.goto(termURL)
+    await expect(termWriting).toHaveValue(switchTermText)
+    await termReturn.click()
+    await expect(page).toHaveURL(`${filteredWork}#term-drafts`)
+    record(
+      "Community switching waits for a pending term save, blocks repeated selections and preserves writing on reload"
     )
 
     await jump(page, "term-imports")
