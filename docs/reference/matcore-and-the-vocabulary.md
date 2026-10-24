@@ -57,11 +57,16 @@ ICoN-PCL.
 A community can develop vocabulary concepts and metadata fields in the same
 workspace. Metadata development is optional. MatCore support is a separate
 choice. A field proposal combines an explanatory definition with a field
-specification. The specification records the field path, value type, format,
-requirement, repeatability and supporting guidance. Rules apply within their
+specification. The specification records the field path, data type, value
+form, format, requirement, repeatability, allowed values, units, examples,
+guidance and notes. Data type describes a value or its items. Value form
+distinguishes a single value, a list and an array. Repeatability describes
+whether the field itself may occur more than once. Rules apply within their
 parent context and, when selected, a standard profile. For example, a child
 can be required when its optional parent is present. An unspecified rule
-remains distinct from an optional rule.
+remains distinct from an optional rule. Older List value types remain readable
+without rewriting saved drafts or source baselines. An absent value form or
+separate Notes value is not inferred from source prose.
 
 The preserved source baseline retains the source wording, location, version
 and attribution. **Propose a change** creates a private working copy of the

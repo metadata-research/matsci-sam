@@ -1,5 +1,65 @@
 # MatCore workflow progress
 
+## Shared metadata field rules, October 24, 2026
+
+Local work on `feat/metadata-field-rules` makes Requirement, Repeatable field,
+Data type and Value form available directly below the definition. All
+communities with metadata tools use the same controls. Value form distinguishes
+Single value, List and Array independently of field repeatability. Units,
+allowed values, example values, value guidance and Notes remain in expandable
+details. Information popovers explain the distinctions.
+
+Imported fields show the source rules below the controls and offer an
+expandable source/proposal comparison. Published proposals display their main
+rules below the definition and retain the full specification and comparison.
+Independent fields have no invented source or MatCore context.
+
+Value form and Notes are optional payload properties with no defaults added
+to old payloads. Legacy `valueType: list` displays as a List with an unspecified
+item type. Only editing the type or form writes the separate representation.
+Other missing forms stay unspecified. Source import construction and baseline
+fingerprints are unchanged. No database migration or remote deployment is
+included. The user and reference guides describe these controls and how older
+source notes remain in their original evidence.
+
+Verification passed:
+
+- The production browser suites pass 23 groups: workflow 13 and catalog 10.
+  The workflow covers MatCore and independent community fields, first-click
+  save/navigation, reload, list/array/single-value changes, repeatability,
+  allowed values, units, Notes, two-tab conflicts and interrupted saves.
+  Publication, historical revisions and JSON exports retain the rules,
+  citations and exact source baseline. Generic fields keep no standard context.
+- The catalog remains read-only. Browsing creates no drafts. Propose a change
+  resumes the contributor's existing draft, and source rows remain unchanged.
+  Desktop, 390-pixel and 320-pixel checks pass, including the expanded source
+  comparison, keyboard help and navigation. Screenshots were inspected. Final
+  browser runs report no unexpected errors or blocked requests.
+- Workflow database tests pass 119 checks and catalog database tests pass 93,
+  all with transaction rollback. Compatibility, presentation, source parsing,
+  recovery, TypeScript, scoped lint, formatting and guide rendering pass.
+  The bounded production build passed, peaking at 3.2 GiB with no swap.
+- Final counts and row fingerprints match the initial snapshot across all 67
+  public tables, including 248 private drafts, 248 source occurrences and their
+  existing workflow history. All temporary browser fixtures were removed.
+  The local preview returns HTTP 200 with one process and 11 threads. Its
+  two-CPU quota, 6 GiB memory cap, zero swap, 128-task cap, 3 GiB Node heap and
+  two-thread worker pools remain applied, with no OOM or task-limit events.
+
+The first browser run ended when Chromium crashed while opening a test tab
+under a 128-task test-unit cap. Cleanup and retained-record checks passed.
+The rerun used a 256-task cap for the test browser only and reached publication.
+It exposed an ambiguous historical-format test locator because the new source
+comparison also contains that value. Scoping the assertion to the published
+specification fixed the test. The full final suites passed. The preview's
+128-task cap was unchanged. Failed-run and final evidence is preserved under
+`.matsci-stage/metadata-field-rules-20261024/` outside Git. The Browser plugin
+was unavailable, so browser acceptance used the existing Playwright harness.
+
+This remains a local change. A later deployment must ship the updated payload
+reader with the editor because older readers reject the new optional keys.
+No existing baseline needs rewriting or reimporting.
+
 ## Scope
 
 Implement a local metadata-field workspace with Definition, Field specification

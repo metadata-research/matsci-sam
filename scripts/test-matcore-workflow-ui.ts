@@ -294,6 +294,13 @@ async function main() {
     await page.goto(draftUrl)
     const edited = `A metadata field explained by the local UI fixture ${fixture.token}.`
     await expect(definition(page)).toBeEditable()
+    await expect(page.getByLabel("Data type", { exact: true })).toBeVisible()
+    await expect(
+      page.getByLabel("Repeatable field", { exact: true })
+    ).toBeVisible()
+    await expect(page.getByLabel("Value form", { exact: true })).toHaveValue(
+      "unspecified"
+    )
     await definition(page).fill(edited)
     await expect(definition(page)).toHaveValue(edited)
     await page
@@ -304,7 +311,11 @@ async function main() {
     await page
       .getByRole("tab", { name: "Field specification", exact: true })
       .click()
-    await page.getByLabel("Value type", { exact: true }).selectOption("text")
+    await page.getByLabel("Data type", { exact: true }).selectOption("text")
+    await page.getByLabel("Value form", { exact: true }).selectOption("list")
+    await page
+      .getByLabel("Repeatable field", { exact: true })
+      .selectOption("yes")
     await page.getByLabel("Format", { exact: true }).fill("YYYY-MM-DD")
     for (const [label, explanation] of [
       ["About field paths", /Include the parent context/],
@@ -312,7 +323,7 @@ async function main() {
         "About field requirements",
         /required child field must be supplied when its parent is present/
       ],
-      ["About repeatable fields", /single field contains several values/]
+      ["About repeatable fields", /single field can contain several values/]
     ] as const) {
       const help = page.getByRole("button", { name: label, exact: true })
       await help.focus()
@@ -327,6 +338,20 @@ async function main() {
     await page
       .getByLabel("Requirement condition", { exact: true })
       .fill("Required when the enclosing object is present.")
+    await page.getByText("More specification details", { exact: true }).click()
+    await page.getByLabel("Units", { exact: true }).fill("unitless")
+    await page.getByLabel("Allowed values", { exact: true }).fill("A\nB")
+    await page
+      .getByLabel("Notes", { exact: true })
+      .fill("Record the dates in acquisition order.")
+    await page.getByText("Compare with source rules", { exact: true }).click()
+    await expect(
+      page.locator('dl[aria-label="Source and proposal field rules"]')
+    ).toContainText("Changed")
+    await capture(page, "source-rule-comparison-desktop")
+    await page.setViewportSize({ width: 320, height: 800 })
+    await capture(page, "source-rule-comparison-320px")
+    await page.setViewportSize({ width: 1365, height: 1000 })
     await page
       .getByRole("tab", { name: "Sources & history", exact: true })
       .click()
@@ -359,6 +384,14 @@ async function main() {
     assert.equal(committed.payload.definition, edited)
     assert.equal(committed.payload.citations.length, 1)
     assert.equal(committed.payload.specification.requirement, "conditional")
+    assert.equal(committed.payload.specification.valueType, "text")
+    assert.equal(committed.payload.specification.valueForm, "list")
+    assert.equal(committed.payload.specification.repeatability, "yes")
+    assert.equal(
+      committed.payload.specification.notes,
+      "Record the dates in acquisition order."
+    )
+    assert.deepEqual(committed.payload.specification.allowedValues, ["A", "B"])
     await page.goto(draftUrl)
     await expect(definition(page)).toHaveValue(edited)
     await page
@@ -376,7 +409,44 @@ async function main() {
     await expect(
       page.getByLabel("Requirement condition", { exact: true })
     ).toHaveValue("Required when the enclosing object is present.")
+    await expect(page.getByLabel("Data type", { exact: true })).toHaveValue(
+      "text"
+    )
+    await expect(page.getByLabel("Value form", { exact: true })).toHaveValue(
+      "list"
+    )
+    await expect(
+      page.getByLabel("Repeatable field", { exact: true })
+    ).toHaveValue("yes")
+    await page.getByText("More specification details", { exact: true }).click()
+    await expect(page.getByLabel("Notes", { exact: true })).toHaveValue(
+      "Record the dates in acquisition order."
+    )
+    await expect(
+      page.getByLabel("Allowed values", { exact: true })
+    ).toHaveValue("A\nB")
+    await expect(page.getByLabel("Units", { exact: true })).toHaveValue(
+      "unitless"
+    )
     await capture(page, "field-specification-desktop")
+    await page.reload()
+    await expect(page.getByLabel("Value form", { exact: true })).toHaveValue(
+      "list"
+    )
+    await expect(
+      page.getByLabel("Repeatable field", { exact: true })
+    ).toHaveValue("yes")
+    await page.setViewportSize({ width: 390, height: 844 })
+    await capture(page, "field-rules-390px")
+    await page.setViewportSize({ width: 320, height: 800 })
+    await capture(page, "field-rules-320px")
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth
+      ),
+      false
+    )
+    await page.setViewportSize({ width: 1365, height: 1000 })
     record(
       "Definition, conditional rules and citation survive a first-click navigation flush and reload"
     )
@@ -665,9 +735,30 @@ async function main() {
       exported.revision.payload.citations[0].url,
       "https://example.org/matcore-ui-source"
     )
-    assert.equal(exported.baseline.definition, selected.payload.definition)
+    assert.deepEqual(exported.baseline, selected.payload)
+    assert.equal(exported.revision.payload.specification.valueForm, "list")
+    assert.equal(exported.revision.payload.specification.repeatability, "yes")
+    assert.equal(
+      exported.revision.payload.specification.notes,
+      "Record the dates in acquisition order."
+    )
     assert.equal(exported.sourceRelease.version, MATCORE_FIXTURE_VERSION)
     await capture(other, "published-field-provenance")
+    await other.getByRole("tab", { name: "Definition", exact: true }).click()
+    await expect(other.locator('dl[aria-label="Field rules"]')).toContainText(
+      "List"
+    )
+    await other
+      .getByRole("tab", { name: "Field specification", exact: true })
+      .click()
+    await expect(
+      other.locator('dl[aria-label="Field specification"]')
+    ).toContainText("Record the dates in acquisition order.")
+    await other.getByText("Compare with source rules", { exact: true }).click()
+    await expect(
+      other.locator('dl[aria-label="Source and proposal field rules"]')
+    ).toContainText("Not recorded separately")
+    await capture(other, "published-field-rules")
     record(
       "Publishing retains source attribution, supporting citation, pinned definition and exact-revision JSON export"
     )
@@ -721,7 +812,11 @@ async function main() {
     await other
       .getByRole("tab", { name: "Field specification", exact: true })
       .click()
-    await expect(other.getByText("YYYY-MM-DD", { exact: true })).toBeVisible()
+    await expect(
+      other
+        .locator('dl[aria-label="Field specification"]')
+        .getByText("YYYY-MM-DD", { exact: true })
+    ).toBeVisible()
     await other.setViewportSize({ width: 390, height: 844 })
     await capture(other, "field-revision-mobile")
     record(
@@ -803,6 +898,13 @@ async function main() {
       return row
     }
     await expect(definition(generic)).toBeEditable()
+    await expect(generic.getByLabel("Data type", { exact: true })).toBeVisible()
+    await expect(
+      generic.getByLabel("Repeatable field", { exact: true })
+    ).toBeVisible()
+    await expect(
+      generic.getByText("Compare with source rules", { exact: true })
+    ).toHaveCount(0)
     await definition(generic).fill(genericDefinition)
     await generic
       .getByLabel("Reason for this proposal", { exact: true })
@@ -814,8 +916,14 @@ async function main() {
       .getByLabel("Field path", { exact: true })
       .fill("sample.preparation.temperature")
     await generic
-      .getByLabel("Value type", { exact: true })
+      .getByLabel("Data type", { exact: true })
       .selectOption("number")
+    await generic
+      .getByLabel("Value form", { exact: true })
+      .selectOption("array")
+    await generic
+      .getByLabel("Repeatable field", { exact: true })
+      .selectOption("yes")
     await generic
       .getByLabel("Requirement", { exact: true })
       .selectOption("recommended")
@@ -823,6 +931,12 @@ async function main() {
       .getByText("More specification details", { exact: true })
       .click()
     await generic.getByLabel("Units", { exact: true }).fill("K")
+    await generic
+      .getByLabel("Allowed values", { exact: true })
+      .fill("273.15\n298.15")
+    await generic
+      .getByLabel("Notes", { exact: true })
+      .fill("Measure after thermal equilibration.")
     await generic
       .getByRole("tab", { name: "Sources & history", exact: true })
       .click()
@@ -856,6 +970,12 @@ async function main() {
     assert.equal(genericRow.profileReleaseId, null)
     assert.equal(genericRow.sourceOccurrenceId, null)
     assert.equal(genericRow.payload.citations.length, 1)
+    assert.equal(genericRow.payload.specification.valueForm, "array")
+    assert.equal(genericRow.payload.specification.repeatability, "yes")
+    assert.equal(
+      genericRow.payload.specification.notes,
+      "Measure after thermal equilibration."
+    )
     await generic.goto(genericDraftUrl)
     await expect(definition(generic)).toHaveValue(genericDefinition)
     await generic
@@ -865,7 +985,48 @@ async function main() {
       .getByText("More specification details", { exact: true })
       .click()
     await expect(generic.getByLabel("Units", { exact: true })).toHaveValue("K")
+    await expect(generic.getByLabel("Value form", { exact: true })).toHaveValue(
+      "array"
+    )
+    await expect(
+      generic.getByLabel("Repeatable field", { exact: true })
+    ).toHaveValue("yes")
+    await expect(generic.getByLabel("Notes", { exact: true })).toHaveValue(
+      "Measure after thermal equilibration."
+    )
+    await expect(
+      generic.getByLabel("Allowed values", { exact: true })
+    ).toHaveValue("273.15\n298.15")
     await capture(generic, "generic-field-specification")
+    await generic
+      .getByLabel("Value form", { exact: true })
+      .selectOption("scalar")
+    await generic
+      .getByLabel("Repeatable field", { exact: true })
+      .selectOption("no")
+    await button(generic, "Save draft").click()
+    await expect
+      .poll(async () => (await genericDraft()).payload.specification.valueForm)
+      .toBe("scalar")
+    await generic.reload()
+    await expect(generic.getByLabel("Data type", { exact: true })).toHaveValue(
+      "number"
+    )
+    await expect(generic.getByLabel("Value form", { exact: true })).toHaveValue(
+      "scalar"
+    )
+    await expect(
+      generic.getByLabel("Repeatable field", { exact: true })
+    ).toHaveValue("no")
+    await generic.setViewportSize({ width: 390, height: 844 })
+    await capture(generic, "generic-field-rules-mobile")
+    assert.equal(
+      await generic.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth
+      ),
+      false
+    )
+    await generic.setViewportSize({ width: 1365, height: 1000 })
     record(
       "A metadata field outside MatCore saves and reloads its definition, value rules and citation without a profile or source baseline"
     )
@@ -961,6 +1122,18 @@ async function main() {
     assert.equal(genericExport.sourceRelease, null)
     assert.equal(genericExport.baseline, null)
     assert.equal(genericExport.sourceOccurrence, null)
+    assert.deepEqual(
+      genericExport.revision.payload.specification,
+      genericRow.payload.specification
+    )
+    assert.equal(
+      genericExport.revision.payload.specification.valueForm,
+      "scalar"
+    )
+    assert.equal(
+      genericExport.revision.payload.specification.repeatability,
+      "no"
+    )
     const origins = await db
       .select()
       .from(revisionImportOriginsTable)

@@ -1,4 +1,5 @@
 import type { MatCoreDraftPayload } from "@/lib/matcore-workflow-types"
+import { fieldDataType, fieldValueForm } from "@/lib/metadata-field-rules"
 
 /** Community and vocabulary slugs are distinct route identities. */
 export function workspaceDestination(
@@ -36,15 +37,21 @@ export const requirementLabels = {
   conditional: "Conditional"
 } as const
 
-export const valueTypeLabels = {
+export const dataTypeLabels = {
   unspecified: "Not specified",
   text: "Text",
   number: "Number",
   integer: "Integer",
   boolean: "Boolean",
   object: "Structured object",
-  list: "List",
   reference: "Reference"
+} as const
+
+export const valueFormLabels = {
+  unspecified: "Not specified",
+  scalar: "Single value",
+  list: "List",
+  array: "Array"
 } as const
 
 export const repeatabilityLabels = {
@@ -75,7 +82,8 @@ export function proposalDifferences(
     ["Definition", (p) => p.definition],
     ["Example", (p) => p.example],
     ["Field path", (p) => p.specification.path],
-    ["Value type", (p) => valueTypeLabels[p.specification.valueType]],
+    ["Data type", (p) => dataTypeLabels[fieldDataType(p.specification)]],
+    ["Value form", (p) => valueFormLabels[fieldValueForm(p.specification)]],
     ["Format", (p) => p.specification.format],
     ["Requirement", (p) => requirementLabels[p.specification.requirement]],
     ["Condition", (p) => p.specification.condition],
@@ -84,6 +92,7 @@ export function proposalDifferences(
     ["Allowed values", (p) => p.specification.allowedValues.join("\n")],
     ["Example values", (p) => p.specification.examples.join("\n")],
     ["Value guidance", (p) => p.specification.guidance],
+    ["Notes", (p) => p.specification.notes ?? ""],
     ["Rationale", (p) => p.rationale],
     [
       "Citations",

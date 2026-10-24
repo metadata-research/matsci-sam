@@ -111,8 +111,8 @@ proposal.
 
 | Tab                     | What to enter or review                                                                                                                                |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Definition**          | The field label, an explanation of what to record and an optional example.                                                                             |
-| **Field specification** | The field path, value type, format, requirement and repeatability. Additional controls cover conditions, units, allowed values, examples and guidance. |
+| **Definition**          | The field label, an explanation of what to record, requirement, repeatability, data type, value form and an optional example. |
+| **Field specification** | The same field rules, plus the field path and format. Expand More specification details for units, allowed values, example values, guidance and notes. |
 | **Sources & history**   | Any preserved imported source, supporting citations and recorded contribution history.                                                                 |
 
 Keep the parent path when editing a nested field. For example, `creator.name`
@@ -122,10 +122,22 @@ method selection required for derived properties. Independent fields
 have no MatCore profile.
 
 A required child field applies within its parent context. A conditional rule
-needs an explanation of when it applies. **Not specified** means the source
-has not established a rule. It does not mean optional. A field that accepts a
-list can still occur only once, so review **Value type** and **Repeatable
-field** separately.
+needs an explanation of when it applies. **Not specified** means no rule is
+recorded. It does not mean optional.
+
+**Data type** describes the value or its items, such as text or a number.
+**Value form** distinguishes a single value, a list and an array. **Repeatable
+field** says whether the field itself can occur more than once. A field can
+hold a list of text values and still occur only once. Older drafts with a List
+value type show List as their value form and leave the item type unspecified.
+
+For an imported field, the main controls show the preserved source rule below
+your selection. Expand **Compare with source rules** in **Field specification**
+to see the source and proposal together. Editing the proposal does not change
+the baseline. Earlier imports may keep source notes within **Value guidance**
+or the original source text. **Not recorded separately** means no separate
+Notes value was stored. Independent community fields use the same controls
+without a source comparison.
 
 Use **Add citation** under **Sources & history** to record a source title,
 address and an explanation of its relevance. Supporting citations are counted

@@ -11,12 +11,15 @@ import {
 import { InfoPopover } from "@/components/info-popover"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { WorkspaceSelect } from "./workspace-select"
+import { FieldRuleControls } from "./field-rule-controls"
+import { fieldDataType, fieldValueForm } from "@/lib/metadata-field-rules"
+import { Badge } from "@/components/ui/badge"
 import {
   profileLabel,
   repeatabilityLabels,
   requirementLabels,
-  valueTypeLabels
+  dataTypeLabels,
+  valueFormLabels
 } from "./workspace-presenters"
 
 type Specification = MatCoreDraftPayload["specification"]
@@ -81,10 +84,12 @@ function TextList({
 export function FieldSpecification({
   specification,
   profileKey,
+  baseline,
   onChange
 }: {
   specification: Specification
   profileKey: string | null
+  baseline?: Specification | null
   onChange(value: Specification): void
 }) {
   function set<K extends keyof Specification>(key: K, value: Specification[K]) {
@@ -106,109 +111,22 @@ export function FieldSpecification({
           onChange={(event) => set("path", event.target.value)}
         />
       </Field>
-      <div className="grid gap-6 sm:grid-cols-2">
-        <Field>
-          <FieldLabel htmlFor="field-value-type" className="min-h-8">
-            Value type
-          </FieldLabel>
-          <WorkspaceSelect
-            id="field-value-type"
-            value={specification.valueType}
-            onChange={(event) =>
-              set("valueType", event.target.value as Specification["valueType"])
-            }
-          >
-            {Object.entries(valueTypeLabels).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </WorkspaceSelect>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="field-format" className="min-h-8">
-            Format
-          </FieldLabel>
-          <Input
-            id="field-format"
-            value={specification.format}
-            maxLength={2000}
-            onChange={(event) => set("format", event.target.value)}
-            placeholder="For example, YYYY-MM-DD"
-          />
-        </Field>
-        <Field>
-          <div className="flex items-center gap-1">
-            <FieldLabel htmlFor="field-requirement">
-              Requirement{profileKey ? ` in ${profileLabel(profileKey)}` : ""}
-            </FieldLabel>
-            <InfoPopover label="About field requirements">
-              A required child field must be supplied when its parent is
-              present. Record other conditions below. Not specified means no
-              rule has been established.
-            </InfoPopover>
-          </div>
-          <WorkspaceSelect
-            id="field-requirement"
-            value={specification.requirement}
-            onChange={(event) =>
-              set(
-                "requirement",
-                event.target.value as Specification["requirement"]
-              )
-            }
-          >
-            {Object.entries(requirementLabels).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </WorkspaceSelect>
-        </Field>
-        <Field>
-          <div className="flex items-center gap-1">
-            <FieldLabel htmlFor="field-repeatability">
-              Repeatable field
-            </FieldLabel>
-            <InfoPopover label="About repeatable fields">
-              Whether the field can occur more than once. Choose List as the
-              value type when a single field contains several values.
-            </InfoPopover>
-          </div>
-          <WorkspaceSelect
-            id="field-repeatability"
-            value={specification.repeatability}
-            onChange={(event) =>
-              set(
-                "repeatability",
-                event.target.value as Specification["repeatability"]
-              )
-            }
-          >
-            {Object.entries(repeatabilityLabels).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </WorkspaceSelect>
-        </Field>
-      </div>
-      {specification.requirement === "conditional" ||
-      specification.condition ? (
-        <Field>
-          <FieldLabel htmlFor="field-condition">
-            Requirement condition
-          </FieldLabel>
-          <Textarea
-            id="field-condition"
-            value={specification.condition}
-            maxLength={2000}
-            rows={2}
-            onChange={(event) => set("condition", event.target.value)}
-            placeholder="Describe when the field is required, including its parent context."
-          />
-        </Field>
-      ) : null}
+      <FieldRuleControls
+        specification={specification}
+        profileKey={profileKey}
+        baseline={baseline}
+        onChange={onChange}
+      />
+      <Field>
+        <FieldLabel htmlFor="field-format">Format</FieldLabel>
+        <Input
+          id="field-format"
+          value={specification.format}
+          maxLength={2000}
+          onChange={(event) => set("format", event.target.value)}
+          placeholder="For example, YYYY-MM-DD"
+        />
+      </Field>
       <details>
         <summary className="cursor-pointer py-2 font-medium">
           More specification details
@@ -254,34 +172,77 @@ export function FieldSpecification({
               represented above.
             </FieldDescription>
           </Field>
+          <Field>
+            <div className="flex items-center gap-1">
+              <FieldLabel htmlFor="field-notes">Notes</FieldLabel>
+              <InfoPopover label="About field notes">
+                Additional context or exceptions. Required values and other
+                rules belong in their named fields.
+              </InfoPopover>
+            </div>
+            <Textarea
+              id="field-notes"
+              value={specification.notes ?? ""}
+              maxLength={10000}
+              rows={3}
+              onChange={(event) => set("notes", event.target.value)}
+            />
+          </Field>
         </FieldGroup>
       </details>
+      {baseline ? (
+        <SpecificationComparison
+          specification={specification}
+          baseline={baseline}
+        />
+      ) : null}
     </FieldGroup>
   )
 }
 
-export function SpecificationSummary({
-  specification,
-  profileKey
-}: {
-  specification: Specification
-  profileKey: string | null
-}) {
-  const rows = [
-    ...(profileKey ? [["Profile", profileLabel(profileKey)]] : []),
-    ["Field path", specification.path],
-    ["Value type", valueTypeLabels[specification.valueType]],
-    ["Format", specification.format],
+function coreRuleRows(specification: Specification): [string, string][] {
+  return [
     ["Requirement", requirementLabels[specification.requirement]],
-    ["Condition", specification.condition],
     ["Repeatable", repeatabilityLabels[specification.repeatability]],
+    ["Data type", dataTypeLabels[fieldDataType(specification)]],
+    ["Value form", valueFormLabels[fieldValueForm(specification)]]
+  ]
+}
+
+function specificationRows(specification: Specification): [string, string][] {
+  return [
+    ["Field path", specification.path],
+    ...coreRuleRows(specification),
+    ["Format", specification.format],
+    ["Condition", specification.condition],
     ["Units", specification.units],
     ["Allowed values", specification.allowedValues.join("\n")],
     ["Example values", specification.examples.join("\n")],
-    ["Value guidance", specification.guidance]
+    ["Value guidance", specification.guidance],
+    ["Notes", specification.notes ?? ""]
   ]
+}
+
+export function SpecificationSummary({
+  specification,
+  profileKey,
+  compact = false
+}: {
+  specification: Specification
+  profileKey: string | null
+  compact?: boolean
+}) {
+  const rows = compact
+    ? coreRuleRows(specification)
+    : [
+        ...(profileKey ? [["Profile", profileLabel(profileKey)]] : []),
+        ...specificationRows(specification)
+      ]
   return (
-    <dl className="grid gap-4 sm:grid-cols-2">
+    <dl
+      className="grid gap-4 sm:grid-cols-2"
+      aria-label={compact ? "Field rules" : "Field specification"}
+    >
       {rows.map(([label, value]) => (
         <div key={label} className="min-w-0">
           <dt className="text-sm text-muted-foreground">{label}</dt>
@@ -291,5 +252,60 @@ export function SpecificationSummary({
         </div>
       ))}
     </dl>
+  )
+}
+
+export function SpecificationComparison({
+  specification,
+  baseline
+}: {
+  specification: Specification
+  baseline: Specification
+}) {
+  const source = new Map(specificationRows(baseline))
+  return (
+    <details className="rounded-md border p-4">
+      <summary className="cursor-pointer font-medium">
+        Compare with source rules
+      </summary>
+      <dl
+        className="mt-4 flex flex-col gap-4"
+        aria-label="Source and proposal field rules"
+      >
+        {specificationRows(specification).map(([label, value]) => {
+          const original = source.get(label) ?? ""
+          return (
+            <div
+              key={label}
+              className="flex min-w-0 flex-col gap-2 border-t pt-3"
+            >
+              <dt className="flex items-center gap-2 text-sm font-medium">
+                {label}
+                {original !== value ? (
+                  <Badge variant="secondary">Changed</Badge>
+                ) : null}
+              </dt>
+              <dd className="grid min-w-0 grid-cols-2 gap-4 text-sm">
+                <div className="min-w-0">
+                  <p className="text-muted-foreground">Source</p>
+                  <p className="whitespace-pre-wrap break-words">
+                    {original ||
+                      (label === "Notes" && baseline.notes === undefined
+                        ? "Not recorded separately"
+                        : "Not specified")}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-muted-foreground">Proposal</p>
+                  <p className="whitespace-pre-wrap break-words">
+                    {value || "Not specified"}
+                  </p>
+                </div>
+              </dd>
+            </div>
+          )
+        })}
+      </dl>
+    </details>
   )
 }
