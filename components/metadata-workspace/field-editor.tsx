@@ -45,6 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { FieldCitations } from "./field-citations"
 import { FieldSpecification, SpecificationSummary } from "./field-specification"
+import { FieldRuleControls } from "./field-rule-controls"
 import { FieldHistory, ProfileContext, SourceBaseline } from "./source-history"
 import {
   errorMessage,
@@ -260,8 +261,8 @@ export function FieldEditor({
                   <h2>Explain the field</h2>
                 </CardTitle>
                 <CardDescription>
-                  Describe what someone should record. Set its value rules in
-                  Field specification.
+                  Define what this field records and how its values are
+                  structured.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -290,6 +291,12 @@ export function FieldEditor({
                       }
                     />
                   </Field>
+                  <FieldRuleControls
+                    specification={payload.specification}
+                    profileKey={record.profileKey}
+                    baseline={record.baseline?.specification}
+                    onChange={(value) => set("specification", value)}
+                  />
                   <Field>
                     <FieldLabel htmlFor="field-example">Example</FieldLabel>
                     <Textarea
@@ -321,6 +328,7 @@ export function FieldEditor({
               <CardContent>
                 <ProfileContext context={record.profileContext} />
                 <FieldSpecification
+                  baseline={record.baseline?.specification}
                   specification={payload.specification}
                   profileKey={record.profileKey}
                   onChange={(value) => set("specification", value)}

@@ -297,6 +297,15 @@ async function main() {
 
       const payload = {
         ...privateDraft.payload,
+        specification: {
+          ...privateDraft.payload.specification,
+          valueType: "text" as const,
+          valueForm: "list" as const,
+          repeatability: "yes" as const,
+          units: "unitless",
+          allowedValues: ["A", "B"],
+          notes: "A note attached to the proposed field rules."
+        },
         rationale: "Review the imported field as a local proposal.",
         citations: [
           {
@@ -314,7 +323,13 @@ async function main() {
       }
       const saved = await updateMatcoreDraft(tx, mutation, owner.id)
       assert.equal(saved.version, 2)
-      checks++
+      const reloadedRules = await getMatcoreDraft(tx, privateDraft.id, owner.id)
+      assert.deepEqual(
+        reloadedRules.payload.specification,
+        payload.specification
+      )
+      assert.deepEqual(reloadedRules.baseline, baseline)
+      checks += 3
       assert.equal(
         (await updateMatcoreDraft(tx, mutation, owner.id)).version,
         2,
@@ -1013,6 +1028,10 @@ async function main() {
             specification: {
               ...generic.payload.specification,
               valueType: "text",
+              valueForm: "array",
+              repeatability: "no",
+              notes:
+                "Generic field rules remain independent of a source catalog.",
               path: "measurement.instrument"
             }
           }
@@ -1052,6 +1071,11 @@ async function main() {
         generic.fieldId,
         genericPublication.revisionId
       )
+      assert.deepEqual(
+        genericPublic.revisions[0].payload.specification,
+        savedGeneric.payload.specification
+      )
+      checks++
       check(
         genericPublic.profileContext === null &&
           genericPublic.baseline === null &&

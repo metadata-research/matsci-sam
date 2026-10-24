@@ -28,7 +28,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { termPath } from "@/lib/public-identifiers"
 import { formatDateTime } from "@/lib/date"
-import { SpecificationSummary } from "./field-specification"
+import {
+  SpecificationSummary,
+  SpecificationComparison
+} from "./field-specification"
 import { FieldCitations } from "./field-citations"
 import { FieldHistory, ProfileContext, SourceBaseline } from "./source-history"
 import { errorMessage, profileLabel } from "./workspace-presenters"
@@ -222,6 +225,11 @@ export function PublishedField({
               <p className="rounded-md border bg-definition p-4 whitespace-pre-wrap break-words leading-relaxed">
                 {payload.definition}
               </p>
+              <SpecificationSummary
+                specification={payload.specification}
+                profileKey={selected.profileKey}
+                compact
+              />
               {payload.example ? (
                 <div>
                   <h3 className="mb-2 font-medium">Example</h3>
@@ -259,6 +267,14 @@ export function PublishedField({
                 specification={payload.specification}
                 profileKey={selected.profileKey}
               />
+              {record.baseline ? (
+                <div className="mt-6">
+                  <SpecificationComparison
+                    specification={payload.specification}
+                    baseline={record.baseline.specification}
+                  />
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>

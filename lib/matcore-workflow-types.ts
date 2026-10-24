@@ -32,6 +32,8 @@ export const matcoreSpecificationSchema = z
       "list",
       "reference"
     ]),
+    // Optional additions preserve the shape and hashes of existing source baselines.
+    valueForm: z.enum(["unspecified", "scalar", "list", "array"]).optional(),
     format: text(),
     requirement: z.enum([
       "unspecified",
@@ -45,9 +47,22 @@ export const matcoreSpecificationSchema = z
     units: text(),
     allowedValues: z.array(z.string().trim().min(1).max(500)).max(100),
     examples: z.array(z.string().max(2000)).max(20),
-    guidance: text(10_000)
+    guidance: text(10_000),
+    notes: text(10_000).optional()
   })
   .strict()
+  .superRefine((value, ctx) => {
+    if (
+      value.valueType === "list" &&
+      value.valueForm !== undefined &&
+      value.valueForm !== "list"
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["valueForm"],
+        message: "Choose a data type separately from the list value form."
+      })
+  })
 export const matcoreCitationSchema = z
   .object({
     title: z.string().trim().min(1).max(500),

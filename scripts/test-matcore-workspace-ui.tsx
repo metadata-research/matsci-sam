@@ -8,9 +8,16 @@ import {
 } from "../components/metadata-workspace/workspace-presenters"
 import {
   FieldSpecification,
-  SpecificationSummary
+  SpecificationSummary,
+  SpecificationComparison
 } from "../components/metadata-workspace/field-specification"
 import { SourceBaseline } from "../components/metadata-workspace/source-history"
+import {
+  fieldDataType,
+  fieldValueForm,
+  withFieldDataType,
+  withFieldValueForm
+} from "../lib/metadata-field-rules"
 import { FieldCitations } from "../components/metadata-workspace/field-citations"
 
 // Route identity comes from the community mapping, not the vocabulary slug.
@@ -187,6 +194,104 @@ assert.match(
   genericSummary,
   /Required when the optional creator object is present/
 )
+
+// Existing payloads remain byte-for-byte equivalent after schema parsing and presentation.
+for (const valueType of [
+  "unspecified",
+  "text",
+  "number",
+  "integer",
+  "boolean",
+  "object",
+  "list",
+  "reference"
+] as const) {
+  const legacy = emptyFieldPayload()
+  legacy.specification.valueType = valueType
+  const serialized = JSON.stringify(legacy)
+  assert.equal(
+    JSON.stringify(matcoreDraftPayloadSchema.parse(legacy)),
+    serialized
+  )
+  renderToStaticMarkup(
+    <SpecificationSummary
+      specification={legacy.specification}
+      profileKey={null}
+    />
+  )
+  assert.equal(JSON.stringify(legacy), serialized)
+  assert.equal(
+    fieldValueForm(legacy.specification),
+    valueType === "list" ? "list" : "unspecified"
+  )
+  assert.equal(
+    fieldDataType(legacy.specification),
+    valueType === "list" ? "unspecified" : valueType
+  )
+}
+const legacyList = { ...baseline.specification, valueType: "list" as const }
+const typedList = withFieldDataType(legacyList, "text")
+assert.equal(typedList.valueForm, "list")
+assert.equal(typedList.valueType, "text")
+assert.equal(legacyList.valueType, "list")
+assert.equal(legacyList.valueForm, undefined)
+for (const form of ["unspecified", "scalar", "list", "array"] as const) {
+  const changed = withFieldValueForm(legacyList, form)
+  assert.equal(changed.valueType, "unspecified")
+  assert.equal(fieldValueForm(changed), form)
+  assert.equal(
+    matcoreDraftPayloadSchema.safeParse({ ...baseline, specification: changed })
+      .success,
+    true
+  )
+}
+assert.equal(
+  matcoreDraftPayloadSchema.safeParse({
+    ...baseline,
+    specification: { ...legacyList, valueForm: "scalar" }
+  }).success,
+  false
+)
+assert.equal(
+  matcoreDraftPayloadSchema.safeParse({
+    ...baseline,
+    specification: { ...typedList, notes: "x".repeat(10001) }
+  }).success,
+  false
+)
+const detailed = {
+  ...proposal.specification,
+  ...typedList,
+  notes: "Additional context <script>unsafe()</script>"
+}
+const compared = renderToStaticMarkup(
+  <SpecificationComparison
+    specification={detailed}
+    baseline={baseline.specification}
+  />
+)
+assert.match(compared, /Compare with source rules/)
+assert.match(compared, /Data type|Value form|Notes/)
+assert.match(compared, /Changed/)
+assert.match(compared, /Not recorded separately/)
+assert.doesNotMatch(compared, /<script>/)
+assert.match(compared, /&lt;script&gt;/)
+const ruleChanges = proposalDifferences(
+  { ...baseline, specification: detailed },
+  baseline
+)
+assert.ok(
+  ruleChanges.some(
+    (change) => change.label === "Data type" && change.after === "Text"
+  )
+)
+assert.ok(
+  ruleChanges.some(
+    (change) => change.label === "Value form" && change.after === "List"
+  )
+)
+assert.ok(ruleChanges.some((change) => change.label === "Notes"))
+
 console.log(
   "Metadata workspace presentation checks passed for MatCore and community fields."
 )
