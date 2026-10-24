@@ -130,12 +130,15 @@ For instructions and background, open **Help & Guides** in the navigation.
 
 ## Working in a community
 
-The **Default community** selector beside your account sets the context for
-browsing and new contributions. Select a community or **Everything**; the
-choice is saved for your account across sessions. Changing it reloads the
-current page. Select **Open workspace** in the same menu to open that
-community’s **My work** view. Vocabulary, people, collections and surveys
-are available through the workspace tabs.
+The **Community** selector beside your account opens the selected community
+and sets the context for browsing and new contributions. The choice is saved
+across sessions. Selecting the same community again returns to its Overview.
+**Everything** opens Home with all vocabularies you can read. Select **My work**
+in the same menu to resume your work in the selected community. Vocabulary,
+people, collections and surveys are available through the workspace tabs.
+
+An edited term or metadata field draft saves before switching communities.
+If saving fails, the editor stays open so you can retry.
 
 The account menu’s **My term drafts** opens your term drafts across
 vocabularies. Metadata field drafts are in each workspace’s **My work** view.
@@ -155,7 +158,7 @@ your saved selection.
 
 An **Add term** link from a particular community, or a destination chosen in
 guided setup, explicitly selects that vocabulary for the contribution. It
-does not change your saved **Default community** selection. Always check the
+does not change your saved **Community** selection. Check the
 vocabulary named in the term editor.
 
 A collection created within a members-only community follows that community's

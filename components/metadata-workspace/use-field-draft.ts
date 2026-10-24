@@ -2,6 +2,7 @@
 
 import { normalizeCommunityWorkReturnTo } from "@/lib/community-work-return"
 import { normalizeMatcoreCatalogReturnTo } from "@/lib/matcore-catalog-navigation"
+import { registerDraftNavigationGuard } from "@/lib/draft-navigation-guards"
 
 import {
   useEffect,
@@ -122,6 +123,9 @@ export function useFieldDraft(initial: FieldDraftRecord) {
 
   useEffect(() => {
     let navigating = false
+    const unregister = registerDraftNavigationGuard(async () => {
+      if (queue.dirty) await queue.flush()
+    })
     const followLink = (event: MouseEvent) => {
       if (
         !queue.dirty ||
@@ -188,6 +192,7 @@ export function useFieldDraft(initial: FieldDraftRecord) {
     window.addEventListener("beforeunload", protect)
     window.addEventListener("popstate", saveBack)
     return () => {
+      unregister()
       document.removeEventListener("click", followLink, true)
       document.removeEventListener("visibilitychange", saveHidden)
       window.removeEventListener("beforeunload", protect)

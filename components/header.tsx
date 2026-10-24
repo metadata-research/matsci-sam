@@ -5,11 +5,10 @@ import { SITE_NAME } from "@/lib/site"
 import { ThemeMenu, ThemeToggle } from "./theme-provider"
 import { getCurrentUser } from "@/lib/current-user"
 import { getActiveCommunity, myCommunities } from "@/lib/community-queries"
-import { CommunitySwitcher } from "@/components/communities/switcher"
+import { CommunityMenu } from "@/components/communities/switcher"
 import {
   collectionsIndexPath,
   communitiesIndexPath,
-  communityPath,
   modelsIndexPath,
   studiesIndexPath,
   tagsIndexPath
@@ -24,7 +23,7 @@ import {
   DropdownMenuTrigger
 } from "./ui/dropdown-menu"
 import { Button, buttonVariants } from "./ui/button"
-import { ChevronDownIcon, UserCircleIcon, UsersIcon } from "lucide-react"
+import { ChevronDownIcon, UserCircleIcon } from "lucide-react"
 import { LogoutButton } from "./logout"
 import { HeaderSearch } from "./header-search"
 import { HeaderNavLink, HeaderNavMenuTrigger } from "./header-navigation"
@@ -78,7 +77,6 @@ type Menu = {
   activeHrefs?: string[]
   wide?: boolean
 }
-type Community = { id: number; slug: string; title: string }
 
 export const Header = async () => {
   const user = await getCurrentUser()
@@ -203,7 +201,7 @@ export const Header = async () => {
             </nav>
             {memberships.length > 0 && (
               <div className={styles.mobileUtility}>
-                <span>Default community</span>
+                <span>Community</span>
                 <CommunityMenu scope={scope} memberships={memberships} />
               </div>
             )}
@@ -334,56 +332,6 @@ const MobileNavGroup = ({ label, groups }: Menu) => (
       ))}
     </div>
   </details>
-)
-
-/*
- * The community a person is working in. The trigger names it, or says
- * "Everything" when no scope is chosen. The menu holds the switcher and the
- * one way into the selected community's work. Other sections live inside
- * that workspace; Participate holds the directory. Rendered only for a member of
- * at least one community, so a reader with none sees no new chrome.
- */
-const CommunityMenu = ({
-  scope,
-  memberships
-}: {
-  scope: Community | null
-  memberships: Community[]
-}) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger
-      className={cn(buttonVariants({ variant: "outline" }), styles.scopePill)}
-      aria-label={
-        scope
-          ? `Default community: ${scope.title}`
-          : "Default community: Everything"
-      }
-    >
-      <UsersIcon aria-hidden />
-      <span className="hidden text-xs text-muted-foreground lg:inline">
-        Default
-      </span>
-      <span className={styles.scopeName}>
-        {scope ? scope.title : "Everything"}
-      </span>
-      <ChevronDownIcon className={styles.navChevron} aria-hidden />
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      <CommunitySwitcher active={scope} memberships={memberships} />
-      {scope && (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem asChild>
-              <Link href={`${communityPath(scope.slug)}?view=work`}>
-                Open workspace
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </>
-      )}
-    </DropdownMenuContent>
-  </DropdownMenu>
 )
 
 const AccountMenu = ({
