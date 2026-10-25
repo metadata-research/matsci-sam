@@ -50,6 +50,7 @@
     "test:term-drafts-db": "tsx --conditions=react-server scripts/test-term-drafts-db.ts",
     "test:term-drafts": "tsx scripts/test-term-draft-save-queue.ts && tsx scripts/test-term-draft-navigation.ts && tsx scripts/test-term-draft-persistence.ts",
     "test:term-draft-resilience-ui": "tsx --conditions=react-server scripts/test-term-draft-resilience-ui.ts",
+    "test:term-confirmation-ui": "tsx --conditions=react-server scripts/test-term-confirmation-ui.ts",
     "test:curate-pilot": "tsx scripts/test-curate-pilot.ts",
     "test:surveys": "tsx scripts/test-surveys.ts && tsx scripts/test-study-protocol.ts && tsx --conditions=react-server scripts/test-study-help.ts",
     "test:study-copy": "tsx scripts/test-study-copy.ts",

@@ -412,6 +412,11 @@ const DefinitionFormOwner = ({
     ? (pinnedVocabulary ?? vocabularySlug)
     : undefined
   const saved = savedDraft?.payload.editorState
+  // Only a restored draft needs draft-scoped vocabulary access. Adding the ID
+  // returned by the first autosave changes the query key, clears the loaded
+  // destination and can disable/move Confirm term during a pointer click.
+  // Explicit restoration remounts this editor and captures the restored ID.
+  const [restoredDraftId] = useState(savedDraft?.id)
   const [importEvidence, setImportEvidence] = useState<
     ImportEvidence | undefined
   >(savedDraft?.payload.importEvidence)
@@ -570,7 +575,7 @@ const DefinitionFormOwner = ({
     explicitVocabularySlug
       ? {
           vocabularySlug: explicitVocabularySlug,
-          ...(savedDraft?.id ? { draftId: savedDraft.id } : {})
+          ...(restoredDraftId ? { draftId: restoredDraftId } : {})
         }
       : undefined,
     { enabled: lockedTerm === undefined }
