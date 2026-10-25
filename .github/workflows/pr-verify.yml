@@ -646,6 +646,7 @@ jobs:
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-header pnpm exec tsx --conditions=react-server scripts/test-community-header-ui.ts
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-sections pnpm test:community-sections-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-privacy pnpm test:community-privacy-ui
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/term-confirmation pnpm test:term-confirmation-ui
           pnpm db:invariants
 
       - name: Retain workflow browser evidence

@@ -46,6 +46,36 @@ offers a link to existing drafts without adding another required step.
 
 ## Progress
 
+### Confirm term during the first autosave (October 25)
+
+The first autosave could interrupt a click on **Confirm term**. Its response
+added the new draft ID to the vocabulary query, which cleared the loaded
+destination while the replacement query ran. The button became disabled and
+moved between mouse-down and mouse-up. A second click after loading completed
+advanced to Write definition.
+
+The editor now retains the draft ID present when it mounts. The first save
+therefore leaves the vocabulary query unchanged. A reopened draft still uses
+its saved ID for destination recovery. Explicit restoration remounts the editor
+and captures that ID again. Server permissions and autosave timing are unchanged.
+
+- [x] Reproduce the lost click by completing the first save between mouse-down
+      and mouse-up while holding the replacement vocabulary response.
+- [x] Verify one click opens Write definition in Simple and Advanced views,
+      including a mobile viewport using the active community.
+- [x] Verify Enter confirms the term while the first save remains pending.
+- [x] Save a definition and reload it in all four cases. Check the saved step,
+      exact writing, destination and single draft identity in the real database.
+- [x] Verify reopened drafts still request their destination with the draft ID.
+- [x] Add `test:term-confirmation-ui` to the production UI acceptance job.
+
+The new regression uses disposable local fixtures and an invented empty
+reference lookup. No provider requests or publication occur. Fixture removal,
+desktop/mobile screenshots, console checks, the production build, TypeScript,
+scoped lint, code formatting and the draft queue/navigation/persistence and definition
+UI safety checks pass. Verification covers Chromium locally. Remote acceptance
+and other browsers have not been run for this change.
+
 ### Importing new terms into drafts — October 20
 
 Implementation is on `feat/import-term-drafts`, based on reviewed dev commit
