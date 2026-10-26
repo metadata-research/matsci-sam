@@ -419,7 +419,11 @@ async function main() {
     await jump(page, "my-field-drafts", true)
     await jump(page, "my-field-drafts")
     await expect(page.locator("#community-access")).toHaveCount(0)
-    await page.getByRole("link", { name: "Settings", exact: true }).click()
+    await page
+      .getByRole("navigation", { name: "Community workspace" })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
+    await page.getByRole("menuitem", { name: "Settings", exact: true }).click()
     await expect(page.getByLabel("Who can view content")).toBeVisible()
     await page.locator("summary#workspace-tools").click()
     await expect(
@@ -529,7 +533,11 @@ async function main() {
     await jump(page, "my-field-drafts")
     await jump(page, "my-field-drafts", true)
     await capture(page, "my-work-mobile")
-    await page.getByRole("link", { name: "Settings", exact: true }).click()
+    await page
+      .getByRole("navigation", { name: "Community workspace" })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
+    await page.getByRole("menuitem", { name: "Settings", exact: true }).click()
     await page.locator("summary#workspace-tools").click()
     await expect(
       page.getByRole("button", {
@@ -573,6 +581,7 @@ async function main() {
     measurements.fieldEntryNavigation = navigationRequests.filter(
       (request) => new URL(request.path, base).pathname === fieldURL.pathname
     )
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     const fieldWriting = page.getByRole("textbox", {
       name: "Definition",
       exact: true
@@ -616,6 +625,7 @@ async function main() {
       await page.getByRole("menuitemradio", { name, exact: true }).click()
     }
     await page.goto(fieldURL.href)
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(fieldWriting).toBeEditable()
     const switchWriting =
       "This metadata edit must save before the community changes."
@@ -655,6 +665,7 @@ async function main() {
       switchWriting
     )
     await page.goto(fieldURL.href)
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(fieldWriting).toHaveValue(switchWriting)
     record(
       "A failed metadata save blocks community switching without changing preference; retry preserves the draft on reload"
@@ -916,6 +927,13 @@ async function main() {
     await capture(emptyPage, "generic-saved-work-mobile")
     await emptyPage.goto(`${base}/communities/${emptyFixture.communitySlug}`)
     await expect(
+      emptyPage.getByRole("link", { name: "Working version", exact: true })
+    ).toHaveAttribute("aria-current", "page")
+    await emptyPage.getByRole("button", { name: "More", exact: true }).click()
+    await emptyPage
+      .getByRole("menuitem", { name: "About", exact: true })
+      .click()
+    await expect(
       emptyPage.getByRole("heading", {
         name: "Continue your work",
         exact: true
@@ -935,6 +953,11 @@ async function main() {
     const visitor = await anonymous.newPage()
     observe(visitor)
     await visitor.goto(`${base}/communities/${emptyFixture.communitySlug}`)
+    await expect(
+      visitor.getByRole("link", { name: "Working version", exact: true })
+    ).toBeVisible()
+    await visitor.getByRole("button", { name: "More", exact: true }).click()
+    await visitor.getByRole("menuitem", { name: "About", exact: true }).click()
     await expect(
       visitor.getByRole("link", { name: "Browse vocabulary", exact: true })
     ).toBeVisible()

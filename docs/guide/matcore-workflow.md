@@ -1,37 +1,39 @@
 # Metadata fields and MatCore
 
-Open a community to browse its vocabulary and develop terminology or metadata
-fields. In a MatCore community, **Vocabulary** includes the versioned source
-catalog. **My work** holds your private drafts. You choose when to publish a
-proposal for local review in MatSci-SAM. The
-[workspace chooser](/metadata/workspace) helps you find a community or
-standalone vocabulary. MatCore source versions are installed separately for
-members-only communities. You must be a member or site administrator to read
-that community's sources and shared proposals. Its name remains public, with
-an option to request access. [Community access](/docs/communities#content-access)
-explains requests and membership.
+Communities with metadata development open on **Standard**, with **Working
+version** and **Hierarchy** selected. Open a field to propose a change, or use
+**Proposals** to review the community's work. **My drafts** holds your private writing. Ordinary vocabulary communities
+keep their terminology workflow.
+
+A members-only community shows its name publicly. Its sources, proposals and
+releases are available to members and site administrators. See
+[Community access](/docs/communities#content-access) for requests and membership.
+The [workspace chooser](/metadata/workspace) also lists standalone vocabularies.
 
 For a vocabulary concept such as solid electrolyte, use **Define a term** or
 the usual [term editor](/docs/adding-terms). A metadata field specifies
 information to record, such as the temperature used to prepare a sample.
-A community can develop both kinds of entry.
+A community can develop both kinds of entry. **More → Vocabulary terms**
+opens its dictionary entries.
 
-## Source entries, drafts and proposals
+## Reference, proposals and releases
 
-| Entry | Purpose |
-| ----- | ------- |
-| **Preserved source entry** | Records the definition, rules and attribution in a particular MatCore source version. It is available to read without creating a draft. |
-| **Private draft** | Holds your proposed changes. Only your account can read it. Editing it does not change the source entry. |
-| **Published local proposal** | Makes your definition and field specification available to readers of the community. Each revision retains its sources and contribution history. |
+| View                  | What it contains                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Reference**         | The publisher's preserved specification, including its source version and attribution.                      |
+| **My drafts**         | Private proposed changes. Saving a draft does not change the reference or share it with other members.      |
+| **Proposals**         | Submitted revisions for discussion and steward review. Pending proposals do not change the working version. |
+| **Working version**   | The selected reference with accepted community changes applied.                                             |
+| **Community release** | A named snapshot created by a steward, with exact field revisions and review decisions recorded.            |
 
-Drafts imported earlier remain in **My work**, with their edits and history.
-They are private working copies, not earlier releases of the standard. Open
-the corresponding catalog entry and select **Continue my draft** to resume one.
-You do not need to import it again.
+Community acceptance and releases do not imply approval by MatCore or another
+reference publisher. The reference always remains unchanged.
 
-A source version identifies the preserved MatCore specification. A local
-proposal revision identifies changes made in MatSci-SAM. Publishing or
-accepting a local proposal does not issue a new MatCore release.
+Earlier drafts keep their edits and history. They are working copies, not
+historical releases. Select **Continue my draft** on the corresponding source
+entry to resume one without importing it again. Existing dictionary links are
+preserved. New metadata proposals have their own field identity and do not
+create dictionary entries.
 
 ## Start a metadata field
 
@@ -42,45 +44,56 @@ A site administrator must also install and grant a source version to this
 community. Until then, the catalog is empty and independent metadata fields
 remain available.
 
-Select **New metadata field** and enter a label. The draft belongs to the
+Select **Propose a new field** on Standard and enter a field name.
+**New metadata field** is also available under My drafts. The draft belongs to the
 community vocabulary. A new field has no imported source baseline. When
 MatCore is enabled and a source is available, **Standard context** lets you optionally choose a MatCore
 section. Leave it unset for an independent field.
 
-Your ordinary term drafts and field drafts appear in **My work**. These lists
+Your ordinary term drafts and field drafts appear in **My drafts**. These lists
 are private to your account and limited to the selected community. Other
 community members cannot read your private drafts. Changing the community
 view does not move drafts or change their vocabulary.
 
 ## Propose a change to a MatCore field
 
-Open **Vocabulary**, select **Reference catalog**, then choose a **Source
-version** and **Profile**. Use **Find a field** to search names, paths and
-definitions across the selected version and profile. The catalog shows
-preserved source entries, including their definitions, field rules and
-attribution. Browsing creates no drafts. The
-**Source version** list contains the snapshots installed for this community.
+Open **Standard**, choose **Reference**, then select a **Reference version**
+and **Profile**. **Find a field** searches names, paths and definitions. Browsing
+creates no drafts. Available versions are the snapshots installed for this
+community.
+
+**Hierarchy** is the default view and shows fields within their parent context. Use the arrow to expand
+a branch and the field name to open it. Search keeps matching fields and their
+parent paths visible. **List** shows every field in the selected profile. Links
+under **Includes fields from** identify inherited profiles.
+
+The field name is separate from its path. For example, `name` can occur at both
+`creator.name` and `computation.software.name`. The profile and path identify
+where it belongs. Requirement, repeatability, data type and value form are
+visible beside the definition. Expand **All field rules** for the remaining
+specification.
 
 Open a field and select **Propose a change**. This creates one private draft
-based on that exact source entry. If you already have a draft for the entry,
+based on that reference field. If you already have a draft for the entry,
 select **Continue my draft**. Existing edits are kept. The original source stays
 unchanged when you edit, save or publish your proposal.
 
-In the editor, **Back to source entry** saves pending changes before returning
-to the same version, profile, search, result page and source entry. If saving
+In the editor, **Back to working version** or **Back to reference** saves pending changes before returning
+to the same version, profile, search, view and field. **Back to fields** returns to the list or hierarchy. This browser tab
+remembers expanded branches and the reading position when browser storage is
+available. If saving
 fails, your writing stays in the editor and **Retry save** is available. The draft
-also appears under **My work** in the community.
+also appears under **My drafts** in the community.
 
 Sign in with an account that can contribute to the community. If your account
 needs an attributed name, follow **Add your name to your profile** before
-creating a field draft. When a local proposal has been published, **View local
-proposal** opens it. Further revisions start from that proposal through
-**Propose a revision**. Team review roles and standards release assembly are
-not available yet.
+creating a field draft. When a local proposal has been published, **View proposal** opens it. Further revisions start from that proposal through
+**Propose a revision**. Members can discuss a submitted proposal. Community stewards review it and
+create community releases.
 
 Later source snapshots do not automatically update existing drafts or
 published proposals. Each keeps the source version it was based on. Switching
-**Source version** changes what you browse. It does not move your edits to that
+**Reference version** changes what you browse. It does not move your edits to that
 version. Comparing a proposal with a newer source version and applying changes
 forward are not available yet.
 
@@ -91,7 +104,7 @@ with fields in later snapshots.
 ## Prepare MatCore drafts in bulk
 
 You can still prepare working copies of a whole source version when needed.
-In **My work**, expand **Prepare drafts in bulk** and select **Import all
+In **My drafts**, expand **Prepare drafts in bulk** and select **Import all
 sections as drafts**. Check the destination and select **Import private
 drafts**. The MatCore 0.3.0 import covers 248 source entries across seven
 sections. It creates missing drafts and preserves existing drafts and edits.
@@ -106,14 +119,14 @@ import again. Saved drafts and your edits remain available.
 
 ## Define the field and its rules
 
-Open a draft from **My field drafts**. Use the three tabs to prepare the
-proposal.
+Open a draft from **My field drafts**. **Field specification** opens first.
+**Definition** and **Sources & history** follow it.
 
 | Tab                     | What to enter or review                                                                                                                                |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Definition**          | The field label, an explanation of what to record, requirement, repeatability, data type, value form and an optional example. |
-| **Field specification** | The same field rules, plus the field path and format. Expand More specification details for units, allowed values, example values, guidance and notes. |
-| **Sources & history**   | Any preserved imported source, supporting citations and recorded contribution history.                                                                 |
+| **Field specification** | Field rules, path and format. Expand More specification details for units, allowed values, example values, guidance and notes. |
+| **Definition**          | The field name, an explanation of what to record, requirement, repeatability, data type, value form and an optional example. |
+| **Sources & history**   | The reference, supporting citations and recorded contribution history.                                                                 |
 
 Keep the parent path when editing a nested field. For example, `creator.name`
 and `computation.software.name` describe different information. For fields
@@ -131,7 +144,7 @@ field** says whether the field itself can occur more than once. A field can
 hold a list of text values and still occur only once. Older drafts with a List
 value type show List as their value form and leave the item type unspecified.
 
-For an imported field, the main controls show the preserved source rule below
+For an imported field, the main controls show the reference rule below
 your selection. Expand **Compare with source rules** in **Field specification**
 to see the source and proposal together. Editing the proposal does not change
 the baseline. Earlier imports may keep source notes within **Value guidance**
@@ -148,7 +161,7 @@ claiming an imported source.
 
 Enter a **Reason for this proposal**. Explain your changes or why the source
 field should be adopted. This explanation is shared with readers who can access the community when you
-publish the proposal.
+submit the proposal.
 
 ## Save and resume
 
@@ -174,35 +187,58 @@ the saved version. **Keep editing** leaves your writing in place. If another
 tab published the draft, the recovered proposal remains available as text to
 copy before loading the published version.
 
-## Publish and review
+## Submit and review
 
-Select **Review proposal** to check the definition, specification, changes
-from the source baseline and citation count. A label, definition and reason
-are required. Add your name to your account profile before publishing.
+Select **Review proposal** to check the definition, field rules, differences
+from the source and citations. A field name, definition and reason are required.
+Add your name to your account profile before submitting.
 
-Select **Publish local proposal** to share the proposal with readers of the
-community. The published field specification links to its dictionary entry
-and an exact definition revision. Its citations, contribution history and
-any imported baseline follow the same community access rules. An imported
-baseline remains unchanged.
+Select **Submit for review** to share the proposal with the community. It appears
+under **Proposals** as **Awaiting review**. **Changes** opens first and compares
+the proposal with the preceding revision of that field, or with the reference
+for its first revision. Members can add attributed comments in **Discussion**.
+The complete **Field specification** and **Sources & history** follow those tabs. Comments and decisions belong to the exact revision.
+Sources and history follow the community's access rules. In Proposals, the
+**Reference version** selector lets you review work based on an earlier source.
 
-A site administrator can record **Accepted locally**, **Changes requested** or
-**Declined locally**, with a reason. These decisions apply to the selected
-revision. Official MatCore adoption is a separate decision by the MatCore team.
+A community steward or site administrator can open **Discussion**, select
+**Review proposal**, and choose **Accept into working version**, **Request changes**
+or **Decline**, with a reason. Acceptance applies
+the revision to the working version. An older accepted revision stays in use
+while a newer proposal awaits review. Two fields may share a short name, but
+they cannot use the same path in the same profile in the working version.
 
 Use **Propose a revision** on the latest proposal to start another private
-draft. Earlier published revisions remain available through **Revision**.
-**Download specification** exports the selected revision, its profile context,
-sources and history as JSON. This export records a proposal for review and is
-not an executable dataset validation schema.
+draft. Earlier revisions remain available through **Revision**. **Download
+specification** exports the selected proposal, its source context and history
+as JSON. This is not an executable dataset validation schema.
 
-The contributor or a site administrator can **Withdraw proposal** and record
-a reason. The withdrawn proposal remains visible with its source and history.
+The contributor or a site administrator can **Withdraw proposal**, with a
+reason. Its source and history remain available. Withdrawing an accepted
+revision removes that decision from the current working version. Existing
+community releases remain unchanged.
+
+## Create a community release
+
+Open **Working version** to review the assembled standard. Each field identifies
+whether it is unchanged from the reference or an accepted community change.
+**Compare with reference** shows the original definition and field rules.
+
+A steward or site administrator selects **Create community release**, enters a
+name and optional notes, and confirms. The release records the selected reference,
+field contents, accepted revision IDs and review decisions. If the working version
+changes before confirmation, reload and review it before trying again.
+
+Use **Community release** to browse a frozen version, or **More → Community
+releases** to find earlier releases. Later proposals and decisions do not alter
+these snapshots. Installing a newer publisher reference does not transfer
+existing proposals to it. Applying changes across reference versions remains a
+separate review task.
 
 ## Workspace tools
 
 Field proposals support linked citations and manual editing. AI assistance,
-file uploads, shared drafts, assigned reviews, notifications and dataset
+file uploads, shared draft editing, assigned reviews, notifications and dataset
 validation are planned separately. The field editor does not run the ontology
 lookup used by the vocabulary term editor.
 

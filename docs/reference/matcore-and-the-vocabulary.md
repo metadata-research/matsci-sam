@@ -24,12 +24,12 @@ optional in that source. The DFT profile adds nine elements, of which three
 are required and six optional. These requirements apply to the corresponding
 dataset descriptions.
 
-Communities with MatCore enabled can browse a preserved snapshot of the
+Communities with MatCore enabled can browse a reference version of the
 [MatCore 0.3.0 standard](https://matcore.org/standard-document-content.html).
 Its seven sections cover the common core, DFT, molecular dynamics, many-body
 perturbation theory, machine learning, phase field and derived properties.
-Once installed for an authorized members-only community, its Vocabulary view
-presents 248 preserved source entries. The full source text is installed
+Once installed for an authorized members-only community, its Standard view
+presents 248 reference fields. The full source text is installed
 separately and is not distributed in the application repository. A
 contributor can propose a change to one entry without importing a whole set
 of drafts. Browsing creates no private working copies. The optional bulk
@@ -68,9 +68,9 @@ remains distinct from an optional rule. Older List value types remain readable
 without rewriting saved drafts or source baselines. An absent value form or
 separate Notes value is not inferred from source prose.
 
-The preserved source baseline retains the source wording, location, version
+The reference version records the wording, location, version
 and attribution. **Propose a change** creates a private working copy of the
-selected source entry. **Continue my draft** resumes an existing copy,
+selected reference field. **Continue my draft** resumes an existing copy,
 including one created by an earlier bulk import, without replacing its edits
 or contribution history. These drafts represent work in progress, not earlier
 versions of the MatCore standard.
@@ -81,24 +81,28 @@ to the imported standard. A field can also be independent of MatCore, with no
 profile, imported occurrence or baseline. Its citations and contribution
 history still accompany each revision.
 
-Publication creates a MatSci-SAM proposal visible to readers of the community. Each specification revision
-identifies the definition revision that explains it. Source attribution and
-supporting citations remain separate, and earlier published revisions remain
-available. JSON downloads identify the selected revision and its profile
-context, sources and history. For independent fields, the profile context
-and imported source records are absent. The export does not invent a standard
-association.
+Submission creates a proposal visible to readers of the community. New field
+proposals have their own definition and specification, without requiring a
+dictionary entry. Existing links to dictionary definitions remain available.
+Source attribution and supporting citations stay separate. JSON downloads
+identify the selected revision, profile context, sources and history. Independent
+fields have no imported baseline or inferred standard association.
 
-Source snapshots and local proposal revisions have separate identities.
-Editing, publishing or reviewing a proposal leaves the source snapshot
-unchanged. Adding a later snapshot does not automatically update existing
-drafts or proposals. Each keeps its original source association. The current
-workflow does not move proposed changes between source versions.
+The published reference, private drafts, submitted proposals, community working
+version and named community releases have separate purposes. Steward acceptance
+adds an exact revision to the working version. Pending proposals do not change
+it. A named release freezes the working fields and their acceptance records.
+Later edits do not rewrite that release or its reference.
 
-Site administrators record local review decisions against an exact revision.
-Acceptance in MatSci-SAM does not establish adoption by the MatCore team. The
-[workflow guide](/docs/matcore-workflow) explains draft editing, publication,
-revision and withdrawal.
+Source snapshots and proposal revisions also have separate identities.
+Installing a later source snapshot does not move existing drafts or proposals
+to it. Each keeps its original association. Applying changes across reference
+versions requires a separate review.
+
+Community stewards and site administrators record decisions with a reason.
+Members can discuss each revision. Acceptance or a community release does not
+establish adoption by the MatCore team. The
+[workflow guide](/docs/matcore-workflow) explains drafting, review and releases.
 
 ## Vocabulary and Dublin Core
 

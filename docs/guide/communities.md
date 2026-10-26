@@ -21,12 +21,18 @@ gather terms that already exist without copying their definitions.
 
 The community page is its workspace. **Overview** describes its purpose and
 shows your recently saved drafts when you have work to continue. **Vocabulary**
-shows published terms and fields. Communities with an installed reference
-catalog offer separate **Reference catalog** and **Community contributions**
-views. **My work** contains your private drafts and contribution tools, with
+shows published terms. **My work** contains your private drafts and contribution tools, with
 saved work before empty sections. **Collections** contains shared term lists,
 **People** covers membership, and **Surveys** appears when relevant. Managers
 can use **Settings** to control content access and metadata tools.
+
+When metadata development is enabled, the community opens on **Standard**, with
+**Working version** and **Hierarchy** selected. The working version contains the
+reference fields and accepted community changes. **Community release** opens a
+named snapshot when one exists. **Reference** opens the publisher specification. **Proposals** holds shared revisions for
+discussion and steward review, and **My drafts** holds private work. **More**
+contains community releases, vocabulary terms, collections, About and any authorized settings or
+surveys. Ordinary vocabulary communities keep the navigation described above.
 
 In longer views, **On this page** lists the available sections. Select one to
 jump to it; the destination is briefly highlighted. On a small screen, open
@@ -47,21 +53,22 @@ development to add **New metadata field**. MatCore is an optional standard withi
 it is not required to define a field. An independent field can record value
 types, units and requirement rules with its own citations. The
 [metadata workflow guide](/docs/matcore-workflow) explains field editing and
-MatCore source entries and proposals.
+MatCore reference fields and proposals.
 
-In the MatCore catalog, select a source version. **Find a field** searches all
+In Standard, choose Reference and select a reference version. **Find a field** searches all
 entries in that version and the selected profile by name, path or definition.
 Open a result to read the field. **Propose a
 change** creates a private draft for that field. **Continue my draft** resumes
 your existing work, including drafts imported earlier. Browsing the catalog
-creates no drafts. The preserved source entry remains unchanged when you edit
-or publish. **View local proposal** opens a published proposal, where
+creates no drafts. The reference version remains unchanged when you edit
+or submit a proposal. **View proposal** opens a submitted proposal, where
 **Propose a revision** starts further changes.
 
 Source versions and local proposal revisions are separate. Existing drafts
 and proposals keep their source version when another snapshot becomes
-available. They are not updated automatically. Local review does not establish
-MatCore approval.
+available. They are not updated automatically. Stewards can accept changes into the working version and create named community
+releases. Each release preserves its field contents and review decisions.
+Community review and releases do not establish MatCore approval.
 
 ## Content access
 
@@ -148,7 +155,7 @@ vocabularies. Metadata field drafts are in each workspace’s **My work** view.
 | Home, Browse, Discussion | Terms and activity in that vocabulary         |
 | Collections              | Collections on the community worklist         |
 | Add a new term           | New terms enter that vocabulary               |
-| Search                   | Searches vocabularies you can read              |
+| Search                   | Searches vocabularies you can read            |
 | Tags                     | Lists classification concepts across the site |
 
 **Everything** includes all vocabularies you can read on Home and Browse and uses

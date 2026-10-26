@@ -5,7 +5,7 @@ import {
   RequestCommunityAccess
 } from "@/components/communities/access-controls"
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
 import {
@@ -48,7 +48,7 @@ import { RecentCommunityWork } from "@/components/communities/recent-work"
 import { InfoPopover } from "@/components/info-popover"
 import { CommunityWork } from "@/components/communities/community-work"
 import { CommunityNavigation } from "@/components/communities/community-navigation"
-import { SourceCatalog } from "@/components/metadata-workspace/source-catalog"
+import { CommunityStandardWorkspace } from "@/components/metadata-workspace/community-standard-workspace"
 import { matcoreProfileSchema } from "@/lib/matcore-workflow-types"
 import { matcoreCatalogHref } from "@/lib/matcore-catalog-navigation"
 import { OnThisPage } from "@/components/on-this-page"
@@ -109,6 +109,9 @@ export default async function CommunityPage({
     source?: string
     q?: string
     content?: string
+    layout?: string
+    standard?: string
+    edition?: string
   }>
 }) {
   const { slug } = await params
@@ -132,7 +135,7 @@ export default async function CommunityPage({
       </main>
     )
   const query = await searchParams
-  const view = query.view ?? "overview"
+  let view = query.view ?? "overview"
   if (
     ![
       "overview",
@@ -141,24 +144,30 @@ export default async function CommunityPage({
       "collections",
       "people",
       "surveys",
-      "settings"
+      "settings",
+      "proposals",
+      "releases"
     ].includes(view)
   )
     notFound()
   const workPath = `/communities/${community.slug}?view=work`
-  const terms =
-    view === "vocabulary"
-      ? await vocabularyTerms(community.vocabularySlug, user?.id ?? null)
-      : []
-
   const membership = user ? await membershipIn(community.id, user.id) : null
   const workspace = await trpc.matcoreWorkflow.workspace({
     vocabularySlug: community.vocabularySlug
   })
+  const standardsEnabled =
+    workspace.metadataEnabled || workspace.hasMatcoreCatalog
+  if (!query.view && standardsEnabled) view = "vocabulary"
+  if (!standardsEnabled && ["proposals", "releases"].includes(view)) notFound()
+  if (standardsEnabled && query.content === "contributions") view = "proposals"
+  const terms =
+    view === "vocabulary" && !standardsEnabled
+      ? await vocabularyTerms(community.vocabularySlug, user?.id ?? null)
+      : []
+
   const showSettings = access.canManage || workspace.canManage
   if (view === "settings" && !showSettings) notFound()
   if (query.content && query.content !== "contributions") notFound()
-  const showContributions = query.content === "contributions" && !query.source
   const hasCatalog = workspace?.hasMatcoreCatalog ?? false
   const catalogPath = matcoreCatalogHref(community.slug)
   const profile = query.profile
@@ -167,55 +176,85 @@ export default async function CommunityPage({
   const offset = query.offset ? Number(query.offset) : 0
   if (
     view === "vocabulary" &&
-    hasCatalog &&
+    standardsEnabled &&
     ((profile && !profile.success) ||
+      (query.layout !== undefined &&
+        !["list", "hierarchy"].includes(query.layout)) ||
       (query.offset !== undefined && !/^\d+$/.test(query.offset)) ||
       !Number.isInteger(offset) ||
       offset < 0 ||
       offset > 10000 ||
-      (query.source && !query.release) ||
+      (query.source &&
+        !query.release &&
+        query.standard !== "working" &&
+        query.standard !== "release") ||
       (query.q !== undefined &&
         (query.q.length > 200 || /[\u0000-\u001f\u007f]/.test(query.q))))
   )
     notFound()
-  if (view === "vocabulary" && !hasCatalog && (query.release || query.source))
-    notFound()
-  const catalogInput = {
-    vocabularySlug: community.vocabularySlug,
-    releaseId: query.release,
-    search: query.q,
-    profileKey: profile?.success ? profile.data : undefined,
-    offset,
-    limit: 40
-  }
-  const [sourceCatalog, sourceEntry] =
-    view === "vocabulary" && hasCatalog && !showContributions
-      ? await Promise.all([
-          trpc.matcoreWorkflow.sourceCatalog(catalogInput),
-          query.source && query.release
-            ? trpc.matcoreWorkflow.sourceEntry({
-                vocabularySlug: community.vocabularySlug,
-                releaseId: query.release,
-                occurrenceId: query.source
-              })
-            : Promise.resolve(null)
-        ]).catch((error: unknown) => {
-          if (
-            ["NOT_FOUND", "BAD_REQUEST"].includes(
-              (error as { code?: string }).code ?? ""
-            )
-          )
-            notFound()
-          throw error
-        })
-      : [null, null]
+  if (view === "vocabulary" && !hasCatalog && query.release) notFound()
   if (
-    sourceEntry &&
-    profile?.success &&
-    sourceEntry.sourceOccurrence.profileKey !== profile.data
+    query.standard &&
+    !["reference", "working", "release"].includes(query.standard)
   )
     notFound()
-
+  if (
+    query.edition &&
+    (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      query.edition
+    ) ||
+      query.standard !== "release")
+  )
+    notFound()
+  const standard =
+    standardsEnabled && ["vocabulary", "proposals", "releases"].includes(view)
+      ? await trpc.matcoreWorkflow
+          .standard({
+            vocabularySlug: community.vocabularySlug,
+            referenceReleaseId: query.release,
+            releaseId: query.edition
+          })
+          .catch((error: unknown) => {
+            if (
+              ["NOT_FOUND", "BAD_REQUEST"].includes(
+                (error as { code?: string }).code ?? ""
+              )
+            )
+              notFound()
+            throw error
+          })
+      : null
+  if (standard && query.standard === "release" && !query.edition) {
+    const latest = standard.releases[0]
+    redirect(
+      matcoreCatalogHref(
+        community.slug,
+        latest
+          ? {
+              standard: "release",
+              edition: latest.id,
+              releaseId: latest.referenceReleaseId ?? undefined
+            }
+          : { standard: "working", releaseId: query.release }
+      )
+    )
+  }
+  if (standard && query.source) {
+    const entries =
+      query.standard === "release"
+        ? (standard.selectedRelease?.snapshot.entries ?? [])
+        : query.standard === "working" || !standard.reference
+          ? standard.working.entries
+          : standard.referenceEntries
+    if (
+      !entries.some(
+        (row) =>
+          row.id === query.source &&
+          (!query.profile || row.profileKey === query.profile)
+      )
+    )
+      notFound()
+  }
   const [
     roster,
     worklist,
@@ -277,7 +316,13 @@ export default async function CommunityPage({
 
   return (
     <main className="px-4 py-8">
-      <section className="max-w-5xl w-full mx-auto space-y-8">
+      <section
+        className={
+          standardsEnabled
+            ? "max-w-7xl w-full mx-auto flex flex-col gap-6"
+            : "max-w-5xl w-full mx-auto space-y-8"
+        }
+      >
         <div className="space-y-2">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             <Link href={communitiesIndexPath}>Communities</Link>
@@ -286,11 +331,12 @@ export default async function CommunityPage({
           {access.visibility === "members" ? (
             <Badge variant="outline">Members only</Badge>
           ) : null}
-          {community.description && (
-            <p className="break-words text-muted-foreground">
-              {community.description}
-            </p>
-          )}
+          {community.description &&
+            (!standardsEnabled || view === "overview") && (
+              <p className="break-words text-muted-foreground">
+                {community.description}
+              </p>
+            )}
           {community.retiredAt && (
             <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
               This community has been retired. Its address still resolves, and
@@ -304,6 +350,9 @@ export default async function CommunityPage({
           view={view}
           showSurveys={runs || studies.length > 0}
           showSettings={showSettings}
+          standardsEnabled={standardsEnabled}
+          referenceReleaseId={standard?.reference?.id}
+          vocabularyHref={vocabularyPath(community.vocabularySlug)}
         />
         {view === "overview" ? (
           <div className="flex flex-col gap-6">
@@ -367,88 +416,70 @@ export default async function CommunityPage({
             offset={query.offset}
           />
         ) : null}
-        {view === "vocabulary" ? (
-          <div className="flex flex-col gap-6">
-            {hasCatalog ? (
-              <nav
-                aria-label="Vocabulary content"
-                className="flex flex-wrap gap-2"
-              >
-                <Button
-                  asChild
-                  variant={showContributions ? "outline" : "secondary"}
-                >
-                  <Link
-                    href={catalogPath}
-                    aria-current={!showContributions ? "page" : undefined}
-                  >
-                    Reference catalog
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant={showContributions ? "secondary" : "outline"}
-                >
-                  <Link
-                    href={`${catalogPath}&content=contributions`}
-                    aria-current={showContributions ? "page" : undefined}
-                  >
-                    Community contributions
-                  </Link>
-                </Button>
-              </nav>
-            ) : null}
-            {sourceCatalog ? (
-              <SourceCatalog
-                community={{ slug: community.slug, title: community.title }}
-                catalog={sourceCatalog}
-                entry={sourceEntry}
-                viewerId={user?.id ?? null}
-              />
-            ) : null}
-            {!hasCatalog || showContributions ? (
-              <section className="flex flex-col gap-4">
-                <div className="flex items-center gap-1">
-                  <h2 className="text-2xl font-semibold">
-                    {hasCatalog ? "Community contributions" : "Vocabulary"}
-                  </h2>
-                  <InfoPopover label="About community contributions">
-                    Published terms and metadata fields from this community.
-                    Metadata fields include their specification and revision
-                    history.
-                  </InfoPopover>
-                </div>
-                <Link
-                  className="text-sm underline underline-offset-4"
-                  href={vocabularyPath(community.vocabularySlug)}
-                >
-                  Full vocabulary and references
-                </Link>
-                {terms.length ? (
-                  <ul className="divide-y rounded-lg border">
-                    {terms.map((term) => (
-                      <li key={term.id}>
-                        <Link
-                          className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-accent"
-                          href={termPath(term.slug, term.vocabularySlug)}
-                        >
-                          <span className="font-medium">{term.term}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {term.count}{" "}
-                            {term.count === 1 ? "definition" : "definitions"}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground">
-                    No entries have been published in this vocabulary yet.
-                  </p>
-                )}
-              </section>
-            ) : null}
-          </div>
+        {standard ? (
+          <CommunityStandardWorkspace
+            community={{ slug: community.slug, title: community.title }}
+            data={standard}
+            viewerId={user?.id ?? null}
+            section={
+              view === "proposals"
+                ? "proposals"
+                : view === "releases"
+                  ? "releases"
+                  : "standard"
+            }
+            mode={
+              query.standard === "reference"
+                ? "reference"
+                : query.standard === "release"
+                  ? "release"
+                  : "working"
+            }
+            layout={query.layout === "list" ? "list" : "hierarchy"}
+            profile={query.profile}
+            search={query.q ?? ""}
+            selectedId={query.source}
+          />
+        ) : null}
+        {view === "vocabulary" && !standardsEnabled ? (
+          <section className="flex flex-col gap-4">
+            <div className="flex items-center gap-1">
+              <h2 className="text-2xl font-semibold">Vocabulary</h2>
+              <InfoPopover label="About community contributions">
+                Published terms and metadata fields from this community.
+                Metadata fields include their specification and revision
+                history.
+              </InfoPopover>
+            </div>
+            <Link
+              className="text-sm underline underline-offset-4"
+              href={vocabularyPath(community.vocabularySlug)}
+            >
+              Full vocabulary and references
+            </Link>
+            {terms.length ? (
+              <ul className="divide-y rounded-lg border">
+                {terms.map((term) => (
+                  <li key={term.id}>
+                    <Link
+                      className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-accent"
+                      href={termPath(term.slug, term.vocabularySlug)}
+                    >
+                      <span className="font-medium">{term.term}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {term.count}{" "}
+                        {term.count === 1 ? "definition" : "definitions"}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">
+                No entries have been published in this vocabulary yet.
+              </p>
+            )}
+          </section>
         ) : null}
 
         {view === "surveys" && (

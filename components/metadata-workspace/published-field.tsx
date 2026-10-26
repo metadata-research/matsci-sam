@@ -2,6 +2,9 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { InfoPopover } from "@/components/info-popover"
+import { proposalStatusLabels } from "@/lib/community-standard-types"
+import { proposalFieldName } from "@/lib/metadata-field-name"
 import { useState } from "react"
 import { trpc } from "@/trpc/client"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
@@ -34,7 +37,11 @@ import {
 } from "./field-specification"
 import { FieldCitations } from "./field-citations"
 import { FieldHistory, ProfileContext, SourceBaseline } from "./source-history"
-import { errorMessage, profileLabel } from "./workspace-presenters"
+import {
+  errorMessage,
+  profileLabel,
+  proposalDifferences
+} from "./workspace-presenters"
 import { WorkspaceSelect } from "./workspace-select"
 
 type Props = {
@@ -43,13 +50,7 @@ type Props = {
   isAdmin: boolean
   workspaceHref: string
 }
-const reviewLabels: Record<string, string> = {
-  awaiting_review: "Awaiting local review",
-  accepted: "Accepted locally",
-  changes_requested: "Changes requested",
-  declined: "Declined locally",
-  withdrawn: "Withdrawn"
-}
+const reviewLabels = proposalStatusLabels
 
 export function PublishedField({
   record,
@@ -60,6 +61,8 @@ export function PublishedField({
   const router = useRouter()
   const revise = trpc.matcoreWorkflow.revise.useMutation()
   const review = trpc.matcoreWorkflow.review.useMutation()
+  const comment = trpc.matcoreWorkflow.comment.useMutation()
+  const [commentText, setCommentText] = useState("")
   const withdraw = trpc.matcoreWorkflow.withdraw.useMutation()
   const [reviewOpen, setReviewOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
@@ -79,7 +82,40 @@ export function PublishedField({
   )
   const isLatest = latestInProfile?.id === selected.id
   const payload = selected.payload
+  const previous = record.revisions
+    .filter(
+      (item) =>
+        item.profileKey === selected.profileKey &&
+        item.occurrenceKey === selected.occurrenceKey &&
+        item.version < selected.version
+    )
+    .sort((a, b) => b.version - a.version)[0]
+  const comparison = previous?.payload ?? record.baseline
+  const differences = proposalDifferences(
+    {
+      ...payload,
+      label: proposalFieldName(
+        payload.label,
+        record.sourceOccurrence,
+        record.baseline
+      )
+    },
+    comparison
+      ? {
+          ...comparison,
+          label: proposalFieldName(
+            comparison.label,
+            record.sourceOccurrence,
+            record.baseline
+          )
+        }
+      : null
+  )
+  const comparisonLabel = previous
+    ? `Revision ${previous.version}`
+    : "Reference"
   const busy = revise.isPending || review.isPending || withdraw.isPending
+  const canReview = record.canReview
   const canWithdraw = userId === selected.createdById || isAdmin
 
   return (
@@ -93,17 +129,21 @@ export function PublishedField({
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">Metadata field</Badge>
-          <Badge variant="secondary">MatSci-SAM proposal</Badge>
+          <Badge variant="secondary">Community proposal</Badge>
           <Badge variant="outline">
             {reviewLabels[selected.reviewState] ?? selected.reviewState}
           </Badge>
         </div>
         <h1 className="break-words text-3xl font-semibold tracking-tight">
-          {payload.label}
+          {proposalFieldName(
+            payload.label,
+            record.sourceOccurrence,
+            record.baseline
+          )}
         </h1>
         <p className="text-sm text-muted-foreground">
           {selected.profileKey ? `${profileLabel(selected.profileKey)} · ` : ""}
-          Revision {selected.version} · Published{" "}
+          Revision {selected.version} · Submitted{" "}
           <time dateTime={selected.createdAt}>
             {formatDateTime(selected.createdAt)}
           </time>
@@ -111,20 +151,24 @@ export function PublishedField({
             ? ` · MatCore ${record.sourceRelease.version} baseline`
             : ""}
         </p>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          {selected.profileKey
-            ? "This is a local proposal. MatSci-SAM review does not imply approval by the MatCore team or inclusion in an official MatCore release."
-            : "This field is a community proposal. Its review status and revision history are recorded separately from its definition."}
-        </p>
+        <InfoPopover label="About proposal status">
+          Community review records a local decision. It does not change the
+          published reference or imply approval by the reference publisher.
+        </InfoPopover>
       </header>
       <div className="flex flex-wrap gap-3">
-        <Button asChild variant="outline">
-          <Link
-            href={termPath(record.field.termSlug, record.field.vocabularySlug)}
-          >
-            View dictionary entry
-          </Link>
-        </Button>
+        {record.field.termSlug ? (
+          <Button asChild variant="outline">
+            <Link
+              href={termPath(
+                record.field.termSlug,
+                record.field.vocabularySlug
+              )}
+            >
+              View dictionary entry
+            </Link>
+          </Button>
+        ) : null}
         <Button asChild variant="outline">
           <a
             href={`/api/metadata/fields/${record.field.id}?revisionId=${selected.id}`}
@@ -188,8 +232,8 @@ export function PublishedField({
         <Alert>
           <AlertTitle>This proposal was withdrawn</AlertTitle>
           <AlertDescription>
-            Its source baseline and recorded history remain available. It is not
-            an active proposal.
+            Its reference version and history remain available. It is not an
+            active proposal.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -199,10 +243,13 @@ export function PublishedField({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <Tabs defaultValue="definition" className="gap-5">
+      <Tabs defaultValue="changes" className="gap-5">
         <TabsList className="h-auto w-full flex-wrap justify-start sm:w-fit">
-          <TabsTrigger value="definition" className="min-h-10">
-            Definition
+          <TabsTrigger value="changes" className="min-h-10">
+            Changes
+          </TabsTrigger>
+          <TabsTrigger value="discussion" className="min-h-10">
+            Discussion
           </TabsTrigger>
           <TabsTrigger value="specification" className="min-h-10">
             Field specification
@@ -211,15 +258,12 @@ export function PublishedField({
             Sources &amp; history
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="definition">
+        <TabsContent value="changes">
           <Card>
             <CardHeader>
               <CardTitle>
                 <h2>Definition</h2>
               </CardTitle>
-              <CardDescription>
-                Explanatory wording pinned to this specification revision.
-              </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <p className="rounded-md border bg-definition p-4 whitespace-pre-wrap break-words leading-relaxed">
@@ -244,6 +288,56 @@ export function PublishedField({
                   {payload.rationale}
                 </p>
               </div>
+              {comparison ? (
+                <section aria-labelledby="proposal-changes">
+                  <h3 id="proposal-changes" className="mb-3 font-medium">
+                    Changes from{" "}
+                    {previous
+                      ? `revision ${previous.version}`
+                      : "the reference"}
+                  </h3>
+                  {differences.length ? (
+                    <dl className="flex flex-col gap-4">
+                      {differences.map((difference) => (
+                        <div
+                          key={difference.label}
+                          className="rounded-md border p-3"
+                        >
+                          <dt className="mb-2 font-medium">
+                            {difference.label}
+                          </dt>
+                          <dd className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
+                            <div className="min-w-0">
+                              <p className="mb-1 text-muted-foreground">
+                                {comparisonLabel}
+                              </p>
+                              <p className="whitespace-pre-wrap break-words">
+                                {difference.before || "Not specified"}
+                              </p>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="mb-1 text-muted-foreground">
+                                This proposal
+                              </p>
+                              <p className="whitespace-pre-wrap break-words">
+                                {difference.after || "Not specified"}
+                              </p>
+                            </div>
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No changes from{" "}
+                      {previous
+                        ? `revision ${previous.version}`
+                        : "the reference"}
+                      .
+                    </p>
+                  )}
+                </section>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>
@@ -283,8 +377,8 @@ export function PublishedField({
             {payload.citations.length} supporting{" "}
             {payload.citations.length === 1 ? "citation" : "citations"}
             {record.baseline
-              ? " · 1 preserved MatCore source baseline"
-              : " · No imported source baseline"}
+              ? " · 1 reference version"
+              : " · No reference version"}
           </p>
           <SourceBaseline
             baseline={record.baseline}
@@ -301,43 +395,112 @@ export function PublishedField({
             <br />
             Specification revision: {selected.id}
             <br />
-            Pinned definition revision: {selected.definitionRevisionId}
+            Dictionary definition revision:{" "}
+            {selected.definitionRevisionId ?? "No dictionary link"}
           </p>
         </TabsContent>
+        <TabsContent value="discussion" className="flex flex-col gap-5">
+          <section
+            className="flex flex-col gap-4 border-t pt-5"
+            aria-labelledby="proposal-discussion"
+          >
+            <h2 id="proposal-discussion" className="text-xl font-semibold">
+              Discussion
+            </h2>
+            <ol className="flex flex-col gap-4">
+              {record.history
+                .filter(
+                  (event) =>
+                    event.revisionId === selected.id &&
+                    event.action === "commented"
+                )
+                .slice()
+                .reverse()
+                .map((event) => (
+                  <li key={event.id} className="border-l-2 pl-4">
+                    <p className="text-sm text-muted-foreground">
+                      {event.actorName ?? "Contributor"} ·{" "}
+                      {formatDateTime(event.createdAt)}
+                    </p>
+                    <p className="whitespace-pre-wrap break-words">
+                      {event.detail.reason}
+                    </p>
+                  </li>
+                ))}
+            </ol>
+            {userId ? (
+              <form
+                className="flex flex-col gap-3"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (comment.isPending) return
+                  setError("")
+                  void comment
+                    .mutateAsync({ revisionId: selected.id, text: commentText })
+                    .then(() => {
+                      setCommentText("")
+                      router.refresh()
+                    })
+                    .catch((error) => setError(errorMessage(error)))
+                }}
+              >
+                <Field>
+                  <FieldLabel htmlFor="proposal-comment">
+                    Add a comment
+                  </FieldLabel>
+                  <Textarea
+                    id="proposal-comment"
+                    value={commentText}
+                    onChange={(event) => setCommentText(event.target.value)}
+                    required
+                    maxLength={4000}
+                  />
+                </Field>
+                <Button
+                  type="submit"
+                  className="w-fit"
+                  disabled={comment.isPending || !commentText.trim()}
+                >
+                  {comment.isPending ? "Posting…" : "Post comment"}
+                </Button>
+              </form>
+            ) : null}
+          </section>
+          {isLatest &&
+          selected.reviewState !== "withdrawn" &&
+          (canReview || canWithdraw) ? (
+            <section
+              className="flex flex-wrap items-center gap-3 border-t pt-5"
+              aria-label="Proposal decisions"
+            >
+              {canReview ? (
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => {
+                    setReason("")
+                    setReviewOpen(true)
+                  }}
+                >
+                  Review proposal
+                </Button>
+              ) : null}
+              {canWithdraw ? (
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    setWithdrawReason("")
+                    setWithdrawOpen(true)
+                  }}
+                >
+                  Withdraw proposal
+                </Button>
+              ) : null}
+            </section>
+          ) : null}
+        </TabsContent>
       </Tabs>
-      {isLatest &&
-      selected.reviewState !== "withdrawn" &&
-      (isAdmin || canWithdraw) ? (
-        <section
-          className="flex flex-wrap items-center gap-3 border-t pt-5"
-          aria-label="Proposal decisions"
-        >
-          {isAdmin ? (
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => {
-                setReason("")
-                setReviewOpen(true)
-              }}
-            >
-              Record local review
-            </Button>
-          ) : null}
-          {canWithdraw ? (
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                setWithdrawReason("")
-                setWithdrawOpen(true)
-              }}
-            >
-              Withdraw proposal
-            </Button>
-          ) : null}
-        </section>
-      ) : null}
       <Dialog
         open={reviewOpen}
         onOpenChange={(open) => {
@@ -346,10 +509,11 @@ export function PublishedField({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Record a local review</DialogTitle>
+            <DialogTitle>Review proposal</DialogTitle>
             <DialogDescription>
               This decision applies to revision {selected.version} only and
-              records MatSci-SAM administrator review.
+              records a community review. Accepted changes appear in the working
+              version.
               {selected.profileKey
                 ? " It does not record official MatCore approval."
                 : ""}
@@ -386,8 +550,8 @@ export function PublishedField({
                   }
                 >
                   <option value="changes_requested">Request changes</option>
-                  <option value="accepted">Accept locally</option>
-                  <option value="declined">Decline locally</option>
+                  <option value="accepted">Accept into working version</option>
+                  <option value="declined">Decline</option>
                 </WorkspaceSelect>
               </Field>
               <Field>
@@ -430,7 +594,9 @@ export function PublishedField({
             <DialogDescription>
               The proposal and its history remain available to readers of this
               community, marked as withdrawn.
-              {record.baseline ? " The source baseline remains unchanged." : ""}
+              {record.baseline
+                ? " The reference version remains unchanged."
+                : ""}
             </DialogDescription>
           </DialogHeader>
           <form

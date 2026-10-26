@@ -16,7 +16,17 @@ import {
 import type { GuidedSetupFixture } from "../guided-setup-ui-fixture"
 
 /** Elevation exists only inside this fixture transaction and is restored before commit. */
-export async function installSyntheticUiSource(fixture: GuidedSetupFixture) {
+export async function installSyntheticUiSource(
+  fixture: GuidedSetupFixture,
+  version = MATCORE_STANDARD_MANIFEST.release.version
+) {
+  const manifest = structuredClone(MATCORE_STANDARD_MANIFEST)
+  manifest.release.version = version
+  const releaseId = `matcore:${version}`
+  manifest.occurrences = manifest.occurrences.map((row) => ({
+    ...row,
+    id: row.id.replace(MATCORE_FIXTURE_RELEASE_ID, releaseId)
+  }))
   return db.transaction(async (tx) => {
     const [user] = await tx
       .select()
@@ -27,7 +37,7 @@ export async function installSyntheticUiSource(fixture: GuidedSetupFixture) {
     const [existing] = await tx
       .select({ id: matcoreSourceReleasesTable.id })
       .from(matcoreSourceReleasesTable)
-      .where(eq(matcoreSourceReleasesTable.id, MATCORE_FIXTURE_RELEASE_ID))
+      .where(eq(matcoreSourceReleasesTable.id, releaseId))
     await tx
       .update(communitiesTable)
       .set({ visibility: "members" })
@@ -39,7 +49,7 @@ export async function installSyntheticUiSource(fixture: GuidedSetupFixture) {
     await installMatcoreSource(
       tx,
       {
-        manifest: MATCORE_STANDARD_MANIFEST,
+        manifest,
         vocabularySlug: fixture.vocabularySlug
       },
       fixture.userId
@@ -48,13 +58,14 @@ export async function installSyntheticUiSource(fixture: GuidedSetupFixture) {
       .update(usersTable)
       .set({ role: user.role })
       .where(eq(usersTable.id, fixture.userId))
-    return { created: !existing }
+    return { created: !existing, releaseId }
   })
 }
 /** Call after all of this fixture's fields/drafts/revisions have been removed. */
 export async function removeSyntheticUiSource(
   fixture: GuidedSetupFixture,
-  created: boolean
+  created: boolean,
+  releaseId = MATCORE_FIXTURE_RELEASE_ID
 ) {
   await db.transaction(async (tx) => {
     await tx
@@ -65,15 +76,10 @@ export async function removeSyntheticUiSource(
     if (created) {
       await tx
         .delete(matcoreSourceOccurrencesTable)
-        .where(
-          eq(
-            matcoreSourceOccurrencesTable.releaseId,
-            MATCORE_FIXTURE_RELEASE_ID
-          )
-        )
+        .where(eq(matcoreSourceOccurrencesTable.releaseId, releaseId))
       await tx
         .delete(matcoreSourceReleasesTable)
-        .where(eq(matcoreSourceReleasesTable.id, MATCORE_FIXTURE_RELEASE_ID))
+        .where(eq(matcoreSourceReleasesTable.id, releaseId))
     }
   })
 }

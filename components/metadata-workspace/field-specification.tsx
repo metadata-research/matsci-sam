@@ -255,12 +255,44 @@ export function SpecificationSummary({
   )
 }
 
+/** Keep the common field rules visible while retaining the full specification. */
+export function FieldRuleOverview({
+  specification,
+  profileKey
+}: {
+  specification: Specification
+  profileKey: string | null
+}) {
+  return (
+    <>
+      <SpecificationSummary
+        specification={specification}
+        profileKey={profileKey}
+        compact
+      />
+      <details className="mt-4 rounded-md border p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          All field rules
+        </summary>
+        <div className="mt-4">
+          <SpecificationSummary
+            specification={specification}
+            profileKey={profileKey}
+          />
+        </div>
+      </details>
+    </>
+  )
+}
+
 export function SpecificationComparison({
   specification,
-  baseline
+  baseline,
+  currentLabel = "Proposal"
 }: {
   specification: Specification
   baseline: Specification
+  currentLabel?: string
 }) {
   const source = new Map(specificationRows(baseline))
   return (
@@ -296,7 +328,7 @@ export function SpecificationComparison({
                   </p>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-muted-foreground">Proposal</p>
+                  <p className="text-muted-foreground">{currentLabel}</p>
                   <p className="whitespace-pre-wrap break-words">
                     {value || "Not specified"}
                   </p>

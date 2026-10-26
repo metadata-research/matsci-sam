@@ -1091,17 +1091,18 @@ async function main() {
         genericPublic.history.some((event) => event.action === "published"),
         "Generic publication has provenance"
       )
-      await rejects(
-        reviewMatcoreRevision(
-          tx,
-          {
-            revisionId: genericPublication.revisionId,
-            decision: "accepted",
-            reason: "Steward is not a site reviewer"
-          },
-          owner.id
-        ),
-        "FORBIDDEN"
+      const stewardReview = await reviewMatcoreRevision(
+        tx,
+        {
+          revisionId: genericPublication.revisionId,
+          decision: "accepted",
+          reason: "Community steward reviewed the field."
+        },
+        owner.id
+      )
+      check(
+        stewardReview.revisions[0].reviewState === "accepted",
+        "A community steward can review an existing field when new metadata creation is disabled"
       )
       const genericRevision = await reviseMatcoreField(
         tx,
