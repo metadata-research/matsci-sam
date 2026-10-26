@@ -37,6 +37,7 @@ import { buildTermProvenance } from "../lib/provenance"
 import { provenanceTurtle } from "../lib/provenance-rdf"
 import { loadProvenanceDatasetData } from "../lib/graph/provenance-dataset"
 import { clearPublicGraphProjection } from "../lib/graph/projector"
+import { CONTENT_GRAPH_NAMES, graphIri } from "../lib/graph/names"
 import {
   readContributionFile,
   revisionContributionFiles,
@@ -701,9 +702,13 @@ async function main() {
     )
     checks++
     process.env.FUSEKI_DATASET_URL = "https://graph.invalid/matsci"
-    let body = ""
-    globalThis.fetch = async (_url, init) => {
-      body = String(init?.body)
+    const requests: { url: string; method?: string; body: unknown }[] = []
+    globalThis.fetch = async (url, init) => {
+      requests.push({
+        url: String(url),
+        method: init?.method,
+        body: init?.body
+      })
       return new Response("", { status: 503 })
     }
     await assert.rejects(
@@ -712,17 +717,45 @@ async function main() {
     )
     checks++
     same(
-      (body.match(/CLEAR SILENT GRAPH/g) ?? []).length,
-      5,
-      "Clear targets only the five owned named projections"
+      requests.length,
+      1,
+      "Failed graph removal stops the visibility transition immediately"
     )
-    ok(
-      !body.includes("DROP ALL") && !body.includes("CLEAR ALL"),
-      "No unrelated graph data cleared"
-    )
-    globalThis.fetch = async () => new Response("", { status: 200 })
+    requests.length = 0
+    globalThis.fetch = async (url, init) => {
+      requests.push({
+        url: String(url),
+        method: init?.method,
+        body: init?.body
+      })
+      return new Response(null, { status: 204 })
+    }
     await clearPublicGraphProjection()
     checks++
+    same(
+      requests,
+      [...CONTENT_GRAPH_NAMES, "meta" as const].map((name) => ({
+        url: `https://graph.invalid/matsci/data?graph=${encodeURIComponent(graphIri(name))}`,
+        method: "PUT",
+        body: ""
+      })),
+      "Clear replaces only the five owned named graphs through Graph Store"
+    )
+    requests.length = 0
+    globalThis.fetch = async (url, init) => {
+      requests.push({
+        url: String(url),
+        method: init?.method,
+        body: init?.body
+      })
+      return new Response(null, { status: requests.length === 3 ? 401 : 204 })
+    }
+    await assert.rejects(
+      clearPublicGraphProjection(),
+      (e: { code?: string }) => e.code === "PRECONDITION_FAILED"
+    )
+    checks++
+    same(requests.length, 3, "A partial clear fails closed on rejected writes")
   } finally {
     globalThis.fetch = originalFetch
     delete process.env.FUSEKI_DATASET_URL
