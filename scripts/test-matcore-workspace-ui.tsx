@@ -143,7 +143,9 @@ const source = renderToStaticMarkup(
     }}
   />
 )
-assert.match(source, /Preserved source baseline/)
+assert.match(source, />Reference</)
+assert.match(source, /<h3>name<\/h3>/)
+assert.doesNotMatch(source, /Preserved source/)
 assert.match(source, /creator \/ name/)
 assert.match(source, /Not established for this source snapshot/)
 assert.match(source, /MatCore authors/)
@@ -157,7 +159,7 @@ const noSource = renderToStaticMarkup(
     sourceRelease={null}
   />
 )
-assert.match(noSource, /No imported source baseline/)
+assert.match(noSource, /This field has no reference version\./)
 assert.doesNotMatch(noSource, /MatCore/)
 const citations = renderToStaticMarkup(
   <FieldCitations citations={proposal.citations} />

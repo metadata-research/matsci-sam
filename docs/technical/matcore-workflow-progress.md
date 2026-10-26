@@ -1192,3 +1192,13 @@ named `release-version-switch-1440px.png` and `release-version-switch-390px.png`
 inside the standards evidence directory. The local preview is rebuilt and running.
 These fixes required no additional migration or data conversion. The changes remain
 uncommitted; remote CI, Superego deployment and Ego deployment have not run.
+
+### Release verification follow-up, October 26, 2026
+
+The first remote CI run passed its database and graph jobs, but the main job
+stopped on an older presentation assertion that still expected “Preserved source
+baseline.” The interface intentionally uses “Reference.” The presentation test
+now checks that label, the short field name and the generic no-reference message,
+while retaining its escaping and attribution checks. No application behavior
+changed for this correction. All three `test:matcore` checks pass locally. The full
+CI suite must pass before deployment.
