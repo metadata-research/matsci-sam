@@ -24,7 +24,6 @@ import {
   matcoreSpecDraftsTable,
   matcoreSpecRevisionsTable,
   matcoreWorkflowEventsTable,
-  revisionImportOriginsTable,
   termDraftsTable,
   termsTable,
   usersTable,
@@ -80,7 +79,7 @@ async function main() {
     "matcoreWorkflow.importStandard",
     "matcoreWorkflow.createDraft",
     "matcoreWorkflow.updateDraft",
-    "matcoreWorkflow.publish",
+    "matcoreWorkflow.submit",
     "matcoreWorkflow.revise",
     "matcoreWorkflow.withdraw"
   ])
@@ -292,7 +291,14 @@ async function main() {
     activeDraftId = selected.id
     const draftUrl = `${base}/metadata/workspace/${activeDraftId}`
     await page.goto(draftUrl)
+    await expect(page.getByRole("tablist").getByRole("tab").first()).toHaveText(
+      "Field specification"
+    )
+    await expect(
+      page.getByRole("tab", { name: "Field specification", exact: true })
+    ).toHaveAttribute("data-state", "active")
     const edited = `A metadata field explained by the local UI fixture ${fixture.token}.`
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(page)).toBeEditable()
     await expect(page.getByLabel("Data type", { exact: true })).toBeVisible()
     await expect(
@@ -301,7 +307,9 @@ async function main() {
     await expect(page.getByLabel("Value form", { exact: true })).toHaveValue(
       "unspecified"
     )
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await definition(page).fill(edited)
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(page)).toHaveValue(edited)
     await page
       .getByRole("textbox", { name: "Reason for this proposal", exact: true })
@@ -355,9 +363,7 @@ async function main() {
     await page
       .getByRole("tab", { name: "Sources & history", exact: true })
       .click()
-    await expect(
-      page.getByText("Preserved source baseline", { exact: true })
-    ).toBeVisible()
+    await expect(page.getByText("Reference", { exact: true })).toBeVisible()
     await button(page, "Add citation").click()
     await page
       .getByRole("textbox", { name: "Source title", exact: true })
@@ -393,6 +399,7 @@ async function main() {
     )
     assert.deepEqual(committed.payload.specification.allowedValues, ["A", "B"])
     await page.goto(draftUrl)
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(page)).toHaveValue(edited)
     await page
       .getByRole("tab", { name: "Sources & history", exact: true })
@@ -455,6 +462,7 @@ async function main() {
     const beforeLost = await activeDraft()
     const lostWriting = `${edited} Save-response recovery was exercised.`
     dropNextSave = true
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await definition(page).fill(lostWriting)
     await expect(button(page, "Retry save")).toBeVisible()
     assert.equal(droppedSave, true)
@@ -490,6 +498,7 @@ async function main() {
       await expect(page).toHaveURL(
         (url) => url.pathname === `/metadata/workspace/${activeDraftId}`
       )
+      await page.getByRole("tab", { name: "Definition", exact: true }).click()
       await expect(definition(page)).toBeEditable()
     }
     const backToWorkspace = async () => {
@@ -522,6 +531,7 @@ async function main() {
     const beforeBack = await activeDraft()
     const backWriting = `${edited} This writing survives browser Back after a failed save.`
     rejectSaves = true
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await definition(page).fill(backWriting)
     await expect(button(page, "Retry save")).toBeVisible()
     assert.equal(
@@ -535,6 +545,7 @@ async function main() {
       await page.evaluate(() => history.back())
       await expect.poll(() => canceledBack.seen).toBe(true)
       await expect(page).toHaveURL(beforeCanceledBack)
+      await page.getByRole("tab", { name: "Definition", exact: true }).click()
       await expect(definition(page)).toHaveValue(backWriting)
       assert.equal((await activeDraft()).version, beforeBack.version)
     } finally {
@@ -542,6 +553,7 @@ async function main() {
     }
     await backToWorkspace()
     await returnFromWorkspace()
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(page)).toHaveValue(backWriting)
     await expect(
       page.getByText(
@@ -569,6 +581,7 @@ async function main() {
     const staleBase = await activeDraft()
     const staleWriting = `${edited} Preserve this recovery copy while another tab saves.`
     rejectSaves = true
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await definition(page).fill(staleWriting)
     await expect(button(page, "Retry save")).toBeVisible()
     await backToWorkspace()
@@ -576,12 +589,19 @@ async function main() {
     const concurrent = await context.newPage()
     observe(concurrent)
     await concurrent.goto(draftUrl)
+    await concurrent
+      .getByRole("tab", { name: "Definition", exact: true })
+      .click()
     await expect(definition(concurrent)).toBeEditable()
     const concurrentWriting = `${edited} A newer account version was saved while the first tab was away.`
+    await concurrent
+      .getByRole("tab", { name: "Definition", exact: true })
+      .click()
     await definition(concurrent).fill(concurrentWriting)
     await expect(saved(concurrent)).toBeVisible()
     assert.equal((await activeDraft()).payload.definition, concurrentWriting)
     await returnFromWorkspace()
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(page)).toHaveValue(staleWriting)
     await expect(saved(page)).toHaveCount(0)
     // Next may restore a cached route. Either the fresh read or the subsequent
@@ -608,12 +628,14 @@ async function main() {
       .getByRole("dialog")
       .getByRole("button", { name: "Keep editing", exact: true })
       .click()
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(page)).toHaveValue(staleWriting)
     await button(page, "Reload saved draft").click()
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "Reload saved draft", exact: true })
       .click()
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(page)).toHaveValue(concurrentWriting)
     await expect(saved(page)).toBeVisible()
     await concurrent.close()
@@ -625,16 +647,19 @@ async function main() {
     observe(other)
     await other.goto(draftUrl)
     const firstTabWriting = `${edited} The first tab saved this wording.`
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await definition(page).fill(firstTabWriting)
     await expect(saved(page)).toBeVisible()
     await expect
       .poll(async () => (await activeDraft()).payload.definition)
       .toBe(firstTabWriting)
     const secondTabWriting = `${edited} The second tab has different unsaved writing.`
+    await other.getByRole("tab", { name: "Definition", exact: true }).click()
     await definition(other).fill(secondTabWriting)
     await expect(
       other.getByText("A newer saved version is available", { exact: true })
     ).toBeVisible()
+    await other.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(other)).toHaveValue(secondTabWriting)
     assert.equal((await activeDraft()).payload.definition, firstTabWriting)
     await button(other, "Reload saved draft").click()
@@ -642,14 +667,17 @@ async function main() {
       .getByRole("dialog")
       .getByRole("button", { name: "Keep editing", exact: true })
       .click()
+    await other.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(other)).toHaveValue(secondTabWriting)
     await button(other, "Reload saved draft").click()
     await other
       .getByRole("dialog")
       .getByRole("button", { name: "Reload saved draft", exact: true })
       .click()
+    await other.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(other)).toHaveValue(firstTabWriting)
     const recovered = `${edited} The conflict was reviewed and saving resumed.`
+    await other.getByRole("tab", { name: "Definition", exact: true }).click()
     await definition(other).fill(recovered)
     await expect(saved(other)).toBeVisible()
     await expect
@@ -666,34 +694,40 @@ async function main() {
       reviewDialog.getByText(recovered, { exact: true })
     ).toBeVisible()
     await expect(
-      reviewDialog.getByText("Changes from the source baseline", {
+      reviewDialog.getByText("Changes from the reference", {
         exact: true
       })
     ).toBeVisible()
     await expect(
       reviewDialog.getByText(
-        "1 supporting citation and one preserved MatCore source baseline.",
+        "1 supporting citation and one reference version.",
         { exact: true }
       )
     ).toBeVisible()
     await reviewDialog
-      .getByRole("button", { name: "Publish local proposal", exact: true })
+      .getByRole("button", { name: "Submit for review", exact: true })
       .click()
     await expect(other).toHaveURL(/\/metadata\/fields\/[0-9a-f-]+\?revision=/)
     const publication = (await activeDraft()).publication
     assert.ok(publication)
     await expect(
-      other.getByText("Awaiting local review", { exact: true })
+      other.getByText("Awaiting review", { exact: true })
     ).toBeVisible()
-    await expect(other.getByText(recovered, { exact: true })).toBeVisible()
+    await expect(
+      other
+        .getByRole("region", {
+          name: "Changes from the reference",
+          exact: true
+        })
+        .getByText(recovered, { exact: true })
+    ).toBeVisible()
     await other
       .getByRole("tab", { name: "Sources & history", exact: true })
       .click()
     await expect(
-      other.getByText(
-        "1 supporting citation · 1 preserved MatCore source baseline",
-        { exact: true }
-      )
+      other.getByText("1 supporting citation · 1 reference version", {
+        exact: true
+      })
     ).toBeVisible()
     await expect(
       other.getByRole("link", {
@@ -701,18 +735,15 @@ async function main() {
         exact: true
       })
     ).toBeVisible()
-    const [originRow] = await db
-      .select()
-      .from(revisionImportOriginsTable)
-      .where(
-        eq(
-          revisionImportOriginsTable.revisionId,
-          publication.definitionRevisionId
-        )
-      )
-    assert.ok(
-      originRow,
-      "Ordinary dictionary provenance preserves source attribution"
+    assert.equal(
+      publication.definitionRevisionId,
+      null,
+      "A standalone proposal has no dictionary revision"
+    )
+    assert.equal(
+      publication.term,
+      null,
+      "Submitting a field does not create a dictionary entry"
     )
     const [revision] = await db
       .select()
@@ -744,7 +775,7 @@ async function main() {
     )
     assert.equal(exported.sourceRelease.version, MATCORE_FIXTURE_VERSION)
     await capture(other, "published-field-provenance")
-    await other.getByRole("tab", { name: "Definition", exact: true }).click()
+    await other.getByRole("tab", { name: "Changes", exact: true }).click()
     await expect(other.locator('dl[aria-label="Field rules"]')).toContainText(
       "List"
     )
@@ -760,19 +791,12 @@ async function main() {
     ).toContainText("Not recorded separately")
     await capture(other, "published-field-rules")
     record(
-      "Publishing retains source attribution, supporting citation, pinned definition and exact-revision JSON export"
+      "Submission retains source attribution, supporting citation, standalone definition and exact-revision JSON export"
     )
 
-    const publicUrl = other.url()
-    await other
-      .getByRole("link", { name: "View dictionary entry", exact: true })
-      .click()
     await expect(
-      other
-        .locator(`a[href*="/metadata/fields/${publication.fieldId}"]`)
-        .first()
-    ).toBeVisible()
-    await other.goto(publicUrl)
+      other.getByRole("link", { name: "View dictionary entry", exact: true })
+    ).toHaveCount(0)
     await button(other, "Propose a revision").click()
     await expect(other).toHaveURL(/\/metadata\/workspace\/[0-9a-f-]+/)
     activeDraftId = new URL(other.url()).pathname.split("/").at(-1)!
@@ -790,9 +814,21 @@ async function main() {
     await button(other, "Review proposal").click()
     await other
       .getByRole("dialog")
-      .getByRole("button", { name: "Publish local proposal", exact: true })
+      .getByRole("button", { name: "Submit for review", exact: true })
       .click()
     await expect(other).toHaveURL(/\/metadata\/fields\/[0-9a-f-]+\?revision=/)
+    await expect(
+      other.getByRole("tablist").getByRole("tab").first()
+    ).toHaveText("Changes")
+    await expect(
+      other.getByRole("tab", { name: "Changes", exact: true })
+    ).toHaveAttribute("data-state", "active")
+    await expect(
+      other.getByRole("region", {
+        name: "Changes from revision 1",
+        exact: true
+      })
+    ).toContainText("YYYY-MM-DD with an explicit date example")
     const secondPublication = (await activeDraft()).publication
     assert.ok(secondPublication)
     assert.notEqual(secondPublication.revisionId, publication.revisionId)
@@ -820,7 +856,7 @@ async function main() {
     await other.setViewportSize({ width: 390, height: 844 })
     await capture(other, "field-revision-mobile")
     record(
-      "Specification-only revision reuses its definition revision; historical rules remain readable on mobile"
+      "Specification-only revision preserves its standalone definition; historical rules remain readable on mobile"
     )
     const genericContext = await browser.newContext({
       viewport: { width: 1365, height: 1000 }
@@ -873,7 +909,7 @@ async function main() {
     await button(generic, "New metadata field").click()
     await generic
       .getByRole("dialog")
-      .getByLabel("Field label", { exact: true })
+      .getByLabel("Field name", { exact: true })
       .fill(genericLabel)
     await expect(
       generic
@@ -897,6 +933,7 @@ async function main() {
       assert.ok(row)
       return row
     }
+    await generic.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(generic)).toBeEditable()
     await expect(generic.getByLabel("Data type", { exact: true })).toBeVisible()
     await expect(
@@ -905,6 +942,7 @@ async function main() {
     await expect(
       generic.getByText("Compare with source rules", { exact: true })
     ).toHaveCount(0)
+    await generic.getByRole("tab", { name: "Definition", exact: true }).click()
     await definition(generic).fill(genericDefinition)
     await generic
       .getByLabel("Reason for this proposal", { exact: true })
@@ -941,10 +979,7 @@ async function main() {
       .getByRole("tab", { name: "Sources & history", exact: true })
       .click()
     await expect(
-      generic.getByText(
-        "No imported source baseline is associated with this field.",
-        { exact: true }
-      )
+      generic.getByText("This field has no reference version.", { exact: true })
     ).toBeVisible()
     await button(generic, "Add citation").click()
     await generic
@@ -977,6 +1012,7 @@ async function main() {
       "Measure after thermal equilibration."
     )
     await generic.goto(genericDraftUrl)
+    await generic.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(generic)).toHaveValue(genericDefinition)
     await generic
       .getByRole("tab", { name: "Field specification", exact: true })
@@ -1079,7 +1115,7 @@ async function main() {
     ).toBeVisible()
     await generic
       .getByRole("dialog")
-      .getByRole("button", { name: "Publish local proposal", exact: true })
+      .getByRole("button", { name: "Submit for review", exact: true })
       .click()
     await expect(generic).toHaveURL(/\/metadata\/fields\/[0-9a-f-]+\?revision=/)
     genericRow = await genericDraft()
@@ -1095,15 +1131,12 @@ async function main() {
       })
     ).toBeVisible()
     await expect(
-      generic.getByText("1 supporting citation · No imported source baseline", {
+      generic.getByText("1 supporting citation · No reference version", {
         exact: true
       })
     ).toBeVisible()
     await expect(
-      generic.getByText(
-        "No imported source baseline is associated with this field.",
-        { exact: true }
-      )
+      generic.getByText("This field has no reference version.", { exact: true })
     ).toBeVisible()
     const genericDownload = await generic
       .getByRole("link", { name: "Download specification", exact: true })
@@ -1134,23 +1167,15 @@ async function main() {
       genericExport.revision.payload.specification.repeatability,
       "no"
     )
-    const origins = await db
-      .select()
-      .from(revisionImportOriginsTable)
-      .where(
-        eq(
-          revisionImportOriginsTable.revisionId,
-          genericPublication.definitionRevisionId
-        )
-      )
-    assert.deepEqual(
-      origins,
-      [],
-      "A local field must not fabricate an imported origin"
+    assert.equal(genericPublication.definitionRevisionId, null)
+    assert.equal(
+      genericPublication.term,
+      null,
+      "An independent metadata proposal has no imported dictionary origin"
     )
     await capture(generic, "generic-field-provenance")
     record(
-      "Publishing a generic field retains its citation and revision provenance; JSON explicitly has no MatCore profile, baseline or imported origin"
+      "Submitting a generic field retains its citation and revision provenance; JSON explicitly has no MatCore profile, baseline or imported origin"
     )
 
     await generic.goto(genericWorkspace)

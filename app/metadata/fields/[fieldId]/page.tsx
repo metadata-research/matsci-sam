@@ -31,7 +31,7 @@ export default async function PublishedMetadataFieldPage({
       throw error
     })
   const workspaceHref = record.community
-    ? `/communities/${record.community.slug}?view=work`
+    ? `/communities/${record.community.slug}?view=proposals`
     : `/metadata/workspace?vocabularySlug=${encodeURIComponent(record.field.vocabularySlug)}`
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">

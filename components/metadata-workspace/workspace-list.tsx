@@ -197,7 +197,7 @@ export function WorkspaceList({
             </p>
             {workspace.hasMatcoreCatalog ? (
               <p className="mt-2">
-                Draft proposals do not change the preserved MatCore source.
+                Draft proposals do not change the reference version.
               </p>
             ) : null}
             <Link
@@ -429,7 +429,7 @@ export function WorkspaceList({
             <DialogTitle>New metadata field</DialogTitle>
             <DialogDescription>
               Start a private local proposal in {destinationItem?.title}. This
-              field has no imported source baseline. Choose a standard context
+              field has no reference version. Choose a standard context
               only if it applies.
             </DialogDescription>
           </DialogHeader>
@@ -472,7 +472,7 @@ export function WorkspaceList({
           >
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="new-field-label">Field label</FieldLabel>
+                <FieldLabel htmlFor="new-field-label">Field name</FieldLabel>
                 <Input
                   id="new-field-label"
                   value={label}

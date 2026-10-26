@@ -31,6 +31,19 @@ export function normalizeMatcoreCatalogReturnTo(
     seen.add(key)
     if (key === "view") continue
     if (
+      key === "standard" &&
+      ["reference", "working", "release"].includes(parameter)
+    )
+      continue
+    if (
+      key === "edition" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        parameter
+      )
+    )
+      continue
+    if (key === "layout" && ["list", "hierarchy"].includes(parameter)) continue
+    if (
       (key === "release" || key === "source") &&
       sourceIdPattern.test(parameter)
     )
@@ -51,7 +64,14 @@ export function normalizeMatcoreCatalogReturnTo(
       continue
     return null
   }
-  if (params.has("source") && !params.has("release")) return null
+  if (
+    params.has("source") &&
+    !params.has("release") &&
+    params.get("standard") !== "working" &&
+    params.get("standard") !== "release"
+  )
+    return null
+  if (params.has("edition") && params.get("standard") !== "release") return null
   if (
     context?.releaseId !== undefined &&
     params.get("release") !== context.releaseId
@@ -70,16 +90,22 @@ export function matcoreCatalogHref(
     offset?: number
     source?: string
     search?: string
+    layout?: "list" | "hierarchy"
+    standard?: "reference" | "working" | "release"
+    edition?: string
   } = {}
 ) {
   if (!slugPattern.test(communitySlug))
     throw new Error("Invalid community slug")
   const params = new URLSearchParams({ view: "vocabulary" })
+  if (options.standard) params.set("standard", options.standard)
+  if (options.edition) params.set("edition", options.edition)
   if (options.releaseId) params.set("release", options.releaseId)
   if (options.profileKey) params.set("profile", options.profileKey)
   if (options.offset) params.set("offset", String(options.offset))
   if (options.source) params.set("source", options.source)
   if (options.search) params.set("q", options.search)
+  if (options.layout) params.set("layout", options.layout)
   const href = `/communities/${communitySlug}?${params}`
   if (!normalizeMatcoreCatalogReturnTo(href))
     throw new Error("Invalid catalog context")

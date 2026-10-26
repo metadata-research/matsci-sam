@@ -167,11 +167,15 @@ export type MatcoreSourceRelease = {
 export type MatcorePublication = {
   fieldId: string
   revisionId: string
-  definitionRevisionId: number
-  term: { id: number; slug: string; vocabularySlug: string }
+  definitionRevisionId: number | null
+  term: { id: number; slug: string; vocabularySlug: string } | null
 }
 export type MatcoreEventDetail = {
-  authority: "contributor" | "site_administrator" | "source_import"
+  authority:
+    | "contributor"
+    | "site_administrator"
+    | "source_import"
+    | "community_steward"
   policyVersion: typeof MATCORE_WORKFLOW_POLICY
   reason?: string
   decision?: "accepted" | "changes_requested" | "declined" | "withdrawn"

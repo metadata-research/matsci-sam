@@ -462,10 +462,10 @@ when later snapshots become available. Internal deployment and development
 plans now use catalog browsing and individual proposals as the default.
 Bulk import remains an optional action on each host.
 
-| Host | Inventory and migration review | Community catalog setup | Preservation and UI acceptance |
-| --- | --- | --- | --- |
-| Superego | Pending | Pending | Pending |
-| Ego | Pending, after Superego acceptance | Pending | Pending |
+| Host     | Inventory and migration review     | Community catalog setup | Preservation and UI acceptance |
+| -------- | ---------------------------------- | ----------------------- | ------------------------------ |
+| Superego | Pending                            | Pending                 | Pending                        |
+| Ego      | Pending, after Superego acceptance | Pending                 | Pending                        |
 
 The existing source reuse prerequisite applies before remote deployment.
 Source catalog API reads are public. Workspace settings do not restrict
@@ -642,8 +642,7 @@ unchecked item is not a passing result.
   behind HTTPS forwarding; exact fixture cleanup leaves all 67 table
   fingerprints unchanged. Privacy acceptance passes all eight groups on the
   rebuilt preview. Its first run timed out once waiting for a reload; the
-  unchanged test passed with 256 task slots for the browser runner instead of
-  128. The cause is unconfirmed, with no browser errors or application change.
+  unchanged test passed with 256 task slots for the browser runner instead of 128. The cause is unconfirmed, with no browser errors or application change.
   Original-column preservation still passes for all 65 baseline tables.
 
 - A later CI contribution regression exposed an account/term lock inversion
@@ -671,7 +670,6 @@ unchecked item is not a passing result.
   and rows of all 65 baseline tables match. Evidence is under
   `.matsci-stage/community-privacy/metadata-entry-acceptance/`. TypeScript,
   scoped lint, presentation checks and independent review pass.
-
 
 ## Community usability follow-up, October 23
 
@@ -719,7 +717,6 @@ was not available, so automated checks used the existing bounded Playwright
 harness. Manual local review used the in-app browser. This is interface
 acceptance, not a usability study with new participants.
 
-
 ## Community selection navigation, October 24
 
 Selecting a community in the header opens its Overview and saves the browsing
@@ -746,3 +743,452 @@ Final suites have no unexpected browser errors or blocked requests.
 The community guide describes the updated navigation. Evidence is outside Git
 in `.matsci-stage/community-switcher-20261024/`. No migration or catalog change
 is needed. This fix has been verified locally and has not been deployed.
+
+## Optional hierarchy view plan, October 26
+
+Chris requested an optional hierarchy view that remains generic across
+communities, with familiar controls and a simple workflow for practitioners.
+This section records the design and component assessment before implementation.
+Implementation and verification results follow below.
+
+The source import retains field paths and validates parent paths. Installed
+occurrences retain the path and source identity. The catalog presents these
+occurrences as a paginated list. A hierarchy view can use the preserved paths,
+scoped to a source version and profile. Profile inheritance remains a separate
+relationship, shown through a labelled group or link.
+
+The recommended first implementation is an expandable outline with nested
+lists, disclosure buttons and ordinary field links. The current catalog uses
+shadcn components with Radix primitives. Add the Radix Collapsible component
+using the existing component conventions and a compatible pinned dependency.
+The shared outline accepts generic node identities, labels, child relationships
+and destinations. A MatCore adapter supplies its versioned source occurrences.
+Other communities can use the same component when they have explicit structure.
+Do not infer hierarchy from similar labels or expose controls for a community
+without structured content.
+
+| Option                                                                              | Assessment                                                                                                                                                       |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [shadcn/Radix Collapsible](https://ui.shadcn.com/docs/components/radix/collapsible) | Recommended for expandable navigation using the existing visual components and ordinary links.                                                                   |
+| [React Aria Tree](https://react-aria.adobe.com/Tree)                                | Alternative if testing establishes a need for a complete tree widget with arrow-key navigation and managed selection. It would add another component dependency. |
+| [MUI Tree View](https://mui.com/x/react-tree-view/accessibility/)                   | Provides tree navigation and focus behavior. Material UI is installed elsewhere, but the tree package is not, and the catalog uses shadcn styling.               |
+
+The [WAI navigation guidance](https://www.w3.org/WAI/ARIA/apg/patterns/treeview/examples/treeview-navigation/)
+recommends disclosures for typical expandable navigation. A disclosure outline
+uses normal Tab, Enter and Space behavior. It must not claim the ARIA tree role
+without implementing the complete tree interaction pattern.
+
+Practitioner interaction requirements:
+
+- Keep List as the initial view, with a visible List / Hierarchy choice.
+- Use a separate, comfortably sized expansion button and a field-name link.
+  Expanding a branch reveals children. Following the link opens field details.
+  A parent field remains selectable even when it also contains child fields.
+- Open the top level initially. Search reveals matching fields with their
+  ancestor paths, and clearing search restores the previous expansion state.
+- Reuse the existing field detail and Propose a change workflow. Returning
+  restores the filters, selected field, expanded branches and reading position.
+- Keep rows compact. Field names are primary, with required and repeatable
+  labels where useful. Detailed rules and explanations remain in the field
+  view and information popovers.
+- Use a single column on narrow screens with clear return navigation. Keyboard
+  focus remains visible, and collapsing a branch cannot strand focus inside
+  hidden content.
+
+The first version covers browsing the preserved catalog. Existing membership
+checks, draft ownership, baseline identity and provenance remain authoritative.
+No database migration is expected for this initial view. The API must supply
+the relevant parent structure across list page boundaries and search filters.
+Acceptance will cover deep links, browser Back, search restoration, duplicate
+labels in different profiles, parent-field selection, keyboard and touch use,
+and an ordinary community with no hierarchy. Verify that browsing creates no
+drafts and does not expose private content. Dependency compatibility and mobile
+and assistive-technology behavior require testing before release.
+
+## Optional hierarchy view implemented locally, October 26
+
+The reference catalog has List and Hierarchy views. Hierarchy uses a reusable
+disclosure outline built from nested lists, field links and Radix Collapsible
+1.1.21. The shared component has no MatCore names or profile assumptions.
+The catalog adapter supplies the authorized source paths, field labels and
+destinations. Regular communities retain their existing vocabulary view.
+
+All profiles initially show collapsed groups. Selecting one profile opens its
+top level. Separate expansion buttons and field links allow a parent field to
+be opened without expanding its children. Search retains matching fields and
+their ancestor paths across list page boundaries. Clearing search restores
+the previous expansion state. Profile inheritance has separate labelled links.
+Required and repeatable labels use the recorded field rules. Duplicate paths
+become navigation groups with separate record links, preserving their identity
+without presenting one record as the parent of another.
+
+Catalog and proposal return links preserve Hierarchy mode, version, profile
+and search. Browser session storage retains expanded branches, field selection
+and reading position, scoped to account, community, release and profile. An
+in-memory fallback permits navigation when browser storage is unavailable.
+The outline uses normal buttons and links with visible focus and 44-pixel
+expansion controls. Existing source entries, drafts and provenance are unchanged.
+No migration, source reimport or publication is included.
+
+Verification completed on the production local preview:
+
+- All 14 catalog browser groups pass, including parent-field selection,
+  keyboard expansion, search restoration, browser Back, reload, proposal
+  saving and return, blocked storage, and 390-pixel and 320-pixel layouts.
+- A regular community has no hierarchy controls. Anonymous source requests
+  and another member's private draft remain inaccessible.
+- All 100 catalog database checks pass with transaction rollback. Pure
+  hierarchy and navigation checks cover missing parents, duplicate labels and
+  paths, search context and restricted return URLs.
+- The production build, TypeScript, scoped ESLint and diff checks pass.
+  Screenshots show the desktop and narrow-screen layouts. No unexpected
+  console errors or blocked requests remain in the final browser run.
+- Final fixture cleanup succeeds. Fingerprints for retained public-table
+  records match, including existing source releases, drafts and provenance.
+
+Two initial browser runs needed corrections to the test's profile label and
+its navigation wait before reload. A later run passed the new workflow checks
+but Chromium crashed while opening another context. The complete suite passes
+with a 256-task limit for the test runner, a 2 GiB memory limit and two CPUs.
+Application limits remain unchanged. The local preview restart helper also
+needed to recreate its stopped transient unit after the first successful build.
+
+The user guide now describes the hierarchy controls and return behavior.
+Evidence is outside Git in `.matsci-stage/catalog-hierarchy-20261026/ui-final/`.
+This is local Chromium acceptance with synthetic fixtures, not a practitioner
+usability study or a manual screen-reader audit. The reusable outline is
+available for other structured catalogs, while this first integration covers
+the preserved MatCore reference catalog. Remote deployment remains separate.
+
+## Community standards workspace redesign, October 26
+
+Implemented and verified locally on `feat/catalog-hierarchy`. The user approved
+separate reference, working version and proposal views, steward review and named
+community releases. Metadata communities now open on Standard. Ordinary vocabulary
+communities keep their existing navigation. No Superego or Ego changes were made.
+
+The community navigation exposes Standard, Proposals, My drafts and People.
+More contains community releases, vocabulary terms, collections, About and
+available management tools. The source version stays selected when moving from
+Standard to Proposals. The proposal queue can also select an earlier reference.
+
+Field names are separate from profiles and schema paths. New individual proposals
+start with the short source field name. A parent and child can have the same short
+name at distinct paths. Existing drafts and source payloads retain their stored
+contents and provenance. No catalog reimport or deletion was needed.
+
+Reference and Working version share a compact profile, search and List / Hierarchy
+toolbar. Desktop shows the outline beside the selected definition. Narrow screens
+show the field browser or detail, with Back to fields restoring keyboard focus.
+The definition remains visually distinct. Common field rules are visible, while
+All field rules, source attribution and comparison details expand on demand.
+
+New submissions use standalone metadata field revisions instead of creating
+dictionary terms. Existing dictionary-linked fields and their exact definition
+revisions remain supported. Private drafts, submitted revisions, immutable source
+baselines and named releases are separate records. Members can comment on an exact
+proposal revision. Stewards or site administrators accept, request changes or
+decline, with an attributed reason. Only accepted revisions affect the working
+version. A pending revision leaves the previously accepted one in use.
+
+A named community release freezes the selected reference, complete field contents,
+accepted revision IDs and review event IDs. A stale working-version fingerprint
+blocks release creation. Repeated release requests are idempotent. Releases are
+immutable, and later acceptance does not rewrite them. Source-linked revisions
+never cross reference versions automatically. Duplicate paths within a profile
+are rejected before acceptance or release. These actions do not imply approval by
+the reference publisher.
+
+Migration `0074_community_standard_releases.sql` adds the release table, permits
+standalone metadata revisions and extends attributed events for steward review
+and discussion. It was applied only to `matsci_matcore_test` on port 55447 after
+an isolated database backup. Existing rows were not rewritten. The normal local
+database and remote environments were not touched. A future deployment needs the
+usual database backup and migration rehearsal, but no reference reimport.
+
+Verification:
+
+- 39 new database checks pass, including steward permissions, private access,
+  source-version isolation, stale release requests, release immutability,
+  acceptance rollback for duplicate paths, and preserved baselines.
+- The existing workflow and catalog database suites pass, with 119 and 100 checks.
+  All database fixtures were rolled back.
+- The complete standards UI suite passes 12 groups: reference browsing, short names,
+  list and hierarchy navigation, keyboard disclosure and focus return, blocked
+  storage, private drafts, saving and reload, submitted discussion, steward review,
+  working versions, releases, ordinary vocabulary access and 390px / 320px layouts.
+- The draft workflow UI suite passes 13 groups, including interrupted saves,
+  lost responses, two-tab conflicts, source/citation retention, generic metadata
+  fields and ordinary vocabulary publication. The sections, privacy and header
+  suites pass 12, 8 and 11 groups respectively.
+- Final fixture cleanup passed. The standards UI suite compared fingerprints for
+  all retained public-table records before and after, including existing drafts,
+  source releases and provenance. No new QA terms or community releases remain.
+- Pure source, presentation, recovery, hierarchy and return-URL tests pass, as do
+  the production build, TypeScript, scoped ESLint and diff checks. CI includes the
+  new database and browser suites. The earlier catalog browser command remains an
+  alias to the consolidated standards suite, which CI runs once.
+
+Initial runs exposed obsolete test labels and navigation locations after the
+redesign. One comment assertion matched the unsent textarea, so it now waits for
+an attributed list item before reloading. A layout test now waits for Hierarchy
+to become active before selecting another profile. The new split layout needed
+explicit focus restoration when returning to the still-mounted outline. The
+legacy database test also changed: stewards can now review existing generic fields
+even when new field creation is disabled. These cases pass in the final runs.
+
+Visual comparison with the generated concept checked five points: compact
+community navigation, clear reference/working controls, a shared filter toolbar,
+an outline beside a short field title and distinct definition, and a field-level
+proposal action with expandable supporting details. The existing application
+header, design tokens and actual profile names were retained. The concept's
+invented profile labels were not used. IAB inspection confirmed the real local
+MatCore hierarchy, its short Phase field names and existing draft return link.
+Automated screenshots cover desktop, mobile and a named release using invented
+fixtures. No protected source content or generated images were added to Git.
+
+Evidence is outside Git in `.matsci-stage/community-standards-20261026/`: the local
+backup, build log, `ui/results.json`, screenshots and the `final-*` regression
+results. The final build peaked at 3.0 GiB without swap. The final standards UI
+run peaked at 750.8 MiB without swap. The preview retains its existing two-CPU,
+6 GiB, no-swap, 128-task limits; browser tests use a separate two-CPU, 2 GiB,
+256-task unit. No recurring monitor was started.
+
+The user guides for metadata development and communities, plus the MatCore
+reference guide, describe the new states and review authority. Automatic rebasing
+onto a later publisher reference, simultaneous draft editing, assigned reviews,
+notifications and dataset validation remain separate work. This is local
+functional and visual acceptance, not a practitioner usability study or a manual
+screen-reader audit. Changes have not been committed, pushed or deployed.
+
+## Reference wording simplified locally, October 26
+
+Removed the remaining “preserved source entry” and “preserved source baseline”
+wording from metadata draft links, reference details, proposal review and citation
+summaries. These controls now use Reference, View reference and Back to reference,
+consistent with the community Standard view. The entries are not presented as a
+special class of protected records. The reference/working/proposal distinction
+and existing data are unchanged.
+
+Updated the user guides and existing UI test expectations to match. This is a
+copy-only follow-up; it adds no schema, workflow or data changes.
+
+The bounded local production build and scoped ESLint pass. In-app browser
+inspection at localhost:3109 confirmed the existing draft's Back to reference
+link, Reference details under Sources & history, and return to the same field
+and hierarchy. The page renders without an error overlay; the browser console
+contains no warnings or errors. No draft was edited or submitted. Screenshot:
+`.matsci-stage/community-standards-20261026/reference-wording.png`. Existing UI
+assertions were updated; the full suites were not repeated for these text changes.
+
+## Contributor review against the MatCore paper, October 26
+
+Read Greenberg et al., *Towards MatCore: A Unified Metadata Standard for Materials
+Science*, arXiv:2502.07106v1, from the project's relocated PDF archive. The local
+file is `docs-internal/pdf-readings/Greenberg et al. - 2025 - Towards MatCore A
+Unified Metadata Standard for Materials Science.pdf`. The assessment uses the
+2025 paper's development model, not a claim about MatCore's present governance.
+Read the complete text and inspected the hierarchy and DFT specification figures.
+
+Sections 3 and 4 and Figure 1 describe a common core with method-specific metadata.
+Section 5.2 describes a collaborative document shared across working groups.
+Sections 5 and 6 separate draft development, community requests for comment,
+committee consideration and later revisions. Figure 5 identifies potential overlap
+between state occupations and k-smearing, an example of a decision spanning fields.
+The paper does not prescribe a voting rule or software interface.
+
+From a contributor's perspective, the implemented workflow supports individual
+field negotiation. A contributor can inspect an existing field in context, change
+its definition and value rules, explain the reason, cite evidence, submit a proposal,
+discuss its exact revision and respond with another revision. Stewards record
+review decisions and accepted changes enter a working version. Named community
+releases retain the reviewed state. Acceptance records a community decision,
+not evidence of consensus or official MatCore endorsement.
+
+The metadata workflow is not yet equivalent to the dictionary's competing
+definitions and votes. Its shared proposals follow a serial revision sequence for
+each field occurrence. Concurrent private drafts exist, but a stale submission must
+be reconciled with the latest shared revision. It does not present competing
+alternatives side by side. Comments belong to exact revisions, with earlier
+conversations available through the revision selector rather than one resolved
+issue thread. Cross-field change sets, dependencies, parent/child move validation,
+working-group assignments, notifications and an RFC period with a committee decision
+record remain absent. The members-only MatCore space supports internal work, not
+the paper's later public-comment phase. Protected references must not be exposed
+simply to enable public feedback.
+
+The next substantive addition should be a reviewable change set for related fields,
+with an explicit resolution of alternatives and recorded decision rationale. This
+would support a shared scope decision for fields such as k-smearing and state
+occupations. Working-group review assignments and a separately authorized public
+RFC surface can follow. These are recommendations, not changes implemented here.
+
+Implemented the navigation improvements locally:
+
+- Standard remains the leftmost community section, followed by Proposals, My drafts
+  and People. It now opens Working version, with Hierarchy selected.
+- Working version is the leftmost standard view. Named community releases follow
+  when present, then Reference. Hierarchy is left of List, which remains selectable.
+  Explicit reference and list links keep their chosen views.
+- Unchanged working fields use the same proposal/resume controls as reference fields,
+  without a second navigation through Reference. The return link identifies the
+  working version. Explicit View reference links continue to open Reference.
+- Metadata draft editors open Field specification first, followed by Definition and
+  Sources & history. Dictionary term editors are unaffected.
+- Submitted proposals open Changes, followed by Discussion, Field specification and
+  Sources & history. Changes compares the exact revision with the preceding revision
+  for the same field occurrence and profile, or its reference for the first revision.
+  Steward decisions and withdrawal controls are in Discussion after the comments.
+
+No schema, permissions, reference content, existing draft payload or publication
+state changed. User guides and existing browser regressions were updated.
+
+Verification completed on the local production preview:
+
+- All 12 standards UI groups pass, including leftmost default controls, direct
+  proposal creation from Working version, Changes and Discussion navigation,
+  steward acceptance, named releases, and 320px / 390px layouts. The comparison
+  uses short field names so generated profile prefixes do not create false rename
+  differences. Retained public-table fingerprints match after fixture cleanup.
+- All 13 draft workflow groups pass. Coverage includes specification-first entry,
+  save and reload, interrupted saves, two-tab conflicts, comparison against the
+  preceding revision, retained citations and source attribution, generic metadata
+  fields and ordinary dictionary publication. All temporary fixtures were removed.
+- All 12 community-section UI groups pass, including failed-save navigation,
+  community switching, return links, mobile focus and ordinary community behavior.
+- Production build, TypeScript, scoped ESLint, catalog return-URL and generic
+  hierarchy checks pass. The final build peaked at 2.7 GiB without swap. Browser
+  tests retain their separate two-CPU, 2 GiB, 256-task limits.
+- In-app inspection of the real local community confirmed Working version and
+  Hierarchy as the initial leftmost choices. The page has meaningful content, no
+  framework overlay and no console warnings/errors. Desktop and mobile screenshots
+  of the proposal changes/discussion screens were inspected.
+
+Earlier regression attempts assumed that Definition opened first, including on
+re-entry. Their selectors now explicitly open the requested editor tab. Another
+assertion matched both the definition and its new comparison copy and was scoped
+to Changes. The dictionary portion keeps its existing editor controls. These were
+test adaptations to the new layout, not changes to save or publication behavior.
+The pure navigation command used Node's tsx loader after the tsx CLI's IPC socket
+was unavailable in the sandbox.
+
+Evidence is outside Git in `.matsci-stage/matcore-contributor-review-20261026/`.
+Final results are `accepted-community-standard/results.json`,
+`accepted-matcore-workflow/results.json` and `checked-community-sections/results.json`.
+`build-accepted.log` records the final production build. The paper page renderings,
+`local-defaults.png` and desktop/mobile proposal screenshots are retained there.
+No remote deployment, migration or recurring monitoring was performed.
+
+### Pre-deployment code review, October 26, 2026
+
+Reviewed the uncommitted `feat/catalog-hierarchy` changes against `c9701c2`,
+including the new standards service, migration 0074, proposal decisions, legacy
+publication compatibility, permissions, release snapshots and community navigation.
+The review identified three P2 findings to fix before Superego deployment.
+The review itself did not change application code. The follow-up below resolves
+all three locally; the line references here describe the reviewed version.
+
+1. **The legacy publication route can hide earlier independent revisions.**
+   `publishMatcoreDraft` calls the shared publisher in dictionary mode. A contributor
+   can submit an independent field, revise it, then use the still-exposed `publish`
+   mutation on that new draft. This creates a dictionary term and changes the field's
+   `termId`. `getMatcoreField` then excludes the older revisions because their
+   `definitionRevisionId` is null. The reproduction returned `NOT_FOUND` for an
+   earlier accepted revision. The underlying records remain stored, but their
+   proposal, discussion and provenance pages become inaccessible. Reject this
+   conversion before writing, while retaining support for existing dictionary-linked
+   fields. Add coverage for submission followed by legacy publication of a revision.
+   Relevant code: `lib/matcore-workflow.ts:1220`, `:1290` and `:1503`.
+
+2. **Reversing acceptance can restore a schema path that is already occupied.**
+   Accept field A at path X, accept a revision moving A to Y, then accept field B at
+   X. Declining or withdrawing the latest A revision succeeds and restores the
+   earlier accepted A at X. The working version now contains two fields at X and
+   cannot be released. Both reversal paths reproduced. Path validation currently
+   runs only for an acceptance decision. Serialize all decisions that change the
+   working version and validate the resulting paths before commit, including
+   withdrawal and other decisions that restore an older revision.
+   Relevant code: `lib/matcore-workflow.ts:1698` and `:1715`.
+
+3. **The Community release tab can open a mismatched reference/release pair.**
+   The link selects the newest community release across reference versions but
+   retains the reference currently being viewed. When those versions differ,
+   `getCommunityStandard` correctly rejects the combination and the page returns
+   not found. This reproduced with two synthetic reference versions and a named
+   release. Build the link with both identifiers from the chosen community release,
+   then cover switching from a different reference version in the UI suite.
+   Relevant code:
+   `components/metadata-workspace/community-standard-workspace.tsx:265`.
+
+Fresh verification used only the isolated local `matsci_matcore_test` database:
+
+- All three findings reproduced with 14 assertions. Every fixture transaction was
+  rolled back, including the synthetic term created by the legacy route.
+- Existing database suites still pass: community standards 39 checks, metadata
+  workflow 119 checks and source catalog 100 checks. Their fixtures also rolled back.
+  These passing suites do not cover the three failing scenarios above.
+- The bounded run used two CPUs, at most 2 GiB of memory, no swap and 128 tasks.
+  Its peak memory was about 162 MiB. `git diff --check` passes.
+- The 37 browser groups recorded above remain prior evidence. No browser suite,
+  production build, remote CI, deployment or migration was run during this review.
+
+Reproduction code and logs are retained outside Git in
+`.matsci-stage/community-standard-review-20261026/`. The next step is to implement
+the three fixes and permanent regressions, rerun the affected checks, then proceed
+through CI and Superego UI acceptance.
+
+### Review fixes and local verification, October 26, 2026
+
+All three findings above are resolved locally on `feat/catalog-hierarchy`.
+
+- The legacy publication route now checks for existing independent revisions
+  before creating a dictionary entry. The check runs under the field lock and
+  covers every profile for that field. A rejected conversion preserves the draft,
+  revision history and working version. The draft can still be submitted through
+  the independent proposal workflow. Existing dictionary-linked publication
+  remains supported.
+- Acceptance, changes requested, decline and withdrawal now validate the resulting
+  working version before commit. Withdrawals acquire the same vocabulary write
+  lock as reviews and releases. A conflicting reversal rolls back its decision
+  event. Valid withdrawals still restore an earlier accepted revision and allow
+  release creation; existing named releases remain unchanged.
+- The Community release tab uses both the community release identifier and its
+  recorded reference identifier. Switching from a different reference version
+  opens the selected release and retains it after reload.
+
+Permanent regressions were added to the standards database and UI suites. The
+database suite also runs two withdrawals through independent connections against
+committed, disposable fixtures. Both requests wait at the same lock before they
+proceed. Exactly one withdrawal succeeds when both would restore the same path;
+the other returns a conflict without an event. The fixtures are removed afterward.
+
+Fresh local verification:
+
+- 273 database checks pass: standards 54, metadata workflow 119 and catalog 100.
+  The concurrent-withdrawal regression also passes. Transactional fixtures rolled
+  back, and the committed concurrency fixtures were removed. The initial expanded
+  test exceeded the contribution limit for one synthetic account; separate fixture
+  contributors now keep the tests within the unchanged application limit.
+- All 26 browser groups pass: standards 13 and metadata workflow 13. Coverage
+  includes switching between different reference/release versions at 1440px and
+  390px, reload, hierarchy navigation at 320px and 390px, proposal review, saving,
+  interrupted-save recovery, two-tab conflicts and generic metadata fields.
+  The standards suite confirms unchanged fingerprints for all retained public
+  tables after cleanup. Both suites report no page errors or blocked external calls.
+- The production build, TypeScript, scoped ESLint, pure catalog navigation tests
+  and `git diff --check` pass. The build peaked at 3 GiB without swap; the browser
+  run peaked at about 834 MiB. Existing CPU, memory and task limits remained in use.
+- In-app inspection after reload confirms the local MatCore community still shows
+  248 fields, with Working version and Hierarchy selected. Its title and page
+  content are correct, with no framework overlay or console warnings/errors.
+  Desktop and mobile release-switch screenshots were inspected. The Browser plugin
+  was not available; automated checks used the existing Playwright harness, and
+  the in-app check used CUA.
+
+Evidence is outside Git in `.matsci-stage/community-standard-fixes-20261026/`:
+database and concurrency results, `build.log`, static-check logs,
+`community-standard/results.json`, `matcore-workflow/results.json` and screenshots
+named `release-version-switch-1440px.png` and `release-version-switch-390px.png`
+inside the standards evidence directory. The local preview is rebuilt and running.
+These fixes required no additional migration or data conversion. The changes remain
+uncommitted; remote CI, Superego deployment and Ego deployment have not run.

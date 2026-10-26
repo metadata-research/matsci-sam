@@ -3,11 +3,7 @@ import { TRPCError } from "@trpc/server"
 import { revalidatePath } from "next/cache"
 import { db } from "@yamz/db"
 import { baseProcedure, createTRPCRouter } from "../init"
-import {
-  authenticatedProcedure,
-  contributorProcedure,
-  adminProcedure
-} from "../procedures"
+import { authenticatedProcedure, contributorProcedure } from "../procedures"
 import {
   matcoreDraftPayloadSchema,
   matcoreProfileSchema
@@ -25,11 +21,17 @@ import {
   createMatcoreDraft,
   updateMatcoreDraft,
   publishMatcoreDraft,
+  submitMatcoreDraft,
   getMatcoreField,
   reviseMatcoreField,
   reviewMatcoreRevision,
   withdrawMatcoreRevision
 } from "@/lib/matcore-workflow"
+import {
+  getCommunityStandard,
+  createCommunityStandardRelease,
+  commentOnStandardProposal
+} from "@/lib/community-standard"
 import { termPath } from "@/lib/public-identifiers"
 
 const identity = z.object({ id: z.string().uuid() }).strict()
@@ -70,6 +72,55 @@ function publicationError(error: unknown): never {
   throw error
 }
 export const matcoreWorkflowRouter = createTRPCRouter({
+  standard: baseProcedure
+    .input(
+      z
+        .object({
+          vocabularySlug,
+          referenceReleaseId: sourceId.optional(),
+          releaseId: z.string().uuid().optional()
+        })
+        .strict()
+    )
+    .query(({ ctx, input }) =>
+      getCommunityStandard(db, input, ctx.session.id ?? null)
+    ),
+  createStandardRelease: privateProcedure
+    .input(
+      z
+        .object({
+          id: z.string().uuid(),
+          vocabularySlug,
+          referenceReleaseId: sourceId.optional(),
+          name: z.string().trim().min(1).max(100),
+          note: z.string().trim().max(4000),
+          expectedFingerprint: z.string().regex(/^[a-f0-9]{64}$/)
+        })
+        .strict()
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await db.transaction((tx) =>
+        createCommunityStandardRelease(tx, input, ctx.userId)
+      )
+      revalidatePath("/communities", "layout")
+      return result
+    }),
+  comment: privateProcedure
+    .input(
+      z
+        .object({
+          revisionId: z.string().uuid(),
+          text: z.string().trim().min(1).max(4000)
+        })
+        .strict()
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await db.transaction((tx) =>
+        commentOnStandardProposal(tx, input, ctx.userId)
+      )
+      revalidatePath("/metadata/fields", "layout")
+      return result
+    }),
   catalog: baseProcedure
     .input(
       z.object({ vocabularySlug, releaseId: sourceId.optional() }).strict()
@@ -84,6 +135,7 @@ export const matcoreWorkflowRouter = createTRPCRouter({
           vocabularySlug,
           releaseId: sourceId.optional(),
           profileKey: matcoreProfileSchema.optional(),
+          layout: z.enum(["list", "hierarchy"]).optional(),
           search: z
             .string()
             .max(200)
@@ -205,6 +257,16 @@ export const matcoreWorkflowRouter = createTRPCRouter({
       revalidatePath(`/metadata/fields/${result.fieldId}`)
       return result
     }),
+  submit: contributorProcedure
+    .input(versioned)
+    .mutation(async ({ ctx, input }) => {
+      const result = await db
+        .transaction((tx) => submitMatcoreDraft(tx, input, ctx.userId))
+        .catch(publicationError)
+      revalidatePath(`/metadata/fields/${result.fieldId}`)
+      revalidatePath("/communities", "layout")
+      return result
+    }),
   getField: baseProcedure
     .input(identity.extend({ revisionId: z.string().uuid().optional() }))
     .query(({ ctx, input }) =>
@@ -231,9 +293,10 @@ export const matcoreWorkflowRouter = createTRPCRouter({
         withdrawMatcoreRevision(tx, input, ctx.userId)
       )
       revalidatePath(`/metadata/fields/${result.field.id}`)
+      revalidatePath("/communities", "layout")
       return result
     }),
-  review: adminProcedure
+  review: privateProcedure
     .meta({ marksGraphs: false })
     .input(
       z
@@ -249,6 +312,7 @@ export const matcoreWorkflowRouter = createTRPCRouter({
         reviewMatcoreRevision(tx, input, ctx.userId)
       )
       revalidatePath(`/metadata/fields/${result.field.id}`)
+      revalidatePath("/communities", "layout")
       return result
     })
 })

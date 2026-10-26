@@ -80,7 +80,11 @@ export default async function MetadataFieldDraftPage({
         workspaceHref={catalogReturn ?? workReturn.href}
         workspaceLabel={
           catalogReturn
-            ? "Back to source entry"
+            ? catalogReturn.includes("standard=reference")
+              ? "Back to reference"
+              : catalogReturn.includes("standard=release")
+                ? "Back to community release"
+                : "Back to working version"
             : draft.community
               ? workReturn.label
               : "My field drafts"

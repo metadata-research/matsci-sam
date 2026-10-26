@@ -3545,9 +3545,9 @@ export const matcoreSpecRevisionsTable = pgTable(
     previousRevisionId: uuid().references(
       (): AnyPgColumn => matcoreSpecRevisionsTable.id
     ),
-    definitionRevisionId: integer()
-      .notNull()
-      .references(() => definitionRevisionsTable.id),
+    definitionRevisionId: integer().references(
+      () => definitionRevisionsTable.id
+    ),
     payload: jsonb()
       .$type<import("../lib/matcore-workflow-types").MatcoreDraftPayload>()
       .notNull(),
@@ -3674,6 +3674,7 @@ export const matcoreWorkflowEventsTable = pgTable(
         | "reviewed"
         | "revision_started"
         | "withdrawn"
+        | "commented"
       >()
       .notNull(),
     detail: jsonb()
@@ -3690,7 +3691,52 @@ export const matcoreWorkflowEventsTable = pgTable(
     index("matcore_event_actor_idx").on(t.actorId),
     check(
       "matcore_event_action",
-      sql`${t.action} IN ('imported','created','saved','published','reviewed','revision_started','withdrawn')`
+      sql`${t.action} IN ('imported','created','saved','published','reviewed','revision_started','withdrawn','commented')`
+    )
+  ]
+)
+
+// Immutable community releases pin both the reference and accepted field revisions.
+export const communityStandardReleasesTable = pgTable(
+  "communityStandardReleases",
+  {
+    id: uuid().primaryKey(),
+    vocabularySlug: text()
+      .notNull()
+      .references(() => vocabulariesTable.slug),
+    name: text().notNull(),
+    referenceReleaseId: text().references(() => matcoreSourceReleasesTable.id),
+    parentId: uuid().references(
+      (): AnyPgColumn => communityStandardReleasesTable.id
+    ),
+    snapshot: jsonb()
+      .$type<import("../lib/community-standard-types").StandardSnapshot>()
+      .notNull(),
+    fingerprint: text().notNull(),
+    note: text().notNull(),
+    createdById: integer()
+      .notNull()
+      .references(() => usersTable.id),
+    createdAt: timestamp({ mode: "string", withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("community_standard_release_name").on(
+      t.vocabularySlug,
+      sql`lower(${t.name})`
+    ),
+    index("community_standard_release_workspace").on(
+      t.vocabularySlug,
+      t.createdAt
+    ),
+    check(
+      "community_standard_release_hash",
+      sql`${t.fingerprint} ~ '^[a-f0-9]{64}$'`
+    ),
+    check(
+      "community_standard_release_size",
+      sql`jsonb_typeof(${t.snapshot}) = 'object' AND octet_length(${t.snapshot}::text) <= 20000000`
     )
   ]
 )

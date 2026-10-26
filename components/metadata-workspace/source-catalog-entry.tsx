@@ -1,5 +1,7 @@
 "use client"
 
+import { sourceFieldName } from "@/lib/metadata-field-name"
+
 import Link from "next/link"
 import { InfoPopover } from "@/components/info-popover"
 import { useRouter } from "next/navigation"
@@ -11,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { authPathWithReturnTo, profileCompletionPath } from "@/lib/auth-return"
 import { withMatcoreCatalogReturn } from "@/lib/matcore-catalog-navigation"
-import { SpecificationSummary } from "./field-specification"
+import { FieldRuleOverview } from "./field-specification"
 import { ProfileContext } from "./source-history"
 import { errorMessage, profileLabel } from "./workspace-presenters"
 import { FieldDestinationLink } from "./field-destination-link"
@@ -22,6 +24,8 @@ type Props = {
   viewerId: number | null
   listHref: string
   detailHref: string
+  focusOnOpen?: boolean
+  viewLabel?: "Reference" | "Working version"
 }
 
 export function SourceCatalogEntry({
@@ -29,7 +33,9 @@ export function SourceCatalogEntry({
   entry,
   viewerId,
   listHref,
-  detailHref
+  detailHref,
+  focusOnOpen = true,
+  viewLabel = "Reference"
 }: Props) {
   const router = useRouter()
   const start = trpc.matcoreWorkflow.startSourceChange.useMutation()
@@ -42,12 +48,15 @@ export function SourceCatalogEntry({
     // A query-only route change may retain the list's old scroll position.
     // This component is keyed by the selected source, so only entry changes
     // move the viewport; reading or editing elsewhere never triggers a jump.
-    heading.current?.scrollIntoView({ behavior: "instant", block: "start" })
-    heading.current?.focus({ preventScroll: true })
+    if (focusOnOpen) {
+      if (window.matchMedia("(max-width: 1023px)").matches)
+        heading.current?.scrollIntoView({ behavior: "instant", block: "start" })
+      heading.current?.focus({ preventScroll: true })
+    }
     return () => {
       mounted.current = false
     }
-  }, [])
+  }, [focusOnOpen])
   const { baseline, sourceOccurrence, sourceRelease } = entry
   const ownDraft = entry.ownDraft?.status === "draft" ? entry.ownDraft : null
   const toolsEnabled =
@@ -93,11 +102,11 @@ export function SourceCatalogEntry({
         href={listHref}
         className="w-fit text-sm underline underline-offset-4"
       >
-        Back to MatCore catalog
+        Back to fields
       </Link>
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">Preserved source entry</Badge>
+          <Badge variant="outline">{viewLabel}</Badge>
           <Badge variant="secondary">MatCore {sourceRelease.version}</Badge>
         </div>
         <h3
@@ -106,7 +115,7 @@ export function SourceCatalogEntry({
           tabIndex={-1}
           className="scroll-mt-24 break-words text-2xl font-semibold focus-visible:outline focus-visible:outline-ring"
         >
-          {baseline.label}
+          {sourceFieldName(sourceOccurrence)}
         </h3>
         <p className="break-words text-sm text-muted-foreground">
           {profileLabel(sourceOccurrence.profileKey)} ·{" "}
@@ -130,7 +139,7 @@ export function SourceCatalogEntry({
             <Link
               href={`/metadata/fields/${entry.latestProposal.fieldId}?revision=${entry.latestProposal.revisionId}`}
             >
-              View local proposal
+              View proposal
             </Link>
           </Button>
         ) : entry.canContribute ? (
@@ -145,8 +154,8 @@ export function SourceCatalogEntry({
           </Button>
         ) : null}
         <InfoPopover label="About proposing a change">
-          Creates a private draft in {community.title}. The source entry stays
-          unchanged.
+          Creates a private draft in {community.title}. The reference version
+          stays unchanged.
         </InfoPopover>
         <a
           href={sourceOccurrence.sourceUrl}
@@ -157,24 +166,6 @@ export function SourceCatalogEntry({
           Read the source specification
         </a>
       </div>
-      {entry.latestProposal ? (
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          A local proposal is available for this entry. Further revisions start
-          from that proposal. Local review does not record MatCore approval or
-          change this source version.
-          {ownDraft && entry.canResume ? (
-            <>
-              {" "}
-              <Link
-                className="underline underline-offset-4"
-                href={`/metadata/fields/${entry.latestProposal.fieldId}?revision=${entry.latestProposal.revisionId}`}
-              >
-                View local proposal
-              </Link>
-            </>
-          ) : null}
-        </p>
-      ) : null}
       {entry.workspace.retired ? (
         <p className="text-sm text-muted-foreground">
           This vocabulary is retired. Its source entries remain available to
@@ -211,7 +202,7 @@ export function SourceCatalogEntry({
         className="flex flex-col gap-2"
       >
         <h4 id="matcore-source-definition" className="font-semibold">
-          Source definition
+          Definition
         </h4>
         <p className="rounded-md border bg-definition p-4 whitespace-pre-wrap break-words text-sm">
           {baseline.definition}
@@ -235,7 +226,7 @@ export function SourceCatalogEntry({
             It does not mean optional.
           </InfoPopover>
         </div>
-        <SpecificationSummary
+        <FieldRuleOverview
           specification={baseline.specification}
           profileKey={sourceOccurrence.profileKey}
         />

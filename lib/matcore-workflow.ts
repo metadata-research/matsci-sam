@@ -40,6 +40,7 @@ import {
   type MatcoreProfileKey,
   type MatcoreEventDetail
 } from "./matcore-workflow-types"
+import { sourceFieldName } from "./metadata-field-name"
 import { mayRunCommunity } from "./communities"
 import { requireSetupVocabularyForContribution } from "./setup-service"
 import {
@@ -207,6 +208,7 @@ type SourceCatalogInput = {
   offset?: number
   limit?: number
   search?: string
+  layout?: "list" | "hierarchy"
 }
 type SourceEntryInput = {
   vocabularySlug: string
@@ -317,6 +319,7 @@ export async function listMatcoreSourceCatalog(
     )
   const offset = input.offset ?? 0,
     limit = input.limit ?? 40
+  const matches = new Set(filtered.map((row) => row.id))
   return {
     workspace,
     releases: availableReleases,
@@ -329,7 +332,35 @@ export async function listMatcoreSourceCatalog(
     })),
     profileKey: input.profileKey ?? null,
     search,
-    occurrences: filtered.slice(offset, offset + limit),
+    occurrences:
+      input.layout === "hierarchy"
+        ? []
+        : filtered.slice(offset, offset + limit),
+    layout: input.layout ?? "list",
+    // Include parent structure across page and search boundaries, after the
+    // same community and source-release authorization as the list view.
+    hierarchy:
+      input.layout === "hierarchy"
+        ? rows
+            .filter(
+              (row) => !input.profileKey || row.profileKey === input.profileKey
+            )
+            .sort(
+              (a, b) =>
+                a.baseline.specification.path.localeCompare(
+                  b.baseline.specification.path
+                ) || a.id.localeCompare(b.id)
+            )
+            .map((row) => ({
+              id: row.id,
+              profileKey: row.profileKey,
+              path: row.source.path,
+              label: row.baseline.label,
+              requirement: row.baseline.specification.requirement,
+              repeatability: row.baseline.specification.repeatability,
+              matches: matches.has(row.id)
+            }))
+        : [],
     total: filtered.length,
     offset,
     limit
@@ -366,23 +397,28 @@ async function publicSourceProposal(reader: Reader, input: SourceEntryInput) {
     .select({ fieldId: fields.id, revisionId: revisions.id })
     .from(revisions)
     .innerJoin(fields, eq(revisions.fieldId, fields.id))
-    .innerJoin(termsTable, eq(fields.termId, termsTable.id))
-    .innerJoin(
+    .leftJoin(termsTable, eq(fields.termId, termsTable.id))
+    .leftJoin(
       definitionRevisionsTable,
       eq(revisions.definitionRevisionId, definitionRevisionsTable.id)
     )
-    .innerJoin(
+    .leftJoin(
       definitionsTable,
       eq(definitionRevisionsTable.definitionId, definitionsTable.id)
     )
     .where(
       and(
         eq(fields.vocabularySlug, input.vocabularySlug),
-        eq(termsTable.vocabularySlug, fields.vocabularySlug),
-        eq(definitionsTable.termId, termsTable.id),
+        or(
+          and(isNull(fields.termId), isNull(revisions.definitionRevisionId)),
+          and(
+            eq(termsTable.vocabularySlug, fields.vocabularySlug),
+            eq(definitionsTable.termId, termsTable.id),
+            termIsListed()
+          )
+        ),
         eq(revisions.sourceOccurrenceId, input.occurrenceId),
-        eq(revisions.profileReleaseId, input.releaseId),
-        termIsListed()
+        eq(revisions.profileReleaseId, input.releaseId)
       )
     )
     .orderBy(desc(revisions.version))
@@ -529,6 +565,10 @@ export async function startMatcoreSourceChange(
         "A local proposal already exists for this source field but is unavailable."
     })
   }
+  const payload = {
+    ...source.row.baseline,
+    label: sourceFieldName(source.row.source)
+  }
   const id = randomUUID()
   await tx.insert(drafts).values({
     id,
@@ -539,8 +579,8 @@ export async function startMatcoreSourceChange(
     profileReleaseId: source.release.id,
     sourceOccurrenceId: source.row.id,
     importKey: `${input.vocabularySlug}:${source.row.id}`,
-    payload: source.row.baseline,
-    creationHash: contributionFingerprint(source.row.baseline)
+    payload,
+    creationHash: contributionFingerprint(payload)
   })
   await addEvent(tx, {
     fieldId: field.id,
@@ -1177,6 +1217,33 @@ export async function publishMatcoreDraft(
   input: { id: string; expectedVersion: number },
   ownerId: number
 ) {
+  const result = await publishFieldDraft(tx, input, ownerId, true)
+  if (!result.term || result.definitionRevisionId === null)
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "This proposal was submitted independently of the dictionary."
+    })
+  return {
+    ...result,
+    term: result.term,
+    definitionRevisionId: result.definitionRevisionId
+  }
+}
+
+export async function submitMatcoreDraft(
+  tx: MatcoreTransaction,
+  input: { id: string; expectedVersion: number },
+  ownerId: number
+) {
+  return publishFieldDraft(tx, input, ownerId, false)
+}
+
+async function publishFieldDraft(
+  tx: MatcoreTransaction,
+  input: { id: string; expectedVersion: number },
+  ownerId: number,
+  dictionary: boolean
+) {
   // Follow the shared contribution lock order before locking publication rows.
   await lockContributionSubmissions(tx, ownerId)
   const draft = await ownedDraft(tx, input.id, ownerId, true)
@@ -1211,10 +1278,29 @@ export async function publishMatcoreDraft(
       message:
         "A newer proposal has been published for this field. Your draft remains saved. Review the newer proposal before starting a revision."
     })
-  let term: { id: number; slug: string; vocabularySlug: string }
-  let definitionRevisionId: number
+  let term: { id: number; slug: string; vocabularySlug: string } | null = null
+  let definitionRevisionId: number | null = null
   let newDefinitionRevision = false
-  if (!field.termId) {
+  if (!field.termId && !dictionary) {
+    await reserveContributionSubmission(tx, {
+      userId: ownerId,
+      kind: "definition",
+      fingerprint: contributionFingerprint({ fieldId: field.id, payload })
+    })
+  } else if (!field.termId) {
+    // The legacy route may create an initial dictionary entry, but must not
+    // convert a field after independent revisions exist in any profile.
+    const [independentRevision] = await tx
+      .select({ id: revisions.id })
+      .from(revisions)
+      .where(eq(revisions.fieldId, field.id))
+      .limit(1)
+    if (independentRevision)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "This field uses independent proposals. Submit this draft for review instead."
+      })
     const created = await publishNewTerm(
       tx,
       {
@@ -1247,6 +1333,7 @@ export async function publishMatcoreDraft(
     term = savedTerm
     if (
       previous &&
+      previous.definitionRevisionId !== null &&
       previous.payload.definition === payload.definition &&
       previous.payload.example === payload.example
     ) {
@@ -1262,7 +1349,7 @@ export async function publishMatcoreDraft(
           example: payload.example
         })
       })
-      const [previousDefinition] = previous
+      const [previousDefinition] = previous?.definitionRevisionId
         ? await tx
             .select({ definitionId: definitionRevisionsTable.definitionId })
             .from(definitionRevisionsTable)
@@ -1278,7 +1365,7 @@ export async function publishMatcoreDraft(
         initialExample: payload.example,
         source: "initial",
         replacesDefinitionId: previousDefinition?.definitionId,
-        derivedFromRevisionId: previous?.definitionRevisionId,
+        derivedFromRevisionId: previous?.definitionRevisionId ?? undefined,
         changeNote:
           "Explanatory definition for a MatSci-SAM metadata field proposal."
       })
@@ -1286,9 +1373,13 @@ export async function publishMatcoreDraft(
       newDefinitionRevision = true
     }
   }
-  if (newDefinitionRevision && draft.sourceOccurrenceId) {
+  if (
+    newDefinitionRevision &&
+    definitionRevisionId !== null &&
+    draft.sourceOccurrenceId
+  ) {
     const preserved = await sourceFor(tx, draft.sourceOccurrenceId)
-    const [priorOrigin] = previous
+    const [priorOrigin] = previous?.definitionRevisionId
       ? await tx
           .select()
           .from(revisionImportOriginsTable)
@@ -1393,29 +1484,39 @@ export async function getMatcoreField(
       termSlug: termsTable.slug
     })
     .from(fields)
-    .innerJoin(termsTable, eq(fields.termId, termsTable.id))
+    .leftJoin(termsTable, eq(fields.termId, termsTable.id))
     .where(
       and(
         eq(fields.id, id),
         vocabularyContentVisible(fields.vocabularySlug, viewerId),
-        eq(fields.vocabularySlug, termsTable.vocabularySlug),
-        termIsListed()
+        or(
+          isNull(fields.termId),
+          and(
+            eq(fields.vocabularySlug, termsTable.vocabularySlug),
+            termIsListed()
+          )
+        )
       )
     )
   if (!field) throw missing()
   const rows = await reader
     .select({ revision: revisions })
     .from(revisions)
-    .innerJoin(
+    .leftJoin(
       definitionRevisionsTable,
       eq(revisions.definitionRevisionId, definitionRevisionsTable.id)
     )
-    .innerJoin(
+    .leftJoin(
       definitionsTable,
       eq(definitionRevisionsTable.definitionId, definitionsTable.id)
     )
     .where(
-      and(eq(revisions.fieldId, id), eq(definitionsTable.termId, field.termId!))
+      and(
+        eq(revisions.fieldId, id),
+        field.termId === null
+          ? isNull(revisions.definitionRevisionId)
+          : eq(definitionsTable.termId, field.termId)
+      )
     )
     .orderBy(desc(revisions.createdAt), desc(revisions.version))
     .then((result) => result.map((row) => row.revision))
@@ -1447,6 +1548,9 @@ export async function getMatcoreField(
     .orderBy(asc(events.revisionId), desc(events.id))
   return {
     field,
+    canReview: (
+      await getVocabularyWorkspace(reader, field.vocabularySlug, viewerId)
+    ).canManage,
     community: await fieldCommunity(reader, field.vocabularySlug),
     revisions: rows.map((row) => ({
       ...row,
@@ -1531,6 +1635,25 @@ export async function reviseMatcoreField(
   })
   return getMatcoreDraft(tx, id, ownerId)
 }
+// Call after recording a decision, while holding the vocabulary write lock.
+// A reversal may restore an older accepted revision at a now-occupied path.
+async function validateWorkingStandardChange(
+  tx: MatcoreTransaction,
+  vocabularySlug: string,
+  referenceReleaseId: string | null,
+  actorId: number
+) {
+  const { getCommunityStandard, assertStandardPaths } = await import(
+    "./community-standard"
+  )
+  const standard = await getCommunityStandard(
+    tx,
+    { vocabularySlug, referenceReleaseId: referenceReleaseId ?? undefined },
+    actorId
+  )
+  assertStandardPaths(standard.working.entries)
+}
+
 export async function reviewMatcoreRevision(
   tx: MatcoreTransaction,
   input: {
@@ -1540,20 +1663,31 @@ export async function reviewMatcoreRevision(
   },
   actorId: number
 ) {
-  const [user] = await tx
-    .select({ role: usersTable.role })
-    .from(usersTable)
-    .where(eq(usersTable.id, actorId))
-  if (user?.role !== "admin")
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "A site administrator must record this local review decision."
-    })
   const [revision] = await tx
     .select()
     .from(revisions)
     .where(eq(revisions.id, input.revisionId))
   if (!revision) throw missing()
+  const [scope] = await tx
+    .select({ vocabularySlug: fields.vocabularySlug })
+    .from(fields)
+    .where(eq(fields.id, revision.fieldId))
+  const workspace = await getVocabularyWorkspace(
+    tx,
+    scope.vocabularySlug,
+    actorId,
+    true
+  )
+  if (!workspace.canManage)
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "A community steward or site administrator must review proposals."
+    })
+  const [user] = await tx
+    .select({ role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, actorId))
   await tx
     .select({ id: fields.id })
     .from(fields)
@@ -1587,11 +1721,18 @@ export async function reviewMatcoreRevision(
     actorId,
     action: "reviewed",
     detail: {
-      authority: "site_administrator",
+      authority:
+        user.role === "admin" ? "site_administrator" : "community_steward",
       decision: input.decision,
       reason: input.reason.trim()
     }
   })
+  await validateWorkingStandardChange(
+    tx,
+    scope.vocabularySlug,
+    revision.profileReleaseId,
+    actorId
+  )
   return getMatcoreField(tx, revision.fieldId, undefined, actorId)
 }
 
@@ -1611,11 +1752,12 @@ export async function withdrawMatcoreRevision(
     revision.id,
     actorId
   )
-  await requireVocabularyContent(
+  // Serialize withdrawals with reviews and releases before locking the field.
+  await getVocabularyWorkspace(
     tx,
     currentField.field.vocabularySlug,
     actorId,
-    { lock: true }
+    true
   )
   const [actor] = await tx
     .select({ role: usersTable.role })
@@ -1644,7 +1786,7 @@ export async function withdrawMatcoreRevision(
       and(eq(events.revisionId, revision.id), eq(events.action, "withdrawn"))
     )
     .limit(1)
-  if (!existing)
+  if (!existing) {
     await addEvent(tx, {
       fieldId: revision.fieldId,
       revisionId: revision.id,
@@ -1659,5 +1801,12 @@ export async function withdrawMatcoreRevision(
         reason: input.reason.trim()
       }
     })
+    await validateWorkingStandardChange(
+      tx,
+      currentField.field.vocabularySlug,
+      revision.profileReleaseId,
+      actorId
+    )
+  }
   return getMatcoreField(tx, revision.fieldId, undefined, actorId)
 }

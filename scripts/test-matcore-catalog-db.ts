@@ -1,4 +1,5 @@
 import "next/dist/server/node-environment"
+import { sourceFieldName } from "../lib/metadata-field-name"
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { and, eq, sql } from "drizzle-orm"
@@ -271,6 +272,60 @@ async function main() {
       const lastDft = MATCORE_STANDARD_MANIFEST.occurrences
         .filter((row) => row.profileId === "dft")
         .at(-1)!
+      const hierarchy = await listMatcoreSourceCatalog(tx, {
+        vocabularySlug: vocabulary.slug,
+        layout: "hierarchy",
+        profileKey: "dft",
+        limit: 1,
+        search: lastDft.path.join(".")
+      })
+      same(
+        hierarchy.occurrences,
+        [],
+        "Hierarchy omits paged full source payloads"
+      )
+      same(
+        hierarchy.hierarchy.length,
+        44,
+        "Hierarchy includes all authorized profile paths across page boundaries"
+      )
+      same(
+        hierarchy.hierarchy.filter((row) => row.matches).map((row) => row.id),
+        [lastDft.id],
+        "Hierarchy marks search matches without losing parent structure"
+      )
+      const nested = await listMatcoreSourceCatalog(tx, {
+        vocabularySlug: vocabulary.slug,
+        layout: "hierarchy",
+        profileKey: "minimal",
+        search: "specimen.label"
+      })
+      check(
+        nested.hierarchy.some(
+          (row) => row.path.join(".") === "specimen" && !row.matches
+        ),
+        "Search retains the nonmatching parent"
+      )
+      await rejects(
+        listCatalog(
+          tx,
+          { vocabularySlug: vocabulary.slug, layout: "hierarchy" },
+          outsider.id
+        ),
+        "NOT_FOUND"
+      )
+      await rejects(
+        listCatalog(tx, {
+          vocabularySlug: vocabulary.slug,
+          layout: "hierarchy"
+        }),
+        "NOT_FOUND"
+      )
+      same(
+        await counts(tx),
+        beforeReads,
+        "Hierarchy and search create no drafts or provenance events"
+      )
       const searched = await listMatcoreSourceCatalog(tx, {
         vocabularySlug: vocabulary.slug,
         search: lastDft.path.join(".").toUpperCase(),
@@ -378,7 +433,7 @@ async function main() {
       const initial = await getMatcoreDraft(tx, created.draftId, owner.id)
       same(
         initial.payload,
-        entry.baseline,
+        { ...entry.baseline, label: sourceFieldName(entry.sourceOccurrence) },
         "Draft starts from selected version's exact wording and specification"
       )
       same(
@@ -701,7 +756,7 @@ async function main() {
       const olderSaved = await getMatcoreDraft(tx, olderDraft.draftId, owner.id)
       same(
         olderSaved.payload,
-        olderBaseline,
+        { ...olderBaseline, label: sourceFieldName(olderSaved.sourceOccurrence!) },
         "Propose from another recorded version uses that exact baseline"
       )
       same(

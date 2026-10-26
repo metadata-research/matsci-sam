@@ -1,3 +1,4 @@
+import { sourceFieldName } from "@/lib/metadata-field-name"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -62,18 +63,18 @@ export function SourceBaseline({
   if (!baseline || !sourceRelease || !sourceOccurrence)
     return (
       <p className="text-sm text-muted-foreground">
-        No imported source baseline is associated with this field.
+        This field has no reference version.
       </p>
     )
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">Preserved source baseline</Badge>
+          <Badge variant="outline">Reference</Badge>
           <Badge variant="secondary">MatCore {sourceRelease.version}</Badge>
         </div>
         <CardTitle>
-          <h3>{baseline.label}</h3>
+          <h3>{sourceFieldName(sourceOccurrence)}</h3>
         </CardTitle>
         <CardDescription>{sourceOccurrence.path.join(" / ")}</CardDescription>
       </CardHeader>
@@ -130,6 +131,7 @@ export function FieldHistory({ history }: { history: Draft["history"] }) {
     draft_updated: "Draft saved",
     published: "Proposal published",
     reviewed: "Review decision recorded",
+    commented: "Comment added",
     revised: "Revision draft created",
     import: "Source imported",
     update: "Draft saved",

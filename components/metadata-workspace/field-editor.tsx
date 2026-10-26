@@ -65,7 +65,7 @@ export function FieldEditor({
 }) {
   const draft = useFieldDraft(initial)
   const router = useRouter()
-  const publish = trpc.matcoreWorkflow.publish.useMutation()
+  const publish = trpc.matcoreWorkflow.submit.useMutation()
   const [review, setReview] = useState(false)
   const [confirmReload, setConfirmReload] = useState(false)
   const [validation, setValidation] = useState<string[]>([])
@@ -116,7 +116,7 @@ export function FieldEditor({
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">Metadata field</Badge>
           <Badge variant="secondary">
-            {published ? "Published local proposal" : "Private draft"}
+            {published ? "Submitted proposal" : "Private draft"}
           </Badge>
           {record.profileKey ? (
             <Badge variant="outline">{profileLabel(record.profileKey)}</Badge>
@@ -127,7 +127,7 @@ export function FieldEditor({
         </h1>
         <p className="text-sm text-muted-foreground">
           {record.sourceRelease
-            ? `Source baseline: MatCore ${record.sourceRelease.version}. `
+            ? `Reference: MatCore ${record.sourceRelease.version}. `
             : "Community field proposal. "}
           {record.profileKey
             ? "Local proposals are separate from official MatCore decisions."
@@ -140,11 +140,12 @@ export function FieldEditor({
           <CommunityWorkReturnLink
             className="w-fit text-sm underline underline-offset-4"
             href={matcoreCatalogHref(record.community.slug, {
+              standard: "reference",
               releaseId: record.profileReleaseId,
               source: record.sourceOccurrenceId
             })}
           >
-            View preserved source entry
+            View reference
           </CommunityWorkReturnLink>
         ) : null}
       </header>
@@ -161,7 +162,7 @@ export function FieldEditor({
               : draft.recovered
                 ? "Recovered unsaved changes from this tab; save to your account."
                 : published
-                  ? "This proposal has been published."
+                  ? "This proposal has been submitted."
                   : draft.reloading
                     ? "Loading the saved draft…"
                     : draft.saving
@@ -219,8 +220,8 @@ export function FieldEditor({
             Recovered unsaved proposal
           </FieldLabel>
           <FieldDescription>
-            This draft was published in another tab. Copy the writing you want
-            to keep before reloading the published version; it has not been
+            This draft was submitted in another tab. Copy the writing you want
+            to keep before reloading the submitted version; it has not been
             added to that proposal.
           </FieldDescription>
           <Textarea
@@ -236,19 +237,19 @@ export function FieldEditor({
           <Link
             href={`/metadata/fields/${record.publication.fieldId}?revision=${record.publication.revisionId}`}
           >
-            View published proposal
+            View proposal
           </Link>
         </Button>
       ) : null}
 
       <fieldset disabled={published || busy} className="min-w-0">
-        <Tabs defaultValue="definition" className="gap-5">
+        <Tabs defaultValue="specification" className="gap-5">
           <TabsList className="h-auto w-full flex-wrap justify-start sm:w-fit">
-            <TabsTrigger value="definition" className="min-h-10">
-              Definition
-            </TabsTrigger>
             <TabsTrigger value="specification" className="min-h-10">
               Field specification
+            </TabsTrigger>
+            <TabsTrigger value="definition" className="min-h-10">
+              Definition
             </TabsTrigger>
             <TabsTrigger value="sources" className="min-h-10">
               Sources &amp; history
@@ -268,7 +269,7 @@ export function FieldEditor({
               <CardContent>
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="field-label">Field label</FieldLabel>
+                    <FieldLabel htmlFor="field-label">Field name</FieldLabel>
                     <Input
                       id="field-label"
                       value={payload.label}
@@ -377,14 +378,14 @@ export function FieldEditor({
           />
           <FieldDescription>
             Explain the purpose of this field or the changes you are proposing.
-            This rationale is included with the published proposal.
+            This rationale is included with the submitted proposal.
           </FieldDescription>
         </Field>
       </fieldset>
 
       {validation.length ? (
         <Alert variant="destructive">
-          <AlertTitle>Review these details before publishing</AlertTitle>
+          <AlertTitle>Review your proposal</AlertTitle>
           <AlertDescription>
             <ul className="list-disc pl-5">
               {validation.map((message) => (
@@ -396,7 +397,7 @@ export function FieldEditor({
       ) : null}
       {publicationError ? (
         <Alert variant="destructive">
-          <AlertTitle>The proposal could not be published</AlertTitle>
+          <AlertTitle>The proposal could not be submitted</AlertTitle>
           <AlertDescription>
             {publicationError} Your draft is still saved.
           </AlertDescription>
@@ -405,8 +406,8 @@ export function FieldEditor({
       {!published ? (
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t pt-5">
           <p className="max-w-md text-sm text-muted-foreground">
-            Drafts are private. Publishing makes this proposal, its citations
-            and revision history available to readers of this community.
+            Drafts are private. Submitting shares this proposal, its citations
+            and revision history with readers of this community.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -461,12 +462,11 @@ export function FieldEditor({
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Review local proposal</DialogTitle>
+            <DialogTitle>Review proposal</DialogTitle>
             <DialogDescription>
-              The definition and field specification will be published together.
-              {record.baseline
-                ? " The preserved source baseline will not change."
-                : ""}
+              The definition and field rules will be shared for community
+              review.
+              {record.baseline ? " The reference version will not change." : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-5">
@@ -488,7 +488,7 @@ export function FieldEditor({
             {record.baseline ? (
               <section>
                 <h3 className="mb-2 font-semibold">
-                  Changes from the source baseline
+                  Changes from the reference
                 </h3>
                 {differences.length ? (
                   <dl className="flex flex-col gap-3">
@@ -517,7 +517,7 @@ export function FieldEditor({
                   </dl>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No wording or rule changes from the imported baseline.
+                    No wording or rule changes from the reference.
                   </p>
                 )}
               </section>
@@ -525,14 +525,11 @@ export function FieldEditor({
             <p className="text-sm">
               {payload.citations.length} supporting{" "}
               {payload.citations.length === 1 ? "citation" : "citations"}
-              {record.baseline
-                ? " and one preserved MatCore source baseline"
-                : ""}
-              .
+              {record.baseline ? " and one reference version" : ""}.
             </p>
             <Alert>
               <AlertDescription>
-                Publishing shares this proposal with readers of this community.
+                Submission makes the proposal visible to this community.
                 {record.profileKey
                   ? " It does not record MatCore approval."
                   : ""}{" "}
@@ -574,7 +571,7 @@ export function FieldEditor({
                   })
               }}
             >
-              {publish.isPending ? "Publishing…" : "Publish local proposal"}
+              {publish.isPending ? "Submitting…" : "Submit for review"}
             </Button>
           </DialogFooter>
         </DialogContent>
