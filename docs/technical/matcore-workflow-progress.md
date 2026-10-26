@@ -1,5 +1,31 @@
 # MatCore workflow progress
 
+## Community visibility follow-up, October 26, 2026
+
+Browser acceptance found that a public community could not become members-only.
+The privacy operation used SPARQL Update, while the deployed Fuseki configuration
+provides authenticated Graph Store writes only. The failed operation preserved
+the public visibility setting and displayed an error. Existing members-only
+content remained inaccessible to anonymous visitors.
+
+The local correction replaces the five owned named graphs with empty Turtle
+through the same Graph Store endpoint used by projection. The shared privacy
+lock remains held until removal succeeds and the visibility transaction commits.
+A failed or partially completed removal still prevents the visibility change.
+Unrelated named graphs are outside the request scope.
+
+Validation includes 73 database privacy checks with rolled-back fixtures, rejected
+and partially completed remote writes, TypeScript and scoped lint. The graph
+database suite passed against a temporary Apache Fuseki 6.2.0 instance using the
+query and Graph Store configuration, including removal and reprojection. The
+instance was stopped after testing. This correction requires its own CI and
+release before the live private-community workflow can pass acceptance.
+
+The UI checks also identified two follow-ups. Metadata drafts have no discard
+control, so disposable verification drafts require protected cleanup. Switching
+between Working version and Reference resets the selected field. Neither issue
+changed existing draft contents or the source baseline during these checks.
+
 ## Shared metadata field rules, October 24, 2026
 
 Local work on `feat/metadata-field-rules` makes Requirement, Repeatable field,

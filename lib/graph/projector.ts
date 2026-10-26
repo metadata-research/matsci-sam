@@ -34,19 +34,13 @@ export async function clearPublicGraphProjection() {
     return
   }
   try {
-    const update = [...CONTENT_GRAPH_NAMES, "meta" as const]
-      .map((name) => `CLEAR SILENT GRAPH <${graphIri(name)}>`)
-      .join(";\n")
-    const response = await fetch(`${configured}/update`, {
-      method: "POST",
-      headers: {
-        ...authorization(),
-        "Content-Type": "application/sparql-update"
-      },
-      body: update,
-      signal: AbortSignal.timeout(10_000)
-    })
-    if (!response.ok) throw new Error("Public graph removal failed")
+    // Hosts expose Graph Store writes, but deliberately no SPARQL Update
+    // endpoint. Replace only our named graphs with empty Turtle. A partial
+    // failure still aborts the visibility change under the shared lock.
+    const headers = authorization()
+    for (const name of [...CONTENT_GRAPH_NAMES, "meta" as const]) {
+      await putGraph(configured, headers, name, "")
+    }
   } catch {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",

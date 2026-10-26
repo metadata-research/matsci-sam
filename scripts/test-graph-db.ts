@@ -65,7 +65,9 @@ const main = async () => {
     voteEventsTable
   } = await import("../drizzle")
   const { CONTENT_GRAPH_NAMES, graphIri } = await import("../lib/graph/names")
-  const { projectGraphs } = await import("../lib/graph/projector")
+  const { projectGraphs, clearPublicGraphProjection } = await import(
+    "../lib/graph/projector"
+  )
   const { applicationMetadataNamespaceUri, identifierBaseUrl } = await import(
     "../lib/public-identifiers"
   )
@@ -104,7 +106,10 @@ const main = async () => {
   }
 
   const matsci = `<${applicationMetadataNamespaceUri}`
-  const inGraph = (name: (typeof CONTENT_GRAPH_NAMES)[number], pattern: string) =>
+  const inGraph = (
+    name: (typeof CONTENT_GRAPH_NAMES)[number],
+    pattern: string
+  ) =>
     `SELECT (COUNT(*) AS ?n) WHERE { GRAPH <${graphIri(name)}> { ${pattern} } }`
 
   // --- Project, and compare the store to the counts the projector reported ---
@@ -116,6 +121,21 @@ const main = async () => {
     assert.equal(stored, result.counts[name], `${name} graph triple count`)
     console.log(`${name}\t${stored} triples`)
   }
+
+  // The host and this fixture provide Graph Store writes, not SPARQL
+  // Update. Exercise privacy removal against that actual endpoint contract.
+  await clearPublicGraphProjection()
+  for (const name of [...CONTENT_GRAPH_NAMES, "meta" as const]) {
+    assert.equal(
+      await countOf(
+        `SELECT (COUNT(*) AS ?n) WHERE { GRAPH <${graphIri(name)}> { ?s ?p ?o } }`
+      ),
+      0,
+      `${name} graph emptied before restricting visibility`
+    )
+  }
+  await projectGraphs()
+  console.log("privacy removal and reprojection passed")
 
   // --- Entity counts: the database against the store ---
 
@@ -186,7 +206,11 @@ const main = async () => {
       { SELECT ?r WHERE { ?r <http://www.w3.org/ns/prov#specializationOf> ?d } GROUP BY ?r HAVING (COUNT(?d) = 1) }
     }`
   )
-  assert.equal(typedAndLinked, revisions, "every revision is typed and linked once")
+  assert.equal(
+    typedAndLinked,
+    revisions,
+    "every revision is typed and linked once"
+  )
   console.log(`revisions\t${revisions}`)
 
   // --- The paper queries, against the union default graph ---
