@@ -194,9 +194,11 @@ continue to use terms from other vocabularies that participants can read.
 
 ## Joining
 
-Open a personal invitation or reusable group link, sign in, and select
-**Accept and join**. Account creation and required profile setup return you
-to the invitation.
+Open a personal invitation or reusable group link. Select **Create an account**
+if you are new, or **Sign in** if you have an account. After email verification,
+you can add your name or select **Skip for now**. You return to the invitation
+to select **Join** with the community name. Signing in or creating an account
+does not accept the invitation.
 
 Reusable group links do not grant access to a members-only community. Follow
 the link to request access instead. A personal invitation issued by a steward

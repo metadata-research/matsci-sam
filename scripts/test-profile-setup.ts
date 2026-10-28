@@ -213,7 +213,15 @@ async function emailLogin(
   return { response, session, store, saves, body: await response.json() }
 }
 
-async function googleLogin(returnTo: string | null, existing?: Account) {
+async function googleLogin(
+  returnTo: string | null,
+  existing?: Account,
+  options: {
+    restricted?: boolean
+    allowed?: boolean
+    invalidState?: boolean
+  } = {}
+) {
   const store = accountStore({ existing })
   const session = {
     id: undefined as number | undefined,
@@ -235,8 +243,10 @@ async function googleLogin(returnTo: string | null, existing?: Account) {
         }
       },
       "@/lib/apis/google": {
-        getGoogleAuthAccessMode: () => "open",
-        getGoogleAuthAllowedEmails: () => new Set(),
+        getGoogleAuthAccessMode: () =>
+          options.restricted ? "existing-or-allowlisted" : "open",
+        getGoogleAuthAllowedEmails: () =>
+          new Set(options.allowed ? ["fixture@example.test"] : []),
         getGoogleClientId: () => "fixture-client",
         createGoogleOAuthClient: () => ({
           getToken: async () => ({ tokens: { id_token: "fixture-id-token" } }),
@@ -254,12 +264,20 @@ async function googleLogin(returnTo: string | null, existing?: Account) {
   )
   let destination: string | undefined
   try {
-    await GET(
+    const response = await GET(
       new NextRequest(
-        "https://sam.example.test/api/auth/callback?state=fixture-state&code=fixture"
+        `https://sam.example.test/api/auth/callback?state=${options.invalidState ? "wrong" : "fixture-state"}&code=fixture`
       )
     )
-    assert.fail("Google callback must redirect after successful authentication")
+    if (options.invalidState) {
+      assert.equal(response.status, 400)
+      assert.equal(store.inserts, 0)
+      assert.equal(session.id, undefined)
+      return { destination, session, store }
+    }
+    assert.fail(
+      "Google callback must redirect after authentication or policy rejection"
+    )
   } catch (error) {
     assert.ok(error instanceof Error)
     assert.ok(error.message.startsWith("REDIRECT:"), error.message)
@@ -612,6 +630,45 @@ async function main() {
     )
     assert.equal(googleSignup.session.id, 42)
     assert.equal(googleSignup.store.inserts, 1)
+
+    const rejected = await googleLogin(requested, undefined, {
+      restricted: true
+    })
+    assert.equal(
+      rejected.destination,
+      authReturn.authPathWithReturnTo(
+        "/login?google=not-authorized",
+        safeReturn
+      )
+    )
+    assert.equal(
+      rejected.session.id,
+      undefined,
+      "policy rejection must not authenticate"
+    )
+    assert.equal(
+      rejected.store.inserts,
+      0,
+      "recovery must not bypass Google access policy"
+    )
+    const returning = await googleLogin(requested, incompleteAccount, {
+      restricted: true
+    })
+    assert.equal(returning.destination, destination)
+    assert.equal(returning.session.id, incompleteAccount.id)
+    const allowed = await googleLogin(requested, undefined, {
+      restricted: true,
+      allowed: true
+    })
+    assert.equal(
+      allowed.destination,
+      authReturn.profileCompletionPath(safeReturn)
+    )
+    assert.equal(allowed.store.inserts, 1)
+    await googleLogin(requested, undefined, {
+      restricted: true,
+      invalidState: true
+    })
   }
 
   const existingSignup = await emailLogin("/setup", {

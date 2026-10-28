@@ -10,7 +10,11 @@ import { getSession } from "@/lib/session"
 import { redirect } from "next/navigation"
 import { NextRequest } from "next/server"
 import { and, eq, sql } from "drizzle-orm"
-import { normalizeAuthReturnTo, profileCompletionPath } from "@/lib/auth-return"
+import {
+  authPathWithReturnTo,
+  normalizeAuthReturnTo,
+  profileCompletionPath
+} from "@/lib/auth-return"
 
 const stateMatches = (submitted: string, expected: string) => {
   const submittedBuffer = Buffer.from(submitted)
@@ -97,9 +101,7 @@ export const GET = async (req: NextRequest) => {
     getGoogleAuthAccessMode() === "open" ||
     getGoogleAuthAllowedEmails().has(normalizedEmail)
   if (!user && !isNewUserAllowed)
-    return new Response("This Google account is not authorized.", {
-      status: 403
-    })
+    redirect(authPathWithReturnTo("/login?google=not-authorized", returnTo))
 
   if (user?.googleId && user.googleId !== userId)
     throw new Error(

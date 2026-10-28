@@ -21,6 +21,7 @@ import {
 } from "@/lib/communities"
 import { authPathWithReturnTo } from "@/lib/auth-return"
 import { communityInvitationPageCopy } from "@/lib/invitation-presentation"
+import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
 
 export const metadata: Metadata = {
   title: `Invitation | ${SITE_NAME}`,
@@ -46,6 +47,7 @@ export default async function InvitePage({
   const { token } = await params
   const returnTo = invitePath(token)
   const user = await getCurrentUser()
+  const signupEnabled = isEmailAccountCreationEnabled()
   const invitation = await invitationForToken(token, user?.id ?? null)
 
   // A replaced, rotated or withdrawn link resolves to nothing. There is no
@@ -200,12 +202,24 @@ export default async function InvitePage({
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
-                Continue to accept this invitation. You will return here
-                afterward.
+                {signupEnabled
+                  ? "Create an account or sign in, then return here to accept."
+                  : "Sign in, then return here to accept."}
               </p>
-              <Button asChild className="w-full">
+              {signupEnabled ? (
+                <Button asChild className="w-full">
+                  <Link href={authPathWithReturnTo("/register", returnTo)}>
+                    Create an account
+                  </Link>
+                </Button>
+              ) : null}
+              <Button
+                asChild
+                variant={signupEnabled ? "outline" : "default"}
+                className="w-full"
+              >
                 <Link href={authPathWithReturnTo("/login", returnTo)}>
-                  Continue
+                  Sign in
                 </Link>
               </Button>
             </>

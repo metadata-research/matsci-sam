@@ -20,8 +20,10 @@ retained.
 
 ## Create an account with email
 
-New contributors can select **Create an account with email** on the login
-page when available. The confirmation says **Check your email to create your
+New contributors can select **Create an account** on an invitation or
+**Create an account with email** on the login page when available.
+Enter your email address and select **Create account with email**.
+The confirmation says **Check your email to create your
 account**. No password is required. Follow the email link to confirm your
 address and create your account. On **Your account is ready**, add your
 name and select **Save and continue**, or select **Skip for now**. You can
@@ -41,7 +43,19 @@ you if no available method lets you create an account.
 
 Select **Continue with Google** and choose your usual account. A new account
 offers the same optional profile setup. Existing accounts return to the
-pending destination. Check the selected Google account if access is refused.
+pending destination.
+
+The signup page also has **Create account with Google** when Google signup
+is enabled. Both Google actions verify your identity before creating an account.
+
+Google signup creates a site account. Access to a members-only community still
+requires accepting a personal invitation or approval of an access request.
+The community name is public, while its content remains available to members.
+
+Some sites restrict new Google accounts. If your account is refused, the sign-in
+page explains the restriction and provides **Create an account with email** when
+available. You can also use another existing account. Your invitation or other
+pending destination is retained.
 
 ## ORCID
 
