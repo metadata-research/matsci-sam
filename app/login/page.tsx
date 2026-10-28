@@ -32,9 +32,9 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams
 }: {
-  searchParams: Promise<{ returnTo?: string; orcid?: string }>
+  searchParams: Promise<{ returnTo?: string; orcid?: string; google?: string }>
 }) {
-  const { returnTo: requestedReturnTo, orcid } = await searchParams
+  const { returnTo: requestedReturnTo, orcid, google } = await searchParams
   const returnTo = normalizeAuthReturnTo(requestedReturnTo)
   // Someone already signed in has nothing to do here, and on a host with
   // email account creation this page would offer them a second account.
@@ -45,6 +45,10 @@ export default async function LoginPage({
   const emailEnabled = isEmailAuthEnabled()
   const emailAccountCreationEnabled = isEmailAccountCreationEnabled()
   const orcidEnabled = isOrcidAuthEnabled()
+  const googleRejected = google === "not-authorized"
+  const showSignupAction =
+    emailAccountCreationEnabled &&
+    (googleRejected || returnTo?.startsWith("/invite/"))
 
   return (
     <main className="px-4 py-12">
@@ -57,6 +61,23 @@ export default async function LoginPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {googleRejected ? (
+            <p
+              role="status"
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-5"
+            >
+              {emailAccountCreationEnabled
+                ? "Google sign-in is restricted on this site. You can create an account with email or sign in with an existing account."
+                : "This Google account cannot sign in here. Try another account or contact the site administrator."}
+            </p>
+          ) : null}
+          {showSignupAction ? (
+            <Button asChild className="w-full">
+              <Link href={authPathWithReturnTo("/register", returnTo)}>
+                Create an account with email
+              </Link>
+            </Button>
+          ) : null}
           {orcid === "cancelled" ? (
             <p
               role="status"
@@ -66,7 +87,11 @@ export default async function LoginPage({
             </p>
           ) : null}
           {googleEnabled ? (
-            <Button asChild className="w-full">
+            <Button
+              asChild
+              variant={showSignupAction ? "outline" : "default"}
+              className="w-full"
+            >
               <a href={authPathWithReturnTo("/api/auth/google", returnTo)}>
                 Continue with Google
               </a>
@@ -143,7 +168,7 @@ export default async function LoginPage({
                 Sign in with email
                 <span className="h-px flex-1 bg-border" aria-hidden />
               </div>
-              {emailAccountCreationEnabled ? (
+              {emailAccountCreationEnabled && !showSignupAction ? (
                 <p className="text-center text-sm text-muted-foreground">
                   New here?{" "}
                   <Link

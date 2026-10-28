@@ -124,6 +124,8 @@ try {
   process.env.GOOGLE_CALLBACK_URL = "https://example.test/auth/callback"
   process.env.GOOGLE_AUTH_ACCESS_MODE = "existing-or-allowlisted"
   assert.equal(isGoogleAuthConfigured(), true)
+  process.env.GOOGLE_AUTH_ACCESS_MODE = "open"
+  assert.equal(isGoogleAuthConfigured(), true)
   delete process.env.GOOGLE_CLIENT_SECRET
   assert.equal(isGoogleAuthConfigured(), false)
   process.env.GOOGLE_CLIENT_SECRET = "secret"
@@ -367,24 +369,13 @@ assert.match(loginPage, /ORCID_SIGN_IN_CANCELLED_NOTICE/)
 assert.match(ORCID_SIGN_IN_CANCELLED_NOTICE, /^ORCID sign-in was cancelled\./)
 assert.match(registrationPage, /Create an account with email/)
 assert.match(registrationPage, /Create account with email/)
-assert.match(registrationPage, /isGoogleAuthConfigured\(\)/)
-assert.match(registrationPage, /Continue with Google instead/)
-assert.ok(
-  registrationPage.indexOf("Continue with Google instead") <
-    registrationPage.indexOf('action="/api/auth/email/start"'),
-  "Google must precede the email-creation form for returning contributors"
-)
-assert.match(invitationPage, /Continue to accept this invitation\./)
+// Rendered invitation/signup affordances and disabled-signup cases are covered
+// by test-invitation-onboarding, rather than source-order assertions here.
 assert.match(invitationPage, /authPathWithReturnTo\("\/login", returnTo\)/)
 assert.doesNotMatch(
   invitationPage,
   /community\.description\s*&&\s*!study/,
   "community invitations must not repeat the separate community description"
-)
-assert.doesNotMatch(
-  invitationPage,
-  /authPathWithReturnTo\("\/register", returnTo\)/,
-  "the invitation must not offer a registration route that may be disabled"
 )
 assert.match(
   emailStartRoute,
