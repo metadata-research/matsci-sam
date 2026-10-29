@@ -1,5 +1,251 @@
 # MatCore workflow progress
 
+## Superego release preparation, October 29, 2026
+
+The user authorized deployment of the community review workflow for shared
+testing. Migration 0075 adds six tables for review rounds, immutable item
+snapshots, responses, response history, invitations and admissions. It does
+not update existing content. The release will use the official backup and
+migration rehearsal, then compare every pre-existing table with the frozen
+backup. The source worker must be paused during those preservation checks.
+
+The local evidence includes 55 database checks, 17 browser regression groups,
+nine member/steward journey groups, shared presentation checks, TypeScript,
+authentication and router checks. Full lint has no errors. The production
+build, migration and browser acceptance run in CI before merge. Shared-server
+acceptance will cover Quick start, review selection, Requested feedback,
+mobile responses, save/reload, proposal return and private community access.
+Local example records are not part of the source release or database migration.
+CI and Superego acceptance are pending. Release identities and host receipts
+are recorded in the internal development state.
+
+## Compact mobile review and source guidance, October 29, 2026
+
+Local display changes keep the main field rules in two columns and the review
+filters on one row. Mobile spacing is reduced, with 44-pixel response targets.
+An empty optional comment is collapsed. Saved or recovered comments open when
+the item loads, and reloading a conflicting saved response also opens its
+comment. Save guards, response records and revision handling are unchanged.
+
+The shared field summary says Not recorded separately for missing structured
+rules when nonblank value guidance exists. Value guidance and field rules
+opens the complete specification with guidance near the top. Explicit rules
+retain their values, and fields without guidance retain Not specified. No
+structured rule is inferred from prose. This is generic display behavior,
+with no MatCore-specific branch, migration or source rewrite. The community
+and metadata user guides describe the new controls.
+
+Verification passed:
+
+- All 17 groups in the isolated browser regression pass. They cover compact
+  320/390-pixel rules, keyboard access to guidance, touch targets, reopening
+  saved comments, rapid saves, two-tab conflicts, interrupted saves, lost
+  acknowledgements, navigation, proposal return, private access and cleanup.
+- Nine groups pass against the actual local Phase Field examples as an ordinary
+  member and steward. They include opening the original source guidance,
+  saving and reloading with and without a comment, and private proposals.
+  Temporary test members, responses and drafts were removed. Fingerprints of
+  every existing table match the pre-test state in both browser suites.
+- Shared presentation checks pass for MatCore and independent community fields.
+  They cover explicit rules, missing rules with prose, blank guidance, legacy
+  list values, escaping source text and leaving input payloads unchanged.
+- TypeScript, scoped lint and whitespace checks pass. Screenshots at 320, 390
+  and 1280 pixels show no horizontal overflow or framework error overlay.
+  There were no application page errors or unexpected requests. Chrome reported
+  only font preload warnings in the realistic journey. Browser plugin was not
+  available, so validation used the existing Playwright harness.
+
+For the same reference field with an empty comment, the 390-pixel page height
+fell from 1,782 to 1,383 pixels. Save and next moved from 1,525 to 1,142 pixels
+below the page top. At 320 pixels, page height fell from 1,860 to 1,501 pixels.
+The core rules occupy 100/120 pixels at those widths, compared with 224 before.
+
+Evidence is under `.matsci-stage/phase-field-review-layout-20261029/` in the parent
+workspace, including `before.json`, `after.json`, screenshots,
+`member-journey-results.json` and `regression/results.json`. The isolated preview
+was stopped. The normal bounded preview is healthy on port 3109, with 23 tasks
+and about 2.72 GiB of memory at the final check. No remote site has been changed.
+The branch remains uncommitted and unpushed.
+
+## Phase Field member testing and requested feedback, October 29, 2026
+
+The user authorized shared review requests in each community member's My work.
+The new Requested feedback section appears before personal drafts. Each open
+round shows only the current person's progress and links to the next unanswered
+item. Area filtering includes reviews for that area and community-wide rounds.
+Completed responses remain available, and closed rounds leave the requested
+list. This reuses the existing review records and requires no new migration or
+per-person assignment rows. It sends no notifications and creates no private
+drafts on behalf of members.
+
+A steward can open Manage reviews from Quick start, name a round, select an area
+and response style, clear the initial item selection, search by name, path or
+definition, select references/proposals and create the review. Selection remains
+intact across searches. The settings form states where the request will appear.
+The user guides now describe this workflow.
+
+Member testing found that Suggest a change could stop when the reference already
+had a proposal. It now opens a private revision of that proposal or resumes the
+member's existing alternative, with the original review return link. Exact
+reference snapshots and the existing draft remain intact. Progress refresh is
+limited to the requested-feedback query when the section opens, without
+invalidating the whole community layout after each vote.
+
+Two realistic proposals are retained in the local MatCore community under Local
+example contributor. They clarify `numerical-method.grid-spacing` and correct
+the guidance for `numerical-method.time-step-size.value`. MatCore Table PF-5
+currently refers to grid spacing in the value guidance for the time-step field.
+The proposed correction retains the separate unit field and numerical value.
+The grid-spacing proposal requests context for directional or summary measures
+and varying meshes. Both keep the original source association, recorded versions
+and change rationale. They are local proposals for consideration, not MatCore
+approvals. No live site was modified and no example votes are retained.
+
+The retained review, Phase Field spacing and time increments, contains both
+reference fields and both proposals. It was created through the steward UI.
+A pre-seed database backup is retained outside Git. Existing rows in 11 protected
+content/history tables were checked unchanged during seeding, including drafts,
+source baseline, revisions, provenance, dictionary entries and survey records.
+The subsequent member journey removed its temporary member, responses and private
+alternative, then verified all table fingerprints against the pre-test state.
+
+Verification passed:
+
+- Eight realistic browser groups pass against the existing local MatCore data,
+  using an ordinary member and a steward at 1280/1440-pixel desktop widths and
+  a 390-pixel mobile width. They cover selection, shared requests, personal
+  progress, saving/reloading, response labels, private alternatives and return,
+  resuming through an existing proposal, attributed organizer results and cleanup.
+- The database suite passes 55 checks, including requested-review scope,
+  progress isolation, closure, privacy and the pending-proposal return path.
+- TypeScript, scoped lint and public-router boundary checks pass. No application page errors or blocked
+  unexpected requests occurred in the realistic journey. Chrome emitted font
+  preload warnings. Screenshots show no framework overlay or horizontal overflow.
+- All 16 groups in the full browser regression pass on the isolated local
+  preview, including signup continuation, explicit joining, private access,
+  invitation revocation, rapid clicks, conflicts, interrupted saves and fixture
+  preservation. The normal preview has email signup disabled, so that check
+  requires the isolated configuration. No email or Google provider call was made.
+- An intermittent invitation-click failure occurred during extended browser
+  runs. Review selection now changes the address without remounting the settings
+  page, and invitation creation remains disabled until organizer permissions
+  have loaded. The final complete regression passes without click instrumentation.
+  The item selector also distinguishes reference and proposal versions.
+
+The mobile response form still requires scrolling below the field rules. Some
+structured rule summaries say Not specified while the original specification
+contains prose guidance. These were presentation follow-ups, addressed in the
+compact review entry above without a baseline rewrite. Evidence is under
+`.matsci-stage/phase-field-member-review-20261029/` in the parent workspace.
+It includes `examples.json`, `example-review.json`, `member-journey-results.json`
+and desktop/mobile screenshots. The isolated test preview was stopped and the
+usual bounded local preview restored on port 3109 with its original signup
+configuration. Local code remains uncommitted and unpushed.
+
+## Community reviews implementation, October 29, 2026
+
+Implemented and tested locally on `feat/community-review-quick-start`. The shared
+community template now starts with Quick start, then Review, Standard or
+Vocabulary, My work, People and More. Area selection stays with review and
+proposal navigation. Quick start offers Review and respond, Suggest a change
+and Continue my work. The same components serve ordinary vocabulary communities.
+
+A review round freezes its target versions and response wording. Organizers
+select reference fields, pending metadata proposals or ordinary definition
+revisions. The assessment preset uses Suitable as written / Needs revision /
+Unable to assess for fields and Support this change / Needs revision / Unable
+to assess for proposals; an upvote/downvote preset is also available. The
+participant sees one item, optional comments, Save and next, Skip for now and
+Not yet reviewed / My responses / All items. Repeated field names show their
+path in the item selector. Draft return links save before returning to review.
+
+Responses retain the respondent, exact target, time and edit/withdrawal history.
+Repeated requests are idempotent, concurrent edits detect conflicts, and failed
+saves can be retried after reload when tab storage is available. Participants
+see totals and their own response; organizers can inspect identified responses.
+Review responses do not accept proposals or alter existing definition votes
+or surveys. Accepted working-version overlays remain in Standard; the initial
+review picker distinguishes reference fields and pending proposals.
+
+Conference invitations expire in 1–30 days and can be revoked. Authentication
+retains the review destination, followed by an explicit Join action. Admission
+grants membership in the whole community, not only the selected area. A public
+invitation page exposes no private field content. Closing a round stops further
+responses and admissions. Existing invitation and approval paths are preserved.
+
+Migration 0075 adds six tables for rounds, exact target snapshots, current
+responses, response events, invitation hashes and admissions. The isolated
+local rehearsal preserved all 67 original table fingerprints. Applying 0075
+to the existing local MatCore preview database preserved all 68 original tables.
+A subsequent local setup created **Phase Field feedback** with 47 reference
+fields and promoted only the local community creator's membership from member
+to steward so review settings can be tried. The other 67 tables, including
+existing drafts, sources, provenance, baseline and survey data, remained equal
+to their pre-migration fingerprints. No reference was reimported.
+
+Verification passed:
+
+- 46 new database checks cover snapshots, permissions, saved response versions,
+  replayed requests, withdrawals, identified results and bounded admission.
+- 14 new browser groups cover desktop/mobile, rapid clicks, saving/reloading,
+  two-tab conflicts, interrupted requests, lost acknowledgements, guarded
+  navigation, private field drafts and return links, filters, invitation/signup
+  continuation, explicit joining, revocation, organizer results and closure,
+  ordinary communities, and complete fixture cleanup with preservation checks.
+- The existing standards database suite passes 54 checks plus its concurrency
+  regression; the existing standards browser suite passes all 13 groups,
+  including working versions, proposals, community releases and privacy.
+- Authentication plumbing, invitation onboarding, public-router boundaries,
+  migration ordering, TypeScript and scoped lint pass. Browser fixtures use
+  local sessions; no real Google authorization or email delivery was exercised.
+
+The local preview is available on port 3109 in `matsci-matcore-preview.service`,
+with CPU quota 200%, memory limit 6 GiB, no swap, 128-task limit, Node heap
+3072 MiB and two worker threads for the configured pools. Its existing dedicated
+PostgreSQL cluster runs on port 55447 in `matsci-matcore-db.service`. The isolated
+preview on port 3110 has been stopped. Backups and evidence remain outside Git
+under `.matsci-stage/community-review-local-20261029/` in the parent workspace,
+including `ui/results.json`, `local-review.json` and `preservation-final.json`.
+
+The community and MatCore guides describe the new workflow. No commits have
+been pushed and no Superego or Ego changes were made. Before deployment, review
+the migration and access changes, run CI, then verify real signup continuation
+and conference admission on Superego with an authorized test account.
+
+## Phase Field conference participation design, October 29, 2026
+
+The user requested a simpler community entry for Daniel's conference, with a
+shareable route to Phase Field, visible voting, proposed updates and a personal
+queue of items not yet reviewed. Votes must identify their respondents. This
+does not mean rating contributors.
+
+Read-only Ego review as an ordinary MatCore member confirmed that Phase Field
+selection is lost on the Proposals tab. The selected profile has 47 fields. The
+metadata proposal component supports comments and steward decisions but no member
+vote. Existing definition votes identify their respondents and exact revisions,
+but independent metadata proposals do not necessarily have a dictionary revision.
+The existing survey walkthrough is tied to dictionary terms and needs a separate
+target model for metadata feedback.
+
+The proposed design uses a shared Quick start, area selector, review queue,
+response panel and saved progress, with a MatCore adapter for profiles and
+versioned field context. A conference link should bypass general setup and retain
+the intended review destination through authentication and admission. Private
+communities currently reject open join links, so conference admission must be
+an explicit policy rather than a filter or navigation shortcut.
+
+The detailed findings, proposed flow, pending choices and acceptance plan are in
+[the community interface inventory](community-interface-inventory.md#conference-participation-review-october-29-2026).
+The user chose existing fields and proposals, and ordinary MatCore membership
+with Phase Field as the conference destination. The user requested less casual
+response wording and a configurable review style. The proposed reusable panel
+uses Suitable as written / Needs revision / Unable to assess for fields and
+Support this change / Needs revision / Unable to assess for proposals. Authorized
+organizers select the preset for a round before responses begin. The selected
+wording and meaning are retained with each round version. This configuration and
+the bounded private-community conference invitation require implementation.
+No production records, memberships, votes, proposals or application code changed.
+
 ## Community visibility follow-up, October 26, 2026
 
 Browser acceptance found that a public community could not become members-only.

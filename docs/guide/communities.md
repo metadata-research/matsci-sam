@@ -19,20 +19,21 @@ gather terms that already exist without copying their definitions.
 
 ## Community workspace
 
-The community page is its workspace. **Overview** describes its purpose and
-shows your recently saved drafts when you have work to continue. **Vocabulary**
-shows published terms. **My work** contains your private drafts and contribution tools, with
-saved work before empty sections. **Collections** contains shared term lists,
-**People** covers membership, and **Surveys** appears when relevant. Managers
-can use **Settings** to control content access and metadata tools.
+The community page opens on **Quick start**. Choose an area when one is
+available, then **Review and respond**, **Suggest a change**, or **Continue my
+work**. A conference invitation opens its review after you sign in and join.
 
-When metadata development is enabled, the community opens on **Standard**, with
-**Working version** and **Hierarchy** selected. The working version contains the
-reference fields and accepted community changes. **Community release** opens a
-named snapshot when one exists. **Reference** opens the publisher specification. **Proposals** holds shared revisions for
-discussion and steward review, and **My drafts** holds private work. **More**
-contains community releases, vocabulary terms, collections, About and any authorized settings or
-surveys. Ordinary vocabulary communities keep the navigation described above.
+**Review** lists open review rounds. **Vocabulary** shows published definitions;
+communities with metadata tools use **Standard** instead. **My work** contains
+requested feedback, your private drafts and contribution tools. **People** covers membership.
+**More** contains collections, About, surveys and authorized settings. Metadata
+communities also have Proposals, Community releases and Vocabulary terms there.
+
+Standard opens with **Working version** and **Hierarchy** selected. The working
+version contains reference fields and accepted community changes. **Reference**
+opens a publisher specification, while **Community release** opens a named
+community snapshot. **Proposals** holds submitted changes for discussion and
+steward review.
 
 In longer views, **On this page** lists the available sections. Select one to
 jump to it; the destination is briefly highlighted. On a small screen, open
@@ -69,6 +70,64 @@ and proposals keep their source version when another snapshot becomes
 available. They are not updated automatically. Stewards can accept changes into the working version and create named community
 releases. Each release preserves its field contents and review decisions.
 Community review and releases do not establish MatCore approval.
+
+## Review and respond
+
+**My work → Requested feedback** lists open reviews for your selected area.
+Your progress is personal. **Start review** opens the first unanswered item,
+and **Continue review** resumes the next one. Participation is optional. A
+shared request does not create a private draft or require you to respond.
+
+Open a review and read the entry, version and field rules. Choose **Suitable as
+written**, **Needs revision**, or **Unable to assess**, add an optional comment,
+and select **Save and next**. For a proposed change, the first response is
+**Support this change**. Some rounds use upvotes and downvotes instead.
+
+The four main field rules stay visible. Expand **Value guidance and field rules**
+to read the source wording and remaining details. **Not recorded separately**
+means a structured rule is missing while value guidance is available. Open
+**Comment (optional)** to add a comment. Saved and recovered comments open when
+you return to the item.
+
+**Not yet reviewed**, **My responses** and **All items** let you choose what to
+see. **Skip for now** leaves an item unanswered. You can change or withdraw a
+saved response. Organizers can see who responded, their comments and the
+versions they reviewed. Other participants see totals and their own responses.
+Votes inform review; they do not accept a proposal into the working version.
+
+**Suggest a change** opens a private field draft. **Back to review** saves the
+draft and returns to the same review item. If a reference field already has a
+proposal, the draft starts from that proposal or resumes your existing private
+alternative. The reference stays unchanged. Ordinary definitions link to their
+entry, where you can contribute another definition.
+
+Save failures leave your response available for retry. When browser storage is
+available, this tab also keeps unsaved responses across reloads. If another tab
+has saved a newer response, **Reload saved response** replaces the text in this
+form with that saved version. Copy any wording you want to keep first.
+
+### Organize a review
+
+Stewards and site administrators can open **More → Settings → Reviews**. Name
+the round, choose an area and response style, and select the reference fields,
+pending proposals or ordinary definitions to include. Open **Choose items**,
+use **Clear selection**, then **Find a field or proposal** to locate the items
+you want. Select the reference, proposal, or both. Selection is retained when
+you search for another item.
+
+**Create review** records the exact versions and labels and adds the review to
+**Requested feedback** in every member's My work. Members can respond whenever
+they are ready. No notification is sent. Create a new round to review later
+versions or a different selection.
+
+Choose the round under **Manage a review** to see participant responses, create
+or revoke conference invitations, or close the round. Closing stops new
+responses and admissions; previous responses remain available.
+
+A conference invitation lets anyone holding its link create an account and
+explicitly join the whole community, including private sections. It opens the
+selected review after joining. Choose an expiry of 1–30 days and revoke the link
+when registration ends. Signing in alone does not grant community access.
 
 ## Content access
 
@@ -139,7 +198,7 @@ For instructions and background, open **Help & Guides** in the navigation.
 
 The **Community** selector beside your account opens the selected community
 and sets the context for browsing and new contributions. The choice is saved
-across sessions. Selecting the same community again returns to its Overview.
+across sessions. Selecting the same community again returns to Quick start.
 **Everything** opens Home with all vocabularies you can read. Select **My work**
 in the same menu to resume your work in the selected community. Vocabulary,
 people, collections and surveys are available through the workspace tabs.

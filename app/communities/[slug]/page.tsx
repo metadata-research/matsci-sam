@@ -1,3 +1,6 @@
+import { CommunityReviewHome } from "@/components/communities/review-home"
+import { CommunityReviewSession } from "@/components/communities/review-session"
+import { CommunityReviewSettings } from "@/components/communities/review-settings"
 import { cache } from "react"
 import {
   CommunityAccessSettings,
@@ -111,6 +114,8 @@ export default async function CommunityPage({
     content?: string
     layout?: string
     standard?: string
+    round?: string
+    item?: string
     edition?: string
   }>
 }) {
@@ -135,9 +140,11 @@ export default async function CommunityPage({
       </main>
     )
   const query = await searchParams
-  let view = query.view ?? "overview"
+  let view = query.view ?? "quickstart"
   if (
     ![
+      "quickstart",
+      "review",
       "overview",
       "vocabulary",
       "work",
@@ -157,7 +164,7 @@ export default async function CommunityPage({
   })
   const standardsEnabled =
     workspace.metadataEnabled || workspace.hasMatcoreCatalog
-  if (!query.view && standardsEnabled) view = "vocabulary"
+
   if (!standardsEnabled && ["proposals", "releases"].includes(view)) notFound()
   if (standardsEnabled && query.content === "contributions") view = "proposals"
   const terms =
@@ -207,7 +214,15 @@ export default async function CommunityPage({
   )
     notFound()
   const standard =
-    standardsEnabled && ["vocabulary", "proposals", "releases"].includes(view)
+    standardsEnabled &&
+    [
+      "vocabulary",
+      "proposals",
+      "releases",
+      "quickstart",
+      "review",
+      "settings"
+    ].includes(view)
       ? await trpc.matcoreWorkflow
           .standard({
             vocabularySlug: community.vocabularySlug,
@@ -352,8 +367,32 @@ export default async function CommunityPage({
           showSettings={showSettings}
           standardsEnabled={standardsEnabled}
           referenceReleaseId={standard?.reference?.id}
+          area={query.profile}
           vocabularyHref={vocabularyPath(community.vocabularySlug)}
         />
+        {["quickstart", "review"].includes(view) &&
+        !(view === "review" && query.round) ? (
+          <CommunityReviewHome
+            communityId={community.id}
+            slug={community.slug}
+            areas={standard?.profiles ?? []}
+            area={query.profile}
+            canManage={showSettings}
+            standards={standardsEnabled}
+            reviewOnly={view === "review"}
+          />
+        ) : null}
+        {view === "review" &&
+        query.round &&
+        /^[0-9a-f-]{36}$/i.test(query.round) ? (
+          <CommunityReviewSession
+            key={`${query.round}:${user?.id}`}
+            roundId={query.round}
+            itemId={query.item}
+            userId={user?.id ?? null}
+            communityId={community.id}
+          />
+        ) : null}
         {view === "overview" ? (
           <div className="flex flex-col gap-6">
             {user ? (
@@ -384,6 +423,12 @@ export default async function CommunityPage({
             <h2 id="community-settings" className="text-2xl font-semibold">
               Settings
             </h2>
+            <CommunityReviewSettings
+              selectedRound={query.round}
+              communityId={community.id}
+              slug={community.slug}
+              area={query.profile}
+            />
             <CommunityAccessSettings
               key={`${community.id}:${access.visibility}`}
               access={access}
@@ -416,7 +461,7 @@ export default async function CommunityPage({
             offset={query.offset}
           />
         ) : null}
-        {standard ? (
+        {standard && ["vocabulary", "proposals", "releases"].includes(view) ? (
           <CommunityStandardWorkspace
             community={{ slug: community.slug, title: community.title }}
             data={standard}

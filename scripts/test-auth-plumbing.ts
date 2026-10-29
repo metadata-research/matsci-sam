@@ -155,7 +155,11 @@ assert.equal(EmailAuthIntentSchema.safeParse("create").success, true)
 assert.equal(EmailAuthIntentSchema.safeParse("register").success, false)
 
 const invitationReturnTo = `/invite/${"a".repeat(43)}`
+const reviewInvitationReturnTo = `/review-invite/${"r".repeat(43)}`
 for (const path of [
+  reviewInvitationReturnTo,
+  "/communities/matcore_development?view=quickstart&profile=pf",
+  "/communities/matcore_development?view=review&round=74dde90f-41bf-4912-bccc-d1761cf58a50&profile=pf",
   "/setup",
   "/setup?task=import&vocabularySlug=materials&communityId=12",
   "/add",
@@ -198,6 +202,8 @@ for (const path of [
   assert.equal(normalizeAuthReturnTo(path), null, path)
 assert.equal(normalizeAuthReturnTo(invitationReturnTo), invitationReturnTo)
 assert.equal(normalizeAuthReturnTo("/invite/too-short"), null)
+assert.equal(normalizeAuthReturnTo("/review-invite/too-short"), null)
+assert.equal(normalizeAuthReturnTo(reviewInvitationReturnTo + "?next=/admin"), null)
 assert.equal(normalizeAuthReturnTo("/profile"), null)
 assert.equal(normalizeAuthReturnTo("//example.org/invite/"), null)
 assert.equal(normalizeAuthReturnTo("https://example.org/invite/token"), null)
@@ -274,7 +280,7 @@ assert.equal(
   null,
   "unapproved continuations are not carried in email links"
 )
-for (const path of [studyReturnTo, studyRunReturnTo]) {
+for (const path of [studyReturnTo, studyRunReturnTo, reviewInvitationReturnTo]) {
   const parameters = new URLSearchParams(
     createEmailAuthLinkFragment(emailToken, path)
   )

@@ -166,7 +166,9 @@ export function CommunityStandardWorkspace({
   )
   const busy = createRelease.isPending || createField.isPending
   const proposals = data.proposals.filter(
-    (row) => status === "all" || row.status === status
+    (row) =>
+      (!profile || row.profileKey === profile) &&
+      (status === "all" || row.status === status)
   )
   const canCreate = Boolean(
     viewerId && data.workspace.metadataEnabled && !data.workspace.retired
@@ -647,13 +649,43 @@ export function CommunityStandardWorkspace({
                 value={data.reference.id}
                 onChange={(event) =>
                   router.push(
-                    `/communities/${community.slug}?${new URLSearchParams({ view: "proposals", release: event.target.value })}`
+                    `/communities/${community.slug}?${new URLSearchParams({ view: "proposals", release: event.target.value, ...(profile ? { profile } : {}) })}`
                   )
                 }
               >
                 {data.referenceVersions.map((row) => (
                   <option key={row.id} value={row.id}>
                     MatCore {row.version}
+                  </option>
+                ))}
+              </WorkspaceSelect>
+            </Field>
+          ) : null}
+          {data.profiles.length ? (
+            <Field className="max-w-xs">
+              <FieldLabel htmlFor="proposal-area">Area</FieldLabel>
+              <WorkspaceSelect
+                id="proposal-area"
+                value={profile ?? ""}
+                onChange={(event) =>
+                  router.push(
+                    `/communities/${community.slug}?` +
+                      new URLSearchParams({
+                        view: "proposals",
+                        ...(data.reference
+                          ? { release: data.reference.id }
+                          : {}),
+                        ...(event.target.value
+                          ? { profile: event.target.value }
+                          : {})
+                      })
+                  )
+                }
+              >
+                <option value="">All areas</option>
+                {data.profiles.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {profileLabel(row.id)}
                   </option>
                 ))}
               </WorkspaceSelect>

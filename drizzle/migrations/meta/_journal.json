@@ -526,6 +526,13 @@
       "when": 1792760508644,
       "tag": "0074_community_standard_releases",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793267855766,
+      "tag": "0075_community_review_rounds",
+      "breakpoints": true
     }
   ]
 }

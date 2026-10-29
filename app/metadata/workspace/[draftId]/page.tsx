@@ -1,3 +1,4 @@
+import { normalizeCommunityReviewReturn } from "@/lib/community-review-types"
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { getCurrentUser } from "@/lib/current-user"
@@ -24,7 +25,7 @@ export default async function MetadataFieldDraftPage({
   searchParams
 }: {
   params: Promise<{ draftId: string }>
-  searchParams: Promise<{ returnTo?: string }>
+  searchParams: Promise<{ returnTo?: string; reviewReturn?: string }>
 }) {
   const [{ draftId }, query, user] = await Promise.all([
     params,
@@ -41,15 +42,17 @@ export default async function MetadataFieldDraftPage({
     redirect(
       authPathWithReturnTo(
         "/login",
-        normalizeMatcoreCatalogReturnTo(query.returnTo)
-          ? withMatcoreCatalogReturn(
-              `/metadata/workspace/${draftId}`,
-              query.returnTo!
-            )
-          : withCommunityWorkReturn(
-              `/metadata/workspace/${draftId}`,
-              normalizeCommunityWorkReturnTo(query.returnTo)
-            )
+        normalizeCommunityReviewReturn(query.reviewReturn)
+          ? `/metadata/workspace/${draftId}?reviewReturn=${encodeURIComponent(query.reviewReturn!)}`
+          : normalizeMatcoreCatalogReturnTo(query.returnTo)
+            ? withMatcoreCatalogReturn(
+                `/metadata/workspace/${draftId}`,
+                query.returnTo!
+              )
+            : withCommunityWorkReturn(
+                `/metadata/workspace/${draftId}`,
+                normalizeCommunityWorkReturnTo(query.returnTo)
+              )
       )
     )
   const draft = await trpc.matcoreWorkflow
@@ -72,22 +75,35 @@ export default async function MetadataFieldDraftPage({
           source: draft.sourceOccurrenceId
         })
       : null
+  let reviewReturn = draft.community
+    ? normalizeCommunityReviewReturn(query.reviewReturn, draft.community.slug)
+    : null
+  if (reviewReturn) {
+    const params = new URLSearchParams(reviewReturn.split("?")[1])
+    const review = await trpc.communityReviews
+      .get({ id: params.get("round")! })
+      .catch(() => null)
+    if (!review || review.community.slug !== draft.community?.slug)
+      reviewReturn = null
+  }
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
       <FieldEditor
         key={`${user.id}:${draft.id}`}
         initial={draft}
-        workspaceHref={catalogReturn ?? workReturn.href}
+        workspaceHref={reviewReturn ?? catalogReturn ?? workReturn.href}
         workspaceLabel={
-          catalogReturn
-            ? catalogReturn.includes("standard=reference")
-              ? "Back to reference"
-              : catalogReturn.includes("standard=release")
-                ? "Back to community release"
-                : "Back to working version"
-            : draft.community
-              ? workReturn.label
-              : "My field drafts"
+          reviewReturn
+            ? "Back to review"
+            : catalogReturn
+              ? catalogReturn.includes("standard=reference")
+                ? "Back to reference"
+                : catalogReturn.includes("standard=release")
+                  ? "Back to community release"
+                  : "Back to working version"
+              : draft.community
+                ? workReturn.label
+                : "My field drafts"
         }
       />
     </main>

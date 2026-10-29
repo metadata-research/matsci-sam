@@ -1,5 +1,242 @@
 # Community interface inventory
 
+## Compact review and source guidance, October 29, 2026
+
+The review uses two columns for the four main rules on mobile. The review
+filters remain on one row, and the response choices retain 44-pixel touch
+targets. Empty comments are collapsed behind Comment (optional). Saved and
+recovered comments open when the item loads. Full rules and comparison details
+remain available through disclosures.
+
+When value guidance exists, missing structured rules show Not recorded
+separately. The disclosure is labelled Value guidance and field rules, with
+the guidance near the top. This applies to the shared metadata components,
+including independent community fields. It does not infer a rule from prose
+or rewrite a source, draft or review snapshot. Verification is recorded in
+[the progress document](matcore-workflow-progress.md).
+
+## Phase Field member journey, October 29, 2026
+
+The local review used a normal community member, with the existing MatCore
+catalog and two realistic proposals. Desktop and mobile checks found these gaps.
+
+| Finding | Local change |
+| --- | --- |
+| My work showed personal drafts but no shared feedback requests. | Requested feedback now appears first, with personal progress and the next unanswered item. Requests are shared review rounds, with no per-person draft copies. |
+| Selecting a few fields from the full catalog required scanning a long list. | Review settings now search names, paths and definitions. Selection persists across searches. |
+| Suggest a change from a reference could stop when a proposal already existed. | The action opens or resumes a private revision of that proposal and retains the return to the review item. |
+
+The steward journey is Quick start, Manage reviews, name the review, select an
+area and response style, open Choose items, clear the initial selection, search
+and select exact reference/proposal versions, then Create review. The request
+appears in My work for community members. Closing the review removes it from
+requested work while preserving responses. No messages are sent.
+
+The retained local example is Phase Field spacing and time increments. It
+contains the reference and a proposal for `numerical-method.grid-spacing` and
+`numerical-method.time-step-size.value`. The latter addresses wording in
+[MatCore Table PF-5](https://matcore.org/standard-document-content.html), where
+value guidance refers to grid spacing. These are proposals for consideration,
+not accepted changes or MatCore decisions. No example votes are retained.
+
+The 1280-pixel member view, 1440-pixel steward view and 390-pixel mobile view
+passed the realistic journey. The initial mobile view had no horizontal overflow, though the
+field rules still require scrolling before the response controls. Some imported
+rules remain unstructured in source guidance, so Not specified in a structured
+summary must not be taken as absence from the source specification. Improving
+that distinction was a presentation follow-up, addressed in the compact review
+entry above. The source baseline was
+not rewritten during this work.
+
+Evidence and complete verification are recorded in
+[the progress document](matcore-workflow-progress.md).
+
+## Conference participation review, October 29, 2026
+
+Status: the following records the design and source review. Implementation and
+local acceptance are complete; see [the October 29 progress entry](matcore-workflow-progress.md#community-reviews-implementation-october-29-2026).
+No remote content or memberships were changed. Quick start, reusable review
+rounds, configurable response presets and bounded invitations are now available
+locally. Real provider signup and shared-server verification remain deployment
+checks.
+
+The immediate purpose is Daniel's conference feedback on Phase Field. A shared
+link should take a participant to the relevant fields, offer a response where
+the field is shown, and provide a nearby route to suggest a change. The user
+confirmed that recording votes means recording who voted on each proposal,
+not rating contributors. A queue of items the person has not reviewed is part
+of the proposed workflow.
+
+### Findings
+
+The deployed MatCore page was inspected as an ordinary member on Ego. The
+Materials Metadata Examples page was inspected for comparison. The review
+followed Standard, the Phase field filter, Proposals and People without
+creating application records. Screenshots are in the parent workspace under
+`.matsci-stage/community-quick-start-review-20261029/`.
+
+- MatCore opens the full 248-field catalog. Phase Field is under a selector
+  labelled Profile. Selecting it shows 47 fields and a separate common-core
+  link. Selecting Proposals loses that filter. The proposal list has a status
+  filter but no area selector, personal response filter or voting control.
+- The visible proposal list has no entries awaiting review. Its prominent
+  creation action is Propose a new field. The action to change an existing
+  field is reached through the catalog.
+- The metadata proposal component provides changes, discussion, history and
+  steward decisions. It does not expose member votes. Independently submitted
+  metadata proposals can have no dictionary definition revision, so adding the
+  existing definition vote control would not cover this workflow.
+- Ordinary definition votes already retain the voter, exact revision, community
+  context and event history. Their public presentation limits voter identity.
+  Recording an identity does not authorize exposing it to other participants.
+- The ordinary community overview offers Browse vocabulary and Open my work.
+  It can use the same task-oriented entry component with different capabilities.
+- Existing surveys track term-based Position and Review steps. Metadata catalog
+  occurrences are not dictionary terms. A conference review must not manufacture
+  dictionary entries merely to satisfy that schema or alter existing surveys.
+- Private communities reject open join links. Named invitations and approved
+  requests work, but a reusable conference admission link would require an
+  explicit new, bounded invitation policy. A Phase Field filter is not an access
+  boundary within MatCore.
+
+### Proposed participant flow
+
+The general community entry should open Quick start. The conference link should
+open the Phase Field review directly after any required account creation and
+admission. An existing member should reach the review queue directly.
+
+Recommended primary navigation is Quick start, Review, Standard, My work,
+People, then More. Ordinary vocabulary communities use Vocabulary in place of
+Standard. Show Review only when the community has a configured review round or
+reviewable items. Existing proposal links remain valid and open the corresponding
+proposal view or queue. Existing deep links must not be redirected to Quick start.
+
+Quick start contains an optional area selector and three actions:
+
+| Action | Destination | Short description |
+| --- | --- | --- |
+| Review fields | Selected area's review queue | Give feedback on fields and proposed changes. |
+| Suggest a change | Search or hierarchy in the selected area | Choose a field to revise. |
+| Continue my work | The person's relevant drafts and responses | Resume a draft or revisit your feedback. |
+
+Use the home-page button and information-popover pattern, with these community
+tasks instead of community or vocabulary setup actions. Keep rules and background
+explanations in concise popovers or linked help. Counts, saving state, access
+restrictions and submission consequences remain visible.
+
+The review screen presents one field or proposal at a time:
+
+1. Area, field name, parent path and version identify the item.
+2. Definition and main field rules provide the material being reviewed.
+   A proposal also shows changes from its stated reference.
+3. Response choices appear immediately below it, with an optional comment.
+4. Suggest a change opens the existing draft workflow for that exact target.
+5. Save and next records the response before advancing. Skip for now advances
+   without recording a vote or marking the item reviewed.
+
+Provide Not yet reviewed, My responses and All items. Show progress for the
+chosen review set, and retain the area and queue position through login, drafts,
+tab changes and return navigation. A saved response can be changed. Not sure is
+an explicit response and is distinct from skipping or not participating.
+The reference remains unchanged, and votes do not automatically accept a
+proposal into the working version.
+
+A conference review round should identify an explicit set of versions. Daniel
+can select a shorter set from the 47 Phase Field fields rather than require
+completion of the full catalog. Common-core fields are separately selectable.
+New revisions must not silently replace the items participants already reviewed.
+Use a separate indication when a newer revision is available for another review.
+
+### Reusable structure
+
+Keep one community page shell. Add capability-based modules for Quick start,
+area selection, review queue, response controls and personal progress. Community
+configuration supplies labels, available areas, initial area and enabled tasks.
+The MatCore adapter supplies profile names, field occurrences, reference versions
+and inherited context. No shared component should select a layout by community
+name or slug. Other communities can use their own area configuration or omit
+the selector. Do not add an arbitrary plugin loader or a duplicate MatCore page.
+
+Separate three concepts in data and permissions:
+
+- An area selects work within a community. Selecting it does not grant access,
+  join another community or modify a proposal's stored scope.
+- A review round specifies the exact items and versions requested for feedback.
+  It can support a conference or an ongoing review without changing survey data.
+- Admission grants access through an invitation or approval. It is checked on
+  every content and write endpoint, independently of navigation or filters.
+
+Metadata feedback needs targets for a reference occurrence in a source release
+and for an immutable community proposal revision. Reuse an existing versioned
+dictionary target only when the item actually is a dictionary definition.
+Use database constraints for target identity and ownership. Record respondent,
+target version, community, review round, response, comment when supplied and time.
+Retain changes and withdrawals as history and prevent duplicate current responses
+from repeated clicks. Keep field feedback, proposal support, discussion and steward
+decisions distinct. Existing definition votes and survey records are preserved.
+
+Recommended initial visibility is aggregate counts and the participant's own
+response in the review screen, with identified responses available to authorized
+review organizers. Public voter identities and reputation scores are outside this
+change. Confirm any broader identity display separately.
+
+### Agreed scope and response configuration
+
+The user chose to include existing fields and proposals, with responses tied to
+the version shown. Conference participants should join MatCore and open Phase
+Field. Their ordinary membership also permits other MatCore sections. This is a
+design decision for conference admission, not a request to make the catalog public
+or issue a live join link during this review.
+
+The user found Works for me too casual and requested consideration of a selectable
+review style. Use one reusable response panel, configured under Community settings
+-> Reviews by an authorized organizer. Recommended initial presets are:
+
+| Preset | Response labels | Scope |
+| --- | --- | --- |
+| Field assessment | Suitable as written / Needs revision / Unable to assess | The displayed definition and field rules |
+| Proposal review | Support this change / Needs revision / Unable to assess | The displayed proposed changes |
+| Definition voting | Upvote / Downvote | An existing dictionary definition revision |
+
+The first two presets suit the conference. Keep existing dictionary voting
+available for ordinary vocabulary communities. Reuse presentation components
+without mapping field responses into unrelated dictionary vote rows.
+
+A preset specifies a stable meaning and response codes as well as visible labels.
+Snapshot the preset identifier, version, question, options and their meanings
+with the review round. Organizers can select a preset before responses begin.
+Changes to the question, target scope or response meaning create a new round
+version rather than relabelling recorded responses. Arbitrary weighting, a
+questionnaire builder and contributor ratings are outside the first version.
+
+The private-community conference invitation is a new admission mode. It needs an
+explicit steward action, expiry, revocation and a destination restricted to the
+same community and review round. Opening or previewing a link cannot admit a
+person. The participant must authenticate and explicitly join. Expiry or revocation
+stops future admissions and does not silently remove existing memberships.
+Existing named invitations, approvals and public-community join links retain
+their behavior. Do not enable the existing unrestricted join-link path for a
+private community as an implementation shortcut.
+
+### Implementation and acceptance order
+
+Build locally from this design. First add versioned metadata
+responses and the reusable review queue. Then add Quick start and retained area
+navigation. Add the configured conference admission mode and retained destination.
+Update community and participation help to match the visible workflow. Record
+implementation and testing separately from this design review.
+
+Acceptance must cover an ordinary vocabulary community and MatCore, ordinary
+member and organizer roles, desktop and mobile. Test the shared link through
+Google and email signup, existing-member entry, denied private access, expired
+and revoked invitations, and preservation of the review destination. Test saving,
+reload, two tabs, rapid clicks, interrupted saves, editing a response, skipping,
+new versions, exact-version counts and return from a proposal draft. Confirm that
+prior drafts, baseline fields, provenance, votes and survey records are unchanged.
+Use local or Superego fixtures for mutation tests before any Ego deployment.
+
+## Earlier interface review
+
 The shared community template now separates browsing, private work and settings.
 Installed catalogs, enabled tools, permissions and available work determine the
 visible controls. Community names and slugs do not select a special layout.

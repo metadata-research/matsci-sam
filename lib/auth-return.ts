@@ -1,7 +1,8 @@
+import { normalizeCommunityReviewReturn } from "./community-review-types"
 import { normalizeCommunityWorkReturnTo } from "./community-work-return"
 import { normalizeMatcoreCatalogReturnTo } from "./matcore-catalog-navigation"
 
-const INVITATION_RETURN_PATH = /^\/invite\/[A-Za-z0-9_-]{43}$/
+const INVITATION_RETURN_PATH = /^\/(?:review-invite|invite)\/[A-Za-z0-9_-]{43}$/
 const STUDY_RETURN_PATH = /^\/studies\/[a-z0-9][a-z0-9_-]*(?:\/run)?$/
 const VOCABULARY_SLUG = /^[a-z0-9][a-z0-9_-]{0,199}$/
 const DRAFT_ID =
@@ -29,6 +30,7 @@ function isWorkspaceReturnPath(value: string) {
       community &&
       key === "view" &&
       [
+        "quickstart",
         "overview",
         "work",
         "vocabulary",
@@ -123,6 +125,12 @@ function isDraftContextReturnPath(value: string) {
     )
       continue
     if (
+      key === "reviewReturn" &&
+      FIELD_WORKSPACE_RETURN_PATH.test(path) &&
+      normalizeCommunityReviewReturn(parameter)
+    )
+      continue
+    if (
       key === "review" &&
       IMPORT_RETURN_PATH.test(path) &&
       DRAFT_ID.test(parameter)
@@ -153,6 +161,7 @@ export const normalizeAuthReturnTo = (value: unknown): string | null =>
     IMPORT_RETURN_PATH.test(value) ||
     FIELD_WORKSPACE_RETURN_PATH.test(value) ||
     isDraftContextReturnPath(value) ||
+    normalizeCommunityReviewReturn(value) !== null ||
     normalizeCommunityWorkReturnTo(value) !== null ||
     normalizeMatcoreCatalogReturnTo(value) !== null ||
     isWorkspaceReturnPath(value) ||

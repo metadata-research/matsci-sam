@@ -3763,3 +3763,75 @@ export const vocabularyWorkspaceSettingsTable = pgTable(
     )
   ]
 )
+
+// Review rounds retain exact targets and response meanings independently of surveys.
+export const communityReviewRoundsTable = pgTable("communityReviewRounds", {
+  id: uuid().primaryKey(),
+  communityId: integer().notNull().references(() => communitiesTable.id),
+  name: text().notNull(),
+  area: text(),
+  style: text().$type<import("../lib/community-review-types").ReviewStyle>().notNull(),
+  createdById: integer().notNull().references(() => usersTable.id),
+  createdAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow(),
+  closedAt: timestamp({ mode: "string", withTimezone: true })
+}, t => [index("community_review_round_scope").on(t.communityId, t.createdAt),
+  check("community_review_style", sql.raw('"style" IN (\'assessment\', \'up_down\')'))])
+
+export const communityReviewItemsTable = pgTable("communityReviewItems", {
+  id: uuid().primaryKey(),
+  roundId: uuid().notNull().references(() => communityReviewRoundsTable.id),
+  position: integer().notNull(),
+  kind: text().$type<import("../lib/community-review-types").ReviewKind>().notNull(),
+  sourceOccurrenceId: text().references(() => matcoreSourceOccurrencesTable.id),
+  proposalRevisionId: uuid().references(() => matcoreSpecRevisionsTable.id),
+  definitionRevisionId: integer().references(() => definitionRevisionsTable.id),
+  snapshot: jsonb().$type<import("../lib/community-review-types").ReviewSnapshot>().notNull(),
+  preset: jsonb().$type<import("../lib/community-review-types").ReviewPreset>().notNull()
+}, t => [
+  unique("community_review_item_position").on(t.roundId, t.position),
+  unique("community_review_source_once").on(t.roundId, t.sourceOccurrenceId),
+  unique("community_review_proposal_once").on(t.roundId, t.proposalRevisionId),
+  unique("community_review_definition_once").on(t.roundId, t.definitionRevisionId),
+  check("community_review_target", sql.raw('("kind"=\'reference\' AND "sourceOccurrenceId" IS NOT NULL AND "proposalRevisionId" IS NULL AND "definitionRevisionId" IS NULL) OR ("kind"=\'proposal\' AND "sourceOccurrenceId" IS NULL AND "proposalRevisionId" IS NOT NULL AND "definitionRevisionId" IS NULL) OR ("kind"=\'definition\' AND "sourceOccurrenceId" IS NULL AND "proposalRevisionId" IS NULL AND "definitionRevisionId" IS NOT NULL)'))
+])
+
+export const communityReviewResponsesTable = pgTable("communityReviewResponses", {
+  itemId: uuid().notNull().references(() => communityReviewItemsTable.id),
+  userId: integer().notNull().references(() => usersTable.id),
+  response: text().$type<import("../lib/community-review-types").ReviewResponse>(),
+  comment: text().notNull().default(""),
+  version: integer().notNull(),
+  updatedAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow()
+}, t => [primaryKey({ columns: [t.itemId, t.userId] }),
+  index("community_review_responder").on(t.userId),
+  check("community_review_response", sql.raw('"response" IS NULL OR "response" IN (\'support\', \'revise\', \'unsure\')')),
+  check("community_review_response_version", sql.raw('"version" > 0')),
+  check("community_review_comment_size", sql.raw('length("comment") <= 4000'))])
+
+export const communityReviewEventsTable = pgTable("communityReviewEvents", {
+  id: uuid().primaryKey(),
+  itemId: uuid().notNull().references(() => communityReviewItemsTable.id),
+  userId: integer().notNull().references(() => usersTable.id),
+  mutationId: uuid().notNull(),
+  inputHash: text().notNull(),
+  response: text().$type<import("../lib/community-review-types").ReviewResponse>(),
+  comment: text().notNull(),
+  version: integer().notNull(),
+  createdAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow()
+}, t => [unique("community_review_mutation_once").on(t.userId, t.mutationId),
+  unique("community_review_event_version").on(t.itemId, t.userId, t.version)])
+
+export const communityReviewInvitationsTable = pgTable("communityReviewInvitations", {
+  id: uuid().primaryKey(),
+  roundId: uuid().notNull().references(() => communityReviewRoundsTable.id),
+  tokenHash: text().notNull().unique(),
+  createdById: integer().notNull().references(() => usersTable.id),
+  createdAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp({ mode: "string", withTimezone: true }).notNull(),
+  revokedAt: timestamp({ mode: "string", withTimezone: true })
+})
+export const communityReviewAdmissionsTable = pgTable("communityReviewAdmissions", {
+  invitationId: uuid().notNull().references(() => communityReviewInvitationsTable.id),
+  userId: integer().notNull().references(() => usersTable.id),
+  createdAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow()
+}, t => [primaryKey({ columns: [t.invitationId, t.userId] })])

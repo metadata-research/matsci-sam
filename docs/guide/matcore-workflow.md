@@ -1,9 +1,15 @@
 # Metadata fields and MatCore
 
-Communities with metadata development open on **Standard**, with **Working
-version** and **Hierarchy** selected. Open a field to propose a change, or use
-**Proposals** to review the community's work. **My drafts** holds your private writing. Ordinary vocabulary communities
-keep their terminology workflow.
+The community opens on **Quick start**. Choose an area, such as Phase Field,
+and select **Review and respond** to give feedback on existing fields and
+proposed changes. **Suggest a change** opens the standard so you can choose a
+field to revise. **My work** lists requested feedback above your private drafts.
+Each review shows your progress and a link to the next unanswered item.
+
+**Standard** opens the **Working version** in **Hierarchy** view.
+**More → Proposals** opens shared changes and their discussion. See
+[Review and respond](/docs/communities#review-and-respond) for saving feedback
+and organizing review rounds.
 
 A members-only community shows its name publicly. Its sources, proposals and
 releases are available to members and site administrators. See
@@ -21,7 +27,7 @@ opens its dictionary entries.
 | View                  | What it contains                                                                                            |
 | --------------------- | ----------------------------------------------------------------------------------------------------------- |
 | **Reference**         | The publisher's preserved specification, including its source version and attribution.                      |
-| **My drafts**         | Private proposed changes. Saving a draft does not change the reference or share it with other members.      |
+| **My work**           | Private proposed changes. Saving a draft does not change the reference or share it with other members.      |
 | **Proposals**         | Submitted revisions for discussion and steward review. Pending proposals do not change the working version. |
 | **Working version**   | The selected reference with accepted community changes applied.                                             |
 | **Community release** | A named snapshot created by a steward, with exact field revisions and review decisions recorded.            |
@@ -45,12 +51,12 @@ community. Until then, the catalog is empty and independent metadata fields
 remain available.
 
 Select **Propose a new field** on Standard and enter a field name.
-**New metadata field** is also available under My drafts. The draft belongs to the
+**New metadata field** is also available under My work. The draft belongs to the
 community vocabulary. A new field has no imported source baseline. When
 MatCore is enabled and a source is available, **Standard context** lets you optionally choose a MatCore
 section. Leave it unset for an independent field.
 
-Your ordinary term drafts and field drafts appear in **My drafts**. These lists
+Your ordinary term drafts and field drafts appear in **My work**. These lists
 are private to your account and limited to the selected community. Other
 community members cannot read your private drafts. Changing the community
 view does not move drafts or change their vocabulary.
@@ -70,8 +76,9 @@ under **Includes fields from** identify inherited profiles.
 The field name is separate from its path. For example, `name` can occur at both
 `creator.name` and `computation.software.name`. The profile and path identify
 where it belongs. Requirement, repeatability, data type and value form are
-visible beside the definition. Expand **All field rules** for the remaining
-specification.
+visible beside the definition. Expand **Value guidance and field rules** for
+the source wording and remaining specification. When there is no value guidance,
+the control is labelled **All field rules**.
 
 Open a field and select **Propose a change**. This creates one private draft
 based on that reference field. If you already have a draft for the entry,
@@ -83,7 +90,7 @@ to the same version, profile, search, view and field. **Back to fields** returns
 remembers expanded branches and the reading position when browser storage is
 available. If saving
 fails, your writing stays in the editor and **Retry save** is available. The draft
-also appears under **My drafts** in the community.
+also appears under **My work** in the community.
 
 Sign in with an account that can contribute to the community. If your account
 needs an attributed name, follow **Add your name to your profile** before
@@ -104,7 +111,7 @@ with fields in later snapshots.
 ## Prepare MatCore drafts in bulk
 
 You can still prepare working copies of a whole source version when needed.
-In **My drafts**, expand **Prepare drafts in bulk** and select **Import all
+In **My work**, expand **Prepare drafts in bulk** and select **Import all
 sections as drafts**. Check the destination and select **Import private
 drafts**. The MatCore 0.3.0 import covers 248 source entries across seven
 sections. It creates missing drafts and preserves existing drafts and edits.
@@ -122,11 +129,11 @@ import again. Saved drafts and your edits remain available.
 Open a draft from **My field drafts**. **Field specification** opens first.
 **Definition** and **Sources & history** follow it.
 
-| Tab                     | What to enter or review                                                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tab                     | What to enter or review                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | **Field specification** | Field rules, path and format. Expand More specification details for units, allowed values, example values, guidance and notes. |
-| **Definition**          | The field name, an explanation of what to record, requirement, repeatability, data type, value form and an optional example. |
-| **Sources & history**   | The reference, supporting citations and recorded contribution history.                                                                 |
+| **Definition**          | The field name, an explanation of what to record, requirement, repeatability, data type, value form and an optional example.   |
+| **Sources & history**   | The reference, supporting citations and recorded contribution history.                                                         |
 
 Keep the parent path when editing a nested field. For example, `creator.name`
 and `computation.software.name` describe different information. For fields
@@ -135,8 +142,10 @@ method selection required for derived properties. Independent fields
 have no MatCore profile.
 
 A required child field applies within its parent context. A conditional rule
-needs an explanation of when it applies. **Not specified** means no rule is
-recorded. It does not mean optional.
+needs an explanation of when it applies. **Not specified** means no structured
+rule is recorded. When value guidance is available, the summary uses
+**Not recorded separately** for a missing rule. Expand the guidance to read
+the source wording. Neither label means optional.
 
 **Data type** describes the value or its items, such as text or a number.
 **Value form** distinguishes a single value, a list and an array. **Repeatable
