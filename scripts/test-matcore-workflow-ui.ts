@@ -879,7 +879,13 @@ async function main() {
       })
     ).toBeVisible()
     await expect(button(generic, "New metadata field")).toHaveCount(0)
-    await generic.getByRole("link", { name: "Settings", exact: true }).click()
+    await generic
+      .getByRole("navigation", { name: "Community workspace", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
+    await generic
+      .getByRole("menuitem", { name: "Settings", exact: true })
+      .click()
     await generic.locator("summary#workspace-tools").click()
     await button(generic, "Enable metadata development").click()
     await expect(button(generic, "Disable new metadata fields")).toBeVisible()

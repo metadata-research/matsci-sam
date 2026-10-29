@@ -16,7 +16,11 @@ build, migration and browser acceptance run in CI before merge. Shared-server
 acceptance will cover Quick start, review selection, Requested feedback,
 mobile responses, save/reload, proposal return and private community access.
 Local example records are not part of the source release or database migration.
-CI and Superego acceptance are pending. Release identities and host receipts
+The first CI run passed the database, graph, build and preceding UI checks,
+then found an older metadata browser test still looking for a direct Settings
+link. That test and the equivalent privacy test now open More and choose
+Settings, matching the shared navigation. CI and Superego acceptance are
+pending. Release identities and host receipts
 are recorded in the internal development state.
 
 ## Compact mobile review and source guidance, October 29, 2026
