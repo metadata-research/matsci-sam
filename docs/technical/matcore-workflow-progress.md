@@ -19,7 +19,11 @@ Local example records are not part of the source release or database migration.
 The first CI run passed the database, graph, build and preceding UI checks,
 then found an older metadata browser test still looking for a direct Settings
 link. That test and the equivalent privacy test now open More and choose
-Settings, matching the shared navigation. CI and Superego acceptance are
+Settings, matching the shared navigation. The second run passed those checks
+and the new review suite, then found two older community-section assertions
+that expected the working standard on first arrival. They now verify Quick
+start as the active tab for members and visitors. The explicit Standard tests
+still check the working version and hierarchy. CI and Superego acceptance are
 pending. Release identities and host receipts
 are recorded in the internal development state.
 
