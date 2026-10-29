@@ -927,9 +927,14 @@ async function main() {
     await capture(emptyPage, "generic-saved-work-mobile")
     await emptyPage.goto(`${base}/communities/${emptyFixture.communitySlug}`)
     await expect(
-      emptyPage.getByRole("link", { name: "Working version", exact: true })
+      emptyPage
+        .getByRole("navigation", { name: "Community workspace", exact: true })
+        .getByRole("link", { name: "Quick start", exact: true })
     ).toHaveAttribute("aria-current", "page")
-    await emptyPage.getByRole("button", { name: "More", exact: true }).click()
+    await emptyPage
+      .getByRole("navigation", { name: "Community workspace", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
     await emptyPage
       .getByRole("menuitem", { name: "About", exact: true })
       .click()
@@ -954,9 +959,14 @@ async function main() {
     observe(visitor)
     await visitor.goto(`${base}/communities/${emptyFixture.communitySlug}`)
     await expect(
-      visitor.getByRole("link", { name: "Working version", exact: true })
-    ).toBeVisible()
-    await visitor.getByRole("button", { name: "More", exact: true }).click()
+      visitor
+        .getByRole("navigation", { name: "Community workspace", exact: true })
+        .getByRole("link", { name: "Quick start", exact: true })
+    ).toHaveAttribute("aria-current", "page")
+    await visitor
+      .getByRole("navigation", { name: "Community workspace", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
     await visitor.getByRole("menuitem", { name: "About", exact: true }).click()
     await expect(
       visitor.getByRole("link", { name: "Browse vocabulary", exact: true })

@@ -19,6 +19,7 @@ export function CommunityNavigation({
   showSettings = false,
   standardsEnabled = false,
   referenceReleaseId,
+  area,
   vocabularyHref
 }: {
   slug: string
@@ -26,13 +27,17 @@ export function CommunityNavigation({
   showSurveys: boolean
   showSettings?: boolean
   standardsEnabled?: boolean
+  area?: string
   referenceReleaseId?: string
   vocabularyHref: string
 }) {
   const router = useRouter()
   useEffect(() => {
     // Existing survey links used this anchor on the single community page.
-    if (view === "overview" && window.location.hash === "#studies")
+    if (
+      ["overview", "quickstart"].includes(view) &&
+      window.location.hash === "#studies"
+    )
       router.replace(`/communities/${slug}?view=surveys#studies`)
     if (
       view === "work" &&
@@ -41,22 +46,32 @@ export function CommunityNavigation({
     )
       router.replace(`/communities/${slug}?view=settings#workspace-tools`)
   }, [router, slug, view, showSettings])
-  const sections = standardsEnabled
-    ? [
-        ["vocabulary", "Standard"],
-        ["proposals", "Proposals"],
-        ["work", "My drafts"],
-        ["people", "People"]
-      ]
-    : [
-        ["overview", "Overview"],
-        ["vocabulary", "Vocabulary"],
-        ["work", "My work"],
-        ["collections", "Collections"],
-        ["people", "People"],
-        ...(showSurveys ? [["surveys", "Surveys"]] : []),
-        ...(showSettings ? [["settings", "Settings"]] : [])
-      ]
+  const sections = [
+    ["quickstart", "Quick start"],
+    ["review", "Review"],
+    ["vocabulary", standardsEnabled ? "Standard" : "Vocabulary"],
+    ["work", "My work"],
+    ["people", "People"]
+  ]
+  const href = (key: string) =>
+    `/communities/${slug}?` +
+    new URLSearchParams({
+      view: key,
+      ...(area &&
+      [
+        "quickstart",
+        "review",
+        "vocabulary",
+        "proposals",
+        "work",
+        "settings"
+      ].includes(key)
+        ? { profile: area }
+        : {}),
+      ...(referenceReleaseId && ["vocabulary", "proposals"].includes(key)
+        ? { release: referenceReleaseId }
+        : {})
+    })
   return (
     <nav
       aria-label="Community workspace"
@@ -70,14 +85,14 @@ export function CommunityNavigation({
           size="sm"
         >
           <Link
-            href={`/communities/${slug}${key === "overview" ? "" : `?view=${key}${referenceReleaseId && ["vocabulary", "proposals"].includes(key) ? `&release=${encodeURIComponent(referenceReleaseId)}` : ""}`}`}
+            href={href(key)}
             aria-current={view === key ? "page" : undefined}
           >
             {label}
           </Link>
         </Button>
       ))}
-      {standardsEnabled ? (
+      {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm">
@@ -87,8 +102,13 @@ export function CommunityNavigation({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {[
-              ["releases", "Community releases"],
-              ["terms", "Vocabulary terms"],
+              ...(standardsEnabled
+                ? [
+                    ["proposals", "Proposals"],
+                    ["releases", "Community releases"],
+                    ["terms", "Vocabulary terms"]
+                  ]
+                : []),
               ["collections", "Collections"],
               ["overview", "About"],
               ...(showSurveys ? [["surveys", "Surveys"]] : []),
@@ -96,11 +116,7 @@ export function CommunityNavigation({
             ].map(([key, label]) => (
               <DropdownMenuItem asChild key={key}>
                 <Link
-                  href={
-                    key === "terms"
-                      ? vocabularyHref
-                      : `/communities/${slug}?view=${key}`
-                  }
+                  href={key === "terms" ? vocabularyHref : href(key)}
                   aria-current={view === key ? "page" : undefined}
                 >
                   {label}
@@ -109,7 +125,7 @@ export function CommunityNavigation({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : null}
+      }
     </nav>
   )
 }

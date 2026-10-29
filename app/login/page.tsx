@@ -48,7 +48,9 @@ export default async function LoginPage({
   const googleRejected = google === "not-authorized"
   const showSignupAction =
     emailAccountCreationEnabled &&
-    (googleRejected || returnTo?.startsWith("/invite/"))
+    (googleRejected ||
+      returnTo?.startsWith("/invite/") ||
+      returnTo?.startsWith("/review-invite/"))
 
   return (
     <main className="px-4 py-12">

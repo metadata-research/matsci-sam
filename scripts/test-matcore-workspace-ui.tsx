@@ -8,6 +8,7 @@ import {
 } from "../components/metadata-workspace/workspace-presenters"
 import {
   FieldSpecification,
+  FieldRuleOverview,
   SpecificationSummary,
   SpecificationComparison
 } from "../components/metadata-workspace/field-specification"
@@ -115,6 +116,67 @@ const summary = renderToStaticMarkup(
 )
 assert.match(summary, /Not specified/)
 assert.doesNotMatch(summary, />Optional</)
+
+// Source prose remains available without inventing structured rules from it.
+const guidedRules = {
+  ...baseline.specification,
+  requirement: "conditional" as const,
+  repeatability: "no" as const,
+  guidance:
+    "A real number in the accompanying unit. <script>untrusted()</script>"
+}
+const untouchedRules = JSON.stringify(guidedRules)
+const guidedSummary = renderToStaticMarkup(
+  <SpecificationSummary specification={guidedRules} profileKey={null} compact />
+)
+assert.match(guidedSummary, />Conditional</)
+assert.match(guidedSummary, />No</)
+assert.equal((guidedSummary.match(/Not recorded separately/g) ?? []).length, 2)
+assert.doesNotMatch(guidedSummary, />Number<|>Single value<|Not specified/)
+const guidedOverview = renderToStaticMarkup(
+  <FieldRuleOverview specification={guidedRules} profileKey={null} compact />
+)
+assert.match(guidedOverview, /Value guidance and field rules/)
+assert.match(guidedOverview, /A real number in the accompanying unit/)
+assert.doesNotMatch(guidedOverview, /<script>|MatCore|Common core/)
+assert.match(guidedOverview, /&lt;script&gt;/)
+assert.equal(JSON.stringify(guidedRules), untouchedRules)
+for (const guidance of ["", "   "]) {
+  const noGuidance = renderToStaticMarkup(
+    <FieldRuleOverview
+      specification={{ ...guidedRules, guidance }}
+      profileKey={null}
+    />
+  )
+  assert.match(noGuidance, /All field rules/)
+  assert.match(noGuidance, /Not specified/)
+  assert.doesNotMatch(
+    noGuidance,
+    /Not recorded separately|Value guidance and field rules/
+  )
+}
+const explicitRules = renderToStaticMarkup(
+  <SpecificationSummary
+    specification={{ ...guidedRules, valueType: "number", valueForm: "scalar" }}
+    profileKey={null}
+    compact
+  />
+)
+assert.match(explicitRules, />Number</)
+assert.match(explicitRules, />Single value</)
+assert.doesNotMatch(explicitRules, /Not recorded separately|Not specified/)
+const guidedLegacyList = renderToStaticMarkup(
+  <SpecificationSummary
+    specification={{ ...guidedRules, valueType: "list" }}
+    profileKey={null}
+    compact
+  />
+)
+assert.match(guidedLegacyList, />List</)
+assert.equal(
+  (guidedLegacyList.match(/Not recorded separately/g) ?? []).length,
+  1
+)
 
 const source = renderToStaticMarkup(
   <SourceBaseline

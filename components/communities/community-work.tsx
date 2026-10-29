@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { RequestedFeedback } from "./requested-feedback"
 import { notFound } from "next/navigation"
 import { trpc } from "@/trpc/server"
 import { getCurrentUser } from "@/lib/current-user"
@@ -42,18 +43,22 @@ export async function CommunityWork({
   const offset = offsetParam ? Number(offsetParam) : 0
   if (!Number.isInteger(offset) || offset < 0 || offset > 10000) notFound()
   const profileKey = parsedProfile?.success ? parsedProfile.data : undefined
-  const [options, workspace, fields, drafts, imports] = await Promise.all([
-    trpc.setup.options(),
-    trpc.matcoreWorkflow.workspace({ vocabularySlug }),
-    trpc.matcoreWorkflow.list({
-      vocabularySlug,
-      profileKey,
-      offset,
-      limit: 40
-    }),
-    trpc.termDrafts.list({ vocabularySlug }),
-    trpc.importDrafts.list({ vocabularySlug })
-  ])
+  const [options, workspace, fields, drafts, imports, requestedReviews] =
+    await Promise.all([
+      trpc.setup.options(),
+      trpc.matcoreWorkflow.workspace({ vocabularySlug }),
+      trpc.matcoreWorkflow.list({
+        vocabularySlug,
+        profileKey,
+        offset,
+        limit: 40
+      }),
+      trpc.termDrafts.list({ vocabularySlug }),
+      trpc.importDrafts.list({ vocabularySlug }),
+      communityId
+        ? trpc.communityReviews.requested({ communityId, area: profileKey })
+        : Promise.resolve([])
+    ])
   // Filter on the server before any private list is serialized to the client.
   const ownDrafts = drafts.filter(
     (draft) => draft.vocabularySlug === vocabularySlug
@@ -89,6 +94,8 @@ export async function CommunityWork({
     "my-field-drafts": fields.total > 0
   }
   sections.sort((a, b) => Number(hasWork[b.id]) - Number(hasWork[a.id]))
+  if (requestedReviews.length)
+    sections.unshift({ id: "requested-feedback", label: "Requested feedback" })
   return (
     <section className="flex flex-col gap-5">
       <header className="flex flex-col gap-2">
@@ -107,6 +114,15 @@ export async function CommunityWork({
       </header>
       <OnThisPage sections={sections}>
         {sections.map((section) => {
+          if (section.id === "requested-feedback")
+            return (
+              <RequestedFeedback
+                key="requested-feedback"
+                communityId={communityId!}
+                area={profileKey}
+                initial={requestedReviews}
+              />
+            )
           if (section.id === "term-drafts")
             return (
               <section

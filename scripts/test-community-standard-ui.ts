@@ -112,6 +112,9 @@ async function main() {
           blocked.push(url.pathname)
           return route.abort()
         }
+        // Dev previews request source locations for deliberately rejected routes.
+        // This exact local endpoint reads diagnostics; it cannot mutate app data.
+        if (url.pathname === "/__nextjs_original-stack-frames" && request.method() === "POST") return route.continue()
         if (request.method() === "GET") return route.continue()
         const path = paths[0],
           input = request.postDataJSON()?.[0] as
@@ -185,7 +188,7 @@ async function main() {
     page.on("pageerror", (error) => errors.push(error.message))
     page.setDefaultTimeout(20000)
     const home = `${base}/communities/${member.communitySlug}`
-    await page.goto(home)
+    await page.goto(`${home}?view=vocabulary`)
     await expect(
       page
         .getByRole("navigation", { name: "Community workspace" })
@@ -202,7 +205,7 @@ async function main() {
         .getByRole("navigation", { name: "Community workspace" })
         .getByRole("link")
         .first()
-    ).toHaveText("Standard")
+    ).toHaveText("Quick start")
     await expect(
       page
         .getByRole("navigation", { name: "Standard version" })
@@ -216,7 +219,7 @@ async function main() {
         .first()
     ).toHaveText("Hierarchy")
     pass(
-      "Metadata community opens the working standard in hierarchy; the default views are leftmost"
+      "Standard opens the working version in hierarchy; Quick start leads community navigation"
     )
     await page
       .getByRole("navigation", { name: "Community workspace" })
@@ -281,6 +284,7 @@ async function main() {
     await page
       .getByRole("link", { name: "Back to fields", exact: true })
       .click()
+    await expect.poll(() => new URL(page.url()).searchParams.has("source"), {timeout: 20000}).toBe(false)
     await expect(child).toBeFocused()
     await expect(page.getByLabel("Find a field")).toHaveValue("specimen.label")
     await page.getByRole("button", { name: "Clear", exact: true }).click()

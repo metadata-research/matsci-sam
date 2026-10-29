@@ -201,16 +201,40 @@ export function FieldSpecification({
 }
 
 function coreRuleRows(specification: Specification): [string, string][] {
+  const missing = specification.guidance.trim()
+    ? "Not recorded separately"
+    : "Not specified"
   return [
-    ["Requirement", requirementLabels[specification.requirement]],
-    ["Repeatable", repeatabilityLabels[specification.repeatability]],
-    ["Data type", dataTypeLabels[fieldDataType(specification)]],
-    ["Value form", valueFormLabels[fieldValueForm(specification)]]
+    [
+      "Requirement",
+      specification.requirement === "unspecified"
+        ? missing
+        : requirementLabels[specification.requirement]
+    ],
+    [
+      "Repeatable",
+      specification.repeatability === "unspecified"
+        ? missing
+        : repeatabilityLabels[specification.repeatability]
+    ],
+    [
+      "Data type",
+      fieldDataType(specification) === "unspecified"
+        ? missing
+        : dataTypeLabels[fieldDataType(specification)]
+    ],
+    [
+      "Value form",
+      fieldValueForm(specification) === "unspecified"
+        ? missing
+        : valueFormLabels[fieldValueForm(specification)]
+    ]
   ]
 }
 
 function specificationRows(specification: Specification): [string, string][] {
   return [
+    ["Value guidance", specification.guidance],
     ["Field path", specification.path],
     ...coreRuleRows(specification),
     ["Format", specification.format],
@@ -218,7 +242,6 @@ function specificationRows(specification: Specification): [string, string][] {
     ["Units", specification.units],
     ["Allowed values", specification.allowedValues.join("\n")],
     ["Example values", specification.examples.join("\n")],
-    ["Value guidance", specification.guidance],
     ["Notes", specification.notes ?? ""]
   ]
 }
@@ -240,11 +263,20 @@ export function SpecificationSummary({
       ]
   return (
     <dl
-      className="grid gap-4 sm:grid-cols-2"
+      className={
+        compact
+          ? "grid grid-cols-2 gap-x-4 gap-y-3"
+          : "grid gap-4 sm:grid-cols-2"
+      }
       aria-label={compact ? "Field rules" : "Field specification"}
     >
       {rows.map(([label, value]) => (
-        <div key={label} className="min-w-0">
+        <div
+          key={label}
+          className={
+            label === "Value guidance" ? "min-w-0 sm:col-span-2" : "min-w-0"
+          }
+        >
           <dt className="text-sm text-muted-foreground">{label}</dt>
           <dd className="mt-1 whitespace-pre-wrap break-words text-sm">
             {value || "Not specified"}
@@ -258,30 +290,36 @@ export function SpecificationSummary({
 /** Keep the common field rules visible while retaining the full specification. */
 export function FieldRuleOverview({
   specification,
-  profileKey
+  profileKey,
+  compact = false
 }: {
   specification: Specification
   profileKey: string | null
+  compact?: boolean
 }) {
   return (
-    <>
+    <div className="min-w-0">
       <SpecificationSummary
         specification={specification}
         profileKey={profileKey}
         compact
       />
-      <details className="mt-4 rounded-md border p-4">
-        <summary className="cursor-pointer text-sm font-medium">
-          All field rules
+      <details
+        className={compact ? "mt-2 border-t" : "mt-4 rounded-md border px-4"}
+      >
+        <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">
+          {specification.guidance.trim()
+            ? "Value guidance and field rules"
+            : "All field rules"}
         </summary>
-        <div className="mt-4">
+        <div className="pb-4 pt-2">
           <SpecificationSummary
             specification={specification}
             profileKey={profileKey}
           />
         </div>
       </details>
-    </>
+    </div>
   )
 }
 

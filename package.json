@@ -106,6 +106,8 @@
     "test:matcore-ui": "tsx --conditions=react-server scripts/test-matcore-workflow-ui.ts",
     "test:matcore-catalog-navigation": "tsx scripts/test-matcore-catalog-navigation.ts",
     "test:matcore-catalog-db": "tsx --conditions=react-server scripts/test-matcore-catalog-db.ts",
+    "test:community-reviews-db": "tsx --conditions=react-server scripts/test-community-reviews-db.ts",
+    "test:community-reviews-ui": "tsx --conditions=react-server scripts/test-community-reviews-ui.ts",
     "test:community-standard-db": "tsx --conditions=react-server scripts/test-community-standard-db.ts",
     "test:community-standard-ui": "tsx --conditions=react-server scripts/test-community-standard-ui.ts",
     "test:matcore-catalog-ui": "tsx --conditions=react-server scripts/test-matcore-catalog-ui.ts",

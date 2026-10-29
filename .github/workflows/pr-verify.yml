@@ -158,6 +158,7 @@ jobs:
           pnpm test:term-drafts-db
           pnpm test:matcore-db
           pnpm test:matcore-catalog-db
+          pnpm test:community-reviews-db
           pnpm test:community-standard-db
           pnpm test:community-access-db
           pnpm test:community-membership-db
@@ -624,6 +625,8 @@ jobs:
           FUSEKI_DATASET_URL: ""
           FUSEKI_USER: ""
           FUSEKI_PASSWORD: ""
+          EMAIL_AUTH_ENABLED: "true"
+          EMAIL_AUTH_ACCOUNT_CREATION_ENABLED: "true"
           DEV_AUTH_ENABLED: "true"
           SESSION_COOKIE_SECURE: "false"
           NODE_OPTIONS: --max-old-space-size=2560
@@ -644,6 +647,7 @@ jobs:
           # Each MatCore suite installs its own invented source fixture;
           # the protected standard corpus is never available to CI.
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-standard pnpm test:community-standard-ui
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-review pnpm test:community-reviews-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-header pnpm exec tsx --conditions=react-server scripts/test-community-header-ui.ts
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-sections pnpm test:community-sections-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-privacy pnpm test:community-privacy-ui

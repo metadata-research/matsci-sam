@@ -21,6 +21,7 @@ import { ontologyContextRouter } from "./ontology-context"
 import { setupRouter } from "./setup"
 import { termDraftsRouter } from "./term-drafts"
 import { importDraftsRouter } from "./import-drafts"
+import { communityReviewsRouter } from "./community-reviews"
 import { matcoreWorkflowRouter } from "./matcore-workflow"
 import { z } from "zod"
 import {
@@ -85,6 +86,7 @@ export const appRouter = createTRPCRouter({
   termDrafts: termDraftsRouter,
   importDrafts: importDraftsRouter,
   matcoreWorkflow: matcoreWorkflowRouter,
+  communityReviews: communityReviewsRouter,
   tags: tagsRouter,
   collections: collectionsRouter,
   communities: communitiesRouter,
