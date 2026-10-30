@@ -203,7 +203,10 @@ for (const path of [
 assert.equal(normalizeAuthReturnTo(invitationReturnTo), invitationReturnTo)
 assert.equal(normalizeAuthReturnTo("/invite/too-short"), null)
 assert.equal(normalizeAuthReturnTo("/review-invite/too-short"), null)
-assert.equal(normalizeAuthReturnTo(reviewInvitationReturnTo + "?next=/admin"), null)
+assert.equal(
+  normalizeAuthReturnTo(reviewInvitationReturnTo + "?next=/admin"),
+  null
+)
 assert.equal(normalizeAuthReturnTo("/profile"), null)
 assert.equal(normalizeAuthReturnTo("//example.org/invite/"), null)
 assert.equal(normalizeAuthReturnTo("https://example.org/invite/token"), null)
@@ -280,7 +283,11 @@ assert.equal(
   null,
   "unapproved continuations are not carried in email links"
 )
-for (const path of [studyReturnTo, studyRunReturnTo, reviewInvitationReturnTo]) {
+for (const path of [
+  studyReturnTo,
+  studyRunReturnTo,
+  reviewInvitationReturnTo
+]) {
   const parameters = new URLSearchParams(
     createEmailAuthLinkFragment(emailToken, path)
   )
@@ -398,7 +405,9 @@ assert.match(
 )
 assert.match(emailVerifyRoute, /hashEmailAuthToken\(token, returnTo\)/)
 assert.doesNotMatch(emailVerifyRoute, /emailAuthTokensTable\.returnTo/)
-assert.match(emailVerifyClient, /JSON\.stringify\(\{ token, returnTo \}\)/)
+assert.match(emailVerifyClient, /action: "prepare"/)
+assert.match(emailVerifyClient, /action: "confirm"/)
+assert.match(emailVerifyClient, /challenge: confirmation.challenge/)
 assert.doesNotMatch(
   emailAuthTokenSchema,
   /\breturnTo\s*:/,

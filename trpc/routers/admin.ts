@@ -45,7 +45,7 @@ export const adminRouter = createTRPCRouter({
   inferenceTest: adminProcedure
     .meta({ marksGraphs: false })
     .input(inferenceTestInput)
-    .mutation(({ input }) => testInference(input)),
+    .mutation(({ input, ctx }) => testInference(input, ctx.userId)),
   serviceHealth: adminProcedure.query(() => getServiceHealth()),
   feedbackInbox: adminProcedure
     .input(
@@ -171,11 +171,13 @@ export const adminRouter = createTRPCRouter({
 
     return x
   }),
-  run: adminProcedure.input(z.number()).mutation(async ({ input: termId }) => {
-    const { insertedChat } = await reviseDefinition(termId)
+  run: adminProcedure
+    .input(z.number())
+    .mutation(async ({ input: termId, ctx }) => {
+      const { insertedChat } = await reviseDefinition(termId, ctx.userId)
 
-    return insertedChat
-  }),
+      return insertedChat
+    }),
   refinementQueue: adminProcedure.query(async () => {
     return await db
       .select({
@@ -311,8 +313,9 @@ export const adminRouter = createTRPCRouter({
       services: getConfiguredServiceHealth()
     }
   }),
-  wolframTest: adminProcedure.mutation(async () => {
+  wolframTest: adminProcedure.mutation(async ({ ctx }) => {
     const content = await wolframQuery(
+      ctx.userId,
       "What is the melting point of titanium in kelvin? Answer in one sentence."
     )
 

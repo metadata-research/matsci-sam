@@ -16,7 +16,7 @@ import {
   snapshotAssistantConfigs
 } from "@/lib/llm/assistant-profiles"
 import { DefinitionTextOutput } from "@/lib/llm/client"
-import { generateStructured } from "@/lib/llm/generate"
+import { generateForUser } from "@/lib/llm/user-generation"
 import { NewTermSystemPrompt } from "@/lib/llm/prompts"
 import {
   InferenceError,
@@ -90,7 +90,7 @@ export const definitionAssistantsRouter = createTRPCRouter({
     }),
   testAgentOne: adminProcedure
     .meta({ marksGraphs: false })
-    .mutation(async () => {
+    .mutation(async ({ ctx }) => {
       const configs = snapshotAssistantConfigs()
       const config = configs.agentOneConfig
       const testedAt = new Date().toISOString()
@@ -101,7 +101,8 @@ export const definitionAssistantsRouter = createTRPCRouter({
       let passed = false
       try {
         if (!config) throw new InferenceError("configuration")
-        const result = await generateStructured(
+        const result = await generateForUser(
+          ctx.userId,
           config,
           [{ role: "user", content: "Define austenite in materials science." }],
           agentOneDefinitionPrompt(NewTermSystemPrompt),
@@ -113,6 +114,7 @@ export const definitionAssistantsRouter = createTRPCRouter({
         message =
           "Agent One returned a complete, valid definition. It can now be enabled."
       } catch (error) {
+        if (error instanceof TRPCError) throw error
         if (error instanceof InferenceError) diagnostic = error.diagnostic
         message =
           error instanceof InferenceError

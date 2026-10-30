@@ -24,6 +24,7 @@ import * as cards from "../components/ui/card"
 import * as forms from "../components/ui/form"
 import * as inputs from "../components/ui/input"
 import * as switches from "../components/ui/switch"
+import * as emailConfirmation from "../lib/email-auth-confirmation"
 import * as authReturn from "../lib/auth-return"
 import * as communityWorkReturn from "../lib/community-work-return"
 import { publicRedirect } from "../lib/public-redirect"
@@ -182,6 +183,10 @@ async function emailLogin(
   if (options.signup === false) store.forbidSignup()
   let saves = 0
   const session = {
+    emailAuthConfirmation: emailConfirmation.createEmailAuthConfirmation(
+      "fixture-token-digest",
+      undefined
+    ),
     id: undefined as number | undefined,
     save: async () => {
       saves++
@@ -198,16 +203,27 @@ async function emailLogin(
       "drizzle-orm": expressions,
       "@/lib/email-auth": {
         isEmailAuthEnabled: () => true,
+        getAuthSiteUrl: () => new URL("https://sam.example.test"),
         hashEmailAuthToken: () => "fixture-token-digest"
       },
       "@/lib/session": { getSession: async () => session },
+      "@/lib/email-auth-confirmation": emailConfirmation,
       "@/lib/auth-return": authReturn
     }
   )
   const response = await POST(
     new NextRequest("https://sam.example.test/api/auth/email/verify", {
       method: "POST",
-      body: JSON.stringify({ token: "a".repeat(43), returnTo })
+      headers: {
+        origin: "https://sam.example.test",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        token: "a".repeat(43),
+        returnTo,
+        action: "confirm",
+        challenge: session.emailAuthConfirmation.challenge
+      })
     })
   )
   return { response, session, store, saves, body: await response.json() }

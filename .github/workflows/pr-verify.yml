@@ -76,6 +76,13 @@ jobs:
         run: |
           pnpm db:invariants
 
+      - name: Test email confirmation and shared AI request limits
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:email-confirmation-db
+          pnpm test:inference-limits-db
+
       - name: Test admin inference diagnostics and provenance across provider switching
         env:
           PGPASSWORD: postgres
@@ -652,6 +659,8 @@ jobs:
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-sections pnpm test:community-sections-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-privacy pnpm test:community-privacy-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/term-confirmation pnpm test:term-confirmation-ui
+          SAM_UI_TEST_SCREENSHOTS=ui-evidence/email-confirmation pnpm test:email-confirmation-ui
+          SAM_UI_TEST_SCREENSHOTS=ui-evidence/invitation pnpm test:invitation-onboarding-ui
           pnpm db:invariants
 
       - name: Retain workflow browser evidence

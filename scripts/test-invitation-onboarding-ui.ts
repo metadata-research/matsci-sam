@@ -222,10 +222,20 @@ async function main() {
         await page.goto(
           `${base}/register/verify#${createEmailAuthLinkFragment(emailToken, destination)}`
         )
+        await expect(page.getByText(address, { exact: true })).toBeVisible()
+        await page
+          .getByRole("button", {
+            name: "Create account and continue",
+            exact: true
+          })
+          .click()
         await expect(page).toHaveURL(
           base + profileCompletionPath(destination),
           { timeout: 45000 }
         )
+        // Email confirmation reloads the document with the new account. Wait
+        // for its client bundle before exercising the existing profile controls.
+        await page.waitForLoadState("networkidle", { timeout: 30000 })
         await page
           .getByRole("button", { name: "Skip for now", exact: true })
           .click()

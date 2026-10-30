@@ -16,6 +16,7 @@ readiness without importing the prompt registry.
 | `assistant-profiles.ts`, `agent-one.ts` | Approved assistant profiles and Agent One transport for plain text |
 | `revision-context.ts`   | Pure reconstruction of legacy chat context                       |
 | `definitions.ts`        | Retained administrator path for term generation                      |
+| `user-generation.ts`, `../inference-admission.ts` | Shared web generation admission and request budgets |
 | `model-identity.ts`     | Pure derivation of model slug and display metadata               |
 
 `NewTermSystemPrompt` and `RevisionSuggestionSystemPrompt` define public
@@ -35,7 +36,11 @@ instructions in plain text. The adapter wraps its answer in the internal
 `definition` field before local validation.
 
 Public definition requests resolve their assistant through
-`lib/definition-assistants.ts` and pass that configuration to `runLLM`. They use
+`lib/definition-assistants.ts` and pass that configuration and the authenticated
+account ID to `generateForUser` in `lib/llm/user-generation.ts`. It reserves a
+request slot before calling the transport. Administrator generation uses the
+same budget. Operator CLI callers use `runLLM` or the raw transport separately.
+Public definition requests use
 `DefinitionTextOutput`. The default `DefinitionOutput` also includes an example
 for retained administrator callers. Pilot calls supply their own schemas.
 Invalid output returns `undefined`. Transport failures propagate to the caller.
@@ -92,7 +97,9 @@ change requires stored data updates. Applied migration files remain immutable.
 ## Adding a structured call
 
 Add a prompt key to `lib/prompts.json`, export the resolved prompt and stamp,
-and define a Zod response schema. Call `runLLM` with that schema. Pass the
+and define a Zod response schema. For a web request, call `generateForUser` with
+the authenticated account ID, server-selected configuration, messages, prompt
+and schema. Direct web calls to the transport would bypass admission. Pass the
 returned `inference` metadata to `makeGenerationStamp` and store the validated
 `output` and stamp before a person acts on the result. Use static legacy stamps
 only for retained fixtures. New generations require the metadata returned by the
@@ -103,7 +110,9 @@ replacements, and examples free of generation side effects.
 
 `test:inference` checks adapters, authentication, configuration, and snapshots.
 `test:inference-db` checks publication and historical attribution in an empty
-scratch database. `test:ollama-context` checks pure message reconstruction.
+scratch database, including budget enforcement on every web generation route.
+`test:inference-limits-db` checks shared limits across separate processes,
+failure cleanup and reservation expiry. `test:ollama-context` checks pure message reconstruction.
 `test:featured-provenance` checks exact output linkage and attribution. These
 run in CI. `scripts/test-prompt.ts` is a separate manual diagnostic that calls
 the configured model for each registered prompt and validates the legacy

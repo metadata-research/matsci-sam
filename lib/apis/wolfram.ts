@@ -1,5 +1,6 @@
 import "server-only"
 import { generateAgentOne, getAgentOneConfig } from "../llm/agent-one"
+import { withInferenceBudget } from "../inference-admission"
 import { InferenceError } from "../llm/types"
 
 // The Agent One credential is deliberately distinct from the CAG lookup key.
@@ -14,14 +15,17 @@ export type WolframMessage = { role: "user" | "assistant"; content: string }
 // Legacy administrative sandbox. Readiness for contribution requests is tested
 // separately against the actual definition contract in definitionAssistants.
 export const wolframQuery = async (
+  userId: number,
   message: string,
   history: WolframMessage[] = []
 ) => {
   const config = getAgentOneConfig()
-  const result = await generateAgentOne(
-    config,
-    [...history, { role: "user", content: message }],
-    "Answer the user concisely in plain text. Do not wrap the answer in JSON or a code block."
+  const result = await withInferenceBudget(userId, config.timeoutMs, () =>
+    generateAgentOne(
+      config,
+      [...history, { role: "user", content: message }],
+      "Answer the user concisely in plain text. Do not wrap the answer in JSON or a code block."
+    )
   )
   if (!result) throw new InferenceError("unsupported_format")
   return result.output
