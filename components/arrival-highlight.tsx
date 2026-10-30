@@ -65,6 +65,12 @@ export function ArrivalHighlight() {
         }
         const region = regionFor(target)
         if (region.tagName === "MAIN" || region === document.body) return
+        // Repeated links still move focus back from the link to its heading.
+        // Deduplicate only the highlight animation, not section navigation.
+        if (sectionTarget) {
+          target.scrollIntoView({ block: "start", behavior: "instant" })
+          target.focus({ preventScroll: true })
+        }
         const now = performance.now()
         // A plain fragment link reports both its click and its hashchange.
         if (region === marked && now - markedAt < 500) return
@@ -76,11 +82,7 @@ export function ArrivalHighlight() {
         marked = region
         markedAt = now
         timer = window.setTimeout(clear, MARK_MS + 100)
-        if (sectionTarget) {
-          target.scrollIntoView({ block: "start", behavior: "instant" })
-          target.focus({ preventScroll: true })
-          return
-        }
+        if (sectionTarget) return
         // A heading lands at the top of the window, above which its section
         // begins. Show the whole mark.
         const top = region.getBoundingClientRect().top

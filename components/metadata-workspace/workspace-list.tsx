@@ -33,6 +33,7 @@ import {
 } from "./workspace-presenters"
 import { WorkspaceSelect } from "./workspace-select"
 import { FieldDestinationLink } from "./field-destination-link"
+import { useHydrated } from "@/components/use-hydrated"
 
 type Props = {
   ownerId: number
@@ -59,6 +60,7 @@ export function WorkspaceList({
   profileKey,
   offset
 }: Props) {
+  const hydrated = useHydrated()
   const router = useRouter()
   const importStandard = trpc.matcoreWorkflow.importStandard.useMutation()
   const create = trpc.matcoreWorkflow.createDraft.useMutation()
@@ -161,7 +163,7 @@ export function WorkspaceList({
             <Button
               variant="outline"
               size="sm"
-              disabled={importing || create.isPending}
+              disabled={!hydrated || importing || create.isPending}
               onClick={() => {
                 setNewField(true)
                 createId.current = null
@@ -226,7 +228,7 @@ export function WorkspaceList({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={importing || create.isPending}
+                disabled={!hydrated || importing || create.isPending}
                 onClick={() => setConfirmImport(true)}
               >
                 Import all sections as drafts
@@ -429,8 +431,8 @@ export function WorkspaceList({
             <DialogTitle>New metadata field</DialogTitle>
             <DialogDescription>
               Start a private local proposal in {destinationItem?.title}. This
-              field has no reference version. Choose a standard context
-              only if it applies.
+              field has no reference version. Choose a standard context only if
+              it applies.
             </DialogDescription>
           </DialogHeader>
           <form
