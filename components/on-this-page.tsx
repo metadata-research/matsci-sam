@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { ChevronDownIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useHydrated } from "@/components/use-hydrated"
 
 export type PageSection = { id: string; label: string }
 
@@ -16,6 +17,7 @@ export function OnThisPage({
   sections: PageSection[]
   children: ReactNode
 }) {
+  const hydrated = useHydrated()
   const [expanded, setExpanded] = useState(false)
   const [current, setCurrent] = useState("")
   const listId = useId()
@@ -25,7 +27,7 @@ export function OnThisPage({
   const sectionKey = sections.map(({ id }) => id).join("|")
 
   useEffect(() => {
-    if (!sectionKey.includes("|")) return
+    if (!hydrated || !sectionKey.includes("|")) return
     const ids = sectionKey.split("|")
     const targets = ids.flatMap((id) => {
       const target = document.getElementById(id)
@@ -82,7 +84,7 @@ export function OnThisPage({
       window.removeEventListener("scroll", updateAtBottom)
       container?.removeEventListener("focusin", update)
     }
-  }, [sectionKey, pathname, search, children])
+  }, [hydrated, sectionKey, pathname, search, children])
 
   if (sections.length < 2) return children
   const active = sections.find(({ id }) => id === current) ?? sections[0]
@@ -111,6 +113,7 @@ export function OnThisPage({
           variant="ghost"
           aria-expanded={expanded}
           aria-controls={listId}
+          disabled={!hydrated}
           onClick={() => setExpanded((value) => !value)}
           className="h-auto min-h-10 w-full justify-between gap-3 whitespace-normal px-2 text-left lg:hidden"
         >
@@ -134,7 +137,9 @@ export function OnThisPage({
           {sections.map(({ id, label }) => (
             <li key={id}>
               <a
-                href={`#${id}`}
+                href={hydrated ? `#${id}` : undefined}
+                aria-disabled={!hydrated || undefined}
+                tabIndex={hydrated ? undefined : -1}
                 data-section-link
                 aria-current={id === active.id ? "location" : undefined}
                 className={cn(
@@ -145,6 +150,8 @@ export function OnThisPage({
                 )}
                 onClick={(event) => {
                   if (
+                    !hydrated ||
+                    event.defaultPrevented ||
                     event.button !== 0 ||
                     event.metaKey ||
                     event.ctrlKey ||
@@ -152,6 +159,12 @@ export function OnThisPage({
                     event.altKey
                   )
                     return
+                  event.preventDefault()
+                  // Native fragment navigation bypasses Next's canonical URL.
+                  // Its next commit can restore the previous fragment. The
+                  // patched History API keeps router state and Back in sync.
+                  if (window.location.hash !== `#${id}`)
+                    window.history.pushState(null, "", `#${id}`)
                   setExpanded(false)
                   setCurrent(id)
                 }}

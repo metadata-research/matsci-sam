@@ -9,10 +9,14 @@ import {
   usersTable,
   definitionsTable,
   definitionRevisionsTable,
+  inferenceRequestsTable,
+  chatsTable,
+  definitionAssistantSettingsTable,
   aiContributionSuggestionsTable
 } from "../drizzle"
 import { aiAssistRouter } from "../trpc/routers/ai-assist"
 import { adminRouter } from "../trpc/routers/admin"
+import { definitionAssistantsRouter } from "../trpc/routers/definition-assistants"
 import { definitionsRouter } from "../trpc/routers/definitions"
 import { createCallerFactory } from "../trpc/init"
 import { publishDefinitionRevision } from "../lib/definition-revisions"
@@ -280,6 +284,58 @@ async function main() {
     assert(!rdf.includes("identity.example.test"))
     console.log(
       "Inference suggestion, publication after switching, historical revision, human edit, and RDF provenance checks passed."
+    )
+
+    // Every authenticated generation entry point shares the same budget,
+    // including both admin paths that use Agent One directly.
+    process.env.INFERENCE_MODEL = "gemma-test-26b"
+    process.env.WOLFRAM_AGENT_ONE_API_KEY = "synthetic-agent-one-key"
+    process.env.INFERENCE_USER_HOURLY_LIMIT = "1"
+    const assistants = createCallerFactory(definitionAssistantsRouter)({
+      session: { id: user.id }
+    } as never)
+    await db.insert(chatsTable).values({
+      termId: published.termId,
+      role: "user",
+      userId: user.id,
+      message: "Please clarify the definition."
+    })
+    const beforeLimits = await rowCounts()
+    const validationBefore = await db
+      .select()
+      .from(definitionAssistantSettingsTable)
+    const callsBefore = modelCalls + tokenCalls
+    for (const request of [
+      () => ai.suggestNewTerm({ term: "Solid electrolyte" }),
+      () =>
+        ai.suggestRevision({
+          definitionId: published.id,
+          sourceRevisionId: current!.currentRevisionId!,
+          feedback: "Clarify its scope."
+        }),
+      () => admin.inferenceTest(testInput),
+      () => admin.run(published.termId),
+      () => admin.wolframTest(),
+      () => assistants.testAgentOne()
+    ])
+      await assert.rejects(request(), { code: "TOO_MANY_REQUESTS" })
+    assert.equal(
+      modelCalls + tokenCalls,
+      callsBefore,
+      "admission must precede token exchange and model calls"
+    )
+    assert.deepEqual(await rowCounts(), beforeLimits)
+    assert.deepEqual(
+      await db.select().from(definitionAssistantSettingsTable),
+      validationBefore,
+      "budget rejection must not invalidate assistant readiness"
+    )
+    const reservations = await db.select().from(inferenceRequestsTable)
+    assert.ok(
+      reservations.length > 0 && reservations.every((row) => row.releasedAt)
+    )
+    console.log(
+      "All six generation routes reject before provider calls or contribution writes; successful and failed requests release their slots."
     )
   } finally {
     globalThis.fetch = originalFetch

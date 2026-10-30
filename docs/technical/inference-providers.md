@@ -30,7 +30,7 @@ reports **Not configured** until `OLLAMA_HOST` is set explicitly.
 | `INFERENCE_CLIENT_ID`     | Application registration identifier. Compatible service only                                          |
 | `INFERENCE_CLIENT_SECRET` | Protected application credential. Compatible service only                                             |
 | `INFERENCE_TIMEOUT_MS`    | Total generation deadline, default 90000. Allowed 1000–300000                                         |
-| `INFERENCE_MAX_TOKENS`    | Output limit for the compatible service, default 2048. Allowed 64–32768                               |
+| `INFERENCE_MAX_TOKENS`    | Requested output limit for Ollama and the compatible service, default 2048. Allowed 64–32768           |
 
 Use a profile such as `research-cluster` to distinguish deployments. Profile
 names contain lowercase letters, digits, hyphens, or underscores and are at most
@@ -54,6 +54,38 @@ credentials embedded in URLs and query parameters, and refuse redirects. Rotate
 credentials through the management process for the service and update all app
 processes using them. Application logs exclude token responses and raw invalid
 model output.
+
+## Web request limits
+
+Generation requests share PostgreSQL admission limits across application
+processes, providers and assistant profiles. Administrator generation tests
+use the same limits. Admission uses the signed-in account before token exchange
+or generation. Readiness checks do not generate content and are separate.
+
+| Setting | Default | Allowed range |
+| --- | --- | --- |
+| `INFERENCE_USER_CONCURRENT_LIMIT` | 1 active request per account | 1–32 |
+| `INFERENCE_GLOBAL_CONCURRENT_LIMIT` | 4 active requests across the site | 1–64 |
+| `INFERENCE_USER_HOURLY_LIMIT` | 20 requests per account | 1–1000 |
+| `INFERENCE_GLOBAL_HOURLY_LIMIT` | 200 requests across the site | 1–10000 |
+
+Hourly limits cover the preceding 60 minutes. Successful requests, failed
+requests and invalid model responses count. An admission rejection returns
+HTTP 429 before a provider call and does not count as another request. A
+database failure prevents generation. Invalid limit settings also prevent
+generation. Configure the same limits on every application process.
+
+Completion releases the active slot while retaining its hourly charge. An
+interrupted process leaves a slot reserved until the provider timeout plus one
+minute. Expired receipts older than an hour are removed during admission.
+The `inferenceRequests` table stores account IDs and timing, with no prompts,
+generated text or credentials. Apply migration `0076_inference_request_limits`
+before running this code.
+
+These are request budgets, not monetary quotas. Ollama receives `num_predict`
+and the compatible service receives `max_tokens`. Agent One retains its
+response-size and text-length checks. Operator-run terminal diagnostics and
+pilot scripts use the raw transport outside the web admission budget.
 
 ## Check readiness and structured output
 
@@ -79,7 +111,7 @@ selected on the server. It does not change that selection or accept endpoint
 URLs or credentials from the browser.
 
 Prompts are limited to 4,000 characters. Tests use the configured request
-timeout and token limit for the compatible service, with no automatic UI retry.
+timeout and provider output limit, with no automatic UI retry.
 Results remain in the page for inspection. The diagnostic creates no terms,
 definitions, suggestions, study responses, or graph updates. The configured
 inference provider receives the test prompt.

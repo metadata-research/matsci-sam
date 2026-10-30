@@ -216,6 +216,28 @@ export const emailAuthTokensTable = pgTable(
   ]
 )
 
+// Short-lived admission receipts, shared by all web inference endpoints.
+// No prompts, provider responses, credentials or source text are stored here.
+export const inferenceRequestsTable = pgTable(
+  "inferenceRequests",
+  {
+    id: uuid().primaryKey(),
+    userId: integer()
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    startedAt: timestamp({ withTimezone: true, mode: "string" }).notNull(),
+    expiresAt: timestamp({ withTimezone: true, mode: "string" }).notNull(),
+    releasedAt: timestamp({ withTimezone: true, mode: "string" })
+  },
+  (t) => [
+    index("inference_requests_user_started_idx").on(t.userId, t.startedAt),
+    index("inference_requests_started_idx").on(t.startedAt),
+    index("inference_requests_active_idx")
+      .on(t.expiresAt)
+      .where(sql`${t.releasedAt} is null`)
+  ]
+)
+
 export const usersTableRelations = relations(usersTable, ({ many }) => ({
   definitions: many(definitionsTable),
   comments: many(commentsTable),

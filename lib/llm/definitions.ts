@@ -9,7 +9,9 @@ import {
 } from "@yamz/db"
 import { and, asc, eq, isNull } from "drizzle-orm"
 import { UpsertAIDefinition } from "../crud"
-import { runLLM } from "./client"
+import { DefinitionOutput } from "./client"
+import { getInferenceConfig } from "./config"
+import { generateForUser } from "./user-generation"
 import { LLMSystemPrompt } from "./prompts"
 import { makeGenerationStamp } from "./stamp"
 import {
@@ -17,7 +19,7 @@ import {
   needsReconstructedDefinitionContext
 } from "./revision-context"
 
-export const reviseDefinition = async (termId: number) => {
+export const reviseDefinition = async (termId: number, userId: number) => {
   const chats = await db.query.chatsTable.findMany({
     where: eq(chatsTable.termId, termId),
     orderBy: asc(chatsTable.createdAt)
@@ -56,8 +58,12 @@ export const reviseDefinition = async (termId: number) => {
     reconstructedContext = currentAI
   }
 
-  const result = await runLLM(
-    buildRevisionMessages(chats, reconstructedContext)
+  const result = await generateForUser(
+    userId,
+    getInferenceConfig(),
+    buildRevisionMessages(chats, reconstructedContext),
+    LLMSystemPrompt,
+    DefinitionOutput
   )
   if (!result) throw new Error("Something went wrong")
 

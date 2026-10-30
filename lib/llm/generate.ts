@@ -78,6 +78,7 @@ export const generateStructured = async <T extends z.ZodTypeAny>(
         format: ollamaResponseSchema(schema),
         keep_alive: "10m",
         think: false,
+        options: { num_predict: config.maxTokens },
         stream: false
       })
       content = response.message.content

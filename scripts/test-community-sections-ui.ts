@@ -108,6 +108,7 @@ async function main() {
   let retainedAfter: Awaited<ReturnType<typeof retainedMetadata>> | undefined
   let rejectFieldSaves = false
   let heldTermSave: ReturnType<typeof deferred> | undefined
+  let releaseHydration: (() => void) | undefined
   const record = (name: string) => {
     passed.push(name)
     console.log(`PASS ${name}`)
@@ -409,8 +410,40 @@ async function main() {
     observe(page)
     const workPath = `/communities/${fixture.communitySlug}?view=work`
     const work = `${base}${workPath}`
-    await page.goto(work)
+    // Start from a saved return fragment with scripts held. Native navigation
+    // before hydration can otherwise be overwritten by Next's initial URL.
+    const hydrationGate = new Promise<void>((resolve) => {
+      releaseHydration = resolve
+    })
+    const scriptPattern = "**/_next/static/**/*.js"
+    await page.route(scriptPattern, async (route) => {
+      await hydrationGate
+      await route.continue()
+    })
+    await page.goto(`${work}#term-drafts`, { waitUntil: "commit" })
     await expect(outline(page)).toBeVisible()
+    const importJump = outline(page)
+      .locator("a")
+      .filter({ hasText: "Term imports" })
+    await expect(importJump).toHaveAttribute("aria-disabled", "true")
+    assert.equal(await importJump.getAttribute("href"), null)
+    releaseHydration!()
+    await expect(importJump).toHaveAttribute("href", "#term-imports")
+    await page.unroute(scriptPattern)
+    await jump(page, "term-imports")
+    // Let the router and scroll observers process the resulting frames, then
+    // check that the initial #term-drafts did not replace the chosen section.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        )
+    )
+    await expect(page).toHaveURL(`${work}#term-imports`)
+    await expect(importJump).toHaveAttribute("aria-current", "location")
+    record(
+      "Section links wait for hydration and retain the first chosen fragment"
+    )
     assert.deepEqual(await outlineTargets(page), [
       "#term-drafts",
       "#term-imports",
@@ -1032,6 +1065,7 @@ async function main() {
         .catch(() => {})
     }
   } finally {
+    releaseHydration?.()
     heldTermSave?.release()
     if (browser) await closeBrowserAfterRoutes(browser)
     try {

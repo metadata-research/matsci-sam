@@ -258,6 +258,7 @@ async function main() {
         const body = JSON.parse(init?.body as string)
         assert.equal(body.model, "gemma4:26b")
         assert.equal(body.keep_alive, "10m")
+        assert.equal(body.options.num_predict, local.maxTokens)
         assert.equal(body.think, false)
         assert.equal(body.format.type, "object")
         assert.equal(new Headers(init?.headers).get("Authorization"), null)

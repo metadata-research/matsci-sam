@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { getInferenceConfig } from "./config"
-import { generateStructured } from "./generate"
+import { generateForUser } from "./user-generation"
+import { TRPCError } from "@trpc/server"
 import { LLMSystemPrompt } from "./prompts"
 import { InferenceError, type InferenceMetadata } from "./types"
 import type { InferenceTestInput } from "./test-options"
@@ -21,7 +22,7 @@ export function getInferenceTestConfiguration() {
 // The browser supplies only a bounded prompt and a schema preset. Provider,
 // endpoints, credentials, and generation options always come from the server.
 // This diagnostic deliberately writes no contribution or graph records.
-export async function testInference(input: InferenceTestInput) {
+export async function testInference(input: InferenceTestInput, userId: number) {
   const started = performance.now()
   const testedAt = new Date().toISOString()
   let inference: InferenceMetadata | undefined
@@ -37,7 +38,8 @@ export async function testInference(input: InferenceTestInput) {
     const messages = [{ role: "user" as const, content: input.prompt }]
     const result =
       input.mode === "definition"
-        ? await generateStructured(
+        ? await generateForUser(
+            userId,
             config,
             messages,
             LLMSystemPrompt,
@@ -46,7 +48,8 @@ export async function testInference(input: InferenceTestInput) {
               example: z.string().min(1)
             })
           )
-        : await generateStructured(
+        : await generateForUser(
+            userId,
             config,
             messages,
             'Answer the user concisely. Return JSON with one nonempty string field named "answer".',
@@ -66,6 +69,7 @@ export async function testInference(input: InferenceTestInput) {
       output: result.output
     }
   } catch (error) {
+    if (error instanceof TRPCError) throw error
     return {
       ...context(),
       status: "failed" as const,

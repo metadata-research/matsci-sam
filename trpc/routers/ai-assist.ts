@@ -32,13 +32,14 @@ import {
   DEFINITION_MAX_LENGTH,
   TERM_MAX_LENGTH
 } from "@/lib/input-limits"
-import { DefinitionTextOutput, runLLM } from "@/lib/llm/client"
+import { DefinitionTextOutput } from "@/lib/llm/client"
 import {
   NewTermPromptKey,
   NewTermSystemPrompt,
   RevisionSuggestionPromptKey,
   RevisionSuggestionSystemPrompt
 } from "@/lib/llm/prompts"
+import { generateForUser } from "@/lib/llm/user-generation"
 import { makeGenerationStamp } from "@/lib/llm/stamp"
 import { createTRPCRouter } from "../init"
 import { requireStepForAct } from "./surveys"
@@ -160,7 +161,9 @@ export const aiAssistRouter = createTRPCRouter({
             ? agentOneDefinitionPrompt(baseSystemPrompt)
             : baseSystemPrompt
 
-        const result = await runLLM(
+        const result = await generateForUser(
+          userId,
+          assistant.config,
           [
             {
               role: "user",
@@ -168,8 +171,7 @@ export const aiAssistRouter = createTRPCRouter({
             }
           ],
           systemPrompt,
-          DefinitionTextOutput,
-          assistant.config
+          DefinitionTextOutput
         )
         const suggestedDefinition = result?.output.definition.trim()
 
@@ -302,7 +304,9 @@ export const aiAssistRouter = createTRPCRouter({
           ? agentOneDefinitionPrompt(baseSystemPrompt)
           : baseSystemPrompt
 
-      const result = await runLLM(
+      const result = await generateForUser(
+        userId,
+        assistant.config,
         [
           {
             role: "user",
@@ -310,8 +314,7 @@ export const aiAssistRouter = createTRPCRouter({
           }
         ],
         systemPrompt,
-        DefinitionTextOutput,
-        assistant.config
+        DefinitionTextOutput
       )
       const suggestedDefinition = result?.output.definition.trim()
 

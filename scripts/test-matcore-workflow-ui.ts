@@ -71,6 +71,7 @@ async function main() {
   let syntheticSourceCreated = false
   let sourceInstalled = false
   let cleaned = false
+  let releaseHydration: (() => void) | undefined
   const allowedWrites = new Set([
     "matcoreWorkflow.configureWorkspace",
     "termDrafts.create",
@@ -234,6 +235,34 @@ async function main() {
     observe(page)
     const workspace = `${base}/communities/${fixture.communitySlug}?view=work`
     const legacyWorkspace = `${base}/metadata/workspace?vocabularySlug=${fixture.vocabularySlug}`
+    // A visible server-rendered action must not accept a click before React
+    // can handle it. Hold scripts to make the first-click race reproducible.
+    const hydrationGate = new Promise<void>((resolve) => {
+      releaseHydration = resolve
+    })
+    const scriptPattern = "**/_next/static/**/*.js"
+    await page.route(scriptPattern, async (route) => {
+      await hydrationGate
+      await route.continue()
+    })
+    await page.goto(workspace, { waitUntil: "commit" })
+    await expect(button(page, "New metadata field")).toBeDisabled()
+    await page.getByText("Prepare drafts in bulk", { exact: true }).click()
+    await expect(button(page, "Import all sections as drafts")).toBeDisabled()
+    releaseHydration!()
+    await expect(button(page, "New metadata field")).toBeEnabled()
+    await page.unroute(scriptPattern)
+    await button(page, "New metadata field").click()
+    const newFieldDialog = page.getByRole("dialog")
+    await expect(newFieldDialog).toBeVisible()
+    await capture(page, "new-field-first-click")
+    await newFieldDialog
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click()
+    await expect(newFieldDialog).toHaveCount(0)
+    record(
+      "Workspace actions wait for hydration and open on the first enabled click"
+    )
     await page.goto(legacyWorkspace)
     await expect(page).toHaveURL(workspace)
     await expect(
@@ -1284,6 +1313,7 @@ async function main() {
       )
     }
   } finally {
+    releaseHydration?.()
     try {
       if (browser) await closeBrowserAfterRoutes(browser)
       // The second user also joins the first community for privacy checks.

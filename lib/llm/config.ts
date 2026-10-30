@@ -88,7 +88,7 @@ export const getInferenceConfig = (
         timeoutMs,
         options:
           provider === "ollama"
-            ? { keep_alive: "10m", think: false }
+            ? { keep_alive: "10m", think: false, num_predict: maxTokens }
             : {
                 max_tokens: maxTokens,
                 response_format: "json_schema",

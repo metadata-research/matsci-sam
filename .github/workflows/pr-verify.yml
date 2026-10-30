@@ -76,6 +76,13 @@ jobs:
         run: |
           pnpm db:invariants
 
+      - name: Test email confirmation and shared AI request limits
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matsci_sam_ci
+        run: |
+          pnpm test:email-confirmation-db
+          pnpm test:inference-limits-db
+
       - name: Test admin inference diagnostics and provenance across provider switching
         env:
           PGPASSWORD: postgres
@@ -642,6 +649,10 @@ jobs:
           import_worker_pid=$!
           trap 'kill "$import_server_pid" "$import_worker_pid" 2>/dev/null || true; wait "$import_server_pid" "$import_worker_pid" 2>/dev/null || true' EXIT
           curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors --max-time 5 http://127.0.0.1:3110/api/health
+          # Exercise authentication before the longer community suites so an
+          # unrelated UI failure does not hide the sign-in regression results.
+          SAM_UI_TEST_SCREENSHOTS=ui-evidence/email-confirmation pnpm test:email-confirmation-ui
+          SAM_UI_TEST_SCREENSHOTS=ui-evidence/invitation pnpm test:invitation-onboarding-ui
           pnpm test:import-drafts-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/matcore pnpm test:matcore-ui
           # Each MatCore suite installs its own invented source fixture;
