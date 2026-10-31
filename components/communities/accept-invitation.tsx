@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { trpc } from "@/trpc/client"
@@ -26,29 +26,48 @@ export const AcceptInvitation = ({
   forStudy?: boolean
   communityTitle?: string
 }) => {
-  const router = useRouter()
+  const [accepted, setAccepted] = useState<{
+    href: string
+    message: string
+  } | null>(null)
 
   const { mutate: accept, isPending } = trpc.communities.accept.useMutation({
     onSuccess: ({ slug, studySlug, alreadyIn, nowWorkingIn }) => {
-      toast.success(
-        studySlug
-          ? alreadyIn
-            ? "Invitation recorded. Opening the study."
-            : "You are in. Opening the study."
-          : alreadyIn
-            ? "You are already in this one"
-            : nowWorkingIn
-              ? `You joined ${communityTitle ?? "the community"}. ${nowWorkingIn} is now selected.`
-              : communityTitle
-                ? `You joined ${communityTitle}`
-                : "You are in"
-      )
-      // A study invitation lands on the study, where the walkthrough
-      // starts. A community invitation lands on the community.
-      router.push(studySlug ? studyPath(studySlug) : communityPath(slug))
+      const message = studySlug
+        ? alreadyIn
+          ? "Invitation recorded. Opening the study."
+          : "You are in. Opening the study."
+        : alreadyIn
+          ? "You are already a member."
+          : nowWorkingIn
+            ? `You joined ${communityTitle ?? "the community"}. ${nowWorkingIn} is now selected.`
+            : communityTitle
+              ? `You joined ${communityTitle}.`
+              : "You joined the community."
+      const href = studySlug ? studyPath(studySlug) : communityPath(slug)
+      setAccepted({ href, message })
+      toast.success(message)
+      // Membership changes both page permissions and the selected community.
+      // Load a fresh document, as the community switcher does, so cached
+      // nonmember content and header state are not reused.
+      window.location.assign(href)
     },
     onError: (error) => toast.error(error.message)
   })
+
+  if (accepted)
+    return (
+      <div className="space-y-3">
+        <p role="status" className="text-sm">
+          {accepted.message}
+        </p>
+        <Button asChild>
+          <a href={accepted.href}>
+            {forStudy ? "Open study" : "Open community"}
+          </a>
+        </Button>
+      </div>
+    )
 
   return (
     <Button disabled={isPending} onClick={() => accept({ token })}>

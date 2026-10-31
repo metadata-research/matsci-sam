@@ -22,7 +22,8 @@ import * as emailToken from "../lib/email-auth-token"
 function load<T>(
   file: string,
   dependencies: Record<string, unknown>,
-  errors: string[] = []
+  errors: string[] = [],
+  globals: Record<string, unknown> = {}
 ) {
   const exports = {}
   const compiled = ts.transpileModule(readFileSync(resolve(file), "utf8"), {
@@ -37,6 +38,7 @@ function load<T>(
     Response,
     URL,
     console: { error: (message: string) => errors.push(message) },
+    ...globals,
     require(name: string) {
       assert.ok(
         Object.hasOwn(dependencies, name),
@@ -77,7 +79,12 @@ type Options = {
   signup?: boolean
   deliveryFails?: boolean
 }
-type Mail = { email: string; token: string; returnTo: string | null }
+type Mail = {
+  email: string
+  token: string
+  returnTo: string | null
+  intent: emailIntent.EmailAuthIntent
+}
 
 function routeFixture(options: Options = {}) {
   let databaseCalls = 0
@@ -140,7 +147,7 @@ function routeFixture(options: Options = {}) {
         emailAuthTokenExpiry: () => "2099-01-01T00:00:00Z"
       },
       "@/lib/email": {
-        sendEmailSignInLink: async (value: Mail) => {
+        sendEmailAuthLink: async (value: Mail) => {
           mail.push(value)
           if (options.deliveryFails)
             throw new Error("Synthetic delivery failure")
@@ -227,7 +234,100 @@ const registerLink = (html: string) =>
     .exec(html)?.[1]
     ?.replaceAll("&amp;", "&")
 
+async function checkEmailMessages() {
+  type Message = { to: string; subject: string; text: string; html: string }
+  const sent: Message[] = []
+  const { sendEmailAuthLink } = load<{
+    sendEmailAuthLink: (input: Mail) => Promise<void>
+  }>(
+    "lib/email.ts",
+    {
+      "server-only": {},
+      nodemailer: {
+        default: {
+          createTransport: () => ({
+            sendMail: async (mail: Message) => sent.push(mail)
+          })
+        }
+      },
+      "googleapis/build/src/apis/gmail": {},
+      "@/lib/email-auth": { getAuthSiteUrl: () => new URL(origin) },
+      "@/lib/email-auth-token": emailToken,
+      "@/lib/site": { SITE_NAME: "MatSci-SAM" },
+      "@/lib/public-identifiers": {},
+      "@/lib/invitation-presentation": {}
+    },
+    [],
+    {
+      process: {
+        env: {
+          EMAIL_AUTH_PROVIDER: "smtp",
+          EMAIL_AUTH_FROM: "sender@example.test",
+          EMAIL_AUTH_SMTP_HOST: "unused.example.test"
+        }
+      }
+    }
+  )
+  const returnTo = `/invite/${"b".repeat(43)}`
+  for (const intent of ["create", "sign-in"] as const) {
+    await sendEmailAuthLink({
+      email: address,
+      token: rawToken,
+      returnTo,
+      intent
+    })
+    const mail = sent.at(-1)!
+    assert.equal(mail.to, address)
+    assert.equal(
+      mail.subject,
+      intent === "create"
+        ? "Create your MatSci-SAM account"
+        : "Sign in to MatSci-SAM"
+    )
+    assert.match(
+      mail.html,
+      intent === "create"
+        ? />Confirm account creation<\/a>/
+        : />Confirm sign-in<\/a>/
+    )
+    for (const body of [mail.text, mail.html]) {
+      assert.match(
+        body,
+        intent === "create"
+          ? /then confirm to create your MatSci-SAM account\./
+          : /then confirm to sign in to MatSci-SAM\./
+      )
+      assert.match(body, /can be used only once/)
+      assert.match(body, /If you did not request it/)
+    }
+    const textUrl = new URL(
+      mail.text.split("\n").find((line) => line.startsWith(origin))!
+    )
+    const htmlUrl = new URL(
+      /href="([^"]+)"/.exec(mail.html)![1].replaceAll("&amp;", "&")
+    )
+    assert.equal(textUrl.href, htmlUrl.href)
+    assert.equal(textUrl.origin, origin)
+    assert.equal(textUrl.pathname, "/register/verify")
+    assert.equal(
+      textUrl.search,
+      "",
+      "tokens must remain out of HTTP query strings"
+    )
+    assert.equal(
+      new URLSearchParams(textUrl.hash.slice(1)).get("token"),
+      rawToken
+    )
+    assert.equal(
+      new URLSearchParams(textUrl.hash.slice(1)).get("returnTo"),
+      returnTo
+    )
+  }
+  assert.equal(sent.length, 2)
+}
+
 async function main() {
+  await checkEmailMessages()
   const destination = `/add?${new URLSearchParams({
     term: "grain boundary",
     vocabularySlug: "materials",
@@ -269,6 +369,7 @@ async function main() {
         assert.equal(fixture.mail.length, 1)
         assert.equal(fixture.mail[0].email, address)
         assert.equal(fixture.mail[0].returnTo, destination)
+        assert.equal(fixture.mail[0].intent, intent)
       }
     }
     assert.equal(

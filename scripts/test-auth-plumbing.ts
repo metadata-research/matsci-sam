@@ -399,10 +399,8 @@ assert.match(
   /else if \(claimed\.allowAccountCreation\)[\s\S]*insert\(usersTable\)/
 )
 assert.match(emailStartRoute, /hashEmailAuthToken\(token, returnTo\)/)
-assert.match(
-  emailStartRoute,
-  /sendEmailSignInLink\(\{ email, token, returnTo \}\)/
-)
+// The real route's intent and return destination passed to the mail sender are
+// exercised by test-email-auth-confirmation.
 assert.match(emailVerifyRoute, /hashEmailAuthToken\(token, returnTo\)/)
 assert.doesNotMatch(emailVerifyRoute, /emailAuthTokensTable\.returnTo/)
 assert.match(emailVerifyClient, /action: "prepare"/)

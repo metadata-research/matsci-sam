@@ -1,5 +1,35 @@
 # MatCore workflow progress
 
+## Signup email and invitation navigation, October 31, 2026
+
+Signup emails use Create your MatSci-SAM account and Confirm account creation.
+Sign-in emails have a separate subject and action. Both describe the explicit
+confirmation step. The mail template follows the requested intent. Account
+eligibility, token fragments, invitation continuations and deferred delivery are
+unchanged.
+
+Successful community invitation acceptance now keeps a confirmation and an Open
+community link until navigation completes. Study invitations retain their study
+destination. A fresh document updates the selected community and permissions.
+The old client navigation could offer Join again while the destination was still
+loading, after membership had already been saved. The new browser regression
+reproduced that behavior against the unchanged build. It now verifies recovery
+from an interrupted destination load without submitting acceptance again.
+
+Local verification passes for authentication copy and routes, four database
+confirmation groups, and desktop/mobile email and invitation browser suites at
+1280 and 390 pixels. Checks include optional profile setup, automatic redirection,
+private content before joining, an ordinary member role after joining, manual
+continuation, reload, cancellation and replay rejection. The new regression runs
+as part of `test:invitation-onboarding-ui` in CI. Production build, TypeScript,
+scoped lint and formatting also pass. Tests use an isolated database and
+intercepted email delivery. No live site, existing draft or provenance is changed.
+
+The earlier long redirect delay on Ego was not reproduced with the small local
+fixtures. Its production cause remains unconfirmed. The fix addresses the
+demonstrated navigation-state defect and provides a continuation after success.
+Deployment and live email delivery checks are separate next steps.
+
 ## Superego release preparation, October 29, 2026
 
 The user authorized deployment of the community review workflow for shared
