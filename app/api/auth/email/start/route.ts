@@ -11,7 +11,7 @@ import {
   isEmailAccountCreationEnabled,
   isEmailAuthEnabled
 } from "@/lib/email-auth"
-import { sendEmailSignInLink } from "@/lib/email"
+import { sendEmailAuthLink } from "@/lib/email"
 import { normalizeAuthReturnTo } from "@/lib/auth-return"
 
 export const POST = async (request: NextRequest) => {
@@ -103,7 +103,12 @@ export const POST = async (request: NextRequest) => {
 
   after(async () => {
     try {
-      await sendEmailSignInLink({ email, token, returnTo })
+      await sendEmailAuthLink({
+        email,
+        token,
+        returnTo,
+        intent: parsedIntent.data
+      })
     } catch {
       await db
         .delete(emailAuthTokensTable)

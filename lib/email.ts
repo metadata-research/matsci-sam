@@ -8,6 +8,7 @@ import {
 } from "googleapis/build/src/apis/gmail"
 import { getAuthSiteUrl } from "@/lib/email-auth"
 import { createEmailAuthLinkFragment } from "@/lib/email-auth-token"
+import type { EmailAuthIntent } from "@/lib/email-auth-intent"
 import { SITE_NAME } from "@/lib/site"
 import { invitePath } from "@/lib/public-identifiers"
 import { communityInvitationMessage } from "@/lib/invitation-presentation"
@@ -117,27 +118,40 @@ const sendEmail = async (message: EmailMessage) => {
   throw new Error("EMAIL_AUTH_PROVIDER must be either gmail-api or smtp")
 }
 
-export const sendEmailSignInLink = async ({
+export const sendEmailAuthLink = async ({
   email,
   token,
-  returnTo
+  returnTo,
+  intent
 }: {
   email: string
   token: string
   returnTo?: string | null
+  intent: EmailAuthIntent
 }) => {
   const url = new URL("/register/verify", getAuthSiteUrl())
   // The fragment is not sent in the browser's HTTP request or included in
   // ordinary access logs. The verification page posts it to the API.
   url.hash = createEmailAuthLinkFragment(token, returnTo)
   const htmlUrl = url.href.replaceAll("&", "&amp;")
+  // Follow the requested action, without revealing whether an account exists.
+  const subject =
+    intent === "create"
+      ? `Create your ${SITE_NAME} account`
+      : `Sign in to ${SITE_NAME}`
+  const introduction =
+    intent === "create"
+      ? `Open the link below, then confirm to create your ${SITE_NAME} account.`
+      : `Open the link below, then confirm to sign in to ${SITE_NAME}.`
+  const button =
+    intent === "create" ? "Confirm account creation" : "Confirm sign-in"
 
   await sendEmail({
     from: requiredEmailSetting("EMAIL_AUTH_FROM"),
     to: email,
-    subject: `Sign in to ${SITE_NAME}`,
+    subject,
     text: [
-      `Use this one-time link to sign in to ${SITE_NAME}:`,
+      introduction,
       "",
       url.href,
       "",
@@ -145,8 +159,8 @@ export const sendEmailSignInLink = async ({
       "If you did not request it, you can ignore this message."
     ].join("\n"),
     html: [
-      `<p>Use this one-time link to sign in to ${SITE_NAME}:</p>`,
-      `<p><a href="${htmlUrl}">Continue to ${SITE_NAME}</a></p>`,
+      `<p>${introduction}</p>`,
+      `<p><a href="${htmlUrl}">${button}</a></p>`,
       "<p>The link expires shortly and can be used only once.</p>",
       "<p>If you did not request it, you can ignore this message.</p>"
     ].join("")
