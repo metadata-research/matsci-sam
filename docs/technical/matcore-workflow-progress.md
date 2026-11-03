@@ -1,5 +1,46 @@
 # MatCore workflow progress
 
+## Hierarchy return focus and full UI acceptance, November 3, 2026
+
+The Back-to-fields failure was caused by a premature test click. On desktop,
+the searched field was already visible in the preview before its detail route
+loaded. The test mistook that preview for completed navigation, clicked Back,
+and then expected focus to return from a detail view it had not reached.
+Instrumented focus events and URLs confirmed the sequence. Waiting for the
+actual detail route made the existing focus restoration pass.
+
+The preview now omits **Back to fields** while the user is already in the field
+list. The link remains in the detail view. The component's explicit
+`isDetailView` prop controls that distinction and its existing heading focus.
+The generic hierarchy's restoration logic is unchanged.
+
+Browser coverage now waits for committed detail navigation and tests repeated
+keyboard activation, return links, browser Back, preserved search and expanded
+branches, and blocked browser storage. Mobile checks at 320px and 390px confirm
+restored focus and no horizontal overflow. Tests also wait for the initial
+source article before using the profile selector.
+
+The full community standards browser suite passed all 15 groups, including
+draft saving and reloading, shared proposals, steward review, named releases,
+revision comparisons, provenance and private-access denial. All fixtures were
+removed and every retained table fingerprint matched. The browser reported no
+page errors or unexpected requests. Catalog navigation/hierarchy checks,
+17 metadata provenance checks and workspace presentation checks pass. Scoped
+lint, formatting and TypeScript pass. The first type-check process ended with
+SIGTERM without a diagnostic. Its bounded rerun passed. Desktop and mobile
+screenshots were inspected using
+the existing Playwright harness because the Browser plugin was unavailable.
+
+Evidence is in
+`/home/chris/dev/matsci/.matsci-stage/hierarchy-focus-20261103/`.
+The final receipt is `full-acceptance/results.json`. Earlier diagnostic receipts
+and focus traces remain available. This resolves the broader UI test failure
+recorded in the preceding implementation work. The hierarchy follow-up is
+included with the join-link, XML-template and metadata-provenance changes for
+pull request review against `dev`. Superego and Ego are unchanged. The internal
+tracking document records the PR and its current CI results.
+
+
 ## Metadata diffs and revision provenance, November 3, 2026
 
 Metadata proposals now reuse the dictionary workflow's accessible text diff
@@ -29,8 +70,8 @@ removed and every retained table fingerprint matched. Screenshots were inspected
 The Browser plugin was unavailable, so the existing Playwright harness was used.
 
 The broader standards UI suite stopped twice at its earlier Back-to-fields
-focus assertion, before the changed surfaces. This remains a separate regression
-to investigate, not a passing full-suite result. A focused run then exhausted
+focus assertion, before the changed surfaces. The subsequent hierarchy
+follow-up above resolves this and records the full suite passing. A focused run then exhausted
 the long-running local preview's Node heap during editor compilation. Only that
 preview was restarted, retaining its resource limits. A later test selector was
 narrowed to exclude Next.js's route announcer. The final focused run passed.

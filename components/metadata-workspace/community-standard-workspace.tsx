@@ -553,7 +553,7 @@ export function CommunityStandardWorkspace({
                           ? "Working version"
                           : "Reference"
                       }
-                      focusOnOpen={Boolean(selectedId)}
+                      isDetailView={Boolean(selectedId)}
                       community={community}
                       entry={source.data}
                       viewerId={viewerId}

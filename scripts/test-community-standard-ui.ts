@@ -233,8 +233,11 @@ async function main() {
       page.getByRole("menuitem", { name: "Vocabulary terms", exact: true })
     ).toHaveAttribute("href", `/vocabulary/${member.vocabularySlug}`)
     await page.keyboard.press("Escape")
+    // Wait for the initial source query to render before using the controls.
+    await expect(page.getByRole("article")).toBeVisible()
     // Navigation regression shared with the original versioned-catalog suite.
     await page.getByLabel("Profile", { exact: true }).selectOption("dft")
+    await page.waitForURL((url) => url.searchParams.get("profile") === "dft")
     await expect(page.getByText("Includes fields from")).toBeVisible()
     await page
       .getByRole("navigation", { name: "Catalog view" })
@@ -281,7 +284,13 @@ async function main() {
       .click()
     await expect(parent).toBeVisible()
     await expect(child).toBeVisible()
+    await expect(
+      page.getByRole("link", { name: "Back to fields", exact: true })
+    ).toHaveCount(0)
     await child.click()
+    // The desktop preview already contains this field. Its presence alone
+    // does not establish that the detail route has committed.
+    await page.waitForURL((url) => url.searchParams.has("source"))
     await expect(
       page.getByRole("article", { name: "label", exact: true })
     ).toBeVisible()
@@ -295,6 +304,30 @@ async function main() {
       .toBe(false)
     await expect(child).toBeFocused()
     await expect(page.getByLabel("Find a field")).toHaveValue("specimen.label")
+    for (const back of ["browser", "link"] as const) {
+      await child.focus()
+      await page.keyboard.press("Enter")
+      await page.waitForURL((url) => url.searchParams.has("source"))
+      await expect(
+        page.getByRole("heading", { name: "label", exact: true })
+      ).toBeFocused()
+      if (back === "browser") await page.goBack()
+      else
+        await page
+          .getByRole("link", { name: "Back to fields", exact: true })
+          .click()
+      await page.waitForURL((url) => !url.searchParams.has("source"))
+      await expect(child).toBeFocused()
+      await expect(page.getByLabel("Find a field")).toHaveValue(
+        "specimen.label"
+      )
+    }
+    await page.screenshot({
+      path: resolve(output, "hierarchy-return-focus-desktop.png"),
+      animations: "disabled"
+    })
+    await page.getByLabel("Find a field").focus()
+    await expect(page.getByLabel("Find a field")).toBeFocused()
     await page.getByRole("button", { name: "Clear", exact: true }).click()
     await expect(child).toBeHidden()
     const storagePage = await context.newPage()
@@ -316,6 +349,20 @@ async function main() {
     await expect(
       storagePage.getByRole("article", { name: "label", exact: true })
     ).toBeVisible()
+    await storagePage.waitForURL((url) => url.searchParams.has("source"))
+    await storagePage
+      .getByRole("link", { name: "Back to fields", exact: true })
+      .click()
+    await storagePage.waitForURL((url) => !url.searchParams.has("source"))
+    const storageChild = storagePage
+      .getByRole("navigation", { name: "Field hierarchy" })
+      .getByRole("link", { name: "label", exact: true })
+    await expect(storageChild).toBeFocused()
+    await storageChild.press("Enter")
+    await storagePage.waitForURL((url) => url.searchParams.has("source"))
+    await storagePage.goBack()
+    await storagePage.waitForURL((url) => !url.searchParams.has("source"))
+    await expect(storageChild).toBeFocused()
     await storagePage.close()
     assert.equal(
       (await db.select().from(drafts).where(eq(drafts.ownerId, member.userId)))
@@ -780,19 +827,28 @@ async function main() {
         .getByRole("navigation", { name: "Field hierarchy" })
         .getByRole("link", { name: source.payload.label, exact: true })
       await mobileField.click()
+      await page.waitForURL((url) => url.searchParams.has("source"))
       await expect(
         page.getByRole("article", { name: source.payload.label, exact: true })
       ).toBeVisible()
       await page
         .getByRole("link", { name: "Back to fields", exact: true })
         .click()
+      await page.waitForURL((url) => !url.searchParams.has("source"))
+      await expect(mobileField).toBeFocused()
+      await mobileField.press("Enter")
+      await page.waitForURL((url) => url.searchParams.has("source"))
+      await page.goBack()
+      await page.waitForURL((url) => !url.searchParams.has("source"))
       await expect(mobileField).toBeFocused()
       await page.screenshot({
         path: resolve(output, `standard-${width}px.png`),
         fullPage: false
       })
     }
-    pass("320px and 390px field/detail navigation has no horizontal overflow")
+    pass(
+      "320px and 390px field navigation restores focus through Back to fields and browser Back without horizontal overflow"
+    )
     await page.goto(proposalURL)
     await page
       .getByRole("button", { name: "Propose a revision", exact: true })
