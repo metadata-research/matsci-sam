@@ -18,8 +18,12 @@ choices.
 
 For a larger download, use [all vocabularies](/vocabulary.ttl),
 [tags and collections](/tags.ttl), or the [combined dataset](/dataset.ttl).
-The combined download includes vocabulary, classification, and MatCore field
-specifications. Histories are available separately through provenance.
+The combined download includes vocabulary, classification, and the preliminary
+2025 MatCore field specifications. Histories are available separately through
+provenance. The later versioned MatCore catalog, independent field proposals and
+community releases are not yet included in those RDF exports. See
+[Metadata fields and MatCore](/docs/matcore-workflow#download-an-xml-template)
+for XML templates and individual proposal specifications.
 
 ## Metadata on dictionary entries
 

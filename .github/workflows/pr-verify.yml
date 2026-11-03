@@ -546,6 +546,7 @@ jobs:
           pnpm test:dictionary-metadata
           pnpm test:matcore
           pnpm test:matcore-catalog-navigation
+          pnpm test:standard-xml
 
       - name: Test Graph Layer
         run: |

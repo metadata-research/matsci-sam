@@ -1,5 +1,108 @@
 # MatCore workflow progress
 
+## XML template download implemented locally, November 3, 2026
+
+The user selected a template download from the standard. Standard now includes
+**Download XML template** for a selected reference, working version or named
+community release. The dialog selects one section and explains that it includes
+all fields, regardless of the search filter. Inherited sections are downloaded
+separately. The same component supports independent community fields.
+
+The server generates nested XML from field paths. It includes required and
+repeatable rules, data types, value forms, units, conditions, allowed values,
+formats and source guidance as comments. Values remain `FILL` placeholders.
+The canonical parent-presence condition used by the catalog importer produces
+`FILL*` for required child fields. Other conditions remain explicit comments.
+Duplicate paths, invalid XML names and scalar fields with children produce
+actionable errors. Comments cannot introduce XML markup. Version, source
+attribution and source/section hashes identify the exported material.
+
+`/api/metadata/template` reuses the Standard content and source access checks.
+Responses are private and not cached. Working exports contain accepted changes
+only, with a stale-view check. Named releases use their frozen snapshot.
+No database migration or RDF serializer change was needed.
+
+Verification passed: 39 XML unit/parser checks, 85 community-standard database
+checks and the concurrent-withdrawal regression. These include private-access
+denial, revoked membership, generic fields, source grants, pending proposal
+exclusion, accepted rules, immutable releases and invalid requests. The unit
+suite is added to CI and the database suite is extended. TypeScript and scoped
+lint pass.
+
+A read-only browser test against the actual local MatCore catalog passed at
+1360×1000 and 390×844. It downloaded through the UI, parsed all 47 paths despite
+a search filter, checked reload, retried a simulated failed download and verified
+anonymous denial through the actual route. All 37 leaf placeholders match the
+supplied PF review template. Screenshots show the dialog without clipping or
+horizontal overflow. No application errors occurred. Database fingerprints were
+unchanged. The first browser attempt had a test-script serialization error,
+corrected before the successful runs. A sandboxed parser subprocess stalled and
+was stopped. Its bounded regression passed outside that sandbox.
+
+The user guide and internal tracking are updated. This is local only. Existing
+drafts, the source baseline, provenance and RDF exports remain unchanged.
+
+## MatCore XML export assessment, November 3, 2026
+
+Reviewed the supplied Phase Field review template and development baseline.
+The XML describes dataset metadata, with nested properties and repeated
+elements. It is a separate representation from RDF descriptions of vocabulary
+concepts or metadata field definitions. The standard describes its XML examples
+as illustrative and remains independent of the serialization format.
+
+The Phase Field review template parses as XML. All 47 element paths match the
+47 Phase Field occurrences in the local `matcore:0.3.0` catalog exactly. A
+template download can therefore use the stored hierarchy, requirement and
+repeatability rules. The recommended first scope is one selected profile and
+version, with `FILL` placeholders, relative requirement comments, repeatability
+comments and a version identifier. A completed dataset export would require
+dataset-value entry, which the standard proposal editor does not provide.
+Reference, accepted working changes and named community releases must remain
+distinct export choices. Pending proposals and private drafts must not be
+silently included. Downloads must apply existing community and source access
+checks. Inherited profiles need an explicit export choice rather than being
+silently merged or omitted from a claimed complete dataset.
+
+PostgreSQL remains the system of record. Vocabulary descriptions and contribution
+history have RDF serializers, with an optional Fuseki projection. The current
+MatCore RDF serializer covers the preliminary 2025 transcription. It does not
+yet serialize the later versioned source catalog, independent field proposals
+or community releases. Full RDF coverage for that workflow is a separate gap
+to address without changing existing identifiers or exposing private content.
+
+This was a read-only assessment with a local catalog comparison. No XML export
+has been implemented, no source version has been replaced, and no draft,
+provenance record or live site has changed. The user was asked to choose between
+a template download, recommended first, and a dataset-entry form with completed
+XML export.
+
+## Reusable community join links, November 3, 2026
+
+Stewards and site administrators can create, copy, replace and turn off a
+reusable join link from People or the administrator membership page. This
+includes members-only communities. Recipients create an account or sign in,
+then explicitly join as ordinary members before private content becomes
+available. The link remains available to copy after reload. Personal invitations
+and review invitations retain their separate controls.
+
+The user approved this admission policy. New tokens retain 256 bits of random
+entropy and include a format version. Legacy public links cannot acquire private
+admission authority on upgrade. A visibility change disables the reusable link,
+and a steward must create a new one. Token retrieval remains restricted to
+stewards and site administrators. No database migration is needed.
+
+Local checks pass: 43 join-link database assertions through the actual router,
+17 membership assertions, 106 community-access assertions, invitation page
+rendering, community rules, TypeScript, scoped lint and formatting. The new
+database suite is included in CI. The database suite removes its fixtures and
+compares existing table fingerprints. Browser checks covered creation, copying
+the full URL, reload persistence, section navigation and a mobile layout without
+horizontal overflow. No relevant browser console errors were recorded.
+
+The local MatCore link is enabled for preview on port 3109. Existing drafts,
+catalog content and provenance remain unchanged. The guide and internal tracking
+document are updated. Superego and Ego have not been changed by this follow-up.
+
 ## Signup email and invitation navigation, October 31, 2026
 
 Signup emails use Create your MatSci-SAM account and Confirm account creation.

@@ -34,6 +34,10 @@ import {
 import { emptyMatcoreDraftPayload } from "../lib/matcore-workflow-types"
 import { MATCORE_STANDARD_MANIFEST } from "./fixtures/matcore-source-fixture"
 import { testConcurrentStandardWithdrawals } from "./community-standard-concurrency-fixture"
+import {
+  exportStandardXml,
+  standardXmlResponse
+} from "../lib/standard-xml-export"
 
 class Rollback extends Error {}
 let checks = 0
@@ -46,6 +50,9 @@ async function denied(work: Promise<unknown>, code: string) {
   checks++
 }
 async function main() {
+  const databaseUrl = new URL(process.env.DATABASE_URL!)
+  assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(databaseUrl.hostname))
+  assert.match(databaseUrl.pathname, /_(?:test|scratch|ci|qa)(?:_|$)/)
   try {
     await db.transaction(async (tx) => {
       const stamp = randomUUID().replaceAll("-", "")
@@ -99,6 +106,73 @@ async function main() {
         },
         admin.id
       )
+      // Independent community fields can be exported without installing MatCore.
+      try {
+        await tx.transaction(async (generic) => {
+          const payload = emptyMatcoreDraftPayload()
+          payload.label = "temperature"
+          payload.definition = "The measured temperature."
+          payload.rationale = "Record a laboratory measurement."
+          payload.specification = {
+            ...payload.specification,
+            path: "sample.temperature",
+            requirement: "required",
+            units: "K",
+            valueType: "number"
+          }
+          const draft = await createMatcoreDraft(
+            generic,
+            { vocabularySlug: vocab.slug, id: randomUUID(), payload },
+            member.id
+          )
+          const proposal = await submitMatcoreDraft(
+            generic,
+            { id: draft.id, expectedVersion: draft.version },
+            member.id
+          )
+          await reviewMatcoreRevision(
+            generic,
+            {
+              revisionId: proposal.revisionId,
+              decision: "accepted",
+              reason: "Suitable for measurements."
+            },
+            steward.id
+          )
+          const exported = await exportStandardXml(
+            generic,
+            {
+              vocabularySlug: vocab.slug,
+              mode: "working",
+              profile: "community"
+            },
+            member.id
+          )
+          same(
+            exported.xml.includes("<sample>"),
+            true,
+            "Generic export reconstructs parent containers"
+          )
+          same(
+            exported.xml.includes("<temperature>FILL*</temperature>"),
+            true,
+            "Generic export uses paths and required placeholders"
+          )
+          same(
+            exported.xml.includes("Units: K"),
+            true,
+            "Generic field rules are exported"
+          )
+          same(
+            exported.xml.includes("Reference version:"),
+            false,
+            "No fabricated reference for generic community"
+          )
+          throw new Rollback()
+        })
+      } catch (error) {
+        if (!(error instanceof Rollback)) throw error
+      }
       await installMatcoreSource(
         tx,
         { manifest: MATCORE_STANDARD_MANIFEST, vocabularySlug: vocab.slug },
@@ -124,6 +198,82 @@ async function main() {
       same(baseline.releases.length, 0, "No fabricated community releases")
       await denied(getCommunityStandard(tx, input, null), "NOT_FOUND")
       await denied(getCommunityStandard(tx, input, outsider.id), "NOT_FOUND")
+      const xmlInput = {
+        ...input,
+        mode: "reference" as const,
+        profile: "minimal",
+        referenceReleaseId: baseline.reference!.id
+      }
+      const referenceXml = await exportStandardXml(tx, xmlInput, member.id)
+      same(
+        referenceXml.xml.includes("<specimen>"),
+        true,
+        "XML uses stored nested paths"
+      )
+      same(
+        referenceXml.xml.includes("Source SHA-256:"),
+        true,
+        "XML identifies its source"
+      )
+      await denied(exportStandardXml(tx, xmlInput, null), "NOT_FOUND")
+      await denied(exportStandardXml(tx, xmlInput, outsider.id), "NOT_FOUND")
+      await denied(
+        exportStandardXml(
+          tx,
+          { ...xmlInput, referenceReleaseId: "matcore:ungranted" },
+          member.id
+        ),
+        "NOT_FOUND"
+      )
+      await denied(
+        exportStandardXml(tx, { ...xmlInput, profile: "missing" }, member.id),
+        "NOT_FOUND"
+      )
+      const xmlRequest = (extra = "") =>
+        new Request(
+          `http://localhost/api/metadata/template?${new URLSearchParams(xmlInput)}${extra}`
+        )
+      const response = await standardXmlResponse(tx, xmlRequest(), member.id)
+      same(response.status, 200, "Member can download XML")
+      same(
+        response.headers.get("Content-Type"),
+        "application/xml; charset=utf-8",
+        "XML media type"
+      )
+      same(
+        response.headers.get("Cache-Control"),
+        "private, no-store",
+        "Private export cannot be cached"
+      )
+      same(response.headers.get("Vary"), "Cookie", "Export varies by session")
+      same(
+        response.headers.get("Content-Disposition")?.startsWith("attachment;"),
+        true,
+        "XML is an attachment"
+      )
+      same(
+        await response.text(),
+        referenceXml.xml,
+        "HTTP output matches selected reference"
+      )
+      const privateResponse = await standardXmlResponse(tx, xmlRequest(), null)
+      same(privateResponse.status, 404, "Anonymous HTTP export denied")
+      same(
+        privateResponse.headers.get("Cache-Control"),
+        "private, no-store",
+        "Errors cannot cache private content"
+      )
+      for (const extra of ["&profile=dft", "&unknown=1", "&releaseId=invalid"])
+        same(
+          (await standardXmlResponse(tx, xmlRequest(extra), member.id)).status,
+          400,
+          "Invalid export address rejected"
+        )
+      const workingXml = await exportStandardXml(
+        tx,
+        { ...xmlInput, mode: "working" },
+        member.id
+      )
       const first = baseline.referenceEntries.find(
         (row) => row.profileKey === "minimal"
       )!
@@ -155,6 +305,7 @@ async function main() {
           mutationId: randomUUID(),
           payload: {
             ...draft.payload,
+            specification: { ...draft.payload.specification, units: "kelvin" },
             definition: "Practitioner definition for the proposed field.",
             rationale: "Specify the values needed in a laboratory workflow."
           }
@@ -165,6 +316,17 @@ async function main() {
         tx,
         { id: edited.id, expectedVersion: edited.version },
         member.id
+      )
+      same(
+        (
+          await exportStandardXml(
+            tx,
+            { ...xmlInput, mode: "working" },
+            member.id
+          )
+        ).xml,
+        workingXml.xml,
+        "Private edits and pending proposals excluded from XML"
       )
       same(submitted.term, null, "New proposal has independent field identity")
       same(
@@ -267,6 +429,34 @@ async function main() {
       )
       const accepted = await getCommunityStandard(tx, input, member.id)
       same(
+        (
+          await exportStandardXml(
+            tx,
+            { ...xmlInput, mode: "working" },
+            member.id
+          )
+        ).xml.includes("Units: kelvin"),
+        true,
+        "Accepted field rules exported"
+      )
+      same(
+        (await exportStandardXml(tx, xmlInput, member.id)).xml,
+        referenceXml.xml,
+        "Reference XML unchanged by accepted changes"
+      )
+      await denied(
+        exportStandardXml(
+          tx,
+          {
+            ...xmlInput,
+            mode: "working",
+            expectedFingerprint: baseline.fingerprint
+          },
+          member.id
+        ),
+        "CONFLICT"
+      )
+      same(
         accepted.working.entries.find((e) => e.id === first.id)?.payload
           .definition,
         edited.payload.definition,
@@ -319,6 +509,29 @@ async function main() {
         { ...input, releaseId: release.id },
         member.id
       )
+      const releasedXml = await exportStandardXml(
+        tx,
+        { ...xmlInput, mode: "release", releaseId: release.id },
+        member.id
+      )
+      same(
+        releasedXml.xml.includes("Community release: Community 1.0"),
+        true,
+        "Export identifies community release"
+      )
+      same(
+        releasedXml.xml.includes("Units: kelvin"),
+        true,
+        "Release retains accepted rules"
+      )
+      await denied(
+        exportStandardXml(
+          tx,
+          { ...xmlInput, mode: "release", releaseId: randomUUID() },
+          member.id
+        ),
+        "NOT_FOUND"
+      )
       same(
         frozen.selectedRelease!.snapshot,
         accepted.working,
@@ -359,6 +572,7 @@ async function main() {
           mutationId: randomUUID(),
           payload: {
             ...next.payload,
+            specification: { ...next.payload.specification, units: "celsius" },
             definition: "A later proposed definition.",
             rationale: "Clarify the measurement scope."
           }
@@ -399,6 +613,28 @@ async function main() {
         tx,
         nextSubmitted.revisionId,
         member.id
+      )
+      same(
+        (
+          await exportStandardXml(
+            tx,
+            { ...xmlInput, mode: "working" },
+            member.id
+          )
+        ).xml.includes("Units: celsius"),
+        true,
+        "Working export follows later acceptance"
+      )
+      same(
+        (
+          await exportStandardXml(
+            tx,
+            { ...xmlInput, mode: "release", releaseId: release.id },
+            member.id
+          )
+        ).xml,
+        releasedXml.xml,
+        "Release XML remains frozen"
       )
       const legacySaved = await updateMatcoreDraft(
         tx,
@@ -801,6 +1037,7 @@ async function main() {
         ),
         "NOT_FOUND"
       )
+      await denied(exportStandardXml(tx, xmlInput, steward.id), "NOT_FOUND")
       throw new Rollback()
     })
   } catch (error) {

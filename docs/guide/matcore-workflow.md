@@ -108,6 +108,28 @@ The preliminary 2025 reference catalog retains its original identifiers and
 source. It is linked separately. Its entries are not automatically equated
 with fields in later snapshots.
 
+## Download an XML template
+
+Open **Standard** and choose **Reference**, **Working version** or a
+**Community release**. Select **Download XML template**, choose a section and
+select **Download**. The file includes every field in that section, regardless
+of the search filter. Download inherited sections, such as Common core, separately.
+
+The template uses nested XML elements with `FILL` placeholders for dataset
+values. `FILL*` marks a field required within its parent. Comments describe
+repeatability and the other field rules. Replace the placeholders, remove unused
+optional elements and copy repeatable elements with their children as needed.
+The template is not an executable validation schema.
+
+The file identifies the selected version and section. Working versions include
+accepted community changes. Private drafts and proposals awaiting review are
+excluded. A named community release retains its original field rules.
+Download access follows the same permissions as Standard.
+
+Independent community fields can also be exported without a MatCore reference.
+If a path cannot be represented in XML, or conflicting field rules prevent the
+export, the download reports the affected field.
+
 ## Prepare MatCore drafts in bulk
 
 You can still prepare working copies of a whole source version when needed.
