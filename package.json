@@ -132,6 +132,7 @@
     "test:community-privacy-ui": "tsx --conditions=react-server scripts/test-community-privacy-ui.ts",
     "test:community-membership-db": "tsx --conditions=react-server scripts/test-community-membership-db.ts",
     "test:community-join-links-db": "tsx --conditions=react-server scripts/test-community-join-links-db.ts",
+    "test:feedback-db": "tsx --conditions=react-server scripts/test-feedback-db.ts",
     "test:community-access-db": "tsx --conditions=react-server scripts/test-community-access-db.ts",
     "test:community-content-db": "tsx --conditions=react-server scripts/test-community-content-db.ts"
   },

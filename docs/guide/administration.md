@@ -68,6 +68,16 @@ Use **People** to change site roles, **Feedback** to manage site reports, and
 **Vocabulary** or **Tags** for curation. **Audit & safety** contains publication
 and revision records. Role changes take effect immediately.
 
+### Feedback inbox
+
+The **Feedback** button on the right of a page saves a comment for site
+administrators. Visitors can submit without signing in. Open **Feedback** in the
+administration area to review comments, follow the page link, mark a comment
+resolved or reopen it. **Open**, **Resolved** and **All** filter the inbox.
+Community membership or a steward role does not grant access to this inbox.
+
+### Studies
+
 **Studies** contains setup, invitations, activity, and retirement controls.
 Use **Participant interface** to choose the Simple view or full detail. New
 studies use Simple by default. Instructions, schedule, and interface settings
