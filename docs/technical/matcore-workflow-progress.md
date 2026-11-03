@@ -1,5 +1,29 @@
 # MatCore workflow progress
 
+## PR #159 browser assertion follow-up, November 3, 2026
+
+[PR #159](https://github.com/metadata-research/matsci-sam/pull/159) contains the
+community join links, XML templates, metadata provenance and hierarchy changes.
+The first CI run passed graph and database validation, the production build,
+email/invitation browser tests and draft-import acceptance. The older metadata
+workflow browser test then failed because it expected a complete definition in
+one text node. The new diff displays that text across added, removed and
+unchanged spans.
+
+The test now reconstructs both the reference and proposed values from the
+rendered diff and checks them exactly, excluding accessible Added/Removed labels.
+The format-only revision uses the same assertion. The hydration check inspects
+the collapsed import button without opening native details before hydration.
+These are test changes only. TypeScript, scoped lint and formatting pass.
+
+Local reruns stopped during bulk import because the dedicated development
+database's 20-connection cap was exceeded. Restarting only the bounded preview
+did not resolve the capacity limit. Fixture cleanup succeeded. A separate
+attempt corrected the hidden-button locator. Production CI is being rerun to
+verify the full older workflow. The earlier complete 15-group community
+standards run remains valid. Current CI results and local evidence paths are
+recorded in the internal tracking document. No merge or deployment has occurred.
+
 ## Hierarchy return focus and full UI acceptance, November 3, 2026
 
 The Back-to-fields failure was caused by a premature test click. On desktop,
