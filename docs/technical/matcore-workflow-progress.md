@@ -24,6 +24,14 @@ verify the full older workflow. The earlier complete 15-group community
 standards run remains valid. Current CI results and local evidence paths are
 recorded in the internal tracking document. No merge or deployment has occurred.
 
+The second CI run exposed a selector mistake in that test correction: a `dt`
+has visible text but does not derive an accessible name from it. The assertion
+now locates the visible label. An isolated browser check of the actual rendered
+component verifies exact reference/proposal reconstruction, shared text spans
+and rejection of incorrect values. It also caught and removed a nested callback
+that introduced a transpiler helper unavailable inside browser evaluation.
+That isolated check and scoped lint pass. CI is rerunning with both corrections.
+
 ## Hierarchy return focus and full UI acceptance, November 3, 2026
 
 The Back-to-fields failure was caused by a premature test click. On desktop,

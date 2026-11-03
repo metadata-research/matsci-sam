@@ -56,7 +56,7 @@ async function expectFieldDiff(
   after: string
 ) {
   const value = region
-    .getByRole("term", { name: label, exact: true })
+    .getByText(label, { exact: true })
     .locator("..")
     .getByRole("definition")
   await expect(value).toBeVisible()
@@ -65,14 +65,13 @@ async function expectFieldDiff(
   await expect
     .poll(() =>
       value.evaluate((element) => {
-        const read = (omit: string) => {
-          const copy = element.cloneNode(true) as HTMLElement
-          copy
-            .querySelectorAll(`${omit}, .sr-only`)
-            .forEach((node) => node.remove())
-          return copy.textContent
-        }
-        return { before: read("ins"), after: read("del") }
+        const before = element.cloneNode(true) as HTMLElement
+        const after = element.cloneNode(true) as HTMLElement
+        before
+          .querySelectorAll("ins, .sr-only")
+          .forEach((node) => node.remove())
+        after.querySelectorAll("del, .sr-only").forEach((node) => node.remove())
+        return { before: before.textContent, after: after.textContent }
       })
     )
     .toEqual({ before, after })
