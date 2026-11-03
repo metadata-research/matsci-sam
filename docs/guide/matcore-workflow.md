@@ -227,10 +227,20 @@ Add your name to your account profile before submitting.
 Select **Submit for review** to share the proposal with the community. It appears
 under **Proposals** as **Awaiting review**. **Changes** opens first and compares
 the proposal with the preceding revision of that field, or with the reference
-for its first revision. Members can add attributed comments in **Discussion**.
+for its first revision. Additions are underlined and removals are struck through.
+The comparison includes definitions, examples, field rules and citations.
+When both are available, **Compare with** switches between the preceding
+revision and the reference.
+
+Members can add attributed comments in **Discussion**.
 The complete **Field specification** and **Sources & history** follow those tabs. Comments and decisions belong to the exact revision.
 Sources and history follow the community's access rules. In Proposals, the
 **Reference version** selector lets you review work based on an earlier source.
+
+In **Sources & history**, select **Show provenance graph** to see the selected
+revision's author, reference, citations and recorded submission and review
+decisions. Select a revision node to inspect its changes or open that revision.
+History entries also link to their recorded revision.
 
 A community steward or site administrator can open **Discussion**, select
 **Review proposal**, and choose **Accept into working version**, **Request changes**

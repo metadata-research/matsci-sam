@@ -114,7 +114,11 @@ async function main() {
         }
         // Dev previews request source locations for deliberately rejected routes.
         // This exact local endpoint reads diagnostics; it cannot mutate app data.
-        if (url.pathname === "/__nextjs_original-stack-frames" && request.method() === "POST") return route.continue()
+        if (
+          url.pathname === "/__nextjs_original-stack-frames" &&
+          request.method() === "POST"
+        )
+          return route.continue()
         if (request.method() === "GET") return route.continue()
         const path = paths[0],
           input = request.postDataJSON()?.[0] as
@@ -284,7 +288,11 @@ async function main() {
     await page
       .getByRole("link", { name: "Back to fields", exact: true })
       .click()
-    await expect.poll(() => new URL(page.url()).searchParams.has("source"), {timeout: 20000}).toBe(false)
+    await expect
+      .poll(() => new URL(page.url()).searchParams.has("source"), {
+        timeout: 20000
+      })
+      .toBe(false)
     await expect(child).toBeFocused()
     await expect(page.getByLabel("Find a field")).toHaveValue("specimen.label")
     await page.getByRole("button", { name: "Clear", exact: true }).click()
@@ -418,6 +426,8 @@ async function main() {
     await page
       .getByRole("button", { name: "Review proposal", exact: true })
       .click()
+    await expect(page.getByRole("dialog").locator("ins").first()).toBeVisible()
+    await expect(page.getByRole("dialog").locator("del").first()).toBeVisible()
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "Submit for review", exact: true })
@@ -451,6 +461,49 @@ async function main() {
       path: resolve(output, "proposal-changes-desktop.png"),
       fullPage: false
     })
+    await expect(
+      page
+        .getByRole("region", { name: "Changes from the reference" })
+        .locator("ins")
+        .first()
+    ).toBeVisible()
+    await expect(
+      page
+        .getByRole("region", { name: "Changes from the reference" })
+        .locator("del")
+        .first()
+    ).toBeVisible()
+    await page
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await expect(page.locator(".react-flow")).toHaveCount(0)
+    await page
+      .getByRole("button", { name: "Show provenance graph", exact: true })
+      .click()
+    await expect(
+      page
+        .locator(".react-flow__node")
+        .filter({ hasText: "Proposal submitted" })
+    ).toBeVisible()
+    await page
+      .locator(".react-flow__node")
+      .filter({ hasText: /^Revision 1$/ })
+      .click()
+    await expect(
+      page.locator("#field-provenance-graph").locator("ins").first()
+    ).toBeVisible()
+    await page.locator("#field-provenance-graph").scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: resolve(output, "field-provenance-desktop.png"),
+      animations: "disabled"
+    })
+    await page
+      .getByRole("button", { name: "Hide provenance graph", exact: true })
+      .click()
+    await expect(page.locator(".react-flow")).toHaveCount(0)
+    pass(
+      "Private review dialog and published Changes share highlighted edits; optional graph opens exact revision changes"
+    )
     await page.getByRole("tab", { name: "Discussion", exact: true }).click()
     await expect(
       page.getByText("Awaiting review", { exact: true })
@@ -507,6 +560,41 @@ async function main() {
       path: resolve(output, "proposal-changes-390px.png"),
       fullPage: false
     })
+    await page
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await page
+      .getByRole("button", { name: "Show provenance graph", exact: true })
+      .click()
+    await expect(
+      page.locator(".react-flow__node").filter({ hasText: /^Revision 1$/ })
+    ).toBeVisible()
+    await page
+      .locator(".react-flow__node")
+      .filter({ hasText: /^Revision 1$/ })
+      .click()
+    await expect(
+      page.locator("#field-provenance-graph").locator("ins").first()
+    ).toBeVisible()
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      ),
+      true
+    )
+    await page.locator("#field-provenance-graph").scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: resolve(output, "field-provenance-mobile.png"),
+      animations: "disabled"
+    })
+    await page.getByRole("button", { name: "Full screen", exact: true }).click()
+    await expect(
+      page.getByRole("button", { name: "Exit full screen", exact: true })
+    ).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(
+      page.getByRole("button", { name: "Full screen", exact: true })
+    ).toBeVisible()
     await page.setViewportSize({ width: 1440, height: 1100 })
     pass(
       "Submission creates a proposal without a dictionary artifact; attributed discussion survives reload"
@@ -559,6 +647,22 @@ async function main() {
     pass(
       "A community steward accepts the exact proposal revision without site-admin privileges"
     )
+    await reviewer
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await reviewer
+      .getByRole("button", { name: "Show provenance graph", exact: true })
+      .click()
+    await reviewer
+      .locator(".react-flow__node")
+      .filter({ hasText: /^Review decision$/ })
+      .click()
+    await expect(reviewer.locator("#field-provenance-graph")).toContainText(
+      "The practitioner definition and scope are agreed."
+    )
+    await expect(
+      reviewer.getByRole("region", { name: "History", exact: true })
+    ).toContainText("Community steward decision")
     await reviewer.goto(
       detail.href.replace("standard=reference", "standard=working")
     )
@@ -689,9 +793,106 @@ async function main() {
       })
     }
     pass("320px and 390px field/detail navigation has no horizontal overflow")
+    await page.goto(proposalURL)
+    await page
+      .getByRole("button", { name: "Propose a revision", exact: true })
+      .click()
+    await page.waitForURL(/\/metadata\/workspace\//)
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
+    await page
+      .getByRole("textbox", { name: "Example", exact: true })
+      .fill("A specimen described by its mesh spacing.")
+    await page
+      .getByRole("textbox", { name: "Reason for this proposal", exact: true })
+      .fill("Add a practitioner example.")
+    await page
+      .getByRole("tab", { name: "Field specification", exact: true })
+      .click()
+    await page
+      .getByLabel("Repeatable field", { exact: true })
+      .selectOption("yes")
+    await page
+      .getByRole("button", { name: "Review proposal", exact: true })
+      .click()
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Submit for review", exact: true })
+      .click()
+    await page.waitForURL(/\/metadata\/fields\//)
+    await expect(page.getByLabel("Compare with", { exact: true })).toHaveValue(
+      "previous"
+    )
+    const previousChanges = page.getByRole("region", {
+      name: "Changes from revision 1",
+      exact: true
+    })
+    await expect(previousChanges).toContainText("Example")
+    await expect(previousChanges).toContainText("Repeatable")
+    await expect(
+      previousChanges.getByText("Definition", { exact: true })
+    ).toHaveCount(0)
+    await page
+      .getByLabel("Compare with", { exact: true })
+      .selectOption("reference")
+    await expect(
+      page
+        .getByRole("region", {
+          name: "Changes from the reference",
+          exact: true
+        })
+        .getByText("Definition", { exact: true })
+    ).toBeVisible()
+    await page.reload()
+    await expect(page.getByLabel("Compare with", { exact: true })).toHaveValue(
+      "previous"
+    )
+    await page
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await page
+      .getByRole("button", { name: "Show provenance graph", exact: true })
+      .click()
+    await page
+      .locator(".react-flow__node")
+      .filter({ hasText: /^Revision 1$/ })
+      .click()
+    await page
+      .getByRole("link", { name: "Open this revision", exact: true })
+      .click()
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Earlier revision" })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("region", {
+        name: "Changes from the reference",
+        exact: true
+      })
+    ).toBeVisible()
+    await page
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await expect(
+      page.getByRole("region", { name: "History", exact: true })
+    ).toContainText("Community steward decision")
+    pass(
+      "Revision comparison distinguishes previous from reference, survives reload and opens recorded predecessor history"
+    )
     const anonymous = await browser.newContext()
     await guard(anonymous)
     const visitor = await anonymous.newPage()
+    await visitor.goto(proposalURL)
+    await expect(
+      visitor.getByRole("button", {
+        name: "Show provenance graph",
+        exact: true
+      })
+    ).toHaveCount(0)
+    await expect(
+      visitor.getByText(
+        "A practitioner definition for the specimen used in this simulation.",
+        { exact: true }
+      )
+    ).toHaveCount(0)
     await visitor.goto(home)
     await expect(
       visitor.getByRole("navigation", { name: "Field hierarchy" })

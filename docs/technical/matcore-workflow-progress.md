@@ -1,5 +1,54 @@
 # MatCore workflow progress
 
+## Metadata diffs and revision provenance, November 3, 2026
+
+Metadata proposals now reuse the dictionary workflow's accessible text diff
+renderer and optional provenance graph. **Changes** highlights additions and
+removals across definitions, examples, field rules and citations. **Compare
+with** switches between the recorded preceding revision and the reference when
+both exist. The private review dialog uses the same highlighting. Existing
+history entries open their exact published revision and identify steward
+review decisions correctly.
+
+**Sources & history** loads the graph only when requested. It shows the selected
+revision, its author, reference, citations, recorded submission and review or
+withdrawal decisions. Revision nodes expose the changes or open the predecessor.
+The display uses the existing authorized response and its bounded history. It
+never merges other contributors' private draft events or assigns an unrelated
+reference to another revision. Generic fields without a MatCore baseline are
+supported. No stored diff, draft, reference, provenance record, permission rule
+or RDF serializer was changed. This display adapter is not a new RDF export.
+
+Verification: 17 focused component/adapter checks, existing definition comparison
+and workspace presentation checks, TypeScript and scoped lint pass. The focused
+local browser flow passed nine groups at 1440×1100 and 390×844: save/reload,
+private review, submission, highlighted changes, optional graph and node details,
+mobile fullscreen/Escape, steward decisions, reference/predecessor comparisons,
+revision navigation and anonymous page/API denial. All temporary fixtures were
+removed and every retained table fingerprint matched. Screenshots were inspected.
+The Browser plugin was unavailable, so the existing Playwright harness was used.
+
+The broader standards UI suite stopped twice at its earlier Back-to-fields
+focus assertion, before the changed surfaces. This remains a separate regression
+to investigate, not a passing full-suite result. A focused run then exhausted
+the long-running local preview's Node heap during editor compilation. Only that
+preview was restarted, retaining its resource limits. A later test selector was
+narrowed to exclude Next.js's route announcer. The final focused run passed.
+One automatic approval review timed out and the permitted retry proceeded.
+The interrupted preview also left a damaged generated route-types file. Its
+original was retained in the evidence directory before regeneration with
+`next typegen` and a fresh type check.
+
+Evidence and the focused rerun script are in
+`/home/chris/dev/matsci/.matsci-stage/metadata-provenance-20261103/`.
+`acceptance/results.json` records the successful run. Earlier failure receipts
+remain alongside it. The persistent component regression is
+`scripts/test-metadata-field-provenance.tsx`, added to CI. The standard browser
+suite contains the new interaction assertions. User documentation is updated.
+This integration is local only and remains uncommitted. The earlier join-link,
+feedback and XML work was committed separately during this task.
+
+
 ## XML template download implemented locally, November 3, 2026
 
 The user selected a template download from the standard. Standard now includes
