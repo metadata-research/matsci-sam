@@ -169,6 +169,7 @@ jobs:
           pnpm test:community-standard-db
           pnpm test:community-access-db
           pnpm test:community-membership-db
+          pnpm test:community-join-links-db
           pnpm test:community-content-db
           pnpm test:import-drafts-db
           pnpm test:import-draft-reads-db

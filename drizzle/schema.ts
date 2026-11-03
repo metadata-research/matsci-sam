@@ -2134,10 +2134,10 @@ export const communitiesTable = pgTable(
       .default("public"),
     // The shareable join link, stored readable rather than hashed, because
     // its purpose is to be re-read and pasted into a lab channel. It is a
-    // lower-value secret than a per-person invitation: it admits whoever holds
-    // it, so it is turned off by setting this to null and replaced by minting
-    // a new one. Null means the community has no open join link, which is the
-    // default. Nothing of higher value may ever be carried this way.
+    // bearer credential that grants ordinary membership after explicit
+    // acceptance. Only stewards and administrators may retrieve or manage it.
+    // Null disables it. Replacing it or changing visibility revokes old copies.
+    // Versioned tokens allow private membership only after steward opt-in.
     joinToken: text().unique(undefined, { nulls: "distinct" }),
     createdById: integer()
       .references(() => usersTable.id)

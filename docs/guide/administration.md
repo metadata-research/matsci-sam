@@ -28,8 +28,15 @@ before closing the result.
 invitation after expiry. **Delete record** removes an unused revoked or expired
 invitation. Accepted invitations remain recorded.
 
-**Open join link** creates a reusable group invitation. Replace or disable it
-to invalidate earlier copies. Stewards can remove ordinary members. Only site
+Under **People → Join link**, select **Create join link**, then **Copy link**
+to share it yourself. Recipients create an account or sign in, then choose to
+join as ordinary members. For a members-only community, this grants access to
+its private content. The link remains available to copy when you return.
+**Replace** invalidates earlier copies, and **Turn off** disables the link.
+A change in community visibility also disables it. These controls are available
+to stewards and site administrators.
+
+Stewards can remove ordinary members. Only site
 administrators can appoint or remove another steward. A steward can leave the
 community through their own membership controls.
 

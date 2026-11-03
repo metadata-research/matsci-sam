@@ -22,6 +22,7 @@ import {
 import { authPathWithReturnTo } from "@/lib/auth-return"
 import { communityInvitationPageCopy } from "@/lib/invitation-presentation"
 import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
+import { communityJoinLinkEnabled } from "@/lib/community-join-link"
 
 export const metadata: Metadata = {
   title: `Invitation | ${SITE_NAME}`,
@@ -85,7 +86,8 @@ export default async function InvitePage({
   })
 
   const approvalRequired =
-    invitation.kind === "open" && community.visibility === "members"
+    invitation.kind === "open" &&
+    !communityJoinLinkEnabled(community.visibility, token)
   const dead = DEAD[outcome]
   // A live link to a study that closed or was retired: the router would
   // refuse the accept, so the page says why instead of offering it.
@@ -141,7 +143,9 @@ export default async function InvitePage({
               <p className="text-sm text-muted-foreground">
                 {study
                   ? `Accepting opens the study. It also adds you to ${community.title}, which shows you the terms the study works through. It publishes nothing about you, and you can leave at any time.`
-                  : `Joining lets you take part in ${community.title} studies and shows its terms in your community view. You can leave the community at any time.`}
+                  : community.visibility === "members"
+                    ? `Joining gives you member access to the private content of ${community.title}. You can leave at any time.`
+                    : `Joining lets you participate in ${community.title}. You can leave at any time.`}
               </p>
             )}
 

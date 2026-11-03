@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { communityJoinLinkEnabled } from "@/lib/community-join-link"
 import { notFound } from "next/navigation"
 import { ArrowLeftIcon, ExternalLinkIcon } from "lucide-react"
 import { AdminPageHeader } from "../../page-header"
@@ -267,23 +268,26 @@ export default async function AdminCommunityPage({
         </div>
       </section>
 
-      {active && community.visibility === "public" && (
+      {active && (
         <section className={styles.panel} aria-labelledby="join-link-heading">
           <div className={styles.panelHeader}>
             <div>
               <h2 id="join-link-heading" className={styles.panelTitle}>
-                Reusable join link
+                Join link
               </h2>
-              <p className={styles.studyPanelDescription}>
-                One link for people to join this community after signing in.
-              </p>
             </div>
           </div>
           <div className={styles.studyPanelBody}>
             <JoinLink
               communityId={community.id}
+              visibility={community.visibility}
               link={
-                community.joinToken ? `/invite/${community.joinToken}` : null
+                communityJoinLinkEnabled(
+                  community.visibility,
+                  community.joinToken
+                )
+                  ? `/invite/${community.joinToken}`
+                  : null
               }
             />
           </div>

@@ -3,6 +3,11 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { communitiesTable, communityMembersTable, usersTable } from "@yamz/db"
 import type { CommunityTransaction } from "./community-access"
+import { createOneTimeToken } from "./auth-tokens"
+import {
+  COMMUNITY_JOIN_TOKEN_PREFIX,
+  communityJoinLinkEnabled
+} from "./community-join-link"
 import {
   maySetCommunityMember,
   maySetCommunityRole,
@@ -94,8 +99,38 @@ export async function requireCommunityInvitationManager(
   return community
 }
 
-/** A shared link is not approval to read a members-only workspace. The lock
- * prevents a public link from being accepted across a privacy transition. */
+export async function setCommunityJoinLink(
+  tx: CommunityTransaction,
+  input: { communityId: number; actorId: number; on: boolean; rotate: boolean }
+) {
+  const community = await requireCommunityInvitationManager(
+    tx,
+    input.communityId,
+    input.actorId
+  )
+  if (
+    input.on &&
+    !input.rotate &&
+    communityJoinLinkEnabled(community.visibility, community.joinToken)
+  )
+    return {
+      communitySlug: community.slug,
+      token: community.joinToken,
+      rotated: false
+    }
+
+  const token = input.on
+    ? `${COMMUNITY_JOIN_TOKEN_PREFIX}${createOneTimeToken()}`
+    : null
+  await tx
+    .update(communitiesTable)
+    .set({ joinToken: token })
+    .where(eq(communitiesTable.id, community.id))
+  return { communitySlug: community.slug, token, rotated: Boolean(token) }
+}
+
+/** Recheck the exact token under the community lock. A legacy public link
+ * cannot grant private access. Visibility changes revoke shared links. */
 export async function requireOpenCommunityJoin(
   tx: CommunityTransaction,
   communityId: number,
@@ -115,7 +150,7 @@ export async function requireOpenCommunityJoin(
       code: "NOT_FOUND",
       message: "This invitation link is not valid."
     })
-  if (community.visibility === "members")
+  if (!communityJoinLinkEnabled(community.visibility, token))
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
