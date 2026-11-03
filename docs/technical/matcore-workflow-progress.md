@@ -32,6 +32,12 @@ and rejection of incorrect values. It also caught and removed a nested callback
 that introduced a transpiler helper unavailable inside browser evaluation.
 That isolated check and scoped lint pass. CI is rerunning with both corrections.
 
+The third CI run passed the complete metadata workflow, all 15 standards groups,
+17 community review checks and header navigation. The section-navigation suite
+then reached a stale People outline ordering assertion. It now expects Join
+link before Invitations, matching the intentional page layout. The jump,
+keyboard, history and ordinary-member access assertions remain unchanged.
+
 ## Hierarchy return focus and full UI acceptance, November 3, 2026
 
 The Back-to-fields failure was caused by a premature test click. On desktop,
