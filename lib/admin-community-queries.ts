@@ -66,6 +66,7 @@ export const adminCommunityById = async (id: number) => {
       slug: communitiesTable.slug,
       title: communitiesTable.title,
       description: communitiesTable.description,
+      visibility: communitiesTable.visibility,
       retiredAt: communitiesTable.retiredAt,
       joinToken: communitiesTable.joinToken
     })

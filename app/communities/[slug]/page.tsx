@@ -712,7 +712,9 @@ export default async function CommunityPage({
                 ? [
                     { id: "access-requests", label: "Access requests" },
                     { id: "invitations", label: "Invitations" },
-                    { id: "join-link", label: "Join link" }
+                    ...(community.visibility === "public"
+                      ? [{ id: "join-link", label: "Reusable join link" }]
+                      : [])
                   ]
                 : [])
             ]}
@@ -871,37 +873,30 @@ export default async function CommunityPage({
                     </ul>
                   )}
 
-                  <section aria-labelledby="join-link" className="space-y-2">
-                    <h3
-                      id="join-link"
-                      tabIndex={-1}
-                      data-section-target
-                      className="font-medium"
-                    >
-                      Open join link
-                    </h3>
-                    {community.visibility === "members" ? (
+                  {community.visibility === "public" && (
+                    <section aria-labelledby="join-link" className="space-y-2">
+                      <h3
+                        id="join-link"
+                        tabIndex={-1}
+                        data-section-target
+                        className="font-medium"
+                      >
+                        Reusable join link
+                      </h3>
                       <p className="text-sm text-muted-foreground">
-                        Members-only communities use access requests or personal
-                        invitations. Open join links do not grant membership.
+                        One link for people to join this community after signing
+                        in.
                       </p>
-                    ) : (
-                      <>
-                        <p className="text-sm text-muted-foreground">
-                          One link anyone can use, for a group that does not
-                          need per-person invitations.
-                        </p>
-                        <JoinLink
-                          communityId={community.id}
-                          link={
-                            community.joinToken
-                              ? `/invite/${community.joinToken}`
-                              : null
-                          }
-                        />
-                      </>
-                    )}
-                  </section>
+                      <JoinLink
+                        communityId={community.id}
+                        link={
+                          community.joinToken
+                            ? `/invite/${community.joinToken}`
+                            : null
+                        }
+                      />
+                    </section>
+                  )}
                 </section>
               )}
             </div>

@@ -759,7 +759,7 @@ export const JoinLink = ({
           onClick={() => setJoinLink({ communityId, on: true })}
         >
           <LinkIcon className="size-4 mr-1" />
-          Create an open join link
+          Create join link
         </Button>
       )}
     </div>

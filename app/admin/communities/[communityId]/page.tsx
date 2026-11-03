@@ -267,16 +267,15 @@ export default async function AdminCommunityPage({
         </div>
       </section>
 
-      {active && (
+      {active && community.visibility === "public" && (
         <section className={styles.panel} aria-labelledby="join-link-heading">
           <div className={styles.panelHeader}>
             <div>
               <h2 id="join-link-heading" className={styles.panelTitle}>
-                Open join link
+                Reusable join link
               </h2>
               <p className={styles.studyPanelDescription}>
-                One link anyone can use, for a group that does not need
-                per-person invitations.
+                One link for people to join this community after signing in.
               </p>
             </div>
           </div>
