@@ -8,6 +8,7 @@ import {
   RequestCommunityAccess
 } from "@/components/communities/access-controls"
 import Link from "next/link"
+import { communityJoinLinkEnabled } from "@/lib/community-join-link"
 import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { SITE_NAME } from "@/lib/site"
@@ -711,8 +712,8 @@ export default async function CommunityPage({
               ...(runs
                 ? [
                     { id: "access-requests", label: "Access requests" },
-                    { id: "invitations", label: "Invitations" },
-                    { id: "join-link", label: "Join link" }
+                    { id: "join-link", label: "Join link" },
+                    { id: "invitations", label: "Invitations" }
                   ]
                 : [])
             ]}
@@ -815,6 +816,30 @@ export default async function CommunityPage({
                 <CommunityAccessRequests communityId={community.id} />
               ) : null}
               {runs && (
+                <section aria-labelledby="join-link" className="space-y-2">
+                  <h2
+                    id="join-link"
+                    tabIndex={-1}
+                    data-section-target
+                    className="text-xl font-semibold"
+                  >
+                    Join link
+                  </h2>
+                  <JoinLink
+                    communityId={community.id}
+                    visibility={community.visibility}
+                    link={
+                      communityJoinLinkEnabled(
+                        community.visibility,
+                        community.joinToken
+                      )
+                        ? `/invite/${community.joinToken}`
+                        : null
+                    }
+                  />
+                </section>
+              )}
+              {runs && (
                 <section aria-labelledby="invitations" className="space-y-4">
                   <h2
                     id="invitations"
@@ -825,9 +850,8 @@ export default async function CommunityPage({
                     Invitations
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Each link admits one person who opens it and signs in. It
-                    works with any sign-in address. Use the invitation controls
-                    beside a survey to invite a participant to that survey.
+                    Invite one person by email or share a personal invitation
+                    link.
                   </p>
                   <InvitePerson communityId={community.id} />
 
@@ -870,38 +894,6 @@ export default async function CommunityPage({
                       })}
                     </ul>
                   )}
-
-                  <section aria-labelledby="join-link" className="space-y-2">
-                    <h3
-                      id="join-link"
-                      tabIndex={-1}
-                      data-section-target
-                      className="font-medium"
-                    >
-                      Open join link
-                    </h3>
-                    {community.visibility === "members" ? (
-                      <p className="text-sm text-muted-foreground">
-                        Members-only communities use access requests or personal
-                        invitations. Open join links do not grant membership.
-                      </p>
-                    ) : (
-                      <>
-                        <p className="text-sm text-muted-foreground">
-                          One link anyone can use, for a group that does not
-                          need per-person invitations.
-                        </p>
-                        <JoinLink
-                          communityId={community.id}
-                          link={
-                            community.joinToken
-                              ? `/invite/${community.joinToken}`
-                              : null
-                          }
-                        />
-                      </>
-                    )}
-                  </section>
                 </section>
               )}
             </div>

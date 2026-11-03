@@ -28,8 +28,15 @@ before closing the result.
 invitation after expiry. **Delete record** removes an unused revoked or expired
 invitation. Accepted invitations remain recorded.
 
-**Open join link** creates a reusable group invitation. Replace or disable it
-to invalidate earlier copies. Stewards can remove ordinary members. Only site
+Under **People → Join link**, select **Create join link**, then **Copy link**
+to share it yourself. Recipients create an account or sign in, then choose to
+join as ordinary members. For a members-only community, this grants access to
+its private content. The link remains available to copy when you return.
+**Replace** invalidates earlier copies, and **Turn off** disables the link.
+A change in community visibility also disables it. These controls are available
+to stewards and site administrators.
+
+Stewards can remove ordinary members. Only site
 administrators can appoint or remove another steward. A steward can leave the
 community through their own membership controls.
 
@@ -60,6 +67,16 @@ participant controls, and completed records.
 Use **People** to change site roles, **Feedback** to manage site reports, and
 **Vocabulary** or **Tags** for curation. **Audit & safety** contains publication
 and revision records. Role changes take effect immediately.
+
+### Feedback inbox
+
+The **Feedback** button on the right of a page saves a comment for site
+administrators. Visitors can submit without signing in. Open **Feedback** in the
+administration area to review comments, follow the page link, mark a comment
+resolved or reopen it. **Open**, **Resolved** and **All** filter the inbox.
+Community membership or a steward role does not grant access to this inbox.
+
+### Studies
 
 **Studies** contains setup, invitations, activity, and retirement controls.
 Use **Participant interface** to choose the Simple view or full detail. New

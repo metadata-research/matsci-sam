@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { sourceFieldName } from "@/lib/metadata-field-name"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Badge } from "@/components/ui/badge"
@@ -124,13 +125,22 @@ export function SourceBaseline({
   )
 }
 
-export function FieldHistory({ history }: { history: Draft["history"] }) {
+export function FieldHistory({
+  history,
+  fieldId,
+  revisions = []
+}: {
+  history: Draft["history"]
+  fieldId?: string
+  revisions?: { id: string; version: number }[]
+}) {
   const actionLabels: Record<string, string> = {
     imported: "Source imported",
     draft_created: "Private draft created",
     draft_updated: "Draft saved",
     published: "Proposal published",
     reviewed: "Review decision recorded",
+    withdrawn: "Proposal withdrawn",
     commented: "Comment added",
     revised: "Revision draft created",
     import: "Source imported",
@@ -161,6 +171,20 @@ export function FieldHistory({ history }: { history: Draft["history"] }) {
                   {formatDateTime(event.createdAt)}
                 </time>
               </p>
+              {fieldId &&
+              revisions.some((revision) => revision.id === event.revisionId) ? (
+                <Link
+                  className="text-sm underline underline-offset-4"
+                  href={`/metadata/fields/${fieldId}?revision=${event.revisionId}`}
+                >
+                  Revision{" "}
+                  {
+                    revisions.find(
+                      (revision) => revision.id === event.revisionId
+                    )!.version
+                  }
+                </Link>
+              ) : null}
               {event.detail.reason ? (
                 <p className="mt-1 whitespace-pre-wrap break-words text-sm">
                   {event.detail.reason}
@@ -169,9 +193,11 @@ export function FieldHistory({ history }: { history: Draft["history"] }) {
               <p className="mt-1 text-xs text-muted-foreground">
                 {event.detail.authority === "site_administrator"
                   ? "MatSci-SAM administrator decision"
-                  : event.detail.authority === "source_import"
-                    ? "Attributed source import"
-                    : "Contributor action"}
+                  : event.detail.authority === "community_steward"
+                    ? "Community steward decision"
+                    : event.detail.authority === "source_import"
+                      ? "Attributed source import"
+                      : "Contributor action"}
                 {event.detail.decision
                   ? ` · ${event.detail.decision.replaceAll("_", " ")}`
                   : ""}

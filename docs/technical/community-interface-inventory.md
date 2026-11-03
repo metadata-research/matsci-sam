@@ -1,5 +1,15 @@
 # Community interface inventory
 
+## Community join links, November 3, 2026
+
+People now separates **Join link** from personal **Invitations**. A steward can
+create a reusable link for either a public or members-only community, copy it
+again after reload, replace it or turn it off. The private-content notice appears
+beside the control. Recipients sign in and explicitly join as ordinary members.
+This user-approved policy extends the earlier conference invitation design below.
+Legacy links do not gain private admission authority. Verification is recorded
+in [the progress document](matcore-workflow-progress.md).
+
 ## Compact review and source guidance, October 29, 2026
 
 The review uses two columns for the four main rules on mobile. The review

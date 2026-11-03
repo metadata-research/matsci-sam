@@ -39,6 +39,7 @@ import { WorkspaceSelect } from "./workspace-select"
 import { errorMessage, profileLabel } from "./workspace-presenters"
 import { formatDateTime } from "@/lib/date"
 import { cn } from "@/lib/utils"
+import { StandardXmlDownload } from "./standard-xml-download"
 
 type Props = {
   community: { slug: string; title: string }
@@ -176,6 +177,34 @@ export function CommunityStandardWorkspace({
 
   const actions = (
     <div className="flex flex-wrap gap-2">
+      {section === "standard" ? (
+        <StandardXmlDownload
+          key={`${activeMode}:${data.reference?.id}:${data.selectedRelease?.id}:${profile}`}
+          vocabularySlug={data.workspace.vocabularySlug}
+          mode={activeMode}
+          versionLabel={
+            activeMode === "reference"
+              ? `Reference ${data.reference?.version}`
+              : activeMode === "release"
+                ? `Community release ${data.selectedRelease?.name}`
+                : "Community working version"
+          }
+          referenceReleaseId={data.reference?.id}
+          releaseId={data.selectedRelease?.id}
+          fingerprint={data.fingerprint}
+          profile={profile}
+          sections={[
+            ...data.profiles
+              .filter((row) =>
+                entries.some((entry) => entry.profileKey === row.id)
+              )
+              .map((row) => ({ id: row.id, label: profileLabel(row.id) })),
+            ...(entries.some((entry) => !entry.profileKey)
+              ? [{ id: "community", label: "Community fields" }]
+              : [])
+          ]}
+        />
+      ) : null}
       {canCreate && section !== "releases" ? (
         <Button
           variant="outline"
@@ -524,7 +553,7 @@ export function CommunityStandardWorkspace({
                           ? "Working version"
                           : "Reference"
                       }
-                      focusOnOpen={Boolean(selectedId)}
+                      isDetailView={Boolean(selectedId)}
                       community={community}
                       entry={source.data}
                       viewerId={viewerId}

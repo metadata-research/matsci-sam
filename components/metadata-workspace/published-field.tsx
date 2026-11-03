@@ -1,6 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import dynamic from "next/dynamic"
+import { previousFieldRevision } from "@/lib/metadata-field-provenance"
+import { FieldChanges } from "./field-changes"
 import { useRouter } from "next/navigation"
 import { InfoPopover } from "@/components/info-popover"
 import { proposalStatusLabels } from "@/lib/community-standard-types"
@@ -50,6 +53,10 @@ type Props = {
   isAdmin: boolean
   workspaceHref: string
 }
+const FieldProvenance = dynamic(
+  () => import("./field-provenance").then((module) => module.FieldProvenance),
+  { ssr: false, loading: () => <p role="status">Loading provenance…</p> }
+)
 const reviewLabels = proposalStatusLabels
 
 export function PublishedField({
@@ -62,6 +69,8 @@ export function PublishedField({
   const revise = trpc.matcoreWorkflow.revise.useMutation()
   const review = trpc.matcoreWorkflow.review.useMutation()
   const comment = trpc.matcoreWorkflow.comment.useMutation()
+  const [showGraph, setShowGraph] = useState(false)
+  const [compareReference, setCompareReference] = useState(false)
   const [commentText, setCommentText] = useState("")
   const withdraw = trpc.matcoreWorkflow.withdraw.useMutation()
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -82,15 +91,10 @@ export function PublishedField({
   )
   const isLatest = latestInProfile?.id === selected.id
   const payload = selected.payload
-  const previous = record.revisions
-    .filter(
-      (item) =>
-        item.profileKey === selected.profileKey &&
-        item.occurrenceKey === selected.occurrenceKey &&
-        item.version < selected.version
-    )
-    .sort((a, b) => b.version - a.version)[0]
-  const comparison = previous?.payload ?? record.baseline
+  const previous = previousFieldRevision(record.revisions, selected)
+  const comparison = compareReference
+    ? record.baseline
+    : (previous?.payload ?? record.baseline)
   const differences = proposalDifferences(
     {
       ...payload,
@@ -111,9 +115,10 @@ export function PublishedField({
         }
       : null
   )
-  const comparisonLabel = previous
-    ? `Revision ${previous.version}`
-    : "Reference"
+  const comparisonLabel =
+    previous && !compareReference
+      ? `revision ${previous.version}`
+      : "the reference"
   const busy = revise.isPending || review.isPending || withdraw.isPending
   const canReview = record.canReview
   const canWithdraw = userId === selected.createdById || isAdmin
@@ -290,52 +295,33 @@ export function PublishedField({
               </div>
               {comparison ? (
                 <section aria-labelledby="proposal-changes">
-                  <h3 id="proposal-changes" className="mb-3 font-medium">
-                    Changes from{" "}
-                    {previous
-                      ? `revision ${previous.version}`
-                      : "the reference"}
-                  </h3>
-                  {differences.length ? (
-                    <dl className="flex flex-col gap-4">
-                      {differences.map((difference) => (
-                        <div
-                          key={difference.label}
-                          className="rounded-md border p-3"
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <h3 id="proposal-changes" className="font-medium">
+                      Changes from {comparisonLabel}
+                    </h3>
+                    {previous && record.baseline ? (
+                      <Field className="w-auto">
+                        <FieldLabel htmlFor="field-comparison">
+                          Compare with
+                        </FieldLabel>
+                        <WorkspaceSelect
+                          id="field-comparison"
+                          value={compareReference ? "reference" : "previous"}
+                          onChange={(event) =>
+                            setCompareReference(
+                              event.target.value === "reference"
+                            )
+                          }
                         >
-                          <dt className="mb-2 font-medium">
-                            {difference.label}
-                          </dt>
-                          <dd className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
-                            <div className="min-w-0">
-                              <p className="mb-1 text-muted-foreground">
-                                {comparisonLabel}
-                              </p>
-                              <p className="whitespace-pre-wrap break-words">
-                                {difference.before || "Not specified"}
-                              </p>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="mb-1 text-muted-foreground">
-                                This proposal
-                              </p>
-                              <p className="whitespace-pre-wrap break-words">
-                                {difference.after || "Not specified"}
-                              </p>
-                            </div>
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No changes from{" "}
-                      {previous
-                        ? `revision ${previous.version}`
-                        : "the reference"}
-                      .
-                    </p>
-                  )}
+                          <option value="previous">
+                            Revision {previous.version}
+                          </option>
+                          <option value="reference">Reference</option>
+                        </WorkspaceSelect>
+                      </Field>
+                    ) : null}
+                  </div>
+                  <FieldChanges differences={differences} />
                 </section>
               ) : null}
             </CardContent>
@@ -389,7 +375,37 @@ export function PublishedField({
             citations={payload.citations}
             hasBaseline={Boolean(record.baseline)}
           />
-          <FieldHistory history={record.history} />
+          <section
+            className="min-w-0 space-y-4"
+            aria-label="Revision provenance"
+          >
+            <Button
+              variant="outline"
+              aria-expanded={showGraph}
+              aria-controls="field-provenance-graph"
+              onClick={() => setShowGraph((open) => !open)}
+            >
+              {showGraph ? "Hide provenance graph" : "Show provenance graph"}
+            </Button>
+            {showGraph ? (
+              <div id="field-provenance-graph" className="min-w-0 space-y-3">
+                <h3 className="font-medium">
+                  Provenance for revision {selected.version}
+                </h3>
+                <FieldProvenance
+                  record={record}
+                  revision={selected}
+                  differences={differences}
+                  comparisonLabel={comparison ? comparisonLabel : null}
+                />
+              </div>
+            ) : null}
+          </section>
+          <FieldHistory
+            history={record.history}
+            fieldId={record.field.id}
+            revisions={record.revisions}
+          />
           <p className="break-all text-xs text-muted-foreground">
             Field identifier: {record.field.id}
             <br />

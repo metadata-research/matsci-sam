@@ -114,7 +114,11 @@ async function main() {
         }
         // Dev previews request source locations for deliberately rejected routes.
         // This exact local endpoint reads diagnostics; it cannot mutate app data.
-        if (url.pathname === "/__nextjs_original-stack-frames" && request.method() === "POST") return route.continue()
+        if (
+          url.pathname === "/__nextjs_original-stack-frames" &&
+          request.method() === "POST"
+        )
+          return route.continue()
         if (request.method() === "GET") return route.continue()
         const path = paths[0],
           input = request.postDataJSON()?.[0] as
@@ -229,8 +233,11 @@ async function main() {
       page.getByRole("menuitem", { name: "Vocabulary terms", exact: true })
     ).toHaveAttribute("href", `/vocabulary/${member.vocabularySlug}`)
     await page.keyboard.press("Escape")
+    // Wait for the initial source query to render before using the controls.
+    await expect(page.getByRole("article")).toBeVisible()
     // Navigation regression shared with the original versioned-catalog suite.
     await page.getByLabel("Profile", { exact: true }).selectOption("dft")
+    await page.waitForURL((url) => url.searchParams.get("profile") === "dft")
     await expect(page.getByText("Includes fields from")).toBeVisible()
     await page
       .getByRole("navigation", { name: "Catalog view" })
@@ -277,16 +284,50 @@ async function main() {
       .click()
     await expect(parent).toBeVisible()
     await expect(child).toBeVisible()
+    await expect(
+      page.getByRole("link", { name: "Back to fields", exact: true })
+    ).toHaveCount(0)
     await child.click()
+    // The desktop preview already contains this field. Its presence alone
+    // does not establish that the detail route has committed.
+    await page.waitForURL((url) => url.searchParams.has("source"))
     await expect(
       page.getByRole("article", { name: "label", exact: true })
     ).toBeVisible()
     await page
       .getByRole("link", { name: "Back to fields", exact: true })
       .click()
-    await expect.poll(() => new URL(page.url()).searchParams.has("source"), {timeout: 20000}).toBe(false)
+    await expect
+      .poll(() => new URL(page.url()).searchParams.has("source"), {
+        timeout: 20000
+      })
+      .toBe(false)
     await expect(child).toBeFocused()
     await expect(page.getByLabel("Find a field")).toHaveValue("specimen.label")
+    for (const back of ["browser", "link"] as const) {
+      await child.focus()
+      await page.keyboard.press("Enter")
+      await page.waitForURL((url) => url.searchParams.has("source"))
+      await expect(
+        page.getByRole("heading", { name: "label", exact: true })
+      ).toBeFocused()
+      if (back === "browser") await page.goBack()
+      else
+        await page
+          .getByRole("link", { name: "Back to fields", exact: true })
+          .click()
+      await page.waitForURL((url) => !url.searchParams.has("source"))
+      await expect(child).toBeFocused()
+      await expect(page.getByLabel("Find a field")).toHaveValue(
+        "specimen.label"
+      )
+    }
+    await page.screenshot({
+      path: resolve(output, "hierarchy-return-focus-desktop.png"),
+      animations: "disabled"
+    })
+    await page.getByLabel("Find a field").focus()
+    await expect(page.getByLabel("Find a field")).toBeFocused()
     await page.getByRole("button", { name: "Clear", exact: true }).click()
     await expect(child).toBeHidden()
     const storagePage = await context.newPage()
@@ -308,6 +349,20 @@ async function main() {
     await expect(
       storagePage.getByRole("article", { name: "label", exact: true })
     ).toBeVisible()
+    await storagePage.waitForURL((url) => url.searchParams.has("source"))
+    await storagePage
+      .getByRole("link", { name: "Back to fields", exact: true })
+      .click()
+    await storagePage.waitForURL((url) => !url.searchParams.has("source"))
+    const storageChild = storagePage
+      .getByRole("navigation", { name: "Field hierarchy" })
+      .getByRole("link", { name: "label", exact: true })
+    await expect(storageChild).toBeFocused()
+    await storageChild.press("Enter")
+    await storagePage.waitForURL((url) => url.searchParams.has("source"))
+    await storagePage.goBack()
+    await storagePage.waitForURL((url) => !url.searchParams.has("source"))
+    await expect(storageChild).toBeFocused()
     await storagePage.close()
     assert.equal(
       (await db.select().from(drafts).where(eq(drafts.ownerId, member.userId)))
@@ -418,6 +473,8 @@ async function main() {
     await page
       .getByRole("button", { name: "Review proposal", exact: true })
       .click()
+    await expect(page.getByRole("dialog").locator("ins").first()).toBeVisible()
+    await expect(page.getByRole("dialog").locator("del").first()).toBeVisible()
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "Submit for review", exact: true })
@@ -451,6 +508,49 @@ async function main() {
       path: resolve(output, "proposal-changes-desktop.png"),
       fullPage: false
     })
+    await expect(
+      page
+        .getByRole("region", { name: "Changes from the reference" })
+        .locator("ins")
+        .first()
+    ).toBeVisible()
+    await expect(
+      page
+        .getByRole("region", { name: "Changes from the reference" })
+        .locator("del")
+        .first()
+    ).toBeVisible()
+    await page
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await expect(page.locator(".react-flow")).toHaveCount(0)
+    await page
+      .getByRole("button", { name: "Show provenance graph", exact: true })
+      .click()
+    await expect(
+      page
+        .locator(".react-flow__node")
+        .filter({ hasText: "Proposal submitted" })
+    ).toBeVisible()
+    await page
+      .locator(".react-flow__node")
+      .filter({ hasText: /^Revision 1$/ })
+      .click()
+    await expect(
+      page.locator("#field-provenance-graph").locator("ins").first()
+    ).toBeVisible()
+    await page.locator("#field-provenance-graph").scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: resolve(output, "field-provenance-desktop.png"),
+      animations: "disabled"
+    })
+    await page
+      .getByRole("button", { name: "Hide provenance graph", exact: true })
+      .click()
+    await expect(page.locator(".react-flow")).toHaveCount(0)
+    pass(
+      "Private review dialog and published Changes share highlighted edits; optional graph opens exact revision changes"
+    )
     await page.getByRole("tab", { name: "Discussion", exact: true }).click()
     await expect(
       page.getByText("Awaiting review", { exact: true })
@@ -507,6 +607,41 @@ async function main() {
       path: resolve(output, "proposal-changes-390px.png"),
       fullPage: false
     })
+    await page
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await page
+      .getByRole("button", { name: "Show provenance graph", exact: true })
+      .click()
+    await expect(
+      page.locator(".react-flow__node").filter({ hasText: /^Revision 1$/ })
+    ).toBeVisible()
+    await page
+      .locator(".react-flow__node")
+      .filter({ hasText: /^Revision 1$/ })
+      .click()
+    await expect(
+      page.locator("#field-provenance-graph").locator("ins").first()
+    ).toBeVisible()
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      ),
+      true
+    )
+    await page.locator("#field-provenance-graph").scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: resolve(output, "field-provenance-mobile.png"),
+      animations: "disabled"
+    })
+    await page.getByRole("button", { name: "Full screen", exact: true }).click()
+    await expect(
+      page.getByRole("button", { name: "Exit full screen", exact: true })
+    ).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(
+      page.getByRole("button", { name: "Full screen", exact: true })
+    ).toBeVisible()
     await page.setViewportSize({ width: 1440, height: 1100 })
     pass(
       "Submission creates a proposal without a dictionary artifact; attributed discussion survives reload"
@@ -559,6 +694,22 @@ async function main() {
     pass(
       "A community steward accepts the exact proposal revision without site-admin privileges"
     )
+    await reviewer
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await reviewer
+      .getByRole("button", { name: "Show provenance graph", exact: true })
+      .click()
+    await reviewer
+      .locator(".react-flow__node")
+      .filter({ hasText: /^Review decision$/ })
+      .click()
+    await expect(reviewer.locator("#field-provenance-graph")).toContainText(
+      "The practitioner definition and scope are agreed."
+    )
+    await expect(
+      reviewer.getByRole("region", { name: "History", exact: true })
+    ).toContainText("Community steward decision")
     await reviewer.goto(
       detail.href.replace("standard=reference", "standard=working")
     )
@@ -676,22 +827,128 @@ async function main() {
         .getByRole("navigation", { name: "Field hierarchy" })
         .getByRole("link", { name: source.payload.label, exact: true })
       await mobileField.click()
+      await page.waitForURL((url) => url.searchParams.has("source"))
       await expect(
         page.getByRole("article", { name: source.payload.label, exact: true })
       ).toBeVisible()
       await page
         .getByRole("link", { name: "Back to fields", exact: true })
         .click()
+      await page.waitForURL((url) => !url.searchParams.has("source"))
+      await expect(mobileField).toBeFocused()
+      await mobileField.press("Enter")
+      await page.waitForURL((url) => url.searchParams.has("source"))
+      await page.goBack()
+      await page.waitForURL((url) => !url.searchParams.has("source"))
       await expect(mobileField).toBeFocused()
       await page.screenshot({
         path: resolve(output, `standard-${width}px.png`),
         fullPage: false
       })
     }
-    pass("320px and 390px field/detail navigation has no horizontal overflow")
+    pass(
+      "320px and 390px field navigation restores focus through Back to fields and browser Back without horizontal overflow"
+    )
+    await page.goto(proposalURL)
+    await page
+      .getByRole("button", { name: "Propose a revision", exact: true })
+      .click()
+    await page.waitForURL(/\/metadata\/workspace\//)
+    await page.getByRole("tab", { name: "Definition", exact: true }).click()
+    await page
+      .getByRole("textbox", { name: "Example", exact: true })
+      .fill("A specimen described by its mesh spacing.")
+    await page
+      .getByRole("textbox", { name: "Reason for this proposal", exact: true })
+      .fill("Add a practitioner example.")
+    await page
+      .getByRole("tab", { name: "Field specification", exact: true })
+      .click()
+    await page
+      .getByLabel("Repeatable field", { exact: true })
+      .selectOption("yes")
+    await page
+      .getByRole("button", { name: "Review proposal", exact: true })
+      .click()
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Submit for review", exact: true })
+      .click()
+    await page.waitForURL(/\/metadata\/fields\//)
+    await expect(page.getByLabel("Compare with", { exact: true })).toHaveValue(
+      "previous"
+    )
+    const previousChanges = page.getByRole("region", {
+      name: "Changes from revision 1",
+      exact: true
+    })
+    await expect(previousChanges).toContainText("Example")
+    await expect(previousChanges).toContainText("Repeatable")
+    await expect(
+      previousChanges.getByText("Definition", { exact: true })
+    ).toHaveCount(0)
+    await page
+      .getByLabel("Compare with", { exact: true })
+      .selectOption("reference")
+    await expect(
+      page
+        .getByRole("region", {
+          name: "Changes from the reference",
+          exact: true
+        })
+        .getByText("Definition", { exact: true })
+    ).toBeVisible()
+    await page.reload()
+    await expect(page.getByLabel("Compare with", { exact: true })).toHaveValue(
+      "previous"
+    )
+    await page
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await page
+      .getByRole("button", { name: "Show provenance graph", exact: true })
+      .click()
+    await page
+      .locator(".react-flow__node")
+      .filter({ hasText: /^Revision 1$/ })
+      .click()
+    await page
+      .getByRole("link", { name: "Open this revision", exact: true })
+      .click()
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Earlier revision" })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("region", {
+        name: "Changes from the reference",
+        exact: true
+      })
+    ).toBeVisible()
+    await page
+      .getByRole("tab", { name: "Sources & history", exact: true })
+      .click()
+    await expect(
+      page.getByRole("region", { name: "History", exact: true })
+    ).toContainText("Community steward decision")
+    pass(
+      "Revision comparison distinguishes previous from reference, survives reload and opens recorded predecessor history"
+    )
     const anonymous = await browser.newContext()
     await guard(anonymous)
     const visitor = await anonymous.newPage()
+    await visitor.goto(proposalURL)
+    await expect(
+      visitor.getByRole("button", {
+        name: "Show provenance graph",
+        exact: true
+      })
+    ).toHaveCount(0)
+    await expect(
+      visitor.getByText(
+        "A practitioner definition for the specimen used in this simulation.",
+        { exact: true }
+      )
+    ).toHaveCount(0)
     await visitor.goto(home)
     await expect(
       visitor.getByRole("navigation", { name: "Field hierarchy" })

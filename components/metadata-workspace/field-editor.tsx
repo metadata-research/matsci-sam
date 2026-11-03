@@ -44,6 +44,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { FieldCitations } from "./field-citations"
+import { FieldChanges } from "./field-changes"
 import { FieldSpecification, SpecificationSummary } from "./field-specification"
 import { FieldRuleControls } from "./field-rule-controls"
 import { FieldHistory, ProfileContext, SourceBaseline } from "./source-history"
@@ -490,36 +491,7 @@ export function FieldEditor({
                 <h3 className="mb-2 font-semibold">
                   Changes from the reference
                 </h3>
-                {differences.length ? (
-                  <dl className="flex flex-col gap-3">
-                    {differences.map((difference) => (
-                      <div
-                        key={difference.label}
-                        className="rounded-md border p-3 text-sm"
-                      >
-                        <dt className="font-medium">{difference.label}</dt>
-                        <dd className="mt-2 flex flex-col gap-2 whitespace-pre-wrap break-words">
-                          <p>
-                            <span className="text-muted-foreground">
-                              Baseline:{" "}
-                            </span>
-                            {difference.before || "Not specified"}
-                          </p>
-                          <p>
-                            <span className="text-muted-foreground">
-                              Proposal:{" "}
-                            </span>
-                            {difference.after || "Not specified"}
-                          </p>
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No wording or rule changes from the reference.
-                  </p>
-                )}
+                <FieldChanges differences={differences} />
               </section>
             ) : null}
             <p className="text-sm">

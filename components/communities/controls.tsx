@@ -52,8 +52,7 @@ const useRefreshingMutation = () => {
   }
 }
 
-// A link is shown once and cannot be read back, so copying it is the whole
-// point of the control that displays it.
+// Both personal invitations and reusable community links can be copied.
 const CopyableLink = ({ link, note }: { link: string; note: string }) => {
   const href =
     typeof window === "undefined" ? link : `${location.origin}${link}`
@@ -80,6 +79,7 @@ const CopyableLink = ({ link, note }: { link: string; note: string }) => {
           }}
         >
           <CopyIcon className="size-4" />
+          Copy link
         </Button>
       </div>
     </div>
@@ -711,10 +711,12 @@ export const InvitationActions = ({
  */
 export const JoinLink = ({
   communityId,
-  link: current
+  link: current,
+  visibility
 }: {
   communityId: number
   link: string | null
+  visibility: "public" | "members"
 }) => {
   const handlers = useRefreshingMutation()
   const { mutate: setJoinLink, isPending } =
@@ -722,11 +724,16 @@ export const JoinLink = ({
 
   return (
     <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">
+        {visibility === "members"
+          ? "Anyone with this link can sign in and join as a member, gaining access to private community content."
+          : "Share this link to let people sign in and join as members."}
+      </p>
       {current ? (
         <>
           <CopyableLink
             link={current}
-            note="Anyone signed in who opens this joins. It stays valid until you turn it off or replace it."
+            note="Available until you turn it off or replace it."
           />
           <div className="flex gap-2">
             <Button
@@ -759,7 +766,7 @@ export const JoinLink = ({
           onClick={() => setJoinLink({ communityId, on: true })}
         >
           <LinkIcon className="size-4 mr-1" />
-          Create an open join link
+          Create join link
         </Button>
       )}
     </div>

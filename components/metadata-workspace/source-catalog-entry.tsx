@@ -24,7 +24,7 @@ type Props = {
   viewerId: number | null
   listHref: string
   detailHref: string
-  focusOnOpen?: boolean
+  isDetailView?: boolean
   viewLabel?: "Reference" | "Working version"
 }
 
@@ -34,7 +34,7 @@ export function SourceCatalogEntry({
   viewerId,
   listHref,
   detailHref,
-  focusOnOpen = true,
+  isDetailView = true,
   viewLabel = "Reference"
 }: Props) {
   const router = useRouter()
@@ -48,7 +48,7 @@ export function SourceCatalogEntry({
     // A query-only route change may retain the list's old scroll position.
     // This component is keyed by the selected source, so only entry changes
     // move the viewport; reading or editing elsewhere never triggers a jump.
-    if (focusOnOpen) {
+    if (isDetailView) {
       if (window.matchMedia("(max-width: 1023px)").matches)
         heading.current?.scrollIntoView({ behavior: "instant", block: "start" })
       heading.current?.focus({ preventScroll: true })
@@ -56,7 +56,7 @@ export function SourceCatalogEntry({
     return () => {
       mounted.current = false
     }
-  }, [focusOnOpen])
+  }, [isDetailView])
   const { baseline, sourceOccurrence, sourceRelease } = entry
   const ownDraft = entry.ownDraft?.status === "draft" ? entry.ownDraft : null
   const toolsEnabled =
@@ -98,12 +98,14 @@ export function SourceCatalogEntry({
       aria-labelledby="matcore-source-heading"
       className="flex min-w-0 flex-col gap-5"
     >
-      <Link
-        href={listHref}
-        className="w-fit text-sm underline underline-offset-4"
-      >
-        Back to fields
-      </Link>
+      {isDetailView ? (
+        <Link
+          href={listHref}
+          className="w-fit text-sm underline underline-offset-4"
+        >
+          Back to fields
+        </Link>
+      ) : null}
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{viewLabel}</Badge>

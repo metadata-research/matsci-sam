@@ -108,6 +108,28 @@ The preliminary 2025 reference catalog retains its original identifiers and
 source. It is linked separately. Its entries are not automatically equated
 with fields in later snapshots.
 
+## Download an XML template
+
+Open **Standard** and choose **Reference**, **Working version** or a
+**Community release**. Select **Download XML template**, choose a section and
+select **Download**. The file includes every field in that section, regardless
+of the search filter. Download inherited sections, such as Common core, separately.
+
+The template uses nested XML elements with `FILL` placeholders for dataset
+values. `FILL*` marks a field required within its parent. Comments describe
+repeatability and the other field rules. Replace the placeholders, remove unused
+optional elements and copy repeatable elements with their children as needed.
+The template is not an executable validation schema.
+
+The file identifies the selected version and section. Working versions include
+accepted community changes. Private drafts and proposals awaiting review are
+excluded. A named community release retains its original field rules.
+Download access follows the same permissions as Standard.
+
+Independent community fields can also be exported without a MatCore reference.
+If a path cannot be represented in XML, or conflicting field rules prevent the
+export, the download reports the affected field.
+
 ## Prepare MatCore drafts in bulk
 
 You can still prepare working copies of a whole source version when needed.
@@ -205,10 +227,20 @@ Add your name to your account profile before submitting.
 Select **Submit for review** to share the proposal with the community. It appears
 under **Proposals** as **Awaiting review**. **Changes** opens first and compares
 the proposal with the preceding revision of that field, or with the reference
-for its first revision. Members can add attributed comments in **Discussion**.
+for its first revision. Additions are underlined and removals are struck through.
+The comparison includes definitions, examples, field rules and citations.
+When both are available, **Compare with** switches between the preceding
+revision and the reference.
+
+Members can add attributed comments in **Discussion**.
 The complete **Field specification** and **Sources & history** follow those tabs. Comments and decisions belong to the exact revision.
 Sources and history follow the community's access rules. In Proposals, the
 **Reference version** selector lets you review work based on an earlier source.
+
+In **Sources & history**, select **Show provenance graph** to see the selected
+revision's author, reference, citations and recorded submission and review
+decisions. Select a revision node to inspect its changes or open that revision.
+History entries also link to their recorded revision.
 
 A community steward or site administrator can open **Discussion**, select
 **Review proposal**, and choose **Accept into working version**, **Request changes**

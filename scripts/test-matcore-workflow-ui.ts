@@ -13,6 +13,7 @@ import { resolve } from "node:path"
 import {
   expect as baseExpect,
   type Browser,
+  type Locator,
   type Page,
   type Route
 } from "@playwright/test"
@@ -47,6 +48,34 @@ import {
 } from "./ui-test-harness"
 
 const expect = baseExpect.configure({ timeout: 30000 })
+
+async function expectFieldDiff(
+  region: Locator,
+  label: string,
+  before: string,
+  after: string
+) {
+  const value = region
+    .getByText(label, { exact: true })
+    .locator("..")
+    .getByRole("definition")
+  await expect(value).toBeVisible()
+  // Reconstruct both values from the rendered diff, including unchanged spans.
+  // Accessible Added/Removed labels are not part of either stored value.
+  await expect
+    .poll(() =>
+      value.evaluate((element) => {
+        const before = element.cloneNode(true) as HTMLElement
+        const after = element.cloneNode(true) as HTMLElement
+        before
+          .querySelectorAll("ins, .sr-only")
+          .forEach((node) => node.remove())
+        after.querySelectorAll("del, .sr-only").forEach((node) => node.remove())
+        return { before: before.textContent, after: after.textContent }
+      })
+    )
+    .toEqual({ before, after })
+}
 
 async function main() {
   const base = localPreviewBase()
@@ -247,8 +276,15 @@ async function main() {
     })
     await page.goto(workspace, { waitUntil: "commit" })
     await expect(button(page, "New metadata field")).toBeDisabled()
-    await page.getByText("Prepare drafts in bulk", { exact: true }).click()
-    await expect(button(page, "Import all sections as drafts")).toBeDisabled()
+    // Check the collapsed action without mutating native details before
+    // hydration, which would itself cause a development hydration warning.
+    await expect(
+      page.getByRole("button", {
+        name: "Import all sections as drafts",
+        exact: true,
+        includeHidden: true
+      })
+    ).toBeDisabled()
     releaseHydration!()
     await expect(button(page, "New metadata field")).toBeEnabled()
     await page.unroute(scriptPattern)
@@ -742,14 +778,18 @@ async function main() {
     await expect(
       other.getByText("Awaiting review", { exact: true })
     ).toBeVisible()
-    await expect(
-      other
-        .getByRole("region", {
-          name: "Changes from the reference",
-          exact: true
-        })
-        .getByText(recovered, { exact: true })
-    ).toBeVisible()
+    const referenceChanges = other.getByRole("region", {
+      name: "Changes from the reference",
+      exact: true
+    })
+    await expect(referenceChanges.locator("ins").first()).toBeVisible()
+    await expect(referenceChanges.locator("del").first()).toBeVisible()
+    await expectFieldDiff(
+      referenceChanges,
+      "Definition",
+      selected.payload.definition,
+      recovered
+    )
     await other
       .getByRole("tab", { name: "Sources & history", exact: true })
       .click()
@@ -852,12 +892,15 @@ async function main() {
     await expect(
       other.getByRole("tab", { name: "Changes", exact: true })
     ).toHaveAttribute("data-state", "active")
-    await expect(
+    await expectFieldDiff(
       other.getByRole("region", {
         name: "Changes from revision 1",
         exact: true
-      })
-    ).toContainText("YYYY-MM-DD with an explicit date example")
+      }),
+      "Format",
+      "YYYY-MM-DD",
+      "YYYY-MM-DD with an explicit date example"
+    )
     const secondPublication = (await activeDraft()).publication
     assert.ok(secondPublication)
     assert.notEqual(secondPublication.revisionId, publication.revisionId)

@@ -16,6 +16,7 @@ import * as authReturn from "../lib/auth-return"
 import * as identifiers from "../lib/public-identifiers"
 import * as communities from "../lib/communities"
 import * as invitationCopy from "../lib/invitation-presentation"
+import * as communityJoinLink from "../lib/community-join-link"
 import { ORCID_SIGN_IN_CANCELLED_NOTICE } from "../lib/orcid"
 
 // Execute the actual server pages with explicit, in-memory boundaries. An
@@ -32,6 +33,7 @@ type Options = {
   retired?: boolean
   missing?: boolean
   open?: boolean
+  reusable?: boolean
   study?: boolean
 }
 async function render(file: string, params = {}, options: Options = {}) {
@@ -73,6 +75,7 @@ async function render(file: string, params = {}, options: Options = {}) {
     "@/lib/public-identifiers": identifiers,
     "@/lib/communities": communities,
     "@/lib/invitation-presentation": invitationCopy,
+    "@/lib/community-join-link": communityJoinLink,
     "@/lib/community-queries": {
       isMemberOf: async () => false,
       invitationForToken: async () =>
@@ -129,7 +132,11 @@ async function render(file: string, params = {}, options: Options = {}) {
   )
   return renderToStaticMarkup(
     await exports.default!({
-      params: Promise.resolve({ token }),
+      params: Promise.resolve({
+        token: options.reusable
+          ? `${communityJoinLink.COMMUNITY_JOIN_TOKEN_PREFIX}${token}`
+          : token
+      }),
       searchParams: Promise.resolve(params)
     })
   )
@@ -173,6 +180,29 @@ async function main() {
   const authenticated = await render(invite, {}, { user: true })
   assert.match(authenticated, /<button>Accept invitation<\/button>/)
   assert.doesNotMatch(authenticated, /href="\/(register|login)/)
+
+  const reusableToken = `${communityJoinLink.COMMUNITY_JOIN_TOKEN_PREFIX}${token}`
+  const reusableDestination = `/invite/${reusableToken}`
+  const reusable = await render(invite, {}, { open: true, reusable: true })
+  for (const path of ["/register", "/login"] as const)
+    assert.ok(
+      reusable.includes(
+        authReturn.authPathWithReturnTo(path, reusableDestination)
+      )
+    )
+  assert.match(reusable, /member access to the private content/)
+  assert.doesNotMatch(reusable, /<button[^>]*>Accept invitation/)
+  const reusableSignedIn = await render(
+    invite,
+    {},
+    {
+      open: true,
+      reusable: true,
+      user: true
+    }
+  )
+  assert.match(reusableSignedIn, /<button>Accept invitation<\/button>/)
+  assert.doesNotMatch(reusableSignedIn, /This community requires approval/)
 
   for (const google of [undefined, "not-authorized"]) {
     const html = await render(login, { returnTo: destination, google })

@@ -1,5 +1,236 @@
 # MatCore workflow progress
 
+## PR #159 browser assertion follow-up, November 3, 2026
+
+[PR #159](https://github.com/metadata-research/matsci-sam/pull/159) contains the
+community join links, XML templates, metadata provenance and hierarchy changes.
+The first CI run passed graph and database validation, the production build,
+email/invitation browser tests and draft-import acceptance. The older metadata
+workflow browser test then failed because it expected a complete definition in
+one text node. The new diff displays that text across added, removed and
+unchanged spans.
+
+The test now reconstructs both the reference and proposed values from the
+rendered diff and checks them exactly, excluding accessible Added/Removed labels.
+The format-only revision uses the same assertion. The hydration check inspects
+the collapsed import button without opening native details before hydration.
+These are test changes only. TypeScript, scoped lint and formatting pass.
+
+Local reruns stopped during bulk import because the dedicated development
+database's 20-connection cap was exceeded. Restarting only the bounded preview
+did not resolve the capacity limit. Fixture cleanup succeeded. A separate
+attempt corrected the hidden-button locator. Production CI is being rerun to
+verify the full older workflow. The earlier complete 15-group community
+standards run remains valid. Current CI results and local evidence paths are
+recorded in the internal tracking document. No merge or deployment has occurred.
+
+The second CI run exposed a selector mistake in that test correction: a `dt`
+has visible text but does not derive an accessible name from it. The assertion
+now locates the visible label. An isolated browser check of the actual rendered
+component verifies exact reference/proposal reconstruction, shared text spans
+and rejection of incorrect values. It also caught and removed a nested callback
+that introduced a transpiler helper unavailable inside browser evaluation.
+That isolated check and scoped lint pass. CI is rerunning with both corrections.
+
+The third CI run passed the complete metadata workflow, all 15 standards groups,
+17 community review checks and header navigation. The section-navigation suite
+then reached a stale People outline ordering assertion. It now expects Join
+link before Invitations, matching the intentional page layout. The jump,
+keyboard, history and ordinary-member access assertions remain unchanged.
+
+## Hierarchy return focus and full UI acceptance, November 3, 2026
+
+The Back-to-fields failure was caused by a premature test click. On desktop,
+the searched field was already visible in the preview before its detail route
+loaded. The test mistook that preview for completed navigation, clicked Back,
+and then expected focus to return from a detail view it had not reached.
+Instrumented focus events and URLs confirmed the sequence. Waiting for the
+actual detail route made the existing focus restoration pass.
+
+The preview now omits **Back to fields** while the user is already in the field
+list. The link remains in the detail view. The component's explicit
+`isDetailView` prop controls that distinction and its existing heading focus.
+The generic hierarchy's restoration logic is unchanged.
+
+Browser coverage now waits for committed detail navigation and tests repeated
+keyboard activation, return links, browser Back, preserved search and expanded
+branches, and blocked browser storage. Mobile checks at 320px and 390px confirm
+restored focus and no horizontal overflow. Tests also wait for the initial
+source article before using the profile selector.
+
+The full community standards browser suite passed all 15 groups, including
+draft saving and reloading, shared proposals, steward review, named releases,
+revision comparisons, provenance and private-access denial. All fixtures were
+removed and every retained table fingerprint matched. The browser reported no
+page errors or unexpected requests. Catalog navigation/hierarchy checks,
+17 metadata provenance checks and workspace presentation checks pass. Scoped
+lint, formatting and TypeScript pass. The first type-check process ended with
+SIGTERM without a diagnostic. Its bounded rerun passed. Desktop and mobile
+screenshots were inspected using
+the existing Playwright harness because the Browser plugin was unavailable.
+
+Evidence is in
+`/home/chris/dev/matsci/.matsci-stage/hierarchy-focus-20261103/`.
+The final receipt is `full-acceptance/results.json`. Earlier diagnostic receipts
+and focus traces remain available. This resolves the broader UI test failure
+recorded in the preceding implementation work. The hierarchy follow-up is
+included with the join-link, XML-template and metadata-provenance changes for
+pull request review against `dev`. Superego and Ego are unchanged. The internal
+tracking document records the PR and its current CI results.
+
+
+## Metadata diffs and revision provenance, November 3, 2026
+
+Metadata proposals now reuse the dictionary workflow's accessible text diff
+renderer and optional provenance graph. **Changes** highlights additions and
+removals across definitions, examples, field rules and citations. **Compare
+with** switches between the recorded preceding revision and the reference when
+both exist. The private review dialog uses the same highlighting. Existing
+history entries open their exact published revision and identify steward
+review decisions correctly.
+
+**Sources & history** loads the graph only when requested. It shows the selected
+revision, its author, reference, citations, recorded submission and review or
+withdrawal decisions. Revision nodes expose the changes or open the predecessor.
+The display uses the existing authorized response and its bounded history. It
+never merges other contributors' private draft events or assigns an unrelated
+reference to another revision. Generic fields without a MatCore baseline are
+supported. No stored diff, draft, reference, provenance record, permission rule
+or RDF serializer was changed. This display adapter is not a new RDF export.
+
+Verification: 17 focused component/adapter checks, existing definition comparison
+and workspace presentation checks, TypeScript and scoped lint pass. The focused
+local browser flow passed nine groups at 1440×1100 and 390×844: save/reload,
+private review, submission, highlighted changes, optional graph and node details,
+mobile fullscreen/Escape, steward decisions, reference/predecessor comparisons,
+revision navigation and anonymous page/API denial. All temporary fixtures were
+removed and every retained table fingerprint matched. Screenshots were inspected.
+The Browser plugin was unavailable, so the existing Playwright harness was used.
+
+The broader standards UI suite stopped twice at its earlier Back-to-fields
+focus assertion, before the changed surfaces. The subsequent hierarchy
+follow-up above resolves this and records the full suite passing. A focused run then exhausted
+the long-running local preview's Node heap during editor compilation. Only that
+preview was restarted, retaining its resource limits. A later test selector was
+narrowed to exclude Next.js's route announcer. The final focused run passed.
+One automatic approval review timed out and the permitted retry proceeded.
+The interrupted preview also left a damaged generated route-types file. Its
+original was retained in the evidence directory before regeneration with
+`next typegen` and a fresh type check.
+
+Evidence and the focused rerun script are in
+`/home/chris/dev/matsci/.matsci-stage/metadata-provenance-20261103/`.
+`acceptance/results.json` records the successful run. Earlier failure receipts
+remain alongside it. The persistent component regression is
+`scripts/test-metadata-field-provenance.tsx`, added to CI. The standard browser
+suite contains the new interaction assertions. User documentation is updated.
+This integration is local only and remains uncommitted. The earlier join-link,
+feedback and XML work was committed separately during this task.
+
+
+## XML template download implemented locally, November 3, 2026
+
+The user selected a template download from the standard. Standard now includes
+**Download XML template** for a selected reference, working version or named
+community release. The dialog selects one section and explains that it includes
+all fields, regardless of the search filter. Inherited sections are downloaded
+separately. The same component supports independent community fields.
+
+The server generates nested XML from field paths. It includes required and
+repeatable rules, data types, value forms, units, conditions, allowed values,
+formats and source guidance as comments. Values remain `FILL` placeholders.
+The canonical parent-presence condition used by the catalog importer produces
+`FILL*` for required child fields. Other conditions remain explicit comments.
+Duplicate paths, invalid XML names and scalar fields with children produce
+actionable errors. Comments cannot introduce XML markup. Version, source
+attribution and source/section hashes identify the exported material.
+
+`/api/metadata/template` reuses the Standard content and source access checks.
+Responses are private and not cached. Working exports contain accepted changes
+only, with a stale-view check. Named releases use their frozen snapshot.
+No database migration or RDF serializer change was needed.
+
+Verification passed: 39 XML unit/parser checks, 85 community-standard database
+checks and the concurrent-withdrawal regression. These include private-access
+denial, revoked membership, generic fields, source grants, pending proposal
+exclusion, accepted rules, immutable releases and invalid requests. The unit
+suite is added to CI and the database suite is extended. TypeScript and scoped
+lint pass.
+
+A read-only browser test against the actual local MatCore catalog passed at
+1360×1000 and 390×844. It downloaded through the UI, parsed all 47 paths despite
+a search filter, checked reload, retried a simulated failed download and verified
+anonymous denial through the actual route. All 37 leaf placeholders match the
+supplied PF review template. Screenshots show the dialog without clipping or
+horizontal overflow. No application errors occurred. Database fingerprints were
+unchanged. The first browser attempt had a test-script serialization error,
+corrected before the successful runs. A sandboxed parser subprocess stalled and
+was stopped. Its bounded regression passed outside that sandbox.
+
+The user guide and internal tracking are updated. This is local only. Existing
+drafts, the source baseline, provenance and RDF exports remain unchanged.
+
+## MatCore XML export assessment, November 3, 2026
+
+Reviewed the supplied Phase Field review template and development baseline.
+The XML describes dataset metadata, with nested properties and repeated
+elements. It is a separate representation from RDF descriptions of vocabulary
+concepts or metadata field definitions. The standard describes its XML examples
+as illustrative and remains independent of the serialization format.
+
+The Phase Field review template parses as XML. All 47 element paths match the
+47 Phase Field occurrences in the local `matcore:0.3.0` catalog exactly. A
+template download can therefore use the stored hierarchy, requirement and
+repeatability rules. The recommended first scope is one selected profile and
+version, with `FILL` placeholders, relative requirement comments, repeatability
+comments and a version identifier. A completed dataset export would require
+dataset-value entry, which the standard proposal editor does not provide.
+Reference, accepted working changes and named community releases must remain
+distinct export choices. Pending proposals and private drafts must not be
+silently included. Downloads must apply existing community and source access
+checks. Inherited profiles need an explicit export choice rather than being
+silently merged or omitted from a claimed complete dataset.
+
+PostgreSQL remains the system of record. Vocabulary descriptions and contribution
+history have RDF serializers, with an optional Fuseki projection. The current
+MatCore RDF serializer covers the preliminary 2025 transcription. It does not
+yet serialize the later versioned source catalog, independent field proposals
+or community releases. Full RDF coverage for that workflow is a separate gap
+to address without changing existing identifiers or exposing private content.
+
+This was a read-only assessment with a local catalog comparison. No XML export
+has been implemented, no source version has been replaced, and no draft,
+provenance record or live site has changed. The user was asked to choose between
+a template download, recommended first, and a dataset-entry form with completed
+XML export.
+
+## Reusable community join links, November 3, 2026
+
+Stewards and site administrators can create, copy, replace and turn off a
+reusable join link from People or the administrator membership page. This
+includes members-only communities. Recipients create an account or sign in,
+then explicitly join as ordinary members before private content becomes
+available. The link remains available to copy after reload. Personal invitations
+and review invitations retain their separate controls.
+
+The user approved this admission policy. New tokens retain 256 bits of random
+entropy and include a format version. Legacy public links cannot acquire private
+admission authority on upgrade. A visibility change disables the reusable link,
+and a steward must create a new one. Token retrieval remains restricted to
+stewards and site administrators. No database migration is needed.
+
+Local checks pass: 43 join-link database assertions through the actual router,
+17 membership assertions, 106 community-access assertions, invitation page
+rendering, community rules, TypeScript, scoped lint and formatting. The new
+database suite is included in CI. The database suite removes its fixtures and
+compares existing table fingerprints. Browser checks covered creation, copying
+the full URL, reload persistence, section navigation and a mobile layout without
+horizontal overflow. No relevant browser console errors were recorded.
+
+The local MatCore link is enabled for preview on port 3109. Existing drafts,
+catalog content and provenance remain unchanged. The guide and internal tracking
+document are updated. Superego and Ego have not been changed by this follow-up.
+
 ## Signup email and invitation navigation, October 31, 2026
 
 Signup emails use Create your MatSci-SAM account and Confirm account creation.

@@ -112,6 +112,8 @@
     "test:community-reviews-db": "tsx --conditions=react-server scripts/test-community-reviews-db.ts",
     "test:community-reviews-ui": "tsx --conditions=react-server scripts/test-community-reviews-ui.ts",
     "test:community-standard-db": "tsx --conditions=react-server scripts/test-community-standard-db.ts",
+    "test:metadata-provenance": "tsx scripts/test-metadata-field-provenance.tsx",
+    "test:standard-xml": "tsx scripts/test-standard-xml.ts",
     "test:community-standard-ui": "tsx --conditions=react-server scripts/test-community-standard-ui.ts",
     "test:matcore-catalog-ui": "tsx --conditions=react-server scripts/test-matcore-catalog-ui.ts",
     "test:community-sections-ui": "tsx --conditions=react-server scripts/test-community-sections-ui.ts",
@@ -131,6 +133,8 @@
     "source:install-matcore": "tsx --conditions=react-server scripts/install-matcore-source.ts",
     "test:community-privacy-ui": "tsx --conditions=react-server scripts/test-community-privacy-ui.ts",
     "test:community-membership-db": "tsx --conditions=react-server scripts/test-community-membership-db.ts",
+    "test:community-join-links-db": "tsx --conditions=react-server scripts/test-community-join-links-db.ts",
+    "test:feedback-db": "tsx --conditions=react-server scripts/test-feedback-db.ts",
     "test:community-access-db": "tsx --conditions=react-server scripts/test-community-access-db.ts",
     "test:community-content-db": "tsx --conditions=react-server scripts/test-community-content-db.ts"
   },

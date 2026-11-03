@@ -1,6 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode
+} from "react"
 import {
   Background,
   Controls,
@@ -70,7 +76,16 @@ const layout = (provNodes: ProvNode[], provEdges: ProvEdge[]) => {
     return {
       id: n.id,
       position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
-      data: { label: n.label },
+      data: {
+        label: (
+          <span
+            className="line-clamp-2 break-words [overflow-wrap:anywhere]"
+            title={n.label}
+          >
+            {n.label}
+          </span>
+        )
+      },
       style: {
         ...NODE_STYLE[n.type],
         width: NODE_WIDTH,
@@ -181,10 +196,12 @@ const Canvas = ({
 
 export const ProvenanceGraph = ({
   nodes: provNodes,
-  edges: provEdges
+  edges: provEdges,
+  renderExtraDetails
 }: {
   nodes: ProvNode[]
   edges: ProvEdge[]
+  renderExtraDetails?: (node: ProvNode) => ReactNode
 }) => {
   const { nodes, edges } = useMemo(
     () => layout(provNodes, provEdges),
@@ -315,6 +332,7 @@ export const ProvenanceGraph = ({
             ) : selected.detail ? (
               <ProvDetail text={selected.detail} />
             ) : null}
+            {renderExtraDetails?.(selected)}
             {selected.meta &&
               Object.entries(selected.meta).map(([k, v]) => (
                 <p key={k} className="text-muted-foreground">

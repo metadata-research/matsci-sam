@@ -523,8 +523,8 @@ async function main() {
     assert.deepEqual(await outlineTargets(page), [
       "#people",
       "#access-requests",
-      "#invitations",
-      "#join-link"
+      "#join-link",
+      "#invitations"
     ])
     await jump(page, "invitations")
     await jump(page, "join-link", true)

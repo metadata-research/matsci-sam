@@ -169,6 +169,8 @@ jobs:
           pnpm test:community-standard-db
           pnpm test:community-access-db
           pnpm test:community-membership-db
+          pnpm test:community-join-links-db
+          pnpm test:feedback-db
           pnpm test:community-content-db
           pnpm test:import-drafts-db
           pnpm test:import-draft-reads-db
@@ -544,6 +546,8 @@ jobs:
           pnpm test:dictionary-metadata
           pnpm test:matcore
           pnpm test:matcore-catalog-navigation
+          pnpm test:standard-xml
+          pnpm test:metadata-provenance
 
       - name: Test Graph Layer
         run: |

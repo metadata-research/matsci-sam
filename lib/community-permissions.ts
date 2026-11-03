@@ -135,7 +135,9 @@ export async function setCommunityVisibility(
   }
   await tx
     .update(communitiesTable)
-    .set({ visibility: input.visibility })
+    // Links issued under the previous visibility must not silently grant
+    // access under the new policy. A steward can explicitly create a new one.
+    .set({ visibility: input.visibility, joinToken: null })
     .where(eq(communitiesTable.id, community.id))
   return { ...community, visibility: input.visibility, changed: true }
 }

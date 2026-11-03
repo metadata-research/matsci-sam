@@ -37,6 +37,7 @@ import {
   setCommunityMember,
   setCommunityMemberRole,
   requireCommunityInvitationManager,
+  setCommunityJoinLink,
   requireOpenCommunityJoin
 } from "@/lib/community-membership"
 import {
@@ -963,37 +964,16 @@ export const communitiesRouter = createTRPCRouter({
     )
     .mutation(
       async ({ ctx: { userId }, input: { communityId, on, rotate } }) => {
-        const result = await db.transaction(async (tx) => {
-          const community = await requireCommunityInvitationManager(
-            tx,
-            communityId,
-            userId
-          )
-          if (on && community.visibility === "members")
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message:
-                "Members-only communities use approved requests or named invitations, not open join links."
-            })
-          if (on && community.joinToken && !rotate)
-            return {
-              communitySlug: community.slug,
-              link: invitePath(community.joinToken),
-              rotated: false
-            }
-          const token = on ? createOneTimeToken() : null
-          await tx
-            .update(communitiesTable)
-            .set({ joinToken: token })
-            .where(eq(communitiesTable.id, communityId))
-          return {
-            communitySlug: community.slug,
-            link: token ? invitePath(token) : null,
-            rotated: Boolean(token)
-          }
-        })
+        const result = await db.transaction((tx) =>
+          setCommunityJoinLink(tx, { communityId, actorId: userId, on, rotate })
+        )
         revalidatePath(communityPath(result.communitySlug))
-        return { ok: true, link: result.link, rotated: result.rotated }
+        revalidatePath(`/admin/communities/${communityId}`)
+        return {
+          ok: true,
+          link: result.token ? invitePath(result.token) : null,
+          rotated: result.rotated
+        }
       }
     ),
 
