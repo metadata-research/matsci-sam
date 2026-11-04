@@ -27,6 +27,7 @@ import {
   removeSyntheticUiSource
 } from "./fixtures/matcore-source-db-fixture"
 import { getCommunityStandard } from "../lib/community-standard"
+import { expectSeparatedProvenanceLabels } from "./provenance-graph-ui-assertions"
 import {
   localPreviewBase,
   launchBrowser,
@@ -532,6 +533,9 @@ async function main() {
         .locator(".react-flow__node")
         .filter({ hasText: "Proposal submitted" })
     ).toBeVisible()
+    await expectSeparatedProvenanceLabels(
+      page.locator("#field-provenance-graph")
+    )
     await page
       .locator(".react-flow__node")
       .filter({ hasText: /^Revision 1$/ })
@@ -616,6 +620,9 @@ async function main() {
     await expect(
       page.locator(".react-flow__node").filter({ hasText: /^Revision 1$/ })
     ).toBeVisible()
+    await expectSeparatedProvenanceLabels(
+      page.locator("#field-provenance-graph")
+    )
     await page
       .locator(".react-flow__node")
       .filter({ hasText: /^Revision 1$/ })
@@ -908,6 +915,9 @@ async function main() {
     await page
       .getByRole("button", { name: "Show provenance graph", exact: true })
       .click()
+    await expectSeparatedProvenanceLabels(
+      page.locator("#field-provenance-graph")
+    )
     await page
       .locator(".react-flow__node")
       .filter({ hasText: /^Revision 1$/ })
