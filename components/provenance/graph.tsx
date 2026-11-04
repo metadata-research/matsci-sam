@@ -9,8 +9,10 @@ import {
 } from "react"
 import {
   Background,
+  BaseEdge,
   Controls,
   Edge,
+  type EdgeProps,
   MarkerType,
   Node,
   Position,
@@ -24,8 +26,14 @@ import {
 import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import "@xyflow/react/dist/style.css"
-import dagre from "@dagrejs/dagre"
 import type { ProvEdge, ProvNode } from "@/lib/provenance"
+import {
+  layoutProvenance,
+  movedProvenanceRoute,
+  PROVENANCE_NODE_WIDTH,
+  PROVENANCE_NODE_HEIGHT,
+  type ProvenanceRoute
+} from "@/lib/provenance-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProvDetail } from "./detail"
 import { PublicProfileName } from "@/components/public-profile-name"
@@ -57,25 +65,62 @@ const EDGE_STYLE: Record<
   references: { stroke: "#6b7280", dashed: true }
 }
 
-const NODE_WIDTH = 190
-const NODE_HEIGHT = 48
+type RoutedEdge = Edge<{ route: ProvenanceRoute }>
+
+function ProvenanceEdge({
+  data,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  id,
+  label: text,
+  labelStyle,
+  labelBgStyle,
+  labelBgPadding,
+  labelBgBorderRadius,
+  style,
+  markerStart,
+  markerEnd,
+  interactionWidth
+}: EdgeProps<RoutedEdge>) {
+  if (!data) return null
+  const { points, label } = movedProvenanceRoute(
+    data.route,
+    { x: sourceX, y: sourceY },
+    { x: targetX, y: targetY }
+  )
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`)
+    .join(" ")
+  return (
+    <BaseEdge
+      id={id}
+      path={path}
+      label={text}
+      labelX={label.x}
+      labelY={label.y}
+      labelStyle={labelStyle}
+      labelBgStyle={labelBgStyle}
+      labelBgPadding={labelBgPadding}
+      labelBgBorderRadius={labelBgBorderRadius}
+      style={style}
+      markerStart={markerStart}
+      markerEnd={markerEnd}
+      interactionWidth={interactionWidth}
+    />
+  )
+}
+
+const EDGE_TYPES = { provenance: ProvenanceEdge }
 
 const layout = (provNodes: ProvNode[], provEdges: ProvEdge[]) => {
-  const g = new dagre.graphlib.Graph()
-  g.setGraph({ rankdir: "LR", nodesep: 24, ranksep: 70 })
-  g.setDefaultEdgeLabel(() => ({}))
+  const placed = layoutProvenance(provNodes, provEdges)
 
-  provNodes.forEach((n) =>
-    g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT })
-  )
-  provEdges.forEach((e) => g.setEdge(e.source, e.target))
-  dagre.layout(g)
-
-  const nodes: Node[] = provNodes.map((n) => {
-    const pos = g.node(n.id)
+  const nodes: Node[] = placed.nodes.map((n) => {
     return {
       id: n.id,
-      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+      position: n.position,
       data: {
         label: (
           <span
@@ -88,7 +133,11 @@ const layout = (provNodes: ProvNode[], provEdges: ProvEdge[]) => {
       },
       style: {
         ...NODE_STYLE[n.type],
-        width: NODE_WIDTH,
+        width: PROVENANCE_NODE_WIDTH,
+        height: PROVENANCE_NODE_HEIGHT,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         fontSize: 12,
         color: "var(--prov-node-fg)",
         border: "1px solid var(--prov-node-border)",
@@ -99,17 +148,22 @@ const layout = (provNodes: ProvNode[], provEdges: ProvEdge[]) => {
     }
   })
 
-  const edges: Edge[] = provEdges.map((e) => {
+  const edges: RoutedEdge[] = placed.edges.map((e) => {
     const style = EDGE_STYLE[e.rel]
     return {
       id: e.id,
       source: e.source,
       target: e.target,
+      type: "provenance",
+      data: { route: e.route },
       label: e.rel,
-      labelStyle: { fontSize: 9, fill: "var(--muted-foreground)" },
-      labelBgStyle: { fill: "transparent" },
+      labelStyle: { fontSize: 11, fill: "var(--foreground)" },
+      labelBgStyle: { fill: "var(--background)" },
+      labelBgPadding: [6, 4],
+      labelBgBorderRadius: 3,
       style: {
         stroke: style.stroke,
+        strokeLinejoin: "round",
         strokeDasharray: style.dashed ? "6 4" : undefined
       },
       markerEnd: { type: MarkerType.ArrowClosed, color: style.stroke }
@@ -150,7 +204,7 @@ const Canvas = ({
   expanded
 }: {
   layoutNodes: Node[]
-  layoutEdges: Edge[]
+  layoutEdges: RoutedEdge[]
   onNodeClick: (event: unknown, node: Node) => void
   onPaneClick: () => void
   expanded: boolean
@@ -177,6 +231,7 @@ const Canvas = ({
     <ReactFlow
       nodes={nodes}
       edges={edges}
+      edgeTypes={EDGE_TYPES}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onNodeClick={onNodeClick}
