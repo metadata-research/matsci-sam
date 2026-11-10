@@ -357,10 +357,10 @@ async function main() {
     const draftUrl = `${base}/metadata/workspace/${activeDraftId}`
     await page.goto(draftUrl)
     await expect(page.getByRole("tablist").getByRole("tab").first()).toHaveText(
-      "Field specification"
+      "Definition"
     )
     await expect(
-      page.getByRole("tab", { name: "Field specification", exact: true })
+      page.getByRole("tab", { name: "Definition", exact: true })
     ).toHaveAttribute("data-state", "active")
     const edited = `A metadata field explained by the local UI fixture ${fixture.token}.`
     await page.getByRole("tab", { name: "Definition", exact: true }).click()
@@ -382,7 +382,7 @@ async function main() {
         "Clarify the field and its contextual requirement for the UI regression."
       )
     await page
-      .getByRole("tab", { name: "Field specification", exact: true })
+      .getByRole("tab", { name: "Field rules", exact: true })
       .click()
     await page.getByLabel("Data type", { exact: true }).selectOption("text")
     await page.getByLabel("Value form", { exact: true }).selectOption("list")
@@ -476,7 +476,7 @@ async function main() {
       })
     ).toBeVisible()
     await page
-      .getByRole("tab", { name: "Field specification", exact: true })
+      .getByRole("tab", { name: "Field rules", exact: true })
       .click()
     await expect(
       page.getByLabel("Requirement condition", { exact: true })
@@ -778,6 +778,10 @@ async function main() {
     await expect(
       other.getByText("Awaiting review", { exact: true })
     ).toBeVisible()
+    await expect(
+      other.getByRole("tab", { name: "Definition", exact: true })
+    ).toHaveAttribute("data-state", "active")
+    await other.getByRole("tab", { name: "Changes", exact: true }).click()
     const referenceChanges = other.getByRole("region", {
       name: "Changes from the reference",
       exact: true
@@ -845,11 +849,9 @@ async function main() {
     assert.equal(exported.sourceRelease.version, MATCORE_FIXTURE_VERSION)
     await capture(other, "published-field-provenance")
     await other.getByRole("tab", { name: "Changes", exact: true }).click()
-    await expect(other.locator('dl[aria-label="Field rules"]')).toContainText(
-      "List"
-    )
+    await expectFieldDiff(referenceChanges, "Value form", "Not specified", "List")
     await other
-      .getByRole("tab", { name: "Field specification", exact: true })
+      .getByRole("tab", { name: "Definition", exact: true })
       .click()
     await expect(
       other.locator('dl[aria-label="Field specification"]')
@@ -870,7 +872,7 @@ async function main() {
     await expect(other).toHaveURL(/\/metadata\/workspace\/[0-9a-f-]+/)
     activeDraftId = new URL(other.url()).pathname.split("/").at(-1)!
     await other
-      .getByRole("tab", { name: "Field specification", exact: true })
+      .getByRole("tab", { name: "Field rules", exact: true })
       .click()
     await other
       .getByLabel("Format", { exact: true })
@@ -888,10 +890,11 @@ async function main() {
     await expect(other).toHaveURL(/\/metadata\/fields\/[0-9a-f-]+\?revision=/)
     await expect(
       other.getByRole("tablist").getByRole("tab").first()
-    ).toHaveText("Changes")
+    ).toHaveText("Definition")
     await expect(
-      other.getByRole("tab", { name: "Changes", exact: true })
+      other.getByRole("tab", { name: "Definition", exact: true })
     ).toHaveAttribute("data-state", "active")
+    await other.getByRole("tab", { name: "Changes", exact: true }).click()
     await expectFieldDiff(
       other.getByRole("region", {
         name: "Changes from revision 1",
@@ -918,7 +921,7 @@ async function main() {
       other.getByRole("button", { name: "Propose a revision", exact: true })
     ).toHaveCount(0)
     await other
-      .getByRole("tab", { name: "Field specification", exact: true })
+      .getByRole("tab", { name: "Definition", exact: true })
       .click()
     await expect(
       other
@@ -953,10 +956,7 @@ async function main() {
     await expect(button(generic, "New metadata field")).toHaveCount(0)
     await generic
       .getByRole("navigation", { name: "Community workspace", exact: true })
-      .getByRole("button", { name: "More", exact: true })
-      .click()
-    await generic
-      .getByRole("menuitem", { name: "Settings", exact: true })
+      .getByRole("link", { name: "Manage community", exact: true })
       .click()
     await generic.locator("summary#workspace-tools").click()
     await button(generic, "Enable metadata development").click()
@@ -1026,7 +1026,7 @@ async function main() {
       .getByLabel("Reason for this proposal", { exact: true })
       .fill("Record sample preparation conditions for this community.")
     await generic
-      .getByRole("tab", { name: "Field specification", exact: true })
+      .getByRole("tab", { name: "Field rules", exact: true })
       .click()
     await generic
       .getByLabel("Field path", { exact: true })
@@ -1093,7 +1093,7 @@ async function main() {
     await generic.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(definition(generic)).toHaveValue(genericDefinition)
     await generic
-      .getByRole("tab", { name: "Field specification", exact: true })
+      .getByRole("tab", { name: "Field rules", exact: true })
       .click()
     await generic
       .getByText("More specification details", { exact: true })

@@ -1,3 +1,7 @@
+import {
+  normalizeCommunityContributionReturnTo,
+  withCommunityContributionReturn
+} from "@/lib/community-contribution-return"
 import { normalizeCommunityReviewReturn } from "@/lib/community-review-types"
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
@@ -44,15 +48,20 @@ export default async function MetadataFieldDraftPage({
         "/login",
         normalizeCommunityReviewReturn(query.reviewReturn)
           ? `/metadata/workspace/${draftId}?reviewReturn=${encodeURIComponent(query.reviewReturn!)}`
-          : normalizeMatcoreCatalogReturnTo(query.returnTo)
-            ? withMatcoreCatalogReturn(
+          : normalizeCommunityContributionReturnTo(query.returnTo)
+            ? withCommunityContributionReturn(
                 `/metadata/workspace/${draftId}`,
-                query.returnTo!
+                query.returnTo
               )
-            : withCommunityWorkReturn(
-                `/metadata/workspace/${draftId}`,
-                normalizeCommunityWorkReturnTo(query.returnTo)
-              )
+            : normalizeMatcoreCatalogReturnTo(query.returnTo)
+              ? withMatcoreCatalogReturn(
+                  `/metadata/workspace/${draftId}`,
+                  query.returnTo!
+                )
+              : withCommunityWorkReturn(
+                  `/metadata/workspace/${draftId}`,
+                  normalizeCommunityWorkReturnTo(query.returnTo)
+                )
       )
     )
   const draft = await trpc.matcoreWorkflow
@@ -67,6 +76,12 @@ export default async function MetadataFieldDraftPage({
     `/metadata/workspace?vocabularySlug=${encodeURIComponent(draft.vocabularySlug)}`,
     "my-field-drafts"
   )
+  const contributionReturn = draft.community
+    ? normalizeCommunityContributionReturnTo(
+        query.returnTo,
+        draft.community.slug
+      )
+    : null
   const catalogReturn =
     draft.community && draft.sourceOccurrenceId
       ? normalizeMatcoreCatalogReturnTo(query.returnTo, {
@@ -91,19 +106,23 @@ export default async function MetadataFieldDraftPage({
       <FieldEditor
         key={`${user.id}:${draft.id}`}
         initial={draft}
-        workspaceHref={reviewReturn ?? catalogReturn ?? workReturn.href}
+        workspaceHref={
+          reviewReturn ?? contributionReturn ?? catalogReturn ?? workReturn.href
+        }
         workspaceLabel={
           reviewReturn
             ? "Back to review"
-            : catalogReturn
-              ? catalogReturn.includes("standard=reference")
-                ? "Back to reference"
-                : catalogReturn.includes("standard=release")
-                  ? "Back to community release"
-                  : "Back to working version"
-              : draft.community
-                ? workReturn.label
-                : "My field drafts"
+            : contributionReturn
+              ? "Back to contributions"
+              : catalogReturn
+                ? catalogReturn.includes("standard=reference")
+                  ? "Back to reference"
+                  : catalogReturn.includes("standard=release")
+                    ? "Back to community release"
+                    : "Back to working version"
+                : draft.community
+                  ? workReturn.label
+                  : "My field drafts"
         }
       />
     </main>

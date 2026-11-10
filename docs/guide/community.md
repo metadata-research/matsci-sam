@@ -84,6 +84,14 @@ voting.
 Topics remain attached to the definition across revisions. Votes and comments
 identify the revision shown at contribution time.
 
+## Community reviews
+
+The community **Contributions** tab lists published definitions alongside
+metadata proposals when those tools are enabled. A steward can select exact
+revisions for **Request feedback** or **Export review packet**. These actions
+leave publication, definition votes and author revision rights unchanged.
+See [community reviews and packets](/docs/communities#select-contributions-for-review).
+
 ## Examples of use
 
 On a definition page, select **Add an example** in Simple view to open the

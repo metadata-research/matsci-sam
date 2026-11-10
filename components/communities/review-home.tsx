@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { trpc } from "@/trpc/client"
 import { Button } from "@/components/ui/button"
 import { communityReviewHref } from "@/lib/community-review-types"
+import { communityContributionActions } from "@/lib/community-actions"
 import { ClipboardCheck, PencilLine, FolderPen } from "lucide-react"
 
 export function CommunityReviewHome({
@@ -26,8 +27,15 @@ export function CommunityReviewHome({
 }) {
   const router = useRouter()
   const rounds = trpc.communityReviews.list.useQuery({ communityId })
-  const rows = rounds.data?.filter((row) => !area || row.area === area) ?? []
+  const rows =
+    rounds.data?.filter((row) => !area || row.area === area || !row.area) ?? []
   const active = rows.filter((row) => !row.closedAt)
+  const actions = communityContributionActions({
+    communityId,
+    communitySlug: slug,
+    metadataEnabled: standards,
+    profile: area
+  })
   const href = (view: string) =>
     "/communities/" +
     slug +
@@ -72,25 +80,25 @@ export function CommunityReviewHome({
         <div className="grid gap-4 md:grid-cols-3">
           {[
             {
-              title: "Review and respond",
+              title: actions.feedback.label,
               text: standards
                 ? "Give feedback on fields and proposed changes."
                 : "Give feedback on definitions.",
               href: active[0]
-                ? communityReviewHref(slug, active[0].id, area)
-                : href("review"),
+                ? communityReviewHref(slug, active[0].id, active[0].area)
+                : actions.feedback.href,
               Icon: ClipboardCheck
             },
             {
-              title: "Suggest a change",
-              text: "Choose an entry to revise, or propose a new one.",
-              href: href("vocabulary"),
+              title: actions.change.label,
+              text: "Choose an entry to revise.",
+              href: actions.change.href,
               Icon: PencilLine
             },
             {
-              title: "Continue my work",
+              title: actions.draft.label,
               text: "Resume a draft or revisit your contributions.",
-              href: href("work"),
+              href: actions.draft.href,
               Icon: FolderPen
             }
           ].map(({ title, text, href, Icon }) => (
@@ -113,9 +121,9 @@ export function CommunityReviewHome({
           {canManage && (
             <Link
               className="text-sm underline"
-              href={href("settings") + "#community-reviews"}
+              href={href("review") + "&manage=1#participant-responses"}
             >
-              Manage reviews
+              Request feedback / View results
             </Link>
           )}
         </div>
@@ -126,14 +134,36 @@ export function CommunityReviewHome({
         ) : active.length ? (
           <ul className="divide-y rounded-lg border">
             {active.map((row) => (
-              <li key={row.id}>
+              <li
+                key={row.id}
+                className="flex flex-wrap items-center gap-2 p-3"
+              >
                 <Link
-                  className="flex items-center justify-between gap-4 p-4 hover:bg-accent"
+                  className="flex min-h-11 flex-1 items-center justify-between gap-4 rounded-md px-1 hover:bg-accent"
                   href={communityReviewHref(slug, row.id, row.area)}
                 >
-                  <span className="font-medium">{row.name}</span>
-                  <span className="text-sm">Review →</span>
+                  <span className="font-medium">
+                    {row.name}
+                    {row.datasetExercise && (
+                      <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                        Includes a dataset exercise
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-sm">Give feedback →</span>
                 </Link>
+                {canManage && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link
+                      href={
+                        communityReviewHref(slug, row.id, row.area) +
+                        "&manage=1#participant-responses"
+                      }
+                    >
+                      View results
+                    </Link>
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
@@ -156,6 +186,17 @@ export function CommunityReviewHome({
                     >
                       {row.name}
                     </Link>
+                    {canManage && (
+                      <Link
+                        className="inline-block min-h-11 py-2 text-sm underline"
+                        href={
+                          communityReviewHref(slug, row.id, row.area) +
+                          "&manage=1#participant-responses"
+                        }
+                      >
+                        View results for {row.name}
+                      </Link>
+                    )}
                   </li>
                 ))}
             </ul>

@@ -3792,6 +3792,7 @@ export const communityReviewRoundsTable = pgTable("communityReviewRounds", {
   communityId: integer().notNull().references(() => communitiesTable.id),
   name: text().notNull(),
   area: text(),
+  datasetExercise: jsonb().$type<import("../lib/community-review-exercise-types").ReviewExerciseConfig>(),
   style: text().$type<import("../lib/community-review-types").ReviewStyle>().notNull(),
   createdById: integer().notNull().references(() => usersTable.id),
   createdAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow(),
@@ -3822,6 +3823,7 @@ export const communityReviewResponsesTable = pgTable("communityReviewResponses",
   userId: integer().notNull().references(() => usersTable.id),
   response: text().$type<import("../lib/community-review-types").ReviewResponse>(),
   comment: text().notNull().default(""),
+  datasetExerciseRevisionId: uuid().references((): AnyPgColumn => communityReviewExerciseEventsTable.id),
   version: integer().notNull(),
   updatedAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow()
 }, t => [primaryKey({ columns: [t.itemId, t.userId] }),
@@ -3838,10 +3840,47 @@ export const communityReviewEventsTable = pgTable("communityReviewEvents", {
   inputHash: text().notNull(),
   response: text().$type<import("../lib/community-review-types").ReviewResponse>(),
   comment: text().notNull(),
+  datasetExerciseRevisionId: uuid().references((): AnyPgColumn => communityReviewExerciseEventsTable.id),
   version: integer().notNull(),
   createdAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow()
 }, t => [unique("community_review_mutation_once").on(t.userId, t.mutationId),
   unique("community_review_event_version").on(t.itemId, t.userId, t.version)])
+
+// Exercise revisions are append-only. A field response pins the revision the
+// contributor had saved at that time, even if they later revise their dataset.
+export const communityReviewExerciseEventsTable = pgTable("communityReviewExerciseEvents", {
+  id: uuid().primaryKey(),
+  roundId: uuid().notNull().references(() => communityReviewRoundsTable.id),
+  userId: integer().notNull().references(() => usersTable.id),
+  mutationId: uuid().notNull(),
+  inputHash: text().notNull(),
+  payload: jsonb().$type<import("../lib/community-review-exercise-types").ReviewExercisePayload>().notNull(),
+  xmlStatus: text().$type<import("../lib/community-review-exercise-types").ReviewExerciseXmlStatus>().notNull(),
+  version: integer().notNull(),
+  createdAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow()
+}, t => [
+  unique("community_review_exercise_mutation_once").on(t.userId, t.mutationId),
+  unique("community_review_exercise_event_version").on(t.roundId, t.userId, t.version),
+  unique("community_review_exercise_event_identity").on(t.id, t.roundId, t.userId, t.version),
+  check("community_review_exercise_version", sql.raw('"version" > 0')),
+  check("community_review_exercise_xml_status", sql.raw('"xmlStatus" IN (\'empty\', \'template\', \'well_formed\')')),
+  check("community_review_exercise_payload_size", sql.raw('octet_length("payload"::text) <= 1500000'))
+])
+
+export const communityReviewExercisesTable = pgTable("communityReviewExercises", {
+  roundId: uuid().notNull().references(() => communityReviewRoundsTable.id),
+  userId: integer().notNull().references(() => usersTable.id),
+  revisionId: uuid().notNull(),
+  version: integer().notNull(),
+  updatedAt: timestamp({ mode: "string", withTimezone: true }).notNull().defaultNow()
+}, t => [
+  primaryKey({ columns: [t.roundId, t.userId] }),
+  foreignKey({
+    name: "community_review_exercise_current_revision",
+    columns: [t.revisionId, t.roundId, t.userId, t.version],
+    foreignColumns: [communityReviewExerciseEventsTable.id, communityReviewExerciseEventsTable.roundId, communityReviewExerciseEventsTable.userId, communityReviewExerciseEventsTable.version]
+  })
+])
 
 export const communityReviewInvitationsTable = pgTable("communityReviewInvitations", {
   id: uuid().primaryKey(),

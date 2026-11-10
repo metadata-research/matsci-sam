@@ -27,7 +27,9 @@ export const readableStudyId = (
   column: SQLWrapper,
   viewerId: number | null = null
 ) =>
-  sql`${qualified(column)} IN (SELECT access_s.id FROM "studies" access_s JOIN "communities" access_c ON access_c.id=access_s."communityId" WHERE ${vocabularyContentVisible(sql`access_c."vocabularySlug"`, viewerId)} AND ${collectionContentVisible(sql`access_s."collectionId"`, viewerId)})`
+  // Keep the outer community alias distinct from vocabularyContentVisible's
+  // inner access_c alias, or the correlation resolves to the inner community.
+  sql`${qualified(column)} IN (SELECT access_s.id FROM "studies" access_s JOIN "communities" study_access_community ON study_access_community.id=access_s."communityId" WHERE ${vocabularyContentVisible(sql`study_access_community."vocabularySlug"`, viewerId)} AND ${collectionContentVisible(sql`access_s."collectionId"`, viewerId)})`
 
 /** Ungrouped participation is public with its term; study-linked acts also inherit study access. */
 export const participationContentVisible = (

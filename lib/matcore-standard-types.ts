@@ -13,8 +13,10 @@ export interface MatCoreSourceLocation {
   tableId: string
   /** One-based, definition-bearing row number; a headerless table is valid. */
   row: number
-  /** One-based HTML tr position, including any header. */
+  /** One-based HTML tr position, including any header; logical row for PDF. */
   htmlRow: number
+  /** One-based PDF page when the supplied artifact is a PDF. */
+  page?: number
   anchor: string
   url: string
   rawKeyColumns: [string, string]
@@ -70,6 +72,8 @@ export interface MatCoreStandardManifest {
   release: {
     version: string
     sourceUrl: string
+    sourceUrlRole?: "document" | "publisher"
+    artifactTitle?: string
     retrievedOn: string
     sha256: string
     artifactPath: string

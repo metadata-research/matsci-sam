@@ -88,12 +88,6 @@ export async function CommunityWork({
       ? [{ id: "my-field-drafts", label: "Metadata drafts" }]
       : [])
   ]
-  const hasWork: Record<string, boolean> = {
-    "term-drafts": ownDrafts.length > 0,
-    "term-imports": ownImports.length > 0,
-    "my-field-drafts": fields.total > 0
-  }
-  sections.sort((a, b) => Number(hasWork[b.id]) - Number(hasWork[a.id]))
   if (requestedReviews.length)
     sections.unshift({ id: "requested-feedback", label: "Requested feedback" })
   return (

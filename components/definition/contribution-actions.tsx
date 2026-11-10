@@ -1,6 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { definitionPath } from "@/lib/public-identifiers"
+import { normalizeCommunityReviewReturn } from "@/lib/community-review-types"
+import { normalizeCommunityContributionReturnTo } from "@/lib/community-contribution-return"
+import type { PublishedDefinition } from "./definition-form"
 import { ArrowLeftIcon, ReplaceIcon, SparklesIcon } from "lucide-react"
 
 import { DefinitionForm } from "@/components/definition/definition-form"
@@ -18,13 +23,39 @@ export function DefinitionContributionActions({
   term,
   definitionId,
   revisionId,
-  sourceDefinition
+  sourceDefinition,
+  communitySlug
 }: {
   term: string
   definitionId: number
   revisionId: number
   sourceDefinition: string
+  communitySlug?: string
 }) {
+  const router = useRouter()
+  const query = useSearchParams()
+  const onPublished = (published: PublishedDefinition) => {
+    const url = new URL(
+      definitionPath(
+        published.term.slug,
+        published.definition.definitionNumber,
+        published.term.vocabularySlug
+      ),
+      "http://local"
+    )
+    const reviewReturn = communitySlug
+      ? normalizeCommunityReviewReturn(query.get("reviewReturn"), communitySlug)
+      : null
+    const contributionReturn = communitySlug
+      ? normalizeCommunityContributionReturnTo(
+          query.get("returnTo"),
+          communitySlug
+        )
+      : null
+    if (reviewReturn) url.searchParams.set("reviewReturn", reviewReturn)
+    if (contributionReturn) url.searchParams.set("returnTo", contributionReturn)
+    router.push(`${url.pathname}${url.search}`)
+  }
   const [action, setAction] = useState<Action>("choose")
   const [childBusy, setChildBusy] = useState(false)
 
@@ -36,6 +67,7 @@ export function DefinitionContributionActions({
           definitionId={definitionId}
           sourceRevisionId={revisionId}
           sourceDefinition={sourceDefinition}
+          onPublished={onPublished}
           onBusyChange={setChildBusy}
         />
         <Button
@@ -60,6 +92,7 @@ export function DefinitionContributionActions({
         <DefinitionForm
           lockedTerm={term}
           replacesDefinitionId={definitionId}
+          onPublished={onPublished}
           onBusyChange={setChildBusy}
         />
         <Button

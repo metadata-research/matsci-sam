@@ -1,9 +1,23 @@
 import { z } from "zod"
 import type { MatcoreDraftPayload } from "./matcore-workflow-types"
+import { reviewExerciseOptionsSchema } from "./community-review-exercise-types"
 export const reviewStyleSchema = z.enum(["assessment", "up_down"])
 export const reviewResponseSchema = z.enum(["support", "revise", "unsure"])
 export type ReviewResponse = z.infer<typeof reviewResponseSchema>
 export type ReviewKind = "reference" | "proposal" | "definition"
+export const MAX_REVIEW_ITEMS = 500
+export const MAX_REVIEW_SNAPSHOT_BYTES = 10_000_000
+export function reviewTargetKey(kind: ReviewKind, id: string | number) {
+  return `${kind}:${id}`
+}
+/** Older clients used bare occurrence/revision UUIDs for metadata targets. */
+export function matchesReviewTarget(key: string, selected: string) {
+  return (
+    key === selected ||
+    ((key.startsWith("reference:") || key.startsWith("proposal:")) &&
+      key.slice(key.indexOf(":") + 1) === selected)
+  )
+}
 export type ReviewStyle = z.infer<typeof reviewStyleSchema>
 export type ReviewPreset = {
   version: 1
@@ -58,10 +72,16 @@ export const createReviewSchema = z
     name: z.string().trim().min(1).max(120),
     area: z.string().trim().max(80).optional(),
     referenceReleaseId: z.string().max(160).optional(),
+    datasetExercise: reviewExerciseOptionsSchema.optional(),
     style: reviewStyleSchema.default("assessment"),
     includeFields: z.boolean().default(true),
     includeProposals: z.boolean().default(true),
-    targetIds: z.array(z.string().max(300)).max(500).optional()
+    includeCommunityWide: z.boolean().default(false),
+    targetIds: z
+      .array(z.string().min(1).max(300))
+      .max(MAX_REVIEW_ITEMS)
+      .optional(),
+    requestId: z.string().uuid().optional()
   })
   .strict()
 export const saveReviewSchema = z
@@ -69,6 +89,7 @@ export const saveReviewSchema = z
     itemId: z.string().uuid(),
     response: reviewResponseSchema.nullable(),
     comment: z.string().trim().max(4000).default(""),
+    datasetExerciseRevisionId: z.string().uuid().nullable().optional(),
     expectedVersion: z.number().int().nonnegative(),
     mutationId: z.string().uuid()
   })

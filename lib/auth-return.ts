@@ -1,3 +1,4 @@
+import { normalizeCommunityContributionReturnTo } from "./community-contribution-return"
 import { normalizeCommunityReviewReturn } from "./community-review-types"
 import { normalizeCommunityWorkReturnTo } from "./community-work-return"
 import { normalizeMatcoreCatalogReturnTo } from "./matcore-catalog-navigation"
@@ -77,7 +78,11 @@ function isContributionReturnPath(value: string) {
     seen.add(key)
     if (key === "vocabularySlug" && VOCABULARY_SLUG.test(parameter)) continue
     if (key === "draftId" && DRAFT_ID.test(parameter)) continue
-    if (key === "returnTo" && normalizeCommunityWorkReturnTo(parameter))
+    if (
+      key === "returnTo" &&
+      (normalizeCommunityWorkReturnTo(parameter) ||
+        normalizeCommunityContributionReturnTo(parameter))
+    )
       continue
     if (
       path === "/add" &&
@@ -120,6 +125,7 @@ function isDraftContextReturnPath(value: string) {
     if (
       key === "returnTo" &&
       (normalizeCommunityWorkReturnTo(parameter) ||
+        normalizeCommunityContributionReturnTo(parameter) ||
         (FIELD_WORKSPACE_RETURN_PATH.test(path) &&
           normalizeMatcoreCatalogReturnTo(parameter)))
     )
@@ -163,6 +169,7 @@ export const normalizeAuthReturnTo = (value: unknown): string | null =>
     isDraftContextReturnPath(value) ||
     normalizeCommunityReviewReturn(value) !== null ||
     normalizeCommunityWorkReturnTo(value) !== null ||
+    normalizeCommunityContributionReturnTo(value) !== null ||
     normalizeMatcoreCatalogReturnTo(value) !== null ||
     isWorkspaceReturnPath(value) ||
     value === "/profile/drafts" ||

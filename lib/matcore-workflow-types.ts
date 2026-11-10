@@ -153,10 +153,15 @@ export type MatcoreSourceOccurrence = {
   warnings: string[]
   sourceTableId: string
   sourceRow: number
+  sourcePage?: number
+  sourceUrlRole?: "document" | "publisher"
+  artifactTitle?: string
 }
 export type MatcoreSourceRelease = {
   version: string
   sourceUrl: string
+  sourceUrlRole?: "document" | "publisher"
+  artifactTitle?: string
   sha256: string
   attribution: string
   license: string | null

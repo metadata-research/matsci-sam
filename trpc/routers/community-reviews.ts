@@ -7,6 +7,7 @@ import {
   createReviewSchema,
   saveReviewSchema
 } from "@/lib/community-review-types"
+import { saveReviewExerciseSchema } from "@/lib/community-review-exercise-types"
 import {
   reviewCandidates,
   createCommunityReview,
@@ -20,18 +21,44 @@ import {
   createReviewInvitation,
   acceptReviewInvitation,
   revokeReviewInvitation,
-  listReviewInvitations
+  listReviewInvitations,
+  communityReviewExerciseSetup,
+  getCommunityReviewExercise,
+  saveCommunityReviewExercise,
+  communityReviewExerciseResults
 } from "@/lib/community-reviews"
 
 const identity = z.object({ id: z.string().uuid() }).strict()
 const mutation = authenticatedProcedure.meta({ marksGraphs: false })
 export const communityReviewsRouter = createTRPCRouter({
+  exerciseSetup: authenticatedProcedure
+    .input(z.object({ communityId: z.number().int().positive() }).strict())
+    .query(({ input, ctx }) =>
+      communityReviewExerciseSetup(db, input.communityId, ctx.userId)
+    ),
+  exercise: authenticatedProcedure
+    .input(identity)
+    .query(({ input, ctx }) =>
+      getCommunityReviewExercise(db, input.id, ctx.userId)
+    ),
+  saveExercise: mutation
+    .input(saveReviewExerciseSchema)
+    .mutation(({ input, ctx }) =>
+      db.transaction((tx) => saveCommunityReviewExercise(tx, input, ctx.userId))
+    ),
+  exerciseResults: authenticatedProcedure
+    .input(identity)
+    .query(({ input, ctx }) =>
+      communityReviewExerciseResults(db, input.id, ctx.userId)
+    ),
   candidates: authenticatedProcedure
     .input(
       createReviewSchema.pick({
         communityId: true,
         area: true,
-        referenceReleaseId: true
+        referenceReleaseId: true,
+        includeCommunityWide: true,
+        targetIds: true
       })
     )
     .query(({ input, ctx }) => reviewCandidates(db, input, ctx.userId)),

@@ -479,10 +479,7 @@ async function main() {
     await stewardPage.goto(`${base}${path}`)
     await stewardPage
       .getByRole("navigation", { name: "Community workspace", exact: true })
-      .getByRole("button", { name: "More", exact: true })
-      .click()
-    await stewardPage
-      .getByRole("menuitem", { name: "Settings", exact: true })
+      .getByRole("link", { name: "Manage community", exact: true })
       .click()
     await stewardPage.getByLabel("Who can view content").selectOption("public")
     await stewardPage

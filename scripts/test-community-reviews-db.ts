@@ -11,6 +11,9 @@ import {
   communityReviewItemsTable as items,
   communityReviewEventsTable as events,
   communityReviewInvitationsTable as invitations,
+  collectionsTable as collections,
+  studiesTable as studies,
+  surveyStepsTable as steps,
   termsTable as terms
 } from "../drizzle"
 import {
@@ -18,8 +21,12 @@ import {
   installMatcoreSource,
   getMatcoreDraft,
   updateMatcoreDraft,
-  submitMatcoreDraft
+  submitMatcoreDraft,
+  createMatcoreDraft,
+  publishMatcoreDraft,
+  reviewMatcoreRevision
 } from "../lib/matcore-workflow"
+import { emptyMatcoreDraftPayload } from "../lib/matcore-workflow-types"
 import {
   reviewCandidates,
   createCommunityReview,
@@ -34,12 +41,17 @@ import {
   closeCommunityReview,
   suggestFromReview
 } from "../lib/community-reviews"
-import { createDefinitionWithInitialRevision } from "../lib/definition-revisions"
+import {
+  createDefinitionWithInitialRevision,
+  publishDefinitionRevision
+} from "../lib/definition-revisions"
 import { MATCORE_STANDARD_MANIFEST } from "./fixtures/matcore-source-fixture"
 import { normalizeAuthReturnTo } from "../lib/auth-return"
 import {
   normalizeCommunityReviewReturn,
-  communityReviewHref
+  communityReviewHref,
+  reviewTargetKey,
+  MAX_REVIEW_SNAPSHOT_BYTES
 } from "../lib/community-review-types"
 import {
   requireLocalReviewDatabase,
@@ -117,6 +129,31 @@ async function main() {
         1,
         "Phase Field scope selects its reference field"
       )
+      same(
+        candidates.candidates[0].key,
+        reviewTargetKey(
+          "reference",
+          candidates.candidates[0].sourceOccurrenceId!
+        ),
+        "Metadata candidates have namespaced occurrence keys"
+      )
+      const legacySelected = await createCommunityReview(
+        tx,
+        {
+          communityId: community.id,
+          area: "pf",
+          name: "Legacy selection",
+          targetIds: [candidates.candidates[0].sourceOccurrenceId!]
+        },
+        admin.id
+      )
+      same(
+        (await getCommunityReview(tx, legacySelected.id, member.id)).items
+          .length,
+        1,
+        "Bare occurrence IDs from earlier clients still select the same reference"
+      )
+      await closeCommunityReview(tx, legacySelected.id, admin.id)
       await denied(
         createCommunityReview(
           tx,
@@ -499,7 +536,7 @@ async function main() {
           vocabularySlug: regular.slug
         })
         .returning()
-      await createDefinitionWithInitialRevision(tx, {
+      const ordinaryDefinition = await createDefinitionWithInitialRevision(tx, {
         termId: term.id,
         authorId: admin.id,
         definition: "A solid material that conducts ions.",
@@ -525,6 +562,429 @@ async function main() {
         regularData.items[0].kind,
         "definition",
         "Ordinary communities use definition revisions"
+      )
+      const ordinarySuggestion = await suggestFromReview(
+        tx,
+        regularData.items[0].id,
+        admin.id
+      )
+      const ordinaryUrl = new URL(ordinarySuggestion.href, "http://localhost")
+      same(
+        ordinaryUrl.hash,
+        "#definition-actions-heading",
+        "Ordinary review opens the contribution section"
+      )
+      same(
+        ordinaryUrl.searchParams.get("reviewRevision"),
+        "1",
+        "Ordinary contribution keeps the reviewed revision for the current-version notice"
+      )
+      same(
+        ordinaryUrl.searchParams.get("reviewReturn"),
+        communityReviewHref(
+          ordinary.slug,
+          regularRound.id,
+          null,
+          regularData.items[0].id
+        ),
+        "Ordinary contribution returns to the exact review item"
+      )
+      const [mixedTerm] = await tx
+        .insert(terms)
+        .values({
+          term: "Interface width",
+          slug: "interface_width",
+          vocabularySlug: vocab.slug
+        })
+        .returning()
+      await createDefinitionWithInitialRevision(tx, {
+        termId: mixedTerm.id,
+        authorId: admin.id,
+        definition:
+          "A length scale over which a phase-field variable changes between phases.",
+        example: "",
+        source: "initial",
+        changeNote: "Initial definition"
+      })
+      const mixed = await reviewCandidates(
+        tx,
+        { communityId: community.id },
+        admin.id
+      )
+      same(
+        new Set(mixed.candidates.map((row) => row.kind)),
+        new Set(["reference", "proposal", "definition"]),
+        "Metadata-enabled communities retain ordinary definitions in the same selector"
+      )
+      const scoped = await reviewCandidates(
+        tx,
+        { communityId: community.id, area: "pf" },
+        admin.id
+      )
+      same(
+        scoped.candidates.some((row) => row.kind === "definition"),
+        false,
+        "An area does not silently claim community-wide definitions"
+      )
+      const explicit = await reviewCandidates(
+        tx,
+        { communityId: community.id, area: "pf", includeCommunityWide: true },
+        admin.id
+      )
+      same(
+        explicit.candidates.some((row) => row.kind === "definition"),
+        true,
+        "An organizer can explicitly include community-wide definitions"
+      )
+      const mixedInput = {
+        communityId: community.id,
+        area: "pf",
+        includeCommunityWide: true,
+        name: "Fields and definitions",
+        requestId: randomUUID(),
+        targetIds: explicit.candidates.map((row) => row.key)
+      }
+      const mixedRound = await createCommunityReview(tx, mixedInput, admin.id)
+      const frozen = await getCommunityReview(tx, mixedRound.id, admin.id)
+      same(
+        frozen.items.map((row) => row.kind),
+        ["reference", "proposal", "definition"],
+        "A single review freezes all three target types"
+      )
+      same(
+        (await createCommunityReview(tx, mixedInput, admin.id)).id,
+        mixedRound.id,
+        "A repeated create request returns the same round"
+      )
+      same(
+        (await getCommunityReview(tx, mixedRound.id, admin.id)).items,
+        frozen.items,
+        "A repeated create preserves exact snapshots and item IDs"
+      )
+      await denied(
+        createCommunityReview(
+          tx,
+          { ...mixedInput, name: "A different request" },
+          admin.id
+        ),
+        "CONFLICT"
+      )
+      await denied(
+        createCommunityReview(
+          tx,
+          {
+            ...mixedInput,
+            requestId: randomUUID(),
+            includeCommunityWide: false
+          },
+          admin.id
+        ),
+        "BAD_REQUEST"
+      )
+      await denied(
+        createCommunityReview(
+          tx,
+          {
+            ...mixedInput,
+            requestId: randomUUID(),
+            targetIds: [
+              reviewTargetKey(
+                "definition",
+                regularData.items[0].definitionRevisionId!
+              )
+            ]
+          },
+          admin.id
+        ),
+        "BAD_REQUEST"
+      )
+      await denied(
+        communityReviewResults(tx, mixedRound.id, member.id),
+        "FORBIDDEN"
+      )
+      await denied(
+        reviewCandidates(tx, { communityId: community.id }, outsider.id),
+        "NOT_FOUND"
+      )
+      same(
+        (await getCommunityReview(tx, next.id, member.id)).items.map(
+          (row) => row.kind
+        ),
+        ["reference", "proposal"],
+        "Existing rounds do not acquire newly added ordinary definitions"
+      )
+      const legacyDraft = await createMatcoreDraft(
+        tx,
+        {
+          id: randomUUID(),
+          vocabularySlug: vocab.slug,
+          payload: {
+            ...emptyMatcoreDraftPayload(),
+            label: "Simulation time step",
+            definition:
+              "The interval between successive updates in a simulation.",
+            rationale: "Record the temporal resolution."
+          }
+        },
+        admin.id
+      )
+      const legacyPublication = await publishMatcoreDraft(
+        tx,
+        { id: legacyDraft.id, expectedVersion: legacyDraft.version },
+        admin.id
+      )
+      const withLegacy = await reviewCandidates(
+        tx,
+        { communityId: community.id },
+        admin.id
+      )
+      same(
+        withLegacy.candidates.some(
+          (row) =>
+            row.definitionRevisionId === legacyPublication.definitionRevisionId
+        ),
+        false,
+        "Metadata dictionary projections do not duplicate ordinary targets or bypass source checks"
+      )
+      same(
+        withLegacy.candidates.some(
+          (row) =>
+            row.kind === "proposal" &&
+            row.snapshot.label === "Simulation time step"
+        ),
+        true,
+        "A legacy field remains reviewable through its complete proposal"
+      )
+      await publishDefinitionRevision(tx, {
+        definitionId: ordinaryDefinition.definition.id,
+        editorId: admin.id,
+        expectedRevisionId: ordinaryDefinition.revision.id,
+        definition:
+          "A solid phase with mobile ions that supports ionic conduction.",
+        example: "",
+        changeNote: "Clarify the carrier and phase.",
+        source: "author_edit"
+      })
+      const historicalKey = reviewTargetKey(
+        "definition",
+        ordinaryDefinition.revision.id
+      )
+      same(
+        (
+          await reviewCandidates(tx, { communityId: ordinary.id }, admin.id)
+        ).candidates.some((row) => row.key === historicalKey),
+        false,
+        "Historical definitions are not silently selected by default"
+      )
+      const selectedHistory = await reviewCandidates(
+        tx,
+        { communityId: ordinary.id, targetIds: [historicalKey] },
+        admin.id
+      )
+      same(
+        selectedHistory.candidates.find((row) => row.key === historicalKey)
+          ?.snapshot.definition,
+        "A solid material that conducts ions.",
+        "Explicit historical selection reconstructs its exact text"
+      )
+      const historyRound = await createCommunityReview(
+        tx,
+        {
+          communityId: ordinary.id,
+          name: "Earlier wording",
+          targetIds: [historicalKey]
+        },
+        admin.id
+      )
+      same(
+        (await getCommunityReview(tx, historyRound.id, admin.id)).items[0]
+          .snapshot.definition,
+        "A solid material that conducts ions.",
+        "A selected old definition is not replaced by current content"
+      )
+      await reviewMatcoreRevision(
+        tx,
+        {
+          revisionId: nextData.items[1].proposalRevisionId!,
+          decision: "accepted",
+          reason: "Ready for the working version."
+        },
+        admin.id
+      )
+      const acceptedKey = reviewTargetKey(
+        "proposal",
+        nextData.items[1].proposalRevisionId!
+      )
+      same(
+        (
+          await reviewCandidates(
+            tx,
+            { communityId: community.id, area: "pf" },
+            admin.id
+          )
+        ).candidates.some((row) => row.key === acceptedKey),
+        false,
+        "Accepted proposals do not replace pending defaults"
+      )
+      const acceptedRound = await createCommunityReview(
+        tx,
+        {
+          communityId: community.id,
+          area: "pf",
+          name: "Accepted field feedback",
+          targetIds: [acceptedKey]
+        },
+        admin.id
+      )
+      same(
+        (await getCommunityReview(tx, acceptedRound.id, admin.id)).items[0]
+          .proposalRevisionId,
+        nextData.items[1].proposalRevisionId,
+        "An explicitly selected accepted proposal remains reviewable"
+      )
+      const [privateVocab] = await tx
+        .insert(vocabularies)
+        .values({
+          slug: "private_survey_" + stamp,
+          title: "Private survey",
+          createdById: admin.id
+        })
+        .returning()
+      const [privateCommunity] = await tx
+        .insert(communities)
+        .values({
+          slug: privateVocab.slug,
+          vocabularySlug: privateVocab.slug,
+          title: privateVocab.title,
+          visibility: "members",
+          createdById: admin.id
+        })
+        .returning()
+      const [surveyCollection] = await tx
+        .insert(collections)
+        .values({
+          slug: "survey_collection_" + stamp,
+          title: "Survey collection",
+          createdById: admin.id
+        })
+        .returning()
+      const [study] = await tx
+        .insert(studies)
+        .values({
+          slug: "review_study_" + stamp,
+          title: "Restricted survey",
+          communityId: privateCommunity.id,
+          collectionId: surveyCollection.id,
+          createdById: admin.id
+        })
+        .returning()
+      const [step] = await tx
+        .insert(steps)
+        .values({
+          studyId: study.id,
+          position: 1,
+          kind: "instructions",
+          prompt: "Private instructions"
+        })
+        .returning()
+      const privateDefinition = await createDefinitionWithInitialRevision(tx, {
+        termId: term.id,
+        authorId: admin.id,
+        definition: "Restricted study wording.",
+        example: "",
+        changeNote: "Survey response",
+        source: "initial",
+        surveyStepId: step.id
+      })
+      const privateKey = reviewTargetKey(
+        "definition",
+        privateDefinition.revision.id
+      )
+      same(
+        (
+          await reviewCandidates(
+            tx,
+            { communityId: ordinary.id, targetIds: [privateKey] },
+            member.id
+          )
+        ).candidates.some((row) => row.key === privateKey),
+        false,
+        "Readable community does not expose private survey revisions as review candidates"
+      )
+      const privateRound = await createCommunityReview(
+        tx,
+        {
+          communityId: ordinary.id,
+          name: "Restricted revision",
+          targetIds: [privateKey]
+        },
+        admin.id
+      )
+      await denied(
+        getCommunityReview(tx, privateRound.id, member.id),
+        "NOT_FOUND"
+      )
+      const largeTargets: string[] = []
+      for (let index = 0; index < 50; index++) {
+        const [largeTerm] = await tx
+          .insert(terms)
+          .values({
+            term: `Aggregate source ${index}`,
+            slug: `aggregate_source_${index}`,
+            vocabularySlug: regular.slug
+          })
+          .returning()
+        const large = await createDefinitionWithInitialRevision(tx, {
+          termId: largeTerm.id,
+          authorId: admin.id,
+          definition: `${index} ` + "λ".repeat(110_000),
+          example: "",
+          changeNote: "Isolated aggregate-size fixture",
+          source: "initial"
+        })
+        largeTargets.push(reviewTargetKey("definition", large.revision.id))
+      }
+      const bounded = await reviewCandidates(
+        tx,
+        { communityId: ordinary.id, targetIds: largeTargets },
+        admin.id
+      )
+      same(
+        bounded.truncated,
+        true,
+        "UTF-8 aggregate size reports an incomplete candidate set"
+      )
+      same(
+        Buffer.byteLength(JSON.stringify(bounded.candidates)) <=
+          MAX_REVIEW_SNAPSHOT_BYTES,
+        true,
+        "Combined review snapshots stay within the byte budget"
+      )
+      await denied(
+        createCommunityReview(
+          tx,
+          {
+            communityId: ordinary.id,
+            name: "Oversized selection",
+            targetIds: largeTargets
+          },
+          admin.id
+        ),
+        "BAD_REQUEST"
+      )
+      const smallRound = await createCommunityReview(
+        tx,
+        {
+          communityId: ordinary.id,
+          name: "Within budget",
+          targetIds: [largeTargets[0]]
+        },
+        admin.id
+      )
+      same(
+        (await getCommunityReview(tx, smallRound.id, admin.id)).items.length,
+        1,
+        "A smaller explicit selection remains usable without silent omissions"
       )
       same(
         regularData.items[0].preset.options.map((row) => row.label),
@@ -573,6 +1033,12 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error(error)
+    console.error(
+      error instanceof Error
+        ? error.message.split("\nparams:")[0].slice(0, 1500)
+        : error
+    )
+    if (error?.cause?.constraint)
+      console.error("Constraint:", error.cause.constraint)
     process.exit(1)
   })

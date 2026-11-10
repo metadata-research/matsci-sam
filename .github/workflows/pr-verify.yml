@@ -166,6 +166,8 @@ jobs:
           pnpm test:matcore-db
           pnpm test:matcore-catalog-db
           pnpm test:community-reviews-db
+          pnpm test:community-review-packet-db
+          pnpm test:community-review-exercise-db
           pnpm test:community-standard-db
           pnpm test:community-access-db
           pnpm test:community-membership-db
@@ -546,6 +548,9 @@ jobs:
           pnpm test:dictionary-metadata
           pnpm test:matcore
           pnpm test:matcore-catalog-navigation
+          pnpm test:community-navigation
+          pnpm test:community-review-packet
+          pnpm test:community-review-exercise
           pnpm test:standard-xml
           pnpm test:metadata-provenance
 
@@ -663,6 +668,8 @@ jobs:
           # the protected standard corpus is never available to CI.
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-standard pnpm test:community-standard-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-review pnpm test:community-reviews-ui
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/shared-community pnpm test:shared-community-ui
+          SAM_UI_TEST_OUTPUT_DIR=ui-evidence/review-exercise pnpm test:community-review-exercise-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-header pnpm exec tsx --conditions=react-server scripts/test-community-header-ui.ts
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-sections pnpm test:community-sections-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/community-privacy pnpm test:community-privacy-ui

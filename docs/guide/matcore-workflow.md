@@ -1,13 +1,13 @@
 # Metadata fields and MatCore
 
 The community opens on **Quick start**. Choose an area, such as Phase Field,
-and select **Review and respond** to give feedback on existing fields and
+and select **Give feedback** to give feedback on existing fields and
 proposed changes. **Suggest a change** opens the standard so you can choose a
 field to revise. **My work** lists requested feedback above your private drafts.
 Each review shows your progress and a link to the next unanswered item.
 
-**Standard** opens the **Working version** in **Hierarchy** view.
-**More → Proposals** opens shared changes and their discussion. See
+**Browse → Metadata fields** opens the **Working version** in **Hierarchy** view.
+**Contributions** opens shared changes and their discussion. See
 [Review and respond](/docs/communities#review-and-respond) for saving feedback
 and organizing review rounds.
 
@@ -16,10 +16,10 @@ releases are available to members and site administrators. See
 [Community access](/docs/communities#content-access) for requests and membership.
 The [workspace chooser](/metadata/workspace) also lists standalone vocabularies.
 
-For a vocabulary concept such as solid electrolyte, use **Define a term** or
+For a vocabulary concept such as solid electrolyte, use **Add term** or
 the usual [term editor](/docs/adding-terms). A metadata field specifies
 information to record, such as the temperature used to prepare a sample.
-A community can develop both kinds of entry. **More → Vocabulary terms**
+A community can develop both kinds of entry. **Browse → Terms**
 opens its dictionary entries.
 
 ## Reference, proposals and releases
@@ -28,7 +28,7 @@ opens its dictionary entries.
 | --------------------- | ----------------------------------------------------------------------------------------------------------- |
 | **Reference**         | The publisher's preserved specification, including its source version and attribution.                      |
 | **My work**           | Private proposed changes. Saving a draft does not change the reference or share it with other members.      |
-| **Proposals**         | Submitted revisions for discussion and steward review. Pending proposals do not change the working version. |
+| **Contributions**         | Submitted revisions for discussion and steward review. Pending proposals do not change the working version. |
 | **Working version**   | The selected reference with accepted community changes applied.                                             |
 | **Community release** | A named snapshot created by a steward, with exact field revisions and review decisions recorded.            |
 
@@ -43,14 +43,14 @@ create dictionary entries.
 
 ## Start a metadata field
 
-A community steward or site administrator can open **Settings**, then
+A community steward or site administrator can open **Manage community**, then
 **Workspace tools**, and select **Enable metadata development**. This adds the field tools without
 requiring a standard or profile. Enabling **MatCore** is a separate choice.
 A site administrator must also install and grant a source version to this
 community. Until then, the catalog is empty and independent metadata fields
 remain available.
 
-Select **Propose a new field** on Standard and enter a field name.
+Select **Propose a new field** under **Browse → Metadata fields** and enter a field name.
 **New metadata field** is also available under My work. The draft belongs to the
 community vocabulary. A new field has no imported source baseline. When
 MatCore is enabled and a source is available, **Standard context** lets you optionally choose a MatCore
@@ -63,7 +63,7 @@ view does not move drafts or change their vocabulary.
 
 ## Propose a change to a MatCore field
 
-Open **Standard**, choose **Reference**, then select a **Reference version**
+Open **Browse → Metadata fields**, choose **Reference**, then select a **Reference version**
 and **Profile**. **Find a field** searches names, paths and definitions. Browsing
 creates no drafts. Available versions are the snapshots installed for this
 community.
@@ -110,7 +110,7 @@ with fields in later snapshots.
 
 ## Download an XML template
 
-Open **Standard** and choose **Reference**, **Working version** or a
+Open **Browse → Metadata fields** and choose **Reference**, **Working version** or a
 **Community release**. Select **Download XML template**, choose a section and
 select **Download**. The file includes every field in that section, regardless
 of the search filter. Download inherited sections, such as Common core, separately.
@@ -124,19 +124,34 @@ The template is not an executable validation schema.
 The file identifies the selected version and section. Working versions include
 accepted community changes. Private drafts and proposals awaiting review are
 excluded. A named community release retains its original field rules.
-Download access follows the same permissions as Standard.
+Download access follows the same permissions as the field view.
 
 Independent community fields can also be exported without a MatCore reference.
 If a path cannot be represented in XML, or conflicting field rules prevent the
 export, the download reports the affected field.
+
+## Review a dataset against a reference
+
+A steward can enable the optional dataset exercise when requesting feedback.
+It follows the selected reference version and section. Members can describe a
+dataset, complete a metadata XML template, then comment on fields or propose
+changes. A comment does not require a vote. See
+[Use a dataset example](/docs/communities#use-a-dataset-example).
+
+The supplied v0.5.0 specification and the Phase Field review guide labeled
+v0.3.0 are separate references. Check the version shown in your review before
+completing its template. Installing a newer reference does not move earlier
+drafts, proposals, accepted changes or responses to that version. A review
+guide can describe the exercise without changing the round's selected reference.
 
 ## Prepare MatCore drafts in bulk
 
 You can still prepare working copies of a whole source version when needed.
 In **My work**, expand **Prepare drafts in bulk** and select **Import all
 sections as drafts**. Check the destination and select **Import private
-drafts**. The MatCore 0.3.0 import covers 248 source entries across seven
-sections. It creates missing drafts and preserves existing drafts and edits.
+drafts**. Choose the installed reference version. MatCore 0.3.0 has 248 source
+entries and the supplied 0.5.0 reference has 255, both across seven sections.
+The import creates missing drafts and preserves existing drafts and edits.
 Each draft retains the field path and source context. Common core and density
 functional theory appear first for review. Use the **Section** filter to select
 molecular dynamics, many-body perturbation theory, machine learning, phase
@@ -148,13 +163,13 @@ import again. Saved drafts and your edits remain available.
 
 ## Define the field and its rules
 
-Open a draft from **My field drafts**. **Field specification** opens first.
-**Definition** and **Sources & history** follow it.
+Open a draft from **My field drafts**. **Definition** opens first.
+**Field rules** and **Sources & history** follow it.
 
 | Tab                     | What to enter or review                                                                                                        |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Field specification** | Field rules, path and format. Expand More specification details for units, allowed values, example values, guidance and notes. |
 | **Definition**          | The field name, an explanation of what to record, requirement, repeatability, data type, value form and an optional example.   |
+| **Field rules** | Field rules, path and format. Expand More specification details for units, allowed values, example values, guidance and notes. |
 | **Sources & history**   | The reference, supporting citations and recorded contribution history.                                                         |
 
 Keep the parent path when editing a nested field. For example, `creator.name`
@@ -176,7 +191,7 @@ hold a list of text values and still occur only once. Older drafts with a List
 value type show List as their value form and leave the item type unspecified.
 
 For an imported field, the main controls show the reference rule below
-your selection. Expand **Compare with source rules** in **Field specification**
+your selection. Expand **Compare with source rules** in **Field rules**
 to see the source and proposal together. Editing the proposal does not change
 the baseline. Earlier imports may keep source notes within **Value guidance**
 or the original source text. **Not recorded separately** means no separate
@@ -225,7 +240,8 @@ from the source and citations. A field name, definition and reason are required.
 Add your name to your account profile before submitting.
 
 Select **Submit for review** to share the proposal with the community. It appears
-under **Proposals** as **Awaiting review**. **Changes** opens first and compares
+under **Contributions** as **Awaiting review**. **Definition** opens first, with
+field rules below it. Select **Changes** to compare
 the proposal with the preceding revision of that field, or with the reference
 for its first revision. Additions are underlined and removals are struck through.
 The comparison includes definitions, examples, field rules and citations.
@@ -233,17 +249,17 @@ When both are available, **Compare with** switches between the preceding
 revision and the reference.
 
 Members can add attributed comments in **Discussion**.
-The complete **Field specification** and **Sources & history** follow those tabs. Comments and decisions belong to the exact revision.
-Sources and history follow the community's access rules. In Proposals, the
-**Reference version** selector lets you review work based on an earlier source.
+**Sources & history** follows Discussion. Comments and decisions belong to the exact revision.
+Sources and history follow the community access rules. Existing proposals
+retain the reference version on which they were based.
 
 In **Sources & history**, select **Show provenance graph** to see the selected
 revision's author, reference, citations and recorded submission and review
 decisions. Select a revision node to inspect its changes or open that revision.
 History entries also link to their recorded revision.
 
-A community steward or site administrator can open **Discussion**, select
-**Review proposal**, and choose **Accept into working version**, **Request changes**
+A community steward or site administrator can select
+**Record decision**, and choose **Accept into working version**, **Request changes**
 or **Decline**, with a reason. Acceptance applies
 the revision to the working version. An older accepted revision stays in use
 while a newer proposal awaits review. Two fields may share a short name, but
@@ -259,6 +275,14 @@ reason. Its source and history remain available. Withdrawing an accepted
 revision removes that decision from the current working version. Existing
 community releases remain unchanged.
 
+## Request feedback and export proposals
+
+Select proposals in **Contributions**, then **Request feedback** to organize a
+review. You can include ordinary term definitions in the same round.
+**Export review packet** prepares selected revisions, changes, sources,
+feedback and decisions for discussion outside MatSci-SAM. Pending proposals
+remain pending after export. See [review packets](/docs/communities#export-a-review-packet).
+
 ## Create a community release
 
 Open **Working version** to review the assembled standard. Each field identifies
@@ -270,8 +294,7 @@ name and optional notes, and confirms. The release records the selected referenc
 field contents, accepted revision IDs and review decisions. If the working version
 changes before confirmation, reload and review it before trying again.
 
-Use **Community release** to browse a frozen version, or **More → Community
-releases** to find earlier releases. Later proposals and decisions do not alter
+Use **Community release** to browse a frozen version, or **Browse → Community releases** to find earlier releases. Later proposals and decisions do not alter
 these snapshots. Installing a newer publisher reference does not transfer
 existing proposals to it. Applying changes across reference versions remains a
 separate review task.

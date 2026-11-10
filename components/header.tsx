@@ -29,6 +29,9 @@ import { HeaderSearch } from "./header-search"
 import { HeaderNavLink, HeaderNavMenuTrigger } from "./header-navigation"
 import { MobileNavigationMenu } from "./mobile-navigation-menu"
 import { quickStartActions, setupHref } from "./quick-start"
+import { getActiveContributionContext } from "@/lib/community-actions.server"
+import { communitySectionHref } from "@/lib/community-navigation"
+import { mayRunCommunity } from "@/lib/communities"
 import { cn } from "@/lib/utils"
 import styles from "./header.module.css"
 
@@ -80,18 +83,18 @@ type Menu = {
 
 export const Header = async () => {
   const user = await getCurrentUser()
-  const [active, memberships] = user
-    ? await Promise.all([getActiveCommunity(), myCommunities(user.id)])
-    : [null, []]
+  const [active, memberships, createContext] = user
+    ? await Promise.all([
+        getActiveCommunity(),
+        myCommunities(user.id),
+        getActiveContributionContext()
+      ])
+    : [null, [], {}]
   // The active community as the switcher lists it, with its slug for the
   // links. Null when the person chose everything or belongs to nothing.
   const scope = active
     ? (memberships.find((m) => m.id === active.id) ?? null)
     : null
-  const createContext = {
-    communityId: active?.id,
-    vocabularySlug: active?.vocabularySlug
-  }
   const actions = quickStartActions(createContext)
   const createEntries: Entry[] = [
     ...actions,
@@ -131,6 +134,35 @@ export const Header = async () => {
         "/models"
       ],
       groups: [
+        ...(active
+          ? [
+              {
+                label: active.title,
+                entries: [
+                  {
+                    href: communitySectionHref(active.slug, "contributions"),
+                    label: "Contributions"
+                  },
+                  {
+                    href: communitySectionHref(active.slug, "review"),
+                    label: "Reviews"
+                  },
+                  {
+                    href: communitySectionHref(active.slug, "work"),
+                    label: "My work"
+                  },
+                  ...(mayRunCommunity(user, scope)
+                    ? [
+                        {
+                          href: communitySectionHref(active.slug, "settings"),
+                          label: "Manage community"
+                        }
+                      ]
+                    : [])
+                ]
+              }
+            ]
+          : []),
         {
           entries: [
             {

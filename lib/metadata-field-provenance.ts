@@ -85,7 +85,16 @@ export function fieldRevisionProvenance(
       detail: record.baseline.definition,
       meta: {
         Source: record.sourceOccurrence.sourceUrl,
-        Attribution: record.sourceRelease.attribution
+        Attribution: record.sourceRelease.attribution,
+        ...(record.sourceRelease.artifactTitle
+          ? { Document: record.sourceRelease.artifactTitle }
+          : {}),
+        ...(record.sourceOccurrence.sourcePage
+          ? { Page: String(record.sourceOccurrence.sourcePage) }
+          : {}),
+        ...(record.sourceRelease.sourceUrlRole === "publisher"
+          ? { "Link destination": "Publisher website" }
+          : {})
       }
     })
     // A recorded source occurrence binds the proposal to this reference, but

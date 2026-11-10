@@ -1,3 +1,5 @@
+import { DefinitionCommunityActions } from "@/components/communities/definition-community-actions"
+import { communityAccess } from "@/lib/community-access"
 import { ImportAttribution, DeclaredSource } from "./import-attribution"
 import { ContributionFileDownloads } from "./contribution-file-downloads"
 import { ReferenceSnapshot } from "./reference-snapshot"
@@ -31,7 +33,13 @@ import Link from "next/link"
 import { Suspense } from "react"
 import { DeleteDefinitionButton } from "@/app/definition/[definitionId]/delete-button"
 import { getSession } from "@/lib/session"
-import { db, User, usersTable } from "@/drizzle"
+import {
+  db,
+  User,
+  usersTable,
+  communitiesTable,
+  matcoreSpecRevisionsTable
+} from "@/drizzle"
 import { eq } from "drizzle-orm"
 import { notFound } from "next/navigation"
 import { RestoreRevisionButton } from "@/components/definition/restore-revision-button"
@@ -93,9 +101,37 @@ export async function DefinitionDetailPage({
       where: eq(usersTable.id, sesh.id)
     })
 
+  const community = await db.query.communitiesTable.findFirst({
+    where: eq(communitiesTable.vocabularySlug, definition.termVocabularySlug)
+  })
+  const communityPermissions = community
+    ? await communityAccess(db, community.id, user?.id ?? null)
+    : null
+  const metadataProjection = community
+    ? await db.query.matcoreSpecRevisionsTable.findFirst({
+        where: eq(
+          matcoreSpecRevisionsTable.definitionRevisionId,
+          definition.revisionId
+        ),
+        columns: { id: true }
+      })
+    : null
+
   return (
     <HydrateClient>
       <main className="px-4 py-8 sm:py-10">
+        {community && communityPermissions?.canRead ? (
+          <DefinitionCommunityActions
+            slug={community.slug}
+            revisionId={definition.revisionId}
+            version={definition.version}
+            canManage={
+              communityPermissions.canManage &&
+              !metadataProjection &&
+              !community.retiredAt
+            }
+          />
+        ) : null}
         <div className="mx-auto max-w-4xl">
           <TermVisibilityNotice
             hiddenAt={definition.termHiddenAt}
@@ -478,6 +514,7 @@ export async function DefinitionDetailPage({
                 </p>
               </header>
               <DefinitionContributionActions
+                communitySlug={community?.slug}
                 term={definition.term}
                 definitionId={definition.id}
                 revisionId={definition.revisionId}
