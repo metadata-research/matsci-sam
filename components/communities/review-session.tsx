@@ -20,10 +20,13 @@ import {
 import { InfoPopover } from "@/components/info-popover"
 import { registerDraftNavigationGuard } from "@/lib/draft-navigation-guards"
 import {
+  communityReviewHref,
   saveReviewSchema,
   type ReviewResponse
 } from "@/lib/community-review-types"
 import type { z } from "zod"
+import { ReviewDatasetExercise } from "./review-dataset-exercise"
+import { communityContributionActions } from "@/lib/community-actions"
 
 const subscribeHydration = () => () => {}
 const clientReady = () => true
@@ -62,10 +65,78 @@ export function CommunityReviewSession({
   const [filter, setFilter] = useState("unreviewed")
   const [selected, setSelected] = useState(itemId)
   const [skipped, setSkipped] = useState<string[]>([])
+  const router = useRouter()
   const saveCurrent = useRef<() => Promise<unknown>>(async () => {})
-  const registerSave = useCallback((fn: () => Promise<unknown>) => {
-    saveCurrent.current = fn
+  const dirtyCurrent = useRef<() => boolean>(() => false)
+  const saveExercise = useRef<() => Promise<string | null>>(async () => null)
+  const dirtyExercise = useRef<() => boolean>(() => false)
+  const registerSave = useCallback(
+    (save: () => Promise<unknown>, dirty: () => boolean) => {
+      saveCurrent.current = save
+      dirtyCurrent.current = dirty
+    },
+    []
+  )
+  const registerExercise = useCallback(
+    (save: () => Promise<string | null>, dirty: () => boolean) => {
+      saveExercise.current = save
+      dirtyExercise.current = dirty
+    },
+    []
+  )
+  const [datasetConflict, setDatasetConflict] = useState(false)
+  const requireDatasetReload = useCallback(() => setDatasetConflict(true), [])
+  const datasetReloaded = useCallback(() => setDatasetConflict(false), [])
+  const saveDatasetFirst = useCallback(() => saveExercise.current(), [])
+  const saveAll = useCallback(async () => {
+    await saveExercise.current()
+    await saveCurrent.current()
   }, [])
+  useEffect(() => {
+    const unregister = registerDraftNavigationGuard(saveAll)
+    const dirty = () => dirtyCurrent.current() || dirtyExercise.current()
+    const unload = (event: BeforeUnloadEvent) => {
+      if (dirty()) {
+        event.preventDefault()
+        event.returnValue = ""
+      }
+    }
+    const click = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !dirty()
+      )
+        return
+      const anchor = (event.target as Element).closest?.(
+        "a[href]"
+      ) as HTMLAnchorElement | null
+      if (
+        !anchor ||
+        anchor.target === "_blank" ||
+        anchor.hasAttribute("download")
+      )
+        return
+      const target = new URL(anchor.href)
+      if (target.origin !== location.origin) return
+      event.preventDefault()
+      event.stopPropagation()
+      void saveAll()
+        .then(() => router.push(target.pathname + target.search + target.hash))
+        .catch(() => {})
+    }
+    window.addEventListener("beforeunload", unload)
+    document.addEventListener("click", click, true)
+    return () => {
+      unregister()
+      window.removeEventListener("beforeunload", unload)
+      document.removeEventListener("click", click, true)
+    }
+  }, [router, saveAll])
   const navigating = useRef(false)
   const [error, setError] = useState("")
   async function move(action: () => void) {
@@ -73,7 +144,7 @@ export function CommunityReviewSession({
     navigating.current = true
     setError("")
     try {
-      await saveCurrent.current()
+      await saveAll()
       action()
     } catch (error) {
       setError(
@@ -90,11 +161,12 @@ export function CommunityReviewSession({
   const data = query.data
   if (data.community.id !== communityId)
     return <p role="alert">This review belongs to another community.</p>
-  const responded = data.items.filter((item) => item.own?.response).length
+  const reviewed = (item: Item) =>
+    Boolean(item.own?.response || item.own?.comment.trim())
+  const responded = data.items.filter(reviewed).length
   const filtered = data.items.filter(
     (item) =>
-      filter === "all" ||
-      (filter === "mine" ? item.own?.response : !item.own?.response)
+      filter === "all" || (filter === "mine" ? reviewed(item) : !reviewed(item))
   )
   const current =
     data.items.find((item) => item.id === selected) ??
@@ -116,10 +188,59 @@ export function CommunityReviewSession({
         </div>
         <InfoPopover label="About review responses">
           Responses refer to the version shown here. Organizers can see your
-          name and comment. Reviewing a proposal does not accept it into the
-          standard.
+          name and comment. You can leave a comment without an assessment.
+          Review responses are separate from definition votes and steward
+          decisions.
         </InfoPopover>
       </div>
+      {data.canManage && (
+        <Link
+          className="w-fit text-sm underline"
+          href={
+            communityReviewHref(
+              data.community.slug,
+              data.round.id,
+              data.round.area
+            ) + "&manage=1#participant-responses"
+          }
+        >
+          View results and manage review
+        </Link>
+      )}
+      {data.round.datasetExercise && data.canViewExercise && (
+        <ReviewDatasetExercise
+          key={roundId + ":" + userId}
+          roundId={roundId}
+          userId={userId}
+          register={registerExercise}
+          revisionConflict={datasetConflict}
+          onReloaded={datasetReloaded}
+        />
+      )}
+      {data.round.datasetExercise && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 scroll-mt-24"
+          id="review-fields"
+        >
+          <h3 className="font-semibold">Review fields</h3>
+          {data.canRespond && (
+            <Link
+              className="text-sm underline"
+              href={
+                communityContributionActions({
+                  communityId,
+                  communitySlug: data.community.slug,
+                  metadataEnabled: true,
+                  profile: data.round.datasetExercise.profile,
+                  release: data.round.datasetExercise.referenceReleaseId
+                }).field!.href
+              }
+            >
+              Propose a missing field
+            </Link>
+          )}
+        </div>
+      )}
       <div
         className="grid grid-cols-[1.3fr_1fr_0.8fr] gap-2 sm:flex sm:flex-wrap"
         role="group"
@@ -155,6 +276,8 @@ export function CommunityReviewSession({
           data={data}
           userId={userId}
           register={registerSave}
+          beforeSave={saveDatasetFirst}
+          onDatasetConflict={requireDatasetReload}
           refresh={async () => {
             setSelected(current.id)
             await query.refetch()
@@ -205,7 +328,7 @@ export function CommunityReviewSession({
                   item.snapshot.path !== item.snapshot.label &&
                   ` — ${item.snapshot.path}`}
                 {` · ${item.snapshot.versionLabel}`}
-                {item.own?.response ? " · reviewed" : ""}
+                {reviewed(item) ? " · reviewed" : ""}
               </option>
             ))}
           </select>
@@ -220,13 +343,17 @@ function ReviewCard({
   data,
   userId,
   register,
+  beforeSave,
+  onDatasetConflict,
   refresh,
   next
 }: {
   item: Item
   data: Review
   userId: number | null
-  register: (fn: () => Promise<unknown>) => void
+  register: (fn: () => Promise<unknown>, dirty: () => boolean) => void
+  beforeSave: () => Promise<string | null>
+  onDatasetConflict: () => void
   refresh: () => Promise<void>
   next: () => void
 }) {
@@ -310,27 +437,31 @@ function ReviewCard({
     if (flight.current) return flight.current
     const current = valueRef.current
     if (!dirty(current)) return
-    if (!current.response && current.comment) {
-      setError("Choose a response to save your comment.")
-      throw new Error("Choose a response to save your comment.")
-    }
-    if (!data.canRespond)
-      throw new Error(
-        "This response cannot be saved. The review may be closed or your access may have changed."
-      )
-    const pending = current.pending ?? {
-      itemId: item.id,
-      response: current.response,
-      comment: current.comment,
-      expectedVersion: current.version,
-      mutationId: crypto.randomUUID()
-    }
-    keep({ ...current, pending })
-    setError("")
-    setConflict(false)
-    const request = mutation
-      .mutateAsync(pending)
-      .then((result) => {
+    const request = Promise.resolve().then(async () => {
+      try {
+        if (!data.canRespond)
+          throw new Error(
+            "This response cannot be saved. The review may be closed or your access may have changed."
+          )
+        const pending = current.pending ?? {
+          itemId: item.id,
+          response: current.response,
+          comment: current.comment,
+          expectedVersion: current.version,
+          mutationId: crypto.randomUUID(),
+          ...(data.round.datasetExercise
+            ? {
+                datasetExerciseRevisionId:
+                  current.response || current.comment.trim()
+                    ? await beforeSave()
+                    : null
+              }
+            : {})
+        }
+        keep({ ...current, pending })
+        setError("")
+        setConflict(false)
+        const result = await mutation.mutateAsync(pending)
         const latest = {
           response: result.response,
           comment: result.comment,
@@ -340,69 +471,43 @@ function ReviewCard({
         setSavedValue(latest)
         keep(latest)
         return result
-      })
-      .catch((failure) => {
-        setError(failure.message)
-        setConflict(failure.data?.code === "CONFLICT")
+      } catch (failure) {
+        const cause = failure as { message?: string; data?: { code?: string } }
+        setError(cause.message ?? "Your response could not be saved.")
+        const changedDataset =
+          cause.data?.code === "CONFLICT" &&
+          cause.message?.startsWith("The dataset example changed")
+        if (changedDataset) {
+          // This request was rejected. Keep the comment, adopt no unseen evidence.
+          keep({ ...valueRef.current, pending: undefined })
+          setConflict(false)
+          onDatasetConflict()
+        } else setConflict(cause.data?.code === "CONFLICT")
         throw failure
-      })
-      .finally(() => {
+      } finally {
         flight.current = null
-      })
+      }
+    })
     flight.current = request
     return request
   }
+
   const persistRef = useRef(persist)
   useLayoutEffect(() => {
     persistRef.current = persist
   })
   useEffect(() => {
-    const save = () => persistRef.current()
-    register(save)
-    const unregister = registerDraftNavigationGuard(save)
-    const unload = (event: BeforeUnloadEvent) => {
-      if (dirty(valueRef.current)) {
-        event.preventDefault()
-        event.returnValue = ""
-      }
-    }
-    const click = (event: MouseEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey ||
-        !dirty(valueRef.current)
+    register(
+      () => persistRef.current(),
+      () => dirty(valueRef.current)
+    )
+    return () =>
+      register(
+        async () => {},
+        () => false
       )
-        return
-      const anchor = (event.target as Element).closest?.(
-        "a[href]"
-      ) as HTMLAnchorElement | null
-      if (
-        !anchor ||
-        anchor.target === "_blank" ||
-        anchor.hasAttribute("download")
-      )
-        return
-      const target = new URL(anchor.href)
-      if (target.origin !== location.origin) return
-      event.preventDefault()
-      event.stopPropagation()
-      void save()
-        .then(() => router.push(target.pathname + target.search + target.hash))
-        .catch(() => {})
-    }
-    window.addEventListener("beforeunload", unload)
-    document.addEventListener("click", click, true)
-    return () => {
-      unregister()
-      register(async () => {})
-      window.removeEventListener("beforeunload", unload)
-      document.removeEventListener("click", click, true)
-    }
-  }, [router, register]) // Save uses a ref so guards always see the current input.
+  }, [register]) // Guards read current values without changing the mounted editor.
+
   async function act(action: "save" | "next" | "suggest" | "withdraw") {
     if (actionLock.current) return
     actionLock.current = true
@@ -414,6 +519,7 @@ function ReviewCard({
           comment: "",
           pending: undefined
         })
+      if (action !== "withdraw") await beforeSave()
       await persist()
       await refresh()
       if (action === "next") next()
@@ -542,6 +648,17 @@ function ReviewCard({
                 </label>
               ))}
             </div>
+            {value.response && (
+              <Button
+                className="w-fit"
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => keep({ ...valueRef.current, response: null })}
+              >
+                Clear choice
+              </Button>
+            )}
             <details
               open={commentOpen}
               onToggle={(event) => setCommentOpen(event.currentTarget.open)}
@@ -570,7 +687,9 @@ function ReviewCard({
                 ? "Unsaved response"
                 : value.response
                   ? "Response saved"
-                  : "No response yet"}
+                  : value.comment.trim()
+                    ? "Comment saved"
+                    : "No response yet"}
           </p>
           {storageWarning && (
             <p className="text-sm">
@@ -604,7 +723,11 @@ function ReviewCard({
             {data.canRespond && (
               <>
                 <Button
-                  disabled={busy || conflict || !value.response}
+                  disabled={
+                    busy ||
+                    conflict ||
+                    !(value.response || value.comment.trim())
+                  }
                   onClick={() => void act("next")}
                 >
                   {error && !conflict
@@ -613,7 +736,11 @@ function ReviewCard({
                 </Button>
                 <Button
                   variant="outline"
-                  disabled={busy || conflict || !value.response}
+                  disabled={
+                    busy ||
+                    conflict ||
+                    !(value.response || value.comment.trim())
+                  }
                   onClick={() => void act("save")}
                 >
                   Save response
@@ -623,15 +750,17 @@ function ReviewCard({
             <Button variant="ghost" disabled={busy || isDirty} onClick={next}>
               Skip for now
             </Button>
-            {data.canRespond && value.response && !isDirty && (
-              <Button
-                variant="ghost"
-                disabled={busy}
-                onClick={() => void act("withdraw")}
-              >
-                Withdraw response
-              </Button>
-            )}
+            {data.canRespond &&
+              (value.response || value.comment.trim()) &&
+              !isDirty && (
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void act("withdraw")}
+                >
+                  Withdraw response
+                </Button>
+              )}
           </div>
           {!data.canRespond && (
             <p className="text-sm text-muted-foreground">
@@ -645,6 +774,9 @@ function ReviewCard({
       <details className="text-sm">
         <summary className="cursor-pointer">Response totals</summary>
         <ul className="mt-2">
+          {item.counts.commentOnly > 0 && (
+            <li>Comment only: {item.counts.commentOnly}</li>
+          )}
           {item.preset.options.map((option) => (
             <li key={option.value}>
               {option.label}: {item.counts[option.value] ?? 0}

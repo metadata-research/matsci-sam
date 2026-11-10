@@ -197,7 +197,7 @@ async function main() {
     await expect(
       page
         .getByRole("navigation", { name: "Community workspace" })
-        .getByRole("link", { name: "Standard", exact: true })
+        .getByRole("link", { name: "Browse", exact: true })
     ).toHaveAttribute("aria-current", "page")
     await expect(
       page.getByRole("link", { name: "Working version", exact: true })
@@ -226,14 +226,14 @@ async function main() {
     pass(
       "Standard opens the working version in hierarchy; Quick start leads community navigation"
     )
-    await page
-      .getByRole("navigation", { name: "Community workspace" })
-      .getByRole("button", { name: "More", exact: true })
-      .click()
     await expect(
-      page.getByRole("menuitem", { name: "Vocabulary terms", exact: true })
-    ).toHaveAttribute("href", `/vocabulary/${member.vocabularySlug}`)
-    await page.keyboard.press("Escape")
+      page
+        .getByRole("navigation", { name: "Browse content" })
+        .getByRole("link", { name: "Terms", exact: true })
+    ).toHaveAttribute(
+      "href",
+      `/communities/${member.communitySlug}?view=vocabulary&content=terms`
+    )
     // Wait for the initial source query to render before using the controls.
     await expect(page.getByRole("article")).toBeVisible()
     // Navigation regression shared with the original versioned-catalog suite.
@@ -399,10 +399,10 @@ async function main() {
     await page.waitForURL(/\/metadata\/workspace\//)
     const draftURL = page.url()
     await expect(
-      page.getByRole("tab", { name: "Field specification", exact: true })
+      page.getByRole("tab", { name: "Definition", exact: true })
     ).toHaveAttribute("data-state", "active")
     await expect(page.getByRole("tablist").getByRole("tab").first()).toHaveText(
-      "Field specification"
+      "Definition"
     )
     await expect(
       page.getByRole("link", { name: "Back to working version", exact: true })
@@ -483,14 +483,15 @@ async function main() {
     await page.waitForURL(/\/metadata\/fields\//)
     const proposalURL = page.url()
     await expect(page.getByRole("tablist").getByRole("tab")).toHaveText([
+      "Definition",
       "Changes",
       "Discussion",
-      "Field specification",
       "Sources & history"
     ])
     await expect(
-      page.getByRole("tab", { name: "Changes", exact: true })
+      page.getByRole("tab", { name: "Definition", exact: true })
     ).toHaveAttribute("data-state", "active")
+    await page.getByRole("tab", { name: "Changes", exact: true }).click()
     await expect(
       page.getByRole("region", {
         name: "Changes from the reference",
@@ -560,7 +561,7 @@ async function main() {
       page.getByText("Awaiting review", { exact: true })
     ).toBeVisible()
     await expect(
-      page.getByRole("button", { name: "Review proposal", exact: true })
+      page.getByRole("button", { name: "Record decision", exact: true })
     ).toHaveCount(0)
     await expect(
       page.getByRole("link", { name: "View dictionary entry" })
@@ -655,11 +656,16 @@ async function main() {
     )
     await page.goto(`${home}?view=proposals`)
     await expect(
-      page.getByRole("combobox", { name: "Reference version", exact: true })
-    ).toHaveValue(initial.reference!.id)
+      page
+        .getByRole("navigation", { name: "Community workspace" })
+        .getByRole("link", { name: "Contributions", exact: true })
+    ).toHaveAttribute("aria-current", "page")
+    await expect(page.getByRole("combobox", { name: "Type", exact: true })).toHaveValue(
+      "proposal"
+    )
     await expect(
       page
-        .getByRole("region", { name: "Community proposals" })
+        .getByRole("region", { name: "Contributions", exact: true })
         .getByRole("link", { name: new RegExp(source.payload.label) })
     ).toBeVisible()
     const pending = await getCommunityStandard(
@@ -681,7 +687,7 @@ async function main() {
     await reviewer.goto(proposalURL)
     await reviewer.getByRole("tab", { name: "Discussion", exact: true }).click()
     await reviewer
-      .getByRole("button", { name: "Review proposal", exact: true })
+      .getByRole("button", { name: "Record decision", exact: true })
       .click()
     await reviewer
       .getByRole("dialog")
@@ -868,9 +874,7 @@ async function main() {
     await page
       .getByRole("textbox", { name: "Reason for this proposal", exact: true })
       .fill("Add a practitioner example.")
-    await page
-      .getByRole("tab", { name: "Field specification", exact: true })
-      .click()
+    await page.getByRole("tab", { name: "Field rules", exact: true }).click()
     await page
       .getByLabel("Repeatable field", { exact: true })
       .selectOption("yes")
@@ -882,6 +886,7 @@ async function main() {
       .getByRole("button", { name: "Submit for review", exact: true })
       .click()
     await page.waitForURL(/\/metadata\/fields\//)
+    await page.getByRole("tab", { name: "Changes", exact: true }).click()
     await expect(page.getByLabel("Compare with", { exact: true })).toHaveValue(
       "previous"
     )
@@ -906,6 +911,7 @@ async function main() {
         .getByText("Definition", { exact: true })
     ).toBeVisible()
     await page.reload()
+    await page.getByRole("tab", { name: "Changes", exact: true }).click()
     await expect(page.getByLabel("Compare with", { exact: true })).toHaveValue(
       "previous"
     )
@@ -928,6 +934,7 @@ async function main() {
     await expect(
       page.getByRole("alert").filter({ hasText: "Earlier revision" })
     ).toBeVisible()
+    await page.getByRole("tab", { name: "Changes", exact: true }).click()
     await expect(
       page.getByRole("region", {
         name: "Changes from the reference",
@@ -970,11 +977,13 @@ async function main() {
     await expect(
       visitor
         .getByRole("navigation", { name: "Community workspace" })
-        .getByRole("link", { name: "Vocabulary", exact: true })
+        .getByRole("link", { name: "Browse", exact: true })
     ).toBeVisible()
     await expect(
-      visitor.getByRole("link", { name: "Proposals", exact: true })
-    ).toHaveCount(0)
+      visitor
+        .getByRole("navigation", { name: "Community workspace" })
+        .getByRole("link", { name: "Contributions", exact: true })
+    ).toBeVisible()
     pass(
       "Private content is unavailable to visitors; ordinary community retains vocabulary navigation"
     )

@@ -14,6 +14,12 @@ import type { RouterOutput } from "@/trpc/trpc-helpers"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ReviewPacketButton } from "@/components/communities/review-packet"
+import { communitySectionHref } from "@/lib/community-navigation"
+import {
+  withCommunityWorkspaceReturn,
+  communityWorkspaceReturnLabel
+} from "@/lib/community-workspace-return"
 import {
   Card,
   CardContent,
@@ -52,6 +58,7 @@ type Props = {
   userId: number | null
   isAdmin: boolean
   workspaceHref: string
+  initialTab?: "definition" | "changes" | "discussion" | "sources"
 }
 const FieldProvenance = dynamic(
   () => import("./field-provenance").then((module) => module.FieldProvenance),
@@ -63,7 +70,8 @@ export function PublishedField({
   record,
   userId,
   isAdmin,
-  workspaceHref
+  workspaceHref,
+  initialTab = "definition"
 }: Props) {
   const router = useRouter()
   const revise = trpc.matcoreWorkflow.revise.useMutation()
@@ -122,6 +130,8 @@ export function PublishedField({
   const busy = revise.isPending || review.isPending || withdraw.isPending
   const canReview = record.canReview
   const canWithdraw = userId === selected.createdById || isAdmin
+  const withWorkspaceReturn = (path: string) =>
+    withCommunityWorkspaceReturn(path, workspaceHref)
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,7 +139,7 @@ export function PublishedField({
         href={workspaceHref}
         className="w-fit text-sm underline underline-offset-4"
       >
-        Community workspace
+        {communityWorkspaceReturnLabel(workspaceHref)}
       </Link>
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
@@ -182,6 +192,30 @@ export function PublishedField({
             Download specification
           </a>
         </Button>
+        {canReview && record.community ? (
+          <>
+            <Button asChild variant="outline">
+              <Link
+                href={`${communitySectionHref(record.community.slug, "review", undefined, { profile: selected.profileKey ?? undefined })}&manage=1&target=${encodeURIComponent(`proposal:${selected.id}`)}`}
+              >
+                Request feedback
+              </Link>
+            </Button>
+            <ReviewPacketButton
+              communitySlug={record.community.slug}
+              targets={[`proposal:${selected.id}`]}
+            />
+          </>
+        ) : null}
+        {record.community && selected.reviewState === "accepted" ? (
+          <Button asChild variant="outline">
+            <Link
+              href={`${communitySectionHref(record.community.slug, "vocabulary", undefined, { profile: selected.profileKey ?? undefined })}&standard=working`}
+            >
+              View working version
+            </Link>
+          </Button>
+        ) : null}
         {userId && isLatest ? (
           <Button
             disabled={busy}
@@ -190,7 +224,9 @@ export function PublishedField({
               void revise
                 .mutateAsync({ revisionId: selected.id })
                 .then((draft) =>
-                  window.location.assign(`/metadata/workspace/${draft.id}`)
+                  window.location.assign(
+                    withWorkspaceReturn(`/metadata/workspace/${draft.id}`)
+                  )
                 )
                 .catch((error: unknown) => setError(errorMessage(error)))
             }}
@@ -208,7 +244,9 @@ export function PublishedField({
             disabled={busy}
             onChange={(event) =>
               router.push(
-                `/metadata/fields/${record.field.id}?revision=${event.target.value}`
+                withWorkspaceReturn(
+                  `/metadata/fields/${record.field.id}?revision=${event.target.value}`
+                )
               )
             }
           >
@@ -248,18 +286,51 @@ export function PublishedField({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <Tabs defaultValue="changes" className="gap-5">
+      {isLatest &&
+      selected.reviewState !== "withdrawn" &&
+      (canReview || canWithdraw) ? (
+        <section
+          className="flex flex-wrap items-center gap-3"
+          aria-label="Proposal decisions"
+        >
+          {canReview ? (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                setReason("")
+                setReviewOpen(true)
+              }}
+            >
+              Record decision
+            </Button>
+          ) : null}
+          {canWithdraw ? (
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setWithdrawReason("")
+                setWithdrawOpen(true)
+              }}
+            >
+              Withdraw proposal
+            </Button>
+          ) : null}
+        </section>
+      ) : null}
+      <Tabs defaultValue={initialTab} className="gap-5">
         <TabsList className="h-auto w-full flex-wrap justify-start sm:w-fit">
-          <TabsTrigger value="changes" className="min-h-10">
+          <TabsTrigger value="definition" className="min-h-11">
+            Definition
+          </TabsTrigger>
+          <TabsTrigger value="changes" className="min-h-11">
             Changes
           </TabsTrigger>
-          <TabsTrigger value="discussion" className="min-h-10">
+          <TabsTrigger value="discussion" className="min-h-11">
             Discussion
           </TabsTrigger>
-          <TabsTrigger value="specification" className="min-h-10">
-            Field specification
-          </TabsTrigger>
-          <TabsTrigger value="sources" className="min-h-10">
+          <TabsTrigger value="sources" className="min-h-11">
             Sources &amp; history
           </TabsTrigger>
         </TabsList>
@@ -267,26 +338,10 @@ export function PublishedField({
           <Card>
             <CardHeader>
               <CardTitle>
-                <h2>Definition</h2>
+                <h2>Changes</h2>
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <p className="rounded-md border bg-definition p-4 whitespace-pre-wrap break-words leading-relaxed">
-                {payload.definition}
-              </p>
-              <SpecificationSummary
-                specification={payload.specification}
-                profileKey={selected.profileKey}
-                compact
-              />
-              {payload.example ? (
-                <div>
-                  <h3 className="mb-2 font-medium">Example</h3>
-                  <p className="whitespace-pre-wrap break-words text-sm">
-                    {payload.example}
-                  </p>
-                </div>
-              ) : null}
               <div>
                 <h3 className="mb-2 font-medium">Reason for the proposal</h3>
                 <p className="whitespace-pre-wrap break-words text-sm">
@@ -323,11 +378,35 @@ export function PublishedField({
                   </div>
                   <FieldChanges differences={differences} />
                 </section>
-              ) : null}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  This is a new field proposal.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="specification">
+        <TabsContent value="definition" className="space-y-5">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <h2>Definition</h2>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="rounded-md border bg-definition p-4 whitespace-pre-wrap break-words leading-relaxed">
+                {payload.definition}
+              </p>
+              {payload.example ? (
+                <div>
+                  <h3 className="mb-2 font-medium">Example</h3>
+                  <p className="whitespace-pre-wrap break-words text-sm">
+                    {payload.example}
+                  </p>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>
@@ -482,39 +561,6 @@ export function PublishedField({
               </form>
             ) : null}
           </section>
-          {isLatest &&
-          selected.reviewState !== "withdrawn" &&
-          (canReview || canWithdraw) ? (
-            <section
-              className="flex flex-wrap items-center gap-3 border-t pt-5"
-              aria-label="Proposal decisions"
-            >
-              {canReview ? (
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => {
-                    setReason("")
-                    setReviewOpen(true)
-                  }}
-                >
-                  Review proposal
-                </Button>
-              ) : null}
-              {canWithdraw ? (
-                <Button
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => {
-                    setWithdrawReason("")
-                    setWithdrawOpen(true)
-                  }}
-                >
-                  Withdraw proposal
-                </Button>
-              ) : null}
-            </section>
-          ) : null}
         </TabsContent>
       </Tabs>
       <Dialog
@@ -525,12 +571,12 @@ export function PublishedField({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Review proposal</DialogTitle>
+            <DialogTitle>Record decision</DialogTitle>
             <DialogDescription>
               This decision applies to revision {selected.version} only and
               records a community review. Accepted changes appear in the working
               version.
-              {selected.profileKey
+              {record.sourceRelease
                 ? " It does not record official MatCore approval."
                 : ""}
             </DialogDescription>

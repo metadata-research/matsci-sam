@@ -5,6 +5,7 @@ import {
   FolderPlusIcon,
   InfoIcon,
   ListPlusIcon,
+  ListTreeIcon,
   PlusIcon,
   UsersIcon
 } from "lucide-react"
@@ -18,84 +19,45 @@ import {
 } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-type QuickStartContext = {
-  communityId?: number
-  vocabularySlug?: string
+import {
+  communityCreationActions,
+  setupHref,
+  type CommunityActionContext
+} from "@/lib/community-actions"
+
+export { setupHref } from "@/lib/community-actions"
+
+const actionIcons = {
+  term: PlusIcon,
+  field: ListTreeIcon,
+  import: ListPlusIcon,
+  collection: FolderPlusIcon,
+  vocabulary: BookOpenIcon,
+  community: UsersIcon
 }
 
-export function setupHref(
-  context: QuickStartContext = {},
-  task?: "community" | "vocabulary" | "collection" | "import"
-) {
-  const params = new URLSearchParams()
-  if (task) params.set("task", task)
-  if (context.communityId)
-    params.set("communityId", String(context.communityId))
-  if (context.vocabularySlug)
-    params.set("vocabularySlug", context.vocabularySlug)
-  return params.size ? `/setup?${params}` : "/setup"
-}
-
-export function quickStartActions(context: QuickStartContext = {}) {
-  const addParams = new URLSearchParams()
-  if (context.vocabularySlug)
-    addParams.set("vocabularySlug", context.vocabularySlug)
-
-  return [
-    {
-      id: "term",
-      label: "Add term",
-      description: "Define one term in a vocabulary.",
-      helpHref: "/docs#add-term",
-      helpLabel: "Help with adding a term",
-      href: addParams.size ? `/add?${addParams}` : "/add",
-      icon: PlusIcon
-    },
-    {
-      id: "import",
-      label: "Import terms",
-      description: "Add a batch of terms and definitions.",
-      helpHref: "/docs#import-terms",
-      helpLabel: "Help with importing terms",
-      href: setupHref(context, "import"),
-      icon: ListPlusIcon
-    },
-    {
-      id: "collection",
-      label: "Create collection",
-      description: "Select terms from any vocabulary.",
-      helpHref: "/docs#create-collection",
-      helpLabel: "Help with creating a collection",
-      href: setupHref(context, "collection"),
-      icon: FolderPlusIcon
-    },
-    {
-      id: "vocabulary",
-      label: "Create vocabulary",
-      description: "Name a body of terms and definitions.",
-      helpHref: "/docs#create-vocabulary",
-      helpLabel: "Help with creating a vocabulary",
-      href: setupHref(context, "vocabulary"),
-      icon: BookOpenIcon
-    },
-    {
-      id: "community",
-      label: "Create community",
-      description: "Bring people together to contribute.",
-      helpHref: "/docs#create-community",
-      helpLabel: "Help with creating a community",
-      href: setupHref(context, "community"),
-      icon: UsersIcon
-    }
-  ]
+export function quickStartActions(context: CommunityActionContext = {}) {
+  return communityCreationActions(context).map((action) => ({
+    ...action,
+    icon: actionIcons[action.id]
+  }))
 }
 
 export function QuickStartBar({
   communityId,
   vocabularySlug,
+  communitySlug,
+  metadataEnabled,
+  profile,
   className
-}: QuickStartContext & { className?: string }) {
-  const context = { communityId, vocabularySlug }
+}: CommunityActionContext & { className?: string }) {
+  const context = {
+    communityId,
+    vocabularySlug,
+    communitySlug,
+    metadataEnabled,
+    profile
+  }
 
   return (
     <section aria-label="Quick start" className={cn(className)}>

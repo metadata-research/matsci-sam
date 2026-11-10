@@ -16,6 +16,7 @@ import {
 import { and, desc, eq, exists, or, sql } from "drizzle-orm"
 import { SITE_FULL_NAME } from "@/lib/site"
 import { getSession } from "@/lib/session"
+import { getActiveContributionContext } from "@/lib/community-actions.server"
 import { getActiveCommunity } from "@/lib/community-queries"
 import { communityDisplayName } from "@/lib/community-names"
 import { communityReferenceScope, vocabularyTermScope } from "@/lib/search"
@@ -37,9 +38,10 @@ import {
 export default async function Home() {
   const sessionPromise = getSession()
   const activeCommunityPromise = getActiveCommunity()
-  const [sesh, activeCommunity] = await Promise.all([
+  const [sesh, activeCommunity, contributionContext] = await Promise.all([
     sessionPromise,
-    activeCommunityPromise
+    activeCommunityPromise,
+    getActiveContributionContext()
   ])
   const vocabularySlug = activeCommunity?.vocabularySlug
   const personalWorkPromise = sesh.id
@@ -86,11 +88,7 @@ export default async function Home() {
             </p>
           )}
 
-          <QuickStartBar
-            communityId={activeCommunity?.id}
-            vocabularySlug={activeCommunity?.vocabularySlug}
-            className="mt-6"
-          />
+          <QuickStartBar {...contributionContext} className="mt-6" />
 
           {emptyCommunity ? (
             <CommunityEmptyState

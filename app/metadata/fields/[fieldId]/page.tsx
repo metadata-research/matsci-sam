@@ -1,3 +1,7 @@
+import { normalizeCommunityWorkReturnTo } from "@/lib/community-work-return"
+import { normalizeMatcoreCatalogReturnTo } from "@/lib/matcore-catalog-navigation"
+import { normalizeCommunityReviewReturn } from "@/lib/community-review-types"
+import { normalizeCommunityContributionReturnTo } from "@/lib/community-contribution-return"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getCurrentUser } from "@/lib/current-user"
@@ -14,7 +18,12 @@ export default async function PublishedMetadataFieldPage({
   searchParams
 }: {
   params: Promise<{ fieldId: string }>
-  searchParams: Promise<{ revision?: string }>
+  searchParams: Promise<{
+    revision?: string
+    returnTo?: string
+    tab?: string
+    reviewReturn?: string
+  }>
 }) {
   const [{ fieldId }, search, user] = await Promise.all([
     params,
@@ -30,13 +39,44 @@ export default async function PublishedMetadataFieldPage({
       if ((error as { code?: string }).code === "NOT_FOUND") notFound()
       throw error
     })
-  const workspaceHref = record.community
-    ? `/communities/${record.community.slug}?view=proposals`
-    : `/metadata/workspace?vocabularySlug=${encodeURIComponent(record.field.vocabularySlug)}`
+  const contributionReturn = record.community
+    ? normalizeCommunityContributionReturnTo(
+        search.returnTo,
+        record.community.slug
+      )
+    : null
+  let reviewReturn = record.community
+    ? normalizeCommunityReviewReturn(search.reviewReturn, record.community.slug)
+    : null
+  if (reviewReturn) {
+    const round = new URLSearchParams(reviewReturn.split("?")[1]).get("round")!
+    const review = await trpc.communityReviews
+      .get({ id: round })
+      .catch(() => null)
+    if (!review || review.community.slug !== record.community?.slug)
+      reviewReturn = null
+  }
+  const catalogReturn = record.community
+    ? normalizeMatcoreCatalogReturnTo(search.returnTo, {
+        communitySlug: record.community.slug
+      })
+    : null
+  const workReturn = record.community
+    ? normalizeCommunityWorkReturnTo(search.returnTo, record.community.slug)
+    : null
+  const workspaceHref =
+    reviewReturn ??
+    contributionReturn ??
+    catalogReturn ??
+    workReturn ??
+    (record.community
+      ? `/communities/${record.community.slug}?view=contributions`
+      : `/metadata/workspace?vocabularySlug=${encodeURIComponent(record.field.vocabularySlug)}`)
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
       <PublishedField
         key={`${record.field.id}:${record.selectedRevisionId}:${user?.id ?? "public"}`}
+        initialTab={search.tab === "changes" ? "changes" : undefined}
         record={record}
         userId={user?.id ?? null}
         isAdmin={user?.role === "admin"}

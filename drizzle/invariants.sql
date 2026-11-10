@@ -1455,3 +1455,25 @@ BEGIN
   END IF;
 END
 $metadata_workspace_validation$;
+
+DO $review_exercise_validation$
+BEGIN
+  IF to_regclass('public."communityReviewExerciseEvents"') IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM (
+        SELECT "itemId", "userId", "datasetExerciseRevisionId" FROM "communityReviewResponses"
+        UNION ALL
+        SELECT "itemId", "userId", "datasetExerciseRevisionId" FROM "communityReviewEvents"
+      ) feedback
+      JOIN "communityReviewItems" item ON item.id=feedback."itemId"
+      JOIN "communityReviewExerciseEvents" exercise ON exercise.id=feedback."datasetExerciseRevisionId"
+      WHERE exercise."roundId"<>item."roundId" OR exercise."userId"<>feedback."userId"
+    ) THEN RAISE EXCEPTION 'Review feedback pins an exercise outside its round or author'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM "communityReviewExerciseEvents" exercise
+      JOIN "communityReviewRounds" round ON round.id=exercise."roundId"
+      WHERE round."datasetExercise" IS NULL
+    ) THEN RAISE EXCEPTION 'Dataset exercise has no configured review'; END IF;
+  END IF;
+END
+$review_exercise_validation$;

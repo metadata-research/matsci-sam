@@ -6,6 +6,7 @@ import {
   matcoreCatalogHref,
   normalizeMatcoreCatalogReturnTo
 } from "@/lib/matcore-catalog-navigation"
+import { withCommunityWorkspaceReturn } from "@/lib/community-workspace-return"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { ArrowLeftIcon, SaveIcon } from "lucide-react"
@@ -75,6 +76,8 @@ export function FieldEditor({
   const payload = draft.payload
   const record = draft.record
   const published = record.status === "published"
+  const withWorkspaceReturn = (path: string) =>
+    withCommunityWorkspaceReturn(path, workspaceHref)
   const differences = proposalDifferences(payload, record.baseline)
   const busy =
     !draft.ready || draft.reloading || publish.isPending || savingForReview
@@ -130,8 +133,8 @@ export function FieldEditor({
           {record.sourceRelease
             ? `Reference: MatCore ${record.sourceRelease.version}. `
             : "Community field proposal. "}
-          {record.profileKey
-            ? "Local proposals are separate from official MatCore decisions."
+          {record.sourceRelease
+            ? "Community proposals are separate from official MatCore decisions."
             : "Define what to record and the rules for its values."}
         </p>
         {record.community &&
@@ -236,7 +239,9 @@ export function FieldEditor({
       {published && record.publication ? (
         <Button asChild className="self-start">
           <Link
-            href={`/metadata/fields/${record.publication.fieldId}?revision=${record.publication.revisionId}`}
+            href={withWorkspaceReturn(
+              `/metadata/fields/${record.publication.fieldId}?revision=${record.publication.revisionId}`
+            )}
           >
             View proposal
           </Link>
@@ -244,15 +249,15 @@ export function FieldEditor({
       ) : null}
 
       <fieldset disabled={published || busy} className="min-w-0">
-        <Tabs defaultValue="specification" className="gap-5">
+        <Tabs defaultValue="definition" className="gap-5">
           <TabsList className="h-auto w-full flex-wrap justify-start sm:w-fit">
-            <TabsTrigger value="specification" className="min-h-10">
-              Field specification
-            </TabsTrigger>
-            <TabsTrigger value="definition" className="min-h-10">
+            <TabsTrigger value="definition" className="min-h-11">
               Definition
             </TabsTrigger>
-            <TabsTrigger value="sources" className="min-h-10">
+            <TabsTrigger value="specification" className="min-h-11">
+              Field rules
+            </TabsTrigger>
+            <TabsTrigger value="sources" className="min-h-11">
               Sources &amp; history
             </TabsTrigger>
           </TabsList>
@@ -502,10 +507,10 @@ export function FieldEditor({
             <Alert>
               <AlertDescription>
                 Submission makes the proposal visible to this community.
-                {record.profileKey
+                {record.sourceRelease
                   ? " It does not record MatCore approval."
                   : ""}{" "}
-                A site administrator can record a separate local review.
+                A steward can record a decision after review.
               </AlertDescription>
             </Alert>
           </div>
@@ -534,7 +539,9 @@ export function FieldEditor({
                   .then((result) => {
                     draft.stop()
                     router.push(
-                      `/metadata/fields/${result.fieldId}?revision=${result.revisionId}`
+                      withWorkspaceReturn(
+                        `/metadata/fields/${result.fieldId}?revision=${result.revisionId}`
+                      )
                     )
                   })
                   .catch((error: unknown) => {

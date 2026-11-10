@@ -45,11 +45,17 @@ export function ProfileContext({
         ) : null}
         <a
           className="w-fit underline underline-offset-4"
-          href={`${context.release.sourceUrl}#${context.profile.sourceAnchor}`}
+          href={
+            context.release.sourceUrlRole === "publisher"
+              ? context.release.sourceUrl
+              : `${context.release.sourceUrl}#${context.profile.sourceAnchor}`
+          }
           target="_blank"
           rel="noreferrer"
         >
-          Read the source profile
+          {context.release.sourceUrlRole === "publisher"
+            ? "Publisher website"
+            : "Read the source profile"}
         </a>
       </div>
     </details>
@@ -87,8 +93,18 @@ export function SourceBaseline({
           target="_blank"
           rel="noreferrer"
         >
-          Read the source specification
+          {sourceOccurrence.sourceUrlRole === "publisher"
+            ? "Publisher website"
+            : "Read the source specification"}
         </a>
+        {sourceRelease.artifactTitle ? (
+          <p className="text-muted-foreground">
+            {sourceRelease.artifactTitle}
+            {sourceOccurrence.sourcePage
+              ? `, page ${sourceOccurrence.sourcePage}`
+              : ""}
+          </p>
+        ) : null}
         {sourceOccurrence.warnings.length ? (
           <ul className="flex list-disc flex-col gap-2 pl-5">
             {sourceOccurrence.warnings.map((warning, index) => (

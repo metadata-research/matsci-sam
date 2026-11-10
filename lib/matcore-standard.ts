@@ -28,6 +28,7 @@ const source = z
     tableId: identifier,
     row: z.number().int().positive(),
     htmlRow: z.number().int().positive(),
+    page: z.number().int().positive().max(10000).optional(),
     anchor: text,
     url,
     rawKeyColumns: z.tuple([text, text]),
@@ -44,6 +45,8 @@ export const matcoreSourceManifestSchema = z
       .object({
         version: identifier,
         sourceUrl: url,
+        sourceUrlRole: z.enum(["document", "publisher"]).optional(),
+        artifactTitle: z.string().min(1).max(500).optional(),
         retrievedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         sha256: z.string().regex(/^[a-f0-9]{64}$/),
         artifactPath: z.string().min(1).max(2000),
@@ -230,7 +233,13 @@ export function matcoreManifestRelease(manifest: MatCoreStandardManifest) {
     license,
     parserVersion,
     retrievedOn,
-    artifactPath
+    artifactPath,
+    ...(manifest.release.sourceUrlRole
+      ? { sourceUrlRole: manifest.release.sourceUrlRole }
+      : {}),
+    ...(manifest.release.artifactTitle
+      ? { artifactTitle: manifest.release.artifactTitle }
+      : {})
   }
 }
 
@@ -271,7 +280,14 @@ export function matcoreManifestRows(manifest: MatCoreStandardManifest) {
         rawText: field.source.rawText,
         warnings: [...field.interpretationWarnings, ...field.notes],
         sourceTableId: field.source.tableId,
-        sourceRow: field.source.row
+        sourceRow: field.source.row,
+        ...(field.source.page ? { sourcePage: field.source.page } : {}),
+        ...(manifest.release.sourceUrlRole
+          ? { sourceUrlRole: manifest.release.sourceUrlRole }
+          : {}),
+        ...(manifest.release.artifactTitle
+          ? { artifactTitle: manifest.release.artifactTitle }
+          : {})
       }
       return {
         id: occurrence.id,

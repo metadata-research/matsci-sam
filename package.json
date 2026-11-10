@@ -105,6 +105,7 @@
     "test:term-metadata-rdf-db": "tsx --conditions=react-server scripts/test-term-metadata-rdf-db.ts",
     "test:dictionary-metadata": "tsx scripts/test-dictionary-metadata.ts",
     "test:matcore": "tsx scripts/test-matcore-standard.ts && tsx scripts/test-matcore-workspace-ui.tsx && tsx scripts/test-matcore-draft-recovery.ts",
+    "test:matcore-pdf-parser": "python3 -B scripts/test-matcore-standard-pdf.py",
     "test:matcore-db": "tsx --conditions=react-server scripts/test-matcore-workflow-db.ts",
     "test:matcore-ui": "tsx --conditions=react-server scripts/test-matcore-workflow-ui.ts",
     "test:matcore-catalog-navigation": "tsx scripts/test-matcore-catalog-navigation.ts",
@@ -136,7 +137,14 @@
     "test:community-join-links-db": "tsx --conditions=react-server scripts/test-community-join-links-db.ts",
     "test:feedback-db": "tsx --conditions=react-server scripts/test-feedback-db.ts",
     "test:community-access-db": "tsx --conditions=react-server scripts/test-community-access-db.ts",
-    "test:community-content-db": "tsx --conditions=react-server scripts/test-community-content-db.ts"
+    "test:community-content-db": "tsx --conditions=react-server scripts/test-community-content-db.ts",
+    "test:community-navigation": "tsx scripts/test-community-navigation.ts",
+    "test:community-review-packet": "tsx scripts/test-community-review-packet.ts",
+    "test:community-review-packet-db": "tsx --conditions=react-server scripts/test-community-review-packet-db.ts",
+    "test:shared-community-ui": "tsx --conditions=react-server scripts/test-shared-community-ui.ts",
+    "test:community-review-exercise": "tsx scripts/test-community-review-exercise.ts",
+    "test:community-review-exercise-db": "tsx --conditions=react-server scripts/test-community-review-exercise-db.ts",
+    "test:community-review-exercise-ui": "tsx --conditions=react-server scripts/test-community-review-exercise-ui.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
@@ -189,6 +197,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.57.0",
+    "saxes": "^6.0.0",
     "server-only": "^0.0.1",
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.0",

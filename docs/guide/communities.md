@@ -20,20 +20,28 @@ gather terms that already exist without copying their definitions.
 ## Community workspace
 
 The community page opens on **Quick start**. Choose an area when one is
-available, then **Review and respond**, **Suggest a change**, or **Continue my
-work**. A conference invitation opens its review after you sign in and join.
+available, then **Give feedback**, **Suggest a change** or **Continue a draft**.
+A conference invitation opens its review after you sign in and join.
 
-**Review** lists open review rounds. **Vocabulary** shows published definitions;
-communities with metadata tools use **Standard** instead. **My work** contains
-requested feedback, your private drafts and contribution tools. **People** covers membership.
-**More** contains collections, About, surveys and authorized settings. Metadata
-communities also have Proposals, Community releases and Vocabulary terms there.
+The primary tabs have the same order in every community.
 
-Standard opens with **Working version** and **Hierarchy** selected. The working
-version contains reference fields and accepted community changes. **Reference**
-opens a publisher specification, while **Community release** opens a named
-community snapshot. **Proposals** holds submitted changes for discussion and
-steward review.
+| Tab | Purpose |
+| --- | --- |
+| **Quick start** | Start a contribution or continue your work. |
+| **Browse** | Find terms or metadata fields. |
+| **Contributions** | Compare published definitions and submitted metadata proposals. |
+| **Reviews** | Respond to review requests or organize a review. |
+| **My work** | Resume private drafts and requested feedback. |
+| **People** | View members and manage invitations when permitted. |
+
+Stewards have a visible **Manage community** link for access and workspace
+settings. **More** contains collections, About and surveys.
+
+**Browse** opens term definitions in ordinary communities. Metadata communities
+open the **Working version** in **Hierarchy** view, with **Terms** available
+alongside **Metadata fields**. **Reference** opens a publisher specification.
+**Community releases** lists named snapshots. Pending proposals appear in
+**Contributions** and do not change the working version.
 
 In longer views, **On this page** lists the available sections. Select one to
 jump to it; the destination is briefly highlighted. On a small screen, open
@@ -44,19 +52,19 @@ community, retaining your section, field filter and result page. If a draft
 has unsaved changes, the return waits for saving. A save failure leaves you
 in the editor with your writing available.
 
-Use **Define a term** for an ordinary vocabulary entry or **Import terms** to
+Use **Add term** for an ordinary vocabulary entry or **Import terms** to
 prepare a batch of private drafts. These actions use the community's
 vocabulary. Your drafts remain private even when other contributors belong
 to the same community.
 
-In **Settings**, stewards and site administrators can enable metadata
+In **Manage community**, stewards and site administrators can enable metadata
 development to add **New metadata field**. MatCore is an optional standard within those tools;
 it is not required to define a field. An independent field can record value
 types, units and requirement rules with its own citations. The
 [metadata workflow guide](/docs/matcore-workflow) explains field editing and
 MatCore reference fields and proposals.
 
-In Standard, choose Reference and select a reference version. **Find a field** searches all
+In **Browse → Metadata fields**, choose Reference and select a reference version. **Find a field** searches all
 entries in that version and the selected profile by name, path or definition.
 Open a result to read the field. **Propose a
 change** creates a private draft for that field. **Continue my draft** resumes
@@ -80,7 +88,8 @@ shared request does not create a private draft or require you to respond.
 
 Open a review and read the entry, version and field rules. Choose **Suitable as
 written**, **Needs revision**, or **Unable to assess**, add an optional comment,
-and select **Save and next**. For a proposed change, the first response is
+and select **Save and next**. You can also save a comment without choosing a
+response. **Clear choice** leaves your comment in place. For a proposed change, the first response is
 **Support this change**. Some rounds use upvotes and downvotes instead.
 
 The four main field rules stay visible. Expand **Value guidance and field rules**
@@ -98,31 +107,58 @@ Votes inform review; they do not accept a proposal into the working version.
 **Suggest a change** opens a private field draft. **Back to review** saves the
 draft and returns to the same review item. If a reference field already has a
 proposal, the draft starts from that proposal or resumes your existing private
-alternative. The reference stays unchanged. Ordinary definitions link to their
-entry, where you can contribute another definition.
+alternative. The reference stays unchanged. Ordinary definitions open **Propose a change** on the current definition.
+A notice identifies a newer revision if the review used an earlier one.
+**Back to review** returns to the original review item.
 
 Save failures leave your response available for retry. When browser storage is
 available, this tab also keeps unsaved responses across reloads. If another tab
 has saved a newer response, **Reload saved response** replaces the text in this
 form with that saved version. Copy any wording you want to keep first.
 
+### Use a dataset example
+
+Some reviews include an optional **Dataset example**. Name a real or published
+dataset and enter its URL, citation or description. Download the template for
+the version shown, complete its XML and paste it into **Completed metadata XML**.
+Add any notes and check your name and affiliation, then save. You can also
+choose **Review fields** without adding an example.
+
+The XML check verifies syntax. It does not validate field values or certify
+that a dataset meets the standard. `FILL` placeholders indicate unfinished
+values. Each template covers its selected section. Add inherited sections as
+directed by the standard.
+
+Your saved example is visible to you and community stewards. Feedback records
+the exact example revision used when you save it. Later example edits do not
+rewrite earlier responses. If another tab changes the example, reload the
+saved example and review it before saving your feedback again.
+
+Unsaved writing stays in this browser tab when session storage is available.
+An interrupted save can be retried. A conflict preserves your writing until
+you choose **Reload saved dataset example**. Copy text you want to keep first.
+
 ### Organize a review
 
-Stewards and site administrators can open **More → Settings → Reviews**. Name
+Stewards and site administrators can open **Reviews → Request feedback**. Name
 the round, choose an area and response style, and select the reference fields,
 pending proposals or ordinary definitions to include. Open **Choose items**,
-use **Clear selection**, then **Find a field or proposal** to locate the items
+use **Clear selection**, then **Find a term, field or proposal** to locate the items
 you want. Select the reference, proposal, or both. Selection is retained when
 you search for another item.
+
+For a metadata review, **Include a dataset exercise** adds the optional
+example form. Select a reference version and area, then add brief guidance or
+a review guide link. Existing reviews keep their original setup.
 
 **Create review** records the exact versions and labels and adds the review to
 **Requested feedback** in every member's My work. Members can respond whenever
 they are ready. No notification is sent. Create a new round to review later
 versions or a different selection.
 
-Choose the round under **Manage a review** to see participant responses, create
-or revoke conference invitations, or close the round. Closing stops new
-responses and admissions; previous responses remain available.
+Choose **View results** on a review to see participant responses. Its management
+page also lets you create or revoke conference invitations and close the round.
+Closing stops new responses and admissions. Previous responses remain available.
 
 A conference invitation lets anyone holding its link create an account and
 explicitly join the whole community, including private sections. It opens the
@@ -142,7 +178,7 @@ when your request is awaiting review. A steward or site administrator can open
 **People**, find **Access requests**, and approve or decline it. Check the same
 community page for the outcome. This does not send an email notification.
 
-Stewards can open **Settings** and use **Content access** to choose **Public**
+Stewards can open **Manage community** and use **Content access** to choose **Public**
 or **Members only**, then select **Save content access**. A community containing
 protected source material must remain members-only. An installed MatCore source
 requires a separate grant from a site administrator. Enabling MatCore tools
@@ -287,3 +323,35 @@ communities and appoint stewards. Renaming preserves the address. Retirement
 retains membership history and the worklist for restoration.
 
 [Administration and stewardship](/docs/administration) lists the controls by role.
+
+## Select contributions for review
+
+In **Contributions**, filter by type or status and select the revisions to
+review. A steward can choose **Request feedback**, name the review and check
+its items before creating it. Term definitions and metadata proposals can
+belong to the same round. Area-specific reviews include community-wide term
+definitions only when the steward selects that option.
+
+Responses stay attached to the versions shown in that round. Published term
+definitions remain available for voting. Metadata decisions separately control
+which proposals enter the working standard.
+
+## Export a review packet
+
+A steward can select contributions and choose **Export review packet**, or
+open a review's **View results** page to export its selected revisions.
+The preview lists exact revisions, source counts and review responses.
+Respondent names are omitted unless **Include respondent names** is selected.
+Author attribution remains in the report. **Include dataset examples** adds
+the saved example revisions attached to the selected feedback. This is a
+separate choice from including names. Dataset text may identify its author.
+
+Choose **Print / save PDF** for a printable report or **Download JSON** for
+the same structured information. The report includes changes, sources,
+discussion, feedback by review round and recorded decisions. A pending proposal
+can be included without accepting it. Exporting changes no community records.
+
+If content, access or feedback changes after preview, refresh the preview
+before downloading. Private drafts, inaccessible source material and private
+survey participation are excluded. Downloaded copies retain their contents
+after access changes, so share a packet only with its intended readers.

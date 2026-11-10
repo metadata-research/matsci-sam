@@ -1,3 +1,10 @@
+import { compareCommunityContributions } from "@/lib/community-contribution-order"
+import { CommunityContributions } from "@/components/communities/contributions"
+import {
+  communityDefinitionContributions,
+  type CommunityContribution
+} from "@/lib/community-contributions"
+import { proposalStatusLabels } from "@/lib/community-standard-types"
 import { CommunityReviewHome } from "@/components/communities/review-home"
 import { CommunityReviewSession } from "@/components/communities/review-session"
 import { CommunityReviewSettings } from "@/components/communities/review-settings"
@@ -118,6 +125,11 @@ export default async function CommunityPage({
     round?: string
     item?: string
     edition?: string
+    manage?: string
+    target?: string | string[]
+    action?: string
+    type?: string
+    status?: string
   }>
 }) {
   const { slug } = await params
@@ -153,6 +165,7 @@ export default async function CommunityPage({
       "people",
       "surveys",
       "settings",
+      "contributions",
       "proposals",
       "releases"
     ].includes(view)
@@ -167,15 +180,23 @@ export default async function CommunityPage({
     workspace.metadataEnabled || workspace.hasMatcoreCatalog
 
   if (!standardsEnabled && ["proposals", "releases"].includes(view)) notFound()
-  if (standardsEnabled && query.content === "contributions") view = "proposals"
-  const terms =
-    view === "vocabulary" && !standardsEnabled
-      ? await vocabularyTerms(community.vocabularySlug, user?.id ?? null)
-      : []
+  if (query.content === "contributions") view = "contributions"
+  const contributionView = ["contributions", "proposals"].includes(view)
+  const browseTerms =
+    view === "vocabulary" && (!standardsEnabled || query.content === "terms")
+  const terms = browseTerms
+    ? await vocabularyTerms(community.vocabularySlug, user?.id ?? null)
+    : []
 
   const showSettings = access.canManage || workspace.canManage
   if (view === "settings" && !showSettings) notFound()
-  if (query.content && query.content !== "contributions") notFound()
+  if (
+    query.content &&
+    !["terms", "fields", "contributions"].includes(query.content)
+  )
+    notFound()
+  if (query.manage && query.manage !== "1") notFound()
+  if (view === "review" && query.manage && !showSettings) notFound()
   const hasCatalog = workspace?.hasMatcoreCatalog ?? false
   const catalogPath = matcoreCatalogHref(community.slug)
   const profile = query.profile
@@ -218,6 +239,7 @@ export default async function CommunityPage({
     standardsEnabled &&
     [
       "vocabulary",
+      "contributions",
       "proposals",
       "releases",
       "quickstart",
@@ -271,6 +293,75 @@ export default async function CommunityPage({
     )
       notFound()
   }
+  const contributionType =
+    query.type ?? (view === "proposals" ? "proposal" : "all")
+  const contributionStatus = query.status ?? "all"
+  if (
+    contributionView &&
+    (!["all", "definition", "proposal"].includes(contributionType) ||
+      !["all", "published", ...Object.keys(proposalStatusLabels)].includes(
+        contributionStatus
+      ) ||
+      !Number.isSafeInteger(offset) ||
+      offset < 0 ||
+      offset > 10000 ||
+      (query.q &&
+        (query.q.length > 200 || /[\u0000-\u001f\u007f]/.test(query.q))) ||
+      (query.action && !["new", "export"].includes(query.action)) ||
+      (profile && !profile.success))
+  )
+    notFound()
+  const search = (query.q ?? "").trim().toLocaleLowerCase()
+  const definitionContributions =
+    contributionView &&
+    contributionType !== "proposal" &&
+    ["all", "published"].includes(contributionStatus)
+      ? await communityDefinitionContributions({
+          vocabularySlug: community.vocabularySlug,
+          viewerId: user?.id ?? null,
+          query: query.q ?? "",
+          limit: offset + 51
+        })
+      : []
+  const fieldContributions: CommunityContribution[] =
+    contributionView && contributionType !== "definition"
+      ? (standard?.proposals ?? [])
+          .filter(
+            (row) =>
+              (!query.profile || row.profileKey === query.profile) &&
+              (contributionStatus === "all" ||
+                row.status === contributionStatus) &&
+              (!search ||
+                `${row.label} ${row.path}`.toLocaleLowerCase().includes(search))
+          )
+          .map((row) => ({
+            target: `proposal:${row.id}`,
+            kind: "proposal",
+            label: row.label,
+            description: row.rationale,
+            href: `/metadata/fields/${row.fieldId}?revision=${row.id}`,
+            version: `Revision ${row.version}`,
+            status: row.status,
+            author: row.author,
+            createdAt: row.createdAt,
+            profileKey: row.profileKey
+          }))
+      : []
+  const contributions = [
+    ...definitionContributions,
+    ...fieldContributions
+  ].sort(compareCommunityContributions)
+  const initialTargetIds = query.target
+    ? Array.isArray(query.target)
+      ? query.target
+      : [query.target]
+    : undefined
+  if (
+    initialTargetIds &&
+    (initialTargetIds.length > 100 ||
+      initialTargetIds.some((value) => value.length > 350))
+  )
+    notFound()
   const [
     roster,
     worklist,
@@ -372,7 +463,7 @@ export default async function CommunityPage({
           vocabularyHref={vocabularyPath(community.vocabularySlug)}
         />
         {["quickstart", "review"].includes(view) &&
-        !(view === "review" && query.round) ? (
+        !(view === "review" && (query.round || query.manage)) ? (
           <CommunityReviewHome
             communityId={community.id}
             slug={community.slug}
@@ -383,7 +474,18 @@ export default async function CommunityPage({
             reviewOnly={view === "review"}
           />
         ) : null}
+        {view === "review" && query.manage === "1" ? (
+          <CommunityReviewSettings
+            key={`${community.id}:${query.round}:${initialTargetIds?.join(",")}:${query.profile}`}
+            communityId={community.id}
+            slug={community.slug}
+            area={query.profile}
+            selectedRound={query.round}
+            initialTargetIds={initialTargetIds}
+          />
+        ) : null}
         {view === "review" &&
+        !query.manage &&
         query.round &&
         /^[0-9a-f-]{36}$/i.test(query.round) ? (
           <CommunityReviewSession
@@ -422,14 +524,38 @@ export default async function CommunityPage({
             aria-labelledby="community-settings"
           >
             <h2 id="community-settings" className="text-2xl font-semibold">
-              Settings
+              Manage community
             </h2>
-            <CommunityReviewSettings
-              selectedRound={query.round}
-              communityId={community.id}
-              slug={community.slug}
-              area={query.profile}
-            />
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <Link
+                  href={`/communities/${community.slug}?view=review&manage=1`}
+                >
+                  Manage reviews
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/communities/${community.slug}?view=people`}>
+                  People and invitations
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link
+                  href={`/communities/${community.slug}?view=contributions`}
+                >
+                  Review packets
+                </Link>
+              </Button>
+            </div>
+            {query.round ? (
+              <CommunityReviewSettings
+                view="settings"
+                selectedRound={query.round}
+                communityId={community.id}
+                slug={community.slug}
+                area={query.profile}
+              />
+            ) : null}
             <CommunityAccessSettings
               key={`${community.id}:${access.visibility}`}
               access={access}
@@ -462,18 +588,51 @@ export default async function CommunityPage({
             offset={query.offset}
           />
         ) : null}
-        {standard && ["vocabulary", "proposals", "releases"].includes(view) ? (
+        {view === "vocabulary" && standardsEnabled ? (
+          <nav aria-label="Browse content" className="flex flex-wrap gap-2">
+            <Button asChild variant={browseTerms ? "outline" : "default"}>
+              <Link
+                href={`/communities/${community.slug}?view=vocabulary&content=fields${query.profile ? `&profile=${query.profile}` : ""}`}
+              >
+                Metadata fields
+              </Link>
+            </Button>
+            <Button asChild variant={browseTerms ? "default" : "outline"}>
+              <Link
+                href={`/communities/${community.slug}?view=vocabulary&content=terms`}
+              >
+                Terms
+              </Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href={`/communities/${community.slug}?view=releases`}>
+                Community releases
+              </Link>
+            </Button>
+          </nav>
+        ) : null}
+        {contributionView ? (
+          <CommunityContributions
+            key={`${query.q}:${contributionType}:${contributionStatus}:${query.profile}:${query.release}:${query.standard}:${query.edition}:${offset}`}
+            slug={community.slug}
+            vocabularySlug={community.vocabularySlug}
+            rows={contributions.slice(offset, offset + 50)}
+            hasMore={contributions.length > offset + 50}
+            offset={offset}
+            canManage={showSettings && !community.retiredAt}
+            viewerId={user?.id ?? null}
+            metadataEnabled={workspace.metadataEnabled && !community.retiredAt}
+            profiles={standard?.profiles ?? []}
+            referenceReleaseId={standard?.reference?.id}
+          />
+        ) : null}
+        {standard &&
+        ((view === "vocabulary" && !browseTerms) || view === "releases") ? (
           <CommunityStandardWorkspace
             community={{ slug: community.slug, title: community.title }}
             data={standard}
             viewerId={user?.id ?? null}
-            section={
-              view === "proposals"
-                ? "proposals"
-                : view === "releases"
-                  ? "releases"
-                  : "standard"
-            }
+            section={view === "releases" ? "releases" : "standard"}
             mode={
               query.standard === "reference"
                 ? "reference"
@@ -487,10 +646,10 @@ export default async function CommunityPage({
             selectedId={query.source}
           />
         ) : null}
-        {view === "vocabulary" && !standardsEnabled ? (
+        {browseTerms ? (
           <section className="flex flex-col gap-4">
             <div className="flex items-center gap-1">
-              <h2 className="text-2xl font-semibold">Vocabulary</h2>
+              <h2 className="text-2xl font-semibold">Terms</h2>
               <InfoPopover label="About community contributions">
                 Published terms and metadata fields from this community.
                 Metadata fields include their specification and revision

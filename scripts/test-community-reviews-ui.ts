@@ -159,6 +159,24 @@ async function main() {
     await guard(staff)
     const page = await staff.newPage()
     page.on("pageerror", (error) => errors.push(error.message))
+    page.on("response", async (response) => {
+      if (
+        response.url().includes("/api/trpc/communityReviews.") &&
+        response.request().method() === "GET"
+      ) {
+        const result = await response.json().catch(() => null)
+        for (const entry of Array.isArray(result) ? result : [result]) {
+          if (entry?.error) {
+            const diagnostic = JSON.stringify({
+              status: response.status(),
+              error: entry.error
+            })
+            errors.push(diagnostic)
+            console.error("Organizer review query failed", diagnostic)
+          }
+        }
+      }
+    })
     page.setDefaultTimeout(20000)
     const communityPath = "/communities/" + member.communitySlug
     await page.goto(base + communityPath, { timeout: 120000 })
@@ -169,29 +187,33 @@ async function main() {
         .first()
     ).toHaveText("Quick start")
     await expect(
-      page.getByRole("link", { name: "Review and respond", exact: true })
+      page.getByRole("link", { name: "Give feedback", exact: true })
     ).toBeVisible()
     await page.getByLabel("Area", { exact: true }).selectOption("pf")
     await expect(page).toHaveURL(/profile=pf/)
-    await page.getByRole("link", { name: "Manage reviews" }).click()
+    await page
+      .getByRole("link", { name: "Request feedback / View results" })
+      .click()
     await page
       .getByLabel("Review name", { exact: true })
       .fill("Phase Field feedback")
     await expect(page.getByLabel("Area", { exact: true })).toHaveValue("pf")
     await page.locator("summary").filter({ hasText: "Choose items (" }).click()
     await page
-      .getByLabel("Find a field or proposal", { exact: true })
+      .getByLabel("Find a term, field or proposal", { exact: true })
       .fill("no matching field")
     await expect(
       page.getByText("No matching items.", { exact: true })
     ).toBeVisible()
     await page
-      .getByLabel("Find a field or proposal", { exact: true })
+      .getByLabel("Find a term, field or proposal", { exact: true })
       .fill("pf")
     await expect(
       page.getByText("No matching items.", { exact: true })
     ).toHaveCount(0)
-    await page.getByLabel("Find a field or proposal", { exact: true }).fill("")
+    await page
+      .getByLabel("Find a term, field or proposal", { exact: true })
+      .fill("")
     await page
       .getByRole("button", { name: "Create review", exact: true })
       .click()
@@ -204,6 +226,17 @@ async function main() {
       .where(eq(rounds.communityId, member.communityId))
     assert.equal(stored.length, 1)
     roundId = stored[0].id
+    await expect(page).toHaveURL(new RegExp("round=" + roundId))
+    await page.reload()
+    await expect(
+      page.getByLabel("Manage a review", { exact: true })
+    ).toHaveValue(roundId)
+    await expect(
+      page.getByRole("button", {
+        name: "Create conference invitation",
+        exact: true
+      })
+    ).toBeVisible()
     const [item] = await db
       .select()
       .from(items)
@@ -215,6 +248,7 @@ async function main() {
       item.id
     )
     pass("Quick start is first and the area reaches review settings")
+    pass("New review management retains the selected round after reload")
     await page.screenshot({
       path: resolve(output, "organizer-desktop.png"),
       fullPage: true
@@ -251,7 +285,10 @@ async function main() {
     ).toBeVisible()
     await expect(requested).toContainText("0 of")
     await expect(
-      a.getByRole("link", { name: "Manage reviews", exact: true })
+      a.getByRole("link", {
+        name: "Request feedback / View results",
+        exact: true
+      })
     ).toHaveCount(0)
     await requested
       .getByRole("link", { name: "Start review", exact: true })
@@ -434,7 +471,7 @@ async function main() {
       .getByRole("link", { name: "Quick start", exact: true })
       .click()
     await expect(
-      a.getByRole("link", { name: "Review and respond", exact: true })
+      a.getByRole("link", { name: "Give feedback", exact: true })
     ).toBeVisible()
     assert.equal((await row()).version, 5)
     assert.equal((await row()).comment, "Saved when returning to Quick start.")
@@ -548,9 +585,17 @@ async function main() {
     pass(
       "Signing in does not grant access; explicit join opens the private Phase Field review"
     )
-    await page
-      .getByLabel("Manage a review", { exact: true })
-      .selectOption(roundId)
+    await page.goto(base + communityPath + "?view=review&profile=pf")
+    await page.getByRole("link", { name: "View results", exact: true }).click()
+    await expect(page.locator("#participant-responses")).toBeInViewport()
+    await expect(page.locator("#participant-responses")).toHaveAttribute(
+      "open",
+      ""
+    )
+    await expect(
+      page.getByRole("cell", { name: member.userName, exact: true })
+    ).toBeVisible()
+    pass("View results opens identified responses before invitation controls")
     await page.getByRole("button", { name: "Revoke link", exact: true }).click()
     await expect(page.getByText("Revoked", { exact: true })).toBeVisible()
     await guest.goto(invitation)
@@ -558,7 +603,13 @@ async function main() {
       guest.getByRole("heading", { name: "Invitation unavailable" })
     ).toBeVisible()
     pass("Revoked conference link stops further admissions")
-    await page.getByText("Participant responses", { exact: false }).click()
+    await expect(page.locator("#participant-responses")).toHaveAttribute(
+      "open",
+      ""
+    )
+    await page
+      .getByRole("button", { name: "Refresh responses", exact: true })
+      .click()
     await expect(
       page.getByRole("cell", { name: member.userName, exact: true })
     ).toBeVisible()
@@ -578,7 +629,7 @@ async function main() {
     pass("Organizer sees attributed responses and can close the round")
     await page.goto(base + "/communities/" + organizer.communitySlug)
     await expect(
-      page.getByRole("link", { name: "Continue my work", exact: true })
+      page.getByRole("link", { name: "Continue a draft", exact: true })
     ).toBeVisible()
     await expect(
       page.getByText("Phase Field feedback", { exact: true })

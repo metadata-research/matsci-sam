@@ -453,10 +453,8 @@ async function main() {
     await jump(page, "my-field-drafts")
     await expect(page.locator("#community-access")).toHaveCount(0)
     await page
-      .getByRole("navigation", { name: "Community workspace" })
-      .getByRole("button", { name: "More", exact: true })
+      .getByRole("link", { name: "Manage community", exact: true })
       .click()
-    await page.getByRole("menuitem", { name: "Settings", exact: true }).click()
     await expect(page.getByLabel("Who can view content")).toBeVisible()
     await page.locator("summary#workspace-tools").click()
     await expect(
@@ -567,10 +565,8 @@ async function main() {
     await jump(page, "my-field-drafts", true)
     await capture(page, "my-work-mobile")
     await page
-      .getByRole("navigation", { name: "Community workspace" })
-      .getByRole("button", { name: "More", exact: true })
+      .getByRole("link", { name: "Manage community", exact: true })
       .click()
-    await page.getByRole("menuitem", { name: "Settings", exact: true }).click()
     await page.locator("summary#workspace-tools").click()
     await expect(
       page.getByRole("button", {
@@ -856,7 +852,7 @@ async function main() {
       page.locator('a[href^="/metadata/workspace/"]').first()
     ).toBeVisible()
     await expect(
-      page.getByRole("link", { name: "Settings", exact: true })
+      page.getByRole("link", { name: "Manage community", exact: true })
     ).toHaveCount(0)
     const deniedSettings = `${base}/communities/${fixture.communitySlug}?view=settings`
     expectedNotFound.add(deniedSettings)
@@ -936,8 +932,8 @@ async function main() {
     await emptyPage.setViewportSize({ width: 390, height: 844 })
     await emptyPage.reload()
     assert.deepEqual(await outlineTargets(emptyPage), [
-      "#my-field-drafts",
-      "#term-drafts"
+      "#term-drafts",
+      "#my-field-drafts"
     ])
     await expect(
       emptyPage.getByRole("link", { name: genericPayload.label, exact: true })
@@ -982,7 +978,7 @@ async function main() {
     ).toBeVisible()
     await expect(emptyPage.getByLabel("Who can view content")).toHaveCount(0)
     record(
-      "Generic metadata work appears before empty term drafts, recent work stays private, and help supports keyboard and mobile use without MatCore controls"
+      "Draft sections retain their fixed order, recent work stays private, and help supports keyboard and mobile use without MatCore controls"
     )
     const anonymous = await browser.newContext({
       viewport: { width: 390, height: 844 }

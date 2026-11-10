@@ -68,6 +68,25 @@ else: raise AssertionError('Unreviewed artifact was accepted')
   { encoding: "utf8" }
 )
 assert.equal(parser.status, 0, parser.stderr)
+const pdfParser = spawnSync(
+  "python3",
+  ["-B", "scripts/test-matcore-standard-pdf.py"],
+  {
+    encoding: "utf8"
+  }
+)
+assert.equal(pdfParser.status, 0, pdfParser.stderr)
+// Supplied PDFs identify a publisher separately from the document location.
+const pdfFixture = structuredClone(
+  fixture
+) as import("../lib/matcore-standard-types").MatCoreStandardManifest
+pdfFixture.release.sourceUrlRole = "publisher"
+pdfFixture.release.artifactTitle = "Invented supplied PDF"
+pdfFixture.fields[0].source.page = 4
+const pdfRows = matcoreManifestRows(parseMatcoreSourceManifest(pdfFixture))
+assert.equal(pdfRows[0].source.sourceUrlRole, "publisher")
+assert.equal(pdfRows[0].source.artifactTitle, "Invented supplied PDF")
+assert.equal(pdfRows[0].source.sourcePage, 4)
 console.log(
   "Synthetic MatCore source validation, inheritance, parser primitives and unreviewed-source rejection passed."
 )

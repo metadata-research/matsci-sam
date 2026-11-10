@@ -165,9 +165,19 @@ export function SourceCatalogEntry({
           rel="noreferrer"
           className="text-sm underline underline-offset-4"
         >
-          Read the source specification
+          {sourceOccurrence.sourceUrlRole === "publisher"
+            ? "Publisher website"
+            : "Read the source specification"}
         </a>
       </div>
+      {sourceRelease.artifactTitle ? (
+        <p className="text-sm text-muted-foreground">
+          {sourceRelease.artifactTitle}
+          {sourceOccurrence.sourcePage
+            ? `, page ${sourceOccurrence.sourcePage}`
+            : ""}
+        </p>
+      ) : null}
       {entry.workspace.retired ? (
         <p className="text-sm text-muted-foreground">
           This vocabulary is retired. Its source entries remain available to

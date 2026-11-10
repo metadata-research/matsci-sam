@@ -18,14 +18,18 @@ async function main() {
       continue
     }
     if (
-      !["--manifest", "--artifact", "--vocabulary", "--actor"].includes(
-        args[i]
-      ) ||
+      ![
+        "--manifest",
+        "--artifact",
+        "--baseline-artifact",
+        "--vocabulary",
+        "--actor"
+      ].includes(args[i]) ||
       !args[i + 1] ||
       values.has(args[i])
     )
       throw new Error(
-        "Use --manifest PATH --artifact PATH --vocabulary SLUG --actor ADMIN_ID [--apply]. Default is a rolled-back rehearsal."
+        "Use --manifest PATH --artifact PATH --vocabulary SLUG --actor ADMIN_ID [--baseline-artifact PATH] [--apply]. Version 0.5.0 requires the reviewed 0.3.0 HTML baseline. Default is a rolled-back rehearsal."
       )
     values.set(args[i], args[++i])
   }
@@ -75,19 +79,28 @@ async function main() {
     throw new Error(
       "Protected source artifact hash does not match the manifest."
     )
-  if (manifest.release.version !== "0.3.0")
+  if (!["0.3.0", "0.5.0"].includes(manifest.release.version))
     throw new Error(
-      "This installer accepts the reviewed 0.3.0 source only. Review the parser and identity mapping before installing another release."
+      "This installer accepts reviewed 0.3.0 and 0.5.0 sources only. Review the parser and identity mapping before installing another release."
     )
+  const isPdf = manifest.release.version === "0.5.0"
+  if (isPdf) await protectedFile("--baseline-artifact")
+  else if (values.has("--baseline-artifact"))
+    throw new Error("Version 0.3.0 does not take a baseline artifact.")
   const verification = spawnSync(
     "python3",
     [
-      "scripts/build-matcore-standard.py",
+      isPdf
+        ? "scripts/build-matcore-standard-pdf.py"
+        : "scripts/build-matcore-standard.py",
       "--source",
       values.get("--artifact")!,
       "--output",
       values.get("--manifest")!,
-      "--check"
+      "--check",
+      ...(isPdf
+        ? ["--baseline-source", values.get("--baseline-artifact")!]
+        : [])
     ],
     { encoding: "utf8", timeout: 30000, maxBuffer: 1024 * 1024 }
   )
