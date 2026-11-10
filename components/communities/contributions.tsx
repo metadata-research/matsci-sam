@@ -34,6 +34,7 @@ export function CommunityContributions({
   metadataEnabled,
   profiles,
   referenceReleaseId,
+  referenceVersions,
   hasMore,
   offset
 }: {
@@ -45,6 +46,7 @@ export function CommunityContributions({
   metadataEnabled: boolean
   profiles: { id: string; label?: string }[]
   referenceReleaseId?: string
+  referenceVersions: { id: string; version: string }[]
   hasMore: boolean
   offset: number
 }) {
@@ -103,13 +105,55 @@ export function CommunityContributions({
       </div>
       <form className="flex flex-wrap items-end gap-3" action={pathname}>
         <input type="hidden" name="view" value="contributions" />
-        {["release", "standard", "edition", "layout"].map((name) =>
+        {["standard", "edition", "layout"].map((name) =>
           query.get(name) ? (
-            <input key={name} type="hidden" name={name} value={query.get(name)!} />
+            <input
+              key={name}
+              type="hidden"
+              name={name}
+              value={query.get(name)!}
+            />
           ) : null
         )}
         {query.get("profile") ? (
           <input type="hidden" name="profile" value={query.get("profile")!} />
+        ) : null}
+        {referenceReleaseId && referenceVersions.length ? (
+          <label className="min-w-0 text-sm">
+            Reference version
+            <select
+              name="release"
+              value={referenceReleaseId}
+              className="block h-9 max-w-full rounded-md border bg-background px-2"
+              onChange={(event) => {
+                const filters = new FormData(event.currentTarget.form!)
+                setSelected([])
+                router.push(
+                  href({
+                    release: event.target.value,
+                    offset: null,
+                    source: null,
+                    edition: null,
+                    standard:
+                      query.get("standard") === "release"
+                        ? "reference"
+                        : query.get("standard"),
+                    q: String(filters.get("q") ?? "") || null,
+                    type: String(filters.get("type") ?? "all"),
+                    status: String(filters.get("status") ?? "all")
+                  })
+                )
+              }}
+            >
+              {referenceVersions.map((release) => (
+                <option key={release.id} value={release.id}>
+                  v{release.version}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : query.get("release") ? (
+          <input type="hidden" name="release" value={query.get("release")!} />
         ) : null}
         <label className="min-w-44 flex-1 text-sm">
           Find a contribution

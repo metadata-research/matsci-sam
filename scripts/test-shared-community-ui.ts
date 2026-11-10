@@ -9,6 +9,7 @@ import {
   expect as baseExpect,
   type Browser,
   type BrowserContext,
+  type Locator,
   type Page
 } from "@playwright/test"
 import { and, eq, inArray } from "drizzle-orm"
@@ -90,6 +91,9 @@ async function main() {
   let browser: Browser | undefined,
     page: Page | undefined,
     source: Awaited<ReturnType<typeof installSyntheticUiSource>> | undefined,
+    olderSource:
+      | Awaited<ReturnType<typeof installSyntheticUiSource>>
+      | undefined,
     failure: unknown
   const pass = (name: string) => {
     passed.push(name)
@@ -109,7 +113,11 @@ async function main() {
         .update(communitiesTable)
         .set({ title: fixture.communityTitle })
         .where(eq(communitiesTable.id, fixture.communityId))
-    source = await installSyntheticUiSource(mixed)
+    const versionSuffix = `ui-${randomUUID()}`,
+      olderVersion = `0.3.0-${versionSuffix}`,
+      latestVersion = `0.5.0-${versionSuffix}`
+    olderSource = await installSyntheticUiSource(mixed, olderVersion)
+    source = await installSyntheticUiSource(mixed, latestVersion)
     await db.insert(vocabularyWorkspaceSettingsTable).values({
       vocabularySlug: mixed.vocabularySlug,
       metadataEnabled: true,
@@ -161,24 +169,40 @@ async function main() {
         note: "Defines the recorded spacing."
       }
     ]
-    const publication = await db.transaction(async (tx) => {
-      const draft = await createMatcoreDraft(
-        tx,
-        {
-          id: randomUUID(),
-          vocabularySlug: mixed.vocabularySlug,
-          profileKey: "pf",
-          profileReleaseId: source!.releaseId,
-          payload
-        },
-        mixed.userId
-      )
-      return submitMatcoreDraft(
-        tx,
-        { id: draft.id, expectedVersion: draft.version },
-        mixed.userId
-      )
-    })
+    const publishProposal = (releaseId: string, proposalPayload = payload) =>
+      db.transaction(async (tx) => {
+        const draft = await createMatcoreDraft(
+          tx,
+          {
+            id: randomUUID(),
+            vocabularySlug: mixed.vocabularySlug,
+            profileKey: "pf",
+            profileReleaseId: releaseId,
+            payload: proposalPayload
+          },
+          mixed.userId
+        )
+        return submitMatcoreDraft(
+          tx,
+          { id: draft.id, expectedVersion: draft.version },
+          mixed.userId
+        )
+      })
+    const olderPayload = structuredClone(payload)
+    olderPayload.label = "Legacy mesh spacing"
+    olderPayload.definition =
+      "Mesh spacing recorded for the earlier reference version."
+    const olderPublication = await publishProposal(
+      olderSource.releaseId,
+      olderPayload
+    )
+    const publication = await publishProposal(source.releaseId)
+    const publicationIds = [olderPublication.revisionId, publication.revisionId]
+    const publishedBefore = await db
+      .select()
+      .from(revisions)
+      .where(inArray(revisions.id, publicationIds))
+      .orderBy(revisions.id)
     browser = await launchBrowser()
     const guard = async (context: BrowserContext) => {
       await context.route("**/*", async (route) => {
@@ -304,6 +328,9 @@ async function main() {
     ).toBeVisible()
     await expect(
       page.getByRole("link", { name: "Propose field", exact: true })
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("combobox", { name: "Reference version", exact: true })
     ).toHaveCount(0)
     pass(
       "ordinary community shows shared navigation and ordinary contribution actions"
@@ -454,6 +481,173 @@ async function main() {
     ).toHaveAttribute("href", `/add?vocabularySlug=${mixed.vocabularySlug}`)
     pass(
       "home quick start uses the active metadata community and retains an explicit Add term action"
+    )
+    const referenceVersion = (): Locator =>
+      page!.getByRole("combobox", {
+        name: "Reference version",
+        exact: true
+      })
+    await page.goto(
+      `${base}/communities/${mixed.communitySlug}?view=contributions&profile=pf`
+    )
+    await expect(referenceVersion()).toHaveValue(source.releaseId)
+    for (const version of [olderVersion, latestVersion])
+      await expect(
+        referenceVersion().getByRole("option", {
+          name: new RegExp(version)
+        })
+      ).toHaveCount(1)
+    await expect(
+      page.getByRole("link", { name: "Mesh spacing", exact: true })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("link", { name: "Legacy mesh spacing", exact: true })
+    ).toHaveCount(0)
+    const referenceCases = [
+      {
+        source: olderSource,
+        version: olderVersion,
+        publication: olderPublication,
+        label: "Legacy mesh spacing",
+        otherLabel: "Mesh spacing"
+      },
+      {
+        source,
+        version: latestVersion,
+        publication,
+        label: "Mesh spacing",
+        otherLabel: "Legacy mesh spacing"
+      }
+    ]
+    for (const selected of referenceCases) {
+      await referenceVersion().selectOption(selected.source.releaseId)
+      await expect(page).toHaveURL(
+        (url) => url.searchParams.get("release") === selected.source.releaseId
+      )
+      await page.reload()
+      await expect(referenceVersion()).toHaveValue(selected.source.releaseId)
+      const proposal: Locator = page.getByRole("link", {
+        name: selected.label,
+        exact: true
+      })
+      await expect(proposal).toBeVisible()
+      await expect(
+        page.getByRole("link", { name: selected.otherLabel, exact: true })
+      ).toHaveCount(0)
+      await page.screenshot({
+        path: resolve(
+          output,
+          `desktop-contributions-reference-${selected.version.split("-ui-")[0]}.png`
+        ),
+        fullPage: true,
+        animations: "disabled"
+      })
+      const proposalHref: string | null = await proposal.getAttribute("href")
+      assert.ok(proposalHref)
+      const proposalUrl: URL = new URL(proposalHref, base)
+      assert.equal(
+        proposalUrl.pathname,
+        `/metadata/fields/${selected.publication.fieldId}`
+      )
+      assert.equal(
+        proposalUrl.searchParams.get("revision"),
+        selected.publication.revisionId
+      )
+      await proposal.click()
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === `/metadata/fields/${selected.publication.fieldId}` &&
+          url.searchParams.get("revision") === selected.publication.revisionId
+      )
+      await page.reload()
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === `/metadata/fields/${selected.publication.fieldId}` &&
+          url.searchParams.get("revision") === selected.publication.revisionId
+      )
+      await expect(
+        page.getByText(
+          `Profile context · MatCore ${selected.version} · Phase field (PF)`,
+          { exact: true }
+        )
+      ).toBeVisible()
+      await page
+        .getByRole("link", { name: "Back to contributions", exact: true })
+        .click()
+      await expect(referenceVersion()).toHaveValue(selected.source.releaseId)
+    }
+    pass(
+      "Contributions defaults to the latest reference and directly discovers 0.3 and 0.5 proposals with unchanged revision links and reference profile context after reload"
+    )
+    const versionFilters = new URLSearchParams({
+      view: "contributions",
+      profile: "pf",
+      q: "mesh",
+      type: "proposal",
+      status: "awaiting_review",
+      standard: "reference",
+      layout: "hierarchy"
+    })
+    const unappliedFilters = new URLSearchParams(versionFilters)
+    unappliedFilters.set("q", "ionic")
+    unappliedFilters.set("type", "definition")
+    unappliedFilters.set("status", "published")
+    await page.goto(
+      `${base}/communities/${mixed.communitySlug}?${unappliedFilters}&release=${encodeURIComponent(source.releaseId)}&offset=50`
+    )
+    await expect(
+      page.getByRole("link", { name: "Previous page", exact: true })
+    ).toBeVisible()
+    const expectVersionFilters = async (releaseId: string) => {
+      await expect(page!).toHaveURL(
+        (url) =>
+          url.searchParams.get("release") === releaseId &&
+          !url.searchParams.has("offset") &&
+          [...versionFilters].every(
+            ([key, value]) => url.searchParams.get(key) === value
+          )
+      )
+      await expect(
+        page!.getByLabel("Find a contribution", { exact: true })
+      ).toHaveValue("mesh")
+      await expect(
+        page!.getByRole("combobox", { name: "Type", exact: true })
+      ).toHaveValue("proposal")
+      await expect(
+        page!.getByRole("combobox", { name: "Status", exact: true })
+      ).toHaveValue("awaiting_review")
+      await expect(page!.getByText("0 selected", { exact: true })).toBeVisible()
+    }
+    await page.getByLabel("Find a contribution", { exact: true }).fill("mesh")
+    await page
+      .getByRole("combobox", { name: "Type", exact: true })
+      .selectOption("proposal")
+    await page
+      .getByRole("combobox", { name: "Status", exact: true })
+      .selectOption("awaiting_review")
+    assert.equal(new URL(page.url()).searchParams.get("q"), "ionic")
+    await referenceVersion().selectOption(olderSource.releaseId)
+    await expectVersionFilters(olderSource.releaseId)
+    await page
+      .getByRole("checkbox", { name: /^Select Legacy mesh spacing,/ })
+      .check()
+    await expect(page.getByText("1 selected", { exact: true })).toBeVisible()
+    await referenceVersion().selectOption(source.releaseId)
+    await expectVersionFilters(source.releaseId)
+    await expect(
+      page.getByRole("link", { name: "Legacy mesh spacing", exact: true })
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("checkbox", { name: /^Select Mesh spacing,/ })
+    ).not.toBeChecked()
+    await page.getByRole("checkbox", { name: /^Select Mesh spacing,/ }).check()
+    await referenceVersion().selectOption(olderSource.releaseId)
+    await expectVersionFilters(olderSource.releaseId)
+    await expect(
+      page.getByRole("checkbox", { name: /^Select Legacy mesh spacing,/ })
+    ).not.toBeChecked()
+    pass(
+      "reference switching retains unapplied search, type and status plus the selected area, resets pagination and clears selected revisions in both directions"
     )
     const contributionContext = new URLSearchParams({
       view: "contributions",
@@ -776,13 +970,31 @@ async function main() {
     await expect(
       page.getByRole("heading", { name: "Contributions", exact: true })
     ).toBeVisible()
+    await expect(referenceVersion()).toBeVisible()
+    for (const selected of referenceCases) {
+      await referenceVersion().selectOption(selected.source.releaseId)
+      await expect(referenceVersion()).toHaveValue(selected.source.releaseId)
+      await expect(
+        page.getByRole("link", { name: selected.label, exact: true })
+      ).toBeVisible()
+      await expect(
+        page.getByRole("link", { name: selected.otherLabel, exact: true })
+      ).toHaveCount(0)
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth + 1
+        ),
+        false,
+        "The mobile reference selector and contributions fit the viewport"
+      )
+    }
     await page.screenshot({
       path: resolve(output, "mobile-contributions.png"),
       fullPage: true,
       animations: "disabled"
     })
     pass(
-      "mobile navigation keeps shared order, visible management and selected area without horizontal overflow"
+      "mobile navigation and the visible reference selector switch both versions while preserving the area without horizontal overflow"
     )
 
     await signInAs(context, base, ordinary.userId)
@@ -790,6 +1002,19 @@ async function main() {
       `${base}/communities/${mixed.communitySlug}?view=contributions&profile=pf`
     )
     await checkOrder(false)
+    await expect(referenceVersion()).toBeVisible()
+    for (const selected of referenceCases) {
+      await referenceVersion().selectOption(selected.source.releaseId)
+      await expect(page).toHaveURL(
+        (url) => url.searchParams.get("release") === selected.source.releaseId
+      )
+      await expect(
+        page.getByRole("link", { name: selected.label, exact: true })
+      ).toBeVisible()
+      await expect(
+        page.getByRole("link", { name: selected.otherLabel, exact: true })
+      ).toHaveCount(0)
+    }
     await expect(
       page.getByRole("button", { name: "Export review packet", exact: true })
     ).toHaveCount(0)
@@ -811,7 +1036,7 @@ async function main() {
       page.getByRole("button", { name: "Export review packet", exact: true })
     ).toHaveCount(0)
     pass(
-      "ordinary member can read contributions but cannot export the steward packet"
+      "ordinary member discovers proposals from both reference versions but cannot export the steward packet"
     )
     await signInAs(context, base, outsider.userId)
     await page.goto(
@@ -839,6 +1064,15 @@ async function main() {
     ).toHaveCount(0)
     pass(
       "private community content stays hidden from outsiders while public ordinary contributions remain readable"
+    )
+    assert.deepEqual(
+      await db
+        .select()
+        .from(revisions)
+        .where(inArray(revisions.id, publicationIds))
+        .orderBy(revisions.id),
+      publishedBefore,
+      "Switching reference versions preserves both published proposals and their recorded reference profile context"
     )
     assert.deepEqual(errors, [])
     assert.deepEqual(blocked, [])
@@ -919,6 +1153,12 @@ async function main() {
       })
       if (source)
         await removeSyntheticUiSource(mixed, source.created, source.releaseId)
+      if (olderSource)
+        await removeSyntheticUiSource(
+          mixed,
+          olderSource.created,
+          olderSource.releaseId
+        )
     }
     for (const fixture of fixtures.reverse())
       await removeGuidedSetupFixture(fixture)

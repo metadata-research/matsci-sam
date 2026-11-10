@@ -624,6 +624,9 @@ export default async function CommunityPage({
             metadataEnabled={workspace.metadataEnabled && !community.retiredAt}
             profiles={standard?.profiles ?? []}
             referenceReleaseId={standard?.reference?.id}
+            referenceVersions={(standard?.referenceVersions ?? []).map(
+              ({ id, version }) => ({ id, version })
+            )}
           />
         ) : null}
         {standard &&

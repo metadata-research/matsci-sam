@@ -248,6 +248,12 @@ The comparison includes definitions, examples, field rules and citations.
 When both are available, **Compare with** switches between the preceding
 revision and the reference.
 
+Use **Reference version** in **Contributions** to find proposals based on an
+earlier specification, such as v0.3.0, or the latest reference, such as v0.5.0.
+Your search, type, status and area filters remain selected. Each proposal keeps
+its original reference and revision history. Term definitions appear across
+reference versions.
+
 Members can add attributed comments in **Discussion**.
 **Sources & history** follows Discussion. Comments and decisions belong to the exact revision.
 Sources and history follow the community access rules. Existing proposals
