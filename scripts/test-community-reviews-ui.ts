@@ -364,7 +364,9 @@ async function main() {
     await a
       .getByRole("button", { name: "Save response", exact: true })
       .dblclick()
-    await expect(a.getByRole("status")).toContainText("Response saved")
+    await expect(a.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     assert.equal((await row()).version, 1)
     await a.reload()
     await expect(
@@ -405,7 +407,9 @@ async function main() {
       .getByLabel("Comment (optional)")
       .fill("Please include units and boundary conditions.")
     await a.getByRole("button", { name: "Save response", exact: true }).click()
-    await expect(a.getByRole("status")).toContainText("Response saved")
+    await expect(a.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     await b
       .getByLabel("Comment (optional)")
       .fill("My conflicting response stays here.")
@@ -445,7 +449,9 @@ async function main() {
       "Recovered after an interrupted connection."
     )
     await a.getByRole("button", { name: "Save response", exact: true }).click()
-    await expect(a.getByRole("status")).toContainText("Response saved")
+    await expect(a.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     assert.equal((await row()).version, 3)
     pass("Interrupted save survives reload and retry")
     await a.unroute("**/api/trpc/communityReviews.save*")
@@ -464,7 +470,9 @@ async function main() {
     await expect(a.locator("article").getByRole("alert")).toBeVisible()
     assert.equal((await row()).version, 4)
     await a.getByRole("button", { name: "Save response", exact: true }).click()
-    await expect(a.getByRole("status")).toContainText("Response saved")
+    await expect(a.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     assert.equal((await row()).version, 4)
     pass(
       "Lost acknowledgement retries without a duplicate vote or history entry"

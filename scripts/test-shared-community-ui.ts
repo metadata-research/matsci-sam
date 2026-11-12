@@ -480,7 +480,9 @@ async function main() {
     await page
       .getByRole("button", { name: "Save response", exact: true })
       .click()
-    await expect(page.getByRole("status")).toContainText("Response saved")
+    await expect(page.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     await page.reload()
     await page
       .getByRole("button", { name: "My responses", exact: true })
@@ -659,7 +661,7 @@ async function main() {
     )
     await page
       .getByRole("link", {
-        name: "Request feedback / View results",
+        name: "Request feedback",
         exact: true
       })
       .click()

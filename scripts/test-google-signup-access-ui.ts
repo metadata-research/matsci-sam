@@ -198,9 +198,13 @@ async function main() {
         await page
           .getByRole("button", { name: "Request access", exact: true })
           .click()
-        await expect(page.getByRole("status")).toContainText("awaiting review")
+        await expect(page.getByRole("main").getByRole("status")).toContainText(
+          "awaiting review"
+        )
         await page.reload()
-        await expect(page.getByRole("status")).toContainText("awaiting review")
+        await expect(page.getByRole("main").getByRole("status")).toContainText(
+          "awaiting review"
+        )
         await locked(context)
         const request = await db.query.communityAccessRequestsTable.findFirst({
           where: and(

@@ -213,7 +213,9 @@ async function main() {
     await staff
       .getByRole("button", { name: "Save response", exact: true })
       .click()
-    await expect(staff.getByRole("status")).toContainText("Comment saved")
+    await expect(staff.getByRole("article").getByRole("status")).toContainText(
+      "Comment saved"
+    )
     await expect(
       staff.getByText("1 of 1 reviewed", { exact: true })
     ).toBeVisible()
@@ -310,9 +312,25 @@ async function main() {
       template = await readFile((await download.path())!, "utf8")
     assert.ok(template.includes("FILL"))
     assert.ok(template.includes("pf"))
-    await expect(
-      a.getByRole("link", { name: "Propose a missing field", exact: true })
-    ).toHaveAttribute("href", /view=contributions.*profile=pf.*action=new/)
+    const missingField = a.getByRole("link", {
+      name: "Propose a missing field",
+      exact: true
+    })
+    await expect(missingField).toBeVisible()
+    const missingFieldUrl = new URL(
+      (await missingField.getAttribute("href"))!,
+      base
+    )
+    assert.equal(missingFieldUrl.origin, base)
+    assert.equal(
+      missingFieldUrl.pathname,
+      `/communities/${member.communitySlug}`
+    )
+    assert.equal(missingFieldUrl.searchParams.get("view"), "review")
+    assert.equal(missingFieldUrl.searchParams.get("content"), "contributions")
+    assert.equal(missingFieldUrl.searchParams.get("profile"), "pf")
+    assert.equal(missingFieldUrl.searchParams.get("release"), source.releaseId)
+    assert.equal(missingFieldUrl.searchParams.get("action"), "new")
     pass(
       "Participant downloads the pinned XML template and can open the review guide"
     )
@@ -589,7 +607,10 @@ async function main() {
       .fill("Saved while returning to the community.")
     await a
       .getByRole("navigation", { name: "Community workspace", exact: true })
-      .getByRole("link", { name: "Quick start", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
+    await a
+      .getByRole("menuitem", { name: "Getting started", exact: true })
       .click()
     await expect(a).toHaveURL(/view=quickstart/)
     await a.goto(href)
