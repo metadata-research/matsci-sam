@@ -96,6 +96,8 @@ export function WorkspaceList({
     const params = new URLSearchParams(query)
     params.delete("profile")
     params.delete("offset")
+    if ((next.profileKey || undefined) !== profileKey)
+      params.delete("contributionOffset")
     if (next.profileKey) params.set("profile", next.profileKey)
     if (next.offset) params.set("offset", String(next.offset))
     return `${path}${params.size ? `?${params}` : ""}`

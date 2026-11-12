@@ -10,7 +10,8 @@ stay private until published with the definition.
 1. Select **Add file or text** in Simple or Advanced.
 2. Choose **Upload file** or **Paste text**. For an upload, select **Source**
    to support the definition or **Example** to illustrate its meaning.
-3. Enter a **Title** and explain **How does it relate to this term?** A source
+3. Enter a **Title** and explain **How does it relate to this term?** This
+   explanation is optional for pasted text. A source
    can also have a **Citation** and **Page or section**.
 4. Select **Attach example** or **Attach source**. Repeat for another file if
    needed.
@@ -30,7 +31,7 @@ Select **Use this source with the assistant** and choose relevant passages or
 full text. Matching passages are selected initially. **Select all passages**
 also includes surrounding text. Use **Clear selection** to start again, or
 adjust individual checkboxes. You can select up to 100 passages within
-the assistant's text limit. The preview shows the exact source text to send.
+the text limit for the assistant. The preview shows the exact source text to send.
 MatSci-SAM sends the selected text when you request a suggestion. Uploading,
 pasting, and checking a source do not contact an assistant. See
 [source counts](/docs/ai-refinement#review-sources-sent-to-the-assistant) when
@@ -67,15 +68,16 @@ Files attached to a saved term draft remain available with that draft. Other
 unpublished uploads expire after 24 hours. Your account can hold six unattached
 temporary files and up to 50 distinct unpublished files across drafts, within
 30 MiB in total. A document reused across imported drafts counts once toward
-storage. Each contribution can include up to three files.
+storage. Each contribution can include up to three files or pasted sources
+in total.
 
 Remove unused files when a limit is reached. Removing a file from one draft
 does not remove it from another draft that uses it.
 
 ## Add a written example
 
-Use **Add an example** on a definition page to describe a use without
-uploading a file. The example records your authorship and the displayed definition
+Use **Add an example** on the current revision of a definition to describe a use
+without uploading a file. The example records your authorship and the displayed definition
 revision. An optional example submitted with a new term is also attributed separately.
 See [Examples of use](/docs/community#examples-of-use) for featured examples
 and their relationship to later revisions.

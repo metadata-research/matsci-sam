@@ -1,14 +1,32 @@
 export const COMMUNITY_SECTIONS = [
-  { id: "quickstart", label: "Quick start" },
-  { id: "vocabulary", label: "Browse" },
-  { id: "contributions", label: "Contributions" },
+  { id: "vocabulary", label: "Vocabulary" },
   { id: "review", label: "Reviews" },
-  { id: "work", label: "My work" },
-  { id: "people", label: "People" }
+  { id: "work", label: "My work" }
 ] as const
 
+export function communityPrimarySections(signedIn: boolean) {
+  return COMMUNITY_SECTIONS.filter(({ id }) => signedIn || id !== "work")
+}
+
+export function communityMoreSections({
+  showSurveys,
+  showSettings
+}: {
+  showSurveys: boolean
+  showSettings: boolean
+}) {
+  return [
+    { id: "people", label: "People" },
+    { id: "collections", label: "Collections" },
+    { id: "quickstart", label: "Getting started" },
+    { id: "overview", label: "About" },
+    ...(showSurveys ? [{ id: "surveys", label: "Surveys" }] : []),
+    ...(showSettings ? [{ id: "settings", label: "Manage community" }] : [])
+  ]
+}
+
 export function communitySection(view: string) {
-  if (view === "proposals") return "contributions"
+  if (["proposals", "contributions"].includes(view)) return "review"
   if (view === "releases") return "vocabulary"
   return view
 }
@@ -33,6 +51,13 @@ export function communitySectionHref(
 ) {
   const params = new URLSearchParams({ view })
   for (const key of CONTEXT_KEYS) {
+    // A primary tab opens its destination, not a previously selected review
+    // item or a contribution-selection dialog. Explicit deep links are unchanged.
+    if (
+      ["review", "work"].includes(view) &&
+      !["profile", "release"].includes(key)
+    )
+      continue
     const value = context?.get(key) ?? defaults[key as keyof typeof defaults]
     if (value) params.set(key, value)
   }

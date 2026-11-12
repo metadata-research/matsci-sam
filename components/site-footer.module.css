@@ -1,0 +1,119 @@
+.footer {
+  padding: 0 var(--site-frame-gutter);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: var(--site-frame-max-width);
+  margin-inline: auto;
+  padding: 1.5rem 2rem 1.75rem;
+  padding-inline-end: 8rem;
+  border-top: 1px solid var(--border);
+}
+
+.identity {
+  display: block;
+  width: min(16rem, 100%);
+}
+
+.identity img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.nsfIdentity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  /* Align the acknowledgement optically with the MRC wordmark. */
+  margin-block-start: 0.5rem;
+}
+
+.nsfIdentity img {
+  width: 2.7rem;
+  height: auto;
+  flex: none;
+  border-radius: 999px;
+}
+
+.nsfIdentity span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.nsfIdentity small {
+  font-size: 0.75rem;
+}
+
+.links {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding-block: 0.5rem;
+  color: var(--primary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.links a:hover {
+  color: var(--foreground);
+}
+
+.links svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+}
+
+.footer a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+
+@media (max-width: 1020px) {
+  .content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline-start: 1rem;
+  }
+
+  .links {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 680px) {
+  .content {
+    grid-template-columns: 1fr;
+  }
+
+  .links {
+    grid-column: auto;
+  }
+
+  .nsfIdentity {
+    margin-block-start: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .content {
+    /* Leave the existing floating feedback control clear of the identities. */
+    padding-inline-end: 3.5rem;
+  }
+}

@@ -1624,6 +1624,18 @@ const DefinitionFormOwner = ({
     <Card className="py-0">
       <CardContent className="p-4 sm:p-6">
         <div className="flex flex-col gap-5">
+          {isAdd && (
+            <div
+              role="region"
+              aria-label="Contribution destination"
+              className="flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-md bg-muted/60 px-3 py-2 text-sm"
+            >
+              <span className="text-muted-foreground">Vocabulary</span>
+              <strong className="break-words font-medium">
+                {targetVocabulary?.title ?? "Loading vocabulary…"}
+              </strong>
+            </div>
+          )}
           <ol
             aria-label="Contribution progress"
             className="flex flex-wrap gap-x-4 gap-y-2 border-b pb-4 text-sm"
@@ -1748,9 +1760,6 @@ const DefinitionFormOwner = ({
               >
                 Confirm your term
               </h2>
-              <p className="text-sm text-muted-foreground">
-                Destination: {targetVocabulary?.title ?? "Loading vocabulary…"}
-              </p>
               <FormField
                 control={form.control}
                 name="term"

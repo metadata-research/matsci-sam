@@ -4,7 +4,7 @@ import * as oidc from "openid-client"
 import { isValidOrcidId, normalizeOrcidId } from "@/lib/orcid"
 import { validateAuthTokenEncryptionKey } from "@/lib/secret-crypto"
 
-export type OrcidAuthorizationIntent = "connect" | "login"
+export type OrcidAuthorizationIntent = "connect" | "login" | "signup"
 
 type OrcidAuthorizationState = {
   state: string
@@ -35,6 +35,10 @@ const orcidEnvironment = () =>
 
 export const isOrcidAuthEnabled = () =>
   process.env.ORCID_AUTH_ENABLED === "true"
+
+export const isOrcidAccountCreationEnabled = () =>
+  isOrcidAuthEnabled() &&
+  process.env.ORCID_AUTH_ACCOUNT_CREATION_ENABLED === "true"
 
 export const getOrcidIssuer = () => {
   const environment = orcidEnvironment()

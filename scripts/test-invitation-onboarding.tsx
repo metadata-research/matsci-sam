@@ -28,6 +28,9 @@ type Options = {
   googleConfigured?: boolean
   signup?: boolean
   email?: boolean
+  orcid?: boolean
+  orcidSignup?: boolean
+  dev?: boolean
   user?: boolean
   outcome?: "live" | "expired" | "revoked" | "redeemed"
   retired?: boolean
@@ -36,9 +39,30 @@ type Options = {
   reusable?: boolean
   study?: boolean
 }
+function loadServerModule(file: string, deps: Record<string, unknown>) {
+  const exports: Record<string, unknown> = {}
+  runInNewContext(
+    ts.transpileModule(readFileSync(file, "utf8"), {
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.CommonJS,
+        jsx: ts.JsxEmit.ReactJSX
+      }
+    }).outputText,
+    {
+      exports,
+      require: (name: string) => {
+        assert.ok(Object.hasOwn(deps, name), `Unexpected dependency ${name}`)
+        return deps[name]
+      }
+    }
+  )
+  return exports
+}
 async function render(file: string, params = {}, options: Options = {}) {
   const signup = options.signup !== false && options.email !== false
   const deps: Record<string, unknown> = {
+    "server-only": {},
     "react/jsx-runtime": jsxRuntime,
     "next/link": { default: Link },
     "next/image": { default: Image },
@@ -61,13 +85,17 @@ async function render(file: string, params = {}, options: Options = {}) {
       isEmailAuthEnabled: () => options.email !== false,
       isEmailAccountCreationEnabled: () => signup
     },
-    "@/lib/dev-auth": { isDevAuthEnabled: () => false },
+    "@/lib/dev-auth": { isDevAuthEnabled: () => options.dev === true },
     "@/lib/apis/google": {
       isGoogleAuthConfigured: () => options.googleConfigured !== false,
       getGoogleAuthAccessMode: () =>
         options.googleOpen ? "open" : "existing-or-allowlisted"
     },
-    "@/lib/apis/orcid": { isOrcidAuthEnabled: () => false },
+    "@/lib/apis/orcid": {
+      isOrcidAuthEnabled: () => options.orcid === true,
+      isOrcidAccountCreationEnabled: () =>
+        options.orcid === true && options.orcidSignup === true
+    },
     "@/lib/orcid": { ORCID_SIGN_IN_CANCELLED_NOTICE },
     "@/lib/current-user": {
       getCurrentUser: async () => (options.user ? { id: 1 } : null)
@@ -111,27 +139,27 @@ async function render(file: string, params = {}, options: Options = {}) {
     "@/components/studies/action-button": { StudyActionButton: Button },
     "@/components/studies/instruction-content": {
       StudyInstructionContent: () => null
+    },
+    "@yamz/db": { db: {} },
+    "@/lib/community-reviews": {
+      reviewInvitation: async () =>
+        options.missing
+          ? null
+          : { title: "Materials", name: "Materials review" }
+    },
+    "@/components/communities/review-invitation": {
+      AcceptReviewInvitation: () => <button>Join review</button>
     }
   }
-  const exports: { default?: (props: unknown) => Promise<ReactNode> } = {}
-  runInNewContext(
-    ts.transpileModule(readFileSync(file, "utf8"), {
-      compilerOptions: {
-        target: ts.ScriptTarget.ES2022,
-        module: ts.ModuleKind.CommonJS,
-        jsx: ts.JsxEmit.ReactJSX
-      }
-    }).outputText,
-    {
-      exports,
-      require: (name: string) => {
-        assert.ok(Object.hasOwn(deps, name), `Unexpected dependency ${name}`)
-        return deps[name]
-      }
-    }
+  deps["@/lib/account-creation"] = loadServerModule(
+    "lib/account-creation.ts",
+    deps
   )
+  const page = loadServerModule(file, deps).default as (
+    props: unknown
+  ) => Promise<ReactNode>
   return renderToStaticMarkup(
-    await exports.default!({
+    await page({
       params: Promise.resolve({
         token: options.reusable
           ? `${communityJoinLink.COMMUNITY_JOIN_TOKEN_PREFIX}${token}`
@@ -142,13 +170,17 @@ async function render(file: string, params = {}, options: Options = {}) {
   )
 }
 const invite = "app/invite/[token]/page.tsx"
+const reviewInvite = "app/review-invite/[token]/page.tsx"
 const login = "app/login/page.tsx"
 const register = "app/register/page.tsx"
+const checkEmail = "app/register/check-email/page.tsx"
 const registrationLink = authReturn.authPathWithReturnTo(
   "/register",
   destination
 )
 const loginLink = authReturn.authPathWithReturnTo("/login", destination)
+const href = (path: string, returnTo: string | null) =>
+  `href="${authReturn.authPathWithReturnTo(path, returnTo).replaceAll("&", "&amp;")}"`
 
 async function main() {
   for (const study of [false, true]) {
@@ -163,7 +195,10 @@ async function main() {
     const html = await render(invite, {}, options)
     assert.ok(html.includes(loginLink))
     assert.doesNotMatch(html, /href="\/register/)
-    await assert.rejects(render(register, {}, options), /NOT_FOUND/)
+    const registration = await render(register, {}, options)
+    assert.match(registration, /Account creation is unavailable/)
+    assert.ok(registration.includes('href="/login"'))
+    assert.doesNotMatch(registration, /<form/)
   }
   for (const options of [
     { outcome: "expired" as const },
@@ -243,26 +278,205 @@ async function main() {
     { googleOpen: true, googleConfigured: false }
   )
   assert.doesNotMatch(unconfigured, /Create account with Google/)
+  const allMethods = {
+    googleOpen: true,
+    orcid: true,
+    orcidSignup: true
+  }
+  const methodConfigurations: {
+    name: string
+    options: Options
+    methods: { google: boolean; orcid: boolean; email: boolean }
+  }[] = [
+    {
+      name: "Google only",
+      options: { googleOpen: true, email: false },
+      methods: { google: true, orcid: false, email: false }
+    },
+    {
+      name: "ORCID only",
+      options: {
+        googleConfigured: false,
+        email: false,
+        orcid: true,
+        orcidSignup: true
+      },
+      methods: { google: false, orcid: true, email: false }
+    },
+    {
+      name: "email only",
+      options: { googleConfigured: false },
+      methods: { google: false, orcid: false, email: true }
+    },
+    {
+      name: "none",
+      options: { googleConfigured: false, email: false },
+      methods: { google: false, orcid: false, email: false }
+    },
+    {
+      name: "all",
+      options: allMethods,
+      methods: { google: true, orcid: true, email: true }
+    },
+    {
+      name: "ORCID sign-in without creation",
+      options: { googleConfigured: false, email: false, orcid: true },
+      methods: { google: false, orcid: false, email: false }
+    },
+    {
+      name: "ORCID creation flag without authentication",
+      options: { googleConfigured: false, email: false, orcidSignup: true },
+      methods: { google: false, orcid: false, email: false }
+    }
+  ]
+  for (const { name, options, methods } of methodConfigurations) {
+    const anyMethod = Object.values(methods).some(Boolean)
+    for (const returnTo of [destination, `/review-invite/${token}`]) {
+      const registration = await render(register, { returnTo }, options)
+      assert.match(registration, /Create an account/)
+      assert.equal(
+        registration.includes(href("/api/auth/google", returnTo)),
+        methods.google,
+        `${name} Google choice`
+      )
+      assert.equal(
+        registration.includes(href("/api/auth/orcid?intent=signup", returnTo)),
+        methods.orcid,
+        `${name} ORCID signup choice`
+      )
+      assert.equal(
+        registration.includes('action="/api/auth/email/start"'),
+        methods.email,
+        `${name} email form`
+      )
+      assert.equal(
+        registration.includes('name="intent" value="create"'),
+        methods.email
+      )
+      assert.equal(
+        registration.includes(`name="returnTo" value="${returnTo}"`),
+        methods.email
+      )
+      assert.ok(registration.includes(href("/login", returnTo)))
+      assert.equal(
+        registration.includes("unavailable on this site"),
+        !anyMethod
+      )
+      assert.doesNotMatch(registration, /intent=login|disabled=""/)
+
+      const signIn = await render(login, { returnTo }, options)
+      assert.equal(signIn.includes(href("/register", returnTo)), anyMethod)
+      assert.doesNotMatch(signIn, /Create an account with email|intent=signup/)
+      if (options.email !== false)
+        assert.match(signIn, /name="intent" value="sign-in"/)
+      const invitation = await render(
+        returnTo.startsWith("/review-invite/") ? reviewInvite : invite,
+        {},
+        options
+      )
+      assert.equal(invitation.includes(href("/register", returnTo)), anyMethod)
+      assert.ok(invitation.includes(href("/login", returnTo)))
+      assert.doesNotMatch(
+        invitation,
+        /<button[^>]*>(Accept invitation|Join review)/
+      )
+    }
+    const signIn = await render(login, {}, options)
+    assert.equal(signIn.includes('href="/register"'), anyMethod)
+    const signInEmail = await render(
+      checkEmail,
+      { intent: "sign-in", returnTo: destination },
+      { ...options, email: true, signup: methods.email }
+    )
+    assert.equal(
+      signInEmail.includes(href("/register", destination)),
+      anyMethod
+    )
+  }
+  const devPreview = await render(
+    register,
+    { returnTo: destination },
+    { dev: true, googleConfigured: false, email: false }
+  )
+  assert.match(devPreview, /Create account with Google/)
+  assert.match(devPreview, /Create account with ORCID/)
+  assert.equal((devPreview.match(/disabled=""/g) ?? []).length, 2)
+  assert.equal((devPreview.match(/Unavailable/g) ?? []).length, 2)
+  assert.ok(devPreview.includes(href("/dev-login", destination)))
+  assert.doesNotMatch(devPreview, /href="\/api\/auth\//)
+
+  const unknownOrcid = await render(
+    register,
+    { source: "orcid", returnTo: destination },
+    allMethods
+  )
+  assert.match(unknownOrcid, /Create an account with ORCID, or sign in/)
+  assert.doesNotMatch(unknownOrcid, /Verify your email first/)
+  const unknownOrcidWithoutSignup = await render(
+    register,
+    { source: "orcid" },
+    { googleOpen: true, email: false, orcid: true }
+  )
+  assert.match(
+    unknownOrcidWithoutSignup,
+    /then connect ORCID from your profile/
+  )
+  assert.doesNotMatch(unknownOrcidWithoutSignup, /Verify your email|with email/)
+  const cancelledOrcid = await render(
+    register,
+    { orcid: "cancelled", returnTo: destination },
+    allMethods
+  )
+  assert.ok(cancelledOrcid.includes(ORCID_SIGN_IN_CANCELLED_NOTICE))
+  assert.ok(
+    cancelledOrcid.includes(href("/api/auth/orcid?intent=signup", destination))
+  )
+  const recoveredWithOrcid = await render(
+    login,
+    { google: "not-authorized", returnTo: destination },
+    { email: false, orcid: true, orcidSignup: true }
+  )
+  assert.match(recoveredWithOrcid, /Google sign-in is restricted on this site/)
+  assert.ok(recoveredWithOrcid.includes(href("/register", destination)))
+  assert.doesNotMatch(recoveredWithOrcid, /with email/)
+  const signedInReview = await render(reviewInvite, {}, { user: true })
+  assert.match(signedInReview, /<button>Join review<\/button>/)
+  assert.doesNotMatch(signedInReview, /href="\/(register|login)/)
+  const missingReview = await render(reviewInvite, {}, { missing: true })
+  assert.match(missingReview, /Invitation unavailable/)
+  assert.doesNotMatch(missingReview, /href="\/(register|login)/)
   for (const unsafe of [
     "https://elsewhere.test",
     "//elsewhere.test",
-    "/admin/users"
+    "/admin/users",
+    "/\\elsewhere.test",
+    `${destination}#fragment`
   ]) {
-    for (const file of [login, register]) {
-      const html = await render(file, {
-        returnTo: unsafe,
-        google: "not-authorized"
-      })
+    for (const file of [login, register, checkEmail]) {
+      const html = await render(
+        file,
+        { returnTo: unsafe, google: "not-authorized", intent: "sign-in" },
+        allMethods
+      )
       assert.ok(!html.includes(unsafe))
+      assert.ok(!html.includes(encodeURIComponent(unsafe)))
       assert.doesNotMatch(html, /name="returnTo"/)
     }
   }
-  await assert.rejects(
-    render(login, { returnTo: destination }, { user: true }),
-    (error: Error) => error.message === `REDIRECT:${destination}`
-  )
+  for (const file of [login, register]) {
+    for (const returnTo of [destination, `/review-invite/${token}`])
+      await assert.rejects(
+        render(file, { returnTo }, { user: true }),
+        (error: Error) => error.message === `REDIRECT:${returnTo}`
+      )
+    for (const returnTo of [undefined, "https://elsewhere.test"])
+      await assert.rejects(
+        render(file, { returnTo }, { user: true, email: false }),
+        (error: Error) => error.message === "REDIRECT:/profile"
+      )
+  }
   console.log(
-    "Invitation onboarding pages passed: signup/sign-in choices, Google recovery, safe continuations, feature flags and explicit acceptance."
+    "Invitation onboarding pages passed: Google/ORCID/email account creation matrix, Google recovery, ORCID signup and cancellation, safe continuations, signed-in redirects and explicit invitation acceptance."
   )
 }
 main().catch((error) => {

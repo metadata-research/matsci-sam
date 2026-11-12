@@ -25,7 +25,7 @@ type Props = {
   listHref: string
   detailHref: string
   isDetailView?: boolean
-  viewLabel?: "Reference" | "Working version"
+  viewLabel?: "Reference standard" | "Community version"
 }
 
 export function SourceCatalogEntry({
@@ -35,7 +35,7 @@ export function SourceCatalogEntry({
   listHref,
   detailHref,
   isDetailView = true,
-  viewLabel = "Reference"
+  viewLabel = "Reference standard"
 }: Props) {
   const router = useRouter()
   const start = trpc.matcoreWorkflow.startSourceChange.useMutation()

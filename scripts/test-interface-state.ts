@@ -476,8 +476,8 @@ assert.match(
 )
 assert.match(
   communityPage,
-  /row\.studySlug === null && \(runs \|\| row\.retiredAt === null\)/,
-  "plain members must not see retired additional collections"
+  /const visibleCollections = worklist\.filter\(\s*\(row\) => runs \|\| row\.retiredAt === null/,
+  "plain members must not see retired collections"
 )
 assert.match(
   communityPage,

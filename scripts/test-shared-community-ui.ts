@@ -39,7 +39,12 @@ import {
   removeSyntheticUiSource
 } from "./fixtures/matcore-source-db-fixture"
 import { createDefinitionWithInitialRevision } from "../lib/definition-revisions"
-import { createMatcoreDraft, submitMatcoreDraft } from "../lib/matcore-workflow"
+import {
+  createMatcoreDraft,
+  startMatcoreSourceChange,
+  updateMatcoreDraft,
+  submitMatcoreDraft
+} from "../lib/matcore-workflow"
 import { emptyMatcoreDraftPayload } from "../lib/matcore-workflow-types"
 import { reviewFingerprints } from "./community-review-test-support"
 import {
@@ -197,7 +202,50 @@ async function main() {
       olderPayload
     )
     const publication = await publishProposal(source.releaseId)
-    const publicationIds = [olderPublication.revisionId, publication.revisionId]
+    const sourceOccurrenceId = `${olderSource.releaseId}:pf:synthetic-000`
+    const sourcePublication = await db.transaction(async (tx) => {
+      const opened = await startMatcoreSourceChange(
+        tx,
+        {
+          vocabularySlug: mixed.vocabularySlug,
+          releaseId: olderSource!.releaseId,
+          occurrenceId: sourceOccurrenceId
+        },
+        mixed.userId
+      )
+      assert.equal(opened.kind, "draft")
+      if (opened.kind !== "draft")
+        throw new Error("Expected a new source draft")
+      const [draft] = await tx
+        .select()
+        .from(drafts)
+        .where(eq(drafts.id, opened.draftId))
+      const updated = await updateMatcoreDraft(
+        tx,
+        {
+          id: draft.id,
+          expectedVersion: draft.version,
+          mutationId: randomUUID(),
+          payload: {
+            ...draft.payload,
+            label: "Grid resolution guidance",
+            rationale: "Explain the reference field for practitioners.",
+            definition: "Record the grid resolution for the simulated material."
+          }
+        },
+        mixed.userId
+      )
+      return submitMatcoreDraft(
+        tx,
+        { id: draft.id, expectedVersion: updated.version },
+        mixed.userId
+      )
+    })
+    const publicationIds = [
+      olderPublication.revisionId,
+      publication.revisionId,
+      sourcePublication.revisionId
+    ]
     const publishedBefore = await db
       .select()
       .from(revisions)
@@ -300,20 +348,41 @@ async function main() {
         name: "Community workspace",
         exact: true
       })
-    const tabOrder = [
-      "Quick start",
-      "Browse",
-      "Contributions",
-      "Reviews",
-      "My work",
-      "People",
-      "Manage community"
-    ]
+    const tabOrder = ["Vocabulary", "Reviews", "My work"]
     const checkOrder = async (manager = true) => {
       await expect(navigation()).toBeVisible()
       assert.deepEqual(
         await navigation().getByRole("link").allTextContents(),
-        manager ? tabOrder : tabOrder.slice(0, 6)
+        tabOrder
+      )
+      await navigation()
+        .getByRole("button", { name: "More", exact: true })
+        .click()
+      await expect(
+        page!.getByRole("menuitem", { name: "People", exact: true })
+      ).toBeVisible()
+      const manage = page!.getByRole("menuitem", {
+        name: "Manage community",
+        exact: true
+      })
+      if (manager) await expect(manage).toBeVisible()
+      else await expect(manage).toHaveCount(0)
+      await page!.keyboard.press("Escape")
+    }
+    const openSharedContributions = async () => {
+      await navigation()
+        .getByRole("link", { name: "Reviews", exact: true })
+        .click()
+      await page!
+        .getByRole("link", {
+          name: /^(Definitions|Definitions and proposals)$/,
+          exact: true
+        })
+        .click()
+      await expect(page!).toHaveURL(
+        (url) =>
+          url.searchParams.get("view") === "review" &&
+          url.searchParams.get("content") === "contributions"
       )
     }
     await page.goto(
@@ -321,7 +390,10 @@ async function main() {
     )
     await checkOrder()
     await expect(
-      page.getByRole("heading", { name: "Contributions", exact: true })
+      page.getByRole("heading", {
+        name: /^(Definitions|Definitions and proposals)$/,
+        exact: true
+      })
     ).toBeVisible()
     await expect(
       page.getByRole("link", { name: "Ionic conductivity", exact: true })
@@ -334,6 +406,23 @@ async function main() {
     ).toHaveCount(0)
     pass(
       "ordinary community shows shared navigation and ordinary contribution actions"
+    )
+    await page
+      .getByRole("link", { name: "Ionic conductivity", exact: true })
+      .click()
+    await page
+      .getByRole("link", { name: "Back to reviews", exact: true })
+      .click()
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get("view") === "review" &&
+        url.searchParams.get("content") === "contributions"
+    )
+    await expect(
+      page.getByRole("link", { name: "Ionic conductivity", exact: true })
+    ).toBeVisible()
+    pass(
+      "Ordinary definition revisions return to their originating community Reviews list"
     )
     await page
       .getByRole("checkbox", { name: /^Select Ionic conductivity,/ })
@@ -391,7 +480,9 @@ async function main() {
     await page
       .getByRole("button", { name: "Save response", exact: true })
       .click()
-    await expect(page.getByRole("status")).toContainText("Response saved")
+    await expect(page.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     await page.reload()
     await page
       .getByRole("button", { name: "My responses", exact: true })
@@ -466,21 +557,163 @@ async function main() {
 
     await signInAs(context, base, mixed.userId)
     await page.goto(base)
+    const myCommunities = page.getByRole("region", {
+      name: "My communities",
+      exact: true
+    })
     await expect(
-      page
-        .getByRole("region", { name: "Quick start", exact: true })
-        .getByRole("link", { name: "Propose field", exact: true })
-    ).toHaveAttribute(
-      "href",
-      `/communities/${mixed.communitySlug}?view=contributions&action=new`
+      myCommunities.getByRole("link", {
+        name: mixed.communityTitle,
+        exact: true
+      })
+    ).toHaveAttribute("href", `/communities/${mixed.communitySlug}`)
+    await expect(
+      page.getByRole("region", { name: "Quick start", exact: true })
+    ).toHaveCount(0)
+    await myCommunities
+      .getByRole("link", { name: mixed.communityTitle, exact: true })
+      .click()
+    await expect(page).toHaveURL(`${base}/communities/${mixed.communitySlug}`)
+    await expect(
+      navigation().getByRole("link", { name: "Vocabulary", exact: true })
+    ).toHaveAttribute("aria-current", "page")
+    pass(
+      "home membership links directly to the full metadata vocabulary instead of a setup menu or hidden scope change"
+    )
+    const sourceContext = new URLSearchParams({
+      view: "vocabulary",
+      standard: "reference",
+      release: olderSource.releaseId,
+      profile: "pf",
+      layout: "list",
+      source: sourceOccurrenceId
+    })
+    await page.goto(
+      `${base}/communities/${mixed.communitySlug}?${sourceContext}`
+    )
+    const sourceProposal = page
+      .locator('[aria-label="Proposals for this field"]')
+      .getByRole("link", { name: /^Grid resolution guidance/ })
+    await expect(sourceProposal).toBeVisible()
+    await sourceProposal.click()
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get("revision") === sourcePublication.revisionId
+    )
+    await page
+      .getByRole("link", { name: "Back to reference", exact: true })
+      .click()
+    await expect(page).toHaveURL((url) =>
+      [...sourceContext].every(
+        ([key, value]) => url.searchParams.get(key) === value
+      )
+    )
+    const contentNavigation = page.getByRole("navigation", {
+      name: "Vocabulary content",
+      exact: true
+    })
+    await contentNavigation
+      .getByRole("link", { name: "Terms", exact: true })
+      .click()
+    const expectReferenceContext = async () => {
+      await expect(page!).toHaveURL((url) =>
+        ["release", "profile", "standard", "layout"].every(
+          (key) => url.searchParams.get(key) === sourceContext.get(key)
+        )
+      )
+    }
+    await expectReferenceContext()
+    const vocabularySearch = page.getByRole("search", {
+      name: "Community vocabulary",
+      exact: true
+    })
+    await vocabularySearch
+      .getByLabel("Find a term", { exact: true })
+      .fill("solid")
+    await vocabularySearch
+      .getByRole("button", { name: "Search", exact: true })
+      .click()
+    await expectReferenceContext()
+    await expect(
+      page.getByRole("link", {
+        name: "Solid electrolyte 1 definition",
+        exact: true
+      })
+    ).toBeVisible()
+    await vocabularySearch
+      .getByRole("link", { name: "Clear", exact: true })
+      .click()
+    await expectReferenceContext()
+    await contentNavigation
+      .getByRole("link", { name: "Metadata fields", exact: true })
+      .click()
+    await expectReferenceContext()
+    pass(
+      "Reference proposal shortcuts and Terms search/clear round trips retain the exact v0.3 reference, section and selected layout"
+    )
+    await navigation()
+      .getByRole("link", { name: "Reviews", exact: true })
+      .click()
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get("view") === "review" &&
+        url.searchParams.get("release") === olderSource!.releaseId &&
+        url.searchParams.get("profile") === "pf"
+    )
+    await page
+      .getByRole("link", {
+        name: "Request feedback",
+        exact: true
+      })
+      .click()
+    await expect(
+      page.getByRole("heading", { name: "Request feedback", exact: true })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("combobox", { name: "Reference version", exact: true })
+    ).toHaveValue(olderSource.releaseId)
+    await expect(
+      page.getByRole("combobox", { name: "Area", exact: true })
+    ).toHaveValue("pf")
+    // Leave the form without creating a review, then exercise the selected-item route too.
+    await openSharedContributions()
+    await page
+      .getByRole("checkbox", { name: /^Select Legacy mesh spacing,/ })
+      .check()
+    await page
+      .getByRole("link", { name: "Request feedback", exact: true })
+      .click()
+    await expect(
+      page.getByRole("combobox", { name: "Reference version", exact: true })
+    ).toHaveValue(olderSource.releaseId)
+    await expect(
+      page.getByRole("combobox", { name: "Area", exact: true })
+    ).toHaveValue("pf")
+    await navigation()
+      .getByRole("link", { name: "Reviews", exact: true })
+      .click()
+    pass(
+      "Steward feedback setup retains v0.3 and Phase Field from both Reviews and a selected legacy proposal without creating a review"
+    )
+    await page.goto(
+      `${base}/metadata/fields/${olderPublication.fieldId}?revision=${olderPublication.revisionId}`
+    )
+    await page
+      .getByRole("link", { name: "Request feedback", exact: true })
+      .click()
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get("release") === olderSource!.releaseId &&
+        url.searchParams.get("target") ===
+          `proposal:${olderPublication.revisionId}`
     )
     await expect(
-      page
-        .getByRole("region", { name: "Quick start", exact: true })
-        .getByRole("link", { name: "Add term", exact: true })
-    ).toHaveAttribute("href", `/add?vocabularySlug=${mixed.vocabularySlug}`)
+      page.getByRole("combobox", { name: "Reference version", exact: true })
+    ).toHaveValue(olderSource.releaseId)
+    await expect(
+      page.getByRole("combobox", { name: "Area", exact: true })
+    ).toHaveValue("pf")
     pass(
-      "home quick start uses the active metadata community and retains an explicit Add term action"
+      "Published v0.3 proposal requests feedback on its exact revision and reference version"
     )
     const referenceVersion = (): Locator =>
       page!.getByRole("combobox", {
@@ -572,7 +805,7 @@ async function main() {
         )
       ).toBeVisible()
       await page
-        .getByRole("link", { name: "Back to contributions", exact: true })
+        .getByRole("link", { name: "Back to reviews", exact: true })
         .click()
       await expect(referenceVersion()).toHaveValue(selected.source.releaseId)
     }
@@ -580,7 +813,8 @@ async function main() {
       "Contributions defaults to the latest reference and directly discovers 0.3 and 0.5 proposals with unchanged revision links and reference profile context after reload"
     )
     const versionFilters = new URLSearchParams({
-      view: "contributions",
+      view: "review",
+      content: "contributions",
       profile: "pf",
       q: "mesh",
       type: "proposal",
@@ -650,7 +884,8 @@ async function main() {
       "reference switching retains unapplied search, type and status plus the selected area, resets pagination and clears selected revisions in both directions"
     )
     const contributionContext = new URLSearchParams({
-      view: "contributions",
+      view: "review",
+      content: "contributions",
       profile: "pf",
       release: source.releaseId,
       standard: "reference",
@@ -672,7 +907,10 @@ async function main() {
         )
     )
     await expect(
-      page.getByRole("heading", { name: "Contributions", exact: true })
+      page.getByRole("heading", {
+        name: /^(Definitions|Definitions and proposals)$/,
+        exact: true
+      })
     ).toBeVisible()
     const fieldAction = await page
       .getByRole("link", { name: "Propose field", exact: true })
@@ -828,7 +1066,7 @@ async function main() {
       page.getByRole("link", { name: "Mesh specification", exact: true })
     ).toBeVisible()
     await page
-      .getByRole("link", { name: "Back to contributions", exact: true })
+      .getByRole("link", { name: "Back to reviews", exact: true })
       .click()
     await expect(page).toHaveURL(
       (url) =>
@@ -911,9 +1149,13 @@ async function main() {
       })
     ).toBeVisible()
     await page
-      .getByRole("link", { name: "Back to contributions", exact: true })
+      .getByRole("link", { name: "Back to reviews", exact: true })
       .click()
-    await expect(page).toHaveURL(/view=contributions/)
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get("view") === "review" &&
+        url.searchParams.get("content") === "contributions"
+    )
     assert.equal(
       new URL(page.url()).searchParams.get("release"),
       source.releaseId
@@ -929,26 +1171,63 @@ async function main() {
       exact: true
     })
     await expect(workOutline).toBeVisible()
-    await expect(workOutline.getByRole("link")).toHaveCount(2)
+    await expect(workOutline.getByRole("link")).toHaveCount(3)
     assert.deepEqual(await workOutline.getByRole("link").allTextContents(), [
       "Term drafts",
-      "Metadata drafts"
+      "Metadata drafts",
+      "Submitted and published"
     ])
-    await navigation()
-      .getByRole("link", { name: "Contributions", exact: true })
-      .click()
-    pass(
-      "My work keeps a stable section order when metadata drafts exist and term drafts are empty"
-    )
-    await expect(page).toHaveURL(/view=contributions/)
+    const submittedWork = page.locator("#submitted-work").locator("..")
     await expect(
-      page.getByRole("heading", { name: "Contributions", exact: true })
+      submittedWork.getByRole("link", { name: "Mesh spacing", exact: true })
+    ).toBeVisible()
+    await expect(
+      submittedWork.getByRole("link", {
+        name: "Legacy mesh spacing",
+        exact: true
+      })
+    ).toBeVisible()
+    await expect(
+      submittedWork.getByRole("link", {
+        name: "Solid electrolyte",
+        exact: true
+      })
+    ).toBeVisible()
+    const personalReturn = new URL(page.url())
+    personalReturn.hash = "submitted-work"
+    await submittedWork
+      .getByRole("link", { name: "Solid electrolyte", exact: true })
+      .click()
+    await page
+      .getByRole("link", { name: "Back to My work", exact: true })
+      .click()
+    await expect(page).toHaveURL(personalReturn.href)
+    await expect(
+      submittedWork.getByRole("link", {
+        name: "Solid electrolyte",
+        exact: true
+      })
+    ).toBeVisible()
+    await openSharedContributions()
+    pass(
+      "My work separates drafts from the author's submitted and published work across both reference versions and returns ordinary definitions to the personal list"
+    )
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get("view") === "review" &&
+        url.searchParams.get("content") === "contributions"
+    )
+    await expect(
+      page.getByRole("heading", {
+        name: /^(Definitions|Definitions and proposals)$/,
+        exact: true
+      })
     ).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await checkOrder()
     await expect(
       navigation().getByRole("link", { name: "Manage community", exact: true })
-    ).toBeVisible()
+    ).toHaveCount(0)
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth + 1
@@ -956,19 +1235,24 @@ async function main() {
       false
     )
     await navigation()
-      .getByRole("link", { name: "Browse", exact: true })
+      .getByRole("link", { name: "Vocabulary", exact: true })
       .click()
     await expect(page).toHaveURL(/view=vocabulary/)
     await expect(page).toHaveURL(/profile=pf/)
-    await navigation()
-      .getByRole("link", { name: "Contributions", exact: true })
-      .click()
-    await expect(page).toHaveURL(/view=contributions/)
+    await openSharedContributions()
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get("view") === "review" &&
+        url.searchParams.get("content") === "contributions"
+    )
     await expect(
-      navigation().getByRole("link", { name: "Contributions", exact: true })
+      navigation().getByRole("link", { name: "Reviews", exact: true })
     ).toHaveAttribute("aria-current", "page")
     await expect(
-      page.getByRole("heading", { name: "Contributions", exact: true })
+      page.getByRole("heading", {
+        name: /^(Definitions|Definitions and proposals)$/,
+        exact: true
+      })
     ).toBeVisible()
     await expect(referenceVersion()).toBeVisible()
     for (const selected of referenceCases) {
@@ -998,6 +1282,19 @@ async function main() {
     )
 
     await signInAs(context, base, ordinary.userId)
+    await page.goto(`${base}/communities/${mixed.communitySlug}?view=work`)
+    await expect(
+      page.getByRole("link", { name: "Mesh spacing", exact: true })
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("link", { name: "Legacy mesh spacing", exact: true })
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("link", { name: "Solid electrolyte", exact: true })
+    ).toHaveCount(0)
+    pass(
+      "My work never labels another member's published contributions as personal work"
+    )
     await page.goto(
       `${base}/communities/${mixed.communitySlug}?view=contributions&profile=pf`
     )

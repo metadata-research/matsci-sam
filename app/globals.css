@@ -52,10 +52,15 @@
  * ~275 at whisper chroma); the single accent is anodized blue -- hue 262 in
  * light, and 250 (azure) in dark, where the accent sits at a much higher
  * lightness and a cooler hue keeps it from reading violet against near-black.
- * A reserved interference-gold (--ai) marks AI involvement. Both blocks define
- * the same tokens, so the theme toggle carries every component.
+ * A reserved interference-gold (--ai) marks AI involvement. The application
+ * uses the light palette; the alternate tokens remain for component compatibility.
  */
 :root {
+  --site-frame-max-width: 84rem;
+  --site-frame-gutter: 8px;
+  /* Shared by existing module styles and Tailwind typography utilities. */
+  --font-plex-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-plex-serif: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --radius: 0.625rem;
   --background: oklch(0.975 0.004 275);
   --foreground: oklch(0.2 0.012 278);
@@ -217,4 +222,61 @@
     outline: 3px solid Highlight;
     outline-offset: 6px;
   }
+}
+
+/* Swiss interface: square controls and content panels, with a rounded header. */
+html:root
+  :is(
+    button,
+    textarea,
+    select,
+    input:not([type="radio"]):not([type="checkbox"]):not([type="range"]),
+    [data-slot="button"],
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"],
+    [data-slot="tabs-list"],
+    [data-slot="tabs-trigger"],
+    [role="button"]
+  ) {
+  border-radius: 0;
+}
+
+html:root :is(h1, h2, h3) {
+  font-family: var(--font-plex-sans);
+  letter-spacing: -0.025em;
+}
+
+/* Content panels share square corners. Keep circular affordances such as
+   avatars, native radios and the rounded-full vote rail in their own shapes.
+   Module styles use the tokens; Tailwind's inline radius calculations need
+   the explicit utility overrides below. The header stays outside main. */
+html:root main {
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+}
+
+html:root
+  main
+  :is(article, section, aside, nav, div, p, ul, ol, li, details, pre, a):is(
+    .rounded,
+    .rounded-xs,
+    .rounded-sm,
+    .rounded-md,
+    .rounded-lg,
+    .rounded-xl,
+    .rounded-2xl,
+    .rounded-3xl
+  ):not(.rounded-full) {
+  border-radius: 0;
+}
+
+html:root
+  :is(
+    [aria-label="Review session"] label:has(input[type="radio"]),
+    [aria-label="Review session"] textarea
+  ) {
+  border-radius: 0;
 }

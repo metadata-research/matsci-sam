@@ -7,7 +7,7 @@ A dictionary term identifies a concept. A metadata field specifies information
 to record about a dataset, material, or activity. A term can supply a value for
 that field or explain its meaning. For example, density functional theory is a
 value for Method. Deposition temperature names a field for recording a
-temperature. These contributions describe dictionary entries.
+temperature.
 An experiment or dataset record can use the resulting term identifier as a value.
 
 ## Add metadata in Simple view
@@ -25,14 +25,12 @@ An experiment or dataset record can use the resulting term identifier as a value
 | Used as a value for        | Identify a field for which this term can supply a value    |
 | Describes a metadata field | Link an entry explaining a field to its specification      |
 
-![The metadata form in Simple view with What would you like to add?, usage guidance and Submit for review](/images/docs/help-term-metadata-v3.png)
-
-The contributor form shown here uses **Submit for review**. Administrators
+Contributors use **Submit for review**. Administrators
 use **Publish metadata**.
 
 Use **What does this describe?** in Advanced to choose the whole term or one
 definition. A description of a definition applies to its exact revision. It
-stays with that wording when a new revision is published. Choose the whole term
+stays with that text when a new revision is published. Choose the whole term
 for a description that applies across its definitions. The selected scope
 appears with the saved contribution.
 
@@ -50,7 +48,7 @@ name. Identify a related concept by its complete URL. This link does not
 declare the concepts equivalent or place the term in an ontology.
 
 Advanced includes **Source (optional)** for a **Source name or citation**,
-**Source link** and version that support your contribution, along with text
+**Source link** and **Source version** that support your contribution, along with text
 language, revision numbers, **View semantic statement**, and **Metadata
 history**. Your draft, selected scope and source remain when you switch views.
 Simple names the selected definition and revision, source details, and any
@@ -63,22 +61,22 @@ the ontology release. For an open mapped concept, the first control is
 **Cite this concept**. Both controls use that concept. Review and submit the
 form to save the contribution. Each kind of description retains its own draft.
 
-![The metadata form in Advanced view, with the ontology context beside it and the source filled by Cite this match](/images/docs/help-term-metadata-advanced-v3.png)
-
 ## Review and withdrawal
 
 Site administrators select **Accept** or **Decline** on a proposal. Accepted
-contributions appear under **Published metadata** and in public metadata
-exports. A declined proposal is labeled **Not accepted**. Proposals are visible
+contributions appear under **Published metadata** and in exports available to
+people with access to the term. A declined proposal is labeled **Not accepted**.
+Proposals are visible
 to their author and site administrators until accepted. Metadata review is
 restricted to site administrators.
 
-Administrator additions use **Publish metadata** and become public immediately.
+Administrator additions use **Publish metadata** and become available
+immediately to people with access to the term.
 Contributors can select **Withdraw** on their own additions, and site
 administrators can withdraw any addition. A withdrawal removes published
 metadata from the current descriptions and retains its attribution and
 history. To correct an addition, withdraw it and submit a new one.
 
 Use Advanced to inspect withdrawn descriptions under **Metadata history**.
-Public readers can see the history of accepted contributions. Unaccepted
+Readers with access to the term can see the history of accepted contributions. Unaccepted
 proposals remain restricted to their author and site administrators.

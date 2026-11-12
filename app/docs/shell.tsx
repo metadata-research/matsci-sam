@@ -17,37 +17,45 @@ import {
 import { cn } from "@/lib/utils"
 
 /*
- * Layout shared by every documentation page. The sidebar carries three groups
+ * Layout shared by every documentation page. The sidebar has three groups
  * with distinct headings, and the rendered markdown is the body. The markdown
  * is our own repository content, so raw rendering is safe.
  *
  * Quick start is a direct link. The guide and reference groups start collapsed,
  * including the current section. Native details controls keep navigation compact
  * and keyboard-accessible without client state. The current section and page
- * remain highlighted when browsing.
+ * are marked with an underline when browsing.
  */
 
 const linkClass = (active: boolean) =>
   cn(
-    "block rounded-md border-l-2 px-3 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+    "block px-3 py-1.5 text-sm underline-offset-4 transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
     active
-      ? "border-primary bg-accent text-accent-foreground font-medium"
-      : "border-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      ? "text-foreground font-semibold underline decoration-2"
+      : "text-muted-foreground hover:underline hover:text-foreground"
   )
 
 const Heading = ({
   Icon,
   label,
-  blurb
+  blurb,
+  active = false
 }: {
   Icon: typeof BookOpenIcon
   label: string
   blurb: string
+  active?: boolean
 }) => (
   <span className="min-w-0">
     <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
       <Icon aria-hidden className="size-4 shrink-0 text-primary" />
-      {label}
+      <span
+        className={
+          active ? "underline decoration-2 underline-offset-4" : undefined
+        }
+      >
+        {label}
+      </span>
     </span>
     <span className="mt-0.5 block text-xs text-muted-foreground">{blurb}</span>
   </span>
@@ -70,18 +78,19 @@ const CollapsibleGroup = ({
 }) => (
   <details className="group">
     <summary
-      className={cn(
-        "flex cursor-pointer list-none items-start gap-1.5 rounded-md border-l-2 px-2 py-1.5 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden",
-        activeSection === section
-          ? "border-primary bg-accent"
-          : "border-transparent"
-      )}
+      className="flex cursor-pointer list-none items-start gap-1.5 px-2 py-1.5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+      data-active={activeSection === section || undefined}
     >
       <ChevronRightIcon
         aria-hidden
         className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
       />
-      <Heading Icon={Icon} label={label} blurb={sectionBlurb[section]} />
+      <Heading
+        Icon={Icon}
+        label={label}
+        blurb={sectionBlurb[section]}
+        active={activeSection === section}
+      />
     </summary>
     <div className="mt-1 ml-4 flex flex-col gap-0.5 border-l border-border pl-2">
       <Link
@@ -145,18 +154,14 @@ export const DocsShell = ({
               <Link
                 href="/docs"
                 aria-current={onQuickstart ? "page" : undefined}
-                className={cn(
-                  "flex items-start gap-1.5 rounded-md border-l-2 px-2 py-1.5 focus-visible:outline-2 focus-visible:outline-ring",
-                  onQuickstart
-                    ? "border-primary bg-accent"
-                    : "border-transparent hover:bg-accent"
-                )}
+                className="flex items-start gap-1.5 px-2 py-1.5 focus-visible:outline-2 focus-visible:outline-ring"
               >
                 <span className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                 <Heading
                   Icon={RocketIcon}
                   label="Quick start"
                   blurb={sectionBlurb.quickstart}
+                  active={onQuickstart}
                 />
               </Link>
             </div>
@@ -188,10 +193,7 @@ export const DocsShell = ({
             </section>
 
             <div className="border-t border-border pt-3">
-              <Link
-                href="/about"
-                className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              >
+              <Link href="/about" className={linkClass(false)}>
                 About MatSci-SAM
               </Link>
             </div>
@@ -205,29 +207,37 @@ export const DocsShell = ({
           <Link
             href="/docs"
             aria-current={onQuickstart ? "page" : undefined}
-            className="text-primary hover:underline aria-[current=page]:font-semibold"
+            className={linkClass(onQuickstart)}
           >
             Quick start
           </Link>
           <Link
             href="/docs/guide"
             aria-current={
-              activeSection === "guide" && !activeSlug ? "page" : undefined
+              activeSection === "guide"
+                ? activeSlug
+                  ? "location"
+                  : "page"
+                : undefined
             }
-            className="text-primary hover:underline aria-[current=page]:font-semibold"
+            className={linkClass(activeSection === "guide")}
           >
             User guide
           </Link>
           <Link
             href="/docs/reference"
             aria-current={
-              activeSection === "reference" && !activeSlug ? "page" : undefined
+              activeSection === "reference"
+                ? activeSlug
+                  ? "location"
+                  : "page"
+                : undefined
             }
-            className="text-primary hover:underline aria-[current=page]:font-semibold"
+            className={linkClass(activeSection === "reference")}
           >
             Technical reference
           </Link>
-          <Link href="/about" className="text-primary hover:underline">
+          <Link href="/about" className={linkClass(false)}>
             About MatSci-SAM
           </Link>
         </nav>

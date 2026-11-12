@@ -173,6 +173,16 @@ async function main() {
   }
   const outline = (page: Page) =>
     page.getByRole("navigation", { name: "On this page", exact: true })
+  const openCommunityMore = async (page: Page, label: string) => {
+    await page
+      .getByRole("navigation", { name: "Community workspace", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
+    await page.getByRole("menuitem", { name: label, exact: true }).click()
+    // A modal dropdown temporarily hides the destination from role locators
+    // while it closes, even after the new URL has committed.
+    await expect(page.getByRole("menu")).toHaveCount(0)
+  }
   const outlineTargets = (page: Page) =>
     outline(page)
       .locator("a[href]")
@@ -444,17 +454,18 @@ async function main() {
     record(
       "Section links wait for hydration and retain the first chosen fragment"
     )
-    assert.deepEqual(await outlineTargets(page), [
-      "#term-drafts",
-      "#term-imports",
-      "#my-field-drafts"
-    ])
+    await expect
+      .poll(() => outlineTargets(page))
+      .toEqual([
+        "#term-drafts",
+        "#term-imports",
+        "#my-field-drafts",
+        "#submitted-work"
+      ])
     await jump(page, "my-field-drafts", true)
     await jump(page, "my-field-drafts")
     await expect(page.locator("#community-access")).toHaveCount(0)
-    await page
-      .getByRole("link", { name: "Manage community", exact: true })
-      .click()
+    await openCommunityMore(page, "Manage community")
     await expect(page.getByLabel("Who can view content")).toBeVisible()
     await page.locator("summary#workspace-tools").click()
     await expect(
@@ -483,7 +494,7 @@ async function main() {
     await expect(page.locator("#term-drafts")).toBeFocused()
     await expect(page.locator("#term-drafts")).not.toBeInViewport()
     await expect(
-      outline(page).locator('a[href$="#my-field-drafts"]')
+      outline(page).locator('a[href$="#submitted-work"]')
     ).toHaveAttribute("aria-current", "location")
     assert.equal(page.url(), beforeScrollURL)
     await page
@@ -513,17 +524,11 @@ async function main() {
     )
 
     const people = `${base}/communities/${fixture.communitySlug}?view=people`
-    await page
-      .getByRole("navigation", { name: "Community workspace", exact: true })
-      .getByRole("link", { name: "People", exact: true })
-      .click()
+    await openCommunityMore(page, "People")
     await expect(page).toHaveURL(people)
-    assert.deepEqual(await outlineTargets(page), [
-      "#people",
-      "#access-requests",
-      "#join-link",
-      "#invitations"
-    ])
+    await expect
+      .poll(() => outlineTargets(page))
+      .toEqual(["#people", "#access-requests", "#join-link", "#invitations"])
     await jump(page, "invitations")
     await jump(page, "join-link", true)
     await page.goBack()
@@ -564,9 +569,7 @@ async function main() {
     await jump(page, "my-field-drafts")
     await jump(page, "my-field-drafts", true)
     await capture(page, "my-work-mobile")
-    await page
-      .getByRole("link", { name: "Manage community", exact: true })
-      .click()
+    await openCommunityMore(page, "Manage community")
     await page.locator("summary#workspace-tools").click()
     await expect(
       page.getByRole("button", {
@@ -645,45 +648,69 @@ async function main() {
     record(
       "Metadata draft return preserves page 2 and section; a failed save retains writing until retry succeeds"
     )
-    // A menu action must wait for the same save queue as contextual links.
-    const chooseCommunity = async (name: string) => {
-      await page
-        .getByRole("navigation", { name: "Primary", exact: true })
+    // The restored selector must use the same save queue as anchor returns.
+    const communitySelection = () =>
+      page
+        .getByRole("region", { name: "Community selection", exact: true })
         .getByRole("button", { name: /^Community:/ })
-        .click()
-      await page.getByRole("menuitemradio", { name, exact: true }).click()
-    }
     await page.goto(fieldURL.href)
     await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(fieldWriting).toBeEditable()
+    await expect(communitySelection()).toHaveAttribute(
+      "aria-label",
+      "Community: All communities"
+    )
     const switchWriting =
-      "This metadata edit must save before the community changes."
+      "This metadata edit must save before selecting its community."
     const switchesBeforeFailure = mutations.filter(
       (entry) => entry.path === "communities.setActive"
     ).length
     rejectFieldSaves = true
     await fieldWriting.fill(switchWriting)
-    await chooseCommunity(fixture.communityTitle)
+    await communitySelection().click()
+    await page
+      .getByRole("menuitemradio", { name: fixture.communityTitle, exact: true })
+      .click()
     await expect(
-      page.getByText(
-        "Your draft could not be saved. Retry saving before switching communities.",
-        { exact: true }
-      )
+      page.getByRole("button", { name: "Retry save", exact: true })
     ).toBeVisible()
     await expect(page).toHaveURL(fieldURL.href)
     await expect(fieldWriting).toHaveValue(switchWriting)
     assert.equal(
       mutations.filter((entry) => entry.path === "communities.setActive")
         .length,
-      switchesBeforeFailure
+      switchesBeforeFailure,
+      "A failed save must not write the new community preference"
+    )
+    assert.equal(
+      (
+        await db
+          .select({ activeCommunityId: usersTable.activeCommunityId })
+          .from(usersTable)
+          .where(eq(usersTable.id, fixture.userId))
+      )[0].activeCommunityId,
+      null
     )
     rejectFieldSaves = false
     await page.getByRole("button", { name: "Retry save", exact: true }).click()
     await expect(
       page.getByText("Draft saved to your account", { exact: true })
     ).toBeVisible()
-    await chooseCommunity(fixture.communityTitle)
+    await communitySelection().click()
+    await page
+      .getByRole("menuitemradio", { name: fixture.communityTitle, exact: true })
+      .click()
     await expect(page).toHaveURL(`${base}/communities/${fixture.communitySlug}`)
+    await expect(communitySelection()).toHaveAttribute(
+      "aria-label",
+      `Community: ${fixture.communityTitle}`
+    )
+    assert.equal(
+      mutations.filter((entry) => entry.path === "communities.setActive")
+        .length,
+      switchesBeforeFailure + 1,
+      "One successful selection follows the completed retry"
+    )
     assert.equal(
       (
         await db
@@ -697,7 +724,7 @@ async function main() {
     await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(fieldWriting).toHaveValue(switchWriting)
     record(
-      "A failed metadata save blocks community switching without changing preference; retry preserves the draft on reload"
+      "A failed metadata save blocks community selection without changing its preference; retry saves the writing before selecting and preserves it on reload"
     )
 
     const filteredWork = `${work}&profile=dft&offset=40`
@@ -749,41 +776,66 @@ async function main() {
     await page.goto(termURL)
     await expect(termWriting).toBeEditable()
     const switchTermText =
-      "This term edit must save before switching to Everything."
+      "This term edit must save before changing the selected community."
     heldTermSave = deferred()
     const switchesBeforeSave = mutations.filter(
       (entry) => entry.path === "communities.setActive"
     ).length
+    const rememberedCommunityBefore = (
+      await db
+        .select({ activeCommunityId: usersTable.activeCommunityId })
+        .from(usersTable)
+        .where(eq(usersTable.id, fixture.userId))
+    )[0].activeCommunityId
+    assert.equal(rememberedCommunityBefore, fixture.communityId)
     await termWriting.fill(switchTermText)
-    await chooseCommunity("Everything")
+    await communitySelection().click()
+    await page
+      .getByRole("menuitemradio", { name: "All communities", exact: true })
+      .click()
     await expect.poll(() => heldTermSave!.reached).toBe(true)
+    await expect(page).toHaveURL(termURL)
+    // Reopening the selector while its first selection is saving cannot start
+    // a second switch: both choices remain disabled until that save finishes.
+    await communitySelection().click()
+    await expect(
+      page.getByRole("menuitemradio", { name: "All communities", exact: true })
+    ).toBeDisabled()
+    await expect(
+      page.getByRole("menuitemradio", {
+        name: fixture.communityTitle,
+        exact: true
+      })
+    ).toBeDisabled()
     await expect(page).toHaveURL(termURL)
     assert.equal(
       mutations.filter((entry) => entry.path === "communities.setActive")
         .length,
-      switchesBeforeSave
+      switchesBeforeSave,
+      "The community preference cannot change before the pending save finishes"
     )
-    // Reopening the menu during the held save must not enqueue another switch.
-    await page
-      .getByRole("navigation", { name: "Primary", exact: true })
-      .getByRole("button", { name: /^Community:/ })
-      .click()
-    await expect(
-      page.getByRole("menuitemradio", { name: "Everything", exact: true })
-    ).toHaveAttribute("aria-disabled", "true")
-    await page.keyboard.press("Escape")
+    assert.equal(
+      (
+        await db
+          .select({ activeCommunityId: usersTable.activeCommunityId })
+          .from(usersTable)
+          .where(eq(usersTable.id, fixture.userId))
+      )[0].activeCommunityId,
+      rememberedCommunityBefore
+    )
     heldTermSave.release()
     await expect(page).toHaveURL(`${base}/`)
     heldTermSave = undefined
     assert.equal(
       mutations.filter((entry) => entry.path === "communities.setActive")
         .length,
-      switchesBeforeSave + 1
+      switchesBeforeSave + 1,
+      "Only the first selection is committed after the pending save"
     )
     assert.equal(
       (
         await db
-          .select()
+          .select({ activeCommunityId: usersTable.activeCommunityId })
           .from(usersTable)
           .where(eq(usersTable.id, fixture.userId))
       )[0].activeCommunityId,
@@ -800,10 +852,16 @@ async function main() {
     )
     await page.goto(termURL)
     await expect(termWriting).toHaveValue(switchTermText)
+    await expect(
+      page.getByRole("region", {
+        name: "Contribution destination",
+        exact: true
+      })
+    ).toContainText(fixture.vocabularyTitle)
     await termReturn.click()
     await expect(page).toHaveURL(`${filteredWork}#term-drafts`)
     record(
-      "Community switching waits for a pending term save, blocks repeated selections and preserves writing on reload"
+      "Community selection waits for the pending term save, disables competing selections and preserves the original draft destination and writing on reload"
     )
 
     await jump(page, "term-imports")
@@ -839,11 +897,14 @@ async function main() {
         )
       )
     await page.goto(`${work}#workspace-tools`)
-    assert.deepEqual(await outlineTargets(page), [
-      "#term-drafts",
-      "#term-imports",
-      "#my-field-drafts"
-    ])
+    await expect
+      .poll(() => outlineTargets(page))
+      .toEqual([
+        "#term-drafts",
+        "#term-imports",
+        "#my-field-drafts",
+        "#submitted-work"
+      ])
     await expect(page.locator("#workspace-tools")).toHaveCount(0)
     await expect(
       page.getByRole("button", { name: "New metadata field", exact: true })
@@ -878,7 +939,10 @@ async function main() {
     await emptyPage.goto(
       `${base}/communities/${emptyFixture.communitySlug}?view=work`
     )
-    await expect(outline(emptyPage)).toHaveCount(0)
+    await expect(outline(emptyPage)).toBeVisible()
+    await expect
+      .poll(() => outlineTargets(emptyPage))
+      .toEqual(["#term-drafts", "#submitted-work"])
     await expect(
       emptyPage.getByRole("heading", { name: "My term drafts", exact: true })
     ).toBeVisible()
@@ -931,10 +995,9 @@ async function main() {
     fieldDraftIds.push(recentDraftId)
     await emptyPage.setViewportSize({ width: 390, height: 844 })
     await emptyPage.reload()
-    assert.deepEqual(await outlineTargets(emptyPage), [
-      "#term-drafts",
-      "#my-field-drafts"
-    ])
+    await expect
+      .poll(() => outlineTargets(emptyPage))
+      .toEqual(["#term-drafts", "#my-field-drafts", "#submitted-work"])
     await expect(
       emptyPage.getByRole("link", { name: genericPayload.label, exact: true })
     ).toBeInViewport()
@@ -958,7 +1021,7 @@ async function main() {
     await expect(
       emptyPage
         .getByRole("navigation", { name: "Community workspace", exact: true })
-        .getByRole("link", { name: "Quick start", exact: true })
+        .getByRole("link", { name: "Vocabulary", exact: true })
     ).toHaveAttribute("aria-current", "page")
     await emptyPage
       .getByRole("navigation", { name: "Community workspace", exact: true })
@@ -969,16 +1032,22 @@ async function main() {
       .click()
     await expect(
       emptyPage.getByRole("heading", {
-        name: "Continue your work",
+        name: "About",
         exact: true
       })
     ).toBeVisible()
     await expect(
       emptyPage.getByRole("link", { name: new RegExp(genericPayload.label) })
-    ).toBeVisible()
+    ).toHaveCount(0)
+    await expect(
+      emptyPage.getByRole("heading", {
+        name: "Continue your work",
+        exact: true
+      })
+    ).toHaveCount(0)
     await expect(emptyPage.getByLabel("Who can view content")).toHaveCount(0)
     record(
-      "Draft sections retain their fixed order, recent work stays private, and help supports keyboard and mobile use without MatCore controls"
+      "Draft sections retain their fixed order, About omits private drafts, and help supports keyboard and mobile use without MatCore controls"
     )
     const anonymous = await browser.newContext({
       viewport: { width: 390, height: 844 }
@@ -990,7 +1059,7 @@ async function main() {
     await expect(
       visitor
         .getByRole("navigation", { name: "Community workspace", exact: true })
-        .getByRole("link", { name: "Quick start", exact: true })
+        .getByRole("link", { name: "Vocabulary", exact: true })
     ).toHaveAttribute("aria-current", "page")
     await visitor
       .getByRole("navigation", { name: "Community workspace", exact: true })
@@ -1010,7 +1079,9 @@ async function main() {
     await visitor.goto(work)
     await expect(outline(visitor)).toHaveCount(0)
     await expect(
-      visitor.getByRole("link", { name: "Sign in", exact: true })
+      visitor
+        .getByRole("main")
+        .getByRole("link", { name: "Sign in", exact: true })
     ).toBeVisible()
     await expect(visitor.getByText(termName, { exact: true })).toHaveCount(0)
     await visitor.goto(`${people}#invitations`)

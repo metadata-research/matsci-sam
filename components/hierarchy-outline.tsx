@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -21,44 +21,9 @@ type SavedOutline = {
   searchClosed?: string[]
 }
 
-// Store only navigation state. Source text is always supplied by an authorized read.
-const memory = new Map<string, string>()
-function subscribe(listener: () => void) {
-  window.addEventListener("sam:outline", listener)
-  window.addEventListener("storage", listener)
-  return () => {
-    window.removeEventListener("sam:outline", listener)
-    window.removeEventListener("storage", listener)
-  }
-}
-function readState(key: string) {
-  try {
-    return sessionStorage.getItem(key) ?? memory.get(key) ?? null
-  } catch {
-    return memory.get(key) ?? null
-  }
-}
-function parseState(value: string | null): SavedOutline | null {
-  try {
-    const saved = JSON.parse(value ?? "null") as SavedOutline | null
-    const ids = (value: unknown): value is string[] =>
-      Array.isArray(value) &&
-      value.length <= 2000 &&
-      value.every((id) => typeof id === "string" && id.length <= 2000)
-    if (!saved || !ids(saved.expanded)) return null
-    return {
-      ...saved,
-      searchClosed: ids(saved.searchClosed) ? saved.searchClosed : []
-    }
-  } catch {
-    return null
-  }
-}
-
 /** Reusable disclosure navigation, with standard buttons and links, not an ARIA tree. */
 export function HierarchyOutline({
   nodes,
-  storageKey,
   search,
   label,
   initialExpanded = [],
@@ -66,27 +31,18 @@ export function HierarchyOutline({
   restoreFocus = true
 }: {
   nodes: HierarchyNode[]
-  storageKey: string
   search: string
   label: string
   initialExpanded?: string[]
   activeHref?: string
   restoreFocus?: boolean
 }) {
-  const key = `sam:outline:v1:${storageKey}`
-  const snapshot = useSyncExternalStore(
-    subscribe,
-    () => readState(key),
-    () => null
-  )
-  const saved = useMemo(() => parseState(snapshot), [snapshot])
-  const expanded =
-    saved?.expanded ??
-    (initialExpanded.length
-      ? initialExpanded
-      : nodes.length === 1
-        ? [nodes[0].id]
-        : [])
+  // Keep expansion during field navigation, but start a fresh visit collapsed.
+  // A direct field link supplies only the ancestors needed to reveal that field.
+  const [saved, save] = useState<SavedOutline>(() => ({
+    expanded: initialExpanded
+  }))
+  const expanded = saved.expanded
   const searchClosed =
     saved?.search === search ? (saved.searchClosed ?? []) : []
   const selection = saved?.search === search ? saved.selection : undefined
@@ -119,18 +75,6 @@ export function HierarchyOutline({
     })
     return () => cancelAnimationFrame(frame)
   }, [saved, search, restoreFocus])
-
-  function save(next: SavedOutline) {
-    const value = JSON.stringify(next)
-    memory.set(key, value)
-    if (memory.size > 50) memory.delete(memory.keys().next().value!)
-    try {
-      sessionStorage.setItem(key, value)
-    } catch {
-      /* In-memory navigation still works. */
-    }
-    window.dispatchEvent(new Event("sam:outline"))
-  }
 
   function render(nodes: HierarchyNode[], nested = false) {
     return (

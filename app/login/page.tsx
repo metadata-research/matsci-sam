@@ -14,10 +14,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { isDevAuthEnabled } from "@/lib/dev-auth"
-import {
-  isEmailAccountCreationEnabled,
-  isEmailAuthEnabled
-} from "@/lib/email-auth"
+import { isEmailAuthEnabled } from "@/lib/email-auth"
+import { getAccountCreationMethods } from "@/lib/account-creation"
 import { isOrcidAuthEnabled } from "@/lib/apis/orcid"
 import { ORCID_SIGN_IN_CANCELLED_NOTICE } from "@/lib/orcid"
 import { isGoogleAuthConfigured } from "@/lib/apis/google"
@@ -36,18 +34,19 @@ export default async function LoginPage({
 }) {
   const { returnTo: requestedReturnTo, orcid, google } = await searchParams
   const returnTo = normalizeAuthReturnTo(requestedReturnTo)
-  // Someone already signed in has nothing to do here, and on a host with
-  // email account creation this page would offer them a second account.
+  // A signed-in user should continue without creating another account.
   if (await getCurrentUser()) redirect(returnTo ?? "/profile")
 
   const devEnabled = isDevAuthEnabled()
   const googleEnabled = isGoogleAuthConfigured()
   const emailEnabled = isEmailAuthEnabled()
-  const emailAccountCreationEnabled = isEmailAccountCreationEnabled()
+  const signupMethods = getAccountCreationMethods()
+  const signupEnabled =
+    signupMethods.google || signupMethods.orcid || signupMethods.email
   const orcidEnabled = isOrcidAuthEnabled()
   const googleRejected = google === "not-authorized"
   const showSignupAction =
-    emailAccountCreationEnabled &&
+    signupEnabled &&
     (googleRejected ||
       returnTo?.startsWith("/invite/") ||
       returnTo?.startsWith("/review-invite/"))
@@ -68,17 +67,28 @@ export default async function LoginPage({
               role="status"
               className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-5"
             >
-              {emailAccountCreationEnabled
-                ? "Google sign-in is restricted on this site. You can create an account with email or sign in with an existing account."
+              {signupEnabled && !signupMethods.google
+                ? "Google sign-in is restricted on this site. Create an account using another available method, or sign in with an existing account."
                 : "This Google account cannot sign in here. Try another account or contact the site administrator."}
             </p>
           ) : null}
           {showSignupAction ? (
             <Button asChild className="w-full">
               <Link href={authPathWithReturnTo("/register", returnTo)}>
-                Create an account with email
+                Create an account
               </Link>
             </Button>
+          ) : null}
+          {signupEnabled && !showSignupAction ? (
+            <p className="text-center text-sm text-muted-foreground">
+              New here?{" "}
+              <Link
+                href={authPathWithReturnTo("/register", returnTo)}
+                className="text-primary underline"
+              >
+                Create an account
+              </Link>
+            </p>
           ) : null}
           {orcid === "cancelled" ? (
             <p
@@ -98,7 +108,7 @@ export default async function LoginPage({
                 Continue with Google
               </a>
             </Button>
-          ) : (
+          ) : devEnabled ? (
             <div className="space-y-2">
               <Button
                 type="button"
@@ -117,7 +127,7 @@ export default async function LoginPage({
                 Google sign-in is not configured on this site.
               </p>
             </div>
-          )}
+          ) : null}
           {orcidEnabled ? (
             <Button asChild variant="outline" className="w-full">
               <a
@@ -136,7 +146,7 @@ export default async function LoginPage({
                 Continue with ORCID
               </a>
             </Button>
-          ) : (
+          ) : devEnabled ? (
             <div className="space-y-2">
               <Button
                 type="button"
@@ -153,16 +163,16 @@ export default async function LoginPage({
                   aria-hidden
                 />
                 Continue with ORCID
-                <span className="ml-auto text-xs font-normal">Coming soon</span>
+                <span className="ml-auto text-xs font-normal">Unavailable</span>
               </Button>
               <p
                 id="orcid-unavailable"
                 className="text-center text-xs text-muted-foreground"
               >
-                ORCID sign-in is not available yet.
+                ORCID sign-in is not enabled on this site.
               </p>
             </div>
-          )}
+          ) : null}
           {emailEnabled ? (
             <>
               <div className="flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -170,18 +180,6 @@ export default async function LoginPage({
                 Sign in with email
                 <span className="h-px flex-1 bg-border" aria-hidden />
               </div>
-              {emailAccountCreationEnabled && !showSignupAction ? (
-                <p className="text-center text-sm text-muted-foreground">
-                  New here?{" "}
-                  <Link
-                    href={authPathWithReturnTo("/register", returnTo)}
-                    className="text-primary underline"
-                  >
-                    Create an account with email
-                  </Link>
-                  . No password is required.
-                </p>
-              ) : null}
               <form
                 action="/api/auth/email/start"
                 method="post"

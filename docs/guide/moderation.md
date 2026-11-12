@@ -2,12 +2,12 @@
 
 Administrators can hide a term from listings and restore it later. Contributors
 also have limits on how many definitions, comments and examples they can publish
-within a short period. This guide explains these controls and what to do when
-you encounter them.
+within a short period.
 
 ## Hide a term from listings
 
-Sign in as a site administrator and open **Visibility** in Administration.
+Sign in as a site administrator. Open your account menu, choose
+**Administration**, then **Visibility**.
 The moderator role and community stewardship alone do not grant this control.
 See [Administration and stewardship](/docs/administration#roles-and-scope)
 for the available roles.
@@ -58,21 +58,20 @@ before trying again.
 The following limits apply per account, including administrators and study
 participants. Definitions, comments and examples have separate limits.
 
-| New publication | Limit |
-| --- | --- |
-| Definition | 5 in 10 minutes |
-| Comment | 10 in 1 minute |
-| Example added to an existing definition | 10 in 1 minute |
+| New publication                         | Limit           |
+| --------------------------------------- | --------------- |
+| Definition                              | 5 in 10 minutes |
+| Comment                                 | 10 in 1 minute  |
+| Example added to an existing definition | 10 in 1 minute  |
 
 When a limit message appears, wait until earlier publications fall outside that
-time window before trying again. Editing an existing definition or restoring a
-definition revision uses the existing revision checks rather than these limits
-on new publications. An example included when publishing a definition is part
+time window before trying again. Creating or restoring a revision does not
+count as a new definition. An example included when publishing a definition is part
 of that definition submission. File uploads have separate
 [size and pending-file limits](/docs/files-and-examples).
 
 Submitting the same contribution again within 60 seconds may produce
 "This contribution was just submitted. Refresh the page to see it before trying
 again." Refresh and check whether the contribution is already present before
-submitting again. Changing the wording solely to retry can create an unwanted
+submitting again. Changing the text solely to retry can create an unwanted
 second contribution.

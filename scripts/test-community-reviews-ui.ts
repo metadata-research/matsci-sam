@@ -185,15 +185,20 @@ async function main() {
         .getByRole("navigation", { name: "Community workspace" })
         .getByRole("link")
         .first()
-    ).toHaveText("Quick start")
+    ).toHaveText("Vocabulary")
+    await page
+      .getByRole("navigation", { name: "Community workspace" })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
+    await page
+      .getByRole("menuitem", { name: "Getting started", exact: true })
+      .click()
     await expect(
       page.getByRole("link", { name: "Give feedback", exact: true })
     ).toBeVisible()
     await page.getByLabel("Area", { exact: true }).selectOption("pf")
     await expect(page).toHaveURL(/profile=pf/)
-    await page
-      .getByRole("link", { name: "Request feedback / View results" })
-      .click()
+    await page.getByRole("link", { name: "Request feedback" }).click()
     await page
       .getByLabel("Review name", { exact: true })
       .fill("Phase Field feedback")
@@ -247,7 +252,9 @@ async function main() {
       "pf",
       item.id
     )
-    pass("Quick start is first and the area reaches review settings")
+    pass(
+      "Vocabulary is first and Getting started preserves the route to area-specific review settings"
+    )
     pass("New review management retains the selected round after reload")
     await page.screenshot({
       path: resolve(output, "organizer-desktop.png"),
@@ -286,7 +293,7 @@ async function main() {
     await expect(requested).toContainText("0 of")
     await expect(
       a.getByRole("link", {
-        name: "Request feedback / View results",
+        name: "Request feedback",
         exact: true
       })
     ).toHaveCount(0)
@@ -357,7 +364,9 @@ async function main() {
     await a
       .getByRole("button", { name: "Save response", exact: true })
       .dblclick()
-    await expect(a.getByRole("status")).toContainText("Response saved")
+    await expect(a.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     assert.equal((await row()).version, 1)
     await a.reload()
     await expect(
@@ -398,7 +407,9 @@ async function main() {
       .getByLabel("Comment (optional)")
       .fill("Please include units and boundary conditions.")
     await a.getByRole("button", { name: "Save response", exact: true }).click()
-    await expect(a.getByRole("status")).toContainText("Response saved")
+    await expect(a.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     await b
       .getByLabel("Comment (optional)")
       .fill("My conflicting response stays here.")
@@ -438,7 +449,9 @@ async function main() {
       "Recovered after an interrupted connection."
     )
     await a.getByRole("button", { name: "Save response", exact: true }).click()
-    await expect(a.getByRole("status")).toContainText("Response saved")
+    await expect(a.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     assert.equal((await row()).version, 3)
     pass("Interrupted save survives reload and retry")
     await a.unroute("**/api/trpc/communityReviews.save*")
@@ -457,7 +470,9 @@ async function main() {
     await expect(a.locator("article").getByRole("alert")).toBeVisible()
     assert.equal((await row()).version, 4)
     await a.getByRole("button", { name: "Save response", exact: true }).click()
-    await expect(a.getByRole("status")).toContainText("Response saved")
+    await expect(a.getByRole("article").getByRole("status")).toContainText(
+      "Response saved"
+    )
     assert.equal((await row()).version, 4)
     pass(
       "Lost acknowledgement retries without a duplicate vote or history entry"
@@ -465,17 +480,47 @@ async function main() {
     await a.unroute("**/api/trpc/communityReviews.save*")
     await a
       .getByLabel("Comment (optional)")
-      .fill("Saved when returning to Quick start.")
+      .fill("Saved when returning to Getting started.")
+    const beforeMenuNavigation = a.url()
+    await a.route("**/api/trpc/communityReviews.save*", (route) =>
+      route.abort("failed")
+    )
     await a
       .getByRole("navigation", { name: "Community workspace" })
-      .getByRole("link", { name: "Quick start", exact: true })
+      .getByRole("button", { name: "More", exact: true })
       .click()
+    await a
+      .getByRole("menuitem", { name: "Getting started", exact: true })
+      .click()
+    await expect(a.locator("article").getByRole("alert")).toBeVisible()
+    await expect(a).toHaveURL(beforeMenuNavigation)
+    await expect(a.getByLabel("Comment (optional)")).toHaveValue(
+      "Saved when returning to Getting started."
+    )
+    assert.equal((await row()).version, 4)
+    await a.keyboard.press("Escape")
+    await expect(a.getByRole("menu")).toHaveCount(0)
+    await a.unroute("**/api/trpc/communityReviews.save*")
+    pass("Failed More navigation keeps the review and unsaved text accessible")
+    await a
+      .getByRole("navigation", { name: "Community workspace" })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
+    await a
+      .getByRole("menuitem", { name: "Getting started", exact: true })
+      .click()
+    await expect(a.getByRole("menu")).toHaveCount(0)
     await expect(
       a.getByRole("link", { name: "Give feedback", exact: true })
     ).toBeVisible()
     assert.equal((await row()).version, 5)
-    assert.equal((await row()).comment, "Saved when returning to Quick start.")
-    pass("Navigation saves the current response before leaving")
+    assert.equal(
+      (await row()).comment,
+      "Saved when returning to Getting started."
+    )
+    pass(
+      "Retry saves the current response and closes More before showing the destination"
+    )
     await a.goto(base + href)
     await a
       .getByRole("button", { name: "Suggest a change", exact: true })
@@ -519,7 +564,7 @@ async function main() {
     })
     await a.getByRole("button", { name: "My responses", exact: true }).click()
     await expect(a.getByLabel("Comment (optional)")).toHaveValue(
-      "Saved when returning to Quick start."
+      "Saved when returning to Getting started."
     )
     await a
       .getByRole("button", { name: "Not yet reviewed", exact: true })
@@ -627,14 +672,16 @@ async function main() {
       )
     ).toBeVisible()
     pass("Organizer sees attributed responses and can close the round")
-    await page.goto(base + "/communities/" + organizer.communitySlug)
+    await page.goto(
+      base + "/communities/" + organizer.communitySlug + "?view=quickstart"
+    )
     await expect(
       page.getByRole("link", { name: "Continue a draft", exact: true })
     ).toBeVisible()
     await expect(
       page.getByText("Phase Field feedback", { exact: true })
     ).toHaveCount(0)
-    pass("Regular community uses the same Quick start without MatCore content")
+    pass("Regular community retains Getting started without MatCore content")
     assert.deepEqual(blocked, [])
     assert.deepEqual(errors, [])
   } catch (error) {

@@ -82,10 +82,29 @@ export default async function EditProfilePage({
                     Connected as <OrcidIdLink orcidId={user.orcidId} />
                   </p>
                   <form action="/api/auth/orcid/disconnect" method="post">
-                    <Button type="submit" variant="outline" size="sm">
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      size="sm"
+                      disabled={!user.googleId && !user.emailVerifiedAt}
+                      aria-describedby={
+                        !user.googleId && !user.emailVerifiedAt
+                          ? "orcid-only-sign-in"
+                          : undefined
+                      }
+                    >
                       Disconnect
                     </Button>
                   </form>
+                  {!user.googleId && !user.emailVerifiedAt ? (
+                    <p
+                      id="orcid-only-sign-in"
+                      className="w-full text-sm text-muted-foreground"
+                    >
+                      ORCID is your only sign-in method and cannot be
+                      disconnected.
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <Button asChild variant="outline">

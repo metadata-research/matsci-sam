@@ -1,8 +1,11 @@
 # Adding a term
 
-Sign in, complete your profile name, and choose **Add term** from Quick start
-or the **Vocabulary** menu. Check the destination vocabulary. **Working in** selects a
-community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
+Choose **Add a term** on Home or **Add term** in a community. Sign in
+and add your profile name if asked. Home uses the community selected beside
+**MatSci-SAM** in the header. With **All communities** selected, it uses the
+general MatSci-SAM vocabulary. **Add term** in a community uses its vocabulary.
+Check **Vocabulary** above the editing steps for the actual destination.
+Saved drafts keep their original destination when you switch communities.
 
 ## Confirm, write, review
 
@@ -13,17 +16,16 @@ community vocabulary. **Everything** uses the default MatSci-SAM vocabulary.
 2. Write a definition that describes the meaning in your context. Include the
    broader class and distinguishing characteristics when useful. **Add an example**
    opens an optional example of use.
-3. Select **Review definition**. Check the wording, example, attribution and
+3. Select **Review definition**. Check the text, example, attribution and
    any citations. Check **Files and text to publish**. **Back to writing**
    returns to the editor for changes.
-4. Select **Publish new term**. The term and its first definition become public.
-   An example you supply has its own attribution.
+4. Select **Publish new term**. The term and its first definition become
+   available to people with access to the vocabulary. An example you supply
+   has its own attribution.
 
 Accounts can publish five new definitions in ten minutes. If a limit or duplicate
 message appears, follow [Publication limits](/docs/moderation#publication-limits)
 before submitting again.
-
-![A new term and definition in Simple view, with optional AI help and the review action below the form](/images/docs/help-add-simple-v3.png)
 
 The form links to the existing term when the label is already defined in the
 destination vocabulary. Open that entry to compare or contribute definitions.
@@ -37,11 +39,12 @@ contribution or return to your earlier writing before changing the term.
 ## Save and resume a draft
 
 New terms save privately to your account as you write. Wait for **Draft saved
-to your account** before leaving. Open **My drafts** from your profile or the
-term editor to resume on another device, or delete work you no longer need.
+to your account** before leaving. Open **My work** in the header to resume on
+another device, or use the draft link in the editor. You can also delete work
+you no longer need.
 Saved drafts are separate from published contributions.
 
-Guided setup and the full term editor share the same single-term draft,
+Guided setup and the full term editor share the same draft for one term,
 including examples, references, attachments, and AI assistance credit. Review
 the complete contribution before publishing. If saving fails, keep the page
 open and select **Retry save**. A conflict message means another tab or device
@@ -50,15 +53,15 @@ changed the draft. Copy any writing you need before reloading the saved version.
 ## Simple and Advanced views
 
 Choose **Simple** or **Advanced** under **View**. The site saves your choice
-on other pages. Simple shows the writing form with **Add file or text**
-and **Help me write with AI**. Advanced adds reference definitions, matches across
+for other pages with this control. Simple shows the writing form with
+**Add file or text** and **Help me write with AI**. Advanced adds reference definitions, matches across
 available ontologies, and the hierarchy of the selected concept beside the
 form. These panels move below the form on small screens.
 
 The Advanced toolbar appears above the writing form and opens **Wolfram lookup**,
-**AI assistance**, **Citations**, and **Add file or text**. File and pasted-text
-sources are available in both views. View changes preserve your draft, selected sources, and tool
-settings. Use [term metadata](/docs/term-metadata) to save an ontology relationship
+**AI assistance**, **Citations**, and **Add file or text**. Uploaded and pasted
+sources are available in both views. View changes preserve your draft, selected
+sources, and tool settings. Use [term metadata](/docs/term-metadata) to save an ontology relationship
 for review.
 
 ## Writing with assistance
@@ -73,8 +76,8 @@ request inputs, Undo, and attribution.
 ## Referencing a source definition
 
 Open **Advanced** to inspect definitions from the reference ontologies, such as
-ChEBI or EMMO. Each names its source, release, and licence. **Add to
-definition** inserts source text and attaches a citation. **Copy** only copies
+ChEBI or EMMO. Each names its source, release, and licence. **Insert text and
+cite** inserts source text and attaches a citation. **Copy** only copies
 text. The [references guide](/docs/references#reference-definitions) explains
 these actions and how to review citations before publication.
 

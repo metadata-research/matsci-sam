@@ -2,9 +2,9 @@
 
 Open a term, select **Advanced** under **View**, then **Provenance** to inspect
 its contribution graph and timeline. Select a graph node for details. Use a
-revision link to open the exact definition wording recorded at that point.
+revision link to open the exact definition text recorded at that point.
 
-A new revision preserves earlier wording of the same definition. An alternative
+A new revision preserves earlier text of the same definition. An alternative
 is a separate definition linked to its source revision. A replacement
 identifies the candidate it should supersede. The record includes editors,
 publication times, and change notes when available.
@@ -28,10 +28,11 @@ A published record distinguishes the sources attached as citations from
 reference material sent to an assistant.
 
 Expand a revision under **Sources and AI assistance** to see its uploaded and
-pasted sources. The citation count includes files, pasted text and lookup
-references marked as cited by the contributor. **Used by assistant** identifies
+pasted sources. The citation count includes files, pasted text, lookup references
+and declared references cited by the contributor. **Used by assistant** identifies
 a source sent with the accepted request. It does not add a citation. The
-assistant's uploaded and pasted inputs appear separately from lookup references.
+uploaded and pasted inputs sent to the assistant appear separately from lookup
+references.
 Open **Text sent to the assistant** to inspect the saved input, or follow the
 source link for its text and processing record.
 
@@ -44,7 +45,7 @@ source link for its text and processing record.
 Select sources for citation separately from links returned by an assistant.
 The recorded request lists the submitted inputs. Check those sources and the
 facts in the response before publication. Accepted model work retains the
-original answer separately from the wording published by the contributor.
+original answer separately from the text published by the contributor.
 
 An uploaded or pasted source used for an accepted suggestion retains the
 submitted text and its connection to the original source. The record includes
@@ -57,8 +58,9 @@ reference material. Agent One drafts definitions when available. See
 [References](/docs/references) and [AI assistance](/docs/ai-refinement).
 
 Unused lookups and discarded suggestions remain private. Citations and public
-relationships require a separate contribution. A published citation retains
-the saved source text and available source information.
+relationships require a separate contribution. Cited lookup references retain
+the saved source text and available source information. Declared references
+retain the source details supplied by the contributor.
 
 The history covers contributions recorded in MatSci-SAM. Text pasted from an
 external AI tool does not automatically record its identity, request or
@@ -87,10 +89,11 @@ supports the exact revision to which it was attached. See
 
 Open **Usage & metadata** from the term to inspect descriptions of its use. Each
 addition has a scope, author, and date, with optional source information.
-Accepted additions become public. Withdrawal removes a current description
+Accepted additions become visible to people with access to the term.
+Withdrawal removes a current description
 while preserving its history under **Metadata history** in Advanced view.
 
-A description attached to one revision stays with that wording. A link to a
+A description attached to one revision stays with that text. A link to a
 related concept is a separate contribution with its own evidence and review.
 See [Term metadata](/docs/term-metadata).
 

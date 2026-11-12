@@ -287,6 +287,7 @@ export const communitiesRouter = createTRPCRouter({
       })
 
       revalidatePath(communitiesIndexPath)
+      revalidatePath("/admin/communities")
 
       return created
     }),

@@ -113,13 +113,13 @@ export default async function MetadataFieldDraftPage({
           reviewReturn
             ? "Back to review"
             : contributionReturn
-              ? "Back to contributions"
+              ? "Back to reviews"
               : catalogReturn
                 ? catalogReturn.includes("standard=reference")
                   ? "Back to reference"
                   : catalogReturn.includes("standard=release")
                     ? "Back to community release"
-                    : "Back to working version"
+                    : "Back to community version"
                 : draft.community
                   ? workReturn.label
                   : "My field drafts"

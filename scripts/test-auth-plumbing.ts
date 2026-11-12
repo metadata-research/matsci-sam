@@ -346,13 +346,12 @@ const emailAuthTokenSchema = schemaSource.slice(
 )
 assert.match(loginPage, /name="intent" value="sign-in"/)
 assert.match(registrationPage, /name="intent" value="create"/)
-assert.match(registrationPage, /isEmailAccountCreationEnabled\(\)/)
 assert.match(loginPage, /Continue to \{SITE_NAME\}/)
 assert.match(loginPage, /isGoogleAuthConfigured\(\)/)
 assert.match(loginPage, /Continue with Google/)
 assert.match(loginPage, /Google sign-in is not configured on this site\./)
 assert.match(loginPage, /Continue with ORCID/)
-assert.match(loginPage, /ORCID sign-in is not available yet\./)
+assert.match(loginPage, /ORCID sign-in is not enabled on this site\./)
 assert.match(
   loginPage.replace(/\s+/g, " "),
   /For existing accounts\. Use the email address on your MatSci-SAM account to receive a one-time sign-in link\./
@@ -380,10 +379,9 @@ assert.match(loginPage, /id="orcid-unavailable"/)
 assert.match(loginPage, /orcid === "cancelled"/)
 assert.match(loginPage, /ORCID_SIGN_IN_CANCELLED_NOTICE/)
 assert.match(ORCID_SIGN_IN_CANCELLED_NOTICE, /^ORCID sign-in was cancelled\./)
-assert.match(registrationPage, /Create an account with email/)
 assert.match(registrationPage, /Create account with email/)
-// Rendered invitation/signup affordances and disabled-signup cases are covered
-// by test-invitation-onboarding, rather than source-order assertions here.
+// The rendered Google/ORCID/email signup matrix and unavailable cases are
+// covered by test-invitation-onboarding.
 assert.match(invitationPage, /authPathWithReturnTo\("\/login", returnTo\)/)
 assert.doesNotMatch(
   invitationPage,

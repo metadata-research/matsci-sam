@@ -2,7 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { db } from "@yamz/db"
 import { reviewInvitation } from "@/lib/community-reviews"
-import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
+import { isAccountCreationEnabled } from "@/lib/account-creation"
 import { getCurrentUser } from "@/lib/current-user"
 import { authPathWithReturnTo } from "@/lib/auth-return"
 import { Button } from "@/components/ui/button"
@@ -49,7 +49,7 @@ export default async function ReviewInvitationPage({
         <AcceptReviewInvitation token={token} />
       ) : (
         <div className="flex flex-wrap gap-3">
-          {isEmailAccountCreationEnabled() && (
+          {isAccountCreationEnabled() && (
             <Button asChild>
               <Link href={authPathWithReturnTo("/register", returnTo)}>
                 Create an account

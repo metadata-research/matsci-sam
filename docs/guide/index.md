@@ -1,10 +1,13 @@
 # User guide
 
-Follow the [quick start](/docs) to make a contribution in Simple view. Choose a
-guide below for a specific task.
+Start with the [quick start](/docs) to add a term. Use the **Feedback** button
+to send a question or report a problem with the page you are using.
 
-## Contributions and review
+<a id="contributions-and-review"></a>
 
+## Terms and definitions
+
+- [Search and browse](/docs/search) explains term search, filters and community scope.
 - [Adding a term](/docs/adding-terms) covers the writing form, Simple and
   Advanced views, review and publication.
 - [Reading and reviewing terms](/docs/community) covers definitions, voting,
@@ -19,17 +22,28 @@ guide below for a specific task.
   and related concepts.
 - [Discussion](/docs/discussion) covers comments and alternatives on recent terms.
 
+<a id="metadata-models"></a>
+
+## Communities and metadata fields
+
+- [Communities and scope](/docs/communities) covers joining a community,
+  selecting its vocabulary, reviews and personal work.
+- [Importing terms](/docs/importing-terms) explains how to create drafts from
+  a table, including sources and ontology references.
+- [Metadata fields and MatCore](/docs/matcore-workflow) covers reference
+  versions, field proposals, dataset reviews, steward decisions and exports.
+- [Tags](/docs/tags) explains topics, PSPP facets and collections.
+
+Use the [field catalog](/metadata/fields) to find metadata fields and
+[examples](/metadata/examples) to compare a concept, a field and a value.
+
 ## Accounts and studies
 
 - [Account access](/docs/account-access) covers sign-in and profile settings.
-- [Communities and scope](/docs/communities) explains memberships and the
-  vocabulary selected for a contribution.
 - [Studies](/docs/studies) covers joining an activity and returning to saved work.
 
 ## Finding and citing content
 
-- [Search and browse](/docs/search) helps you find terms and definitions.
-- [Tags](/docs/tags) explains classification and collections.
 - [Provenance](/docs/provenance) explains contribution history and attribution.
 - [Identifiers and citation](/docs/identifiers) helps you choose a term,
   definition or revision link.
@@ -51,17 +65,5 @@ The [reference pages](/docs/reference) explain the meaning of concepts,
 identifiers and published metadata. Implementation details are in the
 [repository documentation](https://github.com/metadata-research/matsci-sam/blob/dev/docs/technical/README.md).
 
-## Metadata models
-
-Use a [community workspace](/metadata/workspace) to develop metadata field
-definitions and value rules alongside vocabulary terms. A MatCore community
-also provides a versioned source catalog. Browse its entries, then choose
-**Propose a change** to start a private draft or **Continue my draft** to resume
-existing work. The [metadata fields and MatCore guide](/docs/matcore-workflow)
-explains source versions, drafts, publication and local review. Bulk imports
-are optional.
-
-Use the [field catalog](/metadata/fields) to find metadata fields and
-[examples](/metadata/examples) to distinguish a concept, a field and a value.
 [MatCore and the vocabulary](/docs/reference/matcore-and-the-vocabulary)
 explains their relationship.

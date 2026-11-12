@@ -196,7 +196,7 @@ export function PublishedField({
           <>
             <Button asChild variant="outline">
               <Link
-                href={`${communitySectionHref(record.community.slug, "review", undefined, { profile: selected.profileKey ?? undefined })}&manage=1&target=${encodeURIComponent(`proposal:${selected.id}`)}`}
+                href={`${communitySectionHref(record.community.slug, "review", undefined, { profile: selected.profileKey ?? undefined, release: selected.profileReleaseId ?? undefined })}&manage=1&target=${encodeURIComponent(`proposal:${selected.id}`)}`}
               >
                 Request feedback
               </Link>
@@ -210,9 +210,9 @@ export function PublishedField({
         {record.community && selected.reviewState === "accepted" ? (
           <Button asChild variant="outline">
             <Link
-              href={`${communitySectionHref(record.community.slug, "vocabulary", undefined, { profile: selected.profileKey ?? undefined })}&standard=working`}
+              href={`${communitySectionHref(record.community.slug, "vocabulary", undefined, { profile: selected.profileKey ?? undefined, release: selected.profileReleaseId ?? undefined })}&standard=working`}
             >
-              View working version
+              View community version
             </Link>
           </Button>
         ) : null}
@@ -612,7 +612,9 @@ export function PublishedField({
                   }
                 >
                   <option value="changes_requested">Request changes</option>
-                  <option value="accepted">Accept into working version</option>
+                  <option value="accepted">
+                    Accept into community version
+                  </option>
                   <option value="declined">Decline</option>
                 </WorkspaceSelect>
               </Field>

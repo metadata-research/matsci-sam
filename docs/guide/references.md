@@ -26,8 +26,6 @@ to preview its own parents, and **Back to the match** to return.
 On small screens these panels appear below the form. Select **View reference
 definitions ↓** in Advanced to jump to them.
 
-![Advanced Add with reference definitions, ontology matches and hierarchy beside the form and tools above it](/images/docs/help-add-advanced-v3.png)
-
 Use [Usage & metadata](/docs/term-metadata#advanced-view) to propose a link
 to a related concept and submit it for review.
 
@@ -48,8 +46,8 @@ or **Undo insertion** when suggesting an alternative. Your previous writing
 and citation choices are restored.
 Use **Cite without inserting** when you paraphrase a source or paste copied
 text. Source text and your final definition remain separately recorded.
-Copying alone creates no citation on the published revision. Check the source's
-licence and attribution requirements before reusing its text. Displaying a
+Copying alone creates no citation on the published revision. Check the licence
+and attribution requirements of the source before reusing its text. Displaying a
 licence or attaching a citation does not verify that your use meets its terms.
 
 ## Wolfram lookup
@@ -62,8 +60,6 @@ Your definition text is not sent with this lookup.
 Read **Interpreted as** and the assumptions before using the result.
 **Overview** contains the principal information. Expand **More properties**
 for additional sections. Values retain their units and stated conditions.
-
-![A Wolfram result with its interpretation, readable properties, and link to Wolfram|Alpha](/images/docs/help-wolfram.png)
 
 **Open in Wolfram|Alpha** opens the query on the live Wolfram website for plots,
 diagrams, and further detail. That page can change independently of the saved
@@ -104,5 +100,5 @@ pasted sources have a separate count. See
 [source counts](/docs/ai-refinement#review-sources-sent-to-the-assistant).
 
 A model draft replaces your writing and clears its citation choices when you
-apply it. Undo restores both. Review citations again before publishing the new wording.
+apply it. Undo restores both. Review citations again before publishing the new text.
 Files can also support a definition. See [Files and examples](/docs/files-and-examples).

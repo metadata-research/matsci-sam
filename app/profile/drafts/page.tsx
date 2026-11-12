@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button"
 import { authPathWithReturnTo } from "@/lib/auth-return"
 import { getCurrentUser } from "@/lib/current-user"
 import { SITE_NAME } from "@/lib/site"
+import { DEFAULT_VOCABULARY_SLUG } from "@/lib/public-identifiers"
 import { trpc } from "@/trpc/server"
 import { DraftList, type DraftListItem } from "./draft-list"
 import { formatDateTime } from "@/lib/date"
 import type { RouterOutput } from "@/trpc/trpc-helpers"
 
-export const metadata: Metadata = { title: `My drafts | ${SITE_NAME}` }
+export const metadata: Metadata = { title: `My work | ${SITE_NAME}` }
 
 export default async function MyDraftsPage() {
   const user = await getCurrentUser()
@@ -39,18 +40,24 @@ export default async function MyDraftsPage() {
         </Button>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 space-y-2">
-            <h1 className="text-3xl font-bold">My drafts</h1>
-            <p className="text-muted-foreground">
-              Private drafts saved to your account. Resume one to review or
-              publish it.
-            </p>
+            <h1 className="text-3xl font-bold">My work</h1>
+            <p className="text-muted-foreground">All communities</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
-              <Link href="/setup?task=import">Import terms</Link>
+              <Link href="/profile#authored-terms">
+                Published contributions
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link
+                href={`/setup?task=import&vocabularySlug=${DEFAULT_VOCABULARY_SLUG}`}
+              >
+                Import terms
+              </Link>
             </Button>
             <Button asChild>
-              <Link href="/add">
+              <Link href={`/add?vocabularySlug=${DEFAULT_VOCABULARY_SLUG}`}>
                 <PlusIcon aria-hidden />
                 Start a term
               </Link>

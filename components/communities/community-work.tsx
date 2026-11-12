@@ -10,19 +10,26 @@ import { DraftList } from "@/app/profile/drafts/draft-list"
 import { Button } from "@/components/ui/button"
 import { OnThisPage, type PageSection } from "@/components/on-this-page"
 import { withCommunityWorkReturn } from "@/lib/community-work-return"
+import { db } from "@yamz/db"
+import { communityPersonalContributions } from "@/lib/community-personal-work"
+import { PersonalContributions } from "./personal-contributions"
 
 export async function CommunityWork({
   vocabularySlug,
   workPath,
   communityId,
   profile,
-  offset: offsetParam
+  referenceReleaseId,
+  offset: offsetParam,
+  contributionOffset: contributionOffsetParam
 }: {
   vocabularySlug: string
   workPath: string
   communityId?: number
   profile?: string
+  referenceReleaseId?: string
   offset?: string
+  contributionOffset?: string
 }) {
   const user = await getCurrentUser()
   if (!user)
@@ -42,23 +49,45 @@ export async function CommunityWork({
   if (parsedProfile && !parsedProfile.success) notFound()
   const offset = offsetParam ? Number(offsetParam) : 0
   if (!Number.isInteger(offset) || offset < 0 || offset > 10000) notFound()
+  const contributionOffset = contributionOffsetParam
+    ? Number(contributionOffsetParam)
+    : 0
+  if (
+    !Number.isInteger(contributionOffset) ||
+    contributionOffset < 0 ||
+    contributionOffset > 10000
+  )
+    notFound()
   const profileKey = parsedProfile?.success ? parsedProfile.data : undefined
-  const [options, workspace, fields, drafts, imports, requestedReviews] =
-    await Promise.all([
-      trpc.setup.options(),
-      trpc.matcoreWorkflow.workspace({ vocabularySlug }),
-      trpc.matcoreWorkflow.list({
-        vocabularySlug,
-        profileKey,
-        offset,
-        limit: 40
-      }),
-      trpc.termDrafts.list({ vocabularySlug }),
-      trpc.importDrafts.list({ vocabularySlug }),
-      communityId
-        ? trpc.communityReviews.requested({ communityId, area: profileKey })
-        : Promise.resolve([])
-    ])
+  const [
+    options,
+    workspace,
+    fields,
+    drafts,
+    imports,
+    requestedReviews,
+    contributions
+  ] = await Promise.all([
+    trpc.setup.options(),
+    trpc.matcoreWorkflow.workspace({ vocabularySlug }),
+    trpc.matcoreWorkflow.list({
+      vocabularySlug,
+      profileKey,
+      recentUnpublished: true,
+      offset,
+      limit: 40
+    }),
+    trpc.termDrafts.list({ vocabularySlug }),
+    trpc.importDrafts.list({ vocabularySlug }),
+    communityId
+      ? trpc.communityReviews.requested({ communityId, area: profileKey })
+      : Promise.resolve([]),
+    communityPersonalContributions(db, user.id, {
+      vocabularySlug,
+      profile: profileKey,
+      offset: contributionOffset
+    })
+  ])
   // Filter on the server before any private list is serialized to the client.
   const ownDrafts = drafts.filter(
     (draft) => draft.vocabularySlug === vocabularySlug
@@ -73,11 +102,18 @@ export async function CommunityWork({
   if (communityId) params.set("communityId", String(communityId))
   const showMetadata = workspace.metadataEnabled || fields.total > 0
   const catalog = showMetadata
-    ? await trpc.matcoreWorkflow.catalog({ vocabularySlug })
+    ? await trpc.matcoreWorkflow.catalog({
+        vocabularySlug,
+        releaseId: referenceReleaseId
+      })
     : null
   const current = new URL(workPath, "http://local")
   if (profileKey) current.searchParams.set("profile", profileKey)
+  if (referenceReleaseId)
+    current.searchParams.set("release", referenceReleaseId)
   if (offset) current.searchParams.set("offset", String(offset))
+  if (contributionOffset)
+    current.searchParams.set("contributionOffset", String(contributionOffset))
   const returnPath = `${current.pathname}${current.search}`
   const sections: PageSection[] = [
     { id: "term-drafts", label: "Term drafts" },
@@ -86,7 +122,8 @@ export async function CommunityWork({
       : []),
     ...(showMetadata
       ? [{ id: "my-field-drafts", label: "Metadata drafts" }]
-      : [])
+      : []),
+    { id: "submitted-work", label: "Submitted and published" }
   ]
   if (requestedReviews.length)
     sections.unshift({ id: "requested-feedback", label: "Requested feedback" })
@@ -97,7 +134,7 @@ export async function CommunityWork({
           <h2 className="text-2xl font-semibold">My work</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Your drafts are private until published.
+          Drafts are private. Submitted and published work is listed separately.
         </p>
         {!destination?.canContribute ? (
           <p className="text-sm text-muted-foreground">
@@ -115,6 +152,15 @@ export async function CommunityWork({
                 communityId={communityId!}
                 area={profileKey}
                 initial={requestedReviews}
+              />
+            )
+          if (section.id === "submitted-work")
+            return (
+              <PersonalContributions
+                key="submitted-work"
+                {...contributions}
+                offset={contributionOffset}
+                returnTo={`${returnPath}#submitted-work`}
               />
             )
           if (section.id === "term-drafts")
@@ -141,7 +187,7 @@ export async function CommunityWork({
                           `${returnPath}#term-drafts`
                         )}
                       >
-                        Define a term
+                        Add a term
                       </Link>
                     </Button>
                     <Button asChild variant="outline">
@@ -215,7 +261,7 @@ export async function CommunityWork({
                 vocabularies: destination ? [destination] : []
               }}
               workspace={workspace}
-              workPath={workPath}
+              workPath={returnPath}
               returnTo={`${returnPath}#my-field-drafts`}
               catalog={catalog}
               result={fields}

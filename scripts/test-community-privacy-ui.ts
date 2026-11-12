@@ -412,9 +412,13 @@ async function main() {
     await otherPage
       .getByRole("button", { name: "Request access", exact: true })
       .click()
-    await expect(otherPage.getByRole("status")).toContainText("awaiting review")
+    await expect(otherPage.getByRole("main").getByRole("status")).toContainText(
+      "awaiting review"
+    )
     await otherPage.reload()
-    await expect(otherPage.getByRole("status")).toContainText("awaiting review")
+    await expect(otherPage.getByRole("main").getByRole("status")).toContainText(
+      "awaiting review"
+    )
     const stewardPage = await member.newPage()
     await stewardPage.goto(`${base}${path}?view=people`)
     const requests = stewardPage.getByRole("region", {
@@ -479,7 +483,10 @@ async function main() {
     await stewardPage.goto(`${base}${path}`)
     await stewardPage
       .getByRole("navigation", { name: "Community workspace", exact: true })
-      .getByRole("link", { name: "Manage community", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click()
+    await stewardPage
+      .getByRole("menuitem", { name: "Manage community", exact: true })
       .click()
     await stewardPage.getByLabel("Who can view content").selectOption("public")
     await stewardPage

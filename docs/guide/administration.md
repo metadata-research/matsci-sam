@@ -1,16 +1,19 @@
 # Administration and stewardship
 
-Open a community page to manage a community you steward. Site administrators
-can manage all communities and open **Administration** from the account menu.
+Open **More → Manage community** on a community you steward. Membership and
+invitations are under **More → People**. Site administrators can manage all
+communities and open **Administration** from the account menu. Use
+**Administration → Communities → Create community** to create a community and
+its vocabulary.
 
 ## Roles and scope
 
-| Role               | Controls                                                                        |
-| ------------------ | ------------------------------------------------------------------------------- |
-| Community member   | Participate in open studies, view the roster, select a community, and leave     |
-| Community steward  | Manage members, invitations, worklists, and studies in assigned communities     |
-| Moderator          | Feature examples on definitions                                                 |
-| Site administrator | Site roles, metadata review, curation, service status, and all steward controls |
+| Role               | Controls                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| Community member   | Contribute, respond to reviews, join studies, view the roster and leave the community |
+| Community steward  | Manage members, invitations, reviews, worklists and studies in assigned communities   |
+| Moderator          | Feature examples on definitions                                                       |
+| Site administrator | Site roles, metadata review, curation, service status, and all steward controls       |
 
 Steward is a community membership role. Moderator and administrator are site
 roles. An administrator can manage a community without joining it.
@@ -20,32 +23,33 @@ roles. An administrator can manage a community without joining it.
 ### People and access
 
 Use **Add a person** to find an existing account. **Invite someone** creates a
-personal community invitation. Enter an email address, then copy the new link
-or select **Create and email it**. The new link is displayed once. Copy it
-before closing the result.
+personal community invitation. Enter an email address and choose **Create a
+link** or **Create and email it**. Copy the link before closing the result.
+Personal invitation links are displayed only when created or reissued.
 
 **Reissue** replaces a pending invitation. **Revoke** disables it. Create a new
 invitation after expiry. **Delete record** removes an unused revoked or expired
 invitation. Accepted invitations remain recorded.
 
-Under **People → Join link**, select **Create join link**, then **Copy link**
-to share it yourself. Recipients create an account or sign in, then choose to
-join as ordinary members. For a members-only community, this grants access to
-its private content. The link remains available to copy when you return.
-**Replace** invalidates earlier copies, and **Turn off** disables the link.
-A change in community visibility also disables it. These controls are available
-to stewards and site administrators.
+Under **More → People → Join link**, select **Create join link**, then **Copy
+link** to share it yourself. Recipients create an account or sign in, then
+choose to join as ordinary members. For a members-only community, this grants
+access to its private content. The link remains available to copy when you
+return. **Replace** invalidates earlier copies, and **Turn off** disables the
+link. A change in community visibility also disables it. These controls are
+available to stewards and site administrators.
 
-Stewards can remove ordinary members. Only site
-administrators can appoint or remove another steward. A steward can leave the
-community through their own membership controls.
+Stewards can remove ordinary members. Only site administrators can appoint or
+remove another steward. A steward can leave the community through their own
+membership controls.
 
 ### Worklists and collections
 
-Use **Add a collection** or **Create a collection** on the community page to
-choose its worklist. **Add to a community** and **Community worklists** on a
-collection page manage the same links. Terms from other vocabularies retain
-their original identifiers. A new study adds its collection to the worklist.
+Open **More → Collections** and use **Add a collection** or **Create a
+collection** to choose the community worklist. **Add to a community** and
+**Community worklists** on a collection page manage the same links. Terms from
+other vocabularies retain their original identifiers. A new study adds its
+collection to the worklist.
 
 ### Studies
 
@@ -56,11 +60,11 @@ begins. The study protocol determines whether it includes a Review round.
 
 Use **Invite a participant** for a personal study invitation. Enter an email
 address, then select **Create link for this person** or **Create and send
-email**. Pending invitations can be reissued or revoked. Existing members
-can accept them too.
+email**. Pending invitations can be reissued or revoked. Existing members can
+accept them too.
 
-The community page reports progress. [Studies](/docs/studies) explains access,
-participant controls, and completed records.
+Open **More → Surveys** to check study progress. [Studies](/docs/studies)
+explains access, participant controls, and completed records.
 
 ## Site administration
 
@@ -78,27 +82,29 @@ Community membership or a steward role does not grant access to this inbox.
 
 ### Studies
 
-**Studies** contains setup, invitations, activity, and retirement controls.
-Use **Participant interface** to choose the Simple view or full detail. New
-studies use Simple by default. Instructions, schedule, and interface settings
-are locked after study activity is recorded.
-Retirement preserves the study address and contributions. Restore a retired
-community and collection before restoring their study.
+**Studies** contains setup, invitations, activity, and retirement controls. Use
+**Participant interface** to choose the Simple view or full detail. New studies
+use Simple by default. Instructions, schedule, and interface settings are locked
+after study activity is recorded. Retirement preserves the study address and
+contributions. Restore a retired community and collection before restoring their
+study.
 
 Under **Definitions in this study**, expand a candidate and select **Exclude
 from this study**, with a reason. The candidate remains in the vocabulary and
-earlier participant records remain available. **Restore to this study** makes
-it available to the activity again.
+earlier participant records remain available. **Restore to this study** makes it
+available to the activity again.
 
 ## Review term metadata
 
-Open **Usage & metadata** on a term and inspect **Contributor proposals**. Check the
-scope, description, and evidence before selecting **Accept** or **Decline**.
+Open **Usage & metadata** on a term and inspect **Contributor proposals**. Check
+the scope, description, and evidence before selecting **Accept** or **Decline**.
 Metadata review is restricted to site administrators.
 
-An administrator addition uses **Publish metadata** and is public immediately.
+An administrator addition uses **Publish metadata** and is immediately available
+to people with access to the term.
 **Withdraw** removes an accepted description from current metadata while
-preserving its history. See [Term metadata](/docs/term-metadata#review-and-withdrawal).
+preserving its history. See
+[Term metadata](/docs/term-metadata#review-and-withdrawal).
 
 ## Inference services
 
@@ -117,8 +123,8 @@ describes those settings.
 
 ## Administration on public pages
 
-Administrators can retire or restore communities and collections, edit facets
-in Advanced term view, and edit or merge tags.
+Administrators can retire or restore communities and collections, edit facets in
+Advanced term view, and edit or merge tags.
 
 Use **Visibility** in Administration to hide reviewed terms from listings or
 restore them. Existing links retain published content and history. Follow
@@ -126,6 +132,6 @@ restore them. Existing links retain published content and history. Follow
 public notices and visibility history.
 
 Administrators can permanently delete test definitions from definition pages.
-Deletion removes dependent records and cannot be undone. Removed definition
-and revision addresses stop resolving. Retire or exclude content where those
+Deletion removes dependent records and cannot be undone. Removed definition and
+revision addresses stop resolving. Retire or exclude content where those
 reversible controls apply. Ordinary edits preserve published history.

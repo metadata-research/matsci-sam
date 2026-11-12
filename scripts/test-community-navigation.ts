@@ -2,6 +2,8 @@ import { compareCommunityContributions } from "../lib/community-contribution-ord
 import assert from "node:assert/strict"
 import {
   COMMUNITY_SECTIONS,
+  communityPrimarySections,
+  communityMoreSections,
   communitySection,
   communitySectionHref
 } from "../lib/community-navigation"
@@ -22,9 +24,34 @@ import {
 
 assert.deepEqual(
   COMMUNITY_SECTIONS.map((section) => section.label),
-  ["Quick start", "Browse", "Contributions", "Reviews", "My work", "People"]
+  ["Vocabulary", "Reviews", "My work"]
 )
-assert.equal(communitySection("proposals"), "contributions")
+assert.deepEqual(
+  communityPrimarySections(false).map((row) => row.label),
+  ["Vocabulary", "Reviews"]
+)
+assert.deepEqual(communityPrimarySections(true), COMMUNITY_SECTIONS)
+assert.deepEqual(
+  communityMoreSections({ showSurveys: false, showSettings: false }).map(
+    (row) => row.label
+  ),
+  ["People", "Collections", "Getting started", "About"]
+)
+assert.deepEqual(
+  communityMoreSections({ showSurveys: true, showSettings: true }).map(
+    (row) => row.label
+  ),
+  [
+    "People",
+    "Collections",
+    "Getting started",
+    "About",
+    "Surveys",
+    "Manage community"
+  ]
+)
+assert.equal(communitySection("proposals"), "review")
+assert.equal(communitySection("contributions"), "review")
 assert.equal(communitySection("releases"), "vocabulary")
 
 const context = {
@@ -47,7 +74,7 @@ assert.equal(
 )
 assert.equal(
   metadata.field?.href,
-  "/communities/materials_group?view=contributions&profile=pf&action=new"
+  "/communities/materials_group?view=review&profile=pf&content=contributions&action=new"
 )
 const olderReferenceAction = communityContributionActions({
   ...context,
@@ -127,6 +154,10 @@ const navigationContext = new URLSearchParams({
   type: "proposal",
   action: "new",
   target: "proposal:private",
+  round: "b450446a-562c-4273-b78a-e4981d9b5199",
+  item: "b450446a-562c-4273-b78a-e4981d9b5199",
+  content: "contributions",
+  manage: "1",
   offset: "80"
 })
 const next = new URL(
@@ -145,12 +176,33 @@ for (const key of [
 ]) {
   assert.equal(next.searchParams.get(key), navigationContext.get(key), key)
 }
-for (const key of ["action", "target", "offset"])
+for (const key of [
+  "action",
+  "target",
+  "offset",
+  "round",
+  "item",
+  "content",
+  "manage"
+])
   assert.equal(
     next.searchParams.has(key),
     false,
     `do not replay ${key} on another tab`
   )
+for (const view of ["review", "work"]) {
+  const clean = new URL(
+    communitySectionHref(context.communitySlug, view, navigationContext),
+    "https://example.org"
+  )
+  assert.deepEqual(
+    [...clean.searchParams.keys()],
+    ["view", "profile", "release"],
+    `${view} opens its own list without stale selection filters`
+  )
+  assert.equal(clean.searchParams.get("profile"), "pf")
+  assert.equal(clean.searchParams.get("release"), "matcore:0.3.0")
+}
 
 const revision = "b450446a-562c-4273-b78a-e4981d9b5199"
 const returnTo = `/communities/materials_group?view=contributions&profile=pf&type=proposal&status=awaiting_review&q=mesh&selected=proposal:${revision}&action=export`
@@ -172,7 +224,27 @@ assert.equal(
   returnTo
 )
 assert.equal(normalizeAuthReturnTo(draft), draft)
-assert.equal(communityWorkspaceReturnLabel(returnTo), "Back to contributions")
+assert.equal(communityWorkspaceReturnLabel(returnTo), "Back to reviews")
+const canonicalReturn = returnTo.replace(
+  "view=contributions",
+  "view=review&content=contributions"
+)
+assert.equal(
+  normalizeCommunityContributionReturnTo(canonicalReturn),
+  canonicalReturn
+)
+assert.equal(normalizeAuthReturnTo(canonicalReturn), canonicalReturn)
+assert.equal(communityWorkspaceReturnLabel(canonicalReturn), "Back to reviews")
+assert.equal(
+  new URL(
+    withCommunityWorkspaceReturn(
+      `/metadata/workspace/${revision}`,
+      canonicalReturn
+    ),
+    "http://local"
+  ).searchParams.get("returnTo"),
+  canonicalReturn
+)
 assert.equal(
   communityWorkspaceReturnLabel(
     "/communities/materials_group?view=work#my-field-drafts"
@@ -181,7 +253,7 @@ assert.equal(
 )
 for (const [mode, label] of [
   ["reference", "Back to reference"],
-  ["working", "Back to working version"],
+  ["working", "Back to community version"],
   ["release", "Back to community release"]
 ]) {
   assert.equal(
@@ -244,7 +316,12 @@ for (const invalid of [
   `/communities/materials_group?view=contributions&type=admin`,
   `/communities/materials_group?view=contributions&offset=-1`,
   `/communities/materials_group?view=contributions&offset=10001`,
-  `/communities/materials_group?view=settings`
+  `/communities/materials_group?view=settings`,
+  `/communities/materials_group?view=review`,
+  `/communities/materials_group?view=review&content=unknown`,
+  `/communities/materials_group?view=review&content=contributions&content=contributions`,
+  `/communities/materials_group?view=review&content=contributions&round=${revision}`,
+  `/communities/materials_group?view=contributions&content=contributions`
 ]) {
   assert.equal(normalizeCommunityContributionReturnTo(invalid), null, invalid)
   assert.equal(withCommunityContributionReturn("/add", invalid), "/add")

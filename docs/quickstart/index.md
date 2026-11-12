@@ -1,23 +1,24 @@
 # Quick start
 
-Choose the task you want to do. To add one term, use an existing vocabulary.
-Creating a community, vocabulary, or collection is optional.
+Use term search or **Browse terms** on Home to find a definition. **Add a term**
+starts a contribution, **Create account** registers you, and **Join a community**
+opens the community directory. After sign-in, **My communities** links directly
+to your communities.
 
 <a id="add-a-term"></a>
 
 ## Add term
 
-Define one term in a vocabulary.
-
 <a id="review-and-publish"></a>
 
-1. Open [Add term](/add). Sign in and complete your profile name if asked.
-   Check the destination vocabulary.
+1. Open [Add a term](/add). Sign in and add your profile name if asked.
+   Check **Vocabulary** above the editing steps. Home uses the selected
+   community, or the general MatSci-SAM vocabulary for **All communities**.
 2. Enter the term and select **Confirm term**. If it already exists in that
    vocabulary, open the existing term instead.
 3. Write its definition in **Simple** view. Examples and AI assistance are
    optional.
-4. Select **Review definition**, check your wording, then **Publish new term**.
+4. Select **Review definition**, check the definition, then **Publish new term**.
 
 <a id="advanced-view"></a>
 <a id="replace-or-illustrate-a-definition"></a>
@@ -27,47 +28,39 @@ Advanced tools when you need them.
 
 ## Import terms
 
-Create private drafts for a batch of new terms.
-
 Open [Import terms](/setup?task=import), choose the destination vocabulary,
 and choose a collection or **Skip collection**. Upload or paste CSV or TSV
 with `term` and `definition` columns. Definitions can be completed later.
 
 Select **Preview terms** to check new terms, existing terms, and duplicate
 rows. Fix any errors and choose the rows to save, then select **Create private
-drafts**. Return through [My drafts](/profile/drafts) to review and publish.
+drafts**. Return through [My work](/profile/drafts) to review and publish.
 Existing definitions stay unchanged. [Import details](/docs/importing-terms).
 
 ## Create collection
 
-Select terms from any vocabulary.
-
-Open [Create collection](/setup?task=collection), enter a name and optional
-description, then select **Create collection**. Open the new collection to
-select existing terms. Their definitions and vocabulary identities stay the
-same.
+Open **More → Collections** in the community and select **Create a collection**
+when available. Enter a name and optional description, then select existing
+terms. Their definitions and vocabulary identities stay the same.
 
 Collection creation is available to site administrators and community stewards,
 or when enabled for contributors. [Collection guide](/docs/tags#collections).
 
 ## Create vocabulary
 
-Name a body of terms and definitions.
-
 Site administrators can open [Create vocabulary](/setup?task=vocabulary), enter
 a name and optional description, then select **Create vocabulary**. This
 creates a standalone vocabulary where terms can be added or imported.
 
-Each community already has its own vocabulary. Use this action when you need
-a separate named vocabulary without a new community.
+Use **Create vocabulary** for a separate vocabulary. Each community has a
+vocabulary created with it.
 
 ## Create community
 
-Bring people together to contribute.
-
-Site administrators can open [Create community](/setup?task=community), enter
-a name and optional description, then select **Create community**. This saves
-the community and its vocabulary immediately. Open its page to invite people.
+Site administrators can open [Administration → Communities](/admin/communities),
+select **Create community**, enter a name and optional description, then select
+**Create**. This saves the community and its vocabulary immediately.
+Open **More → People** on its page to invite members.
 [Community guide](/docs/communities).
 
 ## More help

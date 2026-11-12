@@ -203,6 +203,9 @@ async function renderPage(parameters: PageParameters, options: Options = {}) {
     "@/components/ui/card": cards,
     "@/lib/auth-return": authReturn,
     "@/lib/site": { SITE_NAME: "MatSci-SAM" },
+    "@/lib/account-creation": {
+      isAccountCreationEnabled: () => options.signup !== false
+    },
     "@/lib/email-auth": {
       isEmailAuthEnabled: () => options.enabled !== false,
       isEmailAccountCreationEnabled: () => options.signup !== false
@@ -230,7 +233,7 @@ function checkRedirect(
   return expected.href
 }
 const registerLink = (html: string) =>
-  /href="([^"]+)">Create an account with email<\/a>/
+  /href="([^"]+)">Create an account<\/a>/
     .exec(html)?.[1]
     ?.replaceAll("&amp;", "&")
 

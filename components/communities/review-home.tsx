@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { trpc } from "@/trpc/client"
 import { Button } from "@/components/ui/button"
 import { communityReviewHref } from "@/lib/community-review-types"
@@ -26,6 +26,7 @@ export function CommunityReviewHome({
   reviewOnly?: boolean
 }) {
   const router = useRouter()
+  const query = useSearchParams()
   const rounds = trpc.communityReviews.list.useQuery({ communityId })
   const rows =
     rounds.data?.filter((row) => !area || row.area === area || !row.area) ?? []
@@ -34,18 +35,26 @@ export function CommunityReviewHome({
     communityId,
     communitySlug: slug,
     metadataEnabled: standards,
-    profile: area
+    profile: area,
+    release: query.get("release") ?? undefined
   })
   const href = (view: string) =>
     "/communities/" +
     slug +
     "?" +
-    new URLSearchParams({ view, ...(area ? { profile: area } : {}) })
+    new URLSearchParams({
+      view,
+      ...(area ? { profile: area } : {}),
+      ...(query.get("release") ? { release: query.get("release")! } : {})
+    })
   return (
     <section
       className="flex flex-col gap-6"
       aria-label={reviewOnly ? "Community reviews" : "Community quick start"}
     >
+      {!reviewOnly && (
+        <h2 className="text-2xl font-semibold">Getting started</h2>
+      )}
       {areas.length > 0 && (
         <label className="flex max-w-sm flex-col gap-2 text-sm font-medium">
           Area
@@ -60,6 +69,9 @@ export function CommunityReviewHome({
                   "?" +
                   new URLSearchParams({
                     view: reviewOnly ? "review" : "quickstart",
+                    ...(query.get("release")
+                      ? { release: query.get("release")! }
+                      : {}),
                     ...(event.target.value
                       ? { profile: event.target.value }
                       : {})
@@ -121,9 +133,9 @@ export function CommunityReviewHome({
           {canManage && (
             <Link
               className="text-sm underline"
-              href={href("review") + "&manage=1#participant-responses"}
+              href={href("review") + "&manage=1"}
             >
-              Request feedback / View results
+              Request feedback
             </Link>
           )}
         </div>

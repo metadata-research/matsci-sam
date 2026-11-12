@@ -327,7 +327,7 @@ async function main() {
           .filter({ hasText: ALTERNATIVE })
         const beforeExpand = exampleRequests.length
         await alternativeCard
-          .getByRole("button", { name: "Show definition", exact: true })
+          .getByRole("button", { name: "Show details", exact: true })
           .click()
         await expect(
           alternativeCard.getByRole("heading", {
@@ -348,7 +348,7 @@ async function main() {
         )
         await expect(alternativeCard.getByText(/Featured/)).toHaveCount(0)
         await alternativeCard
-          .getByRole("button", { name: "Hide definition", exact: true })
+          .getByRole("button", { name: "Hide details", exact: true })
           .click()
         await expect(
           alternativeCard.getByText("The first example of the alternative.", {
@@ -357,7 +357,7 @@ async function main() {
         ).toBeHidden()
         const beforeReopen = exampleRequests.length
         await alternativeCard
-          .getByRole("button", { name: "Show definition", exact: true })
+          .getByRole("button", { name: "Show details", exact: true })
           .click()
         await expect(
           alternativeCard.getByText("The second example of the alternative.", {

@@ -325,7 +325,7 @@ async function orcidLogin(returnTo: string | null) {
         revalidatePath: () =>
           assert.fail("Login must not enter the connect branch")
       },
-      "@/lib/email-auth": { isEmailAccountCreationEnabled: () => true },
+      "@/lib/account-creation": { isAccountCreationEnabled: () => true },
       "@/lib/apis/orcid": {
         isOrcidAuthEnabled: () => true,
         completeOrcidAuthorization: async () => ({ orcidId: "fixture-orcid" }),

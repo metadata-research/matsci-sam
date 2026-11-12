@@ -34,7 +34,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  communityPath,
   DEFAULT_VOCABULARY_SLUG,
   collectionPath,
   vocabularyPath,
@@ -234,7 +233,6 @@ function SetupWorkspace({
   const [localBusy, setLocalBusy] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null)
   const operation = useRef(false)
-  const createCommunity = trpc.communities.create.useMutation()
   const createVocabulary = trpc.setup.createVocabulary.useMutation()
   const createCollection = trpc.collections.create.useMutation()
   const createWorklist = trpc.communities.createWorklistCollection.useMutation()
@@ -258,7 +256,6 @@ function SetupWorkspace({
   )
   const busy =
     localBusy ||
-    createCommunity.isPending ||
     createVocabulary.isPending ||
     createCollection.isPending ||
     createWorklist.isPending ||
@@ -519,7 +516,6 @@ function SetupWorkspace({
 
   if (
     creationAttempt &&
-    !createCommunity.isPending &&
     !createVocabulary.isPending &&
     !createCollection.isPending &&
     !createWorklist.isPending
@@ -853,71 +849,13 @@ function SetupWorkspace({
                 </FieldGroup>
               ) : null}
               {options.canCreateCommunity ? (
-                <CreationSection
-                  direct={directCreate}
-                  label="Create a new community"
+                <Link
+                  href="/admin/communities"
+                  className="text-sm text-primary underline"
                 >
-                  <EntityForm
-                    kind="community"
-                    value={draft.community}
-                    disabled={destinationControlsBlocked}
-                    saving={busy}
-                    onChange={(value) => update({ community: value })}
-                    submitLabel={
-                      directCreate
-                        ? "Create community"
-                        : "Create community and continue"
-                    }
-                    onSubmit={() =>
-                      perform(async () => {
-                        await createSafely(
-                          "community",
-                          draft.community.title,
-                          () => createCommunity.mutateAsync(draft.community),
-                          (created) => ({
-                            communityId: String(created.id),
-                            vocabularySlug: created.slug,
-                            collectionId: "",
-                            ...(directCreate
-                              ? {
-                                  receipt: {
-                                    title: "Community created",
-                                    href: communityPath(created.slug),
-                                    detail:
-                                      "Your community and its vocabulary are ready. Invite people from the community page."
-                                  }
-                                }
-                              : {
-                                  step: "vocabulary",
-                                  furthest: Math.max(
-                                    draft.furthest,
-                                    setupSteps.indexOf("vocabulary")
-                                  )
-                                })
-                          })
-                        )
-                        await optionsQuery.refetch()
-                        if (!directCreate) {
-                          setNotice(
-                            "Community and vocabulary created. You can now add terms."
-                          )
-                        }
-                      })
-                    }
-                  />
-                </CreationSection>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  A site administrator creates communities.{" "}
-                  {directCreate ? (
-                    <Link href="/setup" className="underline">
-                      Continue with an existing community or vocabulary.
-                    </Link>
-                  ) : (
-                    "Choose an existing community above, or continue without one."
-                  )}
-                </p>
-              )}
+                  Manage communities in Administration
+                </Link>
+              ) : null}
             </>
           ) : null}
 

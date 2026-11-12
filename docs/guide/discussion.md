@@ -1,7 +1,7 @@
 # Discussion
 
-Open **Discussion** for recent terms in the vocabulary selected under
-**Working in**. **Everything** includes all hosted vocabularies. Each card
+Open [Discussion](/discussion) for recent terms in the community selected in the header.
+**All communities** includes all vocabularies you can read. Each card
 uses a definition authored by a model when available. Otherwise, it shows the
 definition with the highest score. Select the term name or comment count to
 open the term page.
@@ -15,7 +15,7 @@ Anyone can read Discussion. Sign in and complete your profile name to contribute
 1. Under **Draft an alternative with AI**, select **Start an alternative** and
    explain what should change.
 2. Select **Draft alternative with a language model** and inspect the preview.
-3. Select **Use this draft**, edit the wording, then **Review alternative**.
+3. Select **Use this draft**, edit the definition, then **Review alternative**.
 4. Select **Publish alternative** to create a separate definition credited to
    you and the model and linked to its source. The original remains available.
 

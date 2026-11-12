@@ -99,6 +99,9 @@ async function main() {
       })
       await signInAs(context, base, user.id)
       const page = await context.newPage()
+      const communityWork = page
+        .getByRole("navigation", { name: "Community workspace", exact: true })
+        .getByRole("link", { name: "My work", exact: true })
       page.on("pageerror", (error) => errors.push(error.message))
       page.on("console", (message) => {
         if (message.type() === "error") errors.push(message.text())
@@ -220,18 +223,22 @@ async function main() {
         await expect(
           page.getByText("Request access", { exact: true })
         ).toHaveCount(0)
-        await expect(
-          page.getByRole("link", { name: "My work", exact: true })
-        ).toBeVisible()
+        await expect(communityWork).toBeVisible()
+        await expect(communityWork).toHaveAttribute(
+          "href",
+          `${target}?view=work`
+        )
         assert.equal(
           attempts,
           1,
           "Opening the community must not accept the invitation again"
         )
         await page.reload()
-        await expect(
-          page.getByRole("link", { name: "My work", exact: true })
-        ).toBeVisible()
+        await expect(communityWork).toBeVisible()
+        await expect(communityWork).toHaveAttribute(
+          "href",
+          `${target}?view=work`
+        )
         if (output)
           await page.screenshot({
             path: `${output}/joined-community-${width}.png`,

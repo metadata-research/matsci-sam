@@ -3,6 +3,7 @@ import { UsersRoundIcon } from "lucide-react"
 import { AdminPageHeader } from "../page-header"
 import styles from "../admin.module.css"
 import { listAdminCommunities } from "@/lib/admin-community-queries"
+import { CreateCommunity } from "@/components/communities/controls"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,7 +26,8 @@ export default async function AdminCommunitiesPage() {
     <>
       <AdminPageHeader
         title="Communities"
-        description="Manage who is in each community and how people are admitted, separate from the studies a community runs."
+        description="Create communities and manage membership."
+        actions={<CreateCommunity />}
       />
 
       <section className={styles.panel}>
@@ -35,8 +37,7 @@ export default async function AdminCommunitiesPage() {
               <UsersRoundIcon aria-hidden />
               <h2>No communities yet</h2>
               <p>
-                Communities are created on the public communities page. Each
-                one appears here with its roster and invitations.
+                Create a community to start its vocabulary and invite members.
               </p>
             </div>
           </div>

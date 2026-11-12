@@ -21,7 +21,7 @@ import {
 } from "@/lib/communities"
 import { authPathWithReturnTo } from "@/lib/auth-return"
 import { communityInvitationPageCopy } from "@/lib/invitation-presentation"
-import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
+import { isAccountCreationEnabled } from "@/lib/account-creation"
 import { communityJoinLinkEnabled } from "@/lib/community-join-link"
 
 export const metadata: Metadata = {
@@ -48,7 +48,7 @@ export default async function InvitePage({
   const { token } = await params
   const returnTo = invitePath(token)
   const user = await getCurrentUser()
-  const signupEnabled = isEmailAccountCreationEnabled()
+  const signupEnabled = isAccountCreationEnabled()
   const invitation = await invitationForToken(token, user?.id ?? null)
 
   // A replaced, rotated or withdrawn link resolves to nothing. There is no

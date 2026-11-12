@@ -1,12 +1,15 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { SITE_NAME } from "@/lib/site"
-import { communitiesWithCounts, myCommunities } from "@/lib/community-queries"
-import { collectionsIndexPath, communityPath } from "@/lib/public-identifiers"
+import {
+  communitiesWithCounts,
+  getActiveCommunity,
+  myCommunities
+} from "@/lib/community-queries"
+import { communityPath } from "@/lib/public-identifiers"
 import { getCurrentUser } from "@/lib/current-user"
 import { mayManageCommunity } from "@/lib/communities"
 import { Badge } from "@/components/ui/badge"
-import { CreateCommunity } from "@/components/communities/controls"
+import { CommunityLink } from "@/components/communities/community-link"
 
 export const metadata: Metadata = {
   title: `Communities | ${SITE_NAME}`,
@@ -24,7 +27,7 @@ export const metadata: Metadata = {
  */
 export default async function CommunitiesPage() {
   const user = await getCurrentUser()
-  const [communities, mine] = await Promise.all([
+  const [communities, mine, active] = await Promise.all([
     // Retired communities are listed for an administrator only, because
     // Restore renders on the community page and nothing else links to a
     // retired one. Their addresses resolve for everyone either way.
@@ -32,7 +35,8 @@ export default async function CommunitiesPage() {
       includeRetired: mayManageCommunity(user ?? null),
       viewerId: user?.id ?? null
     }),
-    user ? myCommunities(user.id) : Promise.resolve([])
+    user ? myCommunities(user.id) : Promise.resolve([]),
+    getActiveCommunity()
   ])
   const memberOf = new Set(mine.map((row) => row.id))
 
@@ -42,13 +46,8 @@ export default async function CommunitiesPage() {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold">Communities</h1>
           <p className="text-muted-foreground">
-            Communities bring together people working on a vocabulary and shared{" "}
-            <Link href={collectionsIndexPath} className="text-primary">
-              collections
-            </Link>
-            . A community may share its content publicly or limit it to members.
+            Browse communities and request access to members-only content.
           </p>
-          {mayManageCommunity(user ?? null) && <CreateCommunity />}
         </div>
 
         {communities.length === 0 ? (
@@ -59,13 +58,17 @@ export default async function CommunitiesPage() {
           <ul className="space-y-3">
             {communities.map((community) => (
               <li key={community.id}>
-                <Link
+                <CommunityLink
+                  communityId={
+                    memberOf.has(community.id) ? community.id : undefined
+                  }
+                  activeCommunityId={active?.id ?? null}
                   href={communityPath(community.slug)}
-                  className="flex items-start justify-between gap-4 rounded-md border border-border p-4 transition-colors hover:bg-secondary/50"
+                  className="flex flex-col items-start justify-between gap-3 rounded-md border border-border p-4 transition-colors hover:bg-secondary/50 sm:flex-row sm:gap-4"
                 >
-                  <span className="space-y-1">
-                    <span className="flex items-center gap-2 font-medium">
-                      {community.title}
+                  <span className="min-w-0 flex-1 space-y-1 [overflow-wrap:anywhere]">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                      <span className="min-w-0">{community.title}</span>
                       {community.visibility === "members" ? (
                         <Badge variant="outline">Members only</Badge>
                       ) : null}
@@ -96,7 +99,7 @@ export default async function CommunitiesPage() {
                       Request access
                     </span>
                   )}
-                </Link>
+                </CommunityLink>
               </li>
             ))}
           </ul>
