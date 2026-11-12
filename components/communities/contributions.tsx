@@ -32,6 +32,7 @@ export function CommunityContributions({
   canManage,
   viewerId,
   metadataEnabled,
+  hasMetadata = metadataEnabled,
   profiles,
   referenceReleaseId,
   referenceVersions,
@@ -44,6 +45,7 @@ export function CommunityContributions({
   canManage: boolean
   viewerId: number | null
   metadataEnabled: boolean
+  hasMetadata?: boolean
   profiles: { id: string; label?: string }[]
   referenceReleaseId?: string
   referenceVersions: { id: string; version: string }[]
@@ -68,7 +70,8 @@ export function CommunityContributions({
   })
   function href(changes: Record<string, string | null>) {
     const params = new URLSearchParams(query)
-    params.set("view", "contributions")
+    params.set("view", "review")
+    params.set("content", "contributions")
     params.delete("action")
     for (const [key, value] of Object.entries(changes)) {
       if (value) params.set(key, value)
@@ -78,6 +81,7 @@ export function CommunityContributions({
   }
   const returnTo = href({})
   const requestFeedback = new URLSearchParams({ view: "review", manage: "1" })
+  if (referenceReleaseId) requestFeedback.set("release", referenceReleaseId)
   if (query.get("profile"))
     requestFeedback.set("profile", query.get("profile")!)
   if (selected.some((target) => target.startsWith("definition:")))
@@ -90,7 +94,7 @@ export function CommunityContributions({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="contributions-heading" className="text-2xl font-semibold">
-          Contributions
+          {hasMetadata ? "Definitions and proposals" : "Definitions"}
         </h2>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
@@ -104,7 +108,8 @@ export function CommunityContributions({
         </div>
       </div>
       <form className="flex flex-wrap items-end gap-3" action={pathname}>
-        <input type="hidden" name="view" value="contributions" />
+        <input type="hidden" name="view" value="review" />
+        <input type="hidden" name="content" value="contributions" />
         {["standard", "edition", "layout"].map((name) =>
           query.get(name) ? (
             <input
@@ -171,7 +176,7 @@ export function CommunityContributions({
           >
             <option value="all">All contributions</option>
             <option value="definition">Term definitions</option>
-            {metadataEnabled ? (
+            {hasMetadata ? (
               <option value="proposal">Metadata proposals</option>
             ) : null}
           </select>
@@ -185,7 +190,7 @@ export function CommunityContributions({
           >
             <option value="all">All statuses</option>
             <option value="published">Published definitions</option>
-            {metadataEnabled
+            {hasMetadata
               ? Object.entries(proposalStatusLabels).map(([value, text]) => (
                   <option key={value} value={value}>
                     {text}

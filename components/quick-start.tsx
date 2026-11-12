@@ -1,13 +1,10 @@
 import Link from "next/link"
 import {
   ArrowRightIcon,
-  BookOpenIcon,
-  FolderPlusIcon,
   InfoIcon,
   ListPlusIcon,
   ListTreeIcon,
-  PlusIcon,
-  UsersIcon
+  PlusIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,10 +27,7 @@ export { setupHref } from "@/lib/community-actions"
 const actionIcons = {
   term: PlusIcon,
   field: ListTreeIcon,
-  import: ListPlusIcon,
-  collection: FolderPlusIcon,
-  vocabulary: BookOpenIcon,
-  community: UsersIcon
+  import: ListPlusIcon
 }
 
 export function quickStartActions(context: CommunityActionContext = {}) {

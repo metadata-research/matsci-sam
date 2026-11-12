@@ -64,13 +64,26 @@ export default async function PublishedMetadataFieldPage({
   const workReturn = record.community
     ? normalizeCommunityWorkReturnTo(search.returnTo, record.community.slug)
     : null
+  const selectedRevision =
+    record.revisions.find(
+      (revision) => revision.id === record.selectedRevisionId
+    ) ?? record.revisions[0]
+  const reviewContext = new URLSearchParams({
+    view: "review",
+    content: "contributions",
+    type: "proposal"
+  })
+  if (selectedRevision?.profileReleaseId)
+    reviewContext.set("release", selectedRevision.profileReleaseId)
+  if (selectedRevision?.profileKey)
+    reviewContext.set("profile", selectedRevision.profileKey)
   const workspaceHref =
     reviewReturn ??
     contributionReturn ??
     catalogReturn ??
     workReturn ??
     (record.community
-      ? `/communities/${record.community.slug}?view=contributions`
+      ? `/communities/${record.community.slug}?${reviewContext}`
       : `/metadata/workspace?vocabularySlug=${encodeURIComponent(record.field.vocabularySlug)}`)
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">

@@ -54,9 +54,8 @@ import { trpc } from "@/trpc/server"
 import { Badge } from "@/components/ui/badge"
 import { PublicProfileName } from "@/components/public-profile-name"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { WorkspaceSettings } from "@/components/communities/workspace-settings"
-import { RecentCommunityWork } from "@/components/communities/recent-work"
-import { InfoPopover } from "@/components/info-popover"
 import { CommunityWork } from "@/components/communities/community-work"
 import { CommunityNavigation } from "@/components/communities/community-navigation"
 import { CommunityStandardWorkspace } from "@/components/metadata-workspace/community-standard-workspace"
@@ -116,6 +115,7 @@ export default async function CommunityPage({
     view?: string
     profile?: string
     offset?: string
+    contributionOffset?: string
     release?: string
     source?: string
     q?: string
@@ -153,7 +153,7 @@ export default async function CommunityPage({
       </main>
     )
   const query = await searchParams
-  let view = query.view ?? "quickstart"
+  let view = query.view ?? "vocabulary"
   if (
     ![
       "quickstart",
@@ -180,15 +180,33 @@ export default async function CommunityPage({
     workspace.metadataEnabled || workspace.hasMatcoreCatalog
 
   if (!standardsEnabled && ["proposals", "releases"].includes(view)) notFound()
-  if (query.content === "contributions") view = "contributions"
-  const contributionView = ["contributions", "proposals"].includes(view)
+  if (view === "vocabulary" && query.content === "contributions")
+    view = "contributions"
+  const contributionView =
+    ["contributions", "proposals"].includes(view) ||
+    (view === "review" &&
+      query.content === "contributions" &&
+      !query.round &&
+      !query.manage)
   const browseTerms =
     view === "vocabulary" && (!standardsEnabled || query.content === "terms")
-  const terms = browseTerms
+  if (
+    query.q !== undefined &&
+    (query.q.length > 200 || /[\u0000-\u001f\u007f]/.test(query.q))
+  )
+    notFound()
+  const allTerms = browseTerms
     ? await vocabularyTerms(community.vocabularySlug, user?.id ?? null)
     : []
+  const terms = allTerms.filter((term) =>
+    term.term
+      .toLocaleLowerCase()
+      .includes((query.q ?? "").trim().toLocaleLowerCase())
+  )
 
-  const showSettings = access.canManage || workspace.canManage
+  const isAdmin = mayManageCommunity(user ?? null)
+  const canManageWork = access.canManage || workspace.canManage
+  const showSettings = isAdmin || canManageWork
   if (view === "settings" && !showSettings) notFound()
   if (
     query.content &&
@@ -196,7 +214,7 @@ export default async function CommunityPage({
   )
     notFound()
   if (query.manage && query.manage !== "1") notFound()
-  if (view === "review" && query.manage && !showSettings) notFound()
+  if (view === "review" && query.manage && !canManageWork) notFound()
   const hasCatalog = workspace?.hasMatcoreCatalog ?? false
   const catalogPath = matcoreCatalogHref(community.slug)
   const profile = query.profile
@@ -351,6 +369,26 @@ export default async function CommunityPage({
     ...definitionContributions,
     ...fieldContributions
   ].sort(compareCommunityContributions)
+  const reviewHub =
+    contributionView || (view === "review" && !query.round && !query.manage)
+  const reviewContext = new URLSearchParams({ view: "review" })
+  if (query.profile) reviewContext.set("profile", query.profile)
+  if (query.release ?? standard?.reference?.id)
+    reviewContext.set("release", (query.release ?? standard?.reference?.id)!)
+  const reviewsHref = `/communities/${community.slug}?${reviewContext}`
+  const contributionsHref = `${reviewsHref}&content=contributions`
+  const termListParams = new URLSearchParams({ view: "vocabulary" })
+  if (standardsEnabled) termListParams.set("content", "terms")
+  for (const key of [
+    "release",
+    "profile",
+    "standard",
+    "edition",
+    "layout"
+  ] as const) {
+    if (query[key]) termListParams.set(key, query[key]!)
+  }
+  const termListHref = `/communities/${community.slug}?${termListParams}`
   const initialTargetIds = query.target
     ? Array.isArray(query.target)
       ? query.target
@@ -401,15 +439,12 @@ export default async function CommunityPage({
           )
         )
       : []
-  const isAdmin = mayManageCommunity(user ?? null)
   const seesRoster = mayViewRoster(user ?? null, membership)
   const onWorklist = new Set(worklist.map((row) => row.id))
-  // A collection a live study is running against is shown under that study, so
-  // it is not repeated here under a second heading.
   // Keep retired worklist rows visible to stewards so they can remove the
   // stale link. Participants see only collections they can still use.
-  const loose = worklist.filter(
-    (row) => row.studySlug === null && (runs || row.retiredAt === null)
+  const visibleCollections = worklist.filter(
+    (row) => runs || row.retiredAt === null
   )
   const vocabularyCountsByCollection = new Map<
     number,
@@ -435,15 +470,16 @@ export default async function CommunityPage({
             <Link href={communitiesIndexPath}>Communities</Link>
           </div>
           <h1 className="break-words text-4xl font-bold">{community.title}</h1>
-          {access.visibility === "members" ? (
-            <Badge variant="outline">Members only</Badge>
-          ) : null}
-          {community.description &&
-            (!standardsEnabled || view === "overview") && (
-              <p className="break-words text-muted-foreground">
-                {community.description}
-              </p>
-            )}
+          <Badge variant="outline">
+            {access.visibility === "members"
+              ? "Members only"
+              : "Public community"}
+          </Badge>
+          {community.description && view !== "overview" && (
+            <p className="break-words text-muted-foreground">
+              {community.description}
+            </p>
+          )}
           {community.retiredAt && (
             <p className="rounded-md border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
               This community has been retired. Its address still resolves, and
@@ -457,31 +493,65 @@ export default async function CommunityPage({
           view={view}
           showSurveys={runs || studies.length > 0}
           showSettings={showSettings}
+          signedIn={Boolean(user)}
           standardsEnabled={standardsEnabled}
           referenceReleaseId={standard?.reference?.id}
           area={query.profile}
           vocabularyHref={vocabularyPath(community.vocabularySlug)}
         />
+        {reviewHub ? (
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold">Reviews</h2>
+            <nav aria-label="Review content" className="flex flex-wrap gap-2">
+              <Button
+                asChild
+                variant={contributionView ? "outline" : "secondary"}
+              >
+                <Link
+                  href={reviewsHref}
+                  aria-current={!contributionView ? "page" : undefined}
+                >
+                  Feedback requests
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant={contributionView ? "secondary" : "outline"}
+              >
+                <Link
+                  href={contributionsHref}
+                  aria-current={contributionView ? "page" : undefined}
+                >
+                  {standardsEnabled
+                    ? "Definitions and proposals"
+                    : "Definitions"}
+                </Link>
+              </Button>
+            </nav>
+          </div>
+        ) : null}
         {["quickstart", "review"].includes(view) &&
+        !contributionView &&
         !(view === "review" && (query.round || query.manage)) ? (
           <CommunityReviewHome
             communityId={community.id}
             slug={community.slug}
             areas={standard?.profiles ?? []}
             area={query.profile}
-            canManage={showSettings}
+            canManage={canManageWork}
             standards={standardsEnabled}
             reviewOnly={view === "review"}
           />
         ) : null}
         {view === "review" && query.manage === "1" ? (
           <CommunityReviewSettings
-            key={`${community.id}:${query.round}:${initialTargetIds?.join(",")}:${query.profile}`}
+            key={`${community.id}:${query.round}:${initialTargetIds?.join(",")}:${query.profile}:${query.release}`}
             communityId={community.id}
             slug={community.slug}
             area={query.profile}
             selectedRound={query.round}
             initialTargetIds={initialTargetIds}
+            initialReferenceReleaseId={query.release}
           />
         ) : null}
         {view === "review" &&
@@ -497,26 +567,32 @@ export default async function CommunityPage({
           />
         ) : null}
         {view === "overview" ? (
-          <div className="flex flex-col gap-6">
-            {user ? (
-              <RecentCommunityWork
-                vocabularySlug={community.vocabularySlug}
-                workPath={workPath}
-              />
-            ) : null}
+          <section aria-labelledby="community-about" className="space-y-5">
+            <h2 id="community-about" className="text-2xl font-semibold">
+              About
+            </h2>
+            <p className="max-w-3xl break-words whitespace-pre-line">
+              {community.description || "No description has been added yet."}
+            </p>
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold">Content access</h3>
+              <p className="text-sm text-muted-foreground">
+                {access.visibility === "members"
+                  ? "Community content is available to members. Membership requires an invitation or an approved access request."
+                  : "Anyone can read the community content."}
+              </p>
+            </div>
             <div className="flex flex-wrap gap-3">
               <Button asChild>
-                <Link href={catalogPath}>
-                  {hasCatalog
-                    ? "Browse reference catalog"
-                    : "Browse vocabulary"}
-                </Link>
+                <Link href={catalogPath}>Browse vocabulary</Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href={workPath}>Open my work</Link>
+                <Link href={`/communities/${community.slug}?view=people`}>
+                  People
+                </Link>
               </Button>
             </div>
-          </div>
+          </section>
         ) : null}
         {view === "settings" ? (
           <section
@@ -527,27 +603,25 @@ export default async function CommunityPage({
               Manage community
             </h2>
             <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline">
-                <Link
-                  href={`/communities/${community.slug}?view=review&manage=1`}
-                >
-                  Manage reviews
-                </Link>
-              </Button>
+              {canManageWork ? (
+                <Button asChild variant="outline">
+                  <Link
+                    href={`/communities/${community.slug}?view=review&manage=1`}
+                  >
+                    Manage reviews
+                  </Link>
+                </Button>
+              ) : null}
               <Button asChild variant="outline">
                 <Link href={`/communities/${community.slug}?view=people`}>
                   People and invitations
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link
-                  href={`/communities/${community.slug}?view=contributions`}
-                >
-                  Review packets
-                </Link>
+                <Link href={contributionsHref}>Review packets</Link>
               </Button>
             </div>
-            {query.round ? (
+            {query.round && canManageWork ? (
               <CommunityReviewSettings
                 view="settings"
                 selectedRound={query.round}
@@ -564,6 +638,15 @@ export default async function CommunityPage({
               key={community.vocabularySlug}
               workspace={workspace}
             />
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Vocabulary</h3>
+              <Link
+                className="underline underline-offset-4"
+                href={vocabularyPath(community.vocabularySlug)}
+              >
+                Open vocabulary details
+              </Link>
+            </div>
             {isAdmin ? (
               <div className="flex flex-wrap gap-2">
                 <EditCommunity
@@ -586,30 +669,44 @@ export default async function CommunityPage({
             workPath={workPath}
             profile={query.profile}
             offset={query.offset}
+            contributionOffset={query.contributionOffset}
+            referenceReleaseId={query.release}
           />
         ) : null}
         {view === "vocabulary" && standardsEnabled ? (
-          <nav aria-label="Browse content" className="flex flex-wrap gap-2">
-            <Button asChild variant={browseTerms ? "outline" : "default"}>
-              <Link
-                href={`/communities/${community.slug}?view=vocabulary&content=fields${query.profile ? `&profile=${query.profile}` : ""}`}
-              >
-                Metadata fields
-              </Link>
-            </Button>
-            <Button asChild variant={browseTerms ? "default" : "outline"}>
-              <Link
-                href={`/communities/${community.slug}?view=vocabulary&content=terms`}
-              >
-                Terms
-              </Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href={`/communities/${community.slug}?view=releases`}>
-                Community releases
-              </Link>
-            </Button>
-          </nav>
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold">Vocabulary</h2>
+            <nav
+              aria-label="Vocabulary content"
+              className="flex flex-wrap gap-2"
+            >
+              <Button asChild variant={browseTerms ? "outline" : "default"}>
+                <Link
+                  href={matcoreCatalogHref(community.slug, {
+                    releaseId: query.release,
+                    profileKey: query.profile,
+                    standard: query.standard as
+                      | "reference"
+                      | "working"
+                      | "release"
+                      | undefined,
+                    edition: query.edition,
+                    layout: query.layout as "list" | "hierarchy" | undefined
+                  })}
+                >
+                  Metadata fields
+                </Link>
+              </Button>
+              <Button asChild variant={browseTerms ? "default" : "outline"}>
+                <Link href={termListHref}>Terms</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link href={`/communities/${community.slug}?view=releases`}>
+                  Community releases
+                </Link>
+              </Button>
+            </nav>
+          </div>
         ) : null}
         {contributionView ? (
           <CommunityContributions
@@ -622,6 +719,7 @@ export default async function CommunityPage({
             canManage={showSettings && !community.retiredAt}
             viewerId={user?.id ?? null}
             metadataEnabled={workspace.metadataEnabled && !community.retiredAt}
+            hasMetadata={standardsEnabled}
             profiles={standard?.profiles ?? []}
             referenceReleaseId={standard?.reference?.id}
             referenceVersions={(standard?.referenceVersions ?? []).map(
@@ -637,11 +735,11 @@ export default async function CommunityPage({
             viewerId={user?.id ?? null}
             section={view === "releases" ? "releases" : "standard"}
             mode={
-              query.standard === "reference"
-                ? "reference"
-                : query.standard === "release"
-                  ? "release"
-                  : "working"
+              query.standard === "release"
+                ? "release"
+                : query.standard === "working" || !standard.reference
+                  ? "working"
+                  : "reference"
             }
             layout={query.layout === "list" ? "list" : "hierarchy"}
             profile={query.profile}
@@ -651,19 +749,54 @@ export default async function CommunityPage({
         ) : null}
         {browseTerms ? (
           <section className="flex flex-col gap-4">
-            <div className="flex items-center gap-1">
-              <h2 className="text-2xl font-semibold">Terms</h2>
-              <InfoPopover label="About community contributions">
-                Published terms and metadata fields from this community.
-                Metadata fields include their specification and revision
-                history.
-              </InfoPopover>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-2xl font-semibold">
+                {standardsEnabled ? "Terms" : "Vocabulary"}
+              </h2>
+              {!community.retiredAt ? (
+                <Button asChild>
+                  <Link
+                    href={`/add?${new URLSearchParams({ vocabularySlug: community.vocabularySlug, communityId: String(community.id) })}`}
+                  >
+                    Add a term
+                  </Link>
+                </Button>
+              ) : null}
             </div>
+            <form
+              role="search"
+              aria-label="Community vocabulary"
+              className="flex flex-wrap items-end gap-2"
+            >
+              {[...termListParams].map(([name, value]) => (
+                <input key={name} type="hidden" name={name} value={value} />
+              ))}
+              <label className="min-w-0 flex-1 text-sm">
+                Find a term
+                <Input
+                  name="q"
+                  type="search"
+                  defaultValue={query.q ?? ""}
+                  maxLength={200}
+                />
+              </label>
+              <Button variant="outline" type="submit">
+                Search
+              </Button>
+              {query.q ? (
+                <Link
+                  className="px-2 py-2 text-sm underline"
+                  href={termListHref}
+                >
+                  Clear
+                </Link>
+              ) : null}
+            </form>
             <Link
               className="text-sm underline underline-offset-4"
               href={vocabularyPath(community.vocabularySlug)}
             >
-              Full vocabulary and references
+              Vocabulary details and references
             </Link>
             {terms.length ? (
               <ul className="divide-y rounded-lg border">
@@ -684,7 +817,9 @@ export default async function CommunityPage({
               </ul>
             ) : (
               <p className="text-muted-foreground">
-                No entries have been published in this vocabulary yet.
+                {query.q
+                  ? "No terms match this search."
+                  : "No entries have been published in this vocabulary yet."}
               </p>
             )}
           </section>
@@ -810,19 +945,15 @@ export default async function CommunityPage({
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Collections available to this community that are not part of one
-              of the community’s surveys. They may include terms from this
-              community or references to terms in other vocabularies.
+              Collections can include terms from other vocabularies.
             </p>
-            {loose.length === 0 ? (
+            {visibleCollections.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {studies.length > 0
-                  ? "No additional collections. Survey collections are listed in Surveys."
-                  : "No collections have been added yet."}
+                No collections have been added yet.
               </p>
             ) : (
               <ul className="space-y-2">
-                {loose.map((collection) => (
+                {visibleCollections.map((collection) => (
                   <li
                     key={collection.id}
                     className="flex items-center justify-between gap-2 rounded-md border border-border p-3"

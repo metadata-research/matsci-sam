@@ -14,6 +14,7 @@ import {
   isEmailAccountCreationEnabled,
   isEmailAuthEnabled
 } from "@/lib/email-auth"
+import { isAccountCreationEnabled } from "@/lib/account-creation"
 import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
 import { SITE_NAME } from "@/lib/site"
 
@@ -59,16 +60,15 @@ export default async function CheckEmailPage({
             Check your inbox and spam folder. Links expire shortly and work only
             once.
           </p>
-          {isSigningIn && emailAccountCreationEnabled ? (
+          {isSigningIn && isAccountCreationEnabled() ? (
             <p className="text-sm text-muted-foreground">
               New here?{" "}
               <Link
                 href={authPathWithReturnTo("/register", returnTo)}
                 className="text-primary underline"
               >
-                Create an account with email
+                Create an account
               </Link>
-              . No password is required.
             </p>
           ) : null}
           <Button asChild variant="outline" className="w-full">

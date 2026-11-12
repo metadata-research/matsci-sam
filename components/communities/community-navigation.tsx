@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import {
-  COMMUNITY_SECTIONS,
+  communityPrimarySections,
+  communityMoreSections,
   communitySection,
   communitySectionHref
 } from "@/lib/community-navigation"
@@ -22,6 +23,7 @@ export function CommunityNavigation({
   view,
   showSurveys,
   showSettings = false,
+  signedIn,
   referenceReleaseId,
   area
 }: {
@@ -29,6 +31,7 @@ export function CommunityNavigation({
   view: string
   showSurveys: boolean
   showSettings?: boolean
+  signedIn: boolean
   standardsEnabled?: boolean
   area?: string
   referenceReleaseId?: string
@@ -37,6 +40,8 @@ export function CommunityNavigation({
   const router = useRouter()
   const searchParams = useSearchParams()
   const selected = communitySection(view)
+  const moreSections = communityMoreSections({ showSurveys, showSettings })
+  const selectedMore = moreSections.find(({ id }) => id === selected)
   const href = (key: string) =>
     communitySectionHref(slug, key, searchParams, {
       profile: area,
@@ -59,15 +64,15 @@ export function CommunityNavigation({
   return (
     <nav
       aria-label="Community workspace"
-      className="flex flex-wrap gap-1 border-b pb-3"
+      className="flex min-w-0 gap-1 overflow-x-auto border-b pb-3"
     >
-      {COMMUNITY_SECTIONS.map(({ id: key, label }) => (
+      {communityPrimarySections(signedIn).map(({ id: key, label }) => (
         <Button
           asChild
           key={key}
           variant={selected === key ? "secondary" : "ghost"}
           size="sm"
-          className="min-h-11"
+          className="min-h-11 shrink-0 px-2 sm:px-3"
         >
           <Link
             href={href(key)}
@@ -77,43 +82,23 @@ export function CommunityNavigation({
           </Link>
         </Button>
       ))}
-      {showSettings && (
-        <Button
-          asChild
-          size="sm"
-          className="min-h-11"
-          variant={view === "settings" ? "secondary" : "outline"}
-        >
-          <Link
-            href={href("settings")}
-            aria-current={view === "settings" ? "page" : undefined}
-          >
-            Manage community
-          </Link>
-        </Button>
-      )}
       {
-        <DropdownMenu>
+        // Save guards intercept link clicks before Radix can close the menu.
+        // Reset only after navigation succeeds, and keep save errors accessible.
+        <DropdownMenu key={`${slug}:${searchParams.toString()}`} modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
-              variant={
-                ["collections", "overview", "surveys"].includes(view)
-                  ? "secondary"
-                  : "ghost"
-              }
+              variant={selectedMore ? "secondary" : "ghost"}
               size="sm"
-              className="min-h-11"
+              className="min-h-11 shrink-0 px-2 sm:px-3"
+              aria-label={selectedMore ? `More: ${selectedMore.label}` : "More"}
             >
               More
               <ChevronDown aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {[
-              ["collections", "Collections"],
-              ["overview", "About"],
-              ...(showSurveys ? [["surveys", "Surveys"]] : [])
-            ].map(([key, label]) => (
+            {moreSections.map(({ id: key, label }) => (
               <DropdownMenuItem asChild key={key}>
                 <Link
                   href={href(key)}

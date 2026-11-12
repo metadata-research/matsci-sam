@@ -3,23 +3,24 @@
 Choose a link for what you want to cite. A term, one definition, and an exact
 revision identify different resources.
 
-| Resource | Use |
-| --- | --- |
-| Term | A concept with its changing set of definitions |
-| Definition | One candidate, including later revisions |
-| Revision | Exact definition text at a recorded version |
+| Resource   | Use                                            |
+| ---------- | ---------------------------------------------- |
+| Term       | A concept with its changing set of definitions |
+| Definition | One candidate, including later revisions       |
+| Revision   | Exact definition text at a recorded version    |
 
 ## Citation
 
 1. Open the term or definition you want to cite. Select **Advanced** to see
    its identifier.
-2. Open the required revision when quoting exact wording.
+2. Open **Revision history** on a definition page and choose the required
+   revision when quoting exact text.
 3. Copy the persistent identifier displayed for that resource. Retain it if
    the browser redirects to a different website address.
 
 MatSci-SAM identifiers use `https://w3id.org/matsci-sam`. Cite the term when
 using a dictionary concept as a field value. Cite a revision for a quotation
-or a reproducible comparison of definition text. A revision fixes the wording,
+or a reproducible comparison of definition text. A revision fixes the text,
 while its page may also display examples added later.
 
 ## Identifier paths

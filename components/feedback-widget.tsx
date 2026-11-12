@@ -64,6 +64,7 @@ const PageFeedbackWidget = ({
     setSubmitted(false)
     submit.reset()
     setIsOpen(true)
+    requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
   const close = () => {

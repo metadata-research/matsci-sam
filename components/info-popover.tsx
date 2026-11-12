@@ -11,9 +11,11 @@ import {
 
 export function InfoPopover({
   label,
+  triggerText,
   children
 }: {
   label: string
+  triggerText?: string
   children: ReactNode
 }) {
   return (
@@ -21,12 +23,15 @@ export function InfoPopover({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
-          size="icon"
-          className="size-8 shrink-0 text-muted-foreground"
+          variant={triggerText ? "outline" : "ghost"}
+          size={triggerText ? "sm" : "icon"}
+          className={
+            triggerText ? "shrink-0" : "size-8 shrink-0 text-muted-foreground"
+          }
           aria-label={label}
         >
           <InfoIcon className="size-4" aria-hidden="true" />
+          {triggerText}
         </Button>
       </PopoverTrigger>
       <PopoverContent

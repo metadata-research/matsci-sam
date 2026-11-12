@@ -82,3 +82,19 @@ export function matchingHierarchy(nodes: HierarchyNode[]): HierarchyNode[] {
     return node.matches || children.length ? [{ ...node, children }] : []
   })
 }
+
+/** Open only a linked field's ancestors, including groups for duplicate paths. */
+export function hierarchyAncestors(
+  nodes: HierarchyNode[],
+  href: string
+): string[] {
+  function find(branches: HierarchyNode[]): string[] | null {
+    for (const node of branches) {
+      if (node.href === href) return []
+      const ancestors = find(node.children)
+      if (ancestors) return [node.id, ...ancestors]
+    }
+    return null
+  }
+  return find(nodes) ?? []
+}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { SITE_NAME } from "@/lib/site"
 import { setupTasks, type SetupTask } from "@/lib/guided-setup"
 import { trpc } from "@/trpc/server"
@@ -31,6 +31,8 @@ export default async function SetupPage({
   const task = setupTasks.includes(params.task as SetupTask)
     ? (params.task as SetupTask)
     : undefined
+  if (task === "community")
+    redirect(options.canCreateCommunity ? "/admin/communities" : "/communities")
   if (
     params.draftId &&
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

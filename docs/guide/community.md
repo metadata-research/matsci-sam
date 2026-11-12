@@ -2,16 +2,17 @@
 
 Open a term to read its definitions, compare interpretations, and contribute.
 Each definition has a permanent number, revision history, and net vote count for its
-current wording. Sign in to vote or comment. Use the
+current text. Sign in to vote or comment. Use the
 [study activity](/docs/studies) when your contribution should complete a study
 step.
 
 ## Term page views
 
-Term pages open in **Simple** view on a first visit, and the site then
-saves your choice. Read the first definition, its authors, and its examples.
-A note at the bottom explains why it is the default. Under **Other definitions**, select **Show definition** to
-compare a candidate.
+Choose **Simple** or **Advanced** under **View**. Simple is the default, and
+the site saves your choice for other pages with this control. Read the first
+definition, its authors, and its examples.
+A note at the bottom explains why it is the default. Under **Other definitions**,
+select **Show details** to read the full text, see examples and vote.
 **Usage & metadata** opens descriptions of the term and its use.
 
 Select **View definition details** to open the full record. **Discussion** and
@@ -19,8 +20,6 @@ Select **View definition details** to open the full record. **Discussion** and
 citations or source files, their
 counts link to them. Citation counts refer to the displayed revision. A link
 to a section of a page briefly highlights the section it opens.
-
-![A term in Simple view with the definition first, an example, net votes and the Usage & metadata link](/images/docs/help-term-simple-v3.png)
 
 Choose **Advanced** under **View** to open ontology context beside the reader,
 plus the term identifier, revision numbers and net votes, model details,
@@ -43,7 +42,7 @@ change direction. Each account has one vote per revision. Authors may vote
 on their own definitions.
 
 **Net votes** means upvotes minus downvotes. A new revision starts at zero, and
-previous votes stay with the wording they evaluated. Historical revisions
+previous votes stay with the text they evaluated. Historical revisions
 are available for reading.
 
 ## Definition order
@@ -59,19 +58,19 @@ Search, Discussion, and studies have their own presentation order.
 
 ## Interpreting votes
 
-Vote badges show the displayed revision's net votes. The default definition is
-selected by each candidate's current revision votes and the tie rules above.
+Vote badges show net votes for the displayed revision. The default definition is
+selected by votes on the current revision of each candidate and the tie rules above.
 Neither the count nor the ranking establishes community agreement or scientific
-quality. Assess the wording, sources, participation and discussion before
+quality. Assess the text, sources, participation and discussion before
 reusing a definition.
 
 ## Editing and proposing definitions
 
 The primary author can update a definition with **Create a new version**.
-Edit the wording, enter a change note, select **Review new version**, then
+Edit the text, enter a change note, select **Review new version**, then
 **Publish new version**. Earlier versions remain available under the same
 definition identifier. In Advanced, **Restore this revision** copies earlier
-wording into a new revision and preserves the intervening history.
+text into a new revision and preserves the intervening history.
 
 **Draft an alternative with AI** requests a separate model draft from your critique.
 Review and publish it with its source link and attribution. The original
@@ -86,16 +85,17 @@ identify the revision shown at contribution time.
 
 ## Community reviews
 
-The community **Contributions** tab lists published definitions alongside
-metadata proposals when those tools are enabled. A steward can select exact
+Open **Reviews → Definitions** in a community to find published definitions.
+Metadata communities label this view **Definitions and proposals** and include
+submitted field proposals. A steward can select exact
 revisions for **Request feedback** or **Export review packet**. These actions
 leave publication, definition votes and author revision rights unchanged.
 See [community reviews and packets](/docs/communities#select-contributions-for-review).
 
 ## Examples of use
 
-On a definition page, select **Add an example** in Simple view to open the
-**Add example** form, which Advanced shows directly. A contributed example
+Open the current revision of a definition, then select **Add an example** in
+Simple view to open the **Add example** form, which Advanced shows directly. A contributed example
 records your authorship, publication time, and the displayed revision. An
 example submitted with a new term or replacement has the same separate
 attribution.
@@ -106,7 +106,7 @@ another example.
 Term pages show all active examples with each full definition. Compact search
 and discussion cards use the preview example. Definition pages list all active
 examples, including examples added after a historical revision. Example changes
-leave definition wording and votes unchanged.
+leave definition text and votes unchanged.
 
 [Files and examples](/docs/files-and-examples) explains attachments.
 
@@ -130,7 +130,7 @@ profile access. Contributions retain your name for attribution.
 
 ## Interface feedback
 
-Use **Feedback** to report a site problem. See
+Use the floating **Feedback** button to report a site problem. See
 [Account access](/docs/account-access#interface-feedback).
 
 ## Administrative cleanup

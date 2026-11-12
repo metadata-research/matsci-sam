@@ -21,13 +21,19 @@ export function normalizeCommunityContributionReturnTo(
   )
   if (!match || (communitySlug && match[1] !== communitySlug)) return null
   const params = new URLSearchParams(match[2])
-  if (!["contributions", "proposals"].includes(params.get("view") ?? ""))
+  const view = params.get("view")
+  if (
+    !["contributions", "proposals"].includes(view ?? "") &&
+    !(view === "review" && params.get("content") === "contributions")
+  )
     return null
   const seen = new Set<string>()
   for (const [key, parameter] of params) {
     if (seen.has(key) || /[\\\u0000-\u001f\u007f]/.test(parameter)) return null
     seen.add(key)
     if (key === "view") continue
+    if (key === "content" && view === "review" && parameter === "contributions")
+      continue
     if (
       key === "status" &&
       [

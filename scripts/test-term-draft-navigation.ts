@@ -81,6 +81,16 @@ const fullEditor = withCommunityWorkReturn(
 )
 assert.equal(normalizeAuthReturnTo(fullEditor), fullEditor)
 assert.equal(normalizeAuthReturnTo(workspace), workspace)
+const submittedWork =
+  "/communities/materials?view=work&profile=pf&release=matcore%3A0.3.0&contributionOffset=40#submitted-work"
+assert.equal(normalizeCommunityWorkReturnTo(submittedWork), submittedWork)
+assert.equal(normalizeAuthReturnTo(submittedWork), submittedWork)
+assert.equal(
+  normalizeAuthReturnTo(
+    withCommunityWorkReturn(`/metadata/workspace/${id}`, submittedWork)
+  ),
+  withCommunityWorkReturn(`/metadata/workspace/${id}`, submittedWork)
+)
 
 for (const unsafe of [
   "https://example.test/communities/materials?view=work",
@@ -91,6 +101,9 @@ for (const unsafe of [
   "/communities/materials?view=work&profile=admin",
   "/communities/materials?view=work&offset=-1",
   "/communities/materials?view=work&offset=10001",
+  "/communities/materials?view=work&contributionOffset=-1",
+  "/communities/materials?view=work&contributionOffset=10001",
+  "/communities/materials?view=work&release=//other.example",
   "/communities/materials?view=work&returnTo=/admin",
   "/communities/materials?view=work#other-users-drafts",
   "/communities/materials?view=work#term-drafts#other",

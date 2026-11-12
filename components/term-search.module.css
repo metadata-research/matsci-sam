@@ -1,0 +1,85 @@
+.searchRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.searchInputWrap {
+  position: relative;
+  min-width: 0;
+}
+
+.searchSuggestions {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 20;
+  width: 100%;
+  white-space: normal;
+  max-height: min(24rem, 50vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+
+.searchSuggestion {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 0;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.searchSuggestion:hover,
+.searchSuggestion[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.searchSuggestionTerm {
+  font-family: var(--font-plex-serif);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.searchSuggestionVocabulary {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.searchSuggestionStatus {
+  padding: 0.6rem 0.7rem;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* Compact search fits the header without changing its responsive layout. */
+.compact .searchRow {
+  display: block;
+  width: 100%;
+}
+
+.compact .searchSuggestions {
+  width: max(100%, 18rem);
+  max-width: calc(100vw - 2rem);
+}
+
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 15px;
+  height: 15px;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}

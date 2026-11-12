@@ -122,11 +122,21 @@ export function DraftList({
   const visibleDrafts = drafts.filter((draft) => !removedIds.includes(draft.id))
 
   return (
-    <section aria-labelledby={headingId} className="space-y-4">
+    <section
+      aria-labelledby={headingId}
+      className={compact ? "flex flex-col gap-2" : "space-y-4"}
+    >
       <h2 id={headingId} ref={heading} tabIndex={-1} className="sr-only">
         Saved term drafts
       </h2>
-      <p role="status" className="text-sm text-muted-foreground">
+      <p
+        role="status"
+        className={
+          compact && !notice && !refreshing
+            ? "sr-only"
+            : "text-sm text-muted-foreground"
+        }
+      >
         {notice || (refreshing ? "Updating your drafts…" : "")}
       </p>
       {visibleDrafts.length ? (

@@ -36,12 +36,22 @@ const loadHandler = (file: string, dependencies: Record<string, unknown>) => {
 const fixture = (userId?: number) => {
   const session: Session = { id: userId, save: async () => {} }
   const connected: number[] = []
+  const registered: string[] = []
   const revalidated: string[] = []
+  const settings = {
+    authEnabled: true,
+    signupEnabled: true,
+    otherSignupEnabled: true,
+    existingUserId: 303 as number | undefined,
+    registrationIsNew: true
+  }
   let exchanges = 0
   let starts = 0
   const dependencies = {
     "@/lib/apis/orcid": {
-      isOrcidAuthEnabled: () => true,
+      isOrcidAuthEnabled: () => settings.authEnabled,
+      isOrcidAccountCreationEnabled: () =>
+        settings.authEnabled && settings.signupEnabled,
       createOrcidAuthorization: async () => {
         starts++
         return {
@@ -60,10 +70,29 @@ const fixture = (userId?: number) => {
     "next/cache": { revalidatePath: (path: string) => revalidated.push(path) },
     "@/lib/auth-return": authReturn,
     "@/lib/public-redirect": { publicRedirect },
-    "@/lib/email-auth": { isEmailAccountCreationEnabled: () => true },
+    "@/lib/email-auth": {
+      isEmailAccountCreationEnabled: () => settings.otherSignupEnabled
+    },
+    "@/lib/account-creation": {
+      isAccountCreationEnabled: () =>
+        (settings.authEnabled && settings.signupEnabled) ||
+        settings.otherSignupEnabled
+    },
     "@/lib/orcid-account": {
       OrcidAccountError: class extends Error {},
-      findOrcidAccountUserId: async () => 303,
+      findOrcidAccountUserId: async () => settings.existingUserId,
+      registerOrcidAccount: async ({
+        tokens
+      }: {
+        tokens: { orcidId: string }
+      }) => {
+        registered.push(tokens.orcidId)
+        return {
+          userId: settings.registrationIsNew ? 404 : 303,
+          isNewAccount: settings.registrationIsNew,
+          needsProfile: true
+        }
+      },
       connectOrcidAccount: async ({ userId }: { userId: number }) => {
         connected.push(userId)
         return { needsProfile: false }
@@ -77,7 +106,9 @@ const fixture = (userId?: number) => {
   )
   return {
     session,
+    settings,
     connected,
+    registered,
     revalidated,
     get exchanges() {
       return exchanges
@@ -85,10 +116,13 @@ const fixture = (userId?: number) => {
     get starts() {
       return starts
     },
-    start: (intent: "connect" | "login") =>
+    start: (
+      intent: "connect" | "login" | "signup",
+      returnTo = "/studies/test-survey/run"
+    ) =>
       start(
         new NextRequest(
-          `https://sam.example.test/api/auth/orcid?intent=${intent}&returnTo=/studies/test-survey/run`
+          `https://sam.example.test/api/auth/orcid?intent=${intent}&returnTo=${encodeURIComponent(returnTo)}`
         )
       ),
     finish: (query = "code=code&state=state") =>
@@ -178,8 +212,124 @@ async function main() {
   assert.equal((await expiredRequest.finish()).status, 400)
   assert.equal(expiredRequest.exchanges, 0)
 
+  const signupDisabled = fixture()
+  signupDisabled.settings.signupEnabled = false
+  assert.equal((await signupDisabled.start("signup")).status, 403)
+  assert.equal(signupDisabled.starts, 0)
+  assert.equal(signupDisabled.session.orcidOAuth, undefined)
+
+  const disabledDuringSignup = fixture()
+  await disabledDuringSignup.start("signup")
+  disabledDuringSignup.settings.signupEnabled = false
+  assert.equal((await disabledDuringSignup.finish()).status, 403)
+  assert.equal(disabledDuringSignup.exchanges, 0)
+  assert.deepEqual(disabledDuringSignup.registered, [])
+  assert.equal(disabledDuringSignup.session.id, undefined)
+  assert.equal(disabledDuringSignup.session.orcidOAuth, undefined)
+
+  const signedInSignup = fixture(101)
+  const alreadySignedIn = await signedInSignup.start("signup")
+  assert.equal(alreadySignedIn.status, 307)
+  assert.equal(
+    alreadySignedIn.headers.get("location"),
+    "/studies/test-survey/run"
+  )
+  assert.equal(signedInSignup.starts, 0)
+  assert.equal(signedInSignup.session.id, 101)
+  assert.equal(signedInSignup.session.orcidOAuth, undefined)
+  assert.equal(
+    (
+      await signedInSignup.start("signup", "https://elsewhere.example")
+    ).headers.get("location"),
+    "/profile"
+  )
+
+  const accountAppeared = fixture()
+  await accountAppeared.start("signup")
+  assert.equal(accountAppeared.session.orcidOAuth?.intent, "signup")
+  accountAppeared.session.id = 202
+  assert.equal((await accountAppeared.finish()).status, 409)
+  assert.equal(accountAppeared.exchanges, 0)
+  assert.equal(accountAppeared.session.id, 202)
+  assert.equal(accountAppeared.session.orcidOAuth, undefined)
+  assert.deepEqual(accountAppeared.connected, [])
+  assert.deepEqual(accountAppeared.registered, [])
+
+  for (const isNew of [true, false]) {
+    const signup = fixture()
+    signup.settings.registrationIsNew = isNew
+    await signup.start("signup")
+    const result = await signup.finish()
+    assert.equal(result.status, 307)
+    assert.equal(
+      result.headers.get("location"),
+      isNew
+        ? authReturn.profileCompletionPath("/studies/test-survey/run")
+        : "/studies/test-survey/run"
+    )
+    assert.equal(signup.session.id, isNew ? 404 : 303)
+    assert.deepEqual(signup.registered, ["0000-0002-1825-0097"])
+    assert.deepEqual(signup.connected, [])
+    assert.equal(signup.exchanges, 1)
+    assert.equal(signup.session.orcidOAuth, undefined)
+    assert.equal((await signup.finish()).status, 400, "signup cannot replay")
+    assert.equal(signup.registered.length, 1)
+  }
+
+  const unsafeReturn = fixture()
+  await unsafeReturn.start("signup", "https://elsewhere.example")
+  assert.equal(unsafeReturn.session.orcidOAuth?.returnTo, undefined)
+  assert.equal(
+    (await unsafeReturn.finish()).headers.get("location"),
+    authReturn.profileCompletionPath(null)
+  )
+
+  const cancelledSignup = fixture()
+  await cancelledSignup.start("signup")
+  assert.equal(
+    (await cancelledSignup.finish("error=access_denied")).headers.get(
+      "location"
+    ),
+    authReturn.authPathWithReturnTo(
+      "/register?orcid=cancelled",
+      "/studies/test-survey/run"
+    )
+  )
+  assert.equal(cancelledSignup.exchanges, 0)
+  assert.deepEqual(cancelledSignup.registered, [])
+  assert.equal(cancelledSignup.session.id, undefined)
+
+  for (const signupEnabled of [true, false]) {
+    const unknownLogin = fixture()
+    unknownLogin.settings.existingUserId = undefined
+    unknownLogin.settings.signupEnabled = signupEnabled
+    unknownLogin.settings.otherSignupEnabled = !signupEnabled
+    await unknownLogin.start("login")
+    const response = await unknownLogin.finish()
+    assert.equal(response.status, 307)
+    assert.equal(
+      response.headers.get("location"),
+      authReturn.authPathWithReturnTo(
+        "/register?source=orcid",
+        "/studies/test-survey/run"
+      )
+    )
+    assert.deepEqual(unknownLogin.registered, [], "login cannot create users")
+    assert.deepEqual(unknownLogin.connected, [])
+    assert.equal(unknownLogin.session.id, undefined)
+  }
+
+  const closedSignup = fixture()
+  closedSignup.settings.existingUserId = undefined
+  closedSignup.settings.signupEnabled = false
+  closedSignup.settings.otherSignupEnabled = false
+  await closedSignup.start("login")
+  assert.equal((await closedSignup.finish()).status, 403)
+  assert.deepEqual(closedSignup.registered, [])
+  assert.equal(closedSignup.session.id, undefined)
+
   console.log(
-    "ORCID session binding, account changes, legacy state, replay, expiry, cancellation and normal login checks passed."
+    "ORCID session binding, explicit signup, creation flags, account changes, replay, expiry, cancellation and login checks passed."
   )
 }
 

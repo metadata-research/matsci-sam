@@ -21,7 +21,7 @@ async function main() {
   const base = localPreviewBase()
   assert.match(
     new URL(process.env.DATABASE_URL!).pathname,
-    /security|_ci|scratch/
+    /security|_ci|scratch|_test_/
   )
   const output = process.env.SAM_UI_TEST_SCREENSHOTS
   if (output) await mkdir(output, { recursive: true })

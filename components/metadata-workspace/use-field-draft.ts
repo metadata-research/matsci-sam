@@ -144,6 +144,7 @@ export function useFieldDraft(initial: FieldDraftRecord) {
       if (
         !anchor ||
         anchor.download ||
+        anchor.dataset.draftNavigation === "handled" ||
         (anchor.target && anchor.target !== "_self")
       )
         return

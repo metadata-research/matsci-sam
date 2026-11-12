@@ -1,19 +1,25 @@
 import {
   completeOrcidAuthorization,
   describeOrcidFailure,
-  isOrcidAuthEnabled
+  isOrcidAuthEnabled,
+  isOrcidAccountCreationEnabled
 } from "@/lib/apis/orcid"
 import {
   connectOrcidAccount,
   findOrcidAccountUserId,
+  registerOrcidAccount,
   OrcidAccountError
 } from "@/lib/orcid-account"
-import { isEmailAccountCreationEnabled } from "@/lib/email-auth"
+import { isAccountCreationEnabled } from "@/lib/account-creation"
 import { publicRedirect } from "@/lib/public-redirect"
 import { getSession } from "@/lib/session"
 import { revalidatePath } from "next/cache"
 import { NextRequest } from "next/server"
-import { authPathWithReturnTo, normalizeAuthReturnTo } from "@/lib/auth-return"
+import {
+  authPathWithReturnTo,
+  normalizeAuthReturnTo,
+  profileCompletionPath
+} from "@/lib/auth-return"
 
 // OAuth error codes are lowercase words joined by underscores. Anything else
 // is not echoed back.
@@ -41,7 +47,12 @@ export const GET = async (request: NextRequest) => {
     return publicRedirect(
       pending.intent === "connect"
         ? "/profile?orcid=cancelled"
-        : authPathWithReturnTo("/login?orcid=cancelled", returnTo)
+        : authPathWithReturnTo(
+            pending.intent === "signup"
+              ? "/register?orcid=cancelled"
+              : "/login?orcid=cancelled",
+            returnTo
+          )
     )
   if (providerError !== null)
     return new Response(
@@ -52,6 +63,19 @@ export const GET = async (request: NextRequest) => {
     )
 
   const connectingUserId = pending.intent === "connect" ? session.id : undefined
+  if (pending.intent === "signup") {
+    if (!isOrcidAccountCreationEnabled())
+      return new Response("ORCID account creation is not enabled.", {
+        status: 403
+      })
+    // Signup starts signed out. Another tab signing in must not attach this
+    // identity to, or replace, that account during the OAuth round trip.
+    if (session.id)
+      return new Response(
+        "Your account changed. Continue with the account you signed in to, or sign out and start again.",
+        { status: 409 }
+      )
+  }
   if (pending.intent === "connect") {
     if (!connectingUserId)
       return new Response("Your session expired before ORCID was connected.", {
@@ -90,9 +114,30 @@ export const GET = async (request: NextRequest) => {
     return publicRedirect("/profile?orcid=connected")
   }
 
+  if (pending.intent === "signup") {
+    let account
+    try {
+      account = await registerOrcidAccount({ tokens })
+    } catch (error) {
+      return new Response(
+        error instanceof OrcidAccountError
+          ? error.message
+          : "Your ORCID account could not be created. Please try again.",
+        { status: 409 }
+      )
+    }
+    session.id = account.userId
+    await session.save()
+    return publicRedirect(
+      account.isNewAccount
+        ? profileCompletionPath(returnTo)
+        : (returnTo ?? "/profile")
+    )
+  }
+
   const userId = await findOrcidAccountUserId(tokens.orcidId)
   if (!userId) {
-    if (isEmailAccountCreationEnabled())
+    if (isAccountCreationEnabled())
       return publicRedirect(
         authPathWithReturnTo("/register?source=orcid", returnTo)
       )

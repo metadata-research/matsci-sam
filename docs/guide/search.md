@@ -2,16 +2,17 @@
 
 ## Search
 
-Use **Find a term** on Home for suggestions as you type. After two characters,
+Use **Find a term** on Home or the header search field for suggestions as you
+type. After two characters,
 matching terms appear with their vocabulary names. Choose a suggestion to open
 that exact term, or use **Search** to search terms and definitions. The arrow
-keys select a suggestion; Enter opens it, and Escape closes the suggestions.
+keys select a suggestion. Enter opens it, and Escape closes the suggestions.
 Enter without a selected suggestion runs the broader search.
 
-Open **Search** under **Vocabulary**, or enter a query in the navigation bar.
-Search covers term names, definition text, and examples across all hosted
-vocabularies. **Working in** does not limit it. Each result identifies the
-vocabulary where the term is defined and highlights the matching text.
+On small screens, the header search icon opens the full search page. Search
+covers term names, definition text and examples across vocabularies you can
+read. Each result identifies the vocabulary where the term is defined and
+highlights the matching text.
 **Similar term name** labels a match based on similar spelling.
 
 Select **Terms**, **Definitions**, or both. At least one result type must
@@ -42,23 +43,20 @@ matching term links to Add a new term in the selected vocabulary.
 
 ## Browse
 
-**Browse** lists defined terms with a definition count. A community selection
-limits the list to its vocabulary. Select **Everything** or browse while
-signed out to include all hosted vocabularies. **Show everything** expands the
-list without changing your saved selection. **Defined in** identifies the
-vocabulary of each term in the full catalog. Terms referenced by a community
-worklist remain in their original vocabulary.
+**Browse terms** on Home and in the header lists terms in the selected
+community, with a definition count. Choose **All communities** in the header to
+see terms across vocabularies you can read. **Defined in** identifies each
+vocabulary in that view. Terms referenced by a community worklist remain in
+their original vocabulary.
 
-Use **Filter these terms** to match a substring in the displayed names.
+Use **Filter terms** to match part of a displayed name.
 Escape or the clear control removes that filter. A bookmarked `/terms?q=...`
 also searches definition text and examples. **Show all terms** removes that
-search.
-
-[Tags](/docs/tags) provides another route through facets, topics, and collections.
+search while keeping the selected community.
 
 Terms hidden by an administrator are excluded from search and Browse. Existing
 links still show their content and the public reason. See
 [What a hidden term retains](/docs/moderation#what-a-hidden-term-retains).
 
 Open a result to [read and compare definitions](/docs/community). The term
-page also links to [Metadata](/docs/term-metadata) for descriptions of its use.
+page also has **Usage & metadata** for [descriptions of its use](/docs/term-metadata).

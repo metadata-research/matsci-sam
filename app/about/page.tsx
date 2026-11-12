@@ -7,7 +7,7 @@ import styles from "./about.module.css"
 export const metadata: Metadata = {
   title: `About | ${SITE_NAME}`,
   description:
-    "A community dictionary for materials science terminology, with definitions, examples, discussion, optional AI assistance, and reusable metadata."
+    "MatSci-SAM is a website from the Metadata Research Center at Drexel University for community vocabularies and metadata standards in materials science."
 }
 
 export default function AboutPage() {
@@ -17,14 +17,18 @@ export default function AboutPage() {
         <header className={styles.introduction}>
           <h1>About {SITE_NAME}</h1>
           <p className={styles.lead}>
-            {SITE_NAME} ({SITE_FULL_NAME}) supports the development of
-            terminology for materials research and the metadata used to describe
-            research data.
+            {SITE_NAME} is a website from the{" "}
+            <a href="https://mrc.cci.drexel.edu/">
+              Metadata Research Center at Drexel University
+            </a>{" "}
+            for community vocabularies and metadata standards in materials
+            science.
           </p>
           <p>
-            Communities maintain vocabularies that reflect how terms are used in
-            their fields. Contributors can compare definitions and discuss their
-            use. Earlier versions remain available as definitions change.
+            Researchers use {SITE_NAME} ({SITE_FULL_NAME}) to document how terms
+            are used in their fields and develop metadata for research data.
+            Contributors can compare definitions and propose changes, with
+            attribution and revision history available for review.
           </p>
           <nav className={styles.linkRow} aria-label="Get started">
             <Link href="/docs" className={styles.textLink}>
@@ -45,17 +49,51 @@ export default function AboutPage() {
             className={styles.section}
             aria-labelledby="community-heading"
           >
-            <h2 id="community-heading">Find and discuss terminology</h2>
+            <h2 id="community-heading">Community vocabularies</h2>
             <p>
-              Anyone can search, browse, and link to published terms without
-              signing in. Collections can include links to terms from several
-              vocabularies.
+              Public terms are available to browse without an account.
+              Communities can also restrict their content to members. Community
+              members contribute terms and definitions to shared vocabularies,
+              and collections group terms across vocabularies.
             </p>
             <p>
-              Signed-in contributors can add definitions and examples, comment,
-              and vote. A term can have several definitions, each with its own
-              examples and discussion. Authors can publish new versions of their
-              definitions. Votes record support for the revision being reviewed.
+              A term can have several definitions, each with examples and
+              discussion. Contributors can comment and vote on definitions after
+              signing in and providing a name. Votes refer to the revision being
+              reviewed, and earlier revisions remain available when authors
+              update their definitions.
+            </p>
+          </section>
+
+          <section
+            className={styles.section}
+            aria-labelledby="metadata-heading"
+          >
+            <h2 id="metadata-heading">Metadata development</h2>
+            <p>
+              Communities can develop metadata fields from an existing standard.
+              Members propose changes to field definitions and requirements,
+              discuss alternatives and respond to requests for feedback. Each
+              proposal retains the reference version on which it was based.
+            </p>
+            <p>
+              Community stewards review proposals and accept changes into a
+              community version. They can publish named community releases while
+              retaining the original reference and the record of decisions.
+            </p>
+          </section>
+
+          <section
+            className={styles.section}
+            aria-labelledby="references-heading"
+          >
+            <h2 id="references-heading">Reference sources</h2>
+            <p>
+              Contributors can consult ontology definitions and cite sources
+              while writing. Cited lookup results retain the reference text and
+              available source details, including version and licence. Ontology
+              views show direct parent concepts and mappings recorded by source
+              publishers.
             </p>
           </section>
 
@@ -65,43 +103,16 @@ export default function AboutPage() {
           >
             <h2 id="assistance-heading">Optional AI assistance</h2>
             <p>
-              Contributors can request a draft from a language model using the
-              text and references they select. Suggestions remain separate from
-              the definition until accepted. Contributors can edit the text
-              before publication, and the contribution record identifies the
-              model used.
+              Contributors can request a draft from a language model through{" "}
+              {SITE_NAME}, using their text, reference definitions or selected
+              passages from uploaded documents and pasted text. They choose
+              whether to use a suggestion and can edit it before publication.
+              Accepted suggestions retain a record of the model and the source
+              material supplied with the request.
             </p>
             <Link href="/docs/provenance" className={styles.textLink}>
-              Read about contribution history <ArrowRightIcon aria-hidden />
+              Contribution history <ArrowRightIcon aria-hidden />
             </Link>
-          </section>
-
-          <section
-            className={styles.section}
-            aria-labelledby="references-heading"
-          >
-            <h2 id="references-heading">Definitions from reference sources</h2>
-            <p>
-              Contributors can consult definitions from the reference ontologies
-              while writing, each with its source, release and licence. They can
-              incorporate source text into a definition or cite a source used in
-              their own wording. Published citations identify the source and
-              preserve the reference text.
-            </p>
-          </section>
-
-          <section
-            className={styles.section}
-            aria-labelledby="ontologies-heading"
-          >
-            <h2 id="ontologies-heading">Relationships in ontologies</h2>
-            <p>
-              Contributors will be able to view a term within ontology
-              hierarchies available through MatSci-ONT, including its
-              relationships to broader and narrower concepts. They will be able
-              to switch between ontologies when corresponding entries are
-              available and compare the relationships recorded in each.
-            </p>
           </section>
         </div>
 
@@ -110,18 +121,16 @@ export default function AboutPage() {
           aria-labelledby="reuse-heading"
         >
           <div className={styles.section}>
-            <h2 id="reuse-heading">Reference and reuse vocabulary records</h2>
+            <h2 id="reuse-heading">Citation and reuse</h2>
             <p>
-              Terms, definitions, and revisions have distinct identifiers.{" "}
-              {SITE_NAME} preserves these identifiers when definition text
-              changes. A term identifier refers to the term and its definitions.
-              A definition identifier refers to the same definition after edits.
-              Use a revision identifier to cite the exact text of one version.
+              Terms, definitions and revisions have distinct identifiers for
+              citation. Revision identifiers refer to the exact definition text
+              published in a particular version.
             </p>
             <p>
-              Vocabulary records and contribution history are also available in
-              formats that software can process. Exported metadata includes
-              definitions, contributor attribution, dates, and recorded
+              Public dictionary records and their contribution history can be
+              downloaded for use in other tools. The exports use RDF
+              vocabularies to describe definitions, attribution and recorded
               activities.
             </p>
             <div className={styles.linkRow}>
@@ -158,16 +167,8 @@ export default function AboutPage() {
           <p>
             {SITE_NAME} is based on the{" "}
             <a href="https://www.yamz.net/about">YAMZ metadata dictionary</a>{" "}
-            and supports community contributions to materials science
-            terminology. Definitions are organized in community vocabularies,
-            with version histories and records of AI assistance.
-          </p>
-          <p>
-            The project is developed by the{" "}
-            <a href="https://mrc.cci.drexel.edu/">
-              Metadata Research Center at Drexel University
-            </a>
-            .
+            and extends that work to community vocabularies and metadata
+            development in materials science.
           </p>
         </section>
       </div>

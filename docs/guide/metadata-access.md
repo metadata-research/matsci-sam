@@ -13,7 +13,7 @@ another data format. Open **Provenance** for its contribution history and
 history downloads.
 
 Choose a definition or revision page when you need one candidate or exact
-wording. The [identifier guide](/docs/identifiers) explains these citation
+text. The [identifier guide](/docs/identifiers) explains these citation
 choices.
 
 For a larger download, use [all vocabularies](/vocabulary.ttl),

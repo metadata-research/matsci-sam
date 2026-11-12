@@ -152,7 +152,7 @@ function AlternativeDefinition({
         ) : (
           <ChevronDownIcon aria-hidden />
         )}
-        {expanded ? "Hide definition" : "Show definition"}
+        {expanded ? "Hide details" : "Show details"}
       </Button>
       <div id={`${id}-content`} hidden={!expanded}>
         {expanded && (

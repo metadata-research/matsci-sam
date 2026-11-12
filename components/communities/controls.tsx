@@ -106,7 +106,7 @@ export const CreateCommunity = () => {
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <PlusIcon className="size-4 mr-1" />
-        New community
+        Create community
       </Button>
     )
 
@@ -115,18 +115,20 @@ export const CreateCommunity = () => {
       className="space-y-2 rounded-md border border-border p-3"
       onSubmit={(event) => {
         event.preventDefault()
-        if (title.trim())
+        if (!isPending && title.trim())
           create({ title, description: description || undefined })
       }}
     >
       <Input
         autoFocus
+        aria-label="Community name"
         placeholder="Name, for example Materials Data Group"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
       />
       <Textarea
-        placeholder="What this group is, in a sentence"
+        aria-label="Community description"
+        placeholder="Brief description"
         value={description}
         onChange={(event) => setDescription(event.target.value)}
       />

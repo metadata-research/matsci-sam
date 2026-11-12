@@ -21,6 +21,10 @@ import {
   createEmailAuthLinkFragment
 } from "../lib/email-auth-token"
 import { authPathWithReturnTo, profileCompletionPath } from "../lib/auth-return"
+import {
+  getGoogleAuthAccessMode,
+  isGoogleAuthConfigured
+} from "../lib/apis/google"
 import { launchBrowser, localPreviewBase } from "./ui-test-harness"
 
 async function main() {
@@ -33,6 +37,13 @@ async function main() {
   const invitationToken = createOneTimeToken()
   const emailToken = createOneTimeToken()
   const destination = `/invite/${invitationToken}`
+  const googleSignupEnabled =
+    isGoogleAuthConfigured() && getGoogleAuthAccessMode() === "open"
+  // This suite exercises email account creation, so a signup method is
+  // available even when Google registration is restricted.
+  const googleRecoveryNotice = googleSignupEnabled
+    ? "This Google account cannot sign in here. Try another account or contact the site administrator."
+    : "Google sign-in is restricted on this site. Create an account using another available method, or sign in with an existing account."
   const output = process.env.SAM_UI_TEST_SCREENSHOTS
   const errors: string[] = []
   const unexpected: string[] = []
@@ -85,6 +96,7 @@ async function main() {
     ]) {
       const context = await browser.newContext({ viewport })
       const page = await context.newPage()
+      const main = page.getByRole("main")
       page.on("pageerror", (error) => errors.push(error.message))
       page.on("console", (message) => {
         if (message.type() === "error") errors.push(message.text())
@@ -128,10 +140,10 @@ async function main() {
         page.getByText(`Join ${title}`, { exact: true })
       ).toBeVisible()
       await expect(
-        page.getByRole("link", { name: "Create an account", exact: true })
+        main.getByRole("link", { name: "Create an account", exact: true })
       ).toBeVisible()
       await expect(
-        page.getByRole("link", { name: "Sign in", exact: true })
+        main.getByRole("link", { name: "Sign in", exact: true })
       ).toBeVisible()
       if (output)
         await page.screenshot({
@@ -139,7 +151,7 @@ async function main() {
           fullPage: true,
           caret: "initial"
         })
-      await page
+      await main
         .getByRole("link", { name: "Create an account", exact: true })
         .click()
       await expect(page).toHaveURL(
@@ -148,7 +160,7 @@ async function main() {
       await expect(
         page
           .locator('[data-slot="card-title"]')
-          .filter({ hasText: /^Create an account(?: with email)?$/ })
+          .filter({ hasText: /^Create an account$/ })
       ).toBeVisible()
       await page.getByLabel("Email address", { exact: true }).fill(address)
       if (output)
@@ -172,14 +184,12 @@ async function main() {
       await page.goto(
         base + authPathWithReturnTo("/login?google=not-authorized", destination)
       )
+      const recoveryStatus = main.getByRole("status")
+      await expect(recoveryStatus).toBeVisible()
+      await expect(recoveryStatus).toHaveText(googleRecoveryNotice)
       await expect(
-        page
-          .getByRole("status")
-          .filter({ hasText: "Google sign-in is restricted" })
-      ).toBeVisible()
-      await expect(
-        page.getByRole("link", {
-          name: "Create an account with email",
+        main.getByRole("link", {
+          name: "Create an account",
           exact: true
         })
       ).toHaveCount(1)
@@ -195,16 +205,16 @@ async function main() {
         ),
         true
       )
-      await page
+      await main
         .getByRole("link", {
-          name: "Create an account with email",
+          name: "Create an account",
           exact: true
         })
         .click()
       await expect(page).toHaveURL(
         base + authPathWithReturnTo("/register", destination)
       )
-      await page.getByRole("link", { name: "Sign in", exact: true }).click()
+      await main.getByRole("link", { name: "Sign in", exact: true }).click()
       await expect(page).toHaveURL(
         base + authPathWithReturnTo("/login", destination)
       )

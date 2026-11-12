@@ -2,47 +2,28 @@
 
 import { SearchIcon } from "lucide-react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useState } from "react"
+import { usePathname } from "next/navigation"
+import { TermSearch } from "./term-search"
 import styles from "./header.module.css"
 
 /*
- * Quick-search entry point in the nav, so a known query can start from any
- * page. The primary navigation also links to /search directly so the complete
- * interface remains discoverable without submitting a query.
- *
  * Hidden on the home and search pages, which have their own search fields.
- * Below the md breakpoint the field collapses to a plain icon link --
- * the pill nav has no room for an input beside the primary tasks.
+ * Narrow headers retain a search link so the navigation stays compact.
  */
-export const HeaderSearch = () => {
+export const HeaderSearch = ({ viewerId }: { viewerId: number | null }) => {
   const pathname = usePathname()
-  const router = useRouter()
-  const [query, setQuery] = useState("")
 
   if (pathname === "/" || pathname === "/search") return null
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault()
-    router.push(
-      query.trim() ? `/search?q=${encodeURIComponent(query)}` : "/search"
-    )
-  }
-
   return (
     <>
-      <form onSubmit={submit} className={styles.searchForm} role="search">
-        <SearchIcon className={styles.searchIcon} aria-hidden />
-        <input
-          type="search"
-          suppressHydrationWarning
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search terms and definitions..."
-          aria-label="Search terms and definitions"
-          className={styles.searchInput}
-        />
-      </form>
+      <TermSearch
+        key={pathname}
+        viewerId={viewerId}
+        compact
+        className={styles.searchForm}
+        inputClassName={styles.searchInput}
+      />
       <Link
         href="/search"
         className={styles.searchLink}

@@ -22,8 +22,7 @@ export function withCommunityWorkspaceReturn(path: string, returnTo: string) {
 
 export function communityWorkspaceReturnLabel(returnTo: string) {
   if (normalizeCommunityReviewReturn(returnTo)) return "Back to review"
-  if (normalizeCommunityContributionReturnTo(returnTo))
-    return "Back to contributions"
+  if (normalizeCommunityContributionReturnTo(returnTo)) return "Back to reviews"
   if (normalizeCommunityWorkReturnTo(returnTo)) return "Back to My work"
   if (normalizeMatcoreCatalogReturnTo(returnTo)) {
     const mode = new URL(returnTo, "http://local").searchParams.get("standard")
@@ -31,7 +30,9 @@ export function communityWorkspaceReturnLabel(returnTo: string) {
       ? "Back to reference"
       : mode === "release"
         ? "Back to community release"
-        : "Back to working version"
+        : mode === "working"
+          ? "Back to community version"
+          : "Back to vocabulary"
   }
   return "Community workspace"
 }

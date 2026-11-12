@@ -5,7 +5,11 @@ import {
   withMatcoreCatalogReturn
 } from "../lib/matcore-catalog-navigation"
 import { normalizeAuthReturnTo } from "../lib/auth-return"
-import { buildHierarchy, matchingHierarchy } from "../lib/hierarchy"
+import {
+  buildHierarchy,
+  hierarchyAncestors,
+  matchingHierarchy
+} from "../lib/hierarchy"
 
 const source = "matcore:0.3.0:dft:computation.software"
 const context = {
@@ -147,6 +151,17 @@ assert.equal(
   "A shared path is a navigation group"
 )
 assert.equal(roots[0].children[0].children[0].children[0].href, "/child")
+assert.deepEqual(
+  hierarchyAncestors(roots, "/child"),
+  [roots[0].id, roots[0].children[0].id, roots[0].children[0].children[0].id],
+  "A direct link reveals its record inside a duplicate-path group"
+)
+assert.deepEqual(hierarchyAncestors(roots, "/parent"), [roots[0].id])
+assert.deepEqual(hierarchyAncestors(roots, "/different"), [
+  roots[1].id,
+  roots[1].children[0].id
+])
+assert.deepEqual(hierarchyAncestors(roots, "/missing"), [])
 assert.notEqual(
   roots[0].children[0].id,
   roots[1].children[0].id,

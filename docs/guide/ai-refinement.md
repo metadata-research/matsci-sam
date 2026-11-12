@@ -4,11 +4,12 @@
 
 Request a model draft while adding a term or suggesting an alternative to an
 existing definition. Inspect and edit the response before publication. An
-applied draft retains model attribution when you change its wording.
+applied draft retains model attribution when you edit its text.
 
 ## Suggest a definition for a new term
 
-1. Open **Add a new term**, check the destination vocabulary, enter the term, and
+1. Choose **Add a term** on Home or **Add term** in a community. Check the
+   destination vocabulary, enter the term, and
    select **Confirm term**, labelled **Confirm term and find references** in
    Advanced.
 2. Write a definition or leave the editor empty. Select **Help me write with AI** in
@@ -105,7 +106,7 @@ selected.
    its attribution. **Keep my feedback** dismisses it while retaining your
    critique.
 3. Select **Use this draft**, edit the alternative, and select **Review
-   alternative**. Check the wording, inputs, and citations.
+   alternative**. Check the text, inputs, and citations.
 4. Select **Publish alternative**. **Back to writing** returns to the editor.
 
 Publication creates a separate definition starting at version 1, credited to

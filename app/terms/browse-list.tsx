@@ -109,20 +109,22 @@ export const BrowseList = ({
         </p>
       )}
 
-      <nav
-        aria-label="Letter index"
-        className="flex flex-wrap gap-1 mb-10 sticky top-0 z-10 py-2 -mx-2 px-2 bg-background/85 backdrop-blur rounded-b-md"
-      >
-        {sorted.map(([letter]) => (
-          <a
-            key={letter}
-            href={`#letter-${letter}`}
-            className="size-8 flex items-center justify-center rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-          >
-            {letter}
-          </a>
-        ))}
-      </nav>
+      {sorted.length > 0 && (
+        <nav
+          aria-label="Letter index"
+          className="flex flex-wrap gap-1 mb-10 sticky top-0 z-10 py-2 -mx-2 px-2 bg-background/85 backdrop-blur rounded-b-md"
+        >
+          {sorted.map(([letter]) => (
+            <a
+              key={letter}
+              href={`#letter-${letter}`}
+              className="size-8 flex items-center justify-center rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              {letter}
+            </a>
+          ))}
+        </nav>
+      )}
 
       <div className="space-y-10">
         {sorted.map(([letter, items]) => (

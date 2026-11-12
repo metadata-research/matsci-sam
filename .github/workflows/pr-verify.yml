@@ -174,6 +174,7 @@ jobs:
           pnpm test:community-join-links-db
           pnpm test:feedback-db
           pnpm test:community-content-db
+          pnpm test:community-personal-work-db
           pnpm test:import-drafts-db
           pnpm test:import-draft-reads-db
           pnpm test:contribution-source-assets-db
@@ -645,6 +646,18 @@ jobs:
           EMAIL_AUTH_ACCOUNT_CREATION_ENABLED: "true"
           DEV_AUTH_ENABLED: "true"
           SESSION_COOKIE_SECURE: "false"
+          # Synthetic provider settings expose the chooser. The signup harness
+          # substitutes OAuth responses and blocks external browser requests.
+          GOOGLE_AUTH_ACCESS_MODE: "open"
+          GOOGLE_CLIENT_ID: "local-ci-signup-client"
+          GOOGLE_CLIENT_SECRET: "synthetic-not-a-provider-secret"
+          GOOGLE_CALLBACK_URL: http://127.0.0.1:3110/api/auth/callback
+          ORCID_AUTH_ENABLED: "true"
+          ORCID_AUTH_ACCOUNT_CREATION_ENABLED: "true"
+          ORCID_ENVIRONMENT: "sandbox"
+          ORCID_CLIENT_ID: "APP-LOCALCIFIXTURE"
+          ORCID_CLIENT_SECRET: "synthetic-not-a-provider-secret"
+          ORCID_CALLBACK_URL: http://127.0.0.1:3110/api/auth/orcid/callback
           NODE_OPTIONS: --max-old-space-size=2560
           RAYON_NUM_THREADS: "2"
           TOKIO_WORKER_THREADS: "2"
@@ -652,6 +665,7 @@ jobs:
         run: |
           mkdir -p ui-evidence/import
           export SESSION_PASSWORD="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+          export AUTH_TOKEN_ENCRYPTION_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64"))')"
           node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3110 >ui-evidence/server.log 2>&1 &
           import_server_pid=$!
           NODE_OPTIONS=--max-old-space-size=512 node --conditions=react-server --import tsx scripts/source-document-worker.ts --loop >ui-evidence/worker.log 2>&1 &
@@ -661,6 +675,7 @@ jobs:
           # Exercise authentication before the longer community suites so an
           # unrelated UI failure does not hide the sign-in regression results.
           SAM_UI_TEST_SCREENSHOTS=ui-evidence/email-confirmation pnpm test:email-confirmation-ui
+          SAM_UI_TEST_SCREENSHOTS=ui-evidence/orcid-signup pnpm test:orcid-signup-access-ui
           SAM_UI_TEST_SCREENSHOTS=ui-evidence/invitation pnpm test:invitation-onboarding-ui
           pnpm test:import-drafts-ui
           SAM_UI_TEST_OUTPUT_DIR=ui-evidence/matcore pnpm test:matcore-ui

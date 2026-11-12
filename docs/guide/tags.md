@@ -1,15 +1,13 @@
 # Tags
 
-Open **Tags** under **Vocabulary** to browse topics, PSPP facets, and
-collections. Topics classify definitions. Facets classify terms. Collections
-gather terms for a purpose.
-
-![Topics, PSPP facets, and collections on the Tags page](/images/docs/tags-index.png)
+Open [Tags](/tags) to browse topics, PSPP facets and collections. Topics
+classify definitions. Facets classify terms. Collections gather terms for a
+purpose.
 
 ## Topics
 
-Create a topic with **Add Tag**. An existing name returns the existing topic,
-including when capitalization or surrounding spaces differ.
+Sign in and create a topic with **Add Tag**. An existing name returns the
+existing topic, including when capitalization or surrounding spaces differ.
 
 The definition author manages topics with the pencil beside the tag badges.
 Select a topic to attach it and select it again to remove it. Topics remain
@@ -19,20 +17,19 @@ definitions. The history retains assignments and removals.
 ## Facets
 
 PSPP groups terms by Processing, Structure, Properties, and Performance,
-following [Greenberg et al. (2023)](https://doi.org/10.1007/978-3-031-39141-5_18).
+following
+[Greenberg et al. (2023)](https://doi.org/10.1007/978-3-031-39141-5_18).
 
-| Facet | Scope |
-| --- | --- |
-| Processing | How a material is made, shaped, or treated |
-| Structure | Arrangement of constituents from atoms to macroscopic form |
-| Properties | Measurable characteristics, such as thermal or mechanical behavior |
-| Performance | Behavior in service under specified conditions and over time |
+| Facet       | Scope                                                              |
+| ----------- | ------------------------------------------------------------------ |
+| Processing  | How a material is made, shaped, or treated                         |
+| Structure   | Arrangement of constituents from atoms to macroscopic form         |
+| Properties  | Measurable characteristics, such as thermal or mechanical behavior |
+| Performance | Behavior in service under specified conditions and over time       |
 
 Read the scope note on a facet page. Site administrators can assign several
-facets with the pencil beside the facet chips in **Advanced** term view.
-Select an assigned facet again to remove it.
-
-![A PSPP facet page with its scope and classified terms](/images/docs/facet-page.png)
+facets with the pencil beside the facet chips in **Advanced** term view. Select
+an assigned facet again to remove it.
 
 ## Topics that are also terms
 
@@ -44,39 +41,43 @@ retains its identifier and displays the linked definitions.
 ## Scope notes and tag changes
 
 A definition states meaning. A scope note guides classification. Site
-administrators can edit tag definitions, scope notes, and alternative labels.
-A merge retires a tag, redirects its address, and moves active assignments to
-the replacement while retaining their history.
+administrators can edit tag definitions, scope notes, and alternative labels. A
+merge retires a tag, redirects its address, and moves active assignments to the
+replacement while retaining their history.
 
 ## Collections
 
-Select **New collection** when your account has permission. On its page, use
-**Edit details**, **Add a term**, or the remove control beside a member.
-Collections can reference terms from any hosted vocabulary.
+Open [Collections](/collections) and select **New collection** when your account
+has permission. In a community, use **More → Collections**. On a collection
+page, use **Edit details**, **Add a term**, or the remove control beside a
+member. Collections can reference terms from vocabularies you can access.
 
 Only administrators can change the membership of a collection created by an
 administrator. Collections created by other contributors accept changes from
-anyone who is signed in. Permission to create new collections is separate
-from permission to edit an existing collection.
+anyone who is signed in and can access the collection. Permission to create new
+collections is separate from permission to edit an existing collection.
 
 Administrators can retire and restore collections. Retirement removes the
 collection from the index and withdraws current memberships. Its address and
 history remain available. A restored collection starts empty.
 
-**Collections** lists the worklist of the selected community. **Show everything**
-shows all collections without changing your saved selection. The Tags page
-lists collections across the site.
+The [Collections index](/collections) lists the worklist of the selected
+community. **Show everything** shows other collections you can access without
+changing your saved selection. The Tags page also lists accessible collections
+across the site.
 
 ## Tag pages and identifiers
 
-Facet pages list terms and topic pages list definitions. Addresses remain
-fixed. Merged tags redirect to their replacements, and retired tags without
-replacements show their status. See [Identifiers and citation](/docs/identifiers).
+Facet pages list terms and topic pages list definitions. Addresses remain fixed.
+Merged tags redirect to their replacements, and retired tags without
+replacements show their status. See
+[Identifiers and citation](/docs/identifiers).
 
 ## Metadata
 
-Topics and facets describe classification. Use [term metadata](/docs/term-metadata)
-for usage guidance, links to metadata fields, or related external concepts.
-[Metadata access](/docs/metadata-access) lists downloads, and the
+Topics and facets describe classification. Use
+[term metadata](/docs/term-metadata) for usage guidance, links to metadata
+fields, or related external concepts. [Metadata access](/docs/metadata-access)
+lists downloads, and the
 [knowledge organization model](/docs/reference/knowledge-organization) explains
 the relationships.

@@ -1,31 +1,67 @@
-/* Floating pill nav. Surfaces come from the theme tokens so both modes carry
-   it. Deliberately not sticky: page-level elements (e.g. the Browse letter
+/* Wide oval navigation. Deliberately not sticky: page-level elements (e.g. the Browse letter
    index) get the floating role instead.
 
    Width follows the homepage shell at large viewports and still frames the
    narrower content columns used by the application routes. */
 .wrapper {
-  padding: 12px 16px 4px;
+  padding: 12px var(--site-frame-gutter) 4px;
 }
 
 .navbar {
-  /* The blurred bar creates a stacking context; keep its phone menu above
+  /* Keep the header's stacking context and its phone menu above
      the page's form controls, while portaled dialogs remain above it. */
   position: relative;
   z-index: 40;
   display: flex;
   align-items: center;
-  max-width: 80rem;
+  max-width: var(--site-frame-max-width);
   margin-inline: auto;
-  height: 52px;
-  padding: 0 10px;
+  min-height: 72px;
+  padding: 16px 32px;
   border: 1px solid var(--border);
   border-radius: 9999px;
-  background: color-mix(in oklab, var(--card) 85%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: #ffffff;
   box-shadow: 0 2px 12px rgb(0 0 0 / 0.06);
   white-space: nowrap;
+}
+
+/* One community selector stays with the brand, including when this group wraps. */
+.brandContext {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 8px 12px;
+}
+
+.communityContext {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 16rem;
+  font-size: 13px;
+}
+
+.contextValue {
+  font-weight: 500;
+}
+
+.communityContext .scopePill {
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 34px;
+  padding-block: 6px;
+  font-size: 13px;
+}
+
+.communityContext .scopeName {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
 }
 
 .logo {
@@ -44,8 +80,9 @@
 }
 
 .logoText {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 600;
+  letter-spacing: -0.03em;
   font-family: var(--font-plex-sans);
   padding-left: 8px;
   text-decoration: none;
@@ -60,10 +97,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  /* When the bar is short of room the search field gives way first, down
-     to its floor, and only then this group, by .scopePill alone. The small
-     shrink factor sets that order; min-width: 0 lets the group shrink at
-     all. */
+  /* Prefer shrinking search and brand context before the navigation controls. */
   flex-shrink: 0.01;
   min-width: 0;
 }
@@ -107,7 +141,7 @@
   top: calc(100% + 10px);
   right: 0;
   width: min(17rem, calc(100vw - 32px));
-  max-height: calc(100dvh - 5rem);
+  max-height: calc(100dvh - 4.5rem);
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -260,7 +294,7 @@
   padding-bottom: 2px;
 }
 
-/* The search field is between the wordmark and the nav buttons. It shrinks
+/* The search field follows the spacer before the nav buttons. It shrinks
    but never grows, leaving .spacer to absorb the slack -- so the nav keeps
    its layout on /search and on mobile, where this field is not rendered at
    all. It keeps room for a short query; past that the community name in
@@ -290,7 +324,7 @@
   font-size: 14px;
   font-family: var(--font-plex-sans);
   color: var(--foreground);
-  background: color-mix(in oklab, var(--background) 60%, transparent);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 9999px;
   outline: none;
@@ -378,9 +412,20 @@
   color: var(--primary-foreground);
 }
 
+.helpButton {
+  gap: 6px;
+  padding-inline: 10px;
+}
+
 @media (max-width: 1150px) {
   .wrapper {
-    padding: 8px 8px 4px;
+    padding: 8px var(--site-frame-gutter) 4px;
+  }
+
+  .navbar {
+    min-height: 64px;
+    padding: 12px 16px;
+    border-radius: 28px;
   }
 
   /* No room for an input beside the primary tasks; use the icon link and
@@ -400,11 +445,34 @@
   .mobileMenu {
     display: block;
   }
+
+  .navbar:has(.brandContext) {
+    column-gap: 8px;
+    align-items: flex-start;
+  }
+
+  .brandContext {
+    flex: 1;
+  }
+
+  .brandContext + .spacer {
+    display: none;
+  }
+
+  .navbar:has(.brandContext) .searchLink,
+  .navbar:has(.brandContext) .mobileMenu {
+    flex: none;
+    margin-top: 1px;
+  }
 }
 
 @media (max-width: 360px) {
   .logoText {
     display: none;
+  }
+
+  .brandContext .logoText {
+    display: block;
   }
 }
 
@@ -476,4 +544,33 @@
 
 .mobileLabel + a {
   margin-top: 0;
+}
+
+/* Square controls contrast with the oval header surface. */
+:is(
+  .navButton,
+  .accountButton,
+  .scopePill,
+  .searchInput,
+  .searchLink,
+  .mobileMenu > summary
+) {
+  border-radius: 0;
+}
+
+.navbar .navButton {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.navbar .navButton:is(:hover, [data-state="open"], [data-active]) {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.navbar .navButton[data-active] {
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  text-decoration-thickness: 1px;
 }

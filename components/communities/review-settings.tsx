@@ -21,6 +21,7 @@ export function CommunityReviewSettings({
   selectedRound,
   initialTargetIds,
   initialName,
+  initialReferenceReleaseId,
   view = "review"
 }: {
   communityId: number
@@ -29,6 +30,7 @@ export function CommunityReviewSettings({
   selectedRound?: string
   initialTargetIds?: string[]
   initialName?: string
+  initialReferenceReleaseId?: string
   view?: "review" | "settings"
 }) {
   const router = useRouter()
@@ -37,7 +39,9 @@ export function CommunityReviewSettings({
   const [style, setStyle] = useState<ReviewStyle>("assessment")
   const [fields, setFields] = useState(true)
   const [proposals, setProposals] = useState(true)
-  const [referenceReleaseId, setReferenceReleaseId] = useState("")
+  const [referenceReleaseId, setReferenceReleaseId] = useState(
+    initialReferenceReleaseId ?? ""
+  )
   const [datasetExercise, setDatasetExercise] = useState(false)
   const [exerciseInstructions, setExerciseInstructions] = useState(
     "Describe a dataset, complete its metadata XML, then leave feedback on the fields."

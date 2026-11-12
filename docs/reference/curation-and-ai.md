@@ -10,7 +10,8 @@ The workflow extends the vocabulary work evaluated in
 
 Contributors create terms and definitions, add examples, comment and vote.
 They can assign topics to their own definitions. New terms belong to the
-selected community vocabulary or the default vocabulary under **Everything**.
+community vocabulary selected in the editor. **Add a term** on Home starts in
+the general MatSci-SAM vocabulary.
 
 Site administrators assign facets and manage tag definitions and merges.
 Collection changes follow the policy of the collection. Administrator

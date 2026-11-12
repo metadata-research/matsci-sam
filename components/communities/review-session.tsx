@@ -117,6 +117,7 @@ export function CommunityReviewSession({
       ) as HTMLAnchorElement | null
       if (
         !anchor ||
+        anchor.dataset.draftNavigation === "handled" ||
         anchor.target === "_blank" ||
         anchor.hasAttribute("download")
       )

@@ -11,6 +11,7 @@ const sections = new Set([
   "term-drafts",
   "term-imports",
   "my-field-drafts",
+  "submitted-work",
   "workspace-tools"
 ])
 
@@ -44,10 +45,12 @@ export function normalizeCommunityWorkReturnTo(
     if (key === "view" && parameter === "work") continue
     if (key === "profile" && profiles.has(parameter)) continue
     if (
-      key === "offset" &&
+      ["offset", "contributionOffset"].includes(key) &&
       /^\d+$/.test(parameter) &&
       Number(parameter) <= 10000
     )
+      continue
+    if (key === "release" && /^[A-Za-z0-9:._-]{1,500}$/.test(parameter))
       continue
     return null
   }

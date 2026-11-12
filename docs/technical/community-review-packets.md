@@ -10,8 +10,10 @@ capabilities add field controls without replacing term actions.
 
 `lib/community-contributions.ts` lists current, visible definition revisions.
 The community standard adapter supplies metadata proposal revisions. The
-Contributions page merges these records for selection and discovery. It does
-not change publication or governance rules. Legacy dictionary projections of
+**Reviews → Definitions and proposals** view merges these records for selection
+and discovery at `?view=review&content=contributions`. Ordinary communities label
+the list **Definitions**. Earlier `view=contributions` and `view=proposals`
+links remain supported. This does not change publication or governance rules. Legacy dictionary projections of
 metadata proposals are excluded from ordinary targets to avoid duplicate
 records and bypasses of source access.
 

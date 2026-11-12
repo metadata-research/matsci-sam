@@ -32,6 +32,7 @@ import Link from "next/link"
 import { Suspense } from "react"
 import { TermVisibilityNotice } from "@/components/term/visibility-notice"
 import { findPublishedMetadataField } from "@/lib/published-metadata-field"
+import { DefinitionCommunityReturnLink } from "@/components/definition/community-return-link"
 import {
   findVocabulary,
   otherVocabularies,
@@ -473,13 +474,22 @@ export async function VocabularySourceLabel({
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 pt-6 text-sm text-muted-foreground">
-      Source vocabulary:{" "}
-      <Link
-        href={vocabularyPath(vocabulary.slug)}
-        className="font-medium text-primary hover:underline"
-      >
-        {vocabulary.title}
-      </Link>
+      {vocabulary.community ? (
+        <Suspense fallback={null}>
+          <DefinitionCommunityReturnLink
+            communitySlug={vocabulary.community.slug}
+          />
+        </Suspense>
+      ) : null}
+      <p>
+        Source vocabulary:{" "}
+        <Link
+          href={vocabularyPath(vocabulary.slug)}
+          className="font-medium text-primary hover:underline"
+        >
+          {vocabulary.title}
+        </Link>
+      </p>
     </div>
   )
 }

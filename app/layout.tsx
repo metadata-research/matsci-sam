@@ -4,6 +4,7 @@ import "./globals.css"
 import { Header, HeaderStrip } from "@/components/header"
 import { HeaderSwitch } from "@/components/header-switch"
 import { FeedbackWidget } from "@/components/feedback-widget"
+import { SiteFooter } from "@/components/site-footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TRPCProvider } from "@/trpc/client"
 import { Toaster } from "@/components/ui/sonner"
@@ -15,31 +16,8 @@ import localFont from "next/font/local"
 import { cookies } from "next/headers"
 import { Suspense } from "react"
 
-// One designed family across roles: Plex Sans for body, headings and UI,
-// Plex Serif for term headwords only, Plex Mono for model names, prompt keys,
-// and hashes. Bundle the licensed files so release builds do not fetch fonts.
-const plexSans = localFont({
-  src: [
-    { path: "./fonts/IBMPlexSans-Regular.woff2", weight: "400" },
-    { path: "./fonts/IBMPlexSans-Medium.woff2", weight: "500" },
-    { path: "./fonts/IBMPlexSans-SemiBold.woff2", weight: "600" },
-    { path: "./fonts/IBMPlexSans-Bold.woff2", weight: "700" }
-  ],
-  variable: "--font-plex-sans",
-  display: "swap"
-})
-
-const plexSerif = localFont({
-  src: [
-    { path: "./fonts/IBMPlexSerif-Medium.woff2", weight: "500" },
-    { path: "./fonts/IBMPlexSerif-SemiBold.woff2", weight: "600" },
-    { path: "./fonts/IBMPlexSerif-Bold.woff2", weight: "700" }
-  ],
-  variable: "--font-plex-serif",
-  display: "swap",
-  adjustFontFallback: "Times New Roman"
-})
-
+// The interface uses the system Swiss sans stack in globals.css. Keep the
+// bundled monospace family for identifiers, prompt keys and source hashes.
 const plexMono = localFont({
   src: [
     { path: "./fonts/IBMPlexMono-Regular.woff2", weight: "400" },
@@ -69,18 +47,18 @@ export default async function RootLayout({
     : "Anonymous"
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className="light"
+      style={{ colorScheme: "light" }}
+      suppressHydrationWarning
+    >
       <body
         suppressHydrationWarning
-        className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} min-h-screen antialiased bg-background flex flex-col text-foreground font-sans`}
+        className={`${plexMono.variable} min-h-screen antialiased bg-background flex flex-col text-foreground font-sans`}
       >
         <TRPCProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
+          <ThemeProvider>
             <HeaderSwitch full={<Header />} strip={<HeaderStrip />} />
             {/* overflow-x-clip, not -hidden: clip does not create a scroll
               container, so position:sticky keeps working inside pages */}
@@ -92,6 +70,7 @@ export default async function RootLayout({
                 <ArrivalHighlight />
               </Suspense>
             </div>
+            <HeaderSwitch full={<SiteFooter />} strip={null} />
             <FeedbackWidget identity={feedbackIdentity} />
             <Toaster />
           </ThemeProvider>

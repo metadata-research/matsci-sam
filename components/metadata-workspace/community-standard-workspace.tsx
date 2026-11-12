@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { InfoPopover } from "@/components/info-popover"
 import { HierarchyOutline } from "@/components/hierarchy-outline"
-import { buildHierarchy } from "@/lib/hierarchy"
+import { buildHierarchy, hierarchyAncestors } from "@/lib/hierarchy"
 import {
   emptyMatcoreDraftPayload,
   type MatcoreProfileKey
@@ -51,6 +51,27 @@ type Props = {
   profile?: string
   search: string
   selectedId?: string
+}
+
+function StandardVersionHelp() {
+  return (
+    <InfoPopover label="About versions" triggerText="About versions">
+      <div className="space-y-3">
+        <p>
+          <strong>Reference standard</strong> is the source specification, kept
+          unchanged.
+        </p>
+        <p>
+          <strong>Community version</strong> includes changes accepted by
+          stewards. Proposals awaiting a decision are under Reviews.
+        </p>
+        <p>
+          <strong>Community releases</strong> are named snapshots. They do not
+          imply approval by the source publisher.
+        </p>
+      </div>
+    </InfoPopover>
+  )
 }
 
 export function CommunityStandardWorkspace({
@@ -152,6 +173,16 @@ export function CommunityStandardWorkspace({
       ? [{ id: "community", label: "Community fields" }]
       : [])
   ]
+  const proposalsByEntry = new Map<string, typeof data.proposals>()
+  for (const proposal of data.proposals) {
+    const key = proposal.sourceOccurrenceId ?? proposal.fieldId
+    proposalsByEntry.set(key, [...(proposalsByEntry.get(key) ?? []), proposal])
+  }
+  const selectedProposals = selected
+    ? (proposalsByEntry.get(selected.id) ?? [])
+    : []
+  const proposalLabel = (count: number) =>
+    `${count} ${count === 1 ? "proposal" : "proposals"}`
   const outline = buildHierarchy(
     groups.filter((group) => !profile || group.id === profile),
     visible.map((row) => ({
@@ -161,8 +192,14 @@ export function CommunityStandardWorkspace({
       label: row.payload.label,
       href: href({ source: row.id }),
       matches: matches(row),
-      labels:
-        activeMode !== "reference" && row.revisionId ? ["Community change"] : []
+      labels: [
+        ...(activeMode !== "reference" && row.revisionId
+          ? ["Community change"]
+          : []),
+        ...(proposalsByEntry.has(row.id)
+          ? [proposalLabel(proposalsByEntry.get(row.id)!.length)]
+          : [])
+      ]
     }))
   )
   const busy = createRelease.isPending || createField.isPending
@@ -187,7 +224,7 @@ export function CommunityStandardWorkspace({
               ? `Reference ${data.reference?.version}`
               : activeMode === "release"
                 ? `Community release ${data.selectedRelease?.name}`
-                : "Community working version"
+                : "Community version"
           }
           referenceReleaseId={data.reference?.id}
           releaseId={data.selectedRelease?.id}
@@ -250,12 +287,7 @@ export function CommunityStandardWorkspace({
             <h2 className="text-2xl font-semibold">
               {section === "proposals" ? "Proposals" : "Community releases"}
             </h2>
-            <InfoPopover label="About community standards">
-              Reference versions preserve the published specification. Accepted
-              proposals form the community working version. A community release
-              records a named snapshot and does not imply approval by the
-              reference publisher.
-            </InfoPopover>
+            <StandardVersionHelp />
           </div>
           {actions}
         </header>
@@ -271,7 +303,15 @@ export function CommunityStandardWorkspace({
                 className="flex flex-wrap gap-1 rounded-lg bg-muted p-1"
               >
                 {[
-                  { value: "working" as const, label: "Working version" },
+                  ...(data.reference
+                    ? [
+                        {
+                          value: "reference" as const,
+                          label: "Reference standard"
+                        }
+                      ]
+                    : []),
+                  { value: "working" as const, label: "Community version" },
                   ...(data.releases.length
                     ? [
                         {
@@ -279,9 +319,6 @@ export function CommunityStandardWorkspace({
                           label: "Community release"
                         }
                       ]
-                    : []),
-                  ...(data.reference
-                    ? [{ value: "reference" as const, label: "Reference" }]
                     : [])
                 ].map(({ value, label }) => (
                   <Button
@@ -310,6 +347,7 @@ export function CommunityStandardWorkspace({
                   </Button>
                 ))}
               </nav>
+              <StandardVersionHelp />
               {activeMode === "release" ? (
                 <Field className="w-full sm:w-64">
                   <FieldLabel htmlFor="standard-edition">
@@ -364,12 +402,6 @@ export function CommunityStandardWorkspace({
                 </Field>
               ) : null}
               <div className="flex items-center gap-2 sm:ml-auto">
-                <InfoPopover label="About community standards">
-                  Reference versions preserve the published specification.
-                  Accepted proposals form the community working version. A named
-                  community release records a snapshot and does not imply
-                  approval by the reference publisher.
-                </InfoPopover>
                 {actions}
               </div>
             </div>
@@ -490,15 +522,12 @@ export function CommunityStandardWorkspace({
               </p>
               {layout === "hierarchy" ? (
                 <HierarchyOutline
-                  key={`${activeMode}:${profile ?? ""}:${search}`}
+                  key={`${viewerId}:${community.slug}:${data.reference?.id ?? "community"}:${activeMode}:${profile ?? ""}:${search}`}
                   nodes={outline}
-                  storageKey={`${viewerId}:${community.slug}:${data.reference?.id ?? "community"}:${activeMode}:${profile ?? "all"}`}
                   search={search}
                   label="Field hierarchy"
                   initialExpanded={
-                    selected
-                      ? [JSON.stringify([selected.profileKey ?? "community"])]
-                      : []
+                    selectedId ? hierarchyAncestors(outline, detailHref) : []
                   }
                   activeHref={detailHref}
                   restoreFocus={!selectedId}
@@ -526,6 +555,13 @@ export function CommunityStandardWorkspace({
                             : ""}
                           {row.payload.specification.path}
                         </span>
+                        {proposalsByEntry.has(row.id) ? (
+                          <span className="text-xs">
+                            {proposalLabel(
+                              proposalsByEntry.get(row.id)!.length
+                            )}
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   ))}
@@ -543,6 +579,27 @@ export function CommunityStandardWorkspace({
                 !selectedId && "hidden lg:block"
               )}
             >
+              {selectedProposals.length ? (
+                <div
+                  className="mb-4 space-y-2 border-b pb-4"
+                  aria-label="Proposals for this field"
+                >
+                  <p className="text-sm font-medium">Proposed changes</p>
+                  {selectedProposals.map((proposal) => (
+                    <Link
+                      key={proposal.id}
+                      className="block text-sm underline underline-offset-4"
+                      href={withMatcoreCatalogReturn(
+                        `/metadata/fields/${proposal.fieldId}?revision=${proposal.id}`,
+                        detailHref
+                      )}
+                    >
+                      {proposal.label} ·{" "}
+                      {proposalStatusLabels[proposal.status] ?? proposal.status}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
               {selected ? (
                 showSourceEntry ? (
                   source.data ? (
@@ -550,8 +607,8 @@ export function CommunityStandardWorkspace({
                       key={`${activeMode}:${selected.id}`}
                       viewLabel={
                         activeMode === "working"
-                          ? "Working version"
-                          : "Reference"
+                          ? "Community version"
+                          : "Reference standard"
                       }
                       isDetailView={Boolean(selectedId)}
                       community={community}
@@ -816,8 +873,8 @@ export function CommunityStandardWorkspace({
           <DialogHeader>
             <DialogTitle>Create community release</DialogTitle>
             <DialogDescription>
-              Record the working version with its accepted changes. This release
-              is attributed to {community.title}.
+              Record the community version with its accepted changes. This
+              release is attributed to {community.title}.
             </DialogDescription>
           </DialogHeader>
           <form

@@ -197,26 +197,40 @@ async function main() {
     await expect(
       page
         .getByRole("navigation", { name: "Community workspace" })
-        .getByRole("link", { name: "Browse", exact: true })
+        .getByRole("link", { name: "Vocabulary", exact: true })
     ).toHaveAttribute("aria-current", "page")
     await expect(
-      page.getByRole("link", { name: "Working version", exact: true })
+      page.getByRole("link", { name: "Reference standard", exact: true })
     ).toHaveAttribute("aria-current", "page")
     await expect(
       page.getByRole("navigation", { name: "Field hierarchy" })
     ).toBeVisible()
     await expect(
       page
+        .getByRole("navigation", { name: "Field hierarchy" })
+        .getByRole("button", { name: /^Collapse / })
+    ).toHaveCount(0)
+    await page
+      .getByRole("button", { name: "About versions", exact: true })
+      .click()
+    await expect(
+      page
+        .getByLabel("About versions", { exact: true })
+        .filter({ hasText: "source specification" })
+    ).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(
+      page
         .getByRole("navigation", { name: "Community workspace" })
         .getByRole("link")
         .first()
-    ).toHaveText("Quick start")
+    ).toHaveText("Vocabulary")
     await expect(
       page
         .getByRole("navigation", { name: "Standard version" })
         .getByRole("link")
         .first()
-    ).toHaveText("Working version")
+    ).toHaveText("Reference standard")
     await expect(
       page
         .getByRole("navigation", { name: "Catalog view" })
@@ -224,11 +238,11 @@ async function main() {
         .first()
     ).toHaveText("Hierarchy")
     pass(
-      "Standard opens the working version in hierarchy; Quick start leads community navigation"
+      "Vocabulary opens the reference in hierarchy, with Vocabulary and Reference first"
     )
     await expect(
       page
-        .getByRole("navigation", { name: "Browse content" })
+        .getByRole("navigation", { name: "Vocabulary content" })
         .getByRole("link", { name: "Terms", exact: true })
     ).toHaveAttribute(
       "href",
@@ -260,6 +274,12 @@ async function main() {
     ).toHaveAttribute("aria-current", "page")
     await page.getByLabel("Profile", { exact: true }).selectOption("minimal")
     const outline = page.getByRole("navigation", { name: "Field hierarchy" })
+    await outline
+      .getByRole("button", {
+        name: "Expand Common core (Minimal)",
+        exact: true
+      })
+      .click()
     const parent = outline.getByRole("link", { name: "specimen", exact: true })
     const child = outline.getByRole("link", { name: "label", exact: true })
     await expect(parent).toBeVisible()
@@ -341,6 +361,12 @@ async function main() {
     })
     await storagePage.goto(page.url())
     await storagePage
+      .getByRole("button", {
+        name: "Expand Common core (Minimal)",
+        exact: true
+      })
+      .click()
+    await storagePage
       .getByRole("button", { name: "Expand specimen", exact: true })
       .click()
     await storagePage
@@ -405,7 +431,7 @@ async function main() {
       "Definition"
     )
     await expect(
-      page.getByRole("link", { name: "Back to working version", exact: true })
+      page.getByRole("link", { name: "Back to community version", exact: true })
     ).toBeVisible()
     await page.getByRole("tab", { name: "Definition", exact: true }).click()
     await expect(
@@ -658,14 +684,14 @@ async function main() {
     await expect(
       page
         .getByRole("navigation", { name: "Community workspace" })
-        .getByRole("link", { name: "Contributions", exact: true })
+        .getByRole("link", { name: "Reviews", exact: true })
     ).toHaveAttribute("aria-current", "page")
-    await expect(page.getByRole("combobox", { name: "Type", exact: true })).toHaveValue(
-      "proposal"
-    )
+    await expect(
+      page.getByRole("combobox", { name: "Type", exact: true })
+    ).toHaveValue("proposal")
     await expect(
       page
-        .getByRole("region", { name: "Contributions", exact: true })
+        .getByRole("region", { name: "Definitions and proposals", exact: true })
         .getByRole("link", { name: new RegExp(source.payload.label) })
     ).toBeVisible()
     const pending = await getCommunityStandard(
@@ -977,12 +1003,12 @@ async function main() {
     await expect(
       visitor
         .getByRole("navigation", { name: "Community workspace" })
-        .getByRole("link", { name: "Browse", exact: true })
+        .getByRole("link", { name: "Vocabulary", exact: true })
     ).toBeVisible()
     await expect(
       visitor
         .getByRole("navigation", { name: "Community workspace" })
-        .getByRole("link", { name: "Contributions", exact: true })
+        .getByRole("link", { name: "Reviews", exact: true })
     ).toBeVisible()
     pass(
       "Private content is unavailable to visitors; ordinary community retains vocabulary navigation"
